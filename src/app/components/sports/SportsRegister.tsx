@@ -4,13 +4,17 @@ import { Loader2, ArrowLeft, Info } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sportsService";
 import { useAuth } from "../../../contexts/AuthContext";
+import {
+  CREATE_EDIT_EVENT_REGISTRATIONS,
+  CREATE_EDIT_SPORTS_MAIN,
+} from "../../../constants/permissions";
 import type { SportsEvent, PlayerCategory } from "../../../types/api";
 
 export function SportsRegister() {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const { user, isAdmin, isSportsAdmin } = useAuth();
-  const isAnyAdmin = isAdmin || isSportsAdmin;
+  const { user, hasPermission, hasAnyPermission } = useAuth();
+  const isAnyAdmin = hasAnyPermission(CREATE_EDIT_EVENT_REGISTRATIONS, CREATE_EDIT_SPORTS_MAIN);
 
   const [categories, setCategories] = useState<PlayerCategory[]>([]);
   const [loading, setLoading] = useState(true);

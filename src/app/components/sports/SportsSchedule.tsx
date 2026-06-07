@@ -105,10 +105,10 @@ export function SportsSchedule() {
             date: e.eventDateStart,
             name: `${e.sport?.name ?? "Event"} — ${e.name}`,
             venue: e.venue?.name ?? "TBD",
-            status: e.registrationStatus,
+            status: e.registrationStatus ?? "",
             statusColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
             badges: [
-              { label: e.registrationStatus, color: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316" },
+              { label: e.registrationStatus ?? "", color: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316" },
               { label: e.categories?.[0]?.name ?? "General", color: "#3b82f6" }
             ]
           })));

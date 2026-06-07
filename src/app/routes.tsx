@@ -29,8 +29,10 @@ import { SportsRegister }     from "./components/sports/SportsRegister";
 
 // Permission constants
 import {
-  VIEW_FEED, VIEW_SPORTS, REGISTER_SPORTS, BIDDING_INTERFACE,
-  MANAGE_TOURNAMENTS, VIEW_ADMIN, BULK_UPLOAD, MANAGE_COMMUNITIES,
+  VIEW_FEED, VIEW_SPORTS_MENU, VIEW_EVENT_REGISTRATIONS,
+  VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD,
+  VIEW_PLAYER_POOL, VIEW_AUCTION_RESULTS,
+  CREATE_EDIT_SPORTS_MAIN, VIEW_ADMIN, BULK_UPLOAD, MANAGE_COMMUNITIES,
   MANAGE_ROLES, VIEW_MARKETPLACE, VIEW_JOBS, VIEW_EVENTS,
 } from "../constants/permissions";
 
@@ -62,31 +64,31 @@ export const router = createBrowserRouter([
         children: [
           { 
             index: true, 
-            element: <PermissionGuard permission={VIEW_SPORTS}><SportsDashboard /></PermissionGuard> 
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU}><SportsDashboard /></PermissionGuard> 
           },
           { 
             path: "register", 
-            element: <PermissionGuard permission={REGISTER_SPORTS}><SportsRegistration /></PermissionGuard> 
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS}><SportsRegistration /></PermissionGuard> 
           },
           { 
             path: "register/:eventId", 
-            element: <PermissionGuard permission={REGISTER_SPORTS}><SportsRegister /></PermissionGuard> 
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS}><SportsRegister /></PermissionGuard> 
           },
           { 
             path: "schedule", 
-            element: <PermissionGuard permission={VIEW_SPORTS}><SportsSchedule /></PermissionGuard> 
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU}><SportsSchedule /></PermissionGuard> 
           },
-          { 
-            path: "auction", 
-            element: <PermissionGuard permission={BIDDING_INTERFACE}><SportsAuction /></PermissionGuard> 
+          {
+            path: "auction",
+            element: <PermissionGuard anyPermissions={[VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD, VIEW_PLAYER_POOL, VIEW_EVENT_REGISTRATIONS, VIEW_AUCTION_RESULTS]}><SportsAuction /></PermissionGuard>
           },
-          { 
-            path: "auction/:eventId", 
-            element: <PermissionGuard permission={BIDDING_INTERFACE}><SportsAuction /></PermissionGuard> 
+          {
+            path: "auction/:eventId",
+            element: <PermissionGuard anyPermissions={[VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD, VIEW_PLAYER_POOL, VIEW_EVENT_REGISTRATIONS, VIEW_AUCTION_RESULTS]}><SportsAuction /></PermissionGuard>
           },
           { 
             path: "admin", 
-            element: <PermissionGuard permission={MANAGE_TOURNAMENTS}><SportsAdmin /></PermissionGuard> 
+            element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN}><SportsAdmin /></PermissionGuard> 
           },
         ],
       },

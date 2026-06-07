@@ -20,12 +20,18 @@ import {
   Calendar,
   X,
   Key,
+  ChevronRight,
+  Lock,
+  Unlock,
+  MonitorPlay,
+  Save,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { userService } from "../../../services/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { communityService } from "../../../services/communityService";
-import { PERMISSION_CATEGORIES, MANAGE_COMMUNITIES as PERM_MANAGE_COMMUNITIES } from "../../../constants/permissions";
+import { PERMISSION_CATEGORIES, SPORTS_PERMISSION_MATRIX, MANAGE_COMMUNITIES as PERM_MANAGE_COMMUNITIES } from "../../../constants/permissions";
+import type { SportsPermissionRow } from "../../../constants/permissions";
 import type { CommunityResponse } from "../../../types/api";
 
 // --- TYPES ---
@@ -76,6 +82,7 @@ export function AdminRoleManagement() {
   const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
   const [isCreatingRole, setIsCreatingRole] = useState(false);
+  const [loadingEditPerms, setLoadingEditPerms] = useState(false);
 
   const loadPermissions = async () => {
     try {
@@ -213,33 +220,42 @@ export function AdminRoleManagement() {
     }
   };
 
-  const handleEditRole = (roleName: string, userId?: number) => {
+  const handleEditRole = async (roleName: string, userId?: number) => {
     setEditingRole(roleName);
     setEditingRoleName(roleName);
     setEditingUserId(userId || null);
-    
-    // Check if we are editing a specific user and that user has custom permissions
-    const targetUser = userId ? users.find((u) => u.id === userId) : null;
-    
-    if (targetUser && targetUser.permissions && targetUser.permissions.length > 0) {
-      const userPermsObj: Record<string, boolean> = {};
-      targetUser.permissions.forEach((p) => {
-        userPermsObj[p] = true;
-      });
+    setCurrentView('editRole');
+    setLoadingEditPerms(true);
+
+    try {
+      let permsArray: string[] = [];
+
+      if (userId) {
+        // Fetch fresh user-specific permissions from backend
+        const freshUser = await userService.getUserById(userId);
+        permsArray = freshUser.permissions ?? [];
+      } else {
+        // Fetch fresh role-level permissions from backend
+        const freshRolePerms = await userService.getRolePermissionsByRole(roleName.toUpperCase());
+        permsArray = freshRolePerms ?? [];
+      }
+
+      const permsObj: Record<string, boolean> = {};
+      permsArray.forEach((p) => { permsObj[p] = true; });
+
       setRolePermissions((prev) => ({
         ...prev,
-        [roleName]: userPermsObj,
+        [roleName]: permsObj,
       }));
-    } else {
-      // Initialize permissions for this role in state if not exists
+    } catch {
+      toast.error("Failed to load permissions from database");
+      // Fall back to whatever is already in state
       if (!rolePermissions[roleName]) {
-        setRolePermissions((prev) => ({
-          ...prev,
-          [roleName]: {}
-        }));
+        setRolePermissions((prev) => ({ ...prev, [roleName]: {} }));
       }
+    } finally {
+      setLoadingEditPerms(false);
     }
-    setCurrentView('editRole');
   };
 
   const handleTogglePermission = (role: string, permission: string) => {
@@ -685,29 +701,50 @@ export function AdminRoleManagement() {
       ) : (
         /* EDIT ROLE PERMISSIONS VIEW */
         <div className="bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
-          {/* Subheader */}
-          <div className="p-6 border-b border-slate-100 bg-slate-50 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-indigo-50 text-indigo-700 rounded-xl border border-indigo-100 shadow-sm">
-                <Key className="w-5 h-5 text-indigo-600" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-850 text-lg">Role Security Identification</h3>
-                <p className="text-slate-400 text-xs mt-0.5">Customize the role descriptor name and granular actions mapping</p>
-              </div>
+          {/* Subheader — User profile card + Save */}
+          <div className="p-5 border-b border-slate-100 bg-white flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+            <div className="flex items-center gap-4">
+              {/* Avatar */}
+              {(() => {
+                const targetUser = editingUserId ? users.find(u => u.id === editingUserId) : null;
+                const initials = targetUser
+                  ? targetUser.name.split(" ").map(n => n[0]).join("").toUpperCase()
+                  : editingRoleName.slice(0, 2).toUpperCase();
+                const displayName = targetUser ? targetUser.name : editingRoleName;
+                return (
+                  <>
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                      {initials}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-lg leading-tight">{displayName}</h3>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 mt-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        <Shield className="w-3 h-3 text-indigo-500" />
+                        {editingRoleName} role
+                      </span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
-            <div className="flex items-center gap-3">
-              <label className="text-sm font-semibold text-slate-700">Role Name:</label>
-              <input
-                type="text"
-                value={editingRoleName}
-                onChange={(e) => setEditingRoleName(e.target.value)}
-                placeholder="e.g. Cashier"
-                className="px-3.5 py-1.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none w-52 font-medium"
-              />
-            </div>
+            <button
+              onClick={handleUpdateRole}
+              disabled={loadingEditPerms}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center gap-2 active:scale-95 cursor-pointer"
+            >
+              <Save className="w-4 h-4" />
+              Save permissions
+            </button>
           </div>
-          
+
+          {/* Loading overlay while fetching fresh permissions from backend */}
+          {loadingEditPerms && (
+            <div className="flex items-center justify-center gap-3 py-6 bg-indigo-50/60 border-b border-indigo-100">
+              <div className="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm font-semibold text-indigo-700">Loading permissions from database…</span>
+            </div>
+          )}
+
           {/* User Details display if we are editing a user's permissions */}
           {editingUserId && (
             (() => {
@@ -736,55 +773,298 @@ export function AdminRoleManagement() {
             })()
           )}
 
-          {/* Permissions Grid */}
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50/50">
-            {permissionCategories.map((category) => {
-              const allChecked = isCategoryAllSelected(editingRole, category.id);
+          {/* ═══════ SPORTS PERMISSION MATRIX ═══════ */}
+          <div className={`p-6 space-y-8 bg-slate-50/50 ${loadingEditPerms ? "pointer-events-none opacity-50" : ""}`}>
+
+            {/* ── SPORTS Matrix Table ── */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+              <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 py-3.5 flex items-center justify-between">
+                <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  SPORTS Permission
+                </h4>
+                <label className="flex items-center gap-2 text-xs font-semibold text-indigo-100 hover:text-white cursor-pointer select-none transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={isCategoryAllSelected(editingRole, 'sports')}
+                    onChange={(e) => handleSelectAllCategory(editingRole, 'sports', e.target.checked)}
+                    className="rounded border-indigo-300 text-white focus:ring-white h-3.5 w-3.5 accent-white"
+                  />
+                  Select All
+                </label>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50">
+                      <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-[40%]">Module / Feature</th>
+                      <th className="px-4 py-3 text-xs font-bold text-center text-emerald-700 uppercase tracking-wider">
+                        <div className="flex flex-col items-center gap-0.5"><Eye className="w-3.5 h-3.5" />View</div>
+                      </th>
+                      <th className="px-4 py-3 text-xs font-bold text-center text-amber-700 uppercase tracking-wider">
+                        <div className="flex flex-col items-center gap-0.5"><Edit className="w-3.5 h-3.5" />Create / Edit</div>
+                      </th>
+                      <th className="px-4 py-3 text-xs font-bold text-center text-red-700 uppercase tracking-wider">
+                        <div className="flex flex-col items-center gap-0.5"><XCircle className="w-3.5 h-3.5" />Delete</div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {SPORTS_PERMISSION_MATRIX.map((row, idx) => {
+                      const rolePerms = rolePermissions[editingRole] || {};
+
+                      // ── Group Header (e.g. "Auction") — aggregate checkbox from children ──
+                      if (row.isGroupHeader && row.childIndices) {
+                        const children = row.childIndices.map(i => SPORTS_PERMISSION_MATRIX[i]);
+                        const allChildViewKeys = children.map(c => c.view).filter(Boolean) as string[];
+                        const allChildEditKeys = children.map(c => c.createEdit).filter(Boolean) as string[];
+                        const allChildDeleteKeys = children.map(c => c.delete).filter(Boolean) as string[];
+
+                        const allViewChecked = allChildViewKeys.length > 0 && allChildViewKeys.every(k => !!rolePerms[k]);
+                        const allEditChecked = allChildEditKeys.length > 0 && allChildEditKeys.every(k => !!rolePerms[k]);
+                        const allDeleteChecked = allChildDeleteKeys.length > 0 && allChildDeleteKeys.every(k => !!rolePerms[k]);
+
+                        const toggleColumn = (keys: string[], allChecked: boolean) => {
+                          setRolePermissions(prev => {
+                            const rp = prev[editingRole] ? { ...prev[editingRole] } : {};
+                            keys.forEach(k => { rp[k] = !allChecked; });
+                            return { ...prev, [editingRole]: rp };
+                          });
+                        };
+
+                        return (
+                          <tr key={idx} className="bg-indigo-50/30 hover:bg-indigo-50/50 transition-colors">
+                            <td className="px-5 py-3">
+                              <span className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                                {row.label}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <label className="inline-flex items-center justify-center cursor-pointer">
+                                <input type="checkbox" checked={allViewChecked}
+                                  onChange={() => toggleColumn(allChildViewKeys, allViewChecked)}
+                                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+                                />
+                              </label>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <label className="inline-flex items-center justify-center cursor-pointer">
+                                <input type="checkbox" checked={allEditChecked}
+                                  onChange={() => toggleColumn(allChildEditKeys, allEditChecked)}
+                                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
+                                />
+                              </label>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <label className="inline-flex items-center justify-center cursor-pointer">
+                                <input type="checkbox" checked={allDeleteChecked}
+                                  onChange={() => toggleColumn(allChildDeleteKeys, allDeleteChecked)}
+                                  className="rounded border-slate-300 text-red-600 focus:ring-red-500 h-4 w-4 cursor-pointer"
+                                />
+                              </label>
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      // ── Normal row (feature with its own permissions) ──
+                      return (
+                        <tr
+                          key={idx}
+                          className={`transition-colors ${
+                            row.isChild ? 'bg-slate-50/40' : 'bg-white hover:bg-slate-50'
+                          }`}
+                        >
+                          {/* Feature Label */}
+                          <td className="px-5 py-3">
+                            <span
+                              className={`text-sm font-semibold flex items-center gap-1.5 ${
+                                row.isChild ? 'pl-5 text-slate-600' : 'text-slate-900'
+                              }`}
+                            >
+                              {row.isChild && (
+                                <span className="text-slate-300 text-xs">↳</span>
+                              )}
+                              {row.label}
+                            </span>
+                          </td>
+
+                          {/* View */}
+                          <td className="px-4 py-3 text-center">
+                            {row.view ? (
+                              <label className="inline-flex items-center justify-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={!!rolePerms[row.view]}
+                                  onChange={() => handleTogglePermission(editingRole, row.view!)}
+                                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+                                />
+                              </label>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+
+                          {/* Create / Edit */}
+                          <td className="px-4 py-3 text-center">
+                            {row.createEdit ? (
+                              <label className="inline-flex items-center justify-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={!!rolePerms[row.createEdit]}
+                                  onChange={() => handleTogglePermission(editingRole, row.createEdit!)}
+                                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
+                                />
+                              </label>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+
+                          {/* Delete */}
+                          <td className="px-4 py-3 text-center">
+                            {row.delete ? (
+                              <label className="inline-flex items-center justify-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={!!rolePerms[row.delete]}
+                                  onChange={() => handleTogglePermission(editingRole, row.delete!)}
+                                  className="rounded border-slate-300 text-red-600 focus:ring-red-500 h-4 w-4 cursor-pointer"
+                                />
+                              </label>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* ── OTHER PERMISSION CATEGORIES (non-sports) ── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {permissionCategories
+                .filter((c) => c.id !== 'sports')
+                .map((category) => {
+                  const allChecked = isCategoryAllSelected(editingRole, category.id);
+                  const rolePerms = rolePermissions[editingRole] || {};
+                  return (
+                    <div key={category.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                      <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+                        <h4 className="text-sm font-bold text-slate-750 flex items-center gap-2">
+                          <div className="w-1.5 h-3 bg-indigo-500 rounded-full" />
+                          {category.title}
+                        </h4>
+                        <label className="flex items-center gap-2 text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={allChecked}
+                            onChange={(e) => handleSelectAllCategory(editingRole, category.id, e.target.checked)}
+                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                          />
+                          Select All
+                        </label>
+                      </div>
+                      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {category.permissions.map((perm) => (
+                          <label
+                            key={perm}
+                            className={`flex items-start gap-2.5 p-2 rounded-lg border text-xs cursor-pointer select-none transition-all ${
+                              !!rolePerms[perm]
+                                ? "bg-indigo-50/40 border-indigo-100 text-indigo-950 font-medium"
+                                : "bg-white border-slate-100 text-slate-600 hover:bg-slate-50"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!!rolePerms[perm]}
+                              onChange={() => handleTogglePermission(editingRole, perm)}
+                              className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
+                            />
+                            <span>{perm}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* ═══════ LIVE UI PREVIEW ═══════ */}
+            {(() => {
               const rolePerms = rolePermissions[editingRole] || {};
-
               return (
-                <div key={category.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                  {/* Category Header */}
-                  <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
-                    <h4 className="text-sm font-bold text-slate-750 flex items-center gap-2">
-                      <div className="w-1.5 h-3 bg-indigo-500 rounded-full" />
-                      {category.title}
-                    </h4>
-                    <label className="flex items-center gap-2 text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={allChecked}
-                        onChange={(e) => handleSelectAllCategory(editingRole, category.id, e.target.checked)}
-                        className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
-                      />
-                      Select All
-                    </label>
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="bg-gradient-to-r from-slate-700 to-slate-800 px-5 py-3.5 flex items-center gap-2.5">
+                    <MonitorPlay className="w-4 h-4 text-slate-300" />
+                    <h4 className="text-sm font-bold text-white">UI Button Preview — What the user sees</h4>
                   </div>
+                  <div className="p-5 space-y-2.5">
+                    {SPORTS_PERMISSION_MATRIX.map((row, idx) => {
+                      const hasView = row.view ? !!rolePerms[row.view] : false;
+                      const hasEdit = row.createEdit ? !!rolePerms[row.createEdit] : false;
+                      const hasDelete = row.delete ? !!rolePerms[row.delete] : false;
+                      const hasAny = hasView || hasEdit || hasDelete;
 
-                  {/* Permissions Checklist */}
-                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {category.permissions.map((perm) => (
-                      <label
-                        key={perm}
-                        className={`flex items-start gap-2.5 p-2 rounded-lg border text-xs cursor-pointer select-none transition-all ${
-                          !!rolePerms[perm]
-                            ? "bg-indigo-50/40 border-indigo-100 text-indigo-950 font-medium"
-                            : "bg-white border-slate-100 text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={!!rolePerms[perm]}
-                          onChange={() => handleTogglePermission(editingRole, perm)}
-                          className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5"
-                        />
-                        <span>{perm}</span>
-                      </label>
-                    ))}
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex items-center justify-between rounded-lg border px-4 py-2.5 transition-all ${
+                            row.isChild ? 'ml-6' : ''
+                          } ${
+                            hasAny
+                              ? 'border-emerald-200 bg-emerald-50/50'
+                              : 'border-slate-200 bg-slate-50/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            {row.isChild && (
+                              <span className="text-slate-300 text-xs">↳</span>
+                            )}
+                            {hasAny ? (
+                              <Unlock className="w-3.5 h-3.5 text-emerald-600" />
+                            ) : (
+                              <Lock className="w-3.5 h-3.5 text-slate-400" />
+                            )}
+                            <span className={`text-sm font-semibold ${
+                              hasAny ? 'text-slate-800' : 'text-slate-500'
+                            }`}>
+                              {row.label}
+                            </span>
+                          </div>
+
+                          {hasAny ? (
+                            <div className="flex items-center gap-1.5">
+                              {hasView && (
+                                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-md border border-emerald-200">
+                                  View
+                                </span>
+                              )}
+                              {hasEdit && (
+                                <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-md border border-amber-200">
+                                  Create/Edit
+                                </span>
+                              )}
+                              {hasDelete && (
+                                <span className="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded-md border border-red-200">
+                                  Delete
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] font-semibold text-slate-400 italic">No access</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               );
-            })}
+            })()}
+
           </div>
 
           {/* Footer Actions */}
@@ -797,10 +1077,15 @@ export function AdminRoleManagement() {
             </button>
             <button
               onClick={handleUpdateRole}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm flex items-center gap-1.5 active:scale-95"
+              disabled={loadingEditPerms}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm flex items-center gap-1.5 active:scale-95"
             >
-              <Check className="w-4 h-4" />
-              Update Role
+              {loadingEditPerms ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Save className="w-4 h-4" />
+              )}
+              {loadingEditPerms ? "Loading…" : "Save Permissions"}
             </button>
           </div>
         </div>

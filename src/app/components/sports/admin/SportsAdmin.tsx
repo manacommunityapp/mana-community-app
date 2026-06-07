@@ -10,6 +10,12 @@ import { communityService } from "../../../../services/communityService";
 import { auctionService } from "../../../../services/auctionService";
 import { userService } from "../../../../services/userService";
 import { useAuth } from "../../../../contexts/AuthContext";
+import {
+  CREATE_EDIT_SPORTS_MAIN,
+  CREATE_EDIT_PLAYER_POOL,
+  CREATE_EDIT_EVENT_REGISTRATIONS,
+  DELETE_SPORTS_MAIN,
+} from "../../../../constants/permissions";
 import { AdminSportsMeta } from "../../admin/AdminSportsMeta";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import { Calendar } from "../../ui/calendar";
@@ -144,7 +150,8 @@ const getDefaultMinPlayers = (sportName: string): number => {
 };
 
 export function SportsAdmin() {
-  const { user, isAdmin } = useAuth();
+  const { user, hasPermission, hasAnyPermission } = useAuth();
+  const isAdmin = hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_EVENT_REGISTRATIONS, DELETE_SPORTS_MAIN);
   const [sportsMeta, setSportsMeta] = useState<SportMeta[]>([]);
   const [playerCategories, setPlayerCategories] = useState<PlayerCategory[]>([]);
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);

@@ -6,7 +6,7 @@ import { twMerge } from "tailwind-merge";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { userService } from "../../../../services/userService";
 import {
-  VIEW_FEED, VIEW_SPORTS, VIEW_MARKETPLACE,
+  VIEW_FEED, VIEW_SPORTS_MENU, VIEW_MARKETPLACE,
   VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN,
 } from "../../../../constants/permissions";
 
@@ -69,7 +69,7 @@ export function Layout() {
     if (isSuperAdmin) return true;
     if (loadingPermissions) return true; // default while loading
     if (link.label === "Community Feed") return permissions.includes(VIEW_FEED);
-    if (link.label === "Sports") return permissions.includes(VIEW_SPORTS);
+    if (link.label === "Sports") return permissions.includes(VIEW_SPORTS_MENU);
     if (link.label === "Marketplace") return permissions.includes(VIEW_MARKETPLACE);
     if (link.label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
     if (link.label === "Events") return permissions.includes(VIEW_EVENTS);

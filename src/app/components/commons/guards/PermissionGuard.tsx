@@ -4,25 +4,35 @@ import { ShieldAlert } from "lucide-react";
 
 interface PermissionGuardProps {
   children: React.ReactNode;
-  permission: string;
+  /** Single permission — user must have this exact key */
+  permission?: string;
+  /** OR-based check — user must have at least one of these keys */
+  anyPermissions?: string[];
 }
 
-export function PermissionGuard({ children, permission }: PermissionGuardProps) {
+export function PermissionGuard({ children, permission, anyPermissions }: PermissionGuardProps) {
   const { user } = useAuth();
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   // SUPER_ADMIN role bypasses all permission constraints
   if (user.role === "SUPER_ADMIN") {
     return <>{children}</>;
   }
-  
+
   const userPerms = user.permissions || [];
-  const hasPermission = userPerms.includes(permission);
-  
-  if (!hasPermission) {
+  let hasAccess = false;
+  if (permission) {
+    hasAccess = userPerms.includes(permission);
+  } else if (anyPermissions && anyPermissions.length > 0) {
+    hasAccess = anyPermissions.some(p => userPerms.includes(p));
+  } else {
+    hasAccess = true;
+  }
+
+  if (!hasAccess) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8 bg-white border border-slate-200 rounded-2xl shadow-sm max-w-lg mx-auto mt-12 animate-in fade-in duration-300">
         <div className="p-4 bg-red-50 text-red-600 rounded-full border border-red-100 mb-5 animate-bounce">

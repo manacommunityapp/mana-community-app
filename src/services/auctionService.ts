@@ -92,9 +92,10 @@ export const auctionService = {
     return apiClient.put(`/auction/config/${configId}/status?status=${status}`);
   },
 
-  /** GET /api/auction/config/check?sportId={sportId} — check if config exists for user's community */
-  async checkConfigExists(sportId: number): Promise<{ configExists: boolean; configCount: number; communityId: number }> {
-    return apiClient.get(`/auction/config/check?sportId=${sportId}`);
+  /** GET /api/auction/config/check — check if any config exists for user's community (optionally filtered by sportId) */
+  async checkConfigExists(sportId?: number): Promise<{ configExists: boolean; configCount: number; communityId: number }> {
+    const query = sportId != null ? `?sportId=${sportId}` : "";
+    return apiClient.get(`/auction/config/check${query}`);
   },
 
   /** GET /api/auction/config/{configId}/stats — get auction stats */

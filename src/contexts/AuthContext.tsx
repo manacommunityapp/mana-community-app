@@ -28,6 +28,10 @@ interface AuthContextValue {
   logout: () => void;
   /** Call this to hydrate communityId / role after receiving extra user info */
   updateUser: (patch: Partial<StoredUser>) => void;
+  /** Check if user has a specific permission. SUPER_ADMIN bypasses. */
+  hasPermission: (permission: string) => boolean;
+  /** Check if user has ANY of the specified permissions. SUPER_ADMIN bypasses. */
+  hasAnyPermission: (...permissions: string[]) => boolean;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -149,6 +153,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Removed redundant updateUser declaration
 
+  const hasPermission = useCallback((permission: string): boolean => {
+    if (!user) return false;
+    if (user.role === 'SUPER_ADMIN') return true;
+    return user.permissions?.includes(permission) ?? false;
+  }, [user]);
+
+  const hasAnyPermission = useCallback((...permissions: string[]): boolean => {
+    if (!user) return false;
+    if (user.role === 'SUPER_ADMIN') return true;
+    return permissions.some(p => user.permissions?.includes(p) ?? false);
+  }, [user]);
+
   const value: AuthContextValue = {
     user,
     isAuthenticated: !!user && !!getToken(),
@@ -159,6 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     updateUser,
+    hasPermission,
+    hasAnyPermission,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

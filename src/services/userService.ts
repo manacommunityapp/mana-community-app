@@ -48,6 +48,16 @@ export const userService = {
     return apiClient.post<RoleResponse>("/roles", { name });
   },
 
+  /** GET /api/users/{id} — fetch a single user's full profile including permissions */
+  async getUserById(userId: number): Promise<UserResponse> {
+    return apiClient.get<UserResponse>(`/users/${userId}`);
+  },
+
+  /** GET /api/roles/{role}/permissions — fetch permission list for a specific role */
+  async getRolePermissionsByRole(role: string): Promise<string[]> {
+    return apiClient.get<string[]>(`/roles/${role}/permissions`);
+  },
+
   /** GET /api/users/me */
   async getMe(): Promise<UserResponse> {
     return apiClient.get<UserResponse>("/users/me");

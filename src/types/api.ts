@@ -287,9 +287,11 @@ export interface AuctionPlayer {
   basePrice?: number;
   statsJson?: string;
   matches?: number;
+  runs?: number;
   avgScore?: number;
   wickets?: number;
   strikeRate?: number;
+  economy?: number;
   status: PlayerStatus;
   assignedTeam?: AuctionTeam;
   soldPrice?: number;
@@ -313,6 +315,7 @@ export interface AuctionTeam {
   captainNomination: boolean;
   captainConfirmation: boolean;
   eventId: number;
+  configId?: number;
   players?: Array<{ name: string; soldPrice: number; category?: string }>;
 }
 
@@ -414,6 +417,8 @@ export interface AuctionConfigRequest {
 
 export interface AuctionConfigResponse {
   id: number;
+  sportId?: number;
+  communityId?: number;
   eventId?: number;
   eventName?: string;
   sportName: string;
@@ -432,6 +437,8 @@ export interface AuctionConfigResponse {
   status: string;
   categories: string[];
   committeeMembers: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface UserResponse {

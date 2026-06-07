@@ -5,6 +5,16 @@ import { auctionService } from "../../../services/auctionService";
 import { sportsService } from "../../../services/sportsService";
 import { userService } from "../../../services/userService";
 import { useAuth } from "../../../contexts/AuthContext";
+import {
+  VIEW_SPORTS_MENU, CREATE_EDIT_SPORTS_MENU,
+  VIEW_AUCTION_CONFIG, CREATE_EDIT_AUCTION_CONFIG,
+  VIEW_LIVE_AUCTION, CREATE_EDIT_LIVE_AUCTION,
+  VIEW_TEAMS_DASHBOARD, CREATE_EDIT_TEAMS_DASHBOARD,
+  VIEW_PLAYER_POOL, CREATE_EDIT_PLAYER_POOL,
+  VIEW_EVENT_REGISTRATIONS, CREATE_EDIT_EVENT_REGISTRATIONS,
+  VIEW_AUCTION_RESULTS, CREATE_EDIT_AUCTION_RESULTS,
+  CREATE_EDIT_SPORTS_MAIN,
+} from "../../../constants/permissions";
 import type { AuctionPlayer, AuctionTeam, PlayerWithBidResponse, AuctionStatsResponse, EventRegistration } from "../../../types/api";
 import "./SportsAuction.css";
 
@@ -34,7 +44,24 @@ const mapTeamData = (summary: any, idx: number): AuctionTeam => {
 };
 
 export function SportsAuction() {
-  const { user, isAdmin, isAuctionAdmin } = useAuth();
+  const { user, hasPermission, hasAnyPermission } = useAuth();
+
+  // Granular permission flags — each maps to a specific sidebar section / tab
+  const canViewSportsMenu    = hasAnyPermission(VIEW_SPORTS_MENU,          CREATE_EDIT_SPORTS_MENU);
+  const canViewAuctionConfig = hasAnyPermission(VIEW_AUCTION_CONFIG,       CREATE_EDIT_AUCTION_CONFIG);
+  const canEditAuctionConfig = hasPermission(CREATE_EDIT_AUCTION_CONFIG);
+  const canViewLiveAuction   = hasAnyPermission(VIEW_LIVE_AUCTION,         CREATE_EDIT_LIVE_AUCTION);
+  const canEditLiveAuction   = hasPermission(CREATE_EDIT_LIVE_AUCTION);
+  const canViewTeams         = hasAnyPermission(VIEW_TEAMS_DASHBOARD,       CREATE_EDIT_TEAMS_DASHBOARD);
+  const canEditTeams         = hasPermission(CREATE_EDIT_TEAMS_DASHBOARD);
+  const canViewPlayerPool    = hasAnyPermission(VIEW_PLAYER_POOL,           CREATE_EDIT_PLAYER_POOL);
+  const canEditPlayerPool    = hasPermission(CREATE_EDIT_PLAYER_POOL);
+  const canViewRegistrations = hasAnyPermission(VIEW_EVENT_REGISTRATIONS,  CREATE_EDIT_EVENT_REGISTRATIONS);
+  const canViewResults       = hasAnyPermission(VIEW_AUCTION_RESULTS,       CREATE_EDIT_AUCTION_RESULTS);
+  const isAdmin              = hasPermission(CREATE_EDIT_SPORTS_MAIN);
+
+  // Kept for backward compat with any code that still references isAuctionAdmin
+  const isAuctionAdmin = canEditAuctionConfig || canEditLiveAuction;
   const { eventId } = useParams();
 
   // Navigation State
@@ -89,8 +116,8 @@ export function SportsAuction() {
 
   // Fetch available configs on mount — scoped to user's community
   useEffect(() => {
-    // Check if config exists for this community
-    auctionService.checkConfigExists(1).then(result => {
+    // Check if any auction config exists for this community (no sportId filter)
+    auctionService.checkConfigExists().then(result => {
       setConfigExistsForCommunity(result.configExists);
     }).catch(() => setConfigExistsForCommunity(false));
 
@@ -485,7 +512,7 @@ export function SportsAuction() {
           <div className="nav-label">Main</div>
           <NavItem id="overview" label="Overview" />
         </div>
-        {isAuctionAdmin && (
+        {canViewSportsMenu && (
           <div className="nav-section">
             <div className="nav-label">Sports Menu</div>
             <NavItem id="cricket" label="Cricket" />
@@ -496,12 +523,12 @@ export function SportsAuction() {
         )}
         <div className="nav-section">
           <div className="nav-label">Auction</div>
-          {isAuctionAdmin && <NavItem id="config" label="Auction Config" />}
-          <NavItem id="live" label="Live Auction" isLive />
-          {isAuctionAdmin && <NavItem id="teams" label="Teams" />}
-          {isAuctionAdmin && <NavItem id="players" label="Player Pool" />}
-          {isAuctionAdmin && <NavItem id="registrations" label="Registrations" />}
-          <NavItem id="results" label="Auction Results" />
+          {canViewAuctionConfig   && <NavItem id="config"        label="Auction Config" />}
+          {canViewLiveAuction     && <NavItem id="live"          label="Live Auction" isLive />}
+          {canViewTeams           && <NavItem id="teams"         label="Teams" />}
+          {canViewPlayerPool      && <NavItem id="players"       label="Player Pool" />}
+          {canViewRegistrations   && <NavItem id="registrations" label="Registrations" />}
+          {canViewResults         && <NavItem id="results"       label="Auction Results" />}
         </div>
       </aside>
 

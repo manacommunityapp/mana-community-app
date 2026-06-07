@@ -1,6 +1,20 @@
 import { NavLink, Outlet } from "react-router";
 import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
+import {
+  VIEW_SPORTS_MAIN,
+  VIEW_EVENT_REGISTRATIONS,
+  VIEW_AUCTION_CONFIG,
+  VIEW_LIVE_AUCTION,
+  VIEW_TEAMS_DASHBOARD,
+  VIEW_PLAYER_POOL,
+  VIEW_AUCTION_RESULTS,
+  CREATE_EDIT_SPORTS_MAIN,
+  DELETE_SPORTS_MAIN,
+  CREATE_EDIT_AUCTION_CONFIG,
+  CREATE_EDIT_PLAYER_POOL,
+  CREATE_EDIT_EVENT_REGISTRATIONS,
+} from "../../../constants/permissions";
 
 const sportsNav = [
   { to: "/sports", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -11,9 +25,36 @@ const sportsNav = [
 ];
 
 export function SportsLayout() {
-  const { isAdmin } = useAuth();
+  const { hasPermission, hasAnyPermission } = useAuth();
 
-  const visibleNav = isAdmin ? sportsNav : sportsNav.filter(n => n.to !== "/sports/admin");
+  const visibleNav = sportsNav.filter((nav) => {
+    switch (nav.label) {
+      case "Dashboard":
+        return hasPermission(VIEW_SPORTS_MAIN);
+      case "My Sports":
+        return hasPermission(VIEW_EVENT_REGISTRATIONS);
+      case "Schedule":
+        return hasPermission(VIEW_SPORTS_MAIN);
+      case "Auction":
+        return hasAnyPermission(
+          VIEW_AUCTION_CONFIG,
+          VIEW_LIVE_AUCTION,
+          VIEW_TEAMS_DASHBOARD,
+          VIEW_PLAYER_POOL,
+          VIEW_AUCTION_RESULTS
+        );
+      case "Admin":
+        return hasAnyPermission(
+          CREATE_EDIT_SPORTS_MAIN,
+          DELETE_SPORTS_MAIN,
+          CREATE_EDIT_AUCTION_CONFIG,
+          CREATE_EDIT_PLAYER_POOL,
+          CREATE_EDIT_EVENT_REGISTRATIONS
+        );
+      default:
+        return true;
+    }
+  });
 
   return (
     <div className="space-y-4">
@@ -35,8 +76,6 @@ export function SportsLayout() {
             {label}
           </NavLink>
         ))}
-
-
       </div>
 
       {/* Page content */}

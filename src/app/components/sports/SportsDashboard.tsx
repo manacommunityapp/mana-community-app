@@ -5,6 +5,20 @@ import { toast } from "sonner";
 import { sportsService } from "../../../services/sportsService";
 import { auctionService } from "../../../services/auctionService";
 import { useAuth } from "../../../contexts/AuthContext";
+import {
+  VIEW_SPORTS_MAIN,
+  VIEW_EVENT_REGISTRATIONS,
+  VIEW_AUCTION_CONFIG,
+  VIEW_LIVE_AUCTION,
+  VIEW_TEAMS_DASHBOARD,
+  VIEW_PLAYER_POOL,
+  VIEW_AUCTION_RESULTS,
+  CREATE_EDIT_SPORTS_MAIN,
+  DELETE_SPORTS_MAIN,
+  CREATE_EDIT_AUCTION_CONFIG,
+  CREATE_EDIT_PLAYER_POOL,
+  CREATE_EDIT_EVENT_REGISTRATIONS,
+} from "../../../constants/permissions";
 import { format } from "date-fns";
 import { SPORTS_DATA } from "./sportsData";
 import type { OpenRegistration } from "./sportsData";
@@ -239,7 +253,7 @@ function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 
 export function SportsDashboard() {
-  const { user, isAdmin, isSportsAdmin } = useAuth();
+  const { user, hasPermission, hasAnyPermission } = useAuth();
   const navigate = useNavigate();
   const [liveEvents, setLiveEvents] = useState<any[]>(SPORTS_DATA.upcomingEvents);
   const [openRegs, setOpenRegs] = useState<OpenRegistration[]>([]);
@@ -264,7 +278,7 @@ export function SportsDashboard() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [nextMatch, setNextMatch] = useState<NextMatchData | null>(null);
 
-  const canManageCaptainNominations = isAdmin || isSportsAdmin || user?.role === "SUPER_ADMIN";
+  const canManageCaptainNominations = hasAnyPermission(CREATE_EDIT_PLAYER_POOL, CREATE_EDIT_SPORTS_MAIN);
   const confirmedMyRegistrations = myRegistrations.filter(r => r.status === "CONFIRMED");
 
   const fetchData = useCallback(async () => {
@@ -304,7 +318,7 @@ export function SportsDashboard() {
           progressColor: "#3b82f6",
           dotColor: "#10b981",
           action: actionVal,
-          status: e.registrationStatus,
+          status: e.registrationStatus ?? "REGISTRATION_OPEN",
           registrationId: myReg?.id,
         };
       }));
@@ -322,8 +336,8 @@ export function SportsDashboard() {
           progressColor: "#ef4444",
           dotColor: "#ef4444",
           action: "View" as const,
-          status: e.registrationStatus,
-          auctionStatus: e.auctionStatus,
+          status: e.registrationStatus ?? "REGISTRATION_CLOSED",
+          auctionStatus: e.auctionStatus ?? "DRAFT",
         })));
       } catch {
         setClosedRegs([]);
@@ -581,7 +595,7 @@ export function SportsDashboard() {
                       toast.error(err?.message || "Failed to withdraw registration");
                     }
                   }}
-                  isAdmin={isAdmin || isSportsAdmin}
+                  isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
                   toggling={togglingId === item.id}
                   onToggleStatus={async (evt) => {
                     setTogglingId(evt.id);
@@ -616,7 +630,7 @@ export function SportsDashboard() {
                   item={item}
                   onRegister={() => { }}
                   onView={() => navigate("/sports/auction")}
-                  isAdmin={isAdmin}
+                  isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
                   toggling={togglingId === item.id}
                   onToggleStatus={async (evt) => {
                     setTogglingId(evt.id);
