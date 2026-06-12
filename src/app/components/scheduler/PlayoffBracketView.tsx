@@ -45,10 +45,14 @@ function isPlaceholder(id: string, name: string): boolean {
   );
 }
 
+function isByeParticipant(participant: PlayoffParticipantRef): boolean {
+  return participant.id === 'bye' || participant.name === 'BYE';
+}
+
 function ParticipantRow({ participant }: { participant: PlayoffParticipantRef }) {
   const { id, name, flatNumber } = participant;
   const isPlace = isPlaceholder(id, name);
-  const isBye = id === 'bye' || name === 'BYE';
+  const isBye = isByeParticipant(participant);
 
   return (
     <div className={`flex flex-row gap-2 py-1 pl-3 pr-1.5 items-center relative min-h-[32px] bg-[#142347] border border-[#2a437e]/40 rounded-lg overflow-hidden ${isBye ? 'opacity-50' : ''}`}>
@@ -107,6 +111,9 @@ function MatchCard({
   venueName,
   courtName,
 }: MatchCardProps) {
+  // A bye match has no real opponent, so date/time/venue/court are meaningless.
+  const isByeMatch = isByeParticipant(match.home) || isByeParticipant(match.away);
+
   return (
     <div
       className="matchup absolute transition-all duration-700 ease-in-out"
@@ -114,11 +121,13 @@ function MatchCard({
       style={{ top }}
     >
       <div className="relative flex flex-row items-center justify-between py-1 pr-6 min-h-[26px]">
-        <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap flex items-center gap-1 text-[#FFFDFC]">
-          <span>{formatBracketDateOnly(match.date)}</span>
-          <span className="opacity-40">|</span>
-          <span>{match.time}</span>
-        </div>
+        {!isByeMatch && (
+          <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap flex items-center gap-1 text-[#FFFDFC]">
+            <span>{formatBracketDateOnly(match.date)}</span>
+            <span className="opacity-40">|</span>
+            <span>{match.time}</span>
+          </div>
+        )}
         {onEdit && (
           <button
             type="button"
@@ -150,13 +159,15 @@ function MatchCard({
         {showMergerLeft && <div className="merger-left" style={{ width: 20 }} aria-hidden />}
       </div>
 
-      {/* Assigned venue & court — e.g. "LE Shuttle , Court 1" */}
-      <div className="flex flex-row gap-1.5 items-center mt-1">
-        <MapPin className="w-3 h-3 text-[#F5A623] shrink-0" />
-        <span className="font-bold text-[#fffdf0] text-[11px] line-clamp-1" title={[venueName, courtName].filter(Boolean).join(' , ')}>
-          {[venueName, courtName].filter(Boolean).join(' , ') || 'TBD'}
-        </span>
-      </div>
+      {/* Assigned venue & court — e.g. "LE Shuttle , Court 1". Hidden for byes. */}
+      {!isByeMatch && (
+        <div className="flex flex-row gap-1.5 items-center mt-1">
+          <MapPin className="w-3 h-3 text-[#F5A623] shrink-0" />
+          <span className="font-bold text-[#fffdf0] text-[11px] line-clamp-1" title={[venueName, courtName].filter(Boolean).join(' , ')}>
+            {[venueName, courtName].filter(Boolean).join(' , ') || 'TBD'}
+          </span>
+        </div>
+      )}
     </div>
   );
 }
