@@ -98,6 +98,8 @@ export const VERIFY_KYC         = "Verify KYC";
 export const BULK_UPLOAD        = "Bulk Upload";
 export const MANAGE_COMMUNITIES = "Manage Communities";
 export const MANAGE_ROLES       = "Manage Roles";
+export const EDIT_VENUE_TIMING  = "Edit Venue Timing";
+
 
 /**
  * Permission categories grouped for the Role Management UI.
@@ -149,6 +151,6 @@ export const PERMISSION_CATEGORIES = [
   {
     id: "admin",
     title: "ADMIN DASHBOARD Permission",
-    permissions: [VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_COMMUNITIES, MANAGE_ROLES],
+    permissions: [VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_COMMUNITIES, MANAGE_ROLES, EDIT_VENUE_TIMING],
   },
 ] as const;

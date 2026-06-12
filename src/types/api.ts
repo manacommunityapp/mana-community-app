@@ -114,6 +114,8 @@ export interface Court {
   id?: string;
   name: string;
   color: string;
+  openingTime?: string;
+  closingTime?: string;
 }
 
 export interface Venue {

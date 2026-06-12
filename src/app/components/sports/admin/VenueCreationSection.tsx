@@ -1,6 +1,11 @@
 import { Plus, Clock, Users, Trash2, MapPin, Edit2, EyeOff, Eye, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { TIME_OPTIONS } from "../../../../constants/timeOptions";
 import type { Venue, CommunityResponse, Court } from "../../../../types/api";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { VenueTimingModal } from "../../scheduler/VenueTimingModal";
+
+
 
 interface VenueCreationSectionProps {
   user: any;
@@ -51,7 +56,9 @@ interface VenueCreationSectionProps {
   handleVenueEdit: (v: Venue) => void;
   handleVenueHide: (id: number) => void;
   handleVenueDelete: (id: number) => void;
+  refreshVenues?: () => void;
 }
+
 
 export function VenueCreationSection({
   user,
@@ -102,9 +109,17 @@ export function VenueCreationSection({
   handleVenueEdit,
   handleVenueHide,
   handleVenueDelete,
+  refreshVenues,
 }: VenueCreationSectionProps) {
+  const { hasPermission } = useAuth();
+  const canEditTiming = hasPermission("Edit Venue Timing");
+  const [timingModalOpen, setTimingModalOpen] = useState(false);
+  const [selectedTimingVenue, setSelectedTimingVenue] = useState<Venue | null>(null);
+
   return (
     <div className="space-y-4">
+
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-[#f1f5f9]">Venue Management</h1>
@@ -194,8 +209,9 @@ export function VenueCreationSection({
                   <select
                     value={venueOpeningTime}
                     onChange={e => setVenueOpeningTime(e.target.value)}
+                    disabled={!canEditTiming}
                     required
-                    className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none appearance-none"
+                    className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {TIME_OPTIONS.map(t => (
                       <option key={t} value={t}>{t}</option>
@@ -209,8 +225,9 @@ export function VenueCreationSection({
                   <select
                     value={venueClosingTime}
                     onChange={e => setVenueClosingTime(e.target.value)}
+                    disabled={!canEditTiming}
                     required
-                    className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none appearance-none"
+                    className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {TIME_OPTIONS.map(t => (
                       <option key={t} value={t}>{t}</option>
@@ -340,6 +357,16 @@ export function VenueCreationSection({
                   {v.venueType && (
                     <span className={`text-[10px] px-2 py-1 rounded ${v.venueType === "OUTSIDE" ? "bg-blue-500/20 text-[#3b82f6]" : "bg-green-500/20 text-[#10b981]"}`}>{v.venueType}</span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTimingVenue(v);
+                      setTimingModalOpen(true);
+                    }}
+                    className="text-[10px] px-2 py-1.5 border border-[#2a3a5c] text-[#94a3b8] rounded-lg hover:border-[#F5A623] hover:text-[#F5A623] transition-colors flex items-center gap-1 cursor-pointer bg-transparent"
+                  >
+                    <Clock className="w-3 h-3" /> Timings
+                  </button>
                   <button onClick={() => handleVenueEdit(v)} className="text-[10px] px-2 py-1.5 border border-[#2a3a5c] text-[#94a3b8] rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors flex items-center gap-1 cursor-pointer bg-transparent">
                     <Edit2 className="w-3 h-3" /> Edit
                   </button>
@@ -401,6 +428,18 @@ export function VenueCreationSection({
           )}
         </div>
       </div>
+      <VenueTimingModal
+        isOpen={timingModalOpen}
+        onClose={() => {
+          setTimingModalOpen(false);
+          setSelectedTimingVenue(null);
+        }}
+        venue={selectedTimingVenue}
+        canEditTiming={canEditTiming}
+        onSaveSuccess={() => {
+          if (refreshVenues) refreshVenues();
+        }}
+      />
     </div>
   );
 }

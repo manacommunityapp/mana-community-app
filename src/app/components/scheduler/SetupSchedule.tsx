@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react';
 import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical } from 'lucide-react';
 import { tournamentService } from '../../../services/tournamentService';
 import { venueService } from '../../../services/venueService';
+import { useAuth } from '../../../contexts/AuthContext';
+import { VenueTimingModal } from './VenueTimingModal';
+
+
 import { sportsService } from '../../../services/sportsService';
 import type { TournamentTypeInfo, EventInfo, ConfigInfo } from '../../../services/tournamentService';
 import type { Venue, EventRegistration } from '../../../types/api';
@@ -34,7 +38,10 @@ interface SetupScheduleProps {
 
 export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   // Data
+  const { hasPermission } = useAuth();
+  const canEditTiming = hasPermission("Edit Venue Timing");
   const [types, setTypes] = useState<TournamentTypeInfo[]>([]);
+
   const [events, setEvents] = useState<EventInfo[]>([]);
   const [configs, setConfigs] = useState<ConfigInfo[]>([]);
   const [venues, setVenues] = useState<Venue[]>([]);
@@ -250,6 +257,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [generating, setGenerating] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [timingModalOpen, setTimingModalOpen] = useState(false);
+  const [selectedTimingVenue, setSelectedTimingVenue] = useState<Venue | null>(null);
+
+
 
   // Generated Schedule View
   const [scheduleGenerated, setScheduleGenerated] = useState(false);
@@ -317,7 +328,15 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     } catch { /* no venues */ }
   };
 
+  const handleSaveTimingSuccess = (updatedVenue: Venue) => {
+    setVenues(prev => prev.map(item => item.id === updatedVenue.id ? updatedVenue : item));
+    setToast('Venue timing updated successfully!');
+    setTimeout(() => setToast(null), 3000);
+  };
+
+
   const handleEventChange = async (id: string) => {
+
     setSelectedEvent(id);
     const ev = events.find(e => e.id.toString() === id);
     if (ev) {
@@ -1484,9 +1503,18 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                       <span className="text-slate-300 flex-1">: {v.address || <span className="text-slate-500 italic">—</span>}</span>
                     </div>
                     {v.mapLink && <a href={v.mapLink} target="_blank" rel="noreferrer" className="text-[#00e5ff] hover:underline inline-flex items-center gap-1 mt-1"><MapPin className="w-3 h-3" /> View on Map</a>}
+                    
                     <div className="pt-1">
-                      <button className="text-[11px] border border-[#2a3a5c] text-slate-400 px-2 py-1 rounded hover:border-[#F5A623] hover:text-[#F5A623] transition-colors flex items-center gap-1">
-                        <Pencil className="w-3 h-3" /> Edit Venue Timing
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedTimingVenue(v);
+                          setTimingModalOpen(true);
+                        }}
+                        className="text-[11px] border border-[#2a3a5c] text-slate-400 px-2 py-1 rounded hover:border-[#F5A623] hover:text-[#F5A623] transition-colors flex items-center gap-1 bg-transparent cursor-pointer"
+                      >
+                        <Pencil className="w-3 h-3" /> {canEditTiming ? "Edit Venue Timing" : "View Venue Timing"}
                       </button>
                     </div>
                   </div>
@@ -2615,6 +2643,16 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           </div>
         </div>
       )}
+      <VenueTimingModal
+        isOpen={timingModalOpen}
+        onClose={() => {
+          setTimingModalOpen(false);
+          setSelectedTimingVenue(null);
+        }}
+        venue={selectedTimingVenue}
+        canEditTiming={canEditTiming}
+        onSaveSuccess={handleSaveTimingSuccess}
+      />
     </div>
   );
 }

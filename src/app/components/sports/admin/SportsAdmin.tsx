@@ -2946,6 +2946,7 @@ export function SportsAdmin() {
             handleVenueEdit={handleVenueEdit}
             handleVenueHide={handleVenueHide}
             handleVenueDelete={handleVenueDelete}
+            refreshVenues={refreshVenues}
           />
         )}
 

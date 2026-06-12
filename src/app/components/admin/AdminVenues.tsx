@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { Loader2, Edit2, Trash2, MapPin, Building2, Users, ArrowLeft, Plus, ExternalLink, Clock } from "lucide-react";
 import { TIME_OPTIONS } from "../../../constants/timeOptions";
+import { VenueTimingModal } from "../scheduler/VenueTimingModal";
+
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { venueService } from "../../../services/venueService";
@@ -9,8 +11,12 @@ import { useAuth } from "../../../contexts/AuthContext";
 import type { Venue, CommunityResponse } from "../../../types/api";
 
 export function AdminVenues() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, hasPermission } = useAuth();
+  const canEditTiming = hasPermission("Edit Venue Timing");
   const [venues, setVenues] = useState<Venue[]>([]);
+  const [timingModalOpen, setTimingModalOpen] = useState(false);
+  const [selectedTimingVenue, setSelectedTimingVenue] = useState<Venue | null>(null);
+
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -324,8 +330,9 @@ export function AdminVenues() {
                       <select
                         value={openingTime}
                         onChange={e => setOpeningTime(e.target.value)}
+                        disabled={!canEditTiming}
                         required
-                        className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-xl px-4 py-2.5 text-sm focus:border-[#f97316] outline-none transition-colors appearance-none"
+                        className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-xl px-4 py-2.5 text-sm focus:border-[#f97316] outline-none transition-colors appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {TIME_OPTIONS.map(t => (
                           <option key={t} value={t}>{t}</option>
@@ -339,8 +346,9 @@ export function AdminVenues() {
                       <select
                         value={closingTime}
                         onChange={e => setClosingTime(e.target.value)}
+                        disabled={!canEditTiming}
                         required
-                        className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-xl px-4 py-2.5 text-sm focus:border-[#f97316] outline-none transition-colors appearance-none"
+                        className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-xl px-4 py-2.5 text-sm focus:border-[#f97316] outline-none transition-colors appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {TIME_OPTIONS.map(t => (
                           <option key={t} value={t}>{t}</option>
@@ -495,14 +503,23 @@ export function AdminVenues() {
 
                       <div className="flex items-center gap-2 md:opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
+                          onClick={() => {
+                            setSelectedTimingVenue(v);
+                            setTimingModalOpen(true);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a2540] hover:bg-[#2a3a5c] text-xs font-medium text-[#f1f5f9] rounded-lg border border-[#2a3a5c] transition-colors cursor-pointer"
+                        >
+                          <Clock className="w-3.5 h-3.5" /> Timings
+                        </button>
+                        <button
                           onClick={() => handleEdit(v)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a2540] hover:bg-[#2a3a5c] text-xs font-medium text-[#f1f5f9] rounded-lg border border-[#2a3a5c] transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1a2540] hover:bg-[#2a3a5c] text-xs font-medium text-[#f1f5f9] rounded-lg border border-[#2a3a5c] transition-colors cursor-pointer"
                         >
                           <Edit2 className="w-3.5 h-3.5" /> Edit
                         </button>
                         <button
                           onClick={() => handleDelete(v.id)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-xs font-medium text-red-500 rounded-lg border border-red-500/20 transition-colors"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-xs font-medium text-red-500 rounded-lg border border-red-500/20 transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" /> Delete
                         </button>
@@ -527,6 +544,18 @@ export function AdminVenues() {
           </div>
         </div>
       </div>
+      <VenueTimingModal
+        isOpen={timingModalOpen}
+        onClose={() => {
+          setTimingModalOpen(false);
+          setSelectedTimingVenue(null);
+        }}
+        venue={selectedTimingVenue}
+        canEditTiming={canEditTiming}
+        onSaveSuccess={(updatedVenue) => {
+          setVenues(prev => prev.map(item => item.id === updatedVenue.id ? updatedVenue : item));
+        }}
+      />
     </div>
   );
 }
