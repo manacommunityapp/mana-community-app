@@ -1,0 +1,49 @@
+name: Frontend Deployment
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build React App
+        run: npm run build
+
+      - name: Deploy to Lightsail
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ubuntu
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          source: "dist/*"
+          target: "/tmp/frontend"
+
+      - name: Move Files to Nginx Directory
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ubuntu
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script: |
+            sudo mkdir -p /var/www/frontend
+            sudo rm -rf /var/www/frontend/*
+            sudo cp -r /tmp/frontend/dist/* /var/www/frontend/
+            sudo chown -R www-data:www-data /var/www/frontend
+            sudo nginx -t
+            sudo systemctl reload nginx
