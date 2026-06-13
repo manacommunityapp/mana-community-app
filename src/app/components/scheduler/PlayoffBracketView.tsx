@@ -23,7 +23,7 @@ function formatBracketDateOnly(dateStr: string): string {
 
 function findParentMatchId(participantId: string, prevRoundMatches: PlayoffMatchDraft[]): string | undefined {
   if (participantId.endsWith('-winner')) {
-    return participantId.replace('-winner', '');
+    return participantId.replace('-winner', ''); 
   }
   if (participantId.endsWith('-loser')) {
     return participantId.replace('-loser', '');
