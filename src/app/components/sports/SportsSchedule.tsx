@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router";
 import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, Target, Activity } from "lucide-react";
-import { FaDribbble } from "react-icons/fa";
 import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sportsService";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -37,8 +36,30 @@ const mockGames: Game[] = [
   { id: "g7", sport: "Soccer", homeTeam: "Athletic Club", awayTeam: "United FC", date: "2026-06-10T18:00:00", location: "Turf Field A", status: "Completed", score: { home: 1, away: 3 } },
 ];
 
+const BasketballIcon = ({ size = 24, className, ...props }: React.ComponentPropsWithoutRef<"svg"> & { size?: number | string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 2v20" />
+    <path d="M2 12h20" />
+    <path d="M4.93 4.93a10 10 0 0 1 0 14.14" />
+    <path d="M19.07 4.93a10 10 0 0 0 0 14.14" />
+  </svg>
+);
+
 const sportIcons: Record<string, React.ElementType> = { 
-  Basketball: FaDribbble, basketball: FaDribbble,
+  Basketball: BasketballIcon, basketball: BasketballIcon,
   Soccer: Target, soccer: Target, Football: Target, football: Target,
   Volleyball: Activity, volleyball: Activity
 };

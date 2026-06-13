@@ -56,8 +56,8 @@ export function TournamentSection({
   };
 
   const renderRegistrationPanel = (ev: any) => (
-    <div className="mt-2 bg-[#0c1220] border border-[#1e293b] rounded-xl p-4 space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#2a3a5c] pb-3 mb-2">
+    <div className="mt-2 bg-slate-50 border border-slate-200/60 rounded-xl p-4 space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-3 mb-2">
         <div className="flex items-center gap-2">
           <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest">
             {viewMode === "captains" ? "Captain Nominations (from Auction Teams)" : "Registered Players"}
@@ -95,14 +95,14 @@ export function TournamentSection({
       {!loadingRegs && viewMode === "players" && registrations && registrations.length > 0 && (
         <div className="space-y-2">
           {registrations.map((reg, idx) => (
-            <div key={reg.id} className="flex items-center justify-between p-3 bg-[#141c2e] rounded-lg border border-[#2a3a5c]">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-7 h-7 rounded-full bg-[#1a2540] flex items-center justify-center text-[10px] font-bold text-[#94a3b8] flex-shrink-0">
+            <div key={reg.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200/60 shadow-sm">
+              <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
+                <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 flex-shrink-0">
                   {idx + 1}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-[#f1f5f9] truncate">{reg.playerName || reg.user?.fullName || "—"}</div>
-                  <div className="text-[10px] text-[#64748b] flex items-center gap-2 mt-0.5">
+                  <div className="text-sm font-medium text-slate-800 truncate">{reg.playerName || reg.user?.fullName || "—"}</div>
+                  <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
                     {reg.category?.name && <span>{reg.category.name}</span>}
                     {reg.age && <span>Age: {reg.age}</span>}
                     {reg.flatNumber && <span>Flat: {reg.flatNumber}</span>}
@@ -133,17 +133,17 @@ export function TournamentSection({
       {!loadingRegs && viewMode === "captains" && nominatedCaptains && nominatedCaptains.length > 0 && (
         <div className="space-y-2">
           {nominatedCaptains.map((team) => (
-            <div key={team.id} className="flex items-center justify-between p-3 bg-[#141c2e] rounded-lg border border-[#2a3a5c]">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="w-7 h-7 rounded-full bg-[#1a2540] flex items-center justify-center text-[10px] font-bold text-[#f97316] flex-shrink-0">
+            <div key={team.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200/60 shadow-sm">
+              <div className="flex items-center gap-3 min-w-0 flex-1 text-left">
+                <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center text-[10px] font-bold text-[#f97316] flex-shrink-0">
                   C
                 </div>
                 <div className="min-w-0">
-                  <div className="text-sm font-medium text-[#f1f5f9] truncate">{team.ownerName || team.ownerUser?.fullName || "—"}</div>
+                  <div className="text-sm font-medium text-slate-800 truncate">{team.ownerName || team.ownerUser?.fullName || "—"}</div>
                   <div className="text-[10px] text-[#f97316] mt-1 font-semibold tracking-wide">
                     Proposed Team: {team.teamName}
                   </div>
-                  <div className="text-[10px] text-[#64748b] flex items-center gap-2 mt-0.5">
+                  <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
                     <span>Budget: ₹{team.totalBudget?.toLocaleString()}</span>
                     {team.ownerUser?.phone && <span>· {team.ownerUser.phone}</span>}
                   </div>
@@ -172,11 +172,11 @@ export function TournamentSection({
 
       {/* Empty states */}
       {!loadingRegs && viewMode === "players" && (!registrations || registrations.length === 0) && (
-        <div className="flex flex-col items-center justify-center py-10 px-4 gap-3 bg-[#0c1220] rounded-xl border border-dashed border-[#2a3a5c]">
-          <div className="flex items-center justify-center w-16 h-16 border border-[#2a3a5c] rounded-full bg-[#141c2e]/50 shadow-inner">
-            <Users className="text-2xl text-[#94a3b8]" />
+        <div className="flex flex-col items-center justify-center py-10 px-4 gap-3 bg-white rounded-xl border border-dashed border-slate-300">
+          <div className="flex items-center justify-center w-16 h-16 border border-slate-200 rounded-full bg-slate-50 shadow-inner">
+            <Users className="text-2xl text-slate-400" />
           </div>
-          <h6 className="text-sm md:text-base font-bold text-[#f1f5f9]">No Participants to show</h6>
+          <h6 className="text-sm md:text-base font-bold text-slate-800">No Participants to show</h6>
           {onAddParticipant && onImportParticipants && (
             <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
               <button
@@ -208,10 +208,10 @@ export function TournamentSection({
     onViewPlayers ? (
       <button
         onClick={() => onViewPlayers(evId)}
-        className={`${size === "xs" ? "text-[9px] px-2 py-1" : "text-[10px] px-2 py-1.5"} rounded${size === "xs" ? "" : "-lg"} transition-colors flex items-center gap-1 ${
+        className={`${size === "xs" ? "text-[9px] px-2 py-1" : "text-[10px] px-2 py-1.5"} rounded${size === "xs" ? "" : "-lg"} transition-colors flex items-center gap-1 cursor-pointer ${
           viewingEventId === evId && viewMode === "players"
             ? "bg-[#3b82f6]/20 text-[#3b82f6] border border-[#3b82f6]/30"
-            : "border border-[#2a3a5c] text-[#94a3b8] hover:border-[#3b82f6] hover:text-[#3b82f6]"
+            : "border border-slate-200 text-slate-500 hover:border-[#3b82f6] hover:text-[#3b82f6]"
         }`}
       >
         <ClipboardList className={size === "xs" ? "w-2.5 h-2.5" : "w-3 h-3"} />
@@ -224,10 +224,10 @@ export function TournamentSection({
     return (
       <button
         onClick={() => onViewCaptains(evId)}
-        className={`${size === "xs" ? "text-[9px] px-2 py-1" : "text-[10px] px-2 py-1.5"} rounded${size === "xs" ? "" : "-lg"} transition-colors flex items-center gap-1 ${
+        className={`${size === "xs" ? "text-[9px] px-2 py-1" : "text-[10px] px-2 py-1.5"} rounded${size === "xs" ? "" : "-lg"} transition-colors flex items-center gap-1 cursor-pointer ${
           viewingEventId === evId && viewMode === "captains"
             ? "bg-[#f97316]/20 text-[#f97316] border border-[#f97316]/30"
-            : "border border-[#2a3a5c] text-[#94a3b8] hover:border-[#f97316] hover:text-[#f97316]"
+            : "border border-slate-200 text-slate-500 hover:border-[#f97316] hover:text-[#f97316]"
         }`}
       >
         <Users className={size === "xs" ? "w-2.5 h-2.5" : "w-3 h-3"} />
@@ -239,8 +239,14 @@ export function TournamentSection({
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4">
-      <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest mb-3 flex items-center justify-between">
+    <div className="rounded-xl p-4"
+      style={{
+        background: "white",
+        border: "1px solid rgba(99, 102, 241, 0.12)",
+        boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+      }}
+    >
+      <div className="text-xs font-bold uppercase tracking-widest mb-3 flex items-center justify-between" style={{ color: "#6b7094" }}>
         <span>{title}</span>
         <span className={`px-2 py-0.5 rounded text-[10px] ${badgeColor}`}>{badge}</span>
       </div>
@@ -249,12 +255,12 @@ export function TournamentSection({
           // ── Multi-event tournaments (nested sportsEvents array) ──
           if (item.sportsEvents && item.sportsEvents.length > 0) {
             return (
-              <div key={item.id} className="p-3.5 bg-[#0c1220] rounded-xl border border-[#1e293b] space-y-3">
+              <div key={item.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
                 {/* Tournament header */}
-                <div className="flex items-center justify-between border-b border-[#2a3a5c]/50 pb-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm font-bold text-[#f1f5f9]">{item.name}</div>
-                    <div className="text-[10px] text-[#64748b] mt-0.5">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <div className="min-w-0 flex-1 text-left">
+                    <div className="text-sm font-bold text-slate-800">{item.name}</div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
                       {item.eventDateStart && item.eventDateEnd
                         ? `${item.eventDateStart} — ${item.eventDateEnd}`
                         : item.createdAt ? `Created: ${format(new Date(item.createdAt), "MMM d")}` : "—"}
@@ -266,25 +272,25 @@ export function TournamentSection({
                         Open for Registration
                       </button>
                     )}
-                    <button onClick={() => onEdit(item)} className="text-[10px] px-2 py-1.5 border border-[#2a3a5c] text-[#94a3b8] rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors">
+                    <button onClick={() => onEdit(item)} className="text-[10px] px-2 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">
                       Edit
                     </button>
-                    <button onClick={() => onDelete(item.id)} className="text-[10px] px-2 py-1.5 border border-[#2a3a5c] text-[#ef4444]/60 rounded-lg hover:border-[#ef4444] hover:text-[#ef4444] transition-colors">
+                    <button onClick={() => onDelete(item.id)} className="text-[10px] px-2 py-1.5 border border-slate-200 text-[#ef4444]/60 rounded-lg hover:border-[#ef4444] hover:text-[#ef4444] transition-colors cursor-pointer">
                       Delete
                     </button>
                   </div>
                 </div>
 
                 {/* Nested sports events */}
-                <div className="space-y-3 pl-3.5 border-l-2 border-[#2a3a5c] mt-2">
+                <div className="space-y-3 pl-3.5 border-l-2 border-slate-200 mt-2">
                   {item.sportsEvents.map((ev: any) => {
                     const registrationStatus = ev.registrationStatus || ev.status;
                     return (
                       <div key={ev.id} className="space-y-2">
-                        <div className="flex items-center justify-between p-2.5 bg-[#141c2e] rounded-lg border border-[#2a3a5c]/40">
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs font-semibold text-[#f1f5f9]">{ev.name}</div>
-                            <div className="text-[9px] text-[#64748b] flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200/60 shadow-sm">
+                          <div className="min-w-0 flex-1 text-left">
+                            <div className="text-xs font-semibold text-slate-800">{ev.name}</div>
+                            <div className="text-[9px] text-slate-500 flex items-center gap-2 mt-0.5">
                               {ev.gender && <span>Gender: {ev.gender}</span>}
                               {ev.minAge && ev.maxAge && <span>Age: {ev.minAge}–{ev.maxAge}</span>}
                               {ev.maxParticipants && <span>Max Participants: {ev.maxParticipants}</span>}
@@ -328,10 +334,10 @@ export function TournamentSection({
 
           return (
             <div key={item.id} className="space-y-2">
-              <div className="flex items-center justify-between p-3 bg-[#0c1220] rounded-xl border border-[#1e293b]">
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-[#f1f5f9] truncate">{ev.name}</div>
-                  <div className="text-[10px] text-[#64748b] mt-0.5">
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200/60 shadow-sm">
+                <div className="min-w-0 flex-1 text-left">
+                  <div className="text-sm font-semibold text-slate-800 truncate">{ev.name}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
                     {ev.eventDateStart && ev.eventDateEnd
                       ? `${ev.eventDateStart} — ${ev.eventDateEnd}`
                       : item.createdAt ? `Created: ${format(new Date(item.createdAt), "MMM d")}` : "—"}
@@ -360,10 +366,10 @@ export function TournamentSection({
                       Open for Registration
                     </button>
                   )}
-                  <button onClick={() => onEdit(item)} className="text-[10px] px-2 py-1.5 border border-[#2a3a5c] text-[#94a3b8] rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors">
+                  <button onClick={() => onEdit(item)} className="text-[10px] px-2 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">
                     Edit
                   </button>
-                  <button onClick={() => onDelete(targetId)} className="text-[10px] px-2 py-1.5 border border-[#2a3a5c] text-[#ef4444]/60 rounded-lg hover:border-[#ef4444] hover:text-[#ef4444] transition-colors">
+                  <button onClick={() => onDelete(targetId)} className="text-[10px] px-2 py-1.5 border border-slate-200 text-[#ef4444]/60 rounded-lg hover:border-[#ef4444] hover:text-[#ef4444] transition-colors cursor-pointer">
                     Delete
                   </button>
                 </div>

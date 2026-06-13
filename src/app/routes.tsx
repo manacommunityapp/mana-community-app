@@ -101,7 +101,7 @@ export const router = createBrowserRouter([
             element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN}><SportsAdmin /></PermissionGuard> 
           },
           { 
-            path: "sports-dashboard", 
+            path: "analytics", 
             element: <PermissionGuard permission={VIEW_SPORTS_MENU}><SportsAnalytics /></PermissionGuard> 
           },
         ],

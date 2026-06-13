@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   UserCircle,
   ShieldCheck,
@@ -36,6 +36,8 @@ import {
 import { toast, Toaster } from "sonner";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { profileService } from "../../../services/profileService";
+import type { UserProfileResponse } from "../../../types/api";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -43,33 +45,8 @@ function cn(...inputs: ClassValue[]) {
 
 type Tab = "overview" | "activity" | "settings" | "security";
 
-const mockUser = {
-  id: "USR-0042",
-  fullName: "Alex Johnson",
-  email: "alex.johnson@email.com",
-  phone: "+91 98765 43210",
-  dob: "1992-05-15",
-  gender: "Male",
-  address: "Tower A, Apt 402, Prestige Lakeside Habitat, Bangalore - 560103",
-  bio: "Software Engineer at TechCorp | Cricket enthusiast | Community organizer. Love connecting with neighbours and making our society a better place.",
-  role: "admin" as "admin" | "member" | "vendor",
-  communityType: "Apartment",
-  communityName: "Prestige Lakeside Habitat",
-  communityCode: "APT-TOWER-A-2024",
-  joinedAt: "2025-11-20",
-  kycStatus: "verified" as "verified" | "pending" | "rejected",
-  avatar: "https://images.unsplash.com/photo-1707396172424-f3293f788364?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBwcm9maWxlJTIwYXZhdGFyJTIwcGVyc29ufGVufDF8fHx8MTc3NzA1ODgxOXww&ixlib=rb-4.1.0&q=80&w=1080",
-  cover: "https://images.unsplash.com/photo-1560185007-c5ca9d2c014d?w=1200&q=80",
-  skills: ["Cricket", "Event Management", "Community Building", "Badminton", "Cooking"],
-  stats: {
-    posts: 47,
-    connections: 128,
-    eventsAttended: 14,
-    itemsSold: 8,
-    jobsPosted: 3,
-    sportsPlayed: 22,
-  },
-};
+const defaultAvatar = "https://images.unsplash.com/photo-1707396172424-f3293f788364?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBwcm9maWxlJTIwYXZhdGFyJTIwcGVyc29ufGVufDF8fHx8MTc3NzA1ODgxOXww&ixlib=rb-4.1.0&q=80&w=1080";
+const defaultCover = "https://images.unsplash.com/photo-1560185007-c5ca9d2c014d?w=1200&q=80";
 
 const activityFeed = [
   { id: 1, type: "post", text: "Posted in Community Feed: 'Reminder: Society AGM this Sunday at 5PM'", time: "2 hours ago", icon: Users, color: "indigo" },
@@ -87,21 +64,27 @@ const sessions = [
 ];
 
 export function ProfileDashboard() {
+  const [profile, setProfile] = useState<UserProfileResponse | null>(null);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>("overview");
   const [isEditing, setIsEditing] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
-    fullName: mockUser.fullName,
-    email: mockUser.email,
-    phone: mockUser.phone,
-    dob: mockUser.dob,
-    gender: mockUser.gender,
-    address: mockUser.address,
-    bio: mockUser.bio,
+    fullName: "",
+    email: "",
+    phone: "",
+    dob: "",
+    gender: "Male",
+    address: "",
+    bio: "",
   });
+
+  const [newSkill, setNewSkill] = useState("");
+  const [showAddSkillInput, setShowAddSkillInput] = useState(false);
 
   const [notifications, setNotifications] = useState({
     communityPosts: true,
@@ -114,23 +97,171 @@ export function ProfileDashboard() {
     pushNotifications: true,
   });
 
-  const roleConfig = {
-    admin: { label: "Admin", color: "bg-purple-100 text-purple-700 border border-purple-200", icon: ShieldCheck },
-    member: { label: "Verified Member", color: "bg-green-100 text-green-700 border border-green-200", icon: ShieldCheck },
-    vendor: { label: "Vendor", color: "bg-blue-100 text-blue-700 border border-blue-200", icon: ShieldCheck },
+  useEffect(() => {
+    profileService.getProfile()
+      .then(res => {
+        setProfile(res);
+        setFormData({
+          fullName: res.fullName || "",
+          email: res.email || "",
+          phone: res.phone || "",
+          dob: res.dob || "",
+          gender: res.gender || "Male",
+          address: (res.flatNo && res.block) ? `Flat ${res.flatNo}, Block ${res.block}` : (res.flatNo || res.block || ""),
+          bio: res.bio || "",
+        });
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Error loading user profile:", err);
+        toast.error("Failed to load profile data.");
+        setLoading(false);
+      });
+  }, []);
+
+  const getRoleConfig = (roleStr?: string) => {
+    const r = (roleStr || "MEMBER").toUpperCase();
+    if (r === "SUPER_ADMIN" || r === "ADMIN" || r === "COMMUNITY_ADMIN" || r === "SPORTS_ADMIN") {
+      return { label: "Admin", color: "bg-purple-100 text-purple-700 border border-purple-200", icon: ShieldCheck };
+    } else if (r === "VENDOR") {
+      return { label: "Vendor", color: "bg-blue-100 text-blue-700 border border-blue-200", icon: ShieldCheck };
+    }
+    return { label: "Verified Member", color: "bg-green-100 text-green-700 border border-green-200", icon: ShieldCheck };
   };
 
-  const role = roleConfig[mockUser.role];
-
   const handleSaveProfile = () => {
-    setIsEditing(false);
-    toast.success("Profile updated successfully!");
+    if (!profile) return;
+
+    let flatNo = formData.address;
+    let block = "";
+    if (formData.address.toLowerCase().includes("block")) {
+      const parts = formData.address.split(/block/i);
+      flatNo = parts[0].replace(/flat/i, "").replace(/,/g, "").trim();
+      block = parts[1].trim();
+    }
+
+    profileService.updateProfile({
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
+      dob: formData.dob,
+      gender: formData.gender,
+      flatNo: flatNo,
+      block: block,
+      bio: formData.bio,
+      skills: profile.skills,
+      profilePicUrl: profile.profilePicUrl,
+      coverPicUrl: profile.coverPicUrl,
+    })
+    .then(res => {
+      setProfile(res);
+      setIsEditing(false);
+      toast.success("Profile updated successfully!");
+    })
+    .catch(err => {
+      console.error("Error updating profile:", err);
+      toast.error("Failed to update profile.");
+    });
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile) return;
+
+    // Simulate S3 upload with temporary Unsplash URL for display
+    const placeholderUrl = `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=300&q=80`;
+    profileService.updateProfile({
+      profilePicUrl: placeholderUrl,
+    })
+    .then(res => {
+      setProfile(res);
+      toast.success("Profile picture updated!");
+    })
+    .catch(err => {
+      console.error(err);
+      toast.error("Failed to update avatar.");
+    });
+  };
+
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profile) return;
+
+    // Simulate S3 upload with temporary Unsplash URL for display
+    const placeholderUrl = `https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&q=80`;
+    profileService.updateProfile({
+      coverPicUrl: placeholderUrl,
+    })
+    .then(res => {
+      setProfile(res);
+      toast.success("Cover picture updated!");
+    })
+    .catch(err => {
+      console.error(err);
+      toast.error("Failed to update cover photo.");
+    });
+  };
+
+  const handleAddSkill = () => {
+    if (!profile || !newSkill.trim()) return;
+    const updatedSkills = [...profile.skills, newSkill.trim()];
+
+    profileService.updateProfile({
+      skills: updatedSkills,
+    })
+    .then(res => {
+      setProfile(res);
+      setNewSkill("");
+      setShowAddSkillInput(false);
+      toast.success("Skill added!");
+    })
+    .catch(err => {
+      console.error(err);
+      toast.error("Failed to add skill.");
+    });
+  };
+
+  const handleRemoveSkill = (skillToRemove: string) => {
+    if (!profile) return;
+    const updatedSkills = profile.skills.filter(s => s !== skillToRemove);
+
+    profileService.updateProfile({
+      skills: updatedSkills,
+    })
+    .then(res => {
+      setProfile(res);
+      toast.success("Skill removed!");
+    })
+    .catch(err => {
+      console.error(err);
+      toast.error("Failed to remove skill.");
+    });
   };
 
   const handlePasswordChange = (e: React.FormEvent) => {
     e.preventDefault();
     toast.success("Password changed successfully!");
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-500">
+        <p>Could not load user profile.</p>
+      </div>
+    );
+  }
+
+  const role = getRoleConfig(profile.role);
+  const userAvatar = profile.profilePicUrl || defaultAvatar;
+  const userCover = profile.coverPicUrl || defaultCover;
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Overview" },
@@ -146,14 +277,18 @@ export function ProfileDashboard() {
       {/* Cover Photo */}
       <div className="relative h-48 sm:h-64 bg-gradient-to-br from-indigo-500 via-purple-600 to-indigo-700 overflow-hidden">
         <img
-          src={mockUser.cover}
+          src={userCover}
           alt="Cover"
           className="w-full h-full object-cover opacity-40"
         />
-        <button className="absolute bottom-4 right-4 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors">
+        <button
+          onClick={() => coverInputRef.current?.click()}
+          className="absolute bottom-4 right-4 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"
+        >
           <Camera className="w-3.5 h-3.5" />
           Edit Cover
         </button>
+        <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
       </div>
 
       {/* Profile Header */}
@@ -163,7 +298,7 @@ export function ProfileDashboard() {
             {/* Avatar */}
             <div className="relative flex-shrink-0">
               <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-2xl border-4 border-white shadow-xl overflow-hidden bg-slate-200">
-                <img src={mockUser.avatar} alt={mockUser.fullName} className="w-full h-full object-cover" />
+                <img src={userAvatar} alt={profile.fullName} className="w-full h-full object-cover" />
               </div>
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -171,7 +306,7 @@ export function ProfileDashboard() {
               >
                 <Camera className="w-3.5 h-3.5" />
               </button>
-              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" />
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
             </div>
 
             {/* Name & Meta */}
@@ -179,8 +314,8 @@ export function ProfileDashboard() {
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{mockUser.fullName}</h1>
-                    {mockUser.kycStatus === "verified" && (
+                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{profile.fullName}</h1>
+                    {profile.kycStatus === "VERIFIED" && (
                       <span title="KYC Verified">
                         <CheckCircle2 className="w-6 h-6 text-indigo-600 flex-shrink-0" />
                       </span>
@@ -191,11 +326,11 @@ export function ProfileDashboard() {
                       <role.icon className="w-3 h-3" />
                       {role.label}
                     </span>
-                    <span className="text-slate-400 text-sm">#{mockUser.id}</span>
+                    <span className="text-slate-400 text-sm">#USR-{profile.userId.toString().padStart(4, "0")}</span>
                   </div>
                   <div className="flex items-center gap-1 mt-1.5 text-slate-500 text-sm">
                     <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>{mockUser.communityName}</span>
+                    <span>{profile.communityName || "No Community"}</span>
                     <span className="text-slate-300">·</span>
                     <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
                     <span>Bangalore, IN</span>
@@ -203,11 +338,16 @@ export function ProfileDashboard() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => setIsEditing(!isEditing)}
+                    onClick={() => {
+                      if (activeTab !== "settings") {
+                        setActiveTab("settings");
+                      }
+                      setIsEditing(!isEditing);
+                    }}
                     className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                   >
                     <Edit3 className="w-4 h-4" />
-                    Edit Profile
+                    {isEditing ? "Cancel Edit" : "Edit Profile"}
                   </button>
                 </div>
               </div>
@@ -217,12 +357,12 @@ export function ProfileDashboard() {
           {/* Stats Bar */}
           <div className="grid grid-cols-3 sm:grid-cols-6 border-t border-slate-100 -mx-4 sm:-mx-6 lg:-mx-8">
             {[
-              { label: "Posts", value: mockUser.stats.posts, icon: Users },
-              { label: "Connections", value: mockUser.stats.connections, icon: Link2 },
-              { label: "Events", value: mockUser.stats.eventsAttended, icon: Calendar },
-              { label: "Listings", value: mockUser.stats.itemsSold, icon: Package },
-              { label: "Jobs Posted", value: mockUser.stats.jobsPosted, icon: Briefcase },
-              { label: "Sports Played", value: mockUser.stats.sportsPlayed, icon: Trophy },
+              { label: "Posts", value: profile.stats.posts, icon: Users },
+              { label: "Connections", value: profile.stats.connections, icon: Link2 },
+              { label: "Events", value: profile.stats.eventsAttended, icon: Calendar },
+              { label: "Listings", value: profile.stats.itemsSold, icon: Package },
+              { label: "Jobs Posted", value: profile.stats.jobsPosted, icon: Briefcase },
+              { label: "Sports Played", value: profile.stats.sportsPlayed, icon: Trophy },
             ].map((stat) => (
               <div key={stat.label} className="flex flex-col items-center py-3 px-2 hover:bg-slate-50 transition-colors cursor-pointer border-r border-slate-100 last:border-r-0">
                 <span className="text-xl font-bold text-slate-900">{stat.value}</span>
@@ -263,13 +403,13 @@ export function ProfileDashboard() {
                 {/* About */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
                   <h2 className="font-semibold text-slate-900 mb-3">About</h2>
-                  <p className="text-slate-600 text-sm leading-relaxed">{mockUser.bio}</p>
+                  <p className="text-slate-600 text-sm leading-relaxed">{profile.bio || "No bio yet."}</p>
                   <div className="mt-4 space-y-2.5 text-sm">
                     {[
-                      { icon: Mail, label: mockUser.email },
-                      { icon: Phone, label: mockUser.phone },
-                      { icon: MapPin, label: mockUser.address },
-                      { icon: Calendar, label: `Joined ${new Date(mockUser.joinedAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}` },
+                      { icon: Mail, label: profile.email },
+                      { icon: Phone, label: profile.phone },
+                      { icon: MapPin, label: formData.address || "No Address Added" },
+                      { icon: Calendar, label: profile.joinedAt ? `Joined ${new Date(profile.joinedAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}` : "Joined recently" },
                     ].map((item, idx) => (
                       <div key={idx} className="flex items-start gap-2.5 text-slate-600">
                         <item.icon className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
@@ -282,15 +422,44 @@ export function ProfileDashboard() {
                 {/* Skills & Interests */}
                 <div className="bg-white rounded-xl border border-slate-200 p-6">
                   <h2 className="font-semibold text-slate-900 mb-3">Skills & Interests</h2>
-                  <div className="flex flex-wrap gap-2">
-                    {mockUser.skills.map((skill) => (
-                      <span key={skill} className="px-3 py-1 bg-indigo-50 text-indigo-700 text-sm rounded-full border border-indigo-100">
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {profile.skills.map((skill) => (
+                      <span key={skill} className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-50 text-indigo-700 text-sm rounded-full border border-indigo-100">
                         {skill}
+                        <button
+                          onClick={() => handleRemoveSkill(skill)}
+                          className="hover:text-red-500 font-bold ml-1 text-xs"
+                          title="Remove skill"
+                        >
+                          ×
+                        </button>
                       </span>
                     ))}
-                    <button className="px-3 py-1 bg-slate-50 text-slate-500 text-sm rounded-full border border-dashed border-slate-300 hover:bg-slate-100 transition-colors">
-                      + Add
-                    </button>
+                    
+                    {showAddSkillInput ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={newSkill}
+                          placeholder="Skill name"
+                          onChange={(e) => setNewSkill(e.target.value)}
+                          className="px-2 py-1 text-sm border border-slate-300 rounded-lg outline-none w-28"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleAddSkill();
+                            if (e.key === "Escape") setShowAddSkillInput(false);
+                          }}
+                        />
+                        <button onClick={handleAddSkill} className="text-xs px-2 py-1 bg-indigo-600 text-white rounded">Add</button>
+                        <button onClick={() => setShowAddSkillInput(false)} className="text-xs px-2 py-1 bg-slate-200 text-slate-600 rounded">Cancel</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setShowAddSkillInput(true)}
+                        className="px-3 py-1 bg-slate-50 text-slate-500 text-sm rounded-full border border-dashed border-slate-300 hover:bg-slate-100 transition-colors"
+                      >
+                        + Add
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -335,37 +504,32 @@ export function ProfileDashboard() {
                 {/* KYC Status Card */}
                 <div className={cn(
                   "rounded-xl border p-5",
-                  mockUser.kycStatus === "verified" ? "bg-green-50 border-green-200" :
-                  mockUser.kycStatus === "pending" ? "bg-yellow-50 border-yellow-200" : "bg-red-50 border-red-200"
+                  profile.kycStatus === "VERIFIED" ? "bg-green-50 border-green-200" :
+                  profile.kycStatus === "PENDING" ? "bg-yellow-50 border-yellow-200" : "bg-red-50 border-red-200"
                 )}>
                   <div className="flex items-center gap-2 mb-2">
-                    {mockUser.kycStatus === "verified" ? <CheckCircle2 className="w-5 h-5 text-green-600" /> :
-                     mockUser.kycStatus === "pending" ? <Clock className="w-5 h-5 text-yellow-600" /> :
+                    {profile.kycStatus === "VERIFIED" ? <CheckCircle2 className="w-5 h-5 text-green-600" /> :
+                     profile.kycStatus === "PENDING" ? <Clock className="w-5 h-5 text-yellow-600" /> :
                      <XCircle className="w-5 h-5 text-red-600" />}
                     <span className={cn(
                       "font-semibold text-sm",
-                      mockUser.kycStatus === "verified" ? "text-green-800" :
-                      mockUser.kycStatus === "pending" ? "text-yellow-800" : "text-red-800"
+                      profile.kycStatus === "VERIFIED" ? "text-green-800" :
+                      profile.kycStatus === "PENDING" ? "text-yellow-800" : "text-red-800"
                     )}>
-                      KYC {mockUser.kycStatus === "verified" ? "Verified" : mockUser.kycStatus === "pending" ? "Under Review" : "Rejected"}
+                      KYC {profile.kycStatus === "VERIFIED" ? "Verified" : profile.kycStatus === "PENDING" ? "Under Review" : "Rejected"}
                     </span>
                   </div>
                   <p className={cn(
                     "text-xs",
-                    mockUser.kycStatus === "verified" ? "text-green-700" :
-                    mockUser.kycStatus === "pending" ? "text-yellow-700" : "text-red-700"
+                    profile.kycStatus === "VERIFIED" ? "text-green-700" :
+                    profile.kycStatus === "PENDING" ? "text-yellow-700" : "text-red-700"
                   )}>
-                    {mockUser.kycStatus === "verified"
+                    {profile.kycStatus === "VERIFIED"
                       ? "Your identity has been verified. You have full access to all community features."
-                      : mockUser.kycStatus === "pending"
+                      : profile.kycStatus === "PENDING"
                       ? "Your documents are being reviewed. You'll be notified once verified."
                       : "Your KYC was rejected. Please resubmit with valid documents."}
                   </p>
-                  {mockUser.kycStatus !== "verified" && (
-                    <button className="mt-3 w-full py-2 px-3 bg-white border border-current text-xs font-medium rounded-lg hover:bg-slate-50 transition-colors">
-                      {mockUser.kycStatus === "pending" ? "Check Status" : "Resubmit Documents"}
-                    </button>
-                  )}
                 </div>
 
                 {/* Community Info */}
@@ -376,14 +540,14 @@ export function ProfileDashboard() {
                       <Building2 className="w-5 h-5 text-white" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 truncate">{mockUser.communityName}</p>
-                      <p className="text-xs text-slate-500">{mockUser.communityCode}</p>
+                      <p className="text-sm font-medium text-slate-900 truncate">{profile.communityName || "No Community"}</p>
+                      <p className="text-xs text-slate-500">{profile.communityCode || "N/A"}</p>
                     </div>
-                    <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    {profile.communityName && <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />}
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                     <div className="bg-slate-50 rounded-lg p-2.5 text-center">
-                      <p className="font-semibold text-slate-900">{mockUser.communityType}</p>
+                      <p className="font-semibold text-slate-900">{profile.communityType || "N/A"}</p>
                       <p className="text-slate-500">Type</p>
                     </div>
                     <div className="bg-slate-50 rounded-lg p-2.5 text-center">
@@ -398,10 +562,10 @@ export function ProfileDashboard() {
                   <h2 className="font-semibold text-slate-900 mb-3 text-sm">Quick Links</h2>
                   <div className="space-y-1">
                     {[
-                      { icon: Package, label: "My Marketplace Listings", count: 5 },
-                      { icon: Briefcase, label: "My Job Postings", count: 3 },
-                      { icon: Trophy, label: "My Sports Records", count: 12 },
-                      { icon: Calendar, label: "My Events", count: 8 },
+                      { icon: Package, label: "My Marketplace Listings", count: profile.stats.itemsSold },
+                      { icon: Briefcase, label: "My Job Postings", count: profile.stats.jobsPosted },
+                      { icon: Trophy, label: "My Sports Records", count: profile.stats.sportsPlayed },
+                      { icon: Calendar, label: "My Events", count: profile.stats.eventsAttended },
                     ].map((link) => (
                       <button key={link.label} className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors text-left">
                         <div className="flex items-center gap-2">
@@ -508,7 +672,9 @@ export function ProfileDashboard() {
                           />
                         ) : (
                           <p className="text-sm text-slate-900 py-2 px-3 bg-slate-50 rounded-lg">
-                            {field.key === "dob" ? new Date(formData.dob).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) : formData[field.key as keyof typeof formData]}
+                            {field.key === "dob" && formData.dob 
+                              ? new Date(formData.dob).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) 
+                              : (formData[field.key as keyof typeof formData] || "Not provided")}
                           </p>
                         )}
                       </div>
@@ -522,7 +688,7 @@ export function ProfileDashboard() {
                           onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                         >
-                          {["Male", "Female", "Non-binary", "Prefer not to say"].map(g => <option key={g}>{g}</option>)}
+                          {["MALE", "FEMALE", "OTHER"].map(g => <option key={g} value={g}>{g}</option>)}
                         </select>
                       ) : (
                         <p className="text-sm text-slate-900 py-2 px-3 bg-slate-50 rounded-lg">{formData.gender}</p>
@@ -539,7 +705,7 @@ export function ProfileDashboard() {
                           className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
                         />
                       ) : (
-                        <p className="text-sm text-slate-900 py-2 px-3 bg-slate-50 rounded-lg">{formData.address}</p>
+                        <p className="text-sm text-slate-900 py-2 px-3 bg-slate-50 rounded-lg">{formData.address || "No address provided"}</p>
                       )}
                     </div>
 
@@ -554,7 +720,7 @@ export function ProfileDashboard() {
                           maxLength={250}
                         />
                       ) : (
-                        <p className="text-sm text-slate-900 py-2 px-3 bg-slate-50 rounded-lg leading-relaxed">{formData.bio}</p>
+                        <p className="text-sm text-slate-900 py-2 px-3 bg-slate-50 rounded-lg leading-relaxed">{formData.bio || "No bio yet."}</p>
                       )}
                     </div>
                   </div>

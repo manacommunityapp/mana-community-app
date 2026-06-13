@@ -55,31 +55,31 @@ function ParticipantRow({ participant }: { participant: PlayoffParticipantRef })
   const isBye = isByeParticipant(participant);
 
   return (
-    <div className={`flex flex-row gap-2 py-1 pl-3 pr-1.5 items-center relative min-h-[32px] bg-[#142347] border border-[#2a437e]/40 rounded-lg overflow-hidden ${isBye ? 'opacity-50' : ''}`}>
+    <div className={`flex flex-row gap-2 py-1 pl-3 pr-1.5 items-center relative min-h-[32px] bg-white border border-[rgba(99,102,241,0.12)] rounded-lg overflow-hidden ${isBye ? 'opacity-50' : ''}`}>
       {/* Left green accent bar, mimicking the image team box style */}
       <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-600" />
       
       <div className="flex flex-row shrink-0">
         {isBye ? (
-          <div className="w-5 h-5 rounded-full bg-slate-850 border border-dashed border-slate-650 flex items-center justify-center text-[7px] font-bold text-slate-500">
+          <div className="w-5 h-5 rounded-full bg-slate-50 border border-dashed border-slate-200 flex items-center justify-center text-[7px] font-bold text-[#6b7094]">
             BYE
           </div>
         ) : isPlace ? (
-          <div className="w-5 h-5 rounded-full bg-slate-800 border border-[#2a3a5c] flex items-center justify-center text-[7px] font-bold text-slate-400" title={name}>
+          <div className="w-5 h-5 rounded-full bg-slate-50 border border-[rgba(99,102,241,0.12)] flex items-center justify-center text-[7px] font-bold text-[#6b7094]" title={name}>
             WI
           </div>
         ) : (
-          <div className="w-5 h-5 rounded-full overflow-hidden border border-[#2a3a5c] bg-slate-800 shrink-0">
+          <div className="w-5 h-5 rounded-full overflow-hidden border border-[rgba(99,102,241,0.12)] bg-slate-50 shrink-0">
             <img src={DEFAULT_AVATAR} alt="" className="w-full h-full object-cover" />
           </div>
         )}
       </div>
       <div className="flex flex-col min-w-0 text-left leading-tight">
-        <p className={`text-[10.5px] font-bold capitalize truncate ${isBye ? 'text-slate-400 italic' : 'text-slate-200'}`} title={name}>
+        <p className={`text-[10.5px] font-bold capitalize truncate ${isBye ? 'text-[#6b7094] italic' : 'text-[#0d0d2b]'}`} title={name}>
           {name}
         </p>
         {!isPlace && flatNumber && (
-          <span className="text-[8px] text-slate-400 truncate mt-0.5">{flatNumber}</span>
+          <span className="text-[8px] text-[#6b7094] truncate mt-0.5">{flatNumber}</span>
         )}
       </div>
     </div>
@@ -122,7 +122,7 @@ function MatchCard({
     >
       <div className="relative flex flex-row items-center justify-between py-1 pr-6 min-h-[26px]">
         {!isByeMatch && (
-          <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap flex items-center gap-1 text-[#FFFDFC]">
+          <div className="font-bold text-[10px] uppercase tracking-wider whitespace-nowrap flex items-center gap-1 text-[#6b7094]">
             <span>{formatBracketDateOnly(match.date)}</span>
             <span className="opacity-40">|</span>
             <span>{match.time}</span>
@@ -132,7 +132,7 @@ function MatchCard({
           <button
             type="button"
             onClick={onEdit}
-            className="absolute top-0.5 -right-1 z-10 w-6 h-6 rounded-full bg-[#1a2540] border border-[#2a3a5c] text-slate-300 hover:text-[#f97316] hover:border-[#f97316]/50 flex items-center justify-center shadow-md transition-colors cursor-pointer"
+            className="absolute top-0.5 -right-1 z-10 w-6 h-6 rounded-full bg-white border border-[rgba(99,102,241,0.12)] text-[#6b7094] hover:text-[#4f46e5] hover:border-[#4f46e5]/50 flex items-center justify-center shadow-md transition-colors cursor-pointer"
             aria-label="Edit Match"
           >
             <Pencil className="w-3 h-3" />
@@ -162,8 +162,8 @@ function MatchCard({
       {/* Assigned venue & court — e.g. "LE Shuttle , Court 1". Hidden for byes. */}
       {!isByeMatch && (
         <div className="flex flex-row gap-1.5 items-center mt-1">
-          <MapPin className="w-3 h-3 text-[#f97316] shrink-0" />
-          <span className="font-bold text-[#fffdf0] text-[11px] line-clamp-1" title={[venueName, courtName].filter(Boolean).join(' , ')}>
+          <MapPin className="w-3 h-3 text-[#4f46e5] shrink-0" />
+          <span className="font-bold text-[#6b7094] text-[11px] line-clamp-1" title={[venueName, courtName].filter(Boolean).join(' , ')}>
             {[venueName, courtName].filter(Boolean).join(' , ') || 'TBD'}
           </span>
         </div>
@@ -182,33 +182,33 @@ function getRoundHeader(roundName: string): string {
 function ResultsColumn({ finalMatchId, top }: { finalMatchId?: string; top: number }) {
   return (
     <section className="px-2 relative shrink-0" id="round-results" style={{ width: 278, height: '100%' }}>
-      <div className="flex flex-row gap-2 items-center justify-center bg-[#102a71] p-1.5 rounded-md">
-        <h5 className="text-xs font-bold text-slate-200">Results</h5>
+      <div className="flex flex-row gap-2 items-center justify-center bg-[rgba(99,102,241,0.05)] p-1.5 rounded-md">
+        <h5 className="text-xs font-bold text-[#0d0d2b]">Results</h5>
       </div>
       <div className="absolute left-1/2 -translate-x-1/2" style={{ top: top + 40 }}>
         <div className="flex flex-col gap-6">
           <div className="flex flex-col gap-2 items-center">
             <div className="flex flex-col gap-1 opacity-60 items-center">
-              <p className="text-sm font-semibold text-slate-300">Winner</p>
-              <TrophyIcon className="w-14 h-14 text-slate-500" />
+              <p className="text-sm font-semibold text-slate-700">Winner</p>
+              <TrophyIcon className="w-14 h-14 text-[#6b7094]" />
             </div>
             <div className="flex flex-row gap-1 items-center opacity-60" id={finalMatchId}>
-              <div className="w-9 h-9 rounded-full overflow-hidden border border-[#2a3a5c]">
+              <div className="w-9 h-9 rounded-full overflow-hidden border border-[rgba(99,102,241,0.12)]">
                 <img src={DEFAULT_AVATAR} alt="" className="w-full h-full object-cover" />
               </div>
-              <p className="text-sm font-bold text-slate-200">Winner Of Final</p>
+              <p className="text-sm font-bold text-[#0d0d2b]">Winner Of Final</p>
             </div>
           </div>
           <div className="flex flex-col gap-2 items-center">
             <div className="flex flex-col gap-1 opacity-60 items-center">
-              <p className="text-sm font-semibold text-slate-300">Runner-up</p>
-              <TrophyIcon className="w-14 h-14 text-slate-500" />
+              <p className="text-sm font-semibold text-slate-700">Runner-up</p>
+              <TrophyIcon className="w-14 h-14 text-[#6b7094]" />
             </div>
             <div className="flex flex-row gap-1 items-center opacity-60">
-              <div className="w-9 h-9 rounded-full overflow-hidden border border-[#2a3a5c]">
+              <div className="w-9 h-9 rounded-full overflow-hidden border border-[rgba(99,102,241,0.12)]">
                 <img src={DEFAULT_AVATAR} alt="" className="w-full h-full object-cover" />
               </div>
-              <p className="text-sm font-bold text-slate-200">Loser Of Final</p>
+              <p className="text-sm font-bold text-[#0d0d2b]">Loser Of Final</p>
             </div>
           </div>
         </div>
@@ -279,15 +279,15 @@ export function PlayoffBracketView({ matches, onEditMatch, resolveVenueName, res
 
   return (
     <div className="playoff-bracket flex flex-col">
-      <div className="flex items-center justify-between text-xs text-[#94a3b8] mb-2 px-1">
+      <div className="flex items-center justify-between text-xs text-[#6b7094] mb-2 px-1">
         <span className="font-semibold">Bracket Structure</span>
-        <span className="flex items-center gap-1 text-[10px] bg-[#f97316]/10 text-[#f97316] border border-[#f97316]/20 px-2.5 py-0.5 rounded-full animate-pulse md:hidden">
+        <span className="flex items-center gap-1 text-[10px] bg-[#4f46e5]/10 text-[#4f46e5] border border-[#4f46e5]/20 px-2.5 py-0.5 rounded-full animate-pulse md:hidden">
           Swipe to scroll ↔
         </span>
       </div>
       <div className="relative">
         <div 
-          className="bracket py-6 relative flex flex-row rounded-xl bg-[#141c2e]/30 border border-[#2a3a5c]"
+          className="bracket py-6 relative flex flex-row rounded-xl bg-white/30 border border-[rgba(99,102,241,0.12)]"
           style={{ height: bracketHeight }}
         >
           {roundIndices.map((rIndex, colIdx) => {
@@ -303,8 +303,8 @@ export function PlayoffBracketView({ matches, onEditMatch, resolveVenueName, res
                 className="px-2 relative shrink-0" 
                 style={{ minWidth: 278, height: '100%' }}
               >
-                <div className="flex flex-row gap-2 items-center bg-[#102a71] p-1.5 rounded-md justify-center">
-                  <h5 className="text-xs font-bold text-slate-200">{header}</h5>
+                <div className="flex flex-row gap-2 items-center bg-[rgba(99,102,241,0.05)] p-1.5 rounded-md justify-center">
+                  <h5 className="text-xs font-bold text-[#0d0d2b]">{header}</h5>
                 </div>
                 {rMatches.map((m, idx) => {
                   const top = matchTops[m.id] ?? (40 + idx * baseSpacing);
@@ -363,8 +363,8 @@ export function PlayoffBracketView({ matches, onEditMatch, resolveVenueName, res
 
           {thirdPlace.length > 0 && (
             <section className="px-2 relative shrink-0" style={{ minWidth: 278, height: '100%' }}>
-              <div className="flex flex-row gap-2 items-center bg-[#102a71] p-1.5 rounded-md justify-center">
-                <h5 className="text-xs font-bold text-slate-200">Third Place</h5>
+              <div className="flex flex-row gap-2 items-center bg-[rgba(99,102,241,0.05)] p-1.5 rounded-md justify-center">
+                <h5 className="text-xs font-bold text-[#0d0d2b]">Third Place</h5>
               </div>
               {thirdPlace.map((m, idx) => (
                 <MatchCard

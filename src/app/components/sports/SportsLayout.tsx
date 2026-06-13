@@ -22,7 +22,7 @@ const sportsNav = [
   { to: "/sports/schedule", label: "Schedule", icon: CalendarDays },
   { to: "/sports/auction", label: "Auction", icon: Gavel },
   { to: "/sports/admin", label: "Admin", icon: ShieldCog },
-  { to: "/sports/sports-dashboard", label: "Sports Dashboard", icon: BarChart3 },
+  { to: "/sports/analytics", label: "Analytics", icon: BarChart3 },
 ];
 
 export function SportsLayout() {
@@ -52,7 +52,7 @@ export function SportsLayout() {
           CREATE_EDIT_PLAYER_POOL,
           CREATE_EDIT_EVENT_REGISTRATIONS
         );
-      case "Sports Dashboard":
+      case "Analytics":
         return hasPermission(VIEW_SPORTS_MAIN);
       default:
         return true;

@@ -509,3 +509,51 @@ export interface RegistrationOpenNotificationRequest {
   sendSms: boolean;
   message?: string;
 }
+
+// ─── User Profile ────────────────────────────────────────────────────────────
+
+export interface UserStats {
+  posts: number;
+  connections: number;
+  eventsAttended: number;
+  itemsSold: number;
+  jobsPosted: number;
+  sportsPlayed: number;
+}
+
+export interface UserProfileResponse {
+  userId: number;
+  fullName: string;
+  email: string;
+  phone: string;
+  dob?: string; // yyyy-MM-dd
+  gender?: string;
+  flatNo?: string;
+  block?: string;
+  role: string;
+  kycStatus: string;
+  communityName?: string;
+  communityType?: string;
+  communityCode?: string;
+  joinedAt?: string; // yyyy-MM-dd
+  bio?: string;
+  profilePicUrl?: string;
+  coverPicUrl?: string;
+  skills: string[];
+  stats: UserStats;
+}
+
+export interface UserProfileRequest {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  dob?: string; // yyyy-MM-dd
+  gender?: string;
+  flatNo?: string;
+  block?: string;
+  bio?: string;
+  skills?: string[];
+  profilePicUrl?: string;
+  coverPicUrl?: string;
+}
+

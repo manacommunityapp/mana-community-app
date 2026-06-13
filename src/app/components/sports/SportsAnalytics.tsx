@@ -133,7 +133,7 @@ export function SportsAnalytics() {
               </Pie>
               <Tooltip
                 contentStyle={{ background: "#16163a", border: "1px solid rgba(99, 102, 241, 0.25)", borderRadius: "10px", color: "#e8eaf6" }}
-                formatter={(value: number) => [`${value}%`, ""]}
+                formatter={(value: any) => [`${value}%`, ""]}
               />
             </PieChart>
           </ResponsiveContainer>

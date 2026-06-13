@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Loader2, CalendarIcon, MapPin, Plus, LayoutDashboard, Edit2, Trash2, EyeOff, Eye, Users, Clock, X, Search, Trophy, ChevronDown, Check } from "lucide-react";
+import { Loader2, CalendarIcon, MapPin, Plus, LayoutDashboard, Edit2, Trash2, EyeOff, Eye, Users, Clock, X, Search, Trophy, ChevronDown, Check, Settings, ShieldCheck, AlertCircle, Target, Activity } from "lucide-react";
 import { TIME_OPTIONS } from "../../../../constants/timeOptions";
 import { Link } from "react-router";
 import { format } from "date-fns";
@@ -69,7 +69,7 @@ const RECIPIENT_OPTIONS = [
   "Referees"
 ] as const;
 
-type TabId = "dashboard" | "create-tournament" | "sports-event" | "create-venue" | "player-category" | "sports-meta";
+type TabId = "sports-event" | "teams" | "schedule" | "create-venue" | "player-category" | "results" | "settings" | "sports-meta" | "create-tournament" | "dashboard";
 
 interface SportEventState {
   id: string;
@@ -150,6 +150,54 @@ const getDefaultMinPlayers = (sportName: string): number => {
   if (name.includes("volleyball")) return 6;
   if (name.includes("kabaddi")) return 7;
   return 5;
+};
+
+const initialTeams = [
+  { id: 1, name: "City Hoopers", sport: "Basketball", division: "Competitive", captain: "Arjun Mehta", members: 12, status: "active", record: "8-3" },
+  { id: 2, name: "Downtown Dunkers", sport: "Basketball", division: "Competitive", captain: "Ravi Kumar", members: 10, status: "active", record: "6-5" },
+  { id: 3, name: "United FC", sport: "Soccer", division: "Recreational", captain: "Suresh Nair", members: 11, status: "active", record: "5-4-1" },
+  { id: 4, name: "Galacticos", sport: "Soccer", division: "Recreational", captain: "Deepak Joshi", members: 11, status: "active", record: "5-5" },
+  { id: 5, name: "Spike Syndicate", sport: "Volleyball", division: "Competitive", captain: "Priya Singh", members: 9, status: "pending", record: "0-0" },
+  { id: 6, name: "Net Ninjas", sport: "Volleyball", division: "Recreational", captain: "Anita Sharma", members: 7, status: "pending", record: "0-0" },
+];
+
+const initialPendingRegistrations = [
+  { id: 1, teamName: "Thunder Hawks", sport: "Basketball", captain: "Manoj Pillai", email: "manoj@email.com", members: 8, date: "Jun 10" },
+  { id: 2, teamName: "Green Warriors", sport: "Soccer", captain: "Sandeep Rao", email: "sandeep@email.com", members: 9, date: "Jun 11" },
+];
+
+const BasketballIcon = ({ size = 24, className, ...props }: React.ComponentPropsWithoutRef<"svg"> & { size?: number | string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    {...props}
+  >
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 2v20" />
+    <path d="M2 12h20" />
+    <path d="M4.93 4.93a10 10 0 0 1 0 14.14" />
+    <path d="M19.07 4.93a10 10 0 0 0 0 14.14" />
+  </svg>
+);
+
+const sportIconMap: Record<string, React.ElementType> = {
+  Basketball: BasketballIcon,
+  Soccer: Target,
+  Volleyball: Activity,
+};
+
+const sportColorMap: Record<string, string> = {
+  Basketball: "#f59e0b",
+  Soccer: "#10b981",
+  Volleyball: "#6366f1",
 };
 
 export function SportsAdmin() {
@@ -538,7 +586,29 @@ export function SportsAdmin() {
 
   const [submitting, setSubmitting] = useState(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
+  const [activeTab, setActiveTab] = useState<TabId>("sports-event");
+  const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
+  const [teamsList, setTeamsList] = useState(initialTeams);
+  const [pendingList, setPendingList] = useState(initialPendingRegistrations);
+  const [adminSearchQuery, setAdminSearchQuery] = useState("");
+
+  const approveTeam = (id: number) => {
+    const reg = pendingList.find(p => p.id === id);
+    if (!reg) return;
+    const newTeam = {
+      id: Date.now(),
+      name: reg.teamName,
+      sport: reg.sport,
+      division: "Competitive",
+      captain: reg.captain,
+      members: reg.members,
+      status: "active" as const,
+      record: "0-0"
+    };
+    setTeamsList(prev => [...prev, newTeam]);
+    setPendingList(prev => prev.filter(p => p.id !== id));
+    toast.success(`Team "${reg.teamName}" approved successfully!`);
+  };
   // Track which tabs have already done their initial data load so we don't
   // re-fetch on every revisit. Mutations explicitly refresh their own data.
   const hydratedTabs = useRef(new Set<TabId>());
@@ -1069,17 +1139,16 @@ export function SportsAdmin() {
     if (hydratedTabs.current.has(activeTab)) return;
     hydratedTabs.current.add(activeTab);
 
-    if (activeTab === "dashboard") {
+    if (activeTab === "dashboard" || activeTab === "sports-event") {
       refreshTournaments();
+      refreshEvents();
+      sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
+      sportsService.getCategories().then(setPlayerCategories).catch(() => {});
     } else if (activeTab === "create-tournament") {
       // Tournament list is not needed in the form — only meta / categories / communities
       sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
       sportsService.getCategories().then(setPlayerCategories).catch(() => {});
       communityService.getCommunities().then(setCommunities).catch(() => {});
-    } else if (activeTab === "sports-event") {
-      refreshEvents();
-      sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
-      sportsService.getCategories().then(setPlayerCategories).catch(() => {});
     } else if (activeTab === "create-venue") {
       communityService.getCommunities().then(setCommunities).catch(() => {});
     } else if (activeTab === "player-category") {
@@ -1475,8 +1544,8 @@ export function SportsAdmin() {
 
       resetForm();
       // Invalidate dashboard so the next visit re-fetches fresh tournament list
-      hydratedTabs.current.delete("dashboard");
-      setActiveTab("dashboard");
+      hydratedTabs.current.delete("sports-event");
+      setActiveTab("sports-event");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save tournament(s)");
     } finally {
@@ -2244,10 +2313,13 @@ export function SportsAdmin() {
 
   // ─── Sidebar menu items ───────────────────────────────────────────
   const menuItems: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: "sports-event", label: "Sports Event", icon: <ClipboardList className="w-4 h-4" /> },
-    { id: "create-venue", label: "Venue Creation", icon: <MapPin className="w-4 h-4" /> },
+    { id: "teams", label: "Teams", icon: <Users className="w-4 h-4" /> },
+    { id: "schedule", label: "Schedule", icon: <CalendarIcon className="w-4 h-4" /> },
+    { id: "create-venue", label: "Venues", icon: <MapPin className="w-4 h-4" /> },
     { id: "player-category", label: "Player Category", icon: <Users className="w-4 h-4" /> },
+    { id: "results", label: "Results", icon: <Trophy className="w-4 h-4" /> },
+    { id: "settings", label: "Settings", icon: <Settings className="w-4 h-4" /> },
   ];
 
   if (isAdmin) {
@@ -2312,74 +2384,132 @@ export function SportsAdmin() {
       {/* ── Main Content ── */}
       <div className="flex-1 min-w-0">
 
-        {/* ════════════ DASHBOARD TAB ════════════ */}
-        {activeTab === "dashboard" && (
+        {/* ════════════ SPORTS EVENT / TOURNAMENTS TAB ════════════ */}
+        {activeTab === "sports-event" && (
           <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-semibold text-[#f1f5f9]">Sports Admin Dashboard</h1>
-                <p className="text-sm text-[#94a3b8] mt-1">Manage tournaments and venues for your community</p>
-              </div>
+            {/* Sub-tab toggle */}
+            <div className="flex border-b border-slate-100 pb-px gap-6 mb-4">
               <button
-                onClick={() => setActiveTab("create-tournament")}
-                className="px-4 py-2.5 bg-[#f97316] hover:bg-[#ea580c] text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2"
+                onClick={() => setSportsEventSubTab("list")}
+                className={`pb-2.5 text-sm font-semibold border-b-2 transition-all cursor-pointer ${sportsEventSubTab === "list" ? "border-indigo-600 text-indigo-600 font-bold" : "border-transparent text-slate-500 hover:text-indigo-600"}`}
               >
-                <Plus className="w-4 h-4" /> New Tournament
+                Tournaments List
+              </button>
+              <button
+                onClick={() => setSportsEventSubTab("config")}
+                className={`pb-2.5 text-sm font-semibold border-b-2 transition-all cursor-pointer ${sportsEventSubTab === "config" ? "border-indigo-600 text-indigo-600 font-bold" : "border-transparent text-slate-500 hover:text-indigo-600"}`}
+              >
+                Configure Events
               </button>
             </div>
 
-            {/* Draft Tournaments */}
-            <TournamentSection
-              title="Draft Tournaments"
-              badge={draftEvents.length}
-              badgeColor="bg-[#475569]/20 text-[#94a3b8]"
-              emptyText="No draft tournaments"
-              events={draftEvents}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onActivate={handleActivate}
-              showActivate
-            />
+            {sportsEventSubTab === "list" ? (
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="text-left">
+                    <h3 className="text-xl font-bold text-slate-800">Sports Event List</h3>
+                    <p className="text-sm text-slate-500 mt-1">Manage tournaments and venues for your community</p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab("create-tournament")}
+                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
+                    style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", boxShadow: "0 2px 10px rgba(99,102,241,0.3)" }}
+                  >
+                    <Plus className="w-4 h-4" /> New Tournament
+                  </button>
+                </div>
 
-            {/* Active Tournaments */}
-            <TournamentSection
-              title="Open for Registration"
-              badge={liveEvents.length}
-              badgeColor="bg-[#10b981]/20 text-[#10b981]"
-              emptyText="No active tournaments"
-              events={liveEvents}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onViewPlayers={handleViewPlayers}
-              onViewCaptains={handleViewCaptains}
-              viewingEventId={viewingEventId}
-              viewMode={viewMode}
-              registrations={registrations}
-              nominatedCaptains={nominatedCaptains}
-              loadingRegs={loadingRegs}
-              onConfirmRegistration={handleConfirmRegistration}
-              onConfirmCaptain={handleConfirmCaptain}
-              onAddParticipant={(eventId) => {
-                setSelectedEventIdForAdd(eventId);
-                setShowAddPlayerModal(true);
-              }}
-              onImportParticipants={(eventId) => {
-                setSelectedEventIdForImport(eventId);
-                setShowImportModal(true);
-                setImportStep(1);
-              }}
-            />
+                {/* Draft Tournaments */}
+                <TournamentSection
+                  title="Draft Tournaments"
+                  badge={draftEvents.length}
+                  badgeColor="bg-slate-100 text-slate-600 border border-slate-200"
+                  emptyText="No draft tournaments"
+                  events={draftEvents}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onActivate={handleActivate}
+                  showActivate
+                />
 
-            {/* Completed Tournaments */}
-            <TournamentSection
-              title="Completed Tournaments"
-              badge={completedEvents.length}
-              badgeColor="bg-[#3b82f6]/20 text-[#3b82f6]"
-              emptyText="No completed tournaments"
-              events={completedEvents}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-            />
+                {/* Active Tournaments */}
+                <TournamentSection
+                  title="Open for Registration"
+                  badge={liveEvents.length}
+                  badgeColor="bg-emerald-50 text-emerald-600 border border-emerald-200"
+                  emptyText="No active tournaments"
+                  events={liveEvents}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onViewPlayers={handleViewPlayers}
+                  onViewCaptains={handleViewCaptains}
+                  viewingEventId={viewingEventId}
+                  viewMode={viewMode}
+                  registrations={registrations}
+                  nominatedCaptains={nominatedCaptains}
+                  loadingRegs={loadingRegs}
+                  onConfirmRegistration={handleConfirmRegistration}
+                  onConfirmCaptain={handleConfirmCaptain}
+                  onAddParticipant={(eventId) => {
+                    setSelectedEventIdForAdd(eventId);
+                    setShowAddPlayerModal(true);
+                  }}
+                  onImportParticipants={(eventId) => {
+                    setSelectedEventIdForImport(eventId);
+                    setShowImportModal(true);
+                    setImportStep(1);
+                  }}
+                />
+
+                {/* Completed Tournaments */}
+                <TournamentSection
+                  title="Completed Tournaments"
+                  badge={completedEvents.length}
+                  badgeColor="bg-blue-50 text-blue-600 border border-blue-200"
+                  emptyText="No completed tournaments"
+                  events={completedEvents}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              </div>
+            ) : (
+              <SportsEventSection
+                user={user}
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                showSportForm={showSportForm}
+                setShowSportForm={setShowSportForm}
+                showSportPicker={showSportPicker}
+                setShowSportPicker={setShowSportPicker}
+                sportPickerSearch={sportPickerSearch}
+                setSportPickerSearch={setSportPickerSearch}
+                sportSubmitting={sportSubmitting}
+                sportForms={sportForms}
+                sportsMeta={sportsMeta}
+                playerCategories={playerCategories}
+                venues={venues}
+                activeEvents={activeEvents}
+                handleSportPickerSelect={handleSportPickerSelect}
+                handleCreateCustomSport={handleCreateCustomSport}
+                removeSportForm={removeSportForm}
+                addEventToSportForm={addEventToSportForm}
+                removeEventFromSportForm={removeEventFromSportForm}
+                updateSportFormEvent={updateSportFormEvent}
+                handleSportSave={handleSportSave}
+                handleSportEdit={handleSportEdit}
+                handleSportDelete={handleSportDelete}
+                resetSportForm={resetSportForm}
+                selectedTemplates={selectedTemplates}
+                setSelectedTemplates={setSelectedTemplates}
+                openDropdownEventId={openDropdownEventId}
+                setOpenDropdownEventId={setOpenDropdownEventId}
+                searchQueries={searchQueries}
+                setSearchQueries={setSearchQueries}
+                activeCommId={activeCommId}
+                isSuperAdmin={isSuperAdmin}
+                isAdmin={isAdmin}
+              />
+            )}
           </div>
         )}
 
@@ -2387,67 +2517,72 @@ export function SportsAdmin() {
         {activeTab === "create-tournament" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-semibold text-[#f1f5f9]">
+              <div className="text-left">
+                <h3 className="text-xl font-bold text-slate-800">
                   {editingEventId ? "Edit Tournament" : "CREATE TOURNAMENT"}
-                </h1>
-                <p className="text-sm text-[#94a3b8] mt-1">Configure tournament details and notification schedules</p>
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">Configure tournament details and notification schedules</p>
               </div>
               <button
-                onClick={() => { resetForm(); setActiveTab("dashboard"); }}
-                className="px-4 py-2 text-sm text-[#94a3b8] border border-[#2a3a5c] rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors"
+                onClick={() => { resetForm(); setActiveTab("sports-event"); }}
+                className="px-4 py-2 text-sm text-slate-500 border border-slate-200 rounded-lg hover:border-indigo-500 hover:text-indigo-600 transition-colors cursor-pointer bg-white shadow-sm"
               >
-                ← Back to Dashboard
+                ← Back to List
               </button>
             </div>
 
             <div className="max-w-5xl mx-auto">
-              <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-6 space-y-6">
-                <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest border-b border-[#2a3a5c] pb-2">Tournament Details</div>
+              <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6 shadow-sm">
+                <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2">Tournament Details</div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="text-xs text-[#94a3b8] block mb-1.5">Tournament Name</label>
-                    <input value={eventName} onChange={e => setEventName(e.target.value)} placeholder="e.g. Box Cricket Tournament Season 2" className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none" />
+                  <div className="text-left">
+                    <label className="text-xs text-slate-500 font-semibold block mb-1.5">Tournament Name</label>
+                    <input value={eventName} onChange={e => setEventName(e.target.value)} placeholder="e.g. Box Cricket Tournament Season 2" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors" />
                   </div>
 
                   {user?.role === "SUPER_ADMIN" ? (
-                    <div>
-                      <label className="text-xs text-[#94a3b8] block mb-1.5">Target Community</label>
-                      <select
-                        value={selectedCommId}
-                        onChange={e => setSelectedCommId(e.target.value ? Number(e.target.value) : "")}
-                        className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none appearance-none"
-                      >
-                        <option value="">Select Community...</option>
-                        {communities.map(c => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
-                        ))}
-                      </select>
+                    <div className="text-left">
+                      <label className="text-xs text-slate-500 font-semibold block mb-1.5">Target Community</label>
+                      <div className="relative">
+                        <select
+                          value={selectedCommId}
+                          onChange={e => setSelectedCommId(e.target.value ? Number(e.target.value) : "")}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none appearance-none transition-colors"
+                        >
+                          <option value="">Select Community...</option>
+                          {communities.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                          <ChevronDown className="w-4 h-4" />
+                        </div>
+                      </div>
                     </div>
                   ) : (
-                    <div>
-                      <label className="text-xs text-[#94a3b8] block mb-1.5">Max Participants</label>
-                      <input type="number" value={maxPax} onChange={e => setMaxPax(e.target.value)} placeholder="64" className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none" />
+                    <div className="text-left">
+                      <label className="text-xs text-slate-500 font-semibold block mb-1.5">Max Participants</label>
+                      <input type="number" value={maxPax} onChange={e => setMaxPax(e.target.value)} placeholder="64" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors" />
                     </div>
                   )}
 
-                  <div className="md:col-span-2">
-                    <label className="text-xs text-[#94a3b8] block mb-1.5">About This Tournament (Say something about this tournament)</label>
+                  <div className="md:col-span-2 text-left">
+                    <label className="text-xs text-slate-500 font-semibold block mb-1.5">About This Tournament (Say something about this tournament)</label>
                     <textarea
                       value={description}
                       onChange={e => setDescription(e.target.value)}
                       placeholder="Say something about this tournament (rules, schedule, special terms, prizes...)"
                       rows={3}
-                      className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none resize-none"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none resize-none transition-colors"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-6">
-                  <div className="flex flex-col gap-3 border border-dashed border-[#f97316]/30 bg-[#f97316]/5 rounded-xl p-4 md:p-5">
-                    <h4 className="text-[#f97316] font-bold text-sm uppercase tracking-wider">Sports Event Settings</h4>
-                    <div className="flex flex-col gap-2 mt-1 max-h-52 overflow-y-auto p-1.5 border border-[#2a3a5c] rounded-lg bg-[#0c1220] pr-2">
+                  <div className="flex flex-col gap-3 border border-dashed border-indigo-200 bg-indigo-50/20 rounded-xl p-4 md:p-5 text-left">
+                    <h4 className="text-indigo-600 font-bold text-sm uppercase tracking-wider">Sports Event Settings</h4>
+                    <div className="flex flex-col gap-2 mt-1 max-h-52 overflow-y-auto p-1.5 border border-slate-200 rounded-lg bg-slate-50 pr-2">
                       {activeEvents.map(e => {
                         const isSelected = selectedEventIds.includes(e.id);
                         return (
@@ -2455,14 +2590,14 @@ export function SportsAdmin() {
                             key={e.id}
                             className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-xs font-semibold border transition-all ${
                               isSelected
-                                ? "border-[#f97316]/50 bg-[#f97316]/10 text-[#f97316] shadow-sm shadow-[#f97316]/5"
-                                : "border-[#2a3a5c] bg-[#0c1220] text-[#94a3b8] hover:border-[#475569]/50"
+                                ? "border-indigo-500 bg-indigo-50 text-indigo-600 shadow-sm"
+                                : "border-slate-200 bg-white text-slate-500 hover:border-indigo-500/30"
                             }`}
                           >
                             <button
                               type="button"
                               onClick={() => toggleSportsEvent(e)}
-                              className="flex-1 text-left bg-transparent border-none outline-none cursor-pointer flex items-center justify-between gap-2 overflow-hidden hover:text-[#f1f5f9] transition-colors"
+                              className="flex-1 text-left bg-transparent border-none outline-none cursor-pointer flex items-center justify-between gap-2 overflow-hidden hover:text-slate-800 transition-colors"
                             >
                               <span className="truncate">{e.name}</span>
                               <span className="text-[10px] opacity-75 font-normal flex-shrink-0">({e.sport?.name || "Sport"})</span>
@@ -2476,7 +2611,7 @@ export function SportsAdmin() {
                                 setConfiguringSportId(e.sport?.id || 0);
                                 setShowSportConfigModal(true);
                               }}
-                              className="p-1.5 hover:bg-[#f97316]/20 text-[#64748b] hover:text-[#f97316] rounded-lg transition-all cursor-pointer bg-transparent border border-transparent hover:border-[#f97316]/30"
+                              className="p-1.5 hover:bg-indigo-100 text-slate-400 hover:text-indigo-600 rounded-lg transition-all cursor-pointer bg-transparent border border-transparent hover:border-indigo-200"
                               title="Edit Configuration"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -2485,21 +2620,19 @@ export function SportsAdmin() {
                         );
                       })}
                       {activeEvents.length === 0 && (
-                        <div className="text-xs text-[#94a3b8] italic p-2 text-center w-full">No active events found.</div>
+                        <div className="text-xs text-slate-400 italic p-2 text-center w-full">No active events found.</div>
                       )}
                     </div>
                   </div>
                 </div>
 
-
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-[#94a3b8]">Tournament Start Date</label>
+                    <label className="text-xs text-slate-500 font-semibold">Tournament Start Date</label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant={"outline"} className={cn("w-full bg-[#0c1220] border-[#2a3a5c] hover:bg-[#1a2540] hover:text-[#f1f5f9] text-[#f1f5f9] justify-start text-left font-normal px-3 py-5", !startDate && "text-[#94a3b8]")}>
-                          <CalendarIcon className="mr-2 h-4 w-4" />
+                        <Button variant={"outline"} className={cn("w-full bg-slate-50 border-slate-200 hover:bg-slate-100 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-5 transition-colors shadow-sm", !startDate && "text-slate-400")}>
+                          <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" />
                           {startDate ? format(startDate, "PPP") : <span>Pick date</span>}
                         </Button>
                       </PopoverTrigger>
@@ -2509,11 +2642,11 @@ export function SportsAdmin() {
                     </Popover>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-[#94a3b8]">Tournament End Date</label>
+                    <label className="text-xs text-slate-500 font-semibold">Tournament End Date</label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant={"outline"} className={cn("w-full bg-[#0c1220] border-[#2a3a5c] hover:bg-[#1a2540] hover:text-[#f1f5f9] text-[#f1f5f9] justify-start text-left font-normal px-3 py-5", !endDate && "text-[#94a3b8]")}>
-                          <CalendarIcon className="mr-2 h-4 w-4" />
+                        <Button variant={"outline"} className={cn("w-full bg-slate-50 border-slate-200 hover:bg-slate-100 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-5 transition-colors shadow-sm", !endDate && "text-slate-400")}>
+                          <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" />
                           {endDate ? format(endDate, "PPP") : <span>Pick date</span>}
                         </Button>
                       </PopoverTrigger>
@@ -2523,11 +2656,11 @@ export function SportsAdmin() {
                     </Popover>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-[#94a3b8]">Reg Start Date</label>
+                    <label className="text-xs text-slate-500 font-semibold">Reg Start Date</label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant={"outline"} className={cn("w-full bg-[#0c1220] border-[#2a3a5c] hover:bg-[#1a2540] hover:text-[#f1f5f9] text-[#f1f5f9] justify-start text-left font-normal px-3 py-5", !regStartDate && "text-[#94a3b8]")}>
-                          <CalendarIcon className="mr-2 h-4 w-4" />
+                        <Button variant={"outline"} className={cn("w-full bg-slate-50 border-slate-200 hover:bg-slate-100 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-5 transition-colors shadow-sm", !regStartDate && "text-slate-400")}>
+                          <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" />
                           {regStartDate ? format(regStartDate, "PPP") : <span>Pick date</span>}
                         </Button>
                       </PopoverTrigger>
@@ -2537,11 +2670,11 @@ export function SportsAdmin() {
                     </Popover>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-[#94a3b8]">Reg End Date</label>
+                    <label className="text-xs text-slate-500 font-semibold">Reg End Date</label>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant={"outline"} className={cn("w-full bg-[#0c1220] border-[#2a3a5c] hover:bg-[#1a2540] hover:text-[#f1f5f9] text-[#f1f5f9] justify-start text-left font-normal px-3 py-5", !regEndDate && "text-[#94a3b8]")}>
-                          <CalendarIcon className="mr-2 h-4 w-4" />
+                        <Button variant={"outline"} className={cn("w-full bg-slate-50 border-slate-200 hover:bg-slate-100 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-5 transition-colors shadow-sm", !regEndDate && "text-slate-400")}>
+                          <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" />
                           {regEndDate ? format(regEndDate, "PPP") : <span>Pick date</span>}
                         </Button>
                       </PopoverTrigger>
@@ -2552,57 +2685,67 @@ export function SportsAdmin() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-6 text-left">
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-[#94a3b8]">Start Time</label>
-                    <select
-                      value={startTime}
-                      onChange={e => setStartTime(e.target.value)}
-                      className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none appearance-none"
-                    >
-                      {TIME_OPTIONS.map(t => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
+                    <label className="text-xs text-slate-500 font-semibold">Start Time</label>
+                    <div className="relative">
+                      <select
+                        value={startTime}
+                        onChange={e => setStartTime(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none appearance-none transition-colors"
+                      >
+                        {TIME_OPTIONS.map(t => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                        <ChevronDown className="w-4 h-4" />
+                      </div>
+                    </div>
                   </div>
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs text-[#94a3b8]">Due Time</label>
-                    <select
-                      value={dueTime}
-                      onChange={e => setDueTime(e.target.value)}
-                      className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none appearance-none"
-                    >
-                      {TIME_OPTIONS.map(t => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
+                    <label className="text-xs text-slate-500 font-semibold">Due Time</label>
+                    <div className="relative">
+                      <select
+                        value={dueTime}
+                        onChange={e => setDueTime(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none appearance-none transition-colors"
+                      >
+                        {TIME_OPTIONS.map(t => (
+                          <option key={t} value={t}>{t}</option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-400">
+                        <ChevronDown className="w-4 h-4" />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 {user?.role === "SUPER_ADMIN" && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
                     <div>
-                      <label className="text-xs text-[#94a3b8] block mb-1.5">Max Participants</label>
-                      <input type="number" value={maxPax} onChange={e => setMaxPax(e.target.value)} placeholder="64" className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none" />
+                      <label className="text-xs text-slate-500 font-semibold block mb-1.5">Max Participants</label>
+                      <input type="number" value={maxPax} onChange={e => setMaxPax(e.target.value)} placeholder="64" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors" />
                     </div>
                   </div>
                 )}
 
-                <div className="pt-2">
-                  <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest border-b border-[#2a3a5c] pb-2 mb-3">Tournament Level & Branding</div>
+                <div className="pt-2 text-left">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">Tournament Level & Branding</div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="text-xs text-[#94a3b8] block mb-2">Tournament Type</label>
+                      <label className="text-xs text-slate-500 font-semibold block mb-2">Tournament Type</label>
                       <div className="flex gap-3">
                         {(["Standard", "Professional", "Premium"] as const).map(type => (
                           <button
                             key={type}
                             type="button"
                             onClick={() => setTournamentLevel(type)}
-                            className={`flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-all ${
+                            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border cursor-pointer transition-all ${
                               tournamentLevel === type
-                                ? "border-[#f97316] bg-orange-500/10 text-[#f97316]"
-                                : "border-[#2a3a5c] bg-[#0c1220] text-[#94a3b8] hover:border-[#475569]"
+                                ? "border-indigo-500 bg-indigo-50 text-indigo-600"
+                                : "border-slate-200 bg-slate-50 text-slate-500 hover:border-indigo-300"
                             }`}
                           >
                             {type}
@@ -2611,25 +2754,25 @@ export function SportsAdmin() {
                       </div>
                     </div>
                      <div>
-                      <label className="text-xs text-[#94a3b8] block mb-1.5">Banner Image</label>
+                      <label className="text-xs text-slate-500 font-semibold block mb-1.5">Banner Image</label>
                       {bannerImage ? (
-                        <div className="relative h-[42px] w-full rounded-lg overflow-hidden border border-[#2a3a5c] group flex items-center justify-between px-3 bg-[#0c1220]">
+                        <div className="relative h-[42px] w-full rounded-lg overflow-hidden border border-slate-200 group flex items-center justify-between px-3 bg-slate-50">
                           <div className="flex items-center gap-2 min-w-0">
                             <img src={bannerImage} alt="Banner Preview" className="w-8 h-8 rounded object-cover flex-shrink-0" />
-                            <span className="text-xs text-[#f1f5f9] truncate">Banner Uploaded</span>
+                            <span className="text-xs text-slate-700 truncate font-medium">Banner Uploaded</span>
                           </div>
                           <button
                             type="button"
                             onClick={() => setBannerImage("")}
-                            className="px-2.5 py-1 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white rounded border border-red-500/20 hover:border-red-600 text-[10px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
+                            className="px-2.5 py-1 bg-red-50 hover:bg-red-500 text-red-500 hover:text-white rounded border border-red-200 hover:border-red-600 text-[10px] font-semibold transition-all flex items-center gap-1 cursor-pointer"
                           >
                             <Trash2 className="w-3 h-3" /> Remove
                           </button>
                         </div>
                       ) : (
-                        <label className="flex items-center justify-between border border-dashed border-[#2a3a5c] hover:border-[#f97316] rounded-lg px-3 py-1.5 bg-[#0c1220] transition-colors cursor-pointer group h-[42px]">
-                          <span className="text-xs text-[#94a3b8] group-hover:text-[#f1f5f9] transition-colors">Upload banner image (Max 2MB)</span>
-                          <div className="px-2.5 py-1 bg-[#1a2540] border border-[#2a3a5c] rounded text-[10px] text-[#f97316] font-medium group-hover:border-[#f97316] transition-colors flex items-center gap-1">
+                        <label className="flex items-center justify-between border border-dashed border-slate-200 hover:border-indigo-500 rounded-lg px-3 py-1.5 bg-slate-50 transition-colors cursor-pointer group h-[42px]">
+                          <span className="text-xs text-slate-400 group-hover:text-slate-600 transition-colors">Upload banner image (Max 2MB)</span>
+                          <div className="px-2.5 py-1 bg-white border border-slate-200 rounded text-[10px] text-indigo-600 font-semibold group-hover:border-indigo-400 transition-colors flex items-center gap-1 shadow-sm">
                             Browse
                           </div>
                           <input
@@ -2644,26 +2787,26 @@ export function SportsAdmin() {
                   </div>
                 </div>
 
-                <div className="pt-2">
-                  <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest border-b border-[#2a3a5c] pb-2 mb-3">Tournament Contact Information</div>
+                <div className="pt-2 text-left">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">Tournament Contact Information</div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
                     <div>
-                      <label className="text-xs text-[#94a3b8] block mb-1.5">Contact Number *</label>
+                      <label className="text-xs text-slate-500 font-semibold block mb-1.5">Contact Number *</label>
                       <input
                         value={eventContactNumber}
                         onChange={e => setEventContactNumber(e.target.value)}
                         placeholder="e.g. +91 9876543210"
-                        className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-[#94a3b8] block mb-1.5">Contact Email *</label>
+                      <label className="text-xs text-slate-500 font-semibold block mb-1.5">Contact Email *</label>
                       <input
                         type="email"
                         value={eventContactEmail}
                         onChange={e => setEventContactEmail(e.target.value)}
                         placeholder="e.g. contact@tournament.com"
-                        className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-lg px-3 py-2.5 text-sm text-[#f1f5f9] focus:border-[#f97316] outline-none"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
                       />
                     </div>
                   </div>
@@ -2671,56 +2814,56 @@ export function SportsAdmin() {
                   {/* Other Contacts / Information (multiple entries) */}
                   <div className="space-y-3 mt-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-[#94a3b8]">Other Information (Multiple entries)</span>
+                      <span className="text-xs font-semibold text-slate-500">Other Information (Multiple entries)</span>
                       <button
                         type="button"
                         onClick={addOtherContact}
-                        className="text-xs text-[#f97316] hover:text-[#ea580c] transition-colors flex items-center gap-1 cursor-pointer"
+                        className="text-xs text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1 cursor-pointer font-bold"
                       >
                         <Plus className="w-3.5 h-3.5" /> Add Contact
                       </button>
                     </div>
 
                     {otherContacts.length === 0 ? (
-                      <div className="text-center py-4 bg-[#0c1220]/50 border border-dashed border-[#2a3a5c] rounded-lg text-xs text-[#64748b]">
+                      <div className="text-center py-4 bg-slate-50 border border-dashed border-slate-200 rounded-lg text-xs text-slate-400">
                         No extra contact information added yet. Click "+ Add Contact" if you'd like to list volunteers, referees, or co-organizers.
                       </div>
                     ) : (
                       <div className="space-y-3">
                         {otherContacts.map((contact, index) => (
-                          <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-[#0c1220] border border-[#2a3a5c] rounded-lg relative group">
+                          <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg relative group text-left">
                             <div>
-                              <label className="text-[10px] text-[#64748b] block mb-1">Title (Contact Title)</label>
+                              <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Title (Contact Title)</label>
                               <input
                                 value={contact.title}
                                 onChange={e => updateOtherContact(index, "title", e.target.value)}
                                 placeholder="e.g. Organizer"
-                                className="w-full bg-[#141c2e] border border-[#2a3a5c] rounded-lg px-2.5 py-1.5 text-xs text-[#f1f5f9] focus:border-[#f97316] outline-none"
+                                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 outline-none transition-colors"
                               />
                             </div>
                             <div>
-                              <label className="text-[10px] text-[#64748b] block mb-1">Name (Full Name)</label>
+                              <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Name (Full Name)</label>
                               <input
                                 value={contact.name}
                                 onChange={e => updateOtherContact(index, "name", e.target.value)}
                                 placeholder="e.g. John Doe"
-                                className="w-full bg-[#141c2e] border border-[#2a3a5c] rounded-lg px-2.5 py-1.5 text-xs text-[#f1f5f9] focus:border-[#f97316] outline-none"
+                                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 outline-none transition-colors"
                               />
                             </div>
                             <div className="flex gap-2 items-end">
                               <div className="flex-1">
-                                <label className="text-[10px] text-[#64748b] block mb-1">Detail (Number/Email)</label>
+                                <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Detail (Number/Email)</label>
                                 <input
                                   value={contact.detail}
                                   onChange={e => updateOtherContact(index, "detail", e.target.value)}
                                   placeholder="e.g. john@mail.com"
-                                  className="w-full bg-[#141c2e] border border-[#2a3a5c] rounded-lg px-2.5 py-1.5 text-xs text-[#f1f5f9] focus:border-[#f97316] outline-none"
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 outline-none transition-colors"
                                 />
                               </div>
                               <button
                                 type="button"
                                 onClick={() => removeOtherContact(index)}
-                                className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors border border-red-500/20 cursor-pointer mb-0.5"
+                                className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-colors border border-red-200 cursor-pointer mb-0.5"
                                 title="Remove Contact"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -2734,35 +2877,35 @@ export function SportsAdmin() {
                 </div>
 
                 {/* Tournament Sponsors Section */}
-                <div className="pt-2">
-                  <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest border-b border-[#2a3a5c] pb-2 mb-3">Tournament Sponsors</div>
+                <div className="pt-2 text-left">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">Tournament Sponsors</div>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-[#94a3b8]">Sponsors List (Multiple entries)</span>
+                      <span className="text-xs font-semibold text-slate-500">Sponsors List (Multiple entries)</span>
                       <button
                         type="button"
                         onClick={addSponsor}
-                        className="text-xs text-[#f97316] hover:text-[#ea580c] transition-colors flex items-center gap-1 cursor-pointer font-medium"
+                        className="text-xs text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1 cursor-pointer font-bold"
                       >
                         <Plus className="w-3.5 h-3.5" /> Add Sponsor
                       </button>
                     </div>
 
                     {sponsors.length === 0 ? (
-                      <div className="text-center py-4 bg-[#0c1220]/50 border border-dashed border-[#2a3a5c] rounded-lg text-xs text-[#64748b]">
+                      <div className="text-center py-4 bg-slate-50 border border-dashed border-slate-200 rounded-lg text-xs text-slate-400">
                         No tournament sponsors added yet. Click "+ Add Sponsor" to highlight title or category sponsors.
                       </div>
                     ) : (
                       <div className="space-y-3">
                         {sponsors.map((sponsor, index) => (
-                          <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-[#0c1220] border border-[#2a3a5c] rounded-lg relative group">
+                          <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-slate-50 border border-slate-200 rounded-lg relative group text-left">
                             <div>
-                              <label className="text-[10px] text-[#64748b] block mb-1">Sponsor Category *</label>
+                              <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Sponsor Category *</label>
                               <input
                                 value={sponsor.category}
                                 onChange={e => updateSponsor(index, "category", e.target.value)}
                                 placeholder="e.g. Title Sponsor"
-                                className="w-full bg-[#141c2e] border border-[#2a3a5c] rounded-lg px-2.5 py-1.5 text-xs text-[#f1f5f9] focus:border-[#f97316] outline-none"
+                                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 outline-none transition-colors"
                               />
                               <div className="flex flex-wrap gap-1 mt-1.5">
                                 {["Title Sponsor", "Gold Sponsor", "Silver Sponsor", "Associate Sponsor"].map(suggestion => (
@@ -2771,10 +2914,10 @@ export function SportsAdmin() {
                                     type="button"
                                     onClick={() => updateSponsor(index, "category", suggestion)}
                                     className={cn(
-                                      "px-1.5 py-0.5 rounded text-[9px] border transition-all cursor-pointer font-medium",
+                                      "px-1.5 py-0.5 rounded text-[9px] border transition-all cursor-pointer font-semibold",
                                       sponsor.category === suggestion
-                                        ? "bg-[#f97316]/20 border-[#f97316] text-[#f97316]"
-                                        : "bg-[#162238] border-[#2a3a5c] text-[#94a3b8] hover:border-[#f97316]/50 hover:text-[#f1f5f9]"
+                                        ? "bg-indigo-50 border-indigo-200 text-indigo-600"
+                                        : "bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600"
                                     )}
                                   >
                                     {suggestion}
@@ -2783,29 +2926,29 @@ export function SportsAdmin() {
                               </div>
                             </div>
                             <div>
-                              <label className="text-[10px] text-[#64748b] block mb-1">Sponsor Name *</label>
+                              <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Sponsor Name *</label>
                               <input
                                 value={sponsor.name}
                                 onChange={e => updateSponsor(index, "name", e.target.value)}
                                 placeholder="e.g. Google DeepMind"
-                                className="w-full bg-[#141c2e] border border-[#2a3a5c] rounded-lg px-2.5 py-1.5 text-xs text-[#f1f5f9] focus:border-[#f97316] outline-none"
+                                className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 outline-none transition-colors"
                               />
                             </div>
                             <div className="flex gap-2 items-end">
                               <div className="flex-1">
-                                <label className="text-[10px] text-[#64748b] block mb-1">Sponsor URL (Optional)</label>
+                                <label className="text-[10px] text-slate-400 block mb-1 font-semibold">Sponsor URL (Optional)</label>
                                 <input
                                   type="url"
                                   value={sponsor.url || ""}
                                   onChange={e => updateSponsor(index, "url", e.target.value)}
                                   placeholder="e.g. https://deepmind.google"
-                                  className="w-full bg-[#141c2e] border border-[#2a3a5c] rounded-lg px-2.5 py-1.5 text-xs text-[#f1f5f9] focus:border-[#f97316] outline-none"
+                                  className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:border-indigo-500 outline-none transition-colors"
                                 />
                               </div>
                               <button
                                 type="button"
                                 onClick={() => removeSponsor(index)}
-                                className="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors border border-red-500/20 cursor-pointer mb-0.5 h-[34px] flex items-center justify-center"
+                                className="p-2 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg transition-colors border border-red-200 cursor-pointer mb-0.5 h-[34px] flex items-center justify-center"
                                 title="Remove Sponsor"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -2818,47 +2961,47 @@ export function SportsAdmin() {
                   </div>
                 </div>
 
-                <div className="pt-2">
-                  <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest border-b border-[#2a3a5c] pb-2 mb-3">Chat Configuration</div>
-                  <div className="flex items-center justify-between px-4 py-3 bg-[#0c1220] rounded-lg border border-[#2a3a5c] opacity-65 cursor-not-allowed">
+                <div className="pt-2 text-left">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">Chat Configuration</div>
+                  <div className="flex items-center justify-between px-4 py-3 bg-slate-50 rounded-lg border border-slate-200 opacity-65 cursor-not-allowed">
                     <div>
-                      <span className="text-xs font-medium text-[#f1f5f9] block">Chat With Administrator</span>
-                      <span className="text-[10px] text-[#64748b] block mt-0.5">Allow applicants to chat with Administrator? (Presently disabled)</span>
+                      <span className="text-xs font-semibold text-slate-800 block">Chat With Administrator</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Allow applicants to chat with Administrator? (Presently disabled)</span>
                     </div>
                     <label className="relative inline-flex items-center cursor-not-allowed">
                       <input type="checkbox" disabled checked={allowAdminChat} className="sr-only peer" />
-                      <div className="w-9 h-5 rounded-full bg-[#1a2540] relative">
-                        <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white/30 rounded-full" />
+                      <div className="w-9 h-5 rounded-full bg-slate-200 relative">
+                        <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm" />
                       </div>
                     </label>
                   </div>
                 </div>
 
-                <div className="pt-2">
-                  <div className="text-xs font-semibold text-[#94a3b8] uppercase tracking-widest border-b border-[#2a3a5c] pb-2 mb-4">Notification Settings</div>
+                <div className="pt-2 text-left">
+                  <div className="text-xs font-bold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-4">Notification Settings</div>
                   
-                  <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-left shadow-lg">
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-left shadow-sm">
                     <div>
-                      <h3 className="text-sm font-bold text-[#f1f5f9] flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2 flex-wrap">
                         📡 Automated Notification Scheduler
-                        <span className="text-[10px] font-mono px-2 py-0.5 bg-[#f97316]/10 border border-[#f97316]/20 text-[#f97316] rounded-full">
+                        <span className="text-[10px] font-mono px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-600 rounded-full font-bold">
                           {totalEnabledCount} Active Triggers
                         </span>
                       </h3>
-                      <p className="text-xs text-[#94a3b8] mt-1.5 leading-relaxed max-w-xl">
+                      <p className="text-xs text-slate-500 mt-1.5 leading-relaxed max-w-xl">
                         Configure multi-channel automated triggers (Email, Push, WhatsApp, SMS) relative to tournament kick-off. Customize delivery channels, custom templates, and analyze audience reach metrics.
                       </p>
-                      <div className="flex gap-4 mt-3 flex-wrap text-[10px] font-mono text-[#64748b]">
+                      <div className="flex gap-4 mt-3 flex-wrap text-[10px] font-mono text-slate-400">
                         <div className="flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           <span>Active Channels: {globalChannels.join(", ").toUpperCase()}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
                           <span>Custom Triggers: {customTriggers.length}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#f97316]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                           <span>Total Dispatches: {totalOutputSends} sends</span>
                         </div>
                       </div>
@@ -2866,20 +3009,32 @@ export function SportsAdmin() {
                     <button
                       type="button"
                       onClick={() => setShowNotificationModal(true)}
-                      className="w-full md:w-auto px-5 py-3 bg-gradient-to-r from-[#f97316] to-[#ea580c] hover:from-[#ea580c] hover:to-[#c2410c] text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-lg hover:shadow-orange-500/10 border-none cursor-pointer flex items-center justify-center gap-2 flex-shrink-0"
+                      className="w-full md:w-auto px-5 py-3 text-white text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-md border-none cursor-pointer flex items-center justify-center gap-2 flex-shrink-0"
+                      style={{
+                        background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                        boxShadow: "0 2px 10px rgba(99,102,241,0.3)"
+                      }}
                     >
                       <span>⚙️ Configure Scheduler</span>
                     </button>
                   </div>
                 </div>
 
-                <div className="flex gap-3 pt-4 border-t border-[#2a3a5c]">
+                <div className="flex gap-3 pt-4 border-t border-slate-200">
                   {editingEventId && (
-                    <button onClick={() => { resetForm(); setActiveTab("dashboard"); }} className="flex-1 py-3 bg-transparent border border-[#2a3a5c] text-[#94a3b8] text-sm font-medium rounded-lg hover:border-[#ef4444] hover:text-[#ef4444] cursor-pointer transition-colors">
+                    <button onClick={() => { resetForm(); setActiveTab("sports-event"); }} className="flex-1 py-3 bg-white border border-slate-200 text-slate-500 text-sm font-semibold rounded-lg hover:border-red-500 hover:text-red-500 cursor-pointer transition-colors shadow-sm">
                       Cancel
                     </button>
                   )}
-                  <button onClick={handleSave} disabled={submitting} className="flex-[2] py-3 bg-[#f97316] hover:bg-[#ea580c] disabled:opacity-70 text-white text-sm font-medium rounded-lg border-none cursor-pointer transition-colors flex items-center justify-center gap-2">
+                  <button
+                    onClick={handleSave}
+                    disabled={submitting}
+                    className="flex-[2] py-3 text-white text-sm font-semibold rounded-lg border-none cursor-pointer transition-colors flex items-center justify-center gap-2 shadow-sm"
+                    style={{
+                      background: "linear-gradient(135deg, #4f46e5, #7c3aed)",
+                      boxShadow: "0 2px 10px rgba(99,102,241,0.3)"
+                    }}
+                  >
                     {submitting ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : (editingEventId ? "Update Tournament" : "Save Tournament ↗")}
                   </button>
                 </div>
@@ -2888,44 +3043,227 @@ export function SportsAdmin() {
           </div>
         )}
 
-        {/* ════════════ SPORTS EVENT MANAGEMENT TAB ════════════ */}
-        {activeTab === "sports-event" && (
-          <SportsEventSection
-            user={user}
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            showSportForm={showSportForm}
-            setShowSportForm={setShowSportForm}
-            showSportPicker={showSportPicker}
-            setShowSportPicker={setShowSportPicker}
-            sportPickerSearch={sportPickerSearch}
-            setSportPickerSearch={setSportPickerSearch}
-            sportSubmitting={sportSubmitting}
-            sportForms={sportForms}
-            sportsMeta={sportsMeta}
-            playerCategories={playerCategories}
-            venues={venues}
-            activeEvents={activeEvents}
-            handleSportPickerSelect={handleSportPickerSelect}
-            handleCreateCustomSport={handleCreateCustomSport}
-            removeSportForm={removeSportForm}
-            addEventToSportForm={addEventToSportForm}
-            removeEventFromSportForm={removeEventFromSportForm}
-            updateSportFormEvent={updateSportFormEvent}
-            handleSportSave={handleSportSave}
-            handleSportEdit={handleSportEdit}
-            handleSportDelete={handleSportDelete}
-            resetSportForm={resetSportForm}
-            selectedTemplates={selectedTemplates}
-            setSelectedTemplates={setSelectedTemplates}
-            openDropdownEventId={openDropdownEventId}
-            setOpenDropdownEventId={setOpenDropdownEventId}
-            searchQueries={searchQueries}
-            setSearchQueries={setSearchQueries}
-            activeCommId={activeCommId}
-            isSuperAdmin={isSuperAdmin}
-            isAdmin={isAdmin}
-          />
+        {/* ════════════ TEAMS MANAGEMENT TAB ════════════ */}
+        {activeTab === "teams" && (
+          <div className="space-y-4">
+            {/* Pending approvals */}
+            {pendingList.length > 0 && (
+              <div className="rounded-2xl p-5"
+                style={{ background: "white", border: "1px solid rgba(245,158,11,0.25)", boxShadow: "0 2px 12px rgba(99,102,241,0.06)" }}>
+                <h3 className="font-semibold mb-3 flex items-center gap-2 text-left" style={{ color: "#0d0d2b" }}>
+                  <Clock className="h-4 w-4" style={{ color: "#f59e0b" }} />
+                  Pending Approvals
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(245,158,11,0.1)", color: "#f59e0b" }}>
+                    {pendingList.length}
+                  </span>
+                </h3>
+                <div className="space-y-3">
+                  {pendingList.map((reg) => {
+                    const Icon = sportIconMap[reg.sport] ?? Trophy;
+                    const color = sportColorMap[reg.sport] ?? "#4f46e5";
+                    return (
+                      <div key={reg.id} className="flex items-center gap-3 p-3 rounded-xl text-left"
+                        style={{ background: "rgba(245,158,11,0.04)", border: "1px solid rgba(245,158,11,0.15)" }}>
+                        <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ background: `${color}15` }}>
+                          <Icon className="h-4 w-4" style={{ color }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold" style={{ color: "#0d0d2b" }}>{reg.teamName}</p>
+                          <p className="text-xs" style={{ color: "#6b7094" }}>{reg.sport} · {reg.captain} · {reg.members} members · {reg.date}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => setPendingList(prev => prev.filter(p => p.id !== reg.id))}
+                            className="p-2 rounded-lg transition-colors cursor-pointer"
+                            style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                            <X className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => approveTeam(reg.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer"
+                            style={{ background: "rgba(16,185,129,0.1)", color: "#10b981" }}>
+                            <Check className="h-4 w-4" />
+                            Approve
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* All teams */}
+            <div className="rounded-2xl p-5 text-left"
+              style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "0 2px 12px rgba(99,102,241,0.06)" }}>
+              <div className="flex items-center gap-3 mb-4">
+                <h3 className="font-semibold flex-1" style={{ color: "#0d0d2b" }}>All Teams</h3>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                  style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.12)" }}>
+                  <Search className="h-3.5 w-3.5" style={{ color: "#6366f1" }} />
+                  <input
+                    type="text"
+                    placeholder="Search teams..."
+                    value={adminSearchQuery}
+                    onChange={(e) => setAdminSearchQuery(e.target.value)}
+                    className="bg-transparent border-none outline-none text-sm"
+                    style={{ color: "#0d0d2b", width: "140px" }}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                {teamsList
+                  .filter((t) =>
+                    t.name.toLowerCase().includes(adminSearchQuery.toLowerCase()) ||
+                    t.sport.toLowerCase().includes(adminSearchQuery.toLowerCase())
+                  )
+                  .map((team) => {
+                    const Icon = sportIconMap[team.sport] ?? Trophy;
+                    const color = sportColorMap[team.sport] ?? "#4f46e5";
+                    return (
+                      <div key={team.id} className="flex items-center gap-3 p-3 rounded-xl group"
+                        style={{ background: "rgba(99,102,241,0.02)" }}>
+                        <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ background: `${color}15` }}>
+                          <Icon className="h-4 w-4" style={{ color }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold" style={{ color: "#0d0d2b" }}>{team.name}</p>
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${team.status === "pending" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>
+                              {team.status}
+                            </span>
+                          </div>
+                          <p className="text-xs" style={{ color: "#6b7094" }}>{team.sport} · {team.division} · Captain: {team.captain}</p>
+                        </div>
+                        <div className="flex items-center gap-4 text-right">
+                          <div>
+                            <p className="text-xs font-medium" style={{ color: "#0d0d2b" }}>{team.record}</p>
+                            <p className="text-xs" style={{ color: "#6b7094" }}>Record</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium" style={{ color: "#0d0d2b" }}>{team.members}</p>
+                            <p className="text-xs" style={{ color: "#6b7094" }}>Members</p>
+                          </div>
+                          <div className="flex gap-1">
+                            <button className="p-1.5 rounded-lg cursor-pointer" style={{ color: "#4f46e5" }}
+                              onClick={() => toast.info(`Editing team ${team.name}`)}>
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                            <button className="p-1.5 rounded-lg cursor-pointer" style={{ color: "#ef4444" }}
+                              onClick={() => {
+                                setTeamsList(prev => prev.filter(t => t.id !== team.id));
+                                toast.error(`Team "${team.name}" deleted`);
+                              }}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════ SCHEDULE TAB ════════════ */}
+        {activeTab === "schedule" && (
+          <div className="rounded-2xl p-5 text-left"
+            style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "0 2px 12px rgba(99,102,241,0.06)" }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold" style={{ color: "#0d0d2b" }}>Schedule Manager</h3>
+              <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium text-white cursor-pointer"
+                style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
+                onClick={() => toast.info("Create fixture feature coming soon!")}>
+                <Plus className="h-3.5 w-3.5" />
+                Add Game
+              </button>
+            </div>
+            <div className="text-center py-12">
+              <CalendarIcon className="h-12 w-12 mx-auto mb-3" style={{ color: "#9ca3af" }} />
+              <p className="font-medium" style={{ color: "#0d0d2b" }}>Schedule management</p>
+              <p className="text-sm mt-1" style={{ color: "#6b7094" }}>Use the Schedule tab to view all games. Add new fixtures here.</p>
+              <button className="mt-4 px-4 py-2 rounded-xl text-sm font-medium text-white cursor-pointer"
+                style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
+                onClick={() => toast.info("Fixture creation form opened")}>
+                Create Fixture
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ════════════ RESULTS TAB ════════════ */}
+        {activeTab === "results" && (
+          <div className="rounded-2xl p-5 text-left"
+            style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "0 2px 12px rgba(99,102,241,0.06)" }}>
+            <h3 className="font-semibold mb-4" style={{ color: "#0d0d2b" }}>Enter Match Results</h3>
+            <div className="space-y-3">
+              {[
+                { id: 1, sport: "Basketball", home: "City Hoopers", away: "Fastbreakers", date: "Jun 14 · 6PM", venue: "Main Gym" },
+                { id: 2, sport: "Soccer", home: "Galacticos", away: "Athletic Club", date: "Jun 15 · 5PM", venue: "Turf Field A" },
+              ].map((game) => (
+                <div key={game.id} className="rounded-xl p-4 text-left"
+                  style={{ background: "rgba(99,102,241,0.03)", border: "1px solid rgba(99,102,241,0.08)" }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-medium" style={{ color: "#4f46e5" }}>{game.sport} · {game.date}</span>
+                    <span className="text-xs" style={{ color: "#6b7094" }}>{game.venue}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="flex-1 text-right text-sm font-semibold truncate" style={{ color: "#0d0d2b" }}>{game.home}</span>
+                    <div className="flex items-center gap-2">
+                      <input type="number" placeholder="0" min="0"
+                        className="w-12 text-center rounded-lg py-1.5 text-sm font-bold outline-none"
+                        style={{ border: "2px solid rgba(99,102,241,0.2)", color: "#0d0d2b", background: "white" }}
+                        onFocus={e => (e.currentTarget.style.borderColor = "#6366f1")}
+                        onBlur={e => (e.currentTarget.style.borderColor = "rgba(99,102,241,0.2)")} />
+                      <span className="text-sm font-bold" style={{ color: "#6b7094" }}>–</span>
+                      <input type="number" placeholder="0" min="0"
+                        className="w-12 text-center rounded-lg py-1.5 text-sm font-bold outline-none"
+                        style={{ border: "2px solid rgba(99,102,241,0.2)", color: "#0d0d2b", background: "white" }}
+                        onFocus={e => (e.currentTarget.style.borderColor = "#6366f1")}
+                        onBlur={e => (e.currentTarget.style.borderColor = "rgba(99,102,241,0.2)")} />
+                    </div>
+                    <span className="flex-1 text-sm font-semibold truncate" style={{ color: "#0d0d2b" }}>{game.away}</span>
+                    <button className="px-3 py-1.5 rounded-lg text-xs font-medium text-white flex-shrink-0 cursor-pointer"
+                      style={{ background: "#10b981" }}
+                      onClick={() => toast.success("Match results saved successfully!")}>
+                      Save
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ════════════ LEAGUE SETTINGS TAB ════════════ */}
+        {activeTab === "settings" && (
+          <div className="rounded-2xl p-5 text-left"
+            style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "0 2px 12px rgba(99,102,241,0.06)" }}>
+            <h3 className="font-semibold mb-4" style={{ color: "#0d0d2b" }}>League Settings</h3>
+            <div className="space-y-4">
+              {[
+                { label: "Season Name", value: "Summer 2026" },
+                { label: "Registration Deadline", value: "July 1, 2026" },
+                { label: "Season Start Date", value: "July 15, 2026" },
+                { label: "Max Teams per Sport", value: "16" },
+              ].map((s) => (
+                <div key={s.label} className="flex items-center justify-between py-3 text-left"
+                  style={{ borderBottom: "1px solid rgba(99,102,241,0.06)" }}>
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: "#0d0d2b" }}>{s.label}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm" style={{ color: "#6b7094" }}>{s.value}</span>
+                    <button className="p-1.5 rounded-lg cursor-pointer" style={{ color: "#4f46e5" }}
+                      onClick={() => toast.info(`Editing ${s.label}`)}>
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* ════════════ VENUE MANAGEMENT TAB ════════════ */}
