@@ -29,6 +29,8 @@ export type PlayoffMatchDraft = {
   venueId: number | null;
   courtId: string | null;
   moveSubsMatches: boolean;
+  /** "AUTO_ADVANCED" for auto-advanced BYE matches; otherwise null/undefined. */
+  status?: string | null;
 };
 
 export type PlayoffScheduleInput = {
@@ -42,6 +44,10 @@ export type PlayoffScheduleInput = {
   breakMinutes: number;
   venueId: number | null;
   courtId: string | null;
+  /** Seeded players for the player-aware knockout draw (knockout-only). */
+  participants?: Array<{ id: string; name: string; flatNumber: string | null }>;
+  /** Selected court IDs for parallel allocation (Rule 4). */
+  courtIds?: number[];
 };
 
 export function parseBreakMinutes(breakTime: string): number {

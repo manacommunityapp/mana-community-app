@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
-import { Loader2, AlertTriangle, Bell, Trophy } from "lucide-react";
+import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sportsService";
 import { auctionService } from "../../../services/auctionService";
@@ -25,13 +25,33 @@ import type { OpenRegistration } from "./sportsData";
 
 // ─── Stat Card ───────────────────────────────────────────────────────────────
 
-interface StatCardProps { value: number; label: string; badge: string; color: string; badgeBg: string; badgeText: string; }
+interface StatCardProps {
+  value: number;
+  label: string;
+  badge: string;
+  color: string;
+  badgeBg: string;
+  badgeText: string;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+}
 
-function StatCard({ value, label, badge, color, badgeBg, badgeText }: StatCardProps) {
+function StatCard({ value, label, badge, color, badgeBg, badgeText, icon: Icon }: StatCardProps) {
   return (
-    <div className="bg-[#1a2540] border border-[#2a3a5c] rounded-xl p-4 card-hover-lift">
+    <div className="rounded-xl p-4 card-hover-lift"
+      style={{
+        background: "white",
+        border: "1px solid rgba(99, 102, 241, 0.12)",
+        boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+      }}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: badgeBg }}>
+          <Icon className="h-4.5 w-4.5" style={{ color }} />
+        </div>
+        <ArrowUpRight className="h-3.5 w-3.5 text-slate-400" />
+      </div>
       <div className="text-3xl font-semibold" style={{ color }}>{value}</div>
-      <div className="text-xs text-[#94a3b8] mt-1">{label}</div>
+      <div className="text-xs mt-1" style={{ color: "#6b7094" }}>{label}</div>
       <span className="inline-block text-[10px] px-2 py-0.5 rounded mt-2" style={{ background: badgeBg, color: badgeText }}>
         {badge}
       </span>
@@ -47,13 +67,19 @@ function EventRow({ event, onClick }: EventRowProps) {
   const dotClass = event.status === "LIVE" ? "bg-[#10b981] shadow-[0_0_6px_#10b981] animate-pulse"
     : event.status === "COMPLETED" ? "bg-[#475569]" : "bg-[#f97316]";
   return (
-    <div onClick={onClick} className="flex items-center gap-3 p-3 bg-[#1a2540] rounded-lg mb-2 border border-[#2a3a5c] cursor-pointer hover:border-[#f97316] hover:translate-x-1 hover:shadow-md hover:shadow-orange-500/5 transition-all duration-200">
+    <div onClick={onClick} className="flex items-center gap-3 p-3 rounded-lg mb-2 cursor-pointer hover:translate-x-1 transition-all duration-200"
+      style={{
+        background: "white",
+        border: "1px solid rgba(99, 102, 241, 0.12)",
+        boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+      }}
+    >
       <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotClass}`} />
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-[#f1f5f9] truncate">
+        <div className="text-sm font-bold truncate" style={{ color: "#0d0d2b" }}>
           {event.name}{event.subtitle ? ` — ${event.subtitle}` : ""}
         </div>
-        <div className="text-xs text-[#94a3b8] mt-0.5">{event.venue} · {event.category}</div>
+        <div className="text-xs mt-0.5" style={{ color: "#6b7094" }}>{event.venue} · {event.category}</div>
       </div>
       <div className="text-right flex-shrink-0">
         <div className="text-xs font-medium" style={{ color: event.wonColor ?? event.timeColor }}>{event.statusText}</div>
@@ -93,15 +119,21 @@ function RegCard({
   toggling
 }: RegCardProps) {
   return (
-    <div className="flex items-start gap-3 p-3 bg-[#1a2540] rounded-lg mb-2 border border-[#2a3a5c] hover:border-[#f97316]/50 hover:translate-x-0.5 hover:shadow-md hover:shadow-orange-500/5 transition-all duration-200">
+    <div className="flex items-start gap-3 p-3 rounded-lg mb-2 hover:translate-x-0.5 transition-all duration-200"
+      style={{
+        background: "white",
+        border: "1px solid rgba(99, 102, 241, 0.12)",
+        boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+      }}
+    >
       <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1" style={{ background: item.dotColor }} />
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-[#f1f5f9]">
-          {item.name} <span className="text-[#94a3b8]">— {item.date}</span>
+        <div className="text-sm font-bold text-slate-800">
+          {item.name} <span style={{ color: "#6b7094", fontWeight: 500 }}>— {item.date}</span>
         </div>
-        <div className="text-xs text-[#94a3b8] mt-0.5">{item.category}</div>
-        {item.spots && <div className="text-[10px] text-[#475569] mt-1">{item.spots}</div>}
-        <div className="h-1 bg-[#2a3a5c] rounded-full overflow-hidden mt-2">
+        <div className="text-xs mt-0.5" style={{ color: "#6b7094" }}>{item.category}</div>
+        {item.spots && <div className="text-[10px] mt-1" style={{ color: "#6b7094" }}>{item.spots}</div>}
+        <div className="h-1 bg-slate-100 rounded-full overflow-hidden mt-2 border border-slate-200/50">
           <div className="h-full rounded-full transition-all" style={{ width: `${item.progress}%`, background: item.progressColor }} />
         </div>
       </div>
@@ -110,7 +142,7 @@ function RegCard({
           {item.status === "REGISTRATION_CLOSED" && item.auctionStatus === "COMPLETED" && !isAdmin ? (
             <button
               disabled
-              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${secondaryActionLabel ? "flex-1 whitespace-nowrap" : ""} bg-[#475569]/20 text-[#64748b] border border-[#475569]/30 cursor-not-allowed opacity-70`}
+              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${secondaryActionLabel ? "flex-1 whitespace-nowrap" : ""} bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed opacity-70`}
             >
               Registration Closed
             </button>
@@ -123,14 +155,14 @@ function RegCard({
               else onView(item);
             }}
             disabled={item.action === "Confirmed"}
-            className={`text-xs px-3 py-1.5 rounded-lg font-medium border-none transition-all ${secondaryActionLabel ? "flex-1 whitespace-nowrap" : ""} ${
+            className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-all ${secondaryActionLabel ? "flex-1 whitespace-nowrap" : ""} ${
               item.action === "Register"
-                ? "bg-[#f97316] text-white hover:bg-[#ea580c] cursor-pointer"
+                ? "bg-[#f97316] text-white border-none hover:bg-[#ea580c] cursor-pointer"
                 : item.action === "Confirmed"
-                  ? "bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30 cursor-default"
+                  ? "bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default"
                   : item.action === "Withdraw"
-                    ? "bg-[#ef4444]/20 text-[#ef4444] border border-[#ef4444]/30 hover:bg-[#ef4444] hover:text-white cursor-pointer"
-                    : "bg-transparent text-[#94a3b8] border border-[#2a3a5c] hover:border-[#f97316] hover:text-[#f97316] cursor-pointer"
+                    ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100 cursor-pointer"
+                    : "bg-slate-50 text-indigo-600 border-indigo-200 hover:bg-indigo-50 cursor-pointer"
             }`}
           >
             {item.action}
@@ -227,24 +259,30 @@ function NextMatchTimer({ nextMatch }: { nextMatch: NextMatchData | null }) {
   const accent = isUrgent ? "#ef4444" : "#f97316";
 
   return (
-    <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4">
-      <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest mb-3">Next Match Timer</div>
+    <div className="rounded-xl p-4"
+      style={{
+        background: "white",
+        border: "1px solid rgba(99, 102, 241, 0.12)",
+        boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+      }}
+    >
+      <div className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#6b7094" }}>Next Match Timer</div>
       <div className="text-center">
-        <div className="text-xs text-[#94a3b8] mb-3">{nextMatch.title}</div>
+        <div className="text-xs mb-3 font-semibold text-slate-800">{nextMatch.title}</div>
         <div className="flex justify-center items-center gap-2">
           {[{ v: timeLeft.h, l: "HRS" }, { v: timeLeft.m, l: "MIN" }, { v: timeLeft.s, l: "SEC" }].map(({ v, l }, i) => (
             <div key={l} className="flex items-center gap-2">
               <div className="text-center">
-                <div className="text-3xl font-semibold bg-[#1a2540] px-3 py-2 rounded-lg min-w-[52px] tabular-nums" style={{ color: accent, border: `1px solid ${accent}40` }}>
+                <div className="text-3xl font-semibold bg-slate-50 px-3 py-2 rounded-lg min-w-[52px] tabular-nums" style={{ color: accent, border: `1px solid ${accent}30` }}>
                   {v < 10 ? `0${v}` : v}
                 </div>
-                <div className="text-[10px] text-[#94a3b8] mt-1 tracking-widest">{l}</div>
+                <div className="text-[10px] mt-1 tracking-widest" style={{ color: "#6b7094" }}>{l}</div>
               </div>
               {i < 2 && <div className="text-2xl text-[#334155] font-light mb-4">:</div>}
             </div>
           ))}
         </div>
-        <div className="text-xs text-[#64748b] mt-3">{nextMatch.subtitle}</div>
+        <div className="text-xs mt-3 font-medium" style={{ color: "#6b7094" }}>{nextMatch.subtitle}</div>
       </div>
     </div>
   );
@@ -376,10 +414,10 @@ export function SportsDashboard() {
       // 3. Calculate Stats
       const liveCount = openEvents.filter(e => e.registrationStatus === "LIVE").length;
       setStats([
-        { id: 1, value: myEvents.length, label: "Your Registrations", badge: "Live Updates", badgeType: "orange", color: "#f97316" },
-        { id: 2, value: liveCount, label: "Live Events", badge: liveCount > 0 ? "● Running" : "None live", badgeType: "green", color: "#10b981" },
-        { id: 3, value: openEvents.length, label: "Open Registrations", badge: "Join now", badgeType: "blue", color: "#3b82f6" },
-        { id: 4, value: 0, label: "Community Players", badge: "Global", badgeType: "purple", color: "#8b5cf6" },
+        { id: 1, value: myEvents.length, label: "Your Registrations", badge: "Live Updates", badgeType: "orange", color: "#f97316", icon: Trophy },
+        { id: 2, value: liveCount, label: "Live Events", badge: liveCount > 0 ? "● Running" : "None live", badgeType: "green", color: "#10b981", icon: Zap },
+        { id: 3, value: openEvents.length, label: "Open Registrations", badge: "Join now", badgeType: "blue", color: "#3b82f6", icon: CalendarDays },
+        { id: 4, value: 0, label: "Community Players", badge: "Global", badgeType: "purple", color: "#8b5cf6", icon: Users },
       ] as any);
 
       // 4. Determine Next Match
@@ -483,8 +521,8 @@ export function SportsDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-[#f1f5f9]">Sports Dashboard</h1>
-          <p className="text-sm text-[#94a3b8] mt-1">
+          <h1 className="text-2xl font-bold text-slate-800">Sports Dashboard</h1>
+          <p className="text-sm mt-1" style={{ color: "#6b7094" }}>
             {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} · Sector 12 Community
           </p>
         </div>
@@ -507,10 +545,10 @@ export function SportsDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {loading ? (
           Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className="shimmer-bg border border-[#2a3a5c]/30 rounded-xl p-4">
-              <div className="h-8 bg-white/5 rounded w-1/3"></div>
-              <div className="h-4 bg-white/5 rounded w-2/3 mt-2"></div>
-              <div className="h-4 bg-white/5 rounded w-1/2 mt-3"></div>
+            <div key={idx} className="shimmer-bg bg-white border border-slate-200/60 rounded-xl p-4">
+              <div className="h-8 bg-slate-100 rounded w-1/3"></div>
+              <div className="h-4 bg-slate-100 rounded w-2/3 mt-2"></div>
+              <div className="h-4 bg-slate-100 rounded w-1/2 mt-3"></div>
             </div>
           ))
         ) : (
@@ -518,7 +556,7 @@ export function SportsDashboard() {
             const bc = badgeMap[s.badgeType as keyof typeof badgeMap] || { bg: "rgba(0,0,0,0.1)", text: "#94a3b8" };
             return (
               <div key={s.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
-                <StatCard value={s.value} label={s.label} badge={s.badge} color={s.color} badgeBg={bc.bg} badgeText={bc.text} />
+                <StatCard value={s.value} label={s.label} badge={s.badge} color={s.color} badgeBg={bc.bg} badgeText={bc.text} icon={s.icon} />
               </div>
             );
           })
@@ -529,14 +567,20 @@ export function SportsDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 space-y-4">
           {/* Upcoming events */}
-          <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4">
-            <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest mb-3">Your Upcoming Events</div>
+          <div className="rounded-xl p-4"
+            style={{
+              background: "white",
+              border: "1px solid rgba(99, 102, 241, 0.12)",
+              boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+            }}
+          >
+            <div className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#6b7094" }}>Your Upcoming Events</div>
             {loading ? (
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
               </div>
             ) : liveEvents.length === 0 ? (
-              <div className="text-center py-4 text-[#475569] text-xs">No upcoming events</div>
+              <div className="text-center py-4 text-xs font-semibold" style={{ color: "#6b7094" }}>No upcoming events</div>
             ) : (
               liveEvents.map((ev, idx) => {
               const myReg = myRegistrations.find(r => r.event.id === ev.id);
@@ -548,10 +592,15 @@ export function SportsDashboard() {
                 <div key={ev.id} className={`mb-3 animate-fade-in-up stagger-${(idx % 8) + 1}`}>
                   <EventRow event={ev} onClick={() => toast.info(`Selected: ${ev.name}`)} />
                   {isConfirmed && isTeamReg && (
-                    <div className="flex items-center justify-between px-3 py-2 bg-[#1a2540]/40 rounded-b-lg border-x border-b border-[#2a3a5c] -mt-2">
+                    <div className="flex items-center justify-between px-3 py-2 rounded-b-lg border-x border-b -mt-2"
+                      style={{
+                        background: "rgba(99, 102, 241, 0.03)",
+                        borderColor: "rgba(99, 102, 241, 0.08)",
+                      }}
+                    >
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-[#94a3b8]">Captaincy Status:</span>
-                        <span className={`text-[10px] font-medium ${myReg?.captainConfirmation ? 'text-[#10b981]' : isNominated ? 'text-[#f97316]' : 'text-[#64748b]'}`}>
+                        <span className="text-[10px]" style={{ color: "#6b7094" }}>Captaincy Status:</span>
+                        <span className={`text-[10px] font-semibold ${myReg?.captainConfirmation ? 'text-emerald-600' : isNominated ? 'text-[#f97316]' : 'text-slate-500'}`}>
                           {myReg?.captainConfirmation ? 'Confirmed Captain' : isNominated ? 'Nominated' : 'Not Nominated'}
                         </span>
                       </div>
@@ -569,11 +618,11 @@ export function SportsDashboard() {
                           }
                         }}
                         disabled={myReg?.captainConfirmation}
-                        className={`text-[10px] px-2 py-1 rounded transition-colors ${myReg?.captainConfirmation
-                          ? 'bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 cursor-default'
+                        className={`text-[10px] px-2 py-1 rounded border transition-colors ${myReg?.captainConfirmation
+                          ? 'bg-emerald-50 text-emerald-600 border-emerald-200 cursor-default'
                           : isNominated
-                            ? 'bg-[#f97316]/10 text-[#f97316] hover:bg-[#f97316]/20 cursor-pointer'
-                            : 'bg-[#3b82f6]/10 text-[#3b82f6] hover:bg-[#3b82f6]/20 cursor-pointer'
+                            ? 'bg-orange-50 text-[#f97316] border-orange-200 hover:bg-orange-100 cursor-pointer'
+                            : 'bg-slate-50 text-indigo-600 border-indigo-200 hover:bg-indigo-50 cursor-pointer'
                           }`}
                       >
                         {myReg?.captainConfirmation ? 'Confirmed' : isNominated ? 'Withdraw Nomination' : 'Nominate Me as Captain'}
@@ -586,10 +635,16 @@ export function SportsDashboard() {
             )}
           </div>
           {/* Open registrations */}
-          <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4">
+          <div className="rounded-xl p-4"
+            style={{
+              background: "white",
+              border: "1px solid rgba(99, 102, 241, 0.12)",
+              boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+            }}
+          >
             <div className="flex items-center justify-between mb-3">
-              <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest">Open for Registration</div>
-              <span className="text-[10px] px-2 py-0.5 rounded bg-green-500/15 text-[#10b981]">
+              <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Open for Registration</div>
+              <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-green-500/10 text-[#10b981]">
                 {openRegs.length} event{openRegs.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -598,45 +653,45 @@ export function SportsDashboard() {
                 <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
               </div>
             ) : openRegs.length === 0 ? (
-              <div className="text-center py-8 bg-[#0c1220] rounded-xl border border-dashed border-[#2a3a5c]">
+              <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                 <div className="text-2xl mb-2">🏅</div>
-                <p className="text-sm text-[#475569]">No events open for registration right now</p>
-                <p className="text-[10px] text-[#334155] mt-1">Check back later or ask your admin to open registrations</p>
+                <p className="text-sm font-semibold text-slate-800">No events open for registration right now</p>
+                <p className="text-[10px] mt-1" style={{ color: "#6b7094" }}>Check back later or ask your admin to open registrations</p>
               </div>
             ) : (
               openRegs.map((item, idx) => (
                 <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
                   <RegCard
-                    item={item}
-                    onRegister={() => navigate(`/sports/register/${item.id}`)}
-                    onView={() => navigate("/sports/auction")}
-                    onWithdraw={async (regItem) => {
-                      if (!regItem.registrationId) return;
-                      if (!window.confirm(`Are you sure you want to withdraw your registration for ${regItem.name}?`)) return;
-                      try {
-                        await sportsService.withdraw(regItem.registrationId);
-                        toast.success(`Successfully withdrawn from ${regItem.name}`);
-                        fetchData();
-                      } catch (err: any) {
-                        toast.error(err?.message || "Failed to withdraw registration");
-                      }
-                    }}
-                    isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
-                    toggling={togglingId === item.id}
-                    onToggleStatus={async (evt) => {
-                      setTogglingId(evt.id);
-                      try {
-                        const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
-                        await sportsService.updateEventStatus(evt.id, newStatus);
-                        toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
-                        fetchData();
-                      } catch {
-                        toast.error("Failed to update status");
-                      } finally {
-                        setTogglingId(null);
-                      }
-                    }}
-                  />
+                     item={item}
+                     onRegister={() => navigate(`/sports/register/${item.id}`)}
+                     onView={() => navigate("/sports/auction")}
+                     onWithdraw={async (regItem) => {
+                       if (!regItem.registrationId) return;
+                       if (!window.confirm(`Are you sure you want to withdraw your registration for ${regItem.name}?`)) return;
+                       try {
+                         await sportsService.withdraw(regItem.registrationId);
+                         toast.success(`Successfully withdrawn from ${regItem.name}`);
+                         fetchData();
+                       } catch (err: any) {
+                         toast.error(err?.message || "Failed to withdraw registration");
+                       }
+                     }}
+                     isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
+                     toggling={togglingId === item.id}
+                     onToggleStatus={async (evt) => {
+                       setTogglingId(evt.id);
+                       try {
+                         const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
+                         await sportsService.updateEventStatus(evt.id, newStatus);
+                         toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
+                         fetchData();
+                       } catch {
+                         toast.error("Failed to update status");
+                       } finally {
+                         setTogglingId(null);
+                       }
+                     }}
+                   />
                 </div>
               ))
             )}
@@ -644,10 +699,16 @@ export function SportsDashboard() {
 
           {/* Closed registrations */}
           {(canManageCaptainNominations || confirmedMyRegistrations.length > 0) && closedRegs.length > 0 && (
-            <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4 mt-4">
+            <div className="rounded-xl p-4 mt-4"
+              style={{
+                background: "white",
+                border: "1px solid rgba(99, 102, 241, 0.12)",
+                boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+              }}
+            >
               <div className="flex items-center justify-between mb-3">
-                <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest">Closed Registrations</div>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-red-500/15 text-red-400">
+                <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Closed Registrations</div>
+                <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-red-500/10 text-red-500">
                   {closedRegs.length} event{closedRegs.length !== 1 ? "s" : ""}
                 </span>
               </div>
@@ -662,15 +723,15 @@ export function SportsDashboard() {
                     onToggleStatus={async (evt) => {
                       setTogglingId(evt.id);
                       try {
-                        const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
-                        await sportsService.updateEventStatus(evt.id, newStatus);
-                        toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
-                        fetchData();
-                      } catch {
-                        toast.error("Failed to update status");
-                      } finally {
-                        setTogglingId(null);
-                      }
+                         const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
+                         await sportsService.updateEventStatus(evt.id, newStatus);
+                         toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
+                         fetchData();
+                       } catch {
+                         toast.error("Failed to update status");
+                       } finally {
+                         setTogglingId(null);
+                       }
                     }}
                     onStartAuction={async (evt) => {
                       try {
@@ -692,10 +753,16 @@ export function SportsDashboard() {
 
           {/* Unified Captain Nominations Section — team sports only */}
           {(canManageCaptainNominations ? teamClosedRegs.length > 0 : confirmedTeamRegistrations.length > 0) && (
-            <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4 mt-4">
+            <div className="rounded-xl p-4 mt-4"
+              style={{
+                background: "white",
+                border: "1px solid rgba(99, 102, 241, 0.12)",
+                boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+              }}
+            >
               <div className="flex items-center justify-between mb-3">
-                <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest">Captain Nominations</div>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/15 text-amber-400">
+                <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Captain Nominations</div>
+                <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-amber-500/10 text-amber-600">
                   {canManageCaptainNominations ? `${teamClosedRegs.length} Available` : "Registration Confirmed ✓"}
                 </span>
               </div>
@@ -726,7 +793,6 @@ export function SportsDashboard() {
                 ) : (
                   /* User View: Self-nomination for confirmed team events only */
                   confirmedTeamRegistrations.map(reg => {
-                    //const capNom = captainRegistration.find(c => c.config?.event?.id === reg.event.id);
                     const capNom = captainRegistration.find(c => c.eventId === reg.event.id)
                     const isNominated = capNom?.captainNomination;
                     const isCaptainConfirmed = capNom?.captainConfirmation;
@@ -744,7 +810,6 @@ export function SportsDashboard() {
                           progressColor: isCaptainConfirmed ? "#10b981" : "#f97316",
                           dotColor: isCaptainConfirmed ? "#10b981" : "#f97316",
                           action: (isCaptainConfirmed || isNominated ? "Withdraw" : "Nominate Me") as any,
-                          //action: (isCaptainConfirmed ? "Confirmed" : (isNominated ? "Withdraw" : "Nominate Me")) as any,
                           status: reg.event.registrationStatus,
                         }}
                         onView={async () => {
@@ -774,8 +839,14 @@ export function SportsDashboard() {
         {/* Right column */}
         <div className="space-y-4">
           {/* Notifications */}
-          <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4">
-            <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest mb-3 flex items-center gap-2">
+          <div className="rounded-xl p-4"
+            style={{
+              background: "white",
+              border: "1px solid rgba(99, 102, 241, 0.12)",
+              boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+            }}
+          >
+            <div className="text-xs font-semibold uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "#6b7094" }}>
               <Bell className="w-3 h-3" /> Notifications
             </div>
             <div className="space-y-0">
@@ -784,18 +855,18 @@ export function SportsDashboard() {
                   <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
                 </div>
               ) : notifications.length === 0 ? (
-                <p className="text-[10px] text-[#475569] text-center py-4">No new notifications</p>
+                <p className="text-[10px] text-center py-4" style={{ color: "#6b7094" }}>No new notifications</p>
               ) : (
                 notifications.map((n, i) => (
-                  <div key={n.id} className={`flex items-start gap-3 py-2.5 ${i < notifications.length - 1 ? "border-b border-[#2a3a5c]" : ""} animate-fade-in-up stagger-${(i % 8) + 1}`}>
+                  <div key={n.id} className={`flex items-start gap-3 py-2.5 ${i < notifications.length - 1 ? "border-b border-slate-100" : ""} animate-fade-in-up stagger-${(i % 8) + 1}`}>
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0" style={{ background: n.iconBg, color: n.iconColor }}>
                       {n.icon}
                     </div>
                     <div>
-                      <div className="text-xs text-[#f1f5f9] leading-relaxed">
-                        {n.text} <strong className="text-[#f1f5f9]">{n.bold}</strong>{n.textAfter}
+                      <div className="text-xs leading-relaxed text-slate-800">
+                        {n.text} <strong className="font-bold text-slate-800">{n.bold}</strong>{n.textAfter}
                       </div>
-                      <div className="text-[10px] text-[#94a3b8] mt-1">{n.time}</div>
+                      <div className="text-[10px] mt-1" style={{ color: "#6b7094" }}>{n.time}</div>
                     </div>
                   </div>
                 ))
@@ -807,16 +878,22 @@ export function SportsDashboard() {
           <NextMatchTimer nextMatch={nextMatch} />
 
           {/* Trophy card */}
-          <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4">
+          <div className="rounded-xl p-4"
+            style={{
+              background: "white",
+              border: "1px solid rgba(99, 102, 241, 0.12)",
+              boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+            }}
+          >
             <div className="flex items-center gap-2 mb-3">
               <Trophy className="w-4 h-4 text-[#f97316]" />
-              <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest">Season Stats</div>
+              <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Season Stats</div>
             </div>
             <div className="space-y-2">
               {[["Matches Played", "18"], ["Win Rate", "67%"], ["Rank", "#4 / 48"]].map(([k, v]) => (
                 <div key={k} className="flex justify-between items-center text-xs">
-                  <span className="text-[#94a3b8]">{k}</span>
-                  <span className="font-semibold text-[#f1f5f9]">{v}</span>
+                  <span style={{ color: "#6b7094" }}>{k}</span>
+                  <span className="font-semibold text-slate-800">{v}</span>
                 </div>
               ))}
             </div>
@@ -825,13 +902,13 @@ export function SportsDashboard() {
         {/* Captain Nomination Modal */}
         {isNominateModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in zoom-in-95 duration-200">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-[#f1f5f9]">
+                  <h3 className="text-lg font-bold text-slate-800">
                     {isAdminNomination ? "Appoint Captain" : "Register as Captain"}
                   </h3>
-                  <p className="text-xs text-[#94a3b8] mt-1">
+                  <p className="text-xs mt-1" style={{ color: "#6b7094" }}>
                     {isAdminNomination ? "Select a member and assign a team name" : "Propose a name for your future team"}
                   </p>
                 </div>
@@ -840,7 +917,7 @@ export function SportsDashboard() {
                     setIsNominateModalOpen(false);
                     setIsAdminNomination(false);
                   }}
-                  className="text-[#475569] hover:text-[#f1f5f9] transition-colors"
+                  className="text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   <div className="w-5 h-5 flex items-center justify-center text-xl font-light">×</div>
                 </button>
@@ -848,12 +925,12 @@ export function SportsDashboard() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-[10px] font-medium text-[#94a3b8] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#6b7094" }}>
                     {isAdminNomination ? "Select Member" : "Logged In User"}
                   </label>
                   {isAdminNomination ? (
                     <select
-                      className="w-full bg-[#1a2540] border border-[#2a3a5c] text-[#f1f5f9] rounded-xl px-4 py-3 outline-none focus:border-[#f97316]"
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 outline-none focus:border-indigo-500"
                       value={selectedRegForNomination || ""}
                       onChange={(e) => setSelectedRegForNomination(Number(e.target.value))}
                     >
@@ -867,21 +944,21 @@ export function SportsDashboard() {
                       ))}
                     </select>
                   ) : (
-                    <div className="w-full bg-[#1a2540]/50 border border-[#2a3a5c] text-[#f1f5f9]/60 rounded-xl px-4 py-3 cursor-not-allowed">
+                    <div className="w-full bg-slate-100 border border-slate-200 text-slate-500 rounded-xl px-4 py-3 cursor-not-allowed">
                       {user?.fullName || user?.email || "Logged in user"}
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-medium text-[#94a3b8] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#6b7094" }}>
                     {isAdminNomination ? "Assigned Team Name" : "Proposed Team Name"}
                   </label>
                   <input
                     type="text"
                     autoFocus={!isAdminNomination}
                     placeholder="e.g. Sector 12 Warriors"
-                    className="w-full bg-[#1a2540] border border-[#2a3a5c] text-[#f1f5f9] rounded-xl px-4 py-3 outline-none focus:border-[#f97316] transition-all"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 rounded-xl px-4 py-3 outline-none focus:border-indigo-500 transition-all"
                     value={nominateTeamName}
                     onChange={(e) => setNominateTeamName(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleNominateSubmit()}
@@ -894,7 +971,7 @@ export function SportsDashboard() {
                       setIsNominateModalOpen(false);
                       setIsAdminNomination(false);
                     }}
-                    className="flex-1 px-4 py-2.5 bg-[#2a3a5c]/50 text-[#94a3b8] rounded-xl text-sm font-medium hover:bg-[#2a3a5c] transition-all"
+                    className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-200 transition-all border border-slate-200"
                   >
                     Cancel
                   </button>

@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router";
-import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog } from "lucide-react";
+import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   VIEW_SPORTS_MAIN,
@@ -18,10 +18,11 @@ import {
 
 const sportsNav = [
   { to: "/sports", label: "Dashboard", icon: LayoutDashboard, end: true },
-  { to: "/sports/register", label: "My Sports", icon: Medal },
+  { to: "/sports/my-sports", label: "My Sports", icon: Medal },
   { to: "/sports/schedule", label: "Schedule", icon: CalendarDays },
   { to: "/sports/auction", label: "Auction", icon: Gavel },
   { to: "/sports/admin", label: "Admin", icon: ShieldCog },
+  { to: "/sports/sports-dashboard", label: "Sports Dashboard", icon: BarChart3 },
 ];
 
 export function SportsLayout() {
@@ -51,6 +52,8 @@ export function SportsLayout() {
           CREATE_EDIT_PLAYER_POOL,
           CREATE_EDIT_EVENT_REGISTRATIONS
         );
+      case "Sports Dashboard":
+        return hasPermission(VIEW_SPORTS_MAIN);
       default:
         return true;
     }
@@ -59,27 +62,61 @@ export function SportsLayout() {
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
       {/* Sports sub-nav pill bar */}
-      <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto shrink-0">
+      <div 
+        className="rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto shrink-0"
+        style={{
+          background: "white",
+          border: "1px solid rgba(99, 102, 241, 0.12)",
+          boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+        }}
+      >
         {visibleNav.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}
             end={end}
-            className={({ isActive }) =>
-              `flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all ${isActive
-                ? "bg-[#f97316] text-white shadow-sm"
-                : "text-[#94a3b8] hover:text-[#f1f5f9] hover:bg-[#1a2540]"
-              }`
-            }
+            className="flex-shrink-0"
           >
-            <Icon className="w-4 h-4 flex-shrink-0" />
-            {label}
+            {({ isActive }) => (
+              <div
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer"
+                style={
+                  isActive
+                    ? {
+                        background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                        color: "white",
+                        boxShadow: "0 2px 12px rgba(99, 102, 241, 0.35)",
+                      }
+                    : {
+                        color: "rgb(107, 112, 148)",
+                        background: "transparent",
+                      }
+                }
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "rgba(99, 102, 241, 0.08)";
+                    e.currentTarget.style.color = "#4f46e5";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "rgb(107, 112, 148)";
+                  }
+                }}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                {label}
+              </div>
+            )}
           </NavLink>
         ))}
       </div>
 
       {/* Page content */}
-      <Outlet />
+      <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar">
+        <Outlet />
+      </div>
     </div>
   );
 }

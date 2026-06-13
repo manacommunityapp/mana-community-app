@@ -26,6 +26,8 @@ import { SportsSchedule }     from "./components/sports/SportsSchedule";
 import { SportsAuction }      from "./components/sports/SportsAuction";
 import { SportsAdmin }        from "./components/sports/admin/SportsAdmin";
 import { SportsRegister }     from "./components/sports/SportsRegister";
+import { MySports }           from "./components/sports/MySports";
+import { SportsAnalytics }    from "./components/sports/SportsAnalytics";
 
 // Permission constants
 import {
@@ -67,8 +69,12 @@ export const router = createBrowserRouter([
             element: <PermissionGuard permission={VIEW_SPORTS_MENU}><SportsDashboard /></PermissionGuard> 
           },
           { 
+            path: "my-sports", 
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS}><MySports /></PermissionGuard> 
+          },
+          { 
             path: "register", 
-            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS}><SportsRegistration /></PermissionGuard> 
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS}><MySports /></PermissionGuard> 
           },
           { 
             path: "register/:eventId", 
@@ -93,6 +99,10 @@ export const router = createBrowserRouter([
           { 
             path: "admin", 
             element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN}><SportsAdmin /></PermissionGuard> 
+          },
+          { 
+            path: "sports-dashboard", 
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU}><SportsAnalytics /></PermissionGuard> 
           },
         ],
       },

@@ -2258,24 +2258,54 @@ export function SportsAdmin() {
   return (
     <div className="flex flex-col gap-6">
       {/* ── Top Horizontal Menu ── */}
-      <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-3 flex flex-col md:flex-row md:items-center gap-4">
-        <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest px-2 hidden md:block border-r border-[#2a3a5c] pr-4">
+      <div 
+        className="rounded-xl p-3 flex flex-col md:flex-row md:items-center gap-4 shadow-lg"
+        style={{
+          background: "white",
+          border: "1px solid rgba(99, 102, 241, 0.12)",
+          boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+        }}
+      >
+        <div className="text-xs font-semibold uppercase tracking-widest px-2 hidden md:block border-r pr-4"
+          style={{ color: "rgb(107, 112, 148)", borderColor: "rgba(99, 102, 241, 0.15)" }}>
           Sports Admin
         </div>
         <nav className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 hide-scrollbar">
-          {menuItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`whitespace-nowrap flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === item.id
-                ? "bg-[#f97316]/10 text-[#f97316] border border-[#f97316]/20"
-                : "text-[#94a3b8] hover:bg-[#1a2540] hover:text-[#f1f5f9] border border-transparent"
-                }`}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
+          {menuItems.map(item => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className="whitespace-nowrap flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer border"
+                style={isActive ? {
+                  background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                  color: "white",
+                  borderColor: "rgba(99, 102, 241, 0.45)",
+                  boxShadow: "0 2px 12px rgba(99, 102, 241, 0.35)",
+                } : {
+                  background: "transparent",
+                  color: "rgb(107, 112, 148)",
+                  borderColor: "transparent",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "rgba(99, 102, 241, 0.08)";
+                    e.currentTarget.style.color = "#4f46e5";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "rgb(107, 112, 148)";
+                  }
+                }}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            );
+          })}
         </nav>
       </div>
 

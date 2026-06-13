@@ -77,9 +77,11 @@ export function Scheduler() {
     return DEFAULT_SPORT_ICONS[sportName] ?? DefaultSportIcon;
   };
 
-  const getSportColor = (sportName?: string): string => {
-    if (!sportName) return "bg-slate-100 text-slate-700 border-slate-200";
-    return SPORT_COLORS[sportName] ?? "bg-indigo-100 text-indigo-700 border-indigo-200";
+  const getSportColors = (sportName?: string) => {
+    if (sportName === "Basketball") return { color: "#f59e0b", bg: "rgba(245,158,11,0.1)" };
+    if (sportName === "Soccer") return { color: "#10b981", bg: "rgba(16,185,129,0.1)" };
+    if (sportName === "Volleyball") return { color: "#6366f1", bg: "rgba(99,102,241,0.1)" };
+    return { color: "#4f46e5", bg: "rgba(99,102,241,0.1)" };
   };
 
   const getStatusBadge = (status: string) => {
@@ -100,31 +102,38 @@ export function Scheduler() {
           <p className="text-slate-500 mt-1">View upcoming events and register your team.</p>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0">
-          <Filter className="h-4 w-4 text-slate-400 mr-1 hidden sm:block" />
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 hide-scrollbar">
+          <Filter className="h-4 w-4 mr-1 hidden sm:block" style={{ color: "#6b7094" }} />
           {loading
             ? null
-            : sportFilters.map((filter) => (
-              <button
-                key={filter}
-                onClick={() => setActiveFilter(filter)}
-                className={cn(
-                  "px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors",
-                  activeFilter === filter
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-                )}
-              >
-                {filter}
-              </button>
-            ))}
+            : sportFilters.map((filter) => {
+              const isActive = activeFilter === filter;
+              return (
+                <button
+                  key={filter}
+                  onClick={() => setActiveFilter(filter)}
+                  className="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors cursor-pointer"
+                  style={isActive
+                    ? { background: "linear-gradient(135deg, #4f46e5, #7c3aed)", color: "white", boxShadow: "0 2px 8px rgba(99,102,241,0.3)" }
+                    : { background: "white", color: "#6b7094", border: "1px solid rgba(99, 102, 241, 0.15)" }}
+                >
+                  {filter}
+                </button>
+              );
+            })}
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           {loading && (
-            <div className="bg-white border border-slate-200 rounded-xl p-12 flex flex-col items-center justify-center">
+            <div className="rounded-xl p-12 flex flex-col items-center justify-center"
+              style={{
+                background: "white",
+                border: "1px solid rgba(99, 102, 241, 0.12)",
+                boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+              }}
+            >
               <Loader2 className="w-10 h-10 text-indigo-400 animate-spin mb-3" />
               <p className="text-slate-500">Loading events...</p>
             </div>
@@ -147,7 +156,13 @@ export function Scheduler() {
           )}
 
           {!loading && !error && filteredEvents.length === 0 && (
-            <div className="bg-white border border-slate-200 rounded-xl p-12 flex flex-col items-center justify-center text-center">
+            <div className="rounded-xl p-12 flex flex-col items-center justify-center text-center"
+              style={{
+                background: "white",
+                border: "1px solid rgba(99, 102, 241, 0.12)",
+                boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+              }}
+            >
               <div className="bg-slate-100 p-3 rounded-full mb-4">
                 <ShieldAlert className="h-8 w-8 text-slate-400" />
               </div>
@@ -164,62 +179,92 @@ export function Scheduler() {
             const Icon = getSportIcon(event.sport?.name);
             const badge = getStatusBadge(event.status || "DRAFT");
             const parsedDate = event.eventDateStart ? parseISO(event.eventDateStart) : null;
+            const isLive = event.status === "LIVE";
+            const isDone = event.status === "COMPLETED";
 
             return (
               <div
                 key={event.id}
-                className={cn(
-                  "bg-white border rounded-xl overflow-hidden transition-shadow hover:shadow-md",
-                  event.status === "LIVE" ? "border-red-200 shadow-sm" : "border-slate-200"
-                )}
+                className="overflow-hidden card-hover-lift"
+                style={{
+                  background: "white",
+                  border: isLive ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(99, 102, 241, 0.12)",
+                  boxShadow: isLive ? "0 4px 20px rgba(239,68,68,0.1)" : "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+                  borderRadius: "1rem",
+                }}
               >
                 <div className="flex flex-col sm:flex-row">
-                  <div className={cn(
-                    "p-4 sm:w-48 flex sm:flex-col justify-between sm:justify-center items-center sm:border-r border-b sm:border-b-0",
-                    event.status === "LIVE" ? "bg-red-50 border-red-100" : "bg-slate-50 border-slate-100"
-                  )}>
+                  {/* Date Column */}
+                  <div className="p-4 sm:w-48 flex sm:flex-col justify-between sm:justify-center items-center sm:border-r border-b sm:border-b-0"
+                    style={{
+                      background: isLive ? "rgba(239,68,68,0.04)" : "rgba(99, 102, 241, 0.03)",
+                      borderColor: "rgba(99, 102, 241, 0.08)",
+                    }}
+                  >
                     <div className="text-center">
                       {parsedDate ? (
                         <>
-                          <div className="text-sm font-semibold text-slate-500 uppercase tracking-wider">
+                          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#6b7094" }}>
                             {format(parsedDate, "MMM d")}
-                          </div>
-                          <div className="text-xl font-bold text-slate-900 mt-1">
-                            {format(parsedDate, "yyyy")}
-                          </div>
+                          </p>
+                          <p className="text-lg font-bold mt-0.5" style={{ color: "#0d0d2b" }}>
+                            {format(parsedDate, "h:mm a")}
+                          </p>
                         </>
                       ) : (
                         <div className="text-sm text-slate-400">TBD</div>
                       )}
                     </div>
-                    <div className={cn("mt-2 px-2.5 py-1 rounded-full text-xs font-bold", badge.cls)}>
-                      {badge.label}
-                    </div>
+                    {isLive && (
+                      <div className="flex items-center gap-1.5 mt-2 bg-red-100 text-red-700 px-2.5 py-1 rounded-full text-xs font-bold animate-pulse"
+                        style={{ background: "rgba(239,68,68,0.12)", color: "#dc2626" }}>
+                        <div className="h-1.5 w-1.5 bg-red-500 rounded-full" />
+                        LIVE
+                      </div>
+                    )}
+                    {isDone && (
+                      <span className="mt-2 px-2.5 py-1 rounded-full text-xs font-bold"
+                        style={{ background: "rgba(99, 102, 241, 0.08)", color: "#4f46e5" }}>
+                        FINAL
+                      </span>
+                    )}
+                    {!isLive && !isDone && (
+                      <div className="mt-2 px-2.5 py-1 rounded-full text-xs font-bold"
+                        style={{ background: "rgba(99, 102, 241, 0.06)", color: "#6b7094" }}>
+                        {badge.label}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="p-5 flex-1 flex flex-col justify-center">
+                  {/* Matchup Column */}
+                  <div className="p-5 flex-1 flex flex-col justify-center text-left">
                     <div className="flex items-center justify-between mb-3">
-                      <span className={cn("inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border", getSportColor(event.sport?.name))}>
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                        style={{
+                          color: getSportColors(event.sport?.name).color,
+                          background: getSportColors(event.sport?.name).bg
+                        }}
+                      >
                         <Icon className="w-3 h-3 mr-1" />
                         {event.sport?.name ?? "Sport"}
                       </span>
                       {event.venue && (
-                        <div className="flex items-center text-sm text-slate-500">
+                        <div className="flex items-center text-sm" style={{ color: "#6b7094" }}>
                           <MapPin className="w-4 h-4 mr-1 text-slate-400" />
                           {event.venue.name}
                         </div>
                       )}
                     </div>
 
-                    <h4 className="text-lg font-bold text-slate-900 mb-1">{event.name}</h4>
+                    <h4 className="text-lg font-bold text-slate-800 mb-1">{event.name}</h4>
                     {event.maxParticipants && (
-                      <p className="text-sm text-slate-500 mb-2">
+                      <p className="text-sm mb-2" style={{ color: "#6b7094" }}>
                         Max participants: {event.maxParticipants}
                       </p>
                     )}
 
                     <div className="ml-6 pl-6 border-l border-slate-100 hidden sm:flex items-center justify-end mt-2">
-                      <button className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors">
+                      <button className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors cursor-pointer">
                         <ChevronRight className="w-6 h-6" />
                       </button>
                     </div>
@@ -232,33 +277,44 @@ export function Scheduler() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          <div className="bg-white border border-slate-200 rounded-xl p-5">
-            <h3 className="font-bold text-slate-900 mb-4 flex items-center">
-              <Trophy className="w-5 h-5 mr-2 text-emerald-500" />
+          <div className="rounded-xl p-5 text-left"
+            style={{
+              background: "white",
+              border: "1px solid rgba(99, 102, 241, 0.12)",
+              boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+            }}
+          >
+            <h3 className="font-bold text-slate-800 mb-4 flex items-center text-sm uppercase tracking-wider">
+              <Trophy className="w-5 h-5 mr-2 text-amber-500" />
               Season Highlights
             </h3>
             <ul className="space-y-3">
-              <li className="flex justify-between items-center text-sm">
-                <span className="text-slate-600">Total Events</span>
-                <span className="font-semibold text-slate-900">{events.length}</span>
+              <li className="flex justify-between items-center text-xs">
+                <span style={{ color: "#6b7094" }}>Total Events</span>
+                <span className="font-bold text-slate-800">{events.length}</span>
               </li>
-              <li className="flex justify-between items-center text-sm">
-                <span className="text-slate-600">Active Sports</span>
-                <span className="font-semibold text-slate-900">{sportsMeta.length}</span>
+              <li className="flex justify-between items-center text-xs">
+                <span style={{ color: "#6b7094" }}>Active Sports</span>
+                <span className="font-bold text-slate-800">{sportsMeta.length}</span>
               </li>
-              <li className="flex justify-between items-center text-sm">
-                <span className="text-slate-600">Open for Registration</span>
-                <span className="font-semibold text-slate-900">
+              <li className="flex justify-between items-center text-xs">
+                <span style={{ color: "#6b7094" }}>Open for Registration</span>
+                <span className="font-bold text-slate-800">
                   {events.filter((e) => e.status === "REGISTRATION_OPEN").length}
                 </span>
               </li>
             </ul>
           </div>
 
-          <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-5">
-            <h3 className="font-bold text-emerald-900 mb-2">Want to join the league?</h3>
-            <p className="text-emerald-700 text-sm mb-4">Registration for the current season is open for all sports.</p>
-            <a href="/sports/register" className="inline-block w-full text-center py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm">
+          <div className="rounded-xl p-5 text-left"
+            style={{
+              background: "linear-gradient(135deg, #f59e0b, #f97316)",
+              boxShadow: "0 4px 20px rgba(245,158,11,0.3)",
+            }}
+          >
+            <h3 className="font-bold text-white mb-2 text-sm">Want to join the league?</h3>
+            <p className="text-white/80 text-xs mb-4">Registration for the current season is open for all sports.</p>
+            <a href="/sports/register" className="inline-block w-full text-center py-2.5 bg-white text-amber-600 hover:bg-slate-50 text-xs font-bold rounded-lg transition-colors shadow-sm">
               Register a Team
             </a>
           </div>

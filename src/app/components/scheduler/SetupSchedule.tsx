@@ -872,6 +872,17 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     const groupEnd = getGroupStageEnd(allGroupSlots, fallbackDate, startTime);
     const breakMins = parseBreakMinutes(breakTime);
 
+    // For single-elimination knockout, send the seeded players (with flat numbers) and the
+    // selected courts so the backend does BYE auto-advance, flat/tower-aware first-round
+    // pairing, and parallel court allocation (Rule 4).
+    const playerParticipants = isKnockoutOnly
+      ? buildParticipantList(Number(participants) || 8).map(p => ({
+          id: p.id,
+          name: p.name,
+          flatNumber: p.flatNumber ?? null,
+        }))
+      : undefined;
+
     return {
       numGroups,
       proceedersPerGroup,
@@ -883,7 +894,21 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       breakMinutes: breakMins,
       venueId: defaultVenueId,
       courtId: defaultCourtId,
+      participants: playerParticipants,
+      courtIds: selectedCourtIds(defaultVenueId),
     };
+  };
+
+  /** Numeric IDs of the courts selected for a venue (all courts if none explicitly chosen). */
+  const selectedCourtIds = (venueId: number | null): number[] => {
+    if (!venueId) return [];
+    const venue = venues.find(v => v.id === venueId);
+    if (!venue?.courts || venue.courts.length === 0) return [];
+    const selectedNames = selectedCourts[venueId] || [];
+    const pool = selectedNames.length > 0
+      ? venue.courts.filter(c => selectedNames.includes(c.name))
+      : venue.courts;
+    return pool.map(c => Number(c.id)).filter(id => !Number.isNaN(id));
   };
 
   /**
@@ -903,42 +928,15 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
    */
   const getPlayoffMatches = (draftOverride?: PlayoffMatchDraft[]) => {
     let matches = draftOverride ?? playoffDraft;
-    if (isKnockoutOnly && allParticipantOptions.length > 0) {
-      matches = matches.map(m => {
-        const updated = { ...m };
-        const getRankFromSlotId = (id: string) => {
-          const match = id.match(/^G\d+-W(\d+)$/);
-          return match ? Number(match[1]) : null;
-        };
 
-        const homeRank = getRankFromSlotId(m.home.id);
-        if (homeRank !== null && homeRank <= allParticipantOptions.length) {
-          const player = allParticipantOptions[homeRank - 1];
-          updated.home = {
-            id: player.id,
-            name: player.name,
-            flatNumber: player.flatNumber,
-          };
-        }
-
-        const awayRank = getRankFromSlotId(m.away.id);
-        if (awayRank !== null && awayRank <= allParticipantOptions.length) {
-          const player = allParticipantOptions[awayRank - 1];
-          updated.away = {
-            id: player.id,
-            name: player.name,
-            flatNumber: player.flatNumber,
-          };
-        }
-
-        return updated;
-      });
+    if (isKnockoutOnly) {
+      // Player-aware path: the backend already returns real players, BYE auto-advance and
+      // parallel court allocation — use as-is (only manual overrides on top).
+      return applyPlayoffOverrides(matches, matchOverrides);
     }
 
-    // Dynamically distribute playoff matches across the venue's selected courts
-    // (round-robin by match index) so BOTH courts are used — the backend stamps a
-    // single court, so we reassign here just like group matches do. Manual court
-    // overrides (applied next) still take precedence.
+    // Group → knockout (slot-based): distribute matches across the venue's selected courts
+    // (round-robin by match index). Manual court overrides (applied next) still take precedence.
     const playoffVenueId = selectedVenues.length > 0 ? selectedVenues[0] : null;
     matches = matches.map((m, idx) => ({
       ...m,
@@ -1046,7 +1044,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           duration: match.duration,
           venueId: match.venueId,
           courtId: match.courtId || null,
-          status: 'SCHEDULED',
+          // Auto-advanced BYE matches keep their AUTO_ADVANCED status; the backend save
+          // preserves it (others get the global DRAFT/PUBLISHED on Save).
+          status: match.status || 'SCHEDULED',
         });
       });
     }

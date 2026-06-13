@@ -1,6 +1,8 @@
-import { useState, useEffect } from "react";
-import { useParams } from "react-router";
-import { Loader2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { useParams, Link } from "react-router";
+import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, Target, Activity } from "lucide-react";
+import { FaDribbble } from "react-icons/fa";
+import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sportsService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { SportsEvent } from "../../../types/api";
@@ -11,6 +13,69 @@ import { ManualScheduler } from "../scheduler/ManualScheduler";
 
 const TABS = ["My Matches", "All Events", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
 type Tab = typeof TABS[number];
+
+type Sport = "Basketball" | "Soccer" | "Volleyball";
+
+interface Game {
+  id: string;
+  sport: Sport;
+  homeTeam: string;
+  awayTeam: string;
+  date: string;
+  location: string;
+  status: "Upcoming" | "Live" | "Completed";
+  score?: { home: number; away: number };
+}
+
+const mockGames: Game[] = [
+  { id: "g1", sport: "Basketball", homeTeam: "City Hoopers", awayTeam: "Downtown Dunkers", date: "2026-06-14T18:00:00", location: "Main Gym – Court 1", status: "Upcoming" },
+  { id: "g2", sport: "Soccer", homeTeam: "United FC", awayTeam: "Rovers", date: "2026-06-14T19:30:00", location: "Turf Field A", status: "Upcoming" },
+  { id: "g3", sport: "Volleyball", homeTeam: "Spike Syndicate", awayTeam: "Net Ninjas", date: "2026-06-14T17:00:00", location: "Community Center – Court 2", status: "Upcoming" },
+  { id: "g4", sport: "Basketball", homeTeam: "Alley-Oops", awayTeam: "Fastbreakers", date: "2026-06-13T20:00:00", location: "Main Gym – Court 2", status: "Live", score: { home: 58, away: 51 } },
+  { id: "g5", sport: "Soccer", homeTeam: "Galacticos", awayTeam: "Athletic Club", date: "2026-06-12T18:00:00", location: "Turf Field B", status: "Completed", score: { home: 2, away: 1 } },
+  { id: "g6", sport: "Basketball", homeTeam: "Rim Rockers", awayTeam: "Court Kings", date: "2026-06-15T19:00:00", location: "Main Gym – Court 1", status: "Upcoming" },
+  { id: "g7", sport: "Soccer", homeTeam: "Athletic Club", awayTeam: "United FC", date: "2026-06-10T18:00:00", location: "Turf Field A", status: "Completed", score: { home: 1, away: 3 } },
+];
+
+const sportIcons: Record<string, React.ElementType> = { 
+  Basketball: FaDribbble, basketball: FaDribbble,
+  Soccer: Target, soccer: Target, Football: Target, football: Target,
+  Volleyball: Activity, volleyball: Activity
+};
+const sportColors: Record<string, { color: string; bg: string }> = {
+  Basketball: { color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+  basketball: { color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+  Soccer: { color: "#10b981", bg: "rgba(16,185,129,0.1)" },
+  soccer: { color: "#10b981", bg: "rgba(16,185,129,0.1)" },
+  Football: { color: "#10b981", bg: "rgba(16,185,129,0.1)" },
+  football: { color: "#10b981", bg: "rgba(16,185,129,0.1)" },
+  Volleyball: { color: "#6366f1", bg: "rgba(99,102,241,0.1)" },
+  volleyball: { color: "#6366f1", bg: "rgba(99,102,241,0.1)" },
+};
+
+const getSportIcon = (sportName: string) => {
+  return sportIcons[sportName] || Activity;
+};
+
+const getSportColors = (sportName: string) => {
+  return sportColors[sportName] || { color: "#6366f1", bg: "rgba(99,102,241,0.1)" };
+};
+
+const safeFormatDate = (dateStr: string, formatStr: string) => {
+  try {
+    const parsed = parseISO(dateStr);
+    if (isNaN(parsed.getTime())) {
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        return format(d, formatStr);
+      }
+      return dateStr;
+    }
+    return format(parsed, formatStr);
+  } catch (err) {
+    return dateStr;
+  }
+};
 
 // ─── Timeline item ────────────────────────────────────────────────────────────
 
@@ -31,15 +96,15 @@ function TimelineItem({ item, isLast }: { item: ScheduleEntry; isLast: boolean }
       {/* Dot + line */}
       <div className="flex flex-col items-center">
         <div className="w-3 h-3 rounded-full flex-shrink-0 mt-1" style={{ background: item.statusColor, boxShadow: `0 0 6px ${item.statusColor}` }} />
-        {!isLast && <div className="w-px flex-1 bg-[#2a3a5c] mt-1" />}
+        {!isLast && <div className="w-px flex-1 bg-slate-200 mt-1" />}
       </div>
-      <div className="flex-1 min-w-0 pb-1">
-        <div className="text-xs text-[#94a3b8] mb-1">{item.date}</div>
-        <div className="text-sm font-medium text-[#f1f5f9] mb-1">{item.name}</div>
-        <div className="text-xs text-[#94a3b8] mb-2">{item.venue}</div>
+      <div className="flex-1 min-w-0 pb-1 text-left">
+        <div className="text-xs mb-1" style={{ color: "#6b7094" }}>{item.date}</div>
+        <div className="text-sm font-bold mb-1 text-slate-800">{item.name}</div>
+        <div className="text-xs mb-2" style={{ color: "#6b7094" }}>{item.venue}</div>
         <div className="flex flex-wrap gap-2">
           {item.badges.map(b => (
-            <span key={b.label} className="text-[10px] px-2 py-0.5 rounded" style={{ background: `${b.color}22`, color: b.color }}>{b.label}</span>
+            <span key={b.label} className="text-[10px] px-2 py-0.5 rounded font-semibold" style={{ background: `${b.color}15`, color: b.color }}>{b.label}</span>
           ))}
         </div>
       </div>
@@ -67,43 +132,49 @@ function MatchCard({ match }: { match: BracketMatch }) {
   const isByeMatch = match.isBye || players.length === 1;
 
   return (
-    <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl overflow-hidden card-hover-lift">
-      <div className="px-3 py-2.5 bg-[#1a2540] border-b border-[#2a3a5c]">
-        <div className="text-xs font-semibold text-[#f1f5f9]">{match.label}</div>
-        <div className="text-[10px] text-[#94a3b8] mt-0.5">{match.date} | {match.time}</div>
-        {isByeMatch && <div className="text-[9px] text-[#10b981] font-semibold mt-1">BYE</div>}
+    <div className="rounded-xl overflow-hidden card-hover-lift"
+      style={{
+        background: "white",
+        border: "1px solid rgba(99, 102, 241, 0.12)",
+        boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+      }}
+    >
+      <div className="px-3 py-2.5 bg-slate-50 border-b border-slate-200 text-left">
+        <div className="text-xs font-bold text-slate-800">{match.label}</div>
+        <div className="text-[10px] mt-0.5" style={{ color: "#6b7094" }}>{match.date} | {match.time}</div>
+        {isByeMatch && <div className="text-[9px] text-emerald-600 font-bold mt-1">BYE</div>}
       </div>
-      <div className="px-3 py-3 space-y-2.5">
+      <div className="px-3 py-3 space-y-2.5 text-left">
         {players.map((p, i) => (
           <div key={i}>
             <div className="flex items-center gap-2">
               {p.isTBD ? (
-                <div className="w-7 h-7 rounded-full border border-dashed border-[#475569] shrink-0" />
+                <div className="w-7 h-7 rounded-full border border-dashed border-slate-300 shrink-0" />
               ) : (
-                <div className="w-7 h-7 rounded-full bg-[#2a3a5c] flex items-center justify-center shrink-0">
-                  <span className="text-[9px] font-bold text-[#94a3b8]">{p.initials}</span>
+                <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                  <span className="text-[9px] font-bold text-slate-500">{p.initials}</span>
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className={`text-xs truncate ${p.isTBD ? "text-[#475569] italic" : "text-[#f1f5f9]"}`}>
+                <div className={`text-xs truncate ${p.isTBD ? "text-slate-400 italic" : "text-slate-800 font-semibold"}`}>
                   {p.fullName}
                 </div>
                 {p.flatNumber && !p.isTBD && (
-                  <div className="text-[9px] text-[#64748b]">{p.flatNumber}</div>
+                  <div className="text-[9px] text-slate-500">{p.flatNumber}</div>
                 )}
               </div>
             </div>
             {i === 0 && !isByeMatch && players.length > 1 && (
-              <div className="border-b border-[#2a3a5c] my-2" />
+              <div className="border-b border-slate-100 my-2" />
             )}
           </div>
         ))}
       </div>
-      <div className="px-3 py-2 border-t border-[#2a3a5c] flex items-center gap-1.5">
-        <div className="w-5 h-5 rounded bg-[#1a2540] flex items-center justify-center shrink-0">
-          <span className="text-[9px] font-bold text-[#64748b]">{match.venue.initials}</span>
+      <div className="px-3 py-2 border-t border-slate-100 flex items-center gap-1.5 text-left bg-slate-50/50">
+        <div className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center shrink-0">
+          <span className="text-[9px] font-bold text-slate-500">{match.venue.initials}</span>
         </div>
-        <span className="text-[10px] text-[#64748b] truncate">{match.venue.name}</span>
+        <span className="text-[10px] truncate" style={{ color: "#6b7094" }}>{match.venue.name}</span>
       </div>
     </div>
   );
@@ -154,8 +225,14 @@ function BracketView({ eventId }: { eventId?: string }) {
 
   if (rounds.length === 0) {
     return (
-      <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-6 text-center">
-        <p className="text-sm text-[#94a3b8]">No confirmed players yet. Bracket will be generated once players are confirmed.</p>
+      <div className="rounded-xl p-6 text-center"
+        style={{
+          background: "white",
+          border: "1px solid rgba(99, 102, 241, 0.12)",
+          boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+        }}
+      >
+        <p className="text-sm text-[#6b7094]">No confirmed players yet. Bracket will be generated once players are confirmed.</p>
       </div>
     );
   }
@@ -166,7 +243,7 @@ function BracketView({ eventId }: { eventId?: string }) {
         <div key={round.name}>
           <div className="flex items-center gap-3 mb-3">
             <span className="text-sm font-bold text-[#f97316] uppercase tracking-wider">{round.name}</span>
-            <div className="flex-1 h-px bg-[#2a3a5c]" />
+            <div className="flex-1 h-px bg-slate-200" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {round.matches.map(match => (
@@ -178,18 +255,24 @@ function BracketView({ eventId }: { eventId?: string }) {
       <div>
         <div className="flex items-center gap-3 mb-3">
           <span className="text-sm font-bold text-[#f97316] uppercase tracking-wider">Results</span>
-          <div className="flex-1 h-px bg-[#2a3a5c]" />
+          <div className="flex-1 h-px bg-slate-200" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
             { label: "Winner", icon: "🏆", name: "Winner Of Final" },
             { label: "Runner-up", icon: "🥈", name: "Loser Of Final" },
           ].map(r => (
-            <div key={r.label} className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4 flex items-center gap-3 card-hover-lift">
+            <div key={r.label} className="rounded-xl p-4 flex items-center gap-3 card-hover-lift"
+              style={{
+                background: "white",
+                border: "1px solid rgba(99, 102, 241, 0.12)",
+                boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+              }}
+            >
               <span className="text-2xl">{r.icon}</span>
               <div>
-                <div className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider">{r.label}</div>
-                <div className="text-sm text-[#475569] italic mt-0.5">{r.name}</div>
+                <div className="text-xs font-semibold text-slate-800 uppercase tracking-wider">{r.label}</div>
+                <div className="text-sm text-[#6b7094] italic mt-0.5">{r.name}</div>
               </div>
             </div>
           ))}
@@ -256,6 +339,51 @@ export function SportsSchedule() {
   const [allEvents, setAllEvents] = useState<SportsEvent[]>([]);
   const [myMatches, setMyMatches] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string>("All");
+
+  const gamesToDisplay = useMemo(() => {
+    const games = allEvents.length > 0 
+      ? allEvents.map((ev): Game => {
+          const isLive = ev.registrationStatus === "LIVE";
+          const isCompleted = ev.registrationStatus === "COMPLETED";
+          const status = isLive ? "Live" : isCompleted ? "Completed" : "Upcoming";
+          
+          let homeTeam = ev.name;
+          let awayTeam = "TBD";
+          if (ev.name.includes(" vs ")) {
+            const parts = ev.name.split(" vs ");
+            homeTeam = parts[0];
+            awayTeam = parts[1];
+          } else if (ev.name.includes(" - ")) {
+            const parts = ev.name.split(" - ");
+            homeTeam = parts[0];
+            awayTeam = parts[1];
+          }
+          
+          return {
+            id: String(ev.id),
+            sport: (ev.sport?.name as Sport) || "Basketball",
+            homeTeam,
+            awayTeam,
+            date: ev.eventDateStart,
+            location: ev.venue?.name || "TBD",
+            status,
+            score: isLive ? { home: 12, away: 8 } : isCompleted ? { home: 3, away: 2 } : undefined
+          };
+        })
+      : mockGames;
+
+    let filtered = games;
+    if (activeFilter !== "All") {
+      filtered = filtered.filter(g => g.sport.toLowerCase() === activeFilter.toLowerCase());
+    }
+
+    const statusWeight = { Live: 0, Upcoming: 1, Completed: 2 };
+    return [...filtered].sort((a, b) => {
+      if (statusWeight[a.status] !== statusWeight[b.status]) return statusWeight[a.status] - statusWeight[b.status];
+      return new Date(a.date).getTime() - new Date(b.date).getTime();
+    });
+  }, [allEvents, activeFilter]);
 
   useEffect(() => {
     if (!user?.userId) return;
@@ -291,32 +419,65 @@ export function SportsSchedule() {
   return (
     <div className="space-y-4">
       {/* Tab bar */}
-      <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-1.5 flex gap-1 overflow-x-auto hide-scrollbar">
-        {TABS.map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 whitespace-nowrap flex-shrink-0 py-2 px-4 rounded-lg text-sm font-medium cursor-pointer border-none transition-all ${activeTab === tab
-                ? tab === "Setup Schedule"
-                  ? "bg-[#102a71] text-[#FFFDFC] border border-[#2a3a5c]"
-                  : "bg-[#1a2540] text-[#f97316] border border-[#2a3a5c]"
-                : "bg-transparent text-[#94a3b8] hover:text-[#f1f5f9]"
-              }`}
-          >
-            {tab}
-          </button>
-        ))}
+      <div 
+        className="p-1.5 rounded-xl flex gap-1 overflow-x-auto hide-scrollbar"
+        style={{
+          background: "white",
+          border: "1px solid rgba(99, 102, 241, 0.12)",
+          boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+        }}
+      >
+        {TABS.map(tab => {
+          const isActive = activeTab === tab;
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className="flex-1 whitespace-nowrap flex-shrink-0 py-2 px-4 rounded-lg text-sm font-medium cursor-pointer border transition-all duration-200"
+              style={isActive ? {
+                background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                color: "white",
+                borderColor: "rgba(99, 102, 241, 0.45)",
+                boxShadow: "0 2px 12px rgba(99, 102, 241, 0.35)",
+              } : {
+                background: "transparent",
+                color: "rgb(107, 112, 148)",
+                borderColor: "transparent",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = "rgba(99, 102, 241, 0.08)";
+                  e.currentTarget.style.color = "#4f46e5";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "rgb(107, 112, 148)";
+                }
+              }}
+            >
+              {tab}
+            </button>
+          );
+        })}
       </div>
 
       {/* My Matches */}
       {activeTab === "My Matches" && (
-        <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4">
-          <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest mb-4">My Match Timeline</div>
+        <div className="rounded-xl p-4"
+          style={{
+            background: "white",
+            border: "1px solid rgba(99, 102, 241, 0.12)",
+            boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+          }}
+        >
+          <div className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#6b7094" }}>My Match Timeline</div>
           {loading ? (
             <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 text-[#f97316] animate-spin" /></div>
           ) : myMatches.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-sm text-[#475569]">No matches found in your schedule.</p>
+              <p className="text-sm text-[#6b7094]">No matches found in your schedule.</p>
             </div>
           ) : (
             myMatches.map((item, i) => (
@@ -328,24 +489,181 @@ export function SportsSchedule() {
 
       {/* All Events */}
       {activeTab === "All Events" && (
-        <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4">
-          <div className="text-xs font-medium text-[#94a3b8] uppercase tracking-widest mb-3">Community Events</div>
-          {loading ? (
-            <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 text-[#f97316] animate-spin" /></div>
-          ) : allEvents.length === 0 ? (
-            <p className="text-sm text-[#475569] text-center py-6">No open events in your community right now.</p>
-          ) : (
-            allEvents.map(ev => (
-              <div key={ev.id} className="flex items-start gap-3 p-3 bg-[#1a2540] rounded-lg mb-2 border border-[#2a3a5c]">
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-[#f1f5f9]">{ev.name}</div>
-                  <div className="text-xs text-[#94a3b8] mt-0.5">{ev.venue?.name ?? "—"} · {ev.sport?.name ?? "Sport"}</div>
-                  <div className="text-xs text-[#64748b] mt-1">{ev.eventDateStart}</div>
+        <div className="space-y-5">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl text-left"
+            style={{
+              background: "white",
+              border: "1px solid rgba(99, 102, 241, 0.12)",
+              boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+            }}
+          >
+            <div>
+              <p className="text-sm font-bold" style={{ color: "#6b7094" }}>
+                {gamesToDisplay.length} games · {gamesToDisplay.filter(g => g.status === "Live").length} live
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Filter className="h-4 w-4 hidden sm:block" style={{ color: "#6b7094" }} />
+              {["All", "Basketball", "Soccer", "Volleyball"].map((f) => {
+                const isActive = activeFilter === f;
+                return (
+                  <button key={f} onClick={() => setActiveFilter(f)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all cursor-pointer"
+                    style={isActive
+                      ? { background: "linear-gradient(135deg, #4f46e5, #7c3aed)", color: "white", boxShadow: "0 2px 8px rgba(99,102,241,0.3)" }
+                      : { background: "white", color: "#6b7094", border: "1px solid rgba(99, 102, 241, 0.15)" }}>
+                    {f}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="lg:col-span-2 space-y-3">
+              {loading ? (
+                <div className="flex items-center justify-center py-8 bg-white border border-slate-200/60 rounded-2xl">
+                  <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
                 </div>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-orange-500/15 text-[#f97316]">{ev.registrationStatus}</span>
+              ) : gamesToDisplay.length === 0 ? (
+                <div className="rounded-2xl p-12 flex flex-col items-center text-center"
+                  style={{ background: "white", border: "1px solid rgba(99, 102, 241, 0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
+                  <ShieldAlert className="h-10 w-10 mb-3" style={{ color: "#9ca3af" }} />
+                  <p className="font-semibold" style={{ color: "#0d0d2b" }}>No games found</p>
+                  <p className="text-sm mt-1" style={{ color: "#6b7094" }}>No scheduled games for this filter right now.</p>
+                </div>
+              ) : (
+                gamesToDisplay.map((game) => {
+                  const Icon = getSportIcon(game.sport);
+                  const { color, bg } = getSportColors(game.sport);
+                  const isLive = game.status === "Live";
+                  const isDone = game.status === "Completed";
+
+                  return (
+                    <div key={game.id} className="rounded-2xl overflow-hidden card-hover-lift"
+                      style={{
+                        background: "white",
+                        border: isLive ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(99, 102, 241, 0.12)",
+                        boxShadow: isLive ? "0 4px 20px rgba(239,68,68,0.1)" : "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+                      }}>
+                      <div className="flex flex-col sm:flex-row">
+                        {/* Date column */}
+                        <div className="sm:w-36 p-4 flex sm:flex-col justify-between sm:justify-center items-center gap-3"
+                          style={{
+                            background: isLive ? "rgba(239,68,68,0.04)" : "rgba(99, 102, 241, 0.03)",
+                            borderRight: "1px solid rgba(99, 102, 241, 0.08)",
+                          }}>
+                          <div className="text-center">
+                            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#6b7094" }}>
+                              {safeFormatDate(game.date, "MMM d")}
+                            </p>
+                            <p className="text-lg font-bold mt-0.5" style={{ color: "#0d0d2b" }}>
+                              {safeFormatDate(game.date, "h:mm a")}
+                            </p>
+                          </div>
+                          {isLive && (
+                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold animate-pulse"
+                              style={{ background: "rgba(239,68,68,0.12)", color: "#dc2626" }}>
+                              <div className="h-1.5 w-1.5 bg-red-500 rounded-full" />
+                              LIVE
+                            </div>
+                          )}
+                          {isDone && (
+                            <span className="px-2.5 py-1 rounded-full text-xs font-bold"
+                              style={{ background: "rgba(99, 102, 241, 0.08)", color: "#4f46e5" }}>
+                              FINAL
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Match details */}
+                        <div className="p-5 flex-1 text-left">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+                              style={{ background: bg, color }}>
+                              <Icon className="h-3 w-3" />
+                              {game.sport}
+                            </span>
+                            <span className="flex items-center gap-1 text-xs" style={{ color: "#6b7094" }}>
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              <span className="truncate max-w-[150px]">{game.location}</span>
+                            </span>
+                          </div>
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-slate-800 text-sm truncate max-w-[180px]">{game.homeTeam}</span>
+                              {game.score && (
+                                <span className="text-base font-bold font-mono text-slate-800">
+                                  {game.score.home}
+                                </span>
+                              )}
+                            </div>
+                            {game.awayTeam && (
+                              <div className="flex items-center justify-between">
+                                <span className="font-semibold text-slate-800 text-sm truncate max-w-[180px]">{game.awayTeam}</span>
+                                {game.score && (
+                                  <span className="text-base font-bold font-mono text-slate-800">
+                                    {game.score.away}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="sm:flex items-center px-4 hidden">
+                          <button className="p-2 rounded-xl transition-colors cursor-pointer" style={{ color: "#4f46e5" }}
+                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(99, 102, 241, 0.08)")}
+                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                            <ChevronRight className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Sidebar */}
+            <div className="space-y-4">
+              <div className="rounded-2xl p-5"
+                style={{ background: "white", border: "1px solid rgba(99, 102, 241, 0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
+                <h3 className="font-semibold mb-4 text-left text-slate-800 text-sm uppercase tracking-wider">Season Highlights</h3>
+                <div className="space-y-3">
+                  {[
+                    { label: "Total Games Played", value: "94" },
+                    { label: "Active Teams", value: "26" },
+                    { label: "Next Tournament", value: "Jul 15" },
+                  ].map((s) => (
+                    <div key={s.label} className="flex justify-between items-center py-2 text-left"
+                      style={{ borderBottom: "1px solid rgba(99, 102, 241, 0.06)" }}>
+                      <span className="text-xs font-medium" style={{ color: "#6b7094" }}>{s.label}</span>
+                      <span className="font-bold text-xs text-slate-800">{s.value}</span>
+                    </div>
+                  ))}
+                </div>
+                <button className="w-full mt-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                  style={{ background: "rgba(99, 102, 241, 0.06)", color: "#4f46e5", border: "1px solid rgba(99, 102, 241, 0.15)" }}
+                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(99, 102, 241, 0.12)")}
+                  onMouseLeave={e => (e.currentTarget.style.background = "rgba(99, 102, 241, 0.06)")}>
+                  Full Standings →
+                </button>
               </div>
-            ))
-          )}
+
+              <div className="rounded-2xl p-5 text-left"
+                style={{ background: "linear-gradient(135deg, #f59e0b, #f97316)", boxShadow: "0 4px 20px rgba(245,158,11,0.3)" }}>
+                <h3 className="font-bold text-white mb-1 text-sm">Summer 2026 Season</h3>
+                <p className="text-xs text-white/80 mb-4">Registration is open for all sports.</p>
+                <Link to="/sports/register"
+                  className="block w-full text-center py-2.5 rounded-xl text-xs font-bold transition-all hover:bg-slate-50"
+                  style={{ background: "white", color: "#f59e0b" }}>
+                  Register a Team
+                </Link>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
