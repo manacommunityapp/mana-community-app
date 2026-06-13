@@ -38,7 +38,7 @@ export function ScheduleSaveFooter({
             type="button"
             onClick={onSaveDraft}
             disabled={!canSave || saving}
-            className="flex gap-1 text-xs font-bold items-center px-3 py-1.5 rounded-lg bg-[#1a2540] border border-[#2e3f6e] text-slate-200 hover:border-[#F5A623] hover:text-[#F5A623] hover:bg-[#223154] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-[#2a3a5c] disabled:hover:text-slate-300 cursor-pointer"
+            className="flex gap-1 text-xs font-bold items-center px-3 py-1.5 rounded-lg bg-[#1a2540] border border-[#2e3f6e] text-slate-200 hover:border-[#f97316] hover:text-[#f97316] hover:bg-[#223154] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-[#2a3a5c] disabled:hover:text-slate-300 cursor-pointer"
           >
             <FileText className="w-3.5 h-3.5" />
             <span>Save As Draft</span>
@@ -57,7 +57,7 @@ export function ScheduleSaveFooter({
 
         <div className="hidden md:block bg-[#0f1729] border border-[#2a3a5c] rounded-xl overflow-hidden p-2">
           <div className="flex gap-5 items-center justify-center py-2">
-            <div className="border border-[#F5A623]/50 rounded-xl overflow-hidden shrink-0">
+            <div className="border border-[#f97316]/50 rounded-xl overflow-hidden shrink-0">
               <img
                 src={SCHEDULER_IMAGE_URL}
                 alt="Scheduler"

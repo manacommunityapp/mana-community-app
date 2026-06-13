@@ -1149,21 +1149,21 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   };
 
   // Reusable styles
-  const inputCls = 'w-full bg-[#0f1729] border border-[#2a3a5c] rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623] transition-colors [color-scheme:dark]';
+  const inputCls = 'w-full bg-[#0f1729] border border-[#2a3a5c] rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-[#f97316] transition-colors [color-scheme:dark]';
   const labelCls = 'block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5';
   const cardCls = 'bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4 md:p-5';
 
   return (
     <div className="space-y-5">
       {toast && (
-        <div className="fixed bottom-6 right-6 z-50 px-5 py-3 rounded-lg shadow-xl font-medium text-sm bg-[#F5A623] text-black">{toast}</div>
+        <div className="fixed bottom-6 right-6 z-50 px-5 py-3 rounded-lg shadow-xl font-medium text-sm bg-[#f97316] text-black">{toast}</div>
       )}
 
       {/* Header with title and warning */}
       <div className="bg-[#102a71] border border-[#2a3a5c] rounded-xl p-4 md:p-6 shadow-md">
         <h2 className="text-xl md:text-2xl font-bold text-center tracking-wider mb-4 uppercase">
           <span className="text-[#FFFDFC]">Setup </span>
-          <span className="text-[#F5A623]">Schedule</span>
+          <span className="text-[#f97316]">Schedule</span>
         </h2>
 
         {/* Warning if players not confirmed */}
@@ -1205,7 +1205,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         {/* ═══ LEFT: Schedule Configuration ═══ */}
         <div className={cardCls}>
           <div className="flex items-center gap-2 mb-5">
-            <Settings className="w-5 h-5 text-[#F5A623]" />
+            <Settings className="w-5 h-5 text-[#f97316]" />
             <h3 className="text-base font-bold text-slate-200">Schedule Configuration</h3>
           </div>
 
@@ -1214,7 +1214,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             <div>
               <label className={labelCls}>
                 Format <span className="text-red-400">*</span>
-                {selectedEvent && <span className="ml-2 normal-case tracking-normal font-normal text-[#F5A623]/60">· from sports_event</span>}
+                {selectedEvent && <span className="ml-2 normal-case tracking-normal font-normal text-[#f97316]/60">· from sports_event</span>}
               </label>
               <select
                 value={format}
@@ -1231,7 +1231,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 <option value="CUSTOM">Custom Bracket</option>
               </select>
               {isGroupKnockout && (
-                <p className="text-[11px] text-[#F5A623]/80 mt-1.5">
+                <p className="text-[11px] text-[#f97316]/80 mt-1.5">
                   Group + Knockout: use Schedule Groups, then Generate Schedule for the knockout bracket.
                 </p>
               )}
@@ -1246,7 +1246,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             <div>
               <label className={labelCls}>
                 Number of Participants <span className="text-red-400">*</span>
-                {selectedEvent && <span className="ml-2 normal-case tracking-normal font-normal text-[#F5A623]/60">· from sports_event_registration</span>}
+                {selectedEvent && <span className="ml-2 normal-case tracking-normal font-normal text-[#f97316]/60">· from sports_event_registration</span>}
               </label>
               <input
                 type="number"
@@ -1281,7 +1281,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <label className="text-sm text-slate-300">Create third place match?</label>
               <button
                 onClick={() => setThirdPlace(!thirdPlace)}
-                className={`relative w-11 h-6 rounded-full transition-colors ${thirdPlace ? 'bg-[#F5A623]' : 'bg-[#2a3a5c]'}`}
+                className={`relative w-11 h-6 rounded-full transition-colors ${thirdPlace ? 'bg-[#f97316]' : 'bg-[#2a3a5c]'}`}
               >
                 <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${thirdPlace ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
               </button>
@@ -1293,8 +1293,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <div className="flex flex-wrap justify-center gap-4 mt-2">
                 {SEEDING_OPTIONS.map(opt => (
                   <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${seedingOrder === opt.value ? 'border-[#F5A623]' : 'border-[#2a3a5c]'}`}>
-                      {seedingOrder === opt.value && <div className="w-2 h-2 rounded-full bg-[#F5A623]" />}
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${seedingOrder === opt.value ? 'border-[#f97316]' : 'border-[#2a3a5c]'}`}>
+                      {seedingOrder === opt.value && <div className="w-2 h-2 rounded-full bg-[#f97316]" />}
                     </div>
                     <input type="radio" name="seeding" value={opt.value} checked={seedingOrder === opt.value} onChange={() => setSeedingOrder(opt.value)} className="sr-only" />
                     {opt.label}
@@ -1308,7 +1308,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         {/* ═══ RIGHT: Scoring Configuration ═══ */}
         <div className={cardCls}>
           <div className="flex items-center gap-2 mb-5">
-            <Trophy className="w-5 h-5 text-[#F5A623]" />
+            <Trophy className="w-5 h-5 text-[#f97316]" />
             <h3 className="text-base font-bold text-slate-200">Scoring Configuration</h3>
           </div>
 
@@ -1319,7 +1319,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <button
                 type="button"
                 onClick={openStandingsModal}
-                className="text-xs border border-[#F5A623]/40 text-[#F5A623] px-3 py-1.5 rounded-lg hover:bg-[#F5A623]/10 transition-colors font-semibold flex items-center gap-1"
+                className="text-xs border border-[#f97316]/40 text-[#f97316] px-3 py-1.5 rounded-lg hover:bg-[#f97316]/10 transition-colors font-semibold flex items-center gap-1"
               >
                 <Settings className="w-3 h-3" /> Configure Standings
               </button>
@@ -1333,8 +1333,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 onClick={openParticipantsModal}
                 className={`text-xs border px-3 py-1.5 rounded-lg transition-colors font-semibold flex items-center gap-1 ${
                   participantsScoring.enabled
-                    ? 'border-[#F5A623] text-[#F5A623] hover:bg-[#F5A623]/10'
-                    : 'border-[#2a3a5c] text-slate-400 hover:border-[#F5A623]/40 hover:text-[#F5A623]'
+                    ? 'border-[#f97316] text-[#f97316] hover:bg-[#f97316]/10'
+                    : 'border-[#2a3a5c] text-slate-400 hover:border-[#f97316]/40 hover:text-[#f97316]'
                 }`}
               >
                 <Settings className="w-3 h-3" /> {participantsScoring.enabled ? 'Configure' : 'Enable'}
@@ -1351,14 +1351,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         <div className={cardCls}>
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-[#F5A623]" />
+              <Calendar className="w-5 h-5 text-[#f97316]" />
               <h3 className="text-base font-bold text-slate-200">Date & Time Configuration</h3>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-400">Date Picker</span>
               <button
                 onClick={() => setShowDatePicker(!showDatePicker)}
-                className={`relative w-9 h-5 rounded-full transition-colors ${showDatePicker ? 'bg-[#F5A623]' : 'bg-[#2a3a5c]'}`}
+                className={`relative w-9 h-5 rounded-full transition-colors ${showDatePicker ? 'bg-[#f97316]' : 'bg-[#2a3a5c]'}`}
               >
                 <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${showDatePicker ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
               </button>
@@ -1410,10 +1410,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
             {/* Limit Matches Per Day */}
             <div className="flex items-center gap-3">
-              <input type="checkbox" checked={limitMatchesPerDay} onChange={e => setLimitMatchesPerDay(e.target.checked)} className="w-4 h-4 accent-[#F5A623] rounded" id="limitPerDay" />
+              <input type="checkbox" checked={limitMatchesPerDay} onChange={e => setLimitMatchesPerDay(e.target.checked)} className="w-4 h-4 accent-[#f97316] rounded" id="limitPerDay" />
               <label htmlFor="limitPerDay" className="text-sm text-slate-300 cursor-pointer">Limit Participant Matches Per Day</label>
               {limitMatchesPerDay && (
-                <input type="number" min="1" max="10" value={maxMatchesPerDay} onChange={e => setMaxMatchesPerDay(e.target.value)} className="w-16 bg-[#0f1729] border border-[#2a3a5c] rounded-lg px-2 py-1 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623]" />
+                <input type="number" min="1" max="10" value={maxMatchesPerDay} onChange={e => setMaxMatchesPerDay(e.target.value)} className="w-16 bg-[#0f1729] border border-[#2a3a5c] rounded-lg px-2 py-1 text-sm text-slate-200 focus:outline-none focus:border-[#f97316]" />
               )}
             </div>
           </div>
@@ -1423,10 +1423,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         <div className={cardCls}>
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-[#F5A623]" />
+              <MapPin className="w-5 h-5 text-[#f97316]" />
               <h3 className="text-base font-bold text-slate-200">Venue Configuration <span className="text-red-400">*</span></h3>
             </div>
-            <button className="text-xs border border-[#F5A623]/40 text-[#F5A623] px-3 py-1.5 rounded-lg hover:bg-[#F5A623]/10 transition-colors font-semibold flex items-center gap-1">
+            <button className="text-xs border border-[#f97316]/40 text-[#f97316] px-3 py-1.5 rounded-lg hover:bg-[#f97316]/10 transition-colors font-semibold flex items-center gap-1">
               <Plus className="w-3 h-3" /> Add/Edit Venue
             </button>
           </div>
@@ -1445,7 +1445,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
             ) : venues.map(v => (
               <div key={v.id} className="border border-[#2a3a5c] rounded-lg overflow-hidden">
                 <div className="flex items-center gap-3 p-3 bg-[#0f1729]/50 cursor-pointer" onClick={() => toggleVenue(v.id)}>
-                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0 ${selectedVenues.includes(v.id) ? 'border-[#F5A623] bg-[#F5A623]' : 'border-[#2a3a5c]'}`}>
+                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0 ${selectedVenues.includes(v.id) ? 'border-[#f97316] bg-[#f97316]' : 'border-[#2a3a5c]'}`}>
                     {selectedVenues.includes(v.id) && <svg className="w-3 h-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                   </div>
                   <span className="text-sm font-semibold text-slate-200 flex-1">{v.name}</span>
@@ -1469,9 +1469,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                     key={c.id ?? ci}
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); toggleCourt(v.id, c.name); }}
-                                    className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 border transition-colors ${isSel ? 'bg-[#F5A623]/20 border-[#F5A623] text-[#F5A623]' : 'bg-[#142347] border-[#2a437e]/50 text-slate-300 hover:border-slate-500'}`}
+                                    className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 border transition-colors ${isSel ? 'bg-[#f97316]/20 border-[#f97316] text-[#f97316]' : 'bg-[#142347] border-[#2a437e]/50 text-slate-300 hover:border-slate-500'}`}
                                   >
-                                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.color || '#F5A623' }} />
+                                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: c.color || '#f97316' }} />
                                     {c.name}
                                     {isSel && <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                                   </button>
@@ -1512,7 +1512,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                           setSelectedTimingVenue(v);
                           setTimingModalOpen(true);
                         }}
-                        className="text-[11px] border border-[#2a3a5c] text-slate-400 px-2 py-1 rounded hover:border-[#F5A623] hover:text-[#F5A623] transition-colors flex items-center gap-1 bg-transparent cursor-pointer"
+                        className="text-[11px] border border-[#2a3a5c] text-slate-400 px-2 py-1 rounded hover:border-[#f97316] hover:text-[#f97316] transition-colors flex items-center gap-1 bg-transparent cursor-pointer"
                       >
                         <Pencil className="w-3 h-3" /> {canEditTiming ? "Edit Venue Timing" : "View Venue Timing"}
                       </button>
@@ -1531,7 +1531,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 <button
                   key={opt}
                   onClick={() => setVenueAssignType(opt)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${venueAssignType === opt ? 'bg-[#F5A623] text-black shadow-md' : 'bg-[#0f1729] border border-[#2a3a5c] text-slate-400 hover:border-slate-500'}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${venueAssignType === opt ? 'bg-[#f97316] text-black shadow-md' : 'bg-[#0f1729] border border-[#2a3a5c] text-slate-400 hover:border-slate-500'}`}
                 >
                   {opt}
                 </button>
@@ -1549,7 +1549,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           <button
             onClick={isGroupKnockout ? handleScheduleGroups : handleGenerate}
             disabled={generating || !!existingConfig || selectedVenues.length === 0 || venuesNeedingCourt().length > 0 || (isGroupKnockout && Number(numberOfGroups) < 2)}
-            className="px-5 py-2 bg-[#F5A623] hover:bg-[#e09212] text-black font-bold rounded-lg transition-all text-xs tracking-wider disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-[#F5A623]/10 cursor-pointer"
+            className="px-5 py-2 bg-[#f97316] hover:bg-[#ea580c] text-black font-bold rounded-lg transition-all text-xs tracking-wider disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-[#f97316]/10 cursor-pointer"
           >
             {generating
               ? (isGroupKnockout ? 'Scheduling Groups...' : 'Generating...')
@@ -1584,7 +1584,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               onClick={() => {
                 setScheduleGenerated(false);
               }}
-              className="px-4 py-1.5 border border-[#F5A623]/40 text-[#F5A623] text-xs font-semibold rounded-full hover:bg-[#F5A623]/10 transition-colors inline-flex items-center gap-1"
+              className="px-4 py-1.5 border border-[#f97316]/40 text-[#f97316] text-xs font-semibold rounded-full hover:bg-[#f97316]/10 transition-colors inline-flex items-center gap-1"
             >
               Show Setup
             </button>
@@ -1592,7 +1592,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
           {/* Sample Schedule Container — Show only when event and format are selected */}
           {selectedEvent && format && !playoffsGenerated && (
-          <div className="border border-dashed border-[#F5A623]/40 rounded-xl bg-[#0f1729]/30 px-3 py-4 pb-4 relative">
+          <div className="border border-dashed border-[#f97316]/40 rounded-xl bg-[#0f1729]/30 px-3 py-4 pb-4 relative">
 
             {/* Group Cards Container — Group + Knockout only */}
             {isGroupKnockout && (
@@ -1600,7 +1600,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <div className="flex flex-wrap gap-4 justify-center">
                 {generatedGroups.map((group, gIdx) => (
                   <div key={group.name} className="bg-[#142347] border border-[#2a437e]/60 rounded-xl overflow-hidden w-[18rem] shadow-lg flex flex-col">
-                    <div className="bg-[#F5A623] text-slate-950 text-center py-2 text-xs font-black tracking-wider uppercase">
+                    <div className="bg-[#f97316] text-slate-950 text-center py-2 text-xs font-black tracking-wider uppercase">
                       {group.name}
                     </div>
                     <div className="p-3">
@@ -1616,7 +1616,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                     <select
                                       value={p.id}
                                       onChange={e => updateParticipantInGroup(gIdx, pIdx, e.target.value)}
-                                      className="flex-1 bg-[#0f1729] border border-[#2a3a5c] rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623] transition-colors"
+                                      className="flex-1 bg-[#0f1729] border border-[#2a3a5c] rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-[#f97316] transition-colors"
                                     >
                                       {allParticipantOptions.map(opt => (
                                         <option key={opt.id} value={opt.id}>{opt.name}{opt.flatNumber ? ` (${opt.flatNumber})` : ''}</option>
@@ -1640,7 +1640,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                     value={group.rounds}
                                     onChange={e => updateGroupConfig(gIdx, 'rounds', e.target.value)}
                                     placeholder="Number of Rounds"
-                                    className="w-full bg-[#0f1729] border border-[#2a3a5c] rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623] transition-colors"
+                                    className="w-full bg-[#0f1729] border border-[#2a3a5c] rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-[#f97316] transition-colors"
                                   />
                                 </div>
                                 <div className="flex flex-col gap-1">
@@ -1650,7 +1650,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                     min="0"
                                     value={group.proceeders}
                                     onChange={e => updateGroupConfig(gIdx, 'proceeders', e.target.value)}
-                                    className="w-full bg-[#0f1729] border border-[#2a3a5c] rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623] transition-colors"
+                                    className="w-full bg-[#0f1729] border border-[#2a3a5c] rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-[#f97316] transition-colors"
                                   />
                                   {isGroupKnockout && (
                                     <button
@@ -1659,7 +1659,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                         setToast(`Select Proceeders modal opened for ${group.name}!`);
                                         setTimeout(() => setToast(null), 3000);
                                       }}
-                                      className="mt-2 w-full py-1.5 border border-[#F5A623]/40 text-[#F5A623] text-xs font-semibold rounded-lg hover:bg-[#F5A623]/10 transition-colors cursor-pointer text-center"
+                                      className="mt-2 w-full py-1.5 border border-[#f97316]/40 text-[#f97316] text-xs font-semibold rounded-lg hover:bg-[#f97316]/10 transition-colors cursor-pointer text-center"
                                     >
                                       Select Proceeders
                                     </button>
@@ -1671,7 +1671,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                     <button
                                       type="button"
                                       onClick={() => updateGroupConfig(gIdx, 'limitMatches', !group.limitMatches)}
-                                      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${group.limitMatches ? 'bg-[#F5A623]' : 'bg-[#2a3a5c]'}`}
+                                      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${group.limitMatches ? 'bg-[#f97316]' : 'bg-[#2a3a5c]'}`}
                                     >
                                       <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${group.limitMatches ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
                                     </button>
@@ -1682,7 +1682,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                       min="1"
                                       value={group.maxMatches}
                                       onChange={e => updateGroupConfig(gIdx, 'maxMatches', e.target.value)}
-                                      className="w-full mt-1 bg-[#0f1729] border border-[#2a3a5c] rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623] transition-colors"
+                                      className="w-full mt-1 bg-[#0f1729] border border-[#2a3a5c] rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-[#f97316] transition-colors"
                                       placeholder="Max matches per participant"
                                     />
                                   )}
@@ -1693,7 +1693,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                     <button
                                       type="button"
                                       onClick={() => applyToAllGroups(0)}
-                                      className="px-3 py-1 border border-[#F5A623]/40 text-[#F5A623] text-xs font-semibold rounded-lg hover:bg-[#F5A623]/10 transition-colors"
+                                      className="px-3 py-1 border border-[#f97316]/40 text-[#f97316] text-xs font-semibold rounded-lg hover:bg-[#f97316]/10 transition-colors"
                                     >
                                       Apply
                                     </button>
@@ -1718,7 +1718,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                       type="button"
                       id="createPlayoffThirdPlace"
                       onClick={() => setPlayoffThirdPlace(!playoffThirdPlace)}
-                      className={`relative w-11 h-6 rounded-full transition-colors ${playoffThirdPlace ? 'bg-[#F5A623]' : 'bg-[#2a3a5c]'}`}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${playoffThirdPlace ? 'bg-[#f97316]' : 'bg-[#2a3a5c]'}`}
                     >
                       <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${playoffThirdPlace ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                     </button>
@@ -1733,8 +1733,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     <div className="flex flex-wrap gap-4 justify-center items-center">
                       {SEEDING_OPTIONS.map(opt => (
                         <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm text-slate-300">
-                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${playoffSeedingOrder === opt.value ? 'border-[#F5A623]' : 'border-[#2a3a5c]'}`}>
-                            {playoffSeedingOrder === opt.value && <div className="w-2 h-2 rounded-full bg-[#F5A623]" />}
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center transition-colors ${playoffSeedingOrder === opt.value ? 'border-[#f97316]' : 'border-[#2a3a5c]'}`}>
+                            {playoffSeedingOrder === opt.value && <div className="w-2 h-2 rounded-full bg-[#f97316]" />}
                           </div>
                           <input type="radio" name="playoffSeeding" value={opt.value} checked={playoffSeedingOrder === opt.value} onChange={() => setPlayoffSeedingOrder(opt.value)} className="sr-only" />
                           {opt.label}
@@ -1753,7 +1753,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   <button
                     onClick={handleGeneratePlayoffs}
                     disabled={generating}
-                    className="px-5 py-2 bg-[#F5A623] hover:bg-[#e09212] text-black font-bold rounded-lg transition-all text-xs tracking-wider disabled:opacity-50 shadow-md shadow-[#F5A623]/10 cursor-pointer"
+                    className="px-5 py-2 bg-[#f97316] hover:bg-[#ea580c] text-black font-bold rounded-lg transition-all text-xs tracking-wider disabled:opacity-50 shadow-md shadow-[#f97316]/10 cursor-pointer"
                   >
                     {generating ? 'Generating...' : 'Generate Schedule'}
                   </button>
@@ -1792,7 +1792,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                       const matchDate = parseLocalDate(match.date);
 
                       return (
-                        <div key={mIdx} className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl overflow-hidden relative pt-1 shadow-md hover:border-[#F5A623]/40 transition-colors">
+                        <div key={mIdx} className={`bg-[#141c2e] border border-[#2a3a5c] rounded-xl overflow-hidden relative pt-1 shadow-md hover:border-[#f97316]/40 transition-colors animate-fade-in-up stagger-${(mIdx % 8) + 1}`}>
                           {/* Top Status Bar (green line) */}
                           <div className="w-full h-1 bg-gradient-to-r from-emerald-500 to-emerald-500" />
 
@@ -1808,26 +1808,27 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                           <div className="flex flex-col gap-1 px-3.5 py-2 text-xs text-slate-400 border-b border-[#2a3a5c]/40 bg-[#0f1729]/30">
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-1">
-                                <i className="pi pi-calendar text-[#F5A623] text-sm"></i>
+                                <i className="pi pi-calendar text-[#f97316] text-sm"></i>
                                 <span className="font-bold text-slate-200">{formatDate(matchDate)}</span>
                                 <div className="w-px h-3 bg-[#2a3a5c] mx-1" />
                                 <span>{getDayOfWeek(matchDate)}</span>
                               </div>
                               <div className="flex items-center gap-1">
-                                <i className="pi pi-clock text-[#F5A623]"></i>
+                                <i className="pi pi-clock text-[#f97316]"></i>
                                 <span className="font-bold text-slate-200">{match.time}</span>
                               </div>
                             </div>
                             <div className="flex items-center gap-1 text-[11px] text-slate-400/80">
-                              <i className="pi pi-map-marker text-[#F5A623]"></i>
+                              <i className="pi pi-map-marker text-[#f97316]"></i>
                               <span>{venues.find(v => v.id === match.venueId)?.name || 'TBD'}</span>
-                              <span className="text-[#F5A623] font-semibold"> - {venues.find(v => v.id === match.venueId)?.courts?.find(c => c.id === match.courtId)?.name || 'TBD'}</span>
+                              <span className="text-[#f97316] font-semibold"> - {venues.find(v => v.id === match.venueId)?.courts?.find(c => c.id === match.courtId)?.name || 'TBD'}</span>
                             </div>
                           </div>
 
                           {/* Players VS Content */}
                           <div className="p-3.5 flex flex-col justify-between h-[calc(100%-6.5rem)]">
-                            <div className="flex items-center justify-between bg-[#0f1729]/40 rounded-lg p-2.5 border border-[#2a3a5c]/40">
+                            {/* Desktop Players VS Content (horizontal layout) */}
+                            <div className="hidden sm:flex items-center justify-between bg-[#0f1729]/40 rounded-lg p-2.5 border border-[#2a3a5c]/40">
                               {/* Home Team */}
                               <div className="flex items-center gap-2.5 w-[42%]">
                                 <div className="w-8 h-8 rounded-full bg-slate-800 border border-[#2a3a5c] overflow-hidden flex items-center justify-center shrink-0">
@@ -1841,7 +1842,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
                               {/* VS Badge */}
                               <div className="flex justify-center w-[16%]">
-                                <span className="text-[10px] bg-[#F5A623]/10 text-[#F5A623] px-2 py-0.5 rounded font-bold border border-[#F5A623]/20">VS</span>
+                                <span className="text-[10px] bg-[#f97316]/10 text-[#f97316] px-2 py-0.5 rounded font-bold border border-[#f97316]/20">VS</span>
                               </div>
 
                               {/* Away Team */}
@@ -1856,6 +1857,38 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                               </div>
                             </div>
 
+                            {/* Mobile Players VS Content (vertical stacking layout) */}
+                            <div className="flex sm:hidden flex-col gap-2 p-2.5 bg-[#0f1729]/40 rounded-lg border border-[#2a3a5c]/40">
+                              {/* Home Team Row */}
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-slate-800 border border-[#2a3a5c] overflow-hidden flex items-center justify-center shrink-0">
+                                  <img src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media" alt="Avatar" className="w-full h-full object-cover" />
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-xs font-bold text-slate-200 truncate" title={match.home.name}>{match.home.name}</span>
+                                  {match.home.flatNumber && <span className="text-[9px] text-[#94a3b8]">{match.home.flatNumber}</span>}
+                                </div>
+                              </div>
+
+                              {/* VS Row Divider */}
+                              <div className="flex items-center gap-2">
+                                <div className="h-px flex-1 bg-[#2a3a5c]/40" />
+                                <span className="text-[9px] bg-[#f97316]/10 text-[#f97316] px-1.5 py-0.2 rounded font-bold border border-[#f97316]/20">VS</span>
+                                <div className="h-px flex-1 bg-[#2a3a5c]/40" />
+                              </div>
+
+                              {/* Away Team Row */}
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-slate-800 border border-[#2a3a5c] overflow-hidden flex items-center justify-center shrink-0">
+                                  <img src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media" alt="Avatar" className="w-full h-full object-cover" />
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="text-xs font-bold text-slate-200 truncate" title={match.away.name}>{match.away.name}</span>
+                                  {match.away.flatNumber && <span className="text-[9px] text-[#94a3b8]">{match.away.flatNumber}</span>}
+                                </div>
+                              </div>
+                            </div>
+
                             {/* Card Actions */}
                             <div className="flex justify-between items-center mt-3 pt-3 border-t border-[#2a3a5c]/30">
                               <div className="text-[11px] text-slate-400">
@@ -1865,7 +1898,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                 <button
                                   type="button"
                                   onClick={() => handleOpenEditMatch(gIdx, mIdx, match)}
-                                  className="px-2.5 py-1 border border-[#F5A623]/40 text-[#F5A623] text-xs font-semibold rounded-lg hover:bg-[#F5A623]/10 transition-colors flex items-center gap-1 cursor-pointer"
+                                  className="px-2.5 py-1 border border-[#f97316]/40 text-[#f97316] text-xs font-semibold rounded-lg hover:bg-[#f97316]/10 transition-colors flex items-center gap-1 cursor-pointer"
                                 >
                                   <Pencil className="w-3 h-3" /> Edit
                                 </button>
@@ -1972,7 +2005,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     </div>
                   </div>
                   <div className="flex justify-center text-center w-[10%]">
-                    <div className="text-center font-bold text-xl text-[#F5A623] tracking-wider drop-shadow-md">VS</div>
+                    <div className="text-center font-bold text-xl text-[#f97316] tracking-wider drop-shadow-md">VS</div>
                   </div>
                   <div className="flex justify-center w-[45%]">
                     <div className="w-16 h-16 rounded-full bg-slate-800 border-2 border-[#2a3a5c] overflow-hidden flex items-center justify-center shadow-lg">
@@ -2114,7 +2147,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                     id="moveSubsMatchesEdit"
                     checked={editMatchForm.moveSubsMatches}
                     onChange={e => setEditMatchForm(prev => ({ ...prev, moveSubsMatches: e.target.checked }))}
-                    className="w-4 h-4 accent-[#F5A623] rounded cursor-pointer shrink-0"
+                    className="w-4 h-4 accent-[#f97316] rounded cursor-pointer shrink-0"
                   />
                   <label htmlFor="moveSubsMatchesEdit" className="text-xs font-medium text-slate-300 cursor-pointer select-none">
                     Delay/Advance subsequent matches on this court for the day.
@@ -2157,7 +2190,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <button
                 type="button"
                 onClick={handleSaveMatchEdit}
-                className="px-5 py-2 bg-[#F5A623] hover:bg-[#e09212] text-black font-bold rounded-lg text-sm transition-colors shadow-lg shadow-[#F5A623]/10"
+                className="px-5 py-2 bg-[#f97316] hover:bg-[#ea580c] text-black font-bold rounded-lg text-sm transition-colors shadow-lg shadow-[#f97316]/10"
               >
                 Submit
               </button>
@@ -2224,21 +2257,21 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
               {/* 1. Points System */}
               <div className="space-y-4">
-                <h6 className="text-base font-bold text-[#F5A623] border-b border-[#2a3a5c]/50 pb-2">Points System</h6>
+                <h6 className="text-base font-bold text-[#f97316] border-b border-[#2a3a5c]/50 pb-2">Points System</h6>
                 
                 {/* Allow variable point system toggle */}
                 <div className="flex items-center justify-between bg-[#0f1729]/50 border border-[#2a3a5c] rounded-lg p-4">
                   <div className="space-y-1 pr-4">
                     <label className="text-sm font-semibold text-slate-200">Allow variable point system?</label>
                     <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#F5A623]"></span>
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#f97316]"></span>
                       Enable match scorer to assign variable points for different win types; if disabled, only normal victory points can be assigned.
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setModalAllowVariablePoints(!modalAllowVariablePoints)}
-                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalAllowVariablePoints ? 'bg-[#F5A623]' : 'bg-[#2a3a5c]'}`}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalAllowVariablePoints ? 'bg-[#f97316]' : 'bg-[#2a3a5c]'}`}
                   >
                     <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${modalAllowVariablePoints ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </button>
@@ -2265,7 +2298,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             disabled={!modalAllowVariablePoints}
                             value={modalConvincingWin}
                             onChange={e => setModalConvincingWin(e.target.value)}
-                            className="w-28 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623] disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="w-28 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed"
                             placeholder="Points"
                           />
                         </td>
@@ -2276,7 +2309,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             disabled={!modalAllowVariablePoints}
                             value={modalConvincingLoss}
                             onChange={e => setModalConvincingLoss(e.target.value)}
-                            className="w-28 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623] disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="w-28 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed"
                             placeholder="Points"
                           />
                         </td>
@@ -2290,7 +2323,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             min="0"
                             value={modalNormalWin}
                             onChange={e => setModalNormalWin(e.target.value)}
-                            className="w-28 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623]"
+                            className="w-28 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#f97316]"
                             placeholder="Points"
                           />
                         </td>
@@ -2300,7 +2333,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             min="0"
                             value={modalNormalLoss}
                             onChange={e => setModalNormalLoss(e.target.value)}
-                            className="w-28 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623]"
+                            className="w-28 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#f97316]"
                             placeholder="Points"
                           />
                         </td>
@@ -2315,7 +2348,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             disabled={!modalAllowVariablePoints}
                             value={modalMarginalWin}
                             onChange={e => setModalMarginalWin(e.target.value)}
-                            className="w-28 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623] disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="w-28 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed"
                             placeholder="Points"
                           />
                         </td>
@@ -2326,7 +2359,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             disabled={!modalAllowVariablePoints}
                             value={modalMarginalLoss}
                             onChange={e => setModalMarginalLoss(e.target.value)}
-                            className="w-28 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623] disabled:opacity-40 disabled:cursor-not-allowed"
+                            className="w-28 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#f97316] disabled:opacity-40 disabled:cursor-not-allowed"
                             placeholder="Points"
                           />
                         </td>
@@ -2345,7 +2378,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                           <button
                             type="button"
                             onClick={() => setModalCustomPoints(!modalCustomPoints)}
-                            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalCustomPoints ? 'bg-[#F5A623]' : 'bg-[#2a3a5c]'}`}
+                            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalCustomPoints ? 'bg-[#f97316]' : 'bg-[#2a3a5c]'}`}
                           >
                             <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${modalCustomPoints ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                           </button>
@@ -2362,7 +2395,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             required
                             value={modalTiePoints}
                             onChange={e => setModalTiePoints(e.target.value)}
-                            className="w-36 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623]"
+                            className="w-36 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#f97316]"
                             placeholder="Tie Points"
                           />
                         </td>
@@ -2378,7 +2411,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             required
                             value={modalNoResultPoints}
                             onChange={e => setModalNoResultPoints(e.target.value)}
-                            className="w-36 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623]"
+                            className="w-36 bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#f97316]"
                             placeholder="No-Result Points"
                           />
                         </td>
@@ -2390,9 +2423,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
               {/* 2. Standings Display Settings */}
               <div className="space-y-3">
-                <h6 className="text-base font-bold text-[#F5A623] border-b border-[#2a3a5c]/50 pb-2">Standings Display Settings</h6>
+                <h6 className="text-base font-bold text-[#f97316] border-b border-[#2a3a5c]/50 pb-2">Standings Display Settings</h6>
                 <p className="text-xs text-slate-400 flex items-center gap-1.5">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#F5A623]"></span>
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#f97316]"></span>
                   Enabling will display the parameters in the standings table.
                 </p>
 
@@ -2403,7 +2436,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                       <button
                         type="button"
                         onClick={() => toggleDisplaySetting(key)}
-                        className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalDisplaySettings[key] ? 'bg-[#F5A623]' : 'bg-[#2a3a5c]'}`}
+                        className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalDisplaySettings[key] ? 'bg-[#f97316]' : 'bg-[#2a3a5c]'}`}
                       >
                         <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${modalDisplaySettings[key] ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                       </button>
@@ -2414,7 +2447,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
               {/* 3. Additional Parameters */}
               <div className="space-y-3">
-                <h6 className="text-base font-bold text-[#F5A623] border-b border-[#2a3a5c]/50 pb-2">Additional Parameters</h6>
+                <h6 className="text-base font-bold text-[#f97316] border-b border-[#2a3a5c]/50 pb-2">Additional Parameters</h6>
                 
                 <div className="overflow-x-auto border border-[#2a3a5c] rounded-lg bg-[#141c2e]">
                   <table className="w-full text-left border-collapse">
@@ -2433,7 +2466,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                               type="text"
                               value={param.name}
                               onChange={e => updateAdditionalParam(param.id, 'name', e.target.value)}
-                              className="w-full bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623]"
+                              className="w-full bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#f97316]"
                               placeholder="Points"
                               required
                             />
@@ -2443,7 +2476,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                               type="text"
                               value={param.shortName}
                               onChange={e => updateAdditionalParam(param.id, 'shortName', e.target.value)}
-                              className="w-full bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623]"
+                              className="w-full bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#f97316]"
                               placeholder="Point Short name"
                               required
                             />
@@ -2466,7 +2499,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             type="text"
                             value={newParamName}
                             onChange={e => setNewParamName(e.target.value)}
-                            className="w-full bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623]"
+                            className="w-full bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#f97316]"
                             placeholder="Points"
                           />
                         </td>
@@ -2475,7 +2508,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             type="text"
                             value={newParamShortName}
                             onChange={e => setNewParamShortName(e.target.value)}
-                            className="w-full bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#F5A623]"
+                            className="w-full bg-[#0f1729] border border-[#2a3a5c] rounded px-3 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-[#f97316]"
                             placeholder="Point Short name"
                           />
                         </td>
@@ -2483,7 +2516,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                           <button
                             type="button"
                             onClick={addAdditionalParam}
-                            className="p-1.5 text-[#F5A623] hover:text-[#e09212] hover:bg-[#F5A623]/10 rounded transition-colors"
+                            className="p-1.5 text-[#f97316] hover:text-[#ea580c] hover:bg-[#f97316]/10 rounded transition-colors"
                             title="Add Parameter"
                           >
                             <Plus className="w-5 h-5" />
@@ -2508,7 +2541,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <button
                 type="button"
                 onClick={handleSaveStandings}
-                className="px-5 py-2 bg-[#F5A623] hover:bg-[#e09212] text-black font-bold rounded-lg text-sm transition-colors shadow-lg shadow-[#F5A623]/10"
+                className="px-5 py-2 bg-[#f97316] hover:bg-[#ea580c] text-black font-bold rounded-lg text-sm transition-colors shadow-lg shadow-[#f97316]/10"
               >
                 Save
               </button>
@@ -2558,7 +2591,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   <button
                     type="button"
                     onClick={() => setModalAdminApproval(!modalAdminApproval)}
-                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalAdminApproval ? 'bg-[#F5A623]' : 'bg-[#2a3a5c]'}`}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalAdminApproval ? 'bg-[#f97316]' : 'bg-[#2a3a5c]'}`}
                   >
                     <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${modalAdminApproval ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </button>
@@ -2575,7 +2608,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   <button
                     type="button"
                     onClick={() => setModalCanPublish(!modalCanPublish)}
-                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalCanPublish ? 'bg-[#F5A623]' : 'bg-[#2a3a5c]'}`}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalCanPublish ? 'bg-[#f97316]' : 'bg-[#2a3a5c]'}`}
                   >
                     <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${modalCanPublish ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </button>
@@ -2592,7 +2625,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   <button
                     type="button"
                     onClick={() => setModalOpponentApproval(!modalOpponentApproval)}
-                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalOpponentApproval ? 'bg-[#F5A623]' : 'bg-[#2a3a5c]'}`}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalOpponentApproval ? 'bg-[#f97316]' : 'bg-[#2a3a5c]'}`}
                   >
                     <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${modalOpponentApproval ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </button>
@@ -2632,7 +2665,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 <button
                   type="button"
                   onClick={handleSaveParticipants}
-                  className="px-5 py-2 bg-[#F5A623] hover:bg-[#e09212] text-black font-bold rounded-lg text-sm transition-colors shadow-lg shadow-[#F5A623]/10 flex items-center gap-1.5"
+                  className="px-5 py-2 bg-[#f97316] hover:bg-[#ea580c] text-black font-bold rounded-lg text-sm transition-colors shadow-lg shadow-[#f97316]/10 flex items-center gap-1.5"
                 >
                   <span>Pay & Enable</span>
                   <span className="opacity-50 text-xs">|</span>

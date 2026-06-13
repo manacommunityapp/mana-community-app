@@ -95,30 +95,37 @@ export function Signup() {
     { value: "local", label: "Local Community", icon: Home },
   ];
 
+  // Shared input classes for the dark theme
+  const inputCls = "w-full px-4 py-3 bg-[var(--mana-bg-input)] border border-border rounded-lg text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all";
+  const labelCls = "block text-sm font-medium text-muted-foreground mb-2";
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 py-12 px-4">
+    <div className="min-h-screen bg-background py-12 px-4 relative overflow-hidden">
+      {/* Subtle radial glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
+
       <Toaster position="top-center" richColors />
-      <div className="w-full max-w-2xl mx-auto">
+      <div className="w-full max-w-2xl mx-auto relative z-10">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center bg-indigo-600 p-3 rounded-2xl mb-4">
+          <div className="inline-flex items-center justify-center bg-primary p-3 rounded-2xl mb-4 shadow-lg shadow-primary/20">
             <ShieldCheck className="h-10 w-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">Join Mana Community</h1>
-          <p className="text-slate-600">Create your account and connect with your community</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Join Mana Community</h1>
+          <p className="text-muted-foreground">Create your account and connect with your community</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
+        <div className="bg-card rounded-2xl shadow-2xl border border-border p-8">
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Community Selection */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-3">
+              <label className={labelCls}>
                 Select Your Community Type
               </label>
               <div className="grid grid-cols-3 gap-3">
                 {communityTypes.map((type) => (
                   <label
                     key={type.value}
-                    className="relative flex flex-col items-center p-4 border-2 border-slate-200 rounded-xl cursor-pointer hover:border-indigo-300 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50 transition-all"
+                    className="relative flex flex-col items-center p-4 border-2 border-border rounded-xl cursor-pointer hover:border-primary/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10 transition-all"
                   >
                     <input
                       type="radio"
@@ -126,8 +133,8 @@ export function Signup() {
                       {...register("communityType")}
                       className="sr-only"
                     />
-                    <type.icon className="w-8 h-8 text-slate-600 mb-2" />
-                    <span className="text-xs font-medium text-slate-700 text-center">
+                    <type.icon className="w-8 h-8 text-[#94a3b8] mb-2" />
+                    <span className="text-xs font-medium text-[#94a3b8] text-center">
                       {type.label}
                     </span>
                   </label>
@@ -137,23 +144,23 @@ export function Signup() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label htmlFor="fullName" className="block text-sm font-medium text-slate-700 mb-2">
+                <label htmlFor="fullName" className={labelCls}>
                   Full Name
                 </label>
                 <input
                   id="fullName"
                   type="text"
                   {...register("fullName", { required: "Full name is required" })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  className={inputCls}
                   placeholder="John Doe"
                 />
                 {errors.fullName && (
-                  <p className="text-red-500 text-xs mt-1">{errors.fullName.message}</p>
+                  <p className="text-[#ef4444] text-xs mt-1">{errors.fullName.message}</p>
                 )}
               </div>
 
               <div>
-                <label htmlFor="signup-email" className="block text-sm font-medium text-slate-700 mb-2">
+                <label htmlFor="signup-email" className={labelCls}>
                   Email Address
                 </label>
                 <input
@@ -163,56 +170,56 @@ export function Signup() {
                     required: "Email is required",
                     pattern: { value: /^\S+@\S+$/i, message: "Invalid email format" },
                   })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  className={inputCls}
                   placeholder="john@example.com"
                 />
                 {errors.email && (
-                  <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
+                  <p className="text-[#ef4444] text-xs mt-1">{errors.email.message}</p>
                 )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-2">
+                <label htmlFor="phone" className={labelCls}>
                   Phone Number
                 </label>
                 <input
                   id="phone"
                   type="tel"
                   {...register("phone", { required: "Phone number is required" })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  className={inputCls}
                   placeholder="+91 98765 43210"
                 />
                 {errors.phone && (
-                  <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>
+                  <p className="text-[#ef4444] text-xs mt-1">{errors.phone.message}</p>
                 )}
               </div>
 
               <div>
-                <label htmlFor="dateOfBirth" className="block text-sm font-medium text-slate-700 mb-2">
+                <label htmlFor="dateOfBirth" className={labelCls}>
                   Date of Birth
                 </label>
                 <input
                   id="dateOfBirth"
                   type="date"
                   {...register("dateOfBirth", { required: "Date of birth is required" })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  className={`${inputCls} [color-scheme:dark]`}
                 />
                 {errors.dateOfBirth && (
-                  <p className="text-red-500 text-xs mt-1">{errors.dateOfBirth.message}</p>
+                  <p className="text-[#ef4444] text-xs mt-1">{errors.dateOfBirth.message}</p>
                 )}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className={labelCls}>
                   Select Community
                 </label>
                 <select
                   onChange={(e) => setValue("communityCode", e.target.value, { shouldValidate: true })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all mb-4"
+                  className={`${inputCls} mb-4`}
                 >
                   <option value="">Select your community...</option>
                   {communities.map((c) => (
@@ -222,29 +229,29 @@ export function Signup() {
                   ))}
                 </select>
 
-                <label htmlFor="communityCode" className="block text-sm font-medium text-slate-700 mb-2">
+                <label htmlFor="communityCode" className={labelCls}>
                   Community Invite Code
                 </label>
                 <input
                   id="communityCode"
                   type="text"
                   {...register("communityCode", { required: "Community code is required" })}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                  className={inputCls}
                   placeholder="e.g., APT-TOWER-A-2024"
                 />
                 {errors.communityCode && (
-                  <p className="text-red-500 text-xs mt-1">{errors.communityCode.message}</p>
+                  <p className="text-[#ef4444] text-xs mt-1">{errors.communityCode.message}</p>
                 )}
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-[#64748b] mt-1">
                   Select from above or enter manually
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Gender</label>
+                <label className={labelCls}>Gender</label>
                 <select
                   {...register("gender")}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className={inputCls}
                 >
                   <option value="MALE">Male</option>
                   <option value="FEMALE">Female</option>
@@ -256,66 +263,66 @@ export function Signup() {
             {communityType === "apartment" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in fade-in slide-in-from-top-1">
                 <div>
-                  <label htmlFor="block" className="block text-sm font-medium text-slate-700 mb-2">
+                  <label htmlFor="block" className={labelCls}>
                     Block / Wing
                   </label>
                   <input
                     id="block"
                     type="text"
                     {...register("block", { required: communityType === "apartment" ? "Block is required" : false })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    className={inputCls}
                     placeholder="e.g., A, B, Phase 1"
                   />
                   {errors.block && (
-                    <p className="text-red-500 text-xs mt-1">{errors.block.message}</p>
+                    <p className="text-[#ef4444] text-xs mt-1">{errors.block.message}</p>
                   )}
                 </div>
 
                 <div>
-                  <label htmlFor="flatNo" className="block text-sm font-medium text-slate-700 mb-2">
+                  <label htmlFor="flatNo" className={labelCls}>
                     Flat Number
                   </label>
                   <input
                     id="flatNo"
                     type="text"
                     {...register("flatNo", { required: communityType === "apartment" ? "Flat number is required" : false })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
+                    className={inputCls}
                     placeholder="e.g., 101, 202-B"
                   />
                   {errors.flatNo && (
-                    <p className="text-red-500 text-xs mt-1">{errors.flatNo.message}</p>
+                    <p className="text-[#ef4444] text-xs mt-1">{errors.flatNo.message}</p>
                   )}
                 </div>
               </div>
             )}
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Account Type</label>
+              <label className={labelCls}>Account Type</label>
               <div className="grid grid-cols-2 gap-3">
-                <label className="relative flex items-center p-3 border-2 border-slate-200 rounded-lg cursor-pointer hover:border-indigo-300 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50 transition-all">
+                <label className="relative flex items-center p-3 border-2 border-border rounded-lg cursor-pointer hover:border-primary/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10 transition-all">
                   <input
                     type="radio"
                     value="member"
                     {...register("userType")}
-                    className="w-4 h-4 text-indigo-600"
+                    className="w-4 h-4 accent-primary"
                   />
-                  <span className="ml-3 text-sm font-medium text-slate-700">Community Member</span>
+                  <span className="ml-3 text-sm font-medium text-muted-foreground">Community Member</span>
                 </label>
-                <label className="relative flex items-center p-3 border-2 border-slate-200 rounded-lg cursor-pointer hover:border-indigo-300 has-[:checked]:border-indigo-600 has-[:checked]:bg-indigo-50 transition-all">
+                <label className="relative flex items-center p-3 border-2 border-border rounded-lg cursor-pointer hover:border-primary/40 has-[:checked]:border-primary has-[:checked]:bg-primary/10 transition-all">
                   <input
                     type="radio"
                     value="vendor"
                     {...register("userType")}
-                    className="w-4 h-4 text-indigo-600"
+                    className="w-4 h-4 accent-primary"
                   />
-                  <span className="ml-3 text-sm font-medium text-slate-700">Vendor/Service Provider</span>
+                  <span className="ml-3 text-sm font-medium text-muted-foreground">Vendor/Service Provider</span>
                 </label>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label htmlFor="signup-password" className="block text-sm font-medium text-slate-700 mb-2">
+                <label htmlFor="signup-password" className={labelCls}>
                   Password
                 </label>
                 <div className="relative">
@@ -326,24 +333,24 @@ export function Signup() {
                       required: "Password is required",
                       minLength: { value: 8, message: "Password must be at least 8 characters" },
                     })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all pr-11"
+                    className={`${inputCls} pr-11`}
                     placeholder="Minimum 8 characters"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-muted-foreground"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
                 {errors.password && (
-                  <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>
+                  <p className="text-destructive text-xs mt-1">{errors.password.message}</p>
                 )}
               </div>
 
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-slate-700 mb-2">
+                <label htmlFor="confirmPassword" className={labelCls}>
                   Confirm Password
                 </label>
                 <div className="relative">
@@ -354,37 +361,37 @@ export function Signup() {
                       required: "Please confirm your password",
                       validate: (value) => value === password || "Passwords do not match",
                     })}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all pr-11"
+                    className={`${inputCls} pr-11`}
                     placeholder="Re-enter password"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-muted-foreground"
                   >
                     {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
                 {errors.confirmPassword && (
-                  <p className="text-red-500 text-xs mt-1">{errors.confirmPassword.message}</p>
+                  <p className="text-destructive text-xs mt-1">{errors.confirmPassword.message}</p>
                 )}
               </div>
             </div>
 
             <div className="pt-4">
-              <label className="flex items-start gap-3">
+              <label className="flex items-start gap-3 cursor-pointer">
                 <input
                   type="checkbox"
                   {...register("terms", { required: "You must agree to the terms" })}
-                  className="mt-1 w-4 h-4 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500"
+                  className="mt-1 w-4 h-4 accent-primary bg-[var(--mana-bg-input)] border-border rounded focus:ring-primary"
                 />
-                <span className="text-sm text-slate-600 leading-tight">
+                <span className="text-sm text-muted-foreground leading-tight">
                   I agree to the Terms of Service and Privacy Policy, and consent to identity
                   verification for community safety
                 </span>
               </label>
               {errors.terms && (
-                <p className="text-red-500 text-xs mt-1 ml-7">{errors.terms.message}</p>
+                <p className="text-destructive text-xs mt-1 ml-7">{errors.terms.message}</p>
               )}
             </div>
 
@@ -392,7 +399,7 @@ export function Signup() {
               type="submit"
               id="signup-submit-btn"
               disabled={isSubmitting}
-              className="w-full flex items-center justify-center py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg shadow-sm transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center py-3 px-4 bg-primary hover:bg-primary/90 active:scale-[0.97] text-white font-semibold rounded-lg shadow-lg shadow-primary/20 transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
             >
               {isSubmitting ? (
                 <>
@@ -409,9 +416,9 @@ export function Signup() {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-muted-foreground">
               Already have an account?{" "}
-              <Link to="/login" className="text-indigo-600 hover:text-indigo-700 font-medium">
+              <Link to="/login" className="text-primary hover:text-primary/80 font-medium">
                 Sign in
               </Link>
             </p>

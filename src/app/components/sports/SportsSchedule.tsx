@@ -67,7 +67,7 @@ function MatchCard({ match }: { match: BracketMatch }) {
   const isByeMatch = match.isBye || players.length === 1;
 
   return (
-    <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl overflow-hidden">
+    <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl overflow-hidden card-hover-lift">
       <div className="px-3 py-2.5 bg-[#1a2540] border-b border-[#2a3a5c]">
         <div className="text-xs font-semibold text-[#f1f5f9]">{match.label}</div>
         <div className="text-[10px] text-[#94a3b8] mt-0.5">{match.date} | {match.time}</div>
@@ -185,7 +185,7 @@ function BracketView({ eventId }: { eventId?: string }) {
             { label: "Winner", icon: "🏆", name: "Winner Of Final" },
             { label: "Runner-up", icon: "🥈", name: "Loser Of Final" },
           ].map(r => (
-            <div key={r.label} className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4 flex items-center gap-3">
+            <div key={r.label} className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-4 flex items-center gap-3 card-hover-lift">
               <span className="text-2xl">{r.icon}</span>
               <div>
                 <div className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider">{r.label}</div>
@@ -291,12 +291,12 @@ export function SportsSchedule() {
   return (
     <div className="space-y-4">
       {/* Tab bar */}
-      <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-1.5 flex gap-1">
+      <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-1.5 flex gap-1 overflow-x-auto hide-scrollbar">
         {TABS.map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 rounded-lg text-sm font-medium cursor-pointer border-none transition-all ${activeTab === tab
+            className={`flex-1 whitespace-nowrap flex-shrink-0 py-2 px-4 rounded-lg text-sm font-medium cursor-pointer border-none transition-all ${activeTab === tab
                 ? tab === "Setup Schedule"
                   ? "bg-[#102a71] text-[#FFFDFC] border border-[#2a3a5c]"
                   : "bg-[#1a2540] text-[#f97316] border border-[#2a3a5c]"

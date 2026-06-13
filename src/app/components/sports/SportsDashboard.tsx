@@ -29,7 +29,7 @@ interface StatCardProps { value: number; label: string; badge: string; color: st
 
 function StatCard({ value, label, badge, color, badgeBg, badgeText }: StatCardProps) {
   return (
-    <div className="bg-[#1a2540] border border-[#2a3a5c] rounded-xl p-4">
+    <div className="bg-[#1a2540] border border-[#2a3a5c] rounded-xl p-4 card-hover-lift">
       <div className="text-3xl font-semibold" style={{ color }}>{value}</div>
       <div className="text-xs text-[#94a3b8] mt-1">{label}</div>
       <span className="inline-block text-[10px] px-2 py-0.5 rounded mt-2" style={{ background: badgeBg, color: badgeText }}>
@@ -47,7 +47,7 @@ function EventRow({ event, onClick }: EventRowProps) {
   const dotClass = event.status === "LIVE" ? "bg-[#10b981] shadow-[0_0_6px_#10b981] animate-pulse"
     : event.status === "COMPLETED" ? "bg-[#475569]" : "bg-[#f97316]";
   return (
-    <div onClick={onClick} className="flex items-center gap-3 p-3 bg-[#1a2540] rounded-lg mb-2 border border-[#2a3a5c] cursor-pointer hover:border-[#f97316] transition-colors">
+    <div onClick={onClick} className="flex items-center gap-3 p-3 bg-[#1a2540] rounded-lg mb-2 border border-[#2a3a5c] cursor-pointer hover:border-[#f97316] hover:translate-x-1 hover:shadow-md hover:shadow-orange-500/5 transition-all duration-200">
       <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dotClass}`} />
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-[#f1f5f9] truncate">
@@ -93,7 +93,7 @@ function RegCard({
   toggling
 }: RegCardProps) {
   return (
-    <div className="flex items-start gap-3 p-3 bg-[#1a2540] rounded-lg mb-2 border border-[#2a3a5c] hover:border-opacity-60 transition-colors">
+    <div className="flex items-start gap-3 p-3 bg-[#1a2540] rounded-lg mb-2 border border-[#2a3a5c] hover:border-[#f97316]/50 hover:translate-x-0.5 hover:shadow-md hover:shadow-orange-500/5 transition-all duration-200">
       <div className="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1" style={{ background: item.dotColor }} />
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-[#f1f5f9]">
@@ -507,16 +507,20 @@ export function SportsDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {loading ? (
           Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className="bg-[#1a2540] border border-[#2a3a5c] rounded-xl p-4 animate-pulse">
-              <div className="h-8 bg-[#2a3a5c]/60 rounded w-1/3"></div>
-              <div className="h-4 bg-[#2a3a5c]/40 rounded w-2/3 mt-2"></div>
-              <div className="h-4 bg-[#2a3a5c]/30 rounded w-1/2 mt-3"></div>
+            <div key={idx} className="shimmer-bg border border-[#2a3a5c]/30 rounded-xl p-4">
+              <div className="h-8 bg-white/5 rounded w-1/3"></div>
+              <div className="h-4 bg-white/5 rounded w-2/3 mt-2"></div>
+              <div className="h-4 bg-white/5 rounded w-1/2 mt-3"></div>
             </div>
           ))
         ) : (
-          stats.map(s => {
+          stats.map((s, idx) => {
             const bc = badgeMap[s.badgeType as keyof typeof badgeMap] || { bg: "rgba(0,0,0,0.1)", text: "#94a3b8" };
-            return <StatCard key={s.id} value={s.value} label={s.label} badge={s.badge} color={s.color} badgeBg={bc.bg} badgeText={bc.text} />;
+            return (
+              <div key={s.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
+                <StatCard value={s.value} label={s.label} badge={s.badge} color={s.color} badgeBg={bc.bg} badgeText={bc.text} />
+              </div>
+            );
           })
         )}
       </div>
@@ -534,14 +538,14 @@ export function SportsDashboard() {
             ) : liveEvents.length === 0 ? (
               <div className="text-center py-4 text-[#475569] text-xs">No upcoming events</div>
             ) : (
-              liveEvents.map(ev => {
+              liveEvents.map((ev, idx) => {
               const myReg = myRegistrations.find(r => r.event.id === ev.id);
               const isConfirmed = myReg?.status === "CONFIRMED";
               const isNominated = myReg?.captainNomination;
               const isTeamReg = myReg?.matchType === "TEAM";
 
               return (
-                <div key={ev.id} className="mb-3">
+                <div key={ev.id} className={`mb-3 animate-fade-in-up stagger-${(idx % 8) + 1}`}>
                   <EventRow event={ev} onClick={() => toast.info(`Selected: ${ev.name}`)} />
                   {isConfirmed && isTeamReg && (
                     <div className="flex items-center justify-between px-3 py-2 bg-[#1a2540]/40 rounded-b-lg border-x border-b border-[#2a3a5c] -mt-2">
@@ -600,39 +604,40 @@ export function SportsDashboard() {
                 <p className="text-[10px] text-[#334155] mt-1">Check back later or ask your admin to open registrations</p>
               </div>
             ) : (
-              openRegs.map(item => (
-                <RegCard
-                  key={item.id}
-                  item={item}
-                  onRegister={() => navigate(`/sports/register/${item.id}`)}
-                  onView={() => navigate("/sports/auction")}
-                  onWithdraw={async (regItem) => {
-                    if (!regItem.registrationId) return;
-                    if (!window.confirm(`Are you sure you want to withdraw your registration for ${regItem.name}?`)) return;
-                    try {
-                      await sportsService.withdraw(regItem.registrationId);
-                      toast.success(`Successfully withdrawn from ${regItem.name}`);
-                      fetchData();
-                    } catch (err: any) {
-                      toast.error(err?.message || "Failed to withdraw registration");
-                    }
-                  }}
-                  isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
-                  toggling={togglingId === item.id}
-                  onToggleStatus={async (evt) => {
-                    setTogglingId(evt.id);
-                    try {
-                      const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
-                      await sportsService.updateEventStatus(evt.id, newStatus);
-                      toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
-                      fetchData();
-                    } catch {
-                      toast.error("Failed to update status");
-                    } finally {
-                      setTogglingId(null);
-                    }
-                  }}
-                />
+              openRegs.map((item, idx) => (
+                <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
+                  <RegCard
+                    item={item}
+                    onRegister={() => navigate(`/sports/register/${item.id}`)}
+                    onView={() => navigate("/sports/auction")}
+                    onWithdraw={async (regItem) => {
+                      if (!regItem.registrationId) return;
+                      if (!window.confirm(`Are you sure you want to withdraw your registration for ${regItem.name}?`)) return;
+                      try {
+                        await sportsService.withdraw(regItem.registrationId);
+                        toast.success(`Successfully withdrawn from ${regItem.name}`);
+                        fetchData();
+                      } catch (err: any) {
+                        toast.error(err?.message || "Failed to withdraw registration");
+                      }
+                    }}
+                    isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
+                    toggling={togglingId === item.id}
+                    onToggleStatus={async (evt) => {
+                      setTogglingId(evt.id);
+                      try {
+                        const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
+                        await sportsService.updateEventStatus(evt.id, newStatus);
+                        toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
+                        fetchData();
+                      } catch {
+                        toast.error("Failed to update status");
+                      } finally {
+                        setTogglingId(null);
+                      }
+                    }}
+                  />
+                </div>
               ))
             )}
           </div>
@@ -646,40 +651,41 @@ export function SportsDashboard() {
                   {closedRegs.length} event{closedRegs.length !== 1 ? "s" : ""}
                 </span>
               </div>
-              {closedRegs.map(item => (
-                <RegCard
-                  key={item.id}
-                  item={item}
-                  onRegister={() => { }}
-                  onView={() => navigate("/sports/auction")}
-                  isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
-                  toggling={togglingId === item.id}
-                  onToggleStatus={async (evt) => {
-                    setTogglingId(evt.id);
-                    try {
-                      const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
-                      await sportsService.updateEventStatus(evt.id, newStatus);
-                      toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
-                      fetchData();
-                    } catch {
-                      toast.error("Failed to update status");
-                    } finally {
-                      setTogglingId(null);
-                    }
-                  }}
-                  onStartAuction={async (evt) => {
-                    try {
-                      await auctionService.updateStatus(evt.id, "LIVE");
-                      navigate(`/sports/auction/${evt.id}`);
-                    } catch {
-                      // If it fails, still navigate, maybe it's already live or config doesn't exist yet
-                      navigate(`/sports/auction/${evt.id}`);
-                    }
-                  }}
-                  onScheduleMatches={(evt) => {
-                    navigate(`/sports/schedule/${evt.id}`);
-                  }}
-                />
+              {closedRegs.map((item, idx) => (
+                <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
+                  <RegCard
+                    item={item}
+                    onRegister={() => { }}
+                    onView={() => navigate("/sports/auction")}
+                    isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
+                    toggling={togglingId === item.id}
+                    onToggleStatus={async (evt) => {
+                      setTogglingId(evt.id);
+                      try {
+                        const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
+                        await sportsService.updateEventStatus(evt.id, newStatus);
+                        toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
+                        fetchData();
+                      } catch {
+                        toast.error("Failed to update status");
+                      } finally {
+                        setTogglingId(null);
+                      }
+                    }}
+                    onStartAuction={async (evt) => {
+                      try {
+                        await auctionService.updateStatus(evt.id, "LIVE");
+                        navigate(`/sports/auction/${evt.id}`);
+                      } catch {
+                        // If it fails, still navigate, maybe it's already live or config doesn't exist yet
+                        navigate(`/sports/auction/${evt.id}`);
+                      }
+                    }}
+                    onScheduleMatches={(evt) => {
+                      navigate(`/sports/schedule/${evt.id}`);
+                    }}
+                  />
+                </div>
               ))}
             </div>
           )}
@@ -781,7 +787,7 @@ export function SportsDashboard() {
                 <p className="text-[10px] text-[#475569] text-center py-4">No new notifications</p>
               ) : (
                 notifications.map((n, i) => (
-                  <div key={n.id} className={`flex items-start gap-3 py-2.5 ${i < notifications.length - 1 ? "border-b border-[#2a3a5c]" : ""}`}>
+                  <div key={n.id} className={`flex items-start gap-3 py-2.5 ${i < notifications.length - 1 ? "border-b border-[#2a3a5c]" : ""} animate-fade-in-up stagger-${(i % 8) + 1}`}>
                     <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0" style={{ background: n.iconBg, color: n.iconColor }}>
                       {n.icon}
                     </div>

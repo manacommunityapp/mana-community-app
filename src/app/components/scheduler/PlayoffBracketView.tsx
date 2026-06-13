@@ -132,7 +132,7 @@ function MatchCard({
           <button
             type="button"
             onClick={onEdit}
-            className="absolute top-0.5 -right-1 z-10 w-6 h-6 rounded-full bg-[#1a2540] border border-[#2a3a5c] text-slate-300 hover:text-[#F5A623] hover:border-[#F5A623]/50 flex items-center justify-center shadow-md transition-colors cursor-pointer"
+            className="absolute top-0.5 -right-1 z-10 w-6 h-6 rounded-full bg-[#1a2540] border border-[#2a3a5c] text-slate-300 hover:text-[#f97316] hover:border-[#f97316]/50 flex items-center justify-center shadow-md transition-colors cursor-pointer"
             aria-label="Edit Match"
           >
             <Pencil className="w-3 h-3" />
@@ -162,7 +162,7 @@ function MatchCard({
       {/* Assigned venue & court — e.g. "LE Shuttle , Court 1". Hidden for byes. */}
       {!isByeMatch && (
         <div className="flex flex-row gap-1.5 items-center mt-1">
-          <MapPin className="w-3 h-3 text-[#F5A623] shrink-0" />
+          <MapPin className="w-3 h-3 text-[#f97316] shrink-0" />
           <span className="font-bold text-[#fffdf0] text-[11px] line-clamp-1" title={[venueName, courtName].filter(Boolean).join(' , ')}>
             {[venueName, courtName].filter(Boolean).join(' , ') || 'TBD'}
           </span>
@@ -279,6 +279,12 @@ export function PlayoffBracketView({ matches, onEditMatch, resolveVenueName, res
 
   return (
     <div className="playoff-bracket flex flex-col">
+      <div className="flex items-center justify-between text-xs text-[#94a3b8] mb-2 px-1">
+        <span className="font-semibold">Bracket Structure</span>
+        <span className="flex items-center gap-1 text-[10px] bg-[#f97316]/10 text-[#f97316] border border-[#f97316]/20 px-2.5 py-0.5 rounded-full animate-pulse md:hidden">
+          Swipe to scroll ↔
+        </span>
+      </div>
       <div className="relative">
         <div 
           className="bracket py-6 relative flex flex-row rounded-xl bg-[#141c2e]/30 border border-[#2a3a5c]"

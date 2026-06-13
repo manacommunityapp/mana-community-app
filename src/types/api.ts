@@ -240,6 +240,7 @@ export interface RegistrationRequest {
   avgScore?: number;
   partnerUserId?: number;
   playerName?: string;
+  email?: string;
   relation?: string;
   flatNumber?: string;
 }
@@ -251,6 +252,7 @@ export interface EventRegistration {
   category?: PlayerCategory;
   status: "PENDING" | "REGISTERED" | "CONFIRMED" | "WITHDRAWN";
   playerName?: string;
+  email?: string;
   relation?: string;
   flatNumber?: string;
   age?: number;

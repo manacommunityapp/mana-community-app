@@ -4,6 +4,25 @@
   overflow-y: auto;
 }
 
+.playoff-bracket .bracket::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.playoff-bracket .bracket::-webkit-scrollbar-track {
+  background: var(--mana-bg-base, #0b111e);
+  border-radius: 9999px;
+}
+
+.playoff-bracket .bracket::-webkit-scrollbar-thumb {
+  background: var(--mana-accent, #f97316);
+  border-radius: 9999px;
+}
+
+.playoff-bracket .bracket::-webkit-scrollbar-thumb:hover {
+  background: var(--mana-accent-hover, #ea580c);
+}
+
 .playoff-bracket .matchup {
   width: 248px;
 }

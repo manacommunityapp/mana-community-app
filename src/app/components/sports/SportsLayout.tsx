@@ -57,9 +57,9 @@ export function SportsLayout() {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4 h-full min-h-0">
       {/* Sports sub-nav pill bar */}
-      <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto">
+      <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto shrink-0">
         {visibleNav.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}

@@ -901,9 +901,9 @@ export function SportsAdmin() {
 
   // ─── CSV Download Sample Template ───
   const handleDownloadSample = () => {
-    const csvContent = "Player Name,Category,Age,Flat Number,Relation,Primary Role,Matches,Runs,Wickets,Strike Rate,Avg Score\n" +
-      "Rahul Sharma,Men's Open,28,B-402,OTHER,Right Hand Batsman,15,350,4,135.5,28.5\n" +
-      "Priya Patel,Women's Open,24,C-101,SPOUSE,Right Arm Fast,10,80,12,110.0,15.2";
+    const csvContent = "Player Name,Email,Category,Age,Flat Number,Relation,Primary Role,Matches,Runs,Wickets,Strike Rate,Avg Score\n" +
+      "Rahul Sharma,rahul.sharma@gmail.com,Men's Open,28,B-402,OTHER,Right Hand Batsman,15,350,4,135.5,28.5\n" +
+      "Priya Patel,priya.patel@gmail.com,Women's Open,24,C-101,SPOUSE,Right Arm Fast,10,80,12,110.0,15.2";
       
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -971,7 +971,9 @@ export function SportsAdmin() {
         failCount++;
         continue;
       }
-      
+
+      const email = getVal(["email", "emailId", "mail", "emailAddress"]);
+
       const categoryName = getVal(["category", "playerCategory", "class", "division"]);
       
       // Find category ID based on category name matching
@@ -1008,6 +1010,7 @@ export function SportsAdmin() {
           strikeRate,
           avgScore,
           playerName: name,
+          email,
           relation,
           flatNumber: flat,
         });
