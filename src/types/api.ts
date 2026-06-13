@@ -557,3 +557,88 @@ export interface UserProfileRequest {
   coverPicUrl?: string;
 }
 
+// ─── Schedule Generation Log ─────────────────────────────────────────────────
+
+export interface ScheduleGenerationLog {
+  id: number;
+  configId: number | null;
+  eventId: number | null;
+  communityId: number | null;
+  generatedBy: number | null;
+  generatedByName: string | null;
+  action: string;
+  status: string;
+  tournamentType: string | null;
+  totalTeams: number | null;
+  totalMatches: number | null;
+  totalGroups: number | null;
+  durationMs: number | null;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
+// ─── App Notification ────────────────────────────────────────────────────────
+
+export interface AppNotification {
+  id: number;
+  type: string;
+  category: string;
+  title: string;
+  body: string | null;
+  icon: string | null;
+  actionUrl: string | null;
+  referenceType: string | null;
+  referenceId: number | null;
+  priority: string;
+  read: boolean;
+  readAt: string | null;
+  metadata: string | null;
+  createdAt: string;
+}
+
+export interface NotificationCountResponse {
+  unreadCount: number;
+}
+
+export interface PaginatedResponse<T> {
+  content: T[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+  first: boolean;
+  last: boolean;
+}
+
+// ─── Community Feed ──────────────────────────────────────────────────────────
+
+export interface PostResponse {
+  id: number;
+  content: string;
+  imageUrl?: string;
+  official: boolean;
+  likesCount: number;
+  commentsCount: number;
+  likedByCurrentUser: boolean;
+  authorId: number;
+  authorName: string;
+  authorAvatar: string;
+  authorRole: string;
+  createdAt: string;
+}
+
+export interface CommentResponse {
+  id: number;
+  postId: number;
+  content: string;
+  authorId: number;
+  authorName: string;
+  authorAvatar: string;
+  authorRole: string;
+  createdAt: string;
+}
+
+export interface LikeToggleResponse {
+  likesCount: number;
+  liked: boolean;
+}

@@ -1,5 +1,6 @@
 import { apiClient } from "./apiClient";
 import type { PlayoffScheduleInput, PlayoffMatchDraft } from "../app/components/scheduler/playoffSchedule";
+import type { ScheduleGenerationLog, PaginatedResponse } from "../types/api";
 
 export interface TournamentTypeInfo {
   id: string;

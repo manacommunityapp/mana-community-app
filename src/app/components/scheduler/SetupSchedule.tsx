@@ -1444,14 +1444,17 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <div className="text-center py-6 text-[#6b7094] text-sm border border-dashed border-[rgba(99,102,241,0.12)] rounded-lg">No venues found. Add a venue to get started.</div>
             ) : venues.map(v => (
               <div key={v.id} className="border border-[rgba(99,102,241,0.12)] rounded-lg overflow-hidden">
-                <div className="flex items-center gap-3 p-3 bg-white/50 cursor-pointer" onClick={() => toggleVenue(v.id)}>
-                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0 ${selectedVenues.includes(v.id) ? 'border-[#4f46e5] bg-[#4f46e5]' : 'border-[rgba(99,102,241,0.12)]'}`}>
+                <div className="flex items-center gap-3 p-3 bg-white/50 cursor-pointer" onClick={() => setExpandedVenue(expandedVenue === v.id ? null : v.id)}>
+                  <div
+                    className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors shrink-0 ${selectedVenues.includes(v.id) ? 'border-[#4f46e5] bg-[#4f46e5]' : 'border-[rgba(99,102,241,0.12)]'}`}
+                    onClick={e => { e.stopPropagation(); toggleVenue(v.id); }}
+                  >
                     {selectedVenues.includes(v.id) && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                   </div>
                   <span className="text-sm font-semibold text-[#0d0d2b] flex-1">{v.name}</span>
-                  <button onClick={e => { e.stopPropagation(); setExpandedVenue(expandedVenue === v.id ? null : v.id); }} className="text-[#6b7094] hover:text-slate-700">
+                  <span className="text-[#6b7094] hover:text-slate-700">
                     {expandedVenue === v.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </button>
+                  </span>
                 </div>
                 {expandedVenue === v.id && (
                   <div className="px-4 py-3 bg-white/30 border-t border-[rgba(99,102,241,0.12)] text-xs space-y-2">
