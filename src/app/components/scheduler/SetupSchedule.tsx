@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical } from 'lucide-react';
+import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download } from 'lucide-react';
 import { tournamentService } from '../../../services/tournamentService';
 import { venueService } from '../../../services/venueService';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -54,6 +54,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [seedingOrder, setSeedingOrder] = useState('TRADITIONAL');
   const [playoffThirdPlace, setPlayoffThirdPlace] = useState(false);
   const [playoffSeedingOrder, setPlayoffSeedingOrder] = useState('TRADITIONAL');
+  const [playoffViewMode, setPlayoffViewMode] = useState<'bracket' | 'list'>('bracket');
 
   const isGroupKnockout = format === 'GROUP_PLAYOFF';
   const isKnockoutOnly = format === 'KNOCKOUT_SINGLE' || format === 'KNOCKOUT_DOUBLE';
@@ -513,8 +514,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     };
   };
 
-  const buildParticipantList = (count: number): Array<{ id: string; name: string; flatNumber?: string }> => {
-    const allParts: Array<{ id: string; name: string; flatNumber?: string }> = [];
+  const buildParticipantList = (count: number): Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> => {
+    const allParts: Array<{ id: string; name: string; flatNumber?: string; rating?: number | null }> = [];
     for (let i = 0; i < count; i++) {
       if (i < confirmedRegistrations.length) {
         const reg = confirmedRegistrations[i];
@@ -522,6 +523,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           id: `P${i + 1}`,
           name: reg.playerName || reg.user?.fullName || `Participant ${i + 1}`,
           flatNumber: reg.flatNumber || reg.user?.community?.name || undefined,
+          rating: reg.rating ?? null,   // Rule 6 — skill rating when available
         });
       } else {
         allParts.push({ id: `P${i + 1}`, name: `Participant ${i + 1}` });
@@ -880,6 +882,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           id: p.id,
           name: p.name,
           flatNumber: p.flatNumber ?? null,
+          rating: p.rating ?? null,   // Rule 6 — forwarded for balanced pairing
         }))
       : undefined;
 
@@ -1148,10 +1151,34 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     setShowEditMatchModal(true);
   };
 
+  const getTotalMatchesCount = () => {
+    let count = 0;
+    if (isGroupKnockout) {
+      generatedGroups.forEach((group, gIdx) => {
+        count += getActiveGroupMatches(group, gIdx).length;
+      });
+    }
+    count += getPlayoffMatches().length;
+    return count;
+  };
+
+  const getRoundsCount = () => {
+    let maxRound = 0;
+    const playoffMatches = getPlayoffMatches();
+    if (playoffMatches.length > 0) {
+      maxRound = Math.max(...playoffMatches.map(m => m.roundIndex)) + 1;
+    }
+    if (isGroupKnockout) {
+      const groupRounds = generatedGroups.length > 0 ? Number(generatedGroups[0].rounds) || 1 : 1;
+      return groupRounds + maxRound;
+    }
+    return maxRound || 1;
+  };
+
   // Reusable styles
-  const inputCls = 'w-full bg-white border border-[rgba(99,102,241,0.18)] rounded-xl px-4 py-2.5 text-sm text-[#0d0d2b] focus:outline-none focus:border-[#4f46e5] focus:ring-2 focus:ring-[#4f46e5]/10 transition-all duration-200';
+  const inputCls = 'w-full bg-[#fafbff] border border-[rgba(99,102,241,0.2)] rounded-xl px-4 py-2.5 text-sm text-[#0d0d2b] focus:outline-none focus:border-[#6366f1] focus:ring-2 focus:ring-[#6366f1]/10 transition-all duration-200';
   const labelCls = 'block text-xs font-bold text-[#6b7094] uppercase tracking-wider mb-1.5';
-  const cardCls = 'bg-white border border-[rgba(99,102,241,0.12)] rounded-2xl p-4 md:p-5 shadow-[rgba(99,102,241,0.06)_0px_2px_12px]';
+  const cardCls = 'bg-white border border-[rgba(99,102,241,0.12)] rounded-2xl p-5 shadow-[rgba(99,102,241,0.06)_0px_2px_12px]';
 
   return (
     <div className="space-y-5">
@@ -1159,21 +1186,15 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         <div className="fixed bottom-6 right-6 z-50 px-5 py-3 rounded-lg shadow-xl font-medium text-sm bg-[#4f46e5] text-white">{toast}</div>
       )}
 
-      {/* Header with title and warning */}
-      <div className="bg-[rgba(99,102,241,0.05)] border border-[rgba(99,102,241,0.12)] rounded-xl p-4 md:p-6 shadow-md">
-        <h2 className="text-xl md:text-2xl font-bold text-center tracking-wider mb-4 uppercase">
-          <span className="text-[#FFFDFC]">Setup </span>
-          <span className="text-[#4f46e5]">Schedule</span>
-        </h2>
-
-        {/* Warning if players not confirmed */}
-        {!allPlayersConfirmed && (
-          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg px-4 py-3">
+      {/* Warning if players not confirmed */}
+      {!allPlayersConfirmed && (
+        <div className="bg-[rgba(99,102,241,0.05)] border border-[rgba(99,102,241,0.12)] rounded-xl p-4 md:p-6 shadow-md">
+          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-700 rounded-lg px-4 py-3">
             <AlertTriangle className="w-5 h-5 shrink-0" />
-            <span className="text-sm">This is a sample schedule and will not be saved. Please finalize participants to save your tournament schedule.</span>
+            <span className="text-sm font-semibold">This is a sample schedule and will not be saved. Please finalize participants to save your tournament schedule.</span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Configuration Form — Hidden when schedule is generated */}
       {!scheduleGenerated && (
@@ -1187,9 +1208,9 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           </select>
 
           {existingConfig && (
-            <div className="mt-3 flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 rounded-lg px-3 py-2.5">
+            <div className="mt-3 flex items-start gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 rounded-lg px-3 py-2.5">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span className="text-xs">
+              <span className="text-xs font-semibold">
                 A tournament configuration already exists for this event
                 {existingConfig.tournamentName ? <> — <span className="font-semibold">{existingConfig.tournamentName}</span></> : null}
                 {` (${existingConfig.tournamentType}, ${existingConfig.totalTeams} teams, status: ${existingConfig.status}).`}
@@ -1203,13 +1224,13 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
         {/* ═══ LEFT: Schedule Configuration ═══ */}
-        <div className={cardCls}>
-          <div className="flex items-center gap-2 mb-5">
-            <Settings className="w-5 h-5 text-[#4f46e5]" />
-            <h3 className="text-base font-bold text-[#0d0d2b]">Schedule Configuration</h3>
+        <div className="bg-white border border-[rgba(99,102,241,0.12)] rounded-2xl overflow-hidden shadow-[rgba(99,102,241,0.06)_0px_2px_12px] flex flex-col">
+          <div className="px-5 py-3.5 flex items-center gap-2 border-b bg-[rgba(99,102,241,0.04)] border-[rgba(99,102,241,0.1)]">
+            <Settings className="w-4 h-4 text-[#4f46e5]" />
+            <h3 className="text-sm font-semibold text-[#0d0d2b]">Schedule Configuration</h3>
           </div>
 
-          <div className="space-y-4">
+          <div className="p-5 space-y-4 flex-1">
             {/* Format */}
             <div>
               <label className={labelCls}>
@@ -1281,7 +1302,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <label className="text-sm text-slate-700">Create third place match?</label>
               <button
                 onClick={() => setThirdPlace(!thirdPlace)}
-                className={`relative w-11 h-6 rounded-full transition-colors ${thirdPlace ? 'bg-[#4f46e5]' : 'bg-[#2a3a5c]'}`}
+                className={`relative w-11 h-6 rounded-full transition-colors ${thirdPlace ? 'bg-[#4f46e5]' : 'bg-[#d1d5db]'}`}
               >
                 <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${thirdPlace ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
               </button>
@@ -1306,13 +1327,13 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         </div>
 
         {/* ═══ RIGHT: Scoring Configuration ═══ */}
-        <div className={cardCls}>
-          <div className="flex items-center gap-2 mb-5">
-            <Trophy className="w-5 h-5 text-[#4f46e5]" />
-            <h3 className="text-base font-bold text-[#0d0d2b]">Scoring Configuration</h3>
+        <div className="bg-white border border-[rgba(99,102,241,0.12)] rounded-2xl overflow-hidden shadow-[rgba(99,102,241,0.06)_0px_2px_12px] flex flex-col">
+          <div className="px-5 py-3.5 flex items-center gap-2 border-b bg-[rgba(99,102,241,0.04)] border-[rgba(99,102,241,0.1)]">
+            <Trophy className="w-4 h-4 text-[#4f46e5]" />
+            <h3 className="text-sm font-semibold text-[#0d0d2b]">Scoring Configuration</h3>
           </div>
 
-          <div className="space-y-4">
+          <div className="p-5 space-y-4 flex-1">
             {/* Standings Table */}
             <div className="flex items-center justify-between">
               <label className="text-sm text-slate-700">Standings/Points Table</label>
@@ -1348,24 +1369,24 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
         {/* ═══ LEFT: Date & Time Configuration ═══ */}
-        <div className={cardCls}>
-          <div className="flex items-center justify-between mb-5">
+        <div className="bg-white border border-[rgba(99,102,241,0.12)] rounded-2xl overflow-hidden shadow-[rgba(99,102,241,0.06)_0px_2px_12px] flex flex-col">
+          <div className="px-5 py-3.5 flex items-center justify-between border-b bg-[rgba(99,102,241,0.04)] border-[rgba(99,102,241,0.1)]">
             <div className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-[#4f46e5]" />
-              <h3 className="text-base font-bold text-[#0d0d2b]">Date & Time Configuration</h3>
+              <Calendar className="w-4 h-4 text-[#4f46e5]" />
+              <h3 className="text-sm font-semibold text-[#0d0d2b]">Date & Time Configuration</h3>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-xs text-[#6b7094]">Date Picker</span>
               <button
                 onClick={() => setShowDatePicker(!showDatePicker)}
-                className={`relative w-9 h-5 rounded-full transition-colors ${showDatePicker ? 'bg-[#4f46e5]' : 'bg-[#2a3a5c]'}`}
+                className={`relative w-9 h-5 rounded-full transition-colors ${showDatePicker ? 'bg-[#4f46e5]' : 'bg-[#d1d5db]'}`}
               >
                 <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${showDatePicker ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
               </button>
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="p-5 space-y-4 flex-1">
             {/* Start / End Date */}
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -1420,21 +1441,23 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         </div>
 
         {/* ═══ RIGHT: Venue Configuration ═══ */}
-        <div className={cardCls}>
-          <div className="flex items-center justify-between mb-5">
+        <div className="bg-white border border-[rgba(99,102,241,0.12)] rounded-2xl overflow-hidden shadow-[rgba(99,102,241,0.06)_0px_2px_12px] flex flex-col">
+          <div className="px-5 py-3.5 flex items-center justify-between border-b bg-[rgba(99,102,241,0.04)] border-[rgba(99,102,241,0.1)]">
             <div className="flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-[#4f46e5]" />
-              <h3 className="text-base font-bold text-[#0d0d2b]">Venue Configuration <span className="text-red-400">*</span></h3>
+              <MapPin className="w-4 h-4 text-[#4f46e5]" />
+              <h3 className="text-sm font-semibold text-[#0d0d2b]">Venue Configuration <span className="text-red-400">*</span></h3>
             </div>
             <button className="text-xs border border-[#4f46e5]/40 text-[#4f46e5] px-3 py-1.5 rounded-lg hover:bg-[#4f46e5]/10 transition-colors font-semibold flex items-center gap-1">
               <Plus className="w-3 h-3" /> Add/Edit Venue
             </button>
           </div>
 
+          <div className="p-5 space-y-4 flex-1">
+
           {selectedVenues.length === 0 && (
-            <div className="flex items-center gap-2 mb-4 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 mb-4 bg-amber-500/10 border border-amber-500/30 text-amber-700 rounded-lg px-3 py-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span className="text-xs">Select at least one venue — required to generate the schedule.</span>
+              <span className="text-xs font-semibold">Select at least one venue — required to generate the schedule.</span>
             </div>
           )}
 
@@ -1541,6 +1564,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               ))}
             </div>
           </div>
+          </div>
         </div>
       </div>
       </>
@@ -1552,23 +1576,25 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           <button
             onClick={isGroupKnockout ? handleScheduleGroups : handleGenerate}
             disabled={generating || !!existingConfig || selectedVenues.length === 0 || venuesNeedingCourt().length > 0 || (isGroupKnockout && Number(numberOfGroups) < 2)}
-            className="px-5 py-2 bg-[#4f46e5] hover:bg-[#7c3aed] text-white font-bold rounded-lg transition-all text-xs tracking-wider disabled:opacity-50 disabled:cursor-not-allowed shadow-md shadow-[#4f46e5]/10 cursor-pointer"
+            className="inline-flex items-center justify-center gap-2 mx-auto px-8 py-3.5 rounded-2xl font-bold text-white transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_4px_24px_rgba(99,102,241,0.35)] hover:shadow-[0_6px_32px_rgba(99,102,241,0.5)] cursor-pointer text-sm"
+            style={{ background: "linear-gradient(135deg,#4f46e5,#7c3aed)" }}
           >
+            <Zap className="h-4 w-4 shrink-0" />
             {generating
               ? (isGroupKnockout ? 'Scheduling Groups...' : 'Generating...')
               : (isGroupKnockout ? 'Schedule Groups' : 'Generate Schedule')}
           </button>
           {existingConfig && (
-            <p className="text-xs text-emerald-400 mt-2">A tournament configuration already exists for this event — generation is disabled.</p>
+            <p className="text-xs text-emerald-700 mt-2 font-semibold">A tournament configuration already exists for this event — generation is disabled.</p>
           )}
           {isGroupKnockout && Number(numberOfGroups) < 2 && (
-            <p className="text-xs text-amber-400 mt-2">Group + Knockout requires at least 2 groups.</p>
+            <p className="text-xs text-amber-700 mt-2 font-semibold">Group + Knockout requires at least 2 groups.</p>
           )}
           {selectedVenues.length === 0 && (
-            <p className="text-xs text-amber-400 mt-2">Select at least one venue in Venue Configuration to generate the schedule.</p>
+            <p className="text-xs text-amber-700 mt-2 font-semibold">Select at least one venue in Venue Configuration to generate the schedule.</p>
           )}
           {selectedVenues.length > 0 && venuesNeedingCourt().length > 0 && (
-            <p className="text-xs text-amber-400 mt-2">
+            <p className="text-xs text-amber-700 mt-2 font-semibold">
               Select at least one court for: {venuesNeedingCourt().map(v => v.name).join(', ')}.
             </p>
           )}
@@ -1580,6 +1606,48 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
          ═══════════════════════════════════════════════════════════════ */}
       {scheduleGenerated && (
         <div className="space-y-5">
+
+          {/* Summary Widget */}
+          <div className="rounded-2xl p-5 bg-white border border-[rgba(99,102,241,0.12)] shadow-[rgba(99,102,241,0.06)_0px_2px_12px]"
+            style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.07),rgba(139,92,246,0.04))" }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-gradient-to-r from-[#4f46e5] to-[#7c3aed]">
+                <CheckCircle2 className="h-5 w-5 text-white" />
+              </div>
+              <div className="text-left">
+                <p className="font-bold text-[#0d0d2b]">Schedule Generated!</p>
+                <p className="text-xs text-[#6b7094]">
+                  {events.find(e => e.id.toString() === selectedEvent)?.name || 'Untitled Event'} · {format.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                </p>
+              </div>
+              <div className="ml-auto flex gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => {
+                    setToast('Exporting schedule...');
+                    setTimeout(() => setToast(null), 3000);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-[rgba(99,102,241,0.12)] text-[#4f46e5] hover:bg-[#4f46e5]/10 transition-colors cursor-pointer"
+                >
+                  <Download className="h-3.5 w-3.5" /> Export
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: "Total Matches", value: String(getTotalMatchesCount()), icon: Trophy },
+                { label: "Rounds", value: String(getRoundsCount()), icon: Settings },
+                { label: "Teams", value: String(participants), icon: Users },
+                { label: "Venues", value: String(selectedVenues.length), icon: MapPin },
+              ].map((s) => (
+                <div key={s.label} className="rounded-xl p-3 text-center bg-white border border-[rgba(99,102,241,0.12)] shadow-sm">
+                  <s.icon className="h-4 w-4 mx-auto mb-1 text-[#4f46e5]" />
+                  <p className="font-bold text-[#0d0d2b] text-base">{s.value}</p>
+                  <p className="text-xs text-[#6b7094]">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
 
           {/* Hide Setup Button */}
           <div className="flex justify-center">
@@ -1674,7 +1742,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                     <button
                                       type="button"
                                       onClick={() => updateGroupConfig(gIdx, 'limitMatches', !group.limitMatches)}
-                                      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${group.limitMatches ? 'bg-[#4f46e5]' : 'bg-[#2a3a5c]'}`}
+                                      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${group.limitMatches ? 'bg-[#4f46e5]' : 'bg-[#d1d5db]'}`}
                                     >
                                       <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${group.limitMatches ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
                                     </button>
@@ -1721,7 +1789,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                       type="button"
                       id="createPlayoffThirdPlace"
                       onClick={() => setPlayoffThirdPlace(!playoffThirdPlace)}
-                      className={`relative w-11 h-6 rounded-full transition-colors ${playoffThirdPlace ? 'bg-[#4f46e5]' : 'bg-[#2a3a5c]'}`}
+                      className={`relative w-11 h-6 rounded-full transition-colors ${playoffThirdPlace ? 'bg-[#4f46e5]' : 'bg-[#d1d5db]'}`}
                     >
                       <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${playoffThirdPlace ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                     </button>
@@ -1895,7 +1963,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                             {/* Card Actions */}
                             <div className="flex justify-between items-center mt-3 pt-3 border-t border-[rgba(99,102,241,0.12)]/30">
                               <div className="text-[11px] text-[#6b7094]">
-                                Status: <span className="text-emerald-400 font-semibold">Scheduled</span>
+                                Status: <span className="text-emerald-700 font-semibold">Scheduled</span>
                               </div>
                               <div className="flex gap-2">
                                 <button
@@ -1928,13 +1996,37 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
           {/* Knockout bracket — after Generate Schedule (group+KO step 2) or Knockout-only */}
           {showKnockoutBracket && (
             <div className="flex flex-col gap-4 mt-6">
-              <div className="flex gap-2 justify-between items-center">
+              <div className="flex gap-2 justify-between items-center border-b border-[rgba(99,102,241,0.12)] pb-3">
                 <div className="flex text-left items-center">
-                  <p className="text-lg font-semibold text-[#0d0d2b]">
+                  <p className="text-lg font-bold text-[#0d0d2b]">
                     {isKnockoutOnly ? 'Knockout Bracket' : 'Playoffs'}
                   </p>
                 </div>
-                <div className="flex gap-4 justify-end items-center"></div>
+                <div className="flex items-center gap-4 justify-end">
+                  <span className="text-xs font-semibold text-[#6b7094] hidden sm:inline">Match Schedule</span>
+                  <div className="flex rounded-xl p-1 gap-1 bg-white border border-[rgba(99,102,241,0.12)] shadow-sm">
+                    <button
+                      type="button"
+                      onClick={() => setPlayoffViewMode('bracket')}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none"
+                      style={playoffViewMode === 'bracket'
+                        ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
+                        : { background: "transparent", color: "#6b7094" }}
+                    >
+                      Bracket
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPlayoffViewMode('list')}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer border-none"
+                      style={playoffViewMode === 'list'
+                        ? { background: "linear-gradient(135deg,#4f46e5,#7c3aed)", color: "white" }
+                        : { background: "transparent", color: "#6b7094" }}
+                    >
+                      List
+                    </button>
+                  </div>
+                </div>
               </div>
               {isGroupKnockout && (
                 <p className="text-xs text-[#6b7094] flex items-center gap-1">
@@ -1946,18 +2038,143 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 </p>
               )}
 
-              {(() => {
-                const playoffMatches = getPlayoffMatches();
-                if (playoffMatches.length === 0) return null;
-                return (
-                  <PlayoffBracketView
-                    matches={playoffMatches}
-                    onEditMatch={handleOpenEditPlayoffMatch}
-                    resolveVenueName={resolveVenueName}
-                    resolveCourtName={resolveCourtName}
-                  />
-                );
-              })()}
+              {playoffViewMode === 'bracket' ? (
+                (() => {
+                  const playoffMatches = getPlayoffMatches();
+                  if (playoffMatches.length === 0) return null;
+                  return (
+                    <PlayoffBracketView
+                      matches={playoffMatches}
+                      onEditMatch={handleOpenEditPlayoffMatch}
+                      resolveVenueName={resolveVenueName}
+                      resolveCourtName={resolveCourtName}
+                    />
+                  );
+                })()
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {getPlayoffMatches().map((match, mIdx) => {
+                    const matchDate = parseLocalDate(match.date);
+                    const ev = events.find(e => e.id.toString() === selectedEvent);
+                    const sportName = ev?.sportName || 'Table Tennis';
+                    const roundNameFormatted = match.round.replace('_', ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+
+                    return (
+                      <div key={mIdx} className="bg-white border border-[rgba(99,102,241,0.12)] rounded-xl overflow-hidden relative pt-1 shadow-md hover:border-[#4f46e5]/40 transition-colors animate-fade-in-up">
+                        {/* Top Status Bar (indigo line) */}
+                        <div className="w-full h-1 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed]" />
+
+                        {/* Top Tag Overlapping */}
+                        <div className="flex justify-center -mt-3.5 mb-2 relative z-10">
+                          <div className="flex items-center gap-1.5 px-3 py-0.5 bg-gradient-to-r from-[#4f46e5] to-[#7c3aed] text-white rounded-full text-xs font-bold shadow-md">
+                            <span className="px-1">{roundNameFormatted} · Match {match.id}</span>
+                          </div>
+                        </div>
+
+                        {/* Date & Time Header */}
+                        <div className="flex flex-col gap-1 px-3.5 py-2 text-xs text-[#6b7094] border-b border-[rgba(99,102,241,0.12)]/40 bg-white/30">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1">
+                              <i className="pi pi-calendar text-[#4f46e5] text-sm"></i>
+                              <span className="font-bold text-[#0d0d2b]">{formatDate(matchDate)}</span>
+                              <div className="w-px h-3 bg-[#2a3a5c] mx-1" />
+                              <span>{getDayOfWeek(matchDate)}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <i className="pi pi-clock text-[#4f46e5]"></i>
+                              <span className="font-bold text-[#0d0d2b]">{match.time}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 text-[11px] text-[#6b7094]/80">
+                            <i className="pi pi-map-marker text-[#4f46e5]"></i>
+                            <span>{venues.find(v => v.id === match.venueId)?.name || 'TBD'}</span>
+                            <span className="text-[#4f46e5] font-semibold"> - {venues.find(v => v.id === match.venueId)?.courts?.find(c => c.id === match.courtId)?.name || 'TBD'}</span>
+                          </div>
+                        </div>
+
+                        {/* Players VS Content */}
+                        <div className="p-3.5 flex flex-col justify-between h-[calc(100%-6.5rem)]">
+                          {/* Desktop Players VS Content (horizontal layout) */}
+                          <div className="hidden sm:flex items-center justify-between bg-white/40 rounded-lg p-2.5 border border-[rgba(99,102,241,0.12)]/40">
+                            {/* Home Team */}
+                            <div className="flex items-center gap-2.5 w-[42%]">
+                              <div className="w-8 h-8 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
+                                <img src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media" alt="Avatar" className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex flex-col truncate">
+                                <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.home.name}>{match.home.name}</span>
+                                {match.home.flatNumber && <span className="text-[10px] text-[#6b7094] truncate">{match.home.flatNumber}</span>}
+                              </div>
+                            </div>
+
+                            {/* VS Pill */}
+                            <div className="flex flex-col items-center justify-center shrink-0">
+                              <span className="text-[9px] font-bold px-2 py-0.5 bg-[#4f46e5] text-white rounded-full">VS</span>
+                            </div>
+
+                            {/* Away Team */}
+                            <div className="flex items-center justify-end gap-2.5 w-[42%] text-right">
+                              <div className="flex flex-col truncate">
+                                <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.away.name}>{match.away.name}</span>
+                                {match.away.flatNumber && <span className="text-[10px] text-[#6b7094] truncate">{match.away.flatNumber}</span>}
+                              </div>
+                              <div className="w-8 h-8 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
+                                <img src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media" alt="Avatar" className="w-full h-full object-cover" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Mobile Players VS Content (vertical layout) */}
+                          <div className="flex sm:hidden flex-col gap-2 bg-white/40 rounded-lg p-2 border border-[rgba(99,102,241,0.12)]/40">
+                            {/* Home Team Row */}
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
+                                <img src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media" alt="Avatar" className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.home.name}>{match.home.name}</span>
+                                {match.home.flatNumber && <span className="text-[9px] text-[#6b7094]">{match.home.flatNumber}</span>}
+                              </div>
+                            </div>
+
+                            {/* VS divider */}
+                            <div className="flex items-center justify-center py-0.5 border-y border-[rgba(99,102,241,0.12)]/20 my-1">
+                              <span className="text-[8px] font-bold text-[#6b7094]/70">VS</span>
+                            </div>
+
+                            {/* Away Team Row */}
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-slate-800 border border-[rgba(99,102,241,0.12)] overflow-hidden flex items-center justify-center shrink-0">
+                                <img src="https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media" alt="Avatar" className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-bold text-[#0d0d2b] truncate" title={match.away.name}>{match.away.name}</span>
+                                {match.away.flatNumber && <span className="text-[9px] text-[#6b7094]">{match.away.flatNumber}</span>}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Card Actions */}
+                          <div className="flex justify-between items-center mt-3 pt-3 border-t border-[rgba(99,102,241,0.12)]/30">
+                            <div className="text-[11px] text-[#6b7094]">
+                              Status: <span className="text-emerald-700 font-semibold">Scheduled</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditPlayoffMatch(match)}
+                                className="px-2.5 py-1 border border-[#4f46e5]/40 text-[#4f46e5] text-xs font-semibold rounded-lg hover:bg-[#4f46e5]/10 transition-colors flex items-center gap-1 cursor-pointer"
+                              >
+                                <Pencil className="w-3 h-3" /> Edit
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -2186,7 +2403,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <button
                 type="button"
                 onClick={() => setShowEditMatchModal(false)}
-                className="px-4 py-2 border border-[rgba(99,102,241,0.12)] hover:border-slate-500 rounded-lg text-sm font-semibold text-slate-700 hover:text-white transition-colors"
+                className="px-4 py-2 border border-[rgba(99,102,241,0.12)] hover:border-[#4f46e5] rounded-lg text-sm font-semibold text-slate-700 hover:text-[#4f46e5] transition-colors"
               >
                 Cancel
               </button>
@@ -2274,7 +2491,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   <button
                     type="button"
                     onClick={() => setModalAllowVariablePoints(!modalAllowVariablePoints)}
-                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalAllowVariablePoints ? 'bg-[#4f46e5]' : 'bg-[#2a3a5c]'}`}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalAllowVariablePoints ? 'bg-[#4f46e5]' : 'bg-[#d1d5db]'}`}
                   >
                     <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${modalAllowVariablePoints ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </button>
@@ -2381,7 +2598,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                           <button
                             type="button"
                             onClick={() => setModalCustomPoints(!modalCustomPoints)}
-                            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalCustomPoints ? 'bg-[#4f46e5]' : 'bg-[#2a3a5c]'}`}
+                            className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalCustomPoints ? 'bg-[#4f46e5]' : 'bg-[#d1d5db]'}`}
                           >
                             <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${modalCustomPoints ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                           </button>
@@ -2439,7 +2656,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                       <button
                         type="button"
                         onClick={() => toggleDisplaySetting(key)}
-                        className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalDisplaySettings[key] ? 'bg-[#4f46e5]' : 'bg-[#2a3a5c]'}`}
+                        className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalDisplaySettings[key] ? 'bg-[#4f46e5]' : 'bg-[#d1d5db]'}`}
                       >
                         <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${modalDisplaySettings[key] ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                       </button>
@@ -2537,7 +2754,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
               <button
                 type="button"
                 onClick={() => setShowStandingsModal(false)}
-                className="px-4 py-2 border border-[rgba(99,102,241,0.12)] hover:border-slate-500 rounded-lg text-sm font-semibold text-slate-700 hover:text-white transition-colors"
+                className="px-4 py-2 border border-[rgba(99,102,241,0.12)] hover:border-[#4f46e5] rounded-lg text-sm font-semibold text-slate-700 hover:text-[#4f46e5] transition-colors"
               >
                 Cancel
               </button>
@@ -2594,7 +2811,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   <button
                     type="button"
                     onClick={() => setModalAdminApproval(!modalAdminApproval)}
-                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalAdminApproval ? 'bg-[#4f46e5]' : 'bg-[#2a3a5c]'}`}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalAdminApproval ? 'bg-[#4f46e5]' : 'bg-[#d1d5db]'}`}
                   >
                     <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${modalAdminApproval ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </button>
@@ -2611,7 +2828,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   <button
                     type="button"
                     onClick={() => setModalCanPublish(!modalCanPublish)}
-                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalCanPublish ? 'bg-[#4f46e5]' : 'bg-[#2a3a5c]'}`}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalCanPublish ? 'bg-[#4f46e5]' : 'bg-[#d1d5db]'}`}
                   >
                     <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${modalCanPublish ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </button>
@@ -2628,7 +2845,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                   <button
                     type="button"
                     onClick={() => setModalOpponentApproval(!modalOpponentApproval)}
-                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalOpponentApproval ? 'bg-[#4f46e5]' : 'bg-[#2a3a5c]'}`}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${modalOpponentApproval ? 'bg-[#4f46e5]' : 'bg-[#d1d5db]'}`}
                   >
                     <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${modalOpponentApproval ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </button>
@@ -2661,7 +2878,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 <button
                   type="button"
                   onClick={() => setShowParticipantsModal(false)}
-                  className="px-4 py-2 border border-[rgba(99,102,241,0.12)] hover:border-slate-500 rounded-lg text-sm font-semibold text-slate-700 hover:text-white transition-colors"
+                  className="px-4 py-2 border border-[rgba(99,102,241,0.12)] hover:border-[#4f46e5] rounded-lg text-sm font-semibold text-slate-700 hover:text-[#4f46e5] transition-colors"
                 >
                   Cancel
                 </button>

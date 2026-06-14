@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "react-router";
 import { toast } from "sonner";
+import { Gavel, TrendingUp, CheckCircle, Trophy } from "lucide-react";
 import { auctionService } from "../../../services/auctionService";
 import { sportsService } from "../../../services/sportsService";
 import { userService } from "../../../services/userService";
@@ -505,8 +506,7 @@ export function SportsAuction() {
     <div className="auction-hub-wrapper">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div className="brand-title">CommUnity</div>
-          <div className="brand-sub">Sports Auction Hub</div>
+          <div className="brand-title">Sports Auction Hub</div>
         </div>
         <div className="nav-section">
           <div className="nav-label">Main</div>
@@ -537,8 +537,54 @@ export function SportsAuction() {
         {activeTab === 'overview' && (
           <div className="page active">
             <div className="page-hdr">
-              <div><div className="page-title">Sports Hub</div><div className="page-sub">Select a sport to configure its auction rules</div></div>
+              <div><div className="page-title">Auction Hub</div><div className="page-sub">Select a sport to configure its auction rules</div></div>
             </div>
+
+            {/* Quick stats grid */}
+            {(() => {
+              const activeAuctionsCount = availableConfigs.filter(c => c.status === 'LIVE' || c.status === 'ACTIVE').length;
+              
+              // Find if user is captain/owner of any team
+              const myTeam = teams.find(t => t.ownerUser?.id === Number(user?.userId));
+              // Count user's active bids
+              const myActiveBidsCount = (livePlayer && biddingTeamId && myTeam && biddingTeamId === myTeam.id) ? 1 : 0;
+              
+              const soldPlayersCount = auctionStats?.soldPlayers ?? players.filter(p => p.status === 'SOLD').length;
+              const totalPoolValue = "₹" + (auctionStats?.totalBudget ?? teams.reduce((acc, t) => acc + t.budget, 0)).toLocaleString('en-IN');
+
+              return (
+                <div className="grid4" style={{ marginBottom: 20 }}>
+                  {[
+                    { label: "Active Auctions", value: activeAuctionsCount.toString(), icon: Gavel, color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
+                    { label: "My Active Bids", value: myActiveBidsCount.toString(), icon: TrendingUp, color: "#4f46e5", bg: "rgba(99,102,241,0.1)" },
+                    { label: "Players Sold", value: soldPlayersCount.toString(), icon: CheckCircle, color: "#10b981", bg: "rgba(16,185,129,0.1)" },
+                    { label: "Total Pool", value: totalPoolValue, icon: Trophy, color: "#8b5cf6", bg: "rgba(139,92,246,0.1)" },
+                  ].map((s) => (
+                    <div key={s.label} className="stat-card"
+                      style={{
+                        background: "var(--card)",
+                        border: "1px solid var(--border)",
+                        boxShadow: "0 2px 12px rgba(99,102,241,0.04)",
+                        padding: "16px",
+                        borderRadius: "10px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px"
+                      }}
+                    >
+                      <div className="h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: s.bg }}>
+                        <s.icon className="h-4.5 w-4.5" style={{ color: s.color }} />
+                      </div>
+                      <div>
+                        <p className="text-xl font-bold" style={{ color: "var(--text)", margin: 0, lineHeight: 1.2 }}>{s.value}</p>
+                        <p className="text-xs font-semibold" style={{ color: "var(--muted)", margin: 0 }}>{s.label}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
             <div className="grid3" style={{ marginBottom: 16 }}>
               {communityEvents.length > 0 ? communityEvents.map(ev => {
                 // Find if an auction config exists for this event

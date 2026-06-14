@@ -45,7 +45,7 @@ export type PlayoffScheduleInput = {
   venueId: number | null;
   courtId: string | null;
   /** Seeded players for the player-aware knockout draw (knockout-only). */
-  participants?: Array<{ id: string; name: string; flatNumber: string | null }>;
+  participants?: Array<{ id: string; name: string; flatNumber: string | null; rating?: number | null }>;
   /** Selected court IDs for parallel allocation (Rule 4). */
   courtIds?: number[];
 };

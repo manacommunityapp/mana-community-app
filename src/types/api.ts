@@ -257,6 +257,8 @@ export interface EventRegistration {
   flatNumber?: string;
   age?: number;
   role?: string;
+  /** Optional skill rating used for balanced knockout pairing (Rule 6). */
+  rating?: number | null;
   captainNomination?: boolean;
   captainConfirmation?: boolean;
   proposedTeamName?: string;

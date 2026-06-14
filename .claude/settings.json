@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node scratch/spa_nav.cjs http://localhost:4173)",
+      "Bash(node scratch/me_dupe.cjs)",
+      "PowerShell(foreach \\($port in 5174,4173\\) { $c = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue; if \\($c\\) { $c.OwningProcess | Select-Object -Unique | ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue } } }; Start-Sleep -Milliseconds 500; $still = @\\(\\); foreach \\($port in 5174,4173\\) { if \\(Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue\\) { $still += $port } }; if \\($still\\) { \"still listening: $still\" } else { \"dev + preview servers stopped\" })",
+      "Bash(npx tsc *)",
+      "Read(//c/Program Files/Google/Chrome/Application/**)",
+      "Read(//c/Program Files \\(x86\\)/Google/Chrome/Application/**)",
+      "Bash(node scratch/dupe_check.cjs)",
+      "PowerShell(Get-Process -Name chrome,node -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq '' } | Stop-Process -Force -ErrorAction SilentlyContinue; Get-NetTCPConnection -LocalPort 4173 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; \"done\")",
+      "Bash(node scratch/dupe_check2.cjs)"
+    ]
+  }
+}

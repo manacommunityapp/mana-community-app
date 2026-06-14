@@ -1,5 +1,5 @@
-import { NavLink, Outlet } from "react-router";
-import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3 } from "lucide-react";
+import { NavLink, Outlet, useLocation } from "react-router";
+import { LayoutDashboard, Medal, CalendarDays, Gavel, ShieldCog, BarChart3, Trophy, ChevronRight } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   VIEW_SPORTS_MAIN,
@@ -27,6 +27,12 @@ const sportsNav = [
 
 export function SportsLayout() {
   const { hasPermission, hasAnyPermission } = useAuth();
+  const location = useLocation();
+
+  // Current sports sub-section, for the breadcrumb trail (Home › Sports › …).
+  const activeItem = sportsNav.find((item) =>
+    item.end ? location.pathname === item.to : location.pathname.startsWith(item.to)
+  );
 
   const visibleNav = sportsNav.filter((nav) => {
     switch (nav.label) {
@@ -61,6 +67,35 @@ export function SportsLayout() {
 
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
+      {/* Breadcrumb + page header */}
+      <div className="shrink-0">
+        <div className="flex items-center gap-2 text-xs mb-3" style={{ color: "#6b7094" }}>
+          <span>Home</span>
+          <ChevronRight className="h-3 w-3" />
+          <span style={{ color: "#4f46e5" }}>Sports</span>
+          {activeItem && activeItem.label !== "Dashboard" && (
+            <>
+              <ChevronRight className="h-3 w-3" />
+              <span style={{ color: "#4f46e5" }}>{activeItem.label}</span>
+            </>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <div
+            className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}
+          >
+            <Trophy className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold leading-tight" style={{ color: "#0d0d2b" }}>Sports</h2>
+            <p className="text-sm" style={{ color: "#6b7094" }}>
+              Leagues, teams, schedules &amp; player auctions
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Sports sub-nav pill bar */}
       <div 
         className="rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto shrink-0"

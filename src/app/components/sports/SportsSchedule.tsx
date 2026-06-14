@@ -5,6 +5,7 @@ import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sportsService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { SportsEvent } from "../../../types/api";
+import "./SportsAuction.css";
 
 import { TournamentScheduler } from "../scheduler/TournamentScheduler";
 import { SetupSchedule } from "../scheduler/SetupSchedule";
@@ -438,51 +439,63 @@ export function SportsSchedule() {
   }, [activeTab, user?.communityId, user?.userId]);
 
   return (
-    <div className="space-y-4">
-      {/* Tab bar */}
-      <div 
-        className="p-1.5 rounded-xl flex gap-1 overflow-x-auto hide-scrollbar"
-        style={{
-          background: "white",
-          border: "1px solid rgba(99, 102, 241, 0.12)",
-          boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
-        }}
-      >
-        {TABS.map(tab => {
-          const isActive = activeTab === tab;
-          return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className="flex-1 whitespace-nowrap flex-shrink-0 py-2 px-4 rounded-lg text-sm font-medium cursor-pointer border transition-all duration-200"
-              style={isActive ? {
-                background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
-                color: "white",
-                borderColor: "rgba(99, 102, 241, 0.45)",
-                boxShadow: "0 2px 12px rgba(99, 102, 241, 0.35)",
-              } : {
-                background: "transparent",
-                color: "rgb(107, 112, 148)",
-                borderColor: "transparent",
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "rgba(99, 102, 241, 0.08)";
-                  e.currentTarget.style.color = "#4f46e5";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "rgb(107, 112, 148)";
-                }
-              }}
-            >
-              {tab}
-            </button>
-          );
-        })}
-      </div>
+    <div className="auction-hub-wrapper">
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="brand-title">Sports Scheduler</div>
+        </div>
+        <div className="nav-section">
+          <div className="nav-label">Main</div>
+          <button
+            className={`nav-item ${activeTab === "My Matches" ? "active" : ""}`}
+            onClick={() => setActiveTab("My Matches")}
+          >
+            <div className="nav-dot"></div>My Matches
+          </button>
+          <button
+            className={`nav-item ${activeTab === "All Events" ? "active" : ""}`}
+            onClick={() => setActiveTab("All Events")}
+          >
+            <div className="nav-dot"></div>All Events
+          </button>
+          <button
+            className={`nav-item ${activeTab === "Brackets" ? "active" : ""}`}
+            onClick={() => setActiveTab("Brackets")}
+          >
+            <div className="nav-dot"></div>Brackets
+          </button>
+        </div>
+        <div className="nav-section">
+          <div className="nav-label">Operations</div>
+          <button
+            className={`nav-item ${activeTab === "Config" ? "active" : ""}`}
+            onClick={() => setActiveTab("Config")}
+          >
+            <div className="nav-dot"></div>Config
+          </button>
+          <button
+            className={`nav-item ${activeTab === "Setup Schedule" ? "active" : ""}`}
+            onClick={() => setActiveTab("Setup Schedule")}
+          >
+            <div className="nav-dot"></div>Setup Schedule
+          </button>
+          <button
+            className={`nav-item ${activeTab === "Manual" ? "active" : ""}`}
+            onClick={() => setActiveTab("Manual")}
+          >
+            <div className="nav-dot"></div>Manual
+          </button>
+        </div>
+      </aside>
+
+      <main className="main-content">
+        <div className="page active">
+          <div className="page-hdr">
+            <div>
+              <div className="page-title">{activeTab}</div>
+              <div className="page-sub">Sports scheduling & event matches</div>
+            </div>
+          </div>
 
       {/* My Matches */}
       {activeTab === "My Matches" && (
@@ -699,6 +712,8 @@ export function SportsSchedule() {
 
       {/* Manual Scheduler */}
       {activeTab === "Manual" && <ManualScheduler />}
+        </div>
+      </main>
     </div>
   );
 }

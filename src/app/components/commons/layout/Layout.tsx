@@ -1,10 +1,9 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
 import { Users, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, Bell, ShieldCheck, Zap, Search, LogOut } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { useAuth } from "../../../../contexts/AuthContext";
-import { userService } from "../../../../services/userService";
 import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_MARKETPLACE,
   VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN,
@@ -16,42 +15,15 @@ function cn(...inputs: ClassValue[]) {
 
 export function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
-  const { user, isAdmin, logout, updateUser } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
 
-  const [permissions, setPermissions] = useState<string[]>(user?.permissions || []);
-  const [loadingPermissions, setLoadingPermissions] = useState(!user?.permissions);
+  // AuthContext fetches /users/me on boot and populates user.permissions —
+  // consume it here instead of fetching again.
+  const permissions = user?.permissions || [];
+  const loadingPermissions = !!user && !user.permissions;
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-
-  useEffect(() => {
-    if (user?.permissions) {
-      setPermissions(user.permissions);
-      setLoadingPermissions(false);
-      return;
-    }
-
-    let active = true;
-    const fetchUserPermissions = async () => {
-      try {
-        const me = await userService.getMe();
-        if (active) {
-          setPermissions(me.permissions || []);
-          updateUser({ permissions: me.permissions });
-        }
-      } catch (err) {
-        console.error("Failed to load user permissions for sidebar:", err);
-      } finally {
-        if (active) {
-          setLoadingPermissions(false);
-        }
-      }
-    };
-    fetchUserPermissions();
-    return () => {
-      active = false;
-    };
-  }, [user, updateUser]);
 
   const navLinks = [
     { to: "/", icon: Users, label: "Community Feed" },

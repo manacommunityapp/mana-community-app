@@ -85,13 +85,30 @@ async function handleResponse<T>(res: Response): Promise<T> {
   }
 }
 
+// In-flight GET requests, keyed by path. Coalesces concurrent requests for the
+// same resource (e.g. React StrictMode's double effect invocation, or two
+// components mounting at once) into a single network call.
+const inFlightGets = new Map<string, Promise<unknown>>();
+
 export const apiClient = {
   async get<T>(path: string): Promise<T> {
-    const res = await fetch(`${BASE_URL}${path}`, {
-      method: "GET",
-      headers: buildHeaders(),
-    });
-    return handleResponse<T>(res);
+    const existing = inFlightGets.get(path);
+    if (existing) return existing as Promise<T>;
+
+    const promise = (async () => {
+      const res = await fetch(`${BASE_URL}${path}`, {
+        method: "GET",
+        headers: buildHeaders(),
+      });
+      return handleResponse<T>(res);
+    })();
+
+    inFlightGets.set(path, promise);
+    try {
+      return await promise;
+    } finally {
+      inFlightGets.delete(path);
+    }
   },
 
   async post<T>(path: string, body?: unknown): Promise<T> {

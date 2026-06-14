@@ -33,6 +33,7 @@ import { SportsMetaSection } from "./SportsMetaSection";
 import { RegistrationOpenModal } from "./RegistrationOpenModal";
 import type { RegistrationNotifConfig } from "./RegistrationOpenModal";
 import { notificationService } from "../../../../services/notificationService";
+import "../SportsAuction.css";
 
 const DEFAULT_TRIGGERS = {
   "7d":  { id: "7d",  label: "7 Days Before",       offset: -7 * 24 * 60, color: "border-blue-500",   bgColor: "rgba(59,130,246,0.15)",   textColor: "text-blue-400",   emoji: "📅", tagClass: "bg-blue-500/15 text-blue-400 border border-blue-500/20", category: "Registration", priority: "Critical" },
@@ -2328,61 +2329,36 @@ export function SportsAdmin() {
 
   // ─── Render ────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col gap-6">
-      {/* ── Top Horizontal Menu ── */}
-      <div 
-        className="rounded-xl p-3 flex flex-col md:flex-row md:items-center gap-4 shadow-lg"
-        style={{
-          background: "white",
-          border: "1px solid rgba(99, 102, 241, 0.12)",
-          boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
-        }}
-      >
-        <div className="text-xs font-semibold uppercase tracking-widest px-2 hidden md:block border-r pr-4"
-          style={{ color: "rgb(107, 112, 148)", borderColor: "rgba(99, 102, 241, 0.15)" }}>
-          Sports Admin
+    <div className="auction-hub-wrapper">
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="brand-title">Admin Hub</div>
         </div>
-        <nav className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 hide-scrollbar">
-          {menuItems.map(item => {
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className="whitespace-nowrap flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer border"
-                style={isActive ? {
-                  background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
-                  color: "white",
-                  borderColor: "rgba(99, 102, 241, 0.45)",
-                  boxShadow: "0 2px 12px rgba(99, 102, 241, 0.35)",
-                } : {
-                  background: "transparent",
-                  color: "rgb(107, 112, 148)",
-                  borderColor: "transparent",
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = "rgba(99, 102, 241, 0.08)";
-                    e.currentTarget.style.color = "#4f46e5";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = "rgb(107, 112, 148)";
-                  }
-                }}
-              >
-                {item.icon}
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
+        <div className="nav-section">
+          <div className="nav-label">Management</div>
+          {menuItems.map(item => (
+            <button
+              key={item.id}
+              className={`nav-item ${activeTab === item.id ? "active" : ""}`}
+              onClick={() => setActiveTab(item.id)}
+            >
+              <div className="nav-dot"></div>
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </aside>
 
-      {/* ── Main Content ── */}
-      <div className="flex-1 min-w-0">
+      <main className="main-content">
+        <div className="page active">
+          <div className="page-hdr">
+            <div>
+              <div className="page-title">
+                {menuItems.find(m => m.id === activeTab)?.label || "Admin"}
+              </div>
+              <div className="page-sub">Manage community sports events and rules</div>
+            </div>
+          </div>
 
         {/* ════════════ SPORTS EVENT / TOURNAMENTS TAB ════════════ */}
         {activeTab === "sports-event" && (
@@ -3358,7 +3334,8 @@ export function SportsAdmin() {
           <SportsMetaSection isAdmin={isAdmin} />
         )}
 
-      </div>
+        </div>
+      </main>
 
       {/* ── Notification Setup Popup Modal ── */}
       {showNotificationModal && (

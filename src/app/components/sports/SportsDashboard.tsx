@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sportsService";
+import { sportsDashboardService } from "../../../services/sportsDashboardService";
 import { auctionService } from "../../../services/auctionService";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -37,24 +38,25 @@ interface StatCardProps {
 
 function StatCard({ value, label, badge, color, badgeBg, badgeText, icon: Icon }: StatCardProps) {
   return (
-    <div className="rounded-xl p-4 card-hover-lift"
+    <div className="rounded-xl p-2.5 card-hover-lift flex items-center gap-2.5"
       style={{
         background: "white",
         border: "1px solid rgba(99, 102, 241, 0.12)",
         boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
       }}
     >
-      <div className="flex items-start justify-between mb-3">
-        <div className="h-9 w-9 rounded-lg flex items-center justify-center" style={{ background: badgeBg }}>
-          <Icon className="h-4.5 w-4.5" style={{ color }} />
-        </div>
-        <ArrowUpRight className="h-3.5 w-3.5 text-slate-400" />
+      <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: badgeBg }}>
+        <Icon className="h-4 w-4" style={{ color }} />
       </div>
-      <div className="text-3xl font-semibold" style={{ color }}>{value}</div>
-      <div className="text-xs mt-1" style={{ color: "#6b7094" }}>{label}</div>
-      <span className="inline-block text-[10px] px-2 py-0.5 rounded mt-2" style={{ background: badgeBg, color: badgeText }}>
-        {badge}
-      </span>
+      <div className="flex-1 min-w-0 text-left">
+        <div className="flex items-baseline justify-between">
+          <div className="text-xl font-extrabold leading-none" style={{ color }}>{value}</div>
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded leading-none" style={{ background: badgeBg, color: badgeText }}>
+            {badge}
+          </span>
+        </div>
+        <div className="text-[11px] text-[#6b7094] truncate mt-1.5" title={label}>{label}</div>
+      </div>
     </div>
   );
 }
@@ -322,70 +324,75 @@ export function SportsDashboard() {
   const confirmedTeamRegistrations = confirmedMyRegistrations.filter(r => r.matchType === "TEAM");
 
   const fetchData = useCallback(async () => {
+    if (!user?.userId) return;
     setLoading(true);
     setError(null);
     try {
-      // 1. Fetch Open Registrations (REGISTRATION_OPEN events)
-      const isSuperAdmin = user?.role === "SUPER_ADMIN";
-      const openEvents = isSuperAdmin
-        ? await sportsService.getAllOpenEvents()
-        : user?.communityId
-          ? await sportsService.getOpenEvents(user.communityId)
-          : [];
+      // Single lean aggregation call — the backend decides community/super-admin
+      // scope and returns only the fields this page renders.
+      const data = await sportsDashboardService.getDashboard();
 
-      // Fetch My Registrations first so we can map button states correctly
-      let fetchedMyRegs: any[] = [];
-      try {
-        fetchedMyRegs = await sportsService.getMyRegistrations();
-        setMyRegistrations(fetchedMyRegs);
-      } catch {
-        setMyRegistrations([]);
-      }
+      const fmtRange = (start: string | null, end: string | null) =>
+        start && end ? `${format(new Date(start), "MMM d")} - ${format(new Date(end), "MMM d")}` : "TBD";
 
-      setOpenRegs(openEvents.map(e => {
-        const myReg = fetchedMyRegs.find(r => r.event?.id === e.id || r.eventId === e.id);
+      // My registrations — rebuilt into the nested shape the render code expects.
+      const fetchedMyRegs = data.myRegistrations.map(r => ({
+        id: r.id,
+        eventId: r.eventId,
+        event: {
+          id: r.eventId,
+          name: r.eventName,
+          eventDateStart: r.eventDateStart,
+          sport: { name: r.sportName },
+          registrationStatus: r.eventRegistrationStatus,
+        },
+        category: { name: r.categoryName },
+        status: r.status,
+        matchType: r.matchType,
+        captainNomination: r.captainNomination,
+        captainConfirmation: r.captainConfirmation,
+      }));
+      setMyRegistrations(fetchedMyRegs);
+
+      // Open registrations
+      setOpenRegs(data.openRegistrations.map(e => {
         let actionVal = "Register";
-        if (myReg) {
-          actionVal = myReg.status === "CONFIRMED" ? "Confirmed" : "Withdraw";
+        if (e.myRegistrationId) {
+          actionVal = e.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Withdraw";
         }
         return {
           id: e.id,
           name: e.name,
-          date: `${format(new Date(e.eventDateStart), "MMM d")} - ${format(new Date(e.eventDateEnd), "MMM d")}`,
-          category: `${e.sport?.name ?? "Sport"} · ${e.categories?.[0]?.name ?? "Open"} · ${e.venue?.name ?? "TBD"}`,
+          date: fmtRange(e.eventDateStart, e.eventDateEnd),
+          category: `${e.sportName ?? "Sport"} · ${e.categoryName ?? "Open"} · ${e.venueName ?? "TBD"}`,
           spots: e.maxParticipants ? `${e.maxParticipants} max spots` : "Unlimited spots",
           progress: 30,
           progressColor: "#3b82f6",
           dotColor: "#10b981",
           action: actionVal,
           status: e.registrationStatus ?? "REGISTRATION_OPEN",
-          registrationId: myReg?.id,
-          isTeamSport: Array.isArray(e.format) && e.format.includes("TEAM"),
+          registrationId: e.myRegistrationId ?? undefined,
+          isTeamSport: e.teamSport,
         };
       }));
 
-      // 1b. Fetch Closed Registrations
-      try {
-        const closedEvents = await sportsService.getClosedEvents();
-        setClosedRegs(closedEvents.map(e => ({
-          id: e.id,
-          name: e.name,
-          date: `${format(new Date(e.eventDateStart), "MMM d")} - ${format(new Date(e.eventDateEnd), "MMM d")}`,
-          category: `${e.sport?.name ?? "Sport"} · ${e.categories?.[0]?.name ?? "Open"} · ${e.venue?.name ?? "TBD"}`,
-          spots: "Registration closed",
-          progress: 100,
-          progressColor: "#ef4444",
-          dotColor: "#ef4444",
-          action: "View" as const,
-          status: e.registrationStatus ?? "REGISTRATION_CLOSED",
-          auctionStatus: e.auctionStatus ?? "DRAFT",
-          isTeamSport: Array.isArray(e.format) && e.format.includes("TEAM"),
-        })));
-      } catch {
-        setClosedRegs([]);
-      }
+      // Closed registrations
+      setClosedRegs(data.closedRegistrations.map(e => ({
+        id: e.id,
+        name: e.name,
+        date: fmtRange(e.eventDateStart, e.eventDateEnd),
+        category: `${e.sportName ?? "Sport"} · ${e.categoryName ?? "Open"} · ${e.venueName ?? "TBD"}`,
+        spots: "Registration closed",
+        progress: 100,
+        progressColor: "#ef4444",
+        dotColor: "#ef4444",
+        action: "View" as const,
+        status: e.registrationStatus ?? "REGISTRATION_CLOSED",
+        auctionStatus: e.auctionStatus ?? "DRAFT",
+        isTeamSport: e.teamSport,
+      })));
 
-      // Fetch My Registrations (for self-nomination)
+      // Captain registrations (auction domain — separate concern, kept as-is)
       try {
         const regs = await auctionService.getCaptainRegistration();
         setCaptainRegistration(regs);
@@ -393,34 +400,31 @@ export function SportsDashboard() {
         setCaptainRegistration([]);
       }
 
-
-      // 2. Fetch My Upcoming Events
-      const myEvents = await sportsService.getMyEvents();
-      const mappedMyEvents = myEvents.map(e => ({
+      // My upcoming events
+      const mappedMyEvents = data.myUpcomingEvents.map(e => ({
         id: e.id,
         name: e.name,
-        subtitle: e.sport?.name ?? "",
-        venue: e.venue?.name ?? "TBD",
-        category: e.categories?.[0]?.name ?? "General",
+        subtitle: e.sportName ?? "",
+        venue: e.venueName ?? "TBD",
+        category: e.categoryName ?? "General",
         status: (e.registrationStatus === "LIVE" ? "LIVE" : e.registrationStatus === "COMPLETED" ? "COMPLETED" : "UPCOMING") as any,
-        statusText: e.registrationStatus === "LIVE" ? "LIVE NOW" : format(new Date(e.eventDateStart), "MMM d, h:mm a"),
+        statusText: e.registrationStatus === "LIVE" ? "LIVE NOW" : (e.eventDateStart ? format(new Date(e.eventDateStart), "MMM d, h:mm a") : "TBD"),
         statusSub: e.registrationStatus === "LIVE" ? "In Progress" : "Confirmed ✓",
         dotColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
         timeColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
-        targetDate: new Date(e.eventDateStart)
+        targetDate: e.eventDateStart ? new Date(e.eventDateStart) : new Date(),
       }));
       setLiveEvents(mappedMyEvents);
 
-      // 3. Calculate Stats
-      const liveCount = openEvents.filter(e => e.registrationStatus === "LIVE").length;
+      // Stats (server-computed counts)
       setStats([
-        { id: 1, value: myEvents.length, label: "Your Registrations", badge: "Live Updates", badgeType: "orange", color: "#f97316", icon: Trophy },
-        { id: 2, value: liveCount, label: "Live Events", badge: liveCount > 0 ? "● Running" : "None live", badgeType: "green", color: "#10b981", icon: Zap },
-        { id: 3, value: openEvents.length, label: "Open Registrations", badge: "Join now", badgeType: "blue", color: "#3b82f6", icon: CalendarDays },
-        { id: 4, value: 0, label: "Community Players", badge: "Global", badgeType: "purple", color: "#8b5cf6", icon: Users },
+        { id: 1, value: data.stats.yourRegistrations, label: "Your Registrations", badge: "Live Updates", badgeType: "orange", color: "#f97316", icon: Trophy },
+        { id: 2, value: data.stats.liveEvents, label: "Live Events", badge: data.stats.liveEvents > 0 ? "● Running" : "None live", badgeType: "green", color: "#10b981", icon: Zap },
+        { id: 3, value: data.stats.openRegistrations, label: "Open Registrations", badge: "Join now", badgeType: "blue", color: "#3b82f6", icon: CalendarDays },
+        { id: 4, value: data.stats.communityPlayers, label: "Community Players", badge: "Global", badgeType: "purple", color: "#8b5cf6", icon: Users },
       ] as any);
 
-      // 4. Determine Next Match
+      // Next match
       const upcoming = mappedMyEvents
         .filter(e => e.targetDate.getTime() > new Date().getTime())
         .sort((a, b) => a.targetDate.getTime() - b.targetDate.getTime())[0];
@@ -433,15 +437,15 @@ export function SportsDashboard() {
         });
       }
 
-      // 5. Generate Notifications
-      const notifs = myEvents.slice(0, 4).map((e) => ({
+      // Notifications
+      const notifs = data.myUpcomingEvents.slice(0, 4).map((e) => ({
         id: e.id,
         icon: "🏏",
         iconBg: "rgba(16,185,129,0.15)",
         iconColor: "#10b981",
         text: `Event ${e.name} is`,
-        bold: e.registrationStatus,
-        textAfter: `. Venue: ${e.venue?.name ?? "TBD"}`,
+        bold: e.registrationStatus ?? "",
+        textAfter: `. Venue: ${e.venueName ?? "TBD"}`,
         time: "Just now"
       }));
       setNotifications(notifs);
@@ -450,7 +454,7 @@ export function SportsDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [user?.communityId]);
+  }, [user?.userId]);
 
   const fetchCaptainRegs = useCallback(async (eventId: number) => {
     setLoadingCaptains(true);
@@ -518,21 +522,6 @@ export function SportsDashboard() {
 
   return (
     <div className="space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Sports Dashboard</h1>
-          <p className="text-sm mt-1" style={{ color: "#6b7094" }}>
-            {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })} · Sector 12 Community
-          </p>
-        </div>
-        <button
-          onClick={() => navigate("/sports/register")}
-          className="px-4 py-2 bg-[#f97316] hover:bg-[#ea580c] text-white text-sm font-medium rounded-lg border-none cursor-pointer transition-colors"
-        >
-          + Register for Event
-        </button>
-      </div>
 
       {error && (
         <div className="bg-amber-900/20 border border-amber-700/40 rounded-xl p-3 flex items-center gap-2">
