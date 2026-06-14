@@ -1,72 +1,59 @@
 name: Frontend Deployment
 
 on:
-push:
-branches:
-- main
-workflow_dispatch:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-deploy:
-runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Checkout Source
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
 
-  - name: Setup Node.js
-    uses: actions/setup-node@v4
-    with:
-      node-version: 22
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-  - name: Install Dependencies
-    run: npm install --legacy-peer-deps
+      - name: Install Dependencies
+        run: npm install --legacy-peer-deps
 
-  - name: Build React App
-    run: npm run build
+      - name: Build React App
+        run: npm run build
 
-  - name: Verify Build Output
-    run: |
-      echo "Build files:"
-      ls -lah dist
-      echo "Current Commit:"
-      git rev-parse HEAD
-      git log -1 --oneline
+      - name: Verify Build Output
+        run: |
+          echo "Build files:"
+          ls -lah dist
+          echo "Current Commit:"
+          git rev-parse HEAD
+          git log -1 --oneline
 
-  - name: Upload Build Files
-    uses: appleboy/scp-action@v0.1.7
-    with:
-      host: ${{ secrets.LIGHTSAIL_HOST }}
-      username: ubuntu
-      key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-      source: "dist/*"
-      target: "/tmp/frontend"
-      overwrite: true
+      - name: Upload Build Files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ubuntu
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          source: "dist/*"
+          target: "/tmp/frontend"
+          overwrite: true
 
-  - name: Deploy to Nginx
-    uses: appleboy/ssh-action@v1.2.0
-    with:
-      host: ${{ secrets.LIGHTSAIL_HOST }}
-      username: ubuntu
-      key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-      script: |
-        echo "Cleaning existing deployment..."
-        sudo rm -rf /var/www/mana-community/*
-
-        echo "Copying new build..."
-        sudo cp -r /tmp/frontend/dist/* /var/www/mana-community/
-
-        echo "Setting permissions..."
-        sudo chown -R www-data:www-data /var/www/mana-community
-
-        echo "Verifying deployment..."
-        ls -lah /var/www/mana-community
-
-        echo "Testing Nginx configuration..."
-        sudo nginx -t
-
-        echo "Reloading Nginx..."
-        sudo systemctl reload nginx
-
-        echo "Deployment completed successfully."
-
+      - name: Deploy to Nginx
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ubuntu
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script: |
+            sudo mkdir -p /var/www/mana-community
+            sudo rm -rf /var/www/mana-community/*
+            sudo cp -r /tmp/frontend/dist/* /var/www/mana-community/
+            sudo chown -R www-data:www-data /var/www/mana-community
+            ls -lah /var/www/mana-community
+            sudo nginx -t
+            sudo systemctl reload nginx
