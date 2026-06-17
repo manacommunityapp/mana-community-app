@@ -58,6 +58,7 @@ export const sportsService = {
 
   getTournamentById: sportsEventService.getTournamentById,
   getEventById: sportsEventService.getEventById,
+  getEventByUuid: sportsEventService.getEventByUuid,
   getTournamentMap: sportsEventService.getTournamentMap,
   getEventMap: sportsEventService.getEventMap,
   getConfirmedCount: sportsEventService.getConfirmedCount,
@@ -81,6 +82,7 @@ export const sportsService = {
   getEventRegistrations: sportsEventService.getEventRegistrations,
   getMyRegistrations: sportsEventService.getMyRegistrations,
   confirmRegistration: sportsEventService.confirmRegistration,
+  rejectRegistration: sportsEventService.rejectRegistration,
   nominateCaptain: sportsEventService.nominateCaptain,
   confirmCaptain: sportsEventService.confirmCaptain,
 };

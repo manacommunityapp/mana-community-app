@@ -29,6 +29,8 @@ export interface UpcomingEvent {
 
 export interface OpenRegistration {
   id: number;
+  /** Public, non-sequential id used in the shareable registration link. */
+  uuid?: string;
   name: string;
   date: string;
   category: string;

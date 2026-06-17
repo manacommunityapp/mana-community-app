@@ -1,0 +1,142 @@
+/* ─── Chat Theme Variables ──────────────────────────────────────────────── */
+
+:root {
+  --chat-bg-main: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  --chat-bg-panel: var(--card);
+  --chat-header-bg: rgba(255, 255, 255, 0.85);
+  --chat-header-border: rgba(99, 102, 241, 0.15);
+  --chat-input-bg: rgba(241, 245, 249, 1);
+  --chat-input-border: rgba(99, 102, 241, 0.25);
+  --chat-bubble-received-bg: rgba(99, 102, 241, 0.08);
+  --chat-bubble-received-border: rgba(99, 102, 241, 0.2);
+  --chat-empty-bg: rgba(248, 250, 252, 0.8);
+  --chat-divider-bg: rgba(226, 232, 240, 0.8);
+  --chat-divider-border: rgba(99, 102, 241, 0.15);
+}
+
+.dark {
+  --chat-bg-main: linear-gradient(135deg, rgba(22, 22, 58, 0.5) 0%, rgba(13, 13, 31, 0.8) 100%);
+  --chat-bg-panel: var(--card);
+  --chat-header-bg: rgba(22, 22, 58, 0.85);
+  --chat-header-border: rgba(99, 102, 241, 0.18);
+  --chat-input-bg: rgba(30, 27, 75, 0.5);
+  --chat-input-border: rgba(99, 102, 241, 0.2);
+  --chat-bubble-received-bg: rgba(99, 102, 241, 0.12);
+  --chat-bubble-received-border: rgba(99, 102, 241, 0.25);
+  --chat-empty-bg: rgba(30, 27, 75, 0.7);
+  --chat-divider-bg: rgba(30, 27, 75, 0.6);
+  --chat-divider-border: rgba(99, 102, 241, 0.15);
+}
+
+/* Chat scrollbar — subtle, themed */
+.chat-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+.chat-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.chat-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: 10px;
+}
+.chat-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.4);
+}
+
+/* Glass header for the chat window */
+.chat-glass-header {
+  backdrop-filter: blur(12px);
+  background: var(--chat-header-bg);
+  border-bottom: 1px solid var(--chat-header-border);
+}
+
+/* Message entrance animations */
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.msg-received {
+  animation: slideInLeft 0.3s ease-out;
+}
+.msg-sent {
+  animation: slideInRight 0.3s ease-out;
+}
+.msg-system {
+  animation: fadeInScale 0.3s ease-out;
+}
+
+/* Message bubble hover lift */
+.msg-bubble {
+  transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+.msg-bubble:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Typing indicator animation */
+@keyframes typingDot {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+.typing-dot:nth-child(1) { animation: typingDot 1.4s infinite 0s; }
+.typing-dot:nth-child(2) { animation: typingDot 1.4s infinite 0.2s; }
+.typing-dot:nth-child(3) { animation: typingDot 1.4s infinite 0.4s; }
+
+/* Conversation item active state */
+.conv-active {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(139, 92, 246, 0.08) 100%);
+  border-left: 3px solid var(--mana-accent);
+}
+
+/* Online pulse */
+@keyframes onlinePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(52, 211, 153, 0);
+  }
+}
+.online-dot {
+  animation: onlinePulse 2s ease-in-out infinite;
+}
+
+/* Input focus glow */
+.chat-input-bar:focus-within {
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}

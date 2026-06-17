@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { safeStorage } from "../../../utils/storage";
 import {
   CalendarDays,
   MapPin,
@@ -286,7 +287,7 @@ export function Events() {
   // --- Effects ---
   useEffect(() => {
     // Hydrate events from local storage or populate seeds
-    const saved = localStorage.getItem("mana_community_events");
+    const saved = safeStorage.getItem("mana_community_events");
     if (saved) {
       try {
         setEvents(JSON.parse(saved));
@@ -295,11 +296,11 @@ export function Events() {
       }
     } else {
       setEvents(SEED_EVENTS);
-      localStorage.setItem("mana_community_events", JSON.stringify(SEED_EVENTS));
+      safeStorage.setItem("mana_community_events", JSON.stringify(SEED_EVENTS));
     }
 
     // Hydrate reminders
-    const savedReminders = localStorage.getItem("mana_event_reminders");
+    const savedReminders = safeStorage.getItem("mana_event_reminders");
     if (savedReminders) {
       try {
         setReminders(JSON.parse(savedReminders));
@@ -312,12 +313,12 @@ export function Events() {
   // Sync events & reminders to local storage on changes
   const saveEvents = (updated: CustomEvent[]) => {
     setEvents(updated);
-    localStorage.setItem("mana_community_events", JSON.stringify(updated));
+    safeStorage.setItem("mana_community_events", JSON.stringify(updated));
   };
 
   const saveReminders = (updated: number[]) => {
     setReminders(updated);
-    localStorage.setItem("mana_event_reminders", JSON.stringify(updated));
+    safeStorage.setItem("mana_event_reminders", JSON.stringify(updated));
   };
 
   // --- Date/Time Formatting Utilities ---

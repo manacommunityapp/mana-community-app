@@ -8,6 +8,7 @@ import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/Signup";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
+import { Chat } from "./components/chat/Chat";
 
 import { AdminCreateUser } from "./components/admin/AdminCreateUser";
 import { AdminBulkUpload } from "./components/admin/AdminBulkUpload";
@@ -76,9 +77,9 @@ export const router = createBrowserRouter([
             path: "register", 
             element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS}><MySports /></PermissionGuard> 
           },
-          { 
-            path: "register/:eventId", 
-            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS}><SportsRegister /></PermissionGuard> 
+          {
+            path: "register/:eventUuid",
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS}><SportsRegister /></PermissionGuard>
           },
           {
             path: "schedule",
@@ -146,6 +147,10 @@ export const router = createBrowserRouter([
       { 
         path: "events", 
         element: <PermissionGuard permission={VIEW_EVENTS}><Events /></PermissionGuard> 
+      },
+      {
+        path: "chat",
+        element: <Chat />,
       },
       { 
         path: "profile", 

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import {
   getToken,
-  setToken,
+  setTokens,
   removeToken,
   getStoredUser,
   storeUser,
@@ -9,6 +9,7 @@ import {
 } from "../services/apiClient";
 import { authService } from "../services/authService";
 import { userService } from "../services/userService";
+import { safeStorage } from "../utils/storage";
 import type { LoginRequest, RegisterRequest } from "../types/api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -80,7 +81,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (data: LoginRequest) => {
     const response = await authService.login(data);
-    setToken(response.token);
+    safeStorage.setItem("mana_last_activity", String(Date.now()));
+    setTokens(response.token, response.refreshToken);
 
     // Try to use direct response fields first, fallback to JWT payload
     const payload = decodeJwtPayload(response.token);
@@ -114,7 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (data: RegisterRequest) => {
     const response = await authService.register(data);
-    setToken(response.token);
+    safeStorage.setItem("mana_last_activity", String(Date.now()));
+    setTokens(response.token, response.refreshToken);
 
     const payload = decodeJwtPayload(response.token);
     const newUser: AuthUser = {
@@ -146,6 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    // Best-effort server-side audit; never block local logout on it.
+    void authService.logout();
     removeToken();
     setUser(null);
     window.location.href = "/login";

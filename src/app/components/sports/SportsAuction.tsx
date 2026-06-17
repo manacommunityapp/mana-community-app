@@ -1,7 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
+import { safeStorage } from "../../../utils/storage";
 import { useParams } from "react-router";
 import { toast } from "sonner";
-import { Gavel, TrendingUp, CheckCircle, Trophy } from "lucide-react";
+import {
+  Gavel,
+  TrendingUp,
+  CheckCircle,
+  Trophy,
+  LayoutDashboard,
+  Activity,
+  Settings,
+  Users,
+  Search,
+  FileText
+} from "lucide-react";
 import { auctionService } from "../../../services/auctionService";
 import { sportsService } from "../../../services/sportsService";
 import { userService } from "../../../services/userService";
@@ -67,7 +79,15 @@ export function SportsAuction() {
 
   // Navigation State
   type TabType = 'overview' | 'config' | 'live' | 'teams' | 'players' | 'registrations' | 'results' | 'badminton' | 'football' | 'volleyball' | string;
-  const [activeTab, setActiveTab] = useState<TabType>(eventId ? "live" : "overview");
+  const [activeTab, setActiveTab] = useState<TabType>(() => {
+    if (eventId) return "live";
+    const saved = safeStorage.getItem("sports_auction_active_tab");
+    return (saved as TabType) || "overview";
+  });
+
+  useEffect(() => {
+    safeStorage.setItem("sports_auction_active_tab", activeTab);
+  }, [activeTab]);
 
   // Config State
   const [sport, setSport] = useState("cricket");
@@ -490,12 +510,14 @@ export function SportsAuction() {
   };
 
   // ─── Render Helpers ───────────────────────────────────────────────────
-  const NavItem = ({ id, label, isLive }: { id: string, label: string, isLive?: boolean }) => (
+  const NavItem = ({ id, label, icon: Icon, isLive }: { id: string, label: string, icon: any, isLive?: boolean }) => (
     <button
       className={`nav-item ${activeTab === id ? 'active' : ''} ${isLive ? 'live-dot' : ''}`}
       onClick={() => nav(id)}
     >
-      <div className="nav-dot"></div>{label}
+      {Icon && <Icon className="nav-icon" size={16} />}
+      <span className="nav-text">{label}</span>
+      <div className="active-indicator" />
     </button>
   );
   const queuedPlayersList = players.filter(p => p.status === 'QUEUED' || p.status === 'queue');
@@ -506,29 +528,32 @@ export function SportsAuction() {
     <div className="auction-hub-wrapper">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div className="brand-title">Sports Auction Hub</div>
+          <div className="brand-icon-wrapper">
+            <Gavel className="brand-icon" />
+          </div>
+          <div className="brand-title">Auction Hub</div>
         </div>
         <div className="nav-section">
           <div className="nav-label">Main</div>
-          <NavItem id="overview" label="Overview" />
+          <NavItem id="overview" label="Overview" icon={LayoutDashboard} />
         </div>
         {canViewSportsMenu && (
           <div className="nav-section">
             <div className="nav-label">Sports Menu</div>
-            <NavItem id="cricket" label="Cricket" />
-            <NavItem id="badminton" label="Badminton" />
-            <NavItem id="football" label="Football" />
-            <NavItem id="volleyball" label="Volleyball" />
+            <NavItem id="cricket" label="Cricket" icon={Activity} />
+            <NavItem id="badminton" label="Badminton" icon={Activity} />
+            <NavItem id="football" label="Football" icon={Activity} />
+            <NavItem id="volleyball" label="Volleyball" icon={Activity} />
           </div>
         )}
         <div className="nav-section">
           <div className="nav-label">Auction</div>
-          {canViewAuctionConfig   && <NavItem id="config"        label="Auction Config" />}
-          {canViewLiveAuction     && <NavItem id="live"          label="Live Auction" isLive />}
-          {canViewTeams           && <NavItem id="teams"         label="Teams" />}
-          {canViewPlayerPool      && <NavItem id="players"       label="Player Pool" />}
-          {canViewRegistrations   && <NavItem id="registrations" label="Registrations" />}
-          {canViewResults         && <NavItem id="results"       label="Auction Results" />}
+          {canViewAuctionConfig   && <NavItem id="config"        label="Auction Config" icon={Settings} />}
+          {canViewLiveAuction     && <NavItem id="live"          label="Live Auction" isLive icon={Gavel} />}
+          {canViewTeams           && <NavItem id="teams"         label="Teams" icon={Users} />}
+          {canViewPlayerPool      && <NavItem id="players"       label="Player Pool" icon={Search} />}
+          {canViewRegistrations   && <NavItem id="registrations" label="Registrations" icon={FileText} />}
+          {canViewResults         && <NavItem id="results"       label="Auction Results" icon={Trophy} />}
         </div>
       </aside>
 

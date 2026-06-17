@@ -64,6 +64,12 @@ export const sportsEventService = {
     return this.getTournamentById(id);
   },
 
+  /** GET /api/sports/events/by-uuid/{uuid} — public lookup for shareable registration links */
+  async getEventByUuid(uuid: string): Promise<SportsEvent> {
+    return apiClient.get<SportsEvent>(`/sports/events/by-uuid/${uuid}`)
+      .then(x => this.mapEvent(x));
+  },
+
   /** GET /api/sports/tournament-list-map — lightweight list of tournament ID and Name */
   async getTournamentMap(communityId?: number): Promise<Array<{ id: number, name: string }>> {
     const url = communityId ? `/sports/tournament-list-map?communityId=${communityId}` : "/sports/tournament-list-map";
@@ -168,6 +174,14 @@ export const sportsEventService = {
   /** PUT /api/sports/registrations/{id}/confirm — confirm a registration */
   async confirmRegistration(registrationId: number): Promise<EventRegistration> {
     return apiClient.put<EventRegistration>(`/sports/registrations/${registrationId}/confirm`);
+  },
+
+  /** PUT /api/sports/registrations/{id}/reject — reject a registration (optional reason) */
+  async rejectRegistration(registrationId: number, reason?: string): Promise<EventRegistration> {
+    const url = reason
+      ? `/sports/registrations/${registrationId}/reject?reason=${encodeURIComponent(reason)}`
+      : `/sports/registrations/${registrationId}/reject`;
+    return apiClient.put<EventRegistration>(url);
   },
 
   /** PUT /api/sports/registrations/{id}/nominate — nominate as captain */

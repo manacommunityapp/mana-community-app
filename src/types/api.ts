@@ -22,6 +22,7 @@ export interface AuthResponse {
   userId: string;
   message: string;
   token: string;
+  refreshToken?: string;
   fullName?: string;
   email?: string;
   role?: string;
@@ -148,6 +149,8 @@ export interface Sponsor {
 
 export interface SportsEvent {
   id: number;
+  /** Public, non-sequential id used in shareable registration links. */
+  uuid?: string;
   name: string;
   sport?: SportMeta;
   community?: Community;
@@ -180,6 +183,8 @@ export interface SportsEvent {
   playersBorn?: string;
   disputeCommitteeIds?: string;
   status?: string;
+  /** When true, self-registrations require organiser confirmation (land PENDING). */
+  adminApprovalRequired?: boolean;
 }
 
 export interface SportsEventRequest {
@@ -212,6 +217,7 @@ export interface SportsEventRequest {
   notifications?: NotificationScheduleRequest[];
   eventId?: number;
   sportsEventIds?: number[];
+  adminApprovalRequired?: boolean;
 }
 
 export interface NotificationScheduleRequest {
@@ -243,6 +249,8 @@ export interface RegistrationRequest {
   email?: string;
   relation?: string;
   flatNumber?: string;
+  /** Google reCAPTCHA token (only verified when the backend feature is enabled). */
+  recaptchaToken?: string;
 }
 
 export interface EventRegistration {
@@ -250,7 +258,7 @@ export interface EventRegistration {
   event?: SportsEvent;
   user?: AppUser;
   category?: PlayerCategory;
-  status: "PENDING" | "REGISTERED" | "CONFIRMED" | "WITHDRAWN";
+  status: "PENDING" | "REGISTERED" | "CONFIRMED" | "WITHDRAWN" | "REJECTED";
   playerName?: string;
   email?: string;
   relation?: string;
@@ -643,4 +651,36 @@ export interface CommentResponse {
 export interface LikeToggleResponse {
   likesCount: number;
   liked: boolean;
+}
+
+// ─── Chat (backend DTOs) ───────────────────────────────────────────────────────
+
+export interface ChatContactDto {
+  id: number;
+  name: string;
+  role: string;
+  avatarInitials: string;
+  isOnline: boolean;
+  isVerified: boolean;
+}
+
+export interface ConversationDto {
+  id: number;
+  type: string; // DIRECT | GROUP
+  title?: string | null;
+  isGroup: boolean;
+  contact?: ChatContactDto | null;
+  lastMessage?: string | null;
+  lastMessageAt?: string | null;
+  unreadCount: number;
+}
+
+export interface ChatMessageDto {
+  id: number;
+  conversationId: number;
+  senderId?: number | null;
+  senderName?: string | null;
+  type: string; // TEXT | SYSTEM
+  content: string;
+  createdAt: string;
 }

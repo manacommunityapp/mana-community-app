@@ -11,6 +11,8 @@ export interface DashboardStats {
 
 export interface DashboardEventCard {
   id: number;
+  /** Public, non-sequential id used in shareable registration links. */
+  uuid: string | null;
   name: string;
   eventDateStart: string | null;
   eventDateEnd: string | null;

@@ -4,6 +4,9 @@ import { tournamentService } from '../../../services/tournamentService';
 import { venueService } from '../../../services/venueService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { VenueTimingModal } from './VenueTimingModal';
+import { showSuccess, showWarning, showError, showInfo } from '../../../utils/ToastUtils';
+import { confirmAction } from '../../../utils/AlertUtils';
+
 
 
 import { sportsService } from '../../../services/sportsService';
@@ -229,8 +232,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       opponentApproval: modalOpponentApproval,
     });
     setShowParticipantsModal(false);
-    setToast('Participants scoring workflow enabled successfully!');
-    setTimeout(() => setToast(null), 3000);
+    showSuccess('Participants scoring workflow enabled successfully!');
   };
 
   // Date & Time Config
@@ -249,20 +251,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   const [venueAssignType, setVenueAssignType] = useState('Random');
   const [expandedVenue, setExpandedVenue] = useState<number | null>(null);
   // Selected courts per venue — keyed by venue id, value = list of selected court names
-  const [selectedCourts, setSelectedCourts] = useState<Record<number, string[]>>({});
-
-  // Event selection
+  const [selectedCourts, setSelectedCourts] = useState<Record<number, string[]>>({});  // Event selection
   const [selectedEvent, setSelectedEvent] = useState('');
 
   // UI
   const [generating, setGenerating] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
   const [timingModalOpen, setTimingModalOpen] = useState(false);
   const [selectedTimingVenue, setSelectedTimingVenue] = useState<Venue | null>(null);
-
-
-
   // Generated Schedule View
   const [scheduleGenerated, setScheduleGenerated] = useState(false);
   const [playoffsGenerated, setPlayoffsGenerated] = useState(false);
@@ -331,8 +327,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   const handleSaveTimingSuccess = (updatedVenue: Venue) => {
     setVenues(prev => prev.map(item => item.id === updatedVenue.id ? updatedVenue : item));
-    setToast('Venue timing updated successfully!');
-    setTimeout(() => setToast(null), 3000);
+    showSuccess('Venue timing updated successfully!');
   };
 
 
@@ -455,14 +450,14 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     selectedEvent ? configs.find(c => c.eventId === Number(selectedEvent)) : undefined;
 
   const validateScheduleConfig = () => {
-    if (!format) { setToast('Please select a format'); return false; }
-    if (!participants || Number(participants) < 2) { setToast('Enter valid participants'); return false; }
-    if (selectedVenues.length === 0) { setToast('Please select at least one venue in Venue Configuration'); return false; }
+    if (!format) { showWarning('Please select a format'); return false; }
+    if (!participants || Number(participants) < 2) { showWarning('Enter valid participants'); return false; }
+    if (selectedVenues.length === 0) { showWarning('Select at least one venue — required to generate the schedule.'); return false; }
     // For every selected venue that has courts available, require at least one court to be selected.
     for (const vid of selectedVenues) {
       const venue = venues.find(v => v.id === vid);
       if (venue?.courts && venue.courts.length > 0 && (selectedCourts[vid]?.length || 0) === 0) {
-        setToast(`Please select at least one court for venue "${venue.name}"`);
+        showWarning(`Please select at least one court for venue "${venue.name}"`);
         return false;
       }
     }
@@ -562,7 +557,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   /** Step 1 (Group + Knockout): assign groups and generate group-stage matches only. */
   const handleScheduleGroups = async () => {
-    if (existingConfigForEvent()) { setToast('A tournament configuration already exists for this event'); return; }
+    if (existingConfigForEvent()) { showWarning('A tournament configuration already exists for this event'); return; }
     if (!validateScheduleConfig()) return;
     setGenerating(true);
     try {
@@ -573,27 +568,26 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       setPlayoffsGenerated(false);
       setScheduleGenerated(true);
       setShowSetup(false);
-      setToast('✓ Group schedule generated! Configure proceeders, then Generate playoffs and Save when ready.');
+      showSuccess('Group schedule generated! Configure proceeders, then Generate playoffs and Save when ready.');
     } catch (err: any) {
       console.error('[Schedule Groups] Error:', err);
-      setToast('Failed: ' + (err.message || 'Unknown error'));
+      showError('Failed: ' + (err.message || 'Unknown error'));
     } finally {
       setGenerating(false);
-      setTimeout(() => setToast(null), 3000);
     }
   };
 
   /** Step 2 (Group + Knockout): generate knockout / playoff matches after groups are scheduled. */
   const handleGeneratePlayoffs = async () => {
     if (!scheduleGenerated) {
-      setToast('Schedule groups first');
+      showWarning('Schedule groups first');
       return;
     }
     if (
       generatedGroups.length === 0 ||
       generatedGroups.some(g => g.participants.length < 2)
     ) {
-      setToast('Configure groups with at least 2 participants before generating playoffs');
+      showWarning('Configure groups with at least 2 participants before generating playoffs');
       return;
     }
 
@@ -602,7 +596,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       setGeneratedGroups(prev =>
         prev.map(g => ({ ...g, proceeders: '2' }))
       );
-      setToast('Proceeders set to 2 per group for semi-finals + final bracket');
+      showInfo('Proceeders set to 2 per group for semi-finals + final bracket');
     }
 
     setGenerating(true);
@@ -613,19 +607,18 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       await fetchPlayoffDraft();
 
       setPlayoffsGenerated(true);
-      setToast('✓ Knockout bracket generated! Review and Save when ready.');
+      showSuccess('Knockout bracket generated! Review and Save when ready.');
     } catch (err: any) {
       console.error('[Generate Playoffs] Error:', err);
-      setToast('Failed: ' + (err.message || 'Unknown error'));
+      showError('Failed: ' + (err.message || 'Unknown error'));
     } finally {
       setGenerating(false);
-      setTimeout(() => setToast(null), 3000);
     }
   };
 
   /** Single-step generate for Knockout-only and other non-group formats. */
   const handleGenerate = async () => {
-    if (existingConfigForEvent()) { setToast('A tournament configuration already exists for this event'); return; }
+    if (existingConfigForEvent()) { showWarning('A tournament configuration already exists for this event'); return; }
     if (!validateScheduleConfig()) return;
     setGenerating(true);
     try {
@@ -640,20 +633,19 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
         await fetchPlayoffDraft();
         setGeneratedGroups([]);
         setPlayoffsGenerated(true);
-        setToast('✓ Knockout schedule generated! Review and Save when ready.');
+        showSuccess('Knockout schedule generated! Review and Save when ready.');
       } else {
         setPlayoffsGenerated(false);
-        setToast('✓ Schedule generated! Review and Save when ready.');
+        showSuccess('Schedule generated! Review and Save when ready.');
       }
 
       setScheduleGenerated(true);
       setShowSetup(false);
     } catch (err: any) {
       console.error('[Generate] Error:', err);
-      setToast('Failed: ' + (err.message || 'Unknown error'));
+      showError('Failed: ' + (err.message || 'Unknown error'));
     } finally {
       setGenerating(false);
-      setTimeout(() => setToast(null), 3000);
     }
   };
 
@@ -682,8 +674,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       limitMatches: source.limitMatches,
       maxMatches: source.maxMatches,
     })));
-    setToast('Applied settings to all groups!');
-    setTimeout(() => setToast(null), 2500);
+    showSuccess('Applied settings to all groups!');
   };
 
   // Helper to generate matches for a group
@@ -796,11 +787,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     const newAway = allowedParts.find(p => p.id === editMatchForm.awayId);
 
     if (!newHome || !newAway) {
-      setToast('Please select valid participants');
+      showWarning('Please select valid participants');
       return;
     }
     if (newHome.id === newAway.id) {
-      setToast('A participant cannot play against themselves');
+      showWarning('A participant cannot play against themselves');
       return;
     }
 
@@ -820,8 +811,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     }));
 
     setShowEditMatchModal(false);
-    setToast('Match updated successfully!');
-    setTimeout(() => setToast(null), 3000);
+    showSuccess('Match updated successfully!');
   };
 
   const formatDate = (date: Date) => {
@@ -967,7 +957,11 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   };
 
   const handleClearSchedule = async () => {
-    if (!confirm('Clear this schedule? This will reset all generated matches.')) {
+    const confirmed = await confirmAction(
+      'Clear Schedule',
+      'Are you sure you want to clear this schedule? This will reset all generated matches.'
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -987,12 +981,10 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       setShowSetup(false);
       setCurrentConfigId(null);
 
-      setToast('✓ Schedule cleared and deleted from database');
-      setTimeout(() => setToast(null), 3000);
+      showSuccess('Schedule cleared and deleted from database');
     } catch (err: any) {
       console.error('[Clear Schedule] Error:', err);
-      setToast('✗ Clear failed: ' + (err?.message || 'Unknown error'));
-      setTimeout(() => setToast(null), 4000);
+      showError('Clear failed: ' + (err?.message || 'Unknown error'));
     }
   };
 
@@ -1059,7 +1051,6 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   const handleSaveDraft = async () => {
     if (!validateScheduleConfig()) {
-      setTimeout(() => setToast(null), 4000);
       return;
     }
 
@@ -1075,24 +1066,26 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       setCurrentConfigId(result.config.id);
       console.log('[Save Draft] Saved:', { configId: result.config.id, savedMatches: result.savedMatches });
 
-      setToast('✓ Draft saved! ' + result.savedMatches + ' matches stored as DRAFT.');
+      showSuccess('Draft saved! ' + result.savedMatches + ' matches stored as DRAFT.');
     } catch (err: any) {
       console.error('[Save Draft] Error:', err);
       const message = err?.message || 'Unknown error';
-      setToast('✗ Draft save failed: ' + message);
+      showError('Draft save failed: ' + message);
     } finally {
       setSavingSchedule(false);
-      setTimeout(() => setToast(null), 4000);
     }
   };
 
   const handleSavePublish = async () => {
     if (!validateScheduleConfig()) {
-      setTimeout(() => setToast(null), 4000);
       return;
     }
 
-    if (!confirm('Publish this schedule? Participants will be notified.')) {
+    const confirmed = await confirmAction(
+      'Publish Schedule',
+      'Publish this schedule? Participants will be notified.'
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -1108,20 +1101,18 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       setCurrentConfigId(result.config.id);
       console.log('[Save Publish] Saved:', { configId: result.config.id, savedMatches: result.savedMatches });
 
-      setToast('✓ Schedule published! ' + result.savedMatches + ' matches stored as PUBLISHED. Participants will be notified.');
+      showSuccess('Schedule published! ' + result.savedMatches + ' matches stored as PUBLISHED. Participants will be notified.');
     } catch (err: any) {
       console.error('[Save Publish] Error:', err);
       const message = err?.message || 'Unknown error';
-      setToast('✗ Publish failed: ' + message);
+      showError('Publish failed: ' + message);
     } finally {
       setSavingSchedule(false);
-      setTimeout(() => setToast(null), 4000);
     }
   };
 
   const handleDragDropScheduler = () => {
-    setToast('Drag & Drop Scheduler — open visual editor to adjust timings and venues');
-    setTimeout(() => setToast(null), 3000);
+    showInfo('Drag & Drop Scheduler — open visual editor to adjust timings and venues');
   };
 
   // Existing tournament config already saved for the selected event (in tournament_config table).
@@ -1182,10 +1173,6 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
 
   return (
     <div className="space-y-5">
-      {toast && (
-        <div className="fixed bottom-6 right-6 z-50 px-5 py-3 rounded-lg shadow-xl font-medium text-sm bg-[#4f46e5] text-white">{toast}</div>
-      )}
-
       {/* Warning if players not confirmed */}
       {!allPlayersConfirmed && (
         <div className="bg-[rgba(99,102,241,0.05)] border border-[rgba(99,102,241,0.12)] rounded-xl p-4 md:p-6 shadow-md">
@@ -1624,8 +1611,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                 <button 
                   type="button" 
                   onClick={() => {
-                    setToast('Exporting schedule...');
-                    setTimeout(() => setToast(null), 3000);
+                    showInfo('Exporting schedule...');
                   }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-[rgba(99,102,241,0.12)] text-[#4f46e5] hover:bg-[#4f46e5]/10 transition-colors cursor-pointer"
                 >
@@ -1727,8 +1713,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        setToast(`Select Proceeders modal opened for ${group.name}!`);
-                                        setTimeout(() => setToast(null), 3000);
+                                        showInfo(`Select Proceeders modal opened for ${group.name}!`);
                                       }}
                                       className="mt-2 w-full py-1.5 border border-[#4f46e5]/40 text-[#4f46e5] text-xs font-semibold rounded-lg hover:bg-[#4f46e5]/10 transition-colors cursor-pointer text-center"
                                     >
@@ -1975,7 +1960,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => setToast('This is a sample schedule. Finalize participants to schedule matches.')}
+                                  onClick={() => showWarning('This is a sample schedule. Finalize participants to schedule matches.')}
                                   className="px-2.5 py-1 border border-[rgba(99,102,241,0.12)] text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1 cursor-pointer"
                                 >
                                   <Settings className="w-3 h-3" /> Actions

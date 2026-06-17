@@ -1,9 +1,18 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { safeStorage } from "../../../../utils/storage";
 import { Loader2, CalendarIcon, MapPin, Plus, LayoutDashboard, Edit2, Trash2, EyeOff, Eye, Users, Clock, X, Search, Trophy, ChevronDown, Check, Settings, ShieldCheck, AlertCircle, Target, Activity } from "lucide-react";
 import { TIME_OPTIONS } from "../../../../constants/timeOptions";
 import { Link } from "react-router";
 import { format } from "date-fns";
-import { toast } from "sonner";
+import { showSuccess, showWarning, showError, showInfo } from "../../../../utils/ToastUtils";
+import { confirmAction } from "../../../../utils/AlertUtils";
+
+const toast = {
+  success: (msg: string) => showSuccess(msg),
+  warning: (msg: string) => showWarning(msg),
+  error: (msg: string) => showError(msg),
+  info: (msg: string) => showInfo(msg),
+};
 import { sportsService } from "../../../../services/sportsService";
 import { venueService } from "../../../../services/venueService";
 import { communityService } from "../../../../services/communityService";
@@ -587,7 +596,14 @@ export function SportsAdmin() {
 
   const [submitting, setSubmitting] = useState(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<TabId>("sports-event");
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    const saved = safeStorage.getItem("sports_admin_active_tab");
+    return (saved as TabId) || "sports-event";
+  });
+
+  useEffect(() => {
+    safeStorage.setItem("sports_admin_active_tab", activeTab);
+  }, [activeTab]);
   const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
   const [teamsList, setTeamsList] = useState(initialTeams);
   const [pendingList, setPendingList] = useState(initialPendingRegistrations);
@@ -1760,7 +1776,11 @@ export function SportsAdmin() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this tournament?")) return;
+    const confirmed = await confirmAction(
+      "Delete Tournament",
+      "Are you sure you want to delete this tournament?"
+    );
+    if (!confirmed) return;
     try {
       await sportsService.deleteTournament(id);
       toast.success("Tournament deleted");
@@ -1824,6 +1844,20 @@ export function SportsAdmin() {
     }
   };
 
+  const handleRejectRegistration = async (regId: number) => {
+    const reason = window.prompt("Reason for rejection (optional):") ?? undefined;
+    try {
+      await sportsService.rejectRegistration(regId, reason || undefined);
+      toast.success("Registration rejected");
+      if (viewingEventId && viewMode === "players") {
+        const regs = await sportsService.getTournamentRegistrations(viewingEventId);
+        setRegistrations(regs);
+      }
+    } catch {
+      toast.error("Failed to reject registration");
+    }
+  };
+
   const handleConfirmCaptain = async (id: number, confirm: boolean) => {
     try {
       await auctionService.confirmCaptainByTeamId(id, confirm);
@@ -1869,7 +1903,11 @@ export function SportsAdmin() {
   };
 
   const handleVenueDelete = async (id: number) => {
-    if (!confirm("Delete this venue? This may affect existing events.")) return;
+    const confirmed = await confirmAction(
+      "Delete Venue",
+      "Delete this venue? This may affect existing events."
+    );
+    if (!confirmed) return;
     try {
       await venueService.deleteVenue(id);
       toast.success("Venue deleted"); refreshVenues();
@@ -1955,7 +1993,11 @@ export function SportsAdmin() {
   };
 
   const handleCategoryDelete = async (id: number) => {
-    if (!confirm("Delete this player category? This may affect existing players.")) return;
+    const confirmed = await confirmAction(
+      "Delete Category",
+      "Delete this player category? This may affect existing players."
+    );
+    if (!confirmed) return;
     try {
       await sportsService.deleteCategory(id);
       toast.success("Category deleted"); refreshCategories();
@@ -2217,7 +2259,11 @@ export function SportsAdmin() {
   };
 
   const handleSportDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete/cancel this scheduled event?")) return;
+    const confirmed = await confirmAction(
+      "Cancel Event",
+      "Are you sure you want to delete/cancel this scheduled event?"
+    );
+    if (!confirmed) return;
     try {
       await sportsService.deleteTournament(id);
       toast.success("Event deleted successfully");
@@ -2425,6 +2471,7 @@ export function SportsAdmin() {
                   nominatedCaptains={nominatedCaptains}
                   loadingRegs={loadingRegs}
                   onConfirmRegistration={handleConfirmRegistration}
+                  onRejectRegistration={handleRejectRegistration}
                   onConfirmCaptain={handleConfirmCaptain}
                   onAddParticipant={(eventId) => {
                     setSelectedEventIdForAdd(eventId);

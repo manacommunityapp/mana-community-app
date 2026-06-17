@@ -362,6 +362,7 @@ export function SportsDashboard() {
         }
         return {
           id: e.id,
+          uuid: e.uuid ?? undefined,
           name: e.name,
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
           category: `${e.sportName ?? "Sport"} · ${e.categoryName ?? "Open"} · ${e.venueName ?? "TBD"}`,
@@ -652,7 +653,7 @@ export function SportsDashboard() {
                 <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
                   <RegCard
                      item={item}
-                     onRegister={() => navigate(`/sports/register/${item.id}`)}
+                     onRegister={() => navigate(`/sports/register/${item.uuid ?? item.id}`)}
                      onView={() => navigate("/sports/auction")}
                      onWithdraw={async (regItem) => {
                        if (!regItem.registrationId) return;

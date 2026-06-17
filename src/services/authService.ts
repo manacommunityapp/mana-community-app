@@ -22,4 +22,21 @@ export const authService = {
   async verifyKyc(data: KycRequest): Promise<string> {
     return apiClient.post<string>("/auth/verify-kyc", data);
   },
+
+  /** POST /api/auth/refresh — exchange a refresh token for a fresh token pair. */
+  async refresh(refreshToken: string): Promise<AuthResponse> {
+    return apiClient.post<AuthResponse>("/auth/refresh", { refreshToken });
+  },
+
+  /**
+   * POST /api/auth/logout — best-effort server-side audit log. Tokens are
+   * stateless, so the actual session end is the client clearing its tokens.
+   */
+  async logout(): Promise<void> {
+    try {
+      await apiClient.post<string>("/auth/logout");
+    } catch {
+      // Ignore — logout must always succeed locally even if the call fails.
+    }
+  },
 };

@@ -1,16 +1,38 @@
+import { safeStorage } from "../utils/storage";
+
 const BASE_URL = "/api";
 
+const TOKEN_KEY = "mana_token";
+const REFRESH_TOKEN_KEY = "mana_refresh_token";
+const USER_KEY = "mana_user";
+
 export function getToken(): string | null {
-  return localStorage.getItem("mana_token");
+  return safeStorage.getItem(TOKEN_KEY);
 }
 
 export function setToken(token: string): void {
-  localStorage.setItem("mana_token", token);
+  safeStorage.setItem(TOKEN_KEY, token);
+}
+
+export function getRefreshToken(): string | null {
+  return safeStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function setRefreshToken(token: string): void {
+  safeStorage.setItem(REFRESH_TOKEN_KEY, token);
+}
+
+/** Store both the access and (optional) refresh token in one call. */
+export function setTokens(token: string, refreshToken?: string | null): void {
+  setToken(token);
+  if (refreshToken) setRefreshToken(refreshToken);
 }
 
 export function removeToken(): void {
-  localStorage.removeItem("mana_token");
-  localStorage.removeItem("mana_user");
+  safeStorage.removeItem(TOKEN_KEY);
+  safeStorage.removeItem(REFRESH_TOKEN_KEY);
+  safeStorage.removeItem(USER_KEY);
+  safeStorage.removeItem("mana_last_activity");
 }
 
 export interface StoredUser {
@@ -24,7 +46,7 @@ export interface StoredUser {
 }
 
 export function getStoredUser(): StoredUser | null {
-  const raw = localStorage.getItem("mana_user");
+  const raw = safeStorage.getItem(USER_KEY);
   if (!raw) return null;
   try {
     return JSON.parse(raw) as StoredUser;
@@ -34,7 +56,7 @@ export function getStoredUser(): StoredUser | null {
 }
 
 export function storeUser(user: StoredUser): void {
-  localStorage.setItem("mana_user", JSON.stringify(user));
+  safeStorage.setItem(USER_KEY, JSON.stringify(user));
 }
 
 function buildHeaders(contentType = "application/json"): HeadersInit {
@@ -48,19 +70,53 @@ function buildHeaders(contentType = "application/json"): HeadersInit {
   return headers;
 }
 
-async function handleResponse<T>(res: Response): Promise<T> {
-  if (res.status === 401 || res.status === 403) {
-    // 401 = not authenticated, 403 = not authorized (missing/invalid token or role)
-    // Both indicate the user needs to re-login during development
-    const token = getToken();
-    console.warn(
-      `[apiClient] ${res.status} on ${res.url}. Token present: ${!!token}`,
-      token ? `(token: ${token.substring(0, 20)}...)` : "(no token)"
-    );
-    removeToken();
-    window.location.href = "/login";
-    throw new Error(res.status === 401 ? "Unauthorized" : "Forbidden — please log in again");
+// ─── Stateless refresh-token handling ─────────────────────────────────────────
+// A single shared refresh is in flight at a time, so a burst of concurrent 401s
+// triggers exactly one /auth/refresh call. Subsequent callers await the same
+// promise and then retry their original request with the new access token.
+
+let refreshPromise: Promise<boolean> | null = null;
+
+function ensureRefreshed(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = doRefresh().finally(() => {
+      refreshPromise = null;
+    });
   }
+  return refreshPromise;
+}
+
+async function doRefresh(): Promise<boolean> {
+  const rt = getRefreshToken();
+  if (!rt) return false;
+  try {
+    // Raw fetch — must NOT go through the interceptor (avoids recursion).
+    const res = await fetch(`${BASE_URL}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: rt }),
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { token?: string; refreshToken?: string };
+    if (data?.token) {
+      setTokens(data.token, data.refreshToken);
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/** Clears the session and bounces to /login. Exposed so the auth layer can reuse it. */
+export function forceLogout(): void {
+  removeToken();
+  if (window.location.pathname !== "/login") {
+    window.location.href = "/login";
+  }
+}
+
+async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let message = `Request failed with status ${res.status}`;
     try {
@@ -73,16 +129,60 @@ async function handleResponse<T>(res: Response): Promise<T> {
   }
   // 204 No Content
   if (res.status === 204) return undefined as T;
-  
+
   const text = await res.text();
   if (!text) return undefined as T;
-  
+
   try {
     return JSON.parse(text) as T;
   } catch {
     // If it's not valid JSON (e.g., a plain string message), return the raw text
     return text as unknown as T;
   }
+}
+
+interface RequestInitLike {
+  method: string;
+  body?: BodyInit;
+  /** When true, skip the JSON Content-Type header (used for FormData uploads). */
+  form?: boolean;
+}
+
+/**
+ * Core request runner with transparent access-token refresh.
+ *
+ * On a 401 the access token has (probably) expired: we attempt a single refresh
+ * and retry the request once with the new token. A 403 (authorized endpoint,
+ * insufficient role) or a failed refresh ends the session and redirects to login.
+ */
+async function request<T>(path: string, init: RequestInitLike, isRetry = false): Promise<T> {
+  const headers: Record<string, string> = {};
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (!init.form) headers["Content-Type"] = "application/json";
+
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: init.method,
+    headers,
+    body: init.body,
+  });
+
+  if (res.status === 401 && !isRetry && path !== "/auth/refresh") {
+    const refreshed = await ensureRefreshed();
+    if (refreshed) {
+      return request<T>(path, init, true); // retry once with the fresh token
+    }
+    forceLogout();
+    throw new Error("Session expired — please log in again.");
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    // Either a retry that still failed, or a genuine authorization failure.
+    forceLogout();
+    throw new Error(res.status === 401 ? "Unauthorized" : "Forbidden — please log in again");
+  }
+
+  return handleResponse<T>(res);
 }
 
 // In-flight GET requests, keyed by path. Coalesces concurrent requests for the
@@ -95,14 +195,7 @@ export const apiClient = {
     const existing = inFlightGets.get(path);
     if (existing) return existing as Promise<T>;
 
-    const promise = (async () => {
-      const res = await fetch(`${BASE_URL}${path}`, {
-        method: "GET",
-        headers: buildHeaders(),
-      });
-      return handleResponse<T>(res);
-    })();
-
+    const promise = request<T>(path, { method: "GET" });
     inFlightGets.set(path, promise);
     try {
       return await promise;
@@ -112,49 +205,33 @@ export const apiClient = {
   },
 
   async post<T>(path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${BASE_URL}${path}`, {
+    return request<T>(path, {
       method: "POST",
-      headers: buildHeaders(),
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-    return handleResponse<T>(res);
   },
 
   async put<T>(path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${BASE_URL}${path}`, {
+    return request<T>(path, {
       method: "PUT",
-      headers: buildHeaders(),
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-    return handleResponse<T>(res);
   },
 
   async patch<T>(path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${BASE_URL}${path}`, {
+    return request<T>(path, {
       method: "PATCH",
-      headers: buildHeaders(),
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-    return handleResponse<T>(res);
   },
 
   async delete<T>(path: string): Promise<T> {
-    const res = await fetch(`${BASE_URL}${path}`, {
-      method: "DELETE",
-      headers: buildHeaders(),
-    });
-    return handleResponse<T>(res);
+    return request<T>(path, { method: "DELETE" });
   },
 
   async postForm<T>(path: string, formData: FormData): Promise<T> {
-    const token = getToken();
-    const headers: Record<string, string> = {};
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    const res = await fetch(`${BASE_URL}${path}`, {
-      method: "POST",
-      headers,
-      body: formData,
-    });
-    return handleResponse<T>(res);
+    return request<T>(path, { method: "POST", body: formData, form: true });
   },
 };
+
+export { BASE_URL };

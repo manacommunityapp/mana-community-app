@@ -1,4 +1,4 @@
-import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2 } from "lucide-react";
+import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
 
@@ -30,6 +30,7 @@ interface TournamentSectionProps {
   nominatedCaptains?: AuctionTeam[];
   loadingRegs?: boolean;
   onConfirmRegistration?: (regId: number) => void;
+  onRejectRegistration?: (regId: number) => void;
   onConfirmCaptain?: (regId: number, confirm: boolean) => void;
   onAddParticipant?: (eventId: number) => void;
   onImportParticipants?: (eventId: number) => void;
@@ -40,7 +41,7 @@ export function TournamentSection({
   onEdit, onDelete, onActivate, showActivate,
   onViewPlayers, onViewCaptains, viewMode = "players",
   viewingEventId, registrations, nominatedCaptains,
-  loadingRegs, onConfirmRegistration, onConfirmCaptain,
+  loadingRegs, onConfirmRegistration, onRejectRegistration, onConfirmCaptain,
   onAddParticipant, onImportParticipants,
 }: TournamentSectionProps) {
 
@@ -48,9 +49,11 @@ export function TournamentSection({
 
   const statusBadge = (status: string) => {
     switch (status) {
+      case "PENDING":    return "bg-[#eab308]/20 text-[#eab308]";
       case "REGISTERED": return "bg-[#f97316]/20 text-[#f97316]";
       case "CONFIRMED":  return "bg-[#10b981]/20 text-[#10b981]";
       case "WITHDRAWN":  return "bg-[#ef4444]/20 text-[#ef4444]";
+      case "REJECTED":   return "bg-[#ef4444]/20 text-[#ef4444]";
       default:           return "bg-[#475569]/20 text-[#94a3b8]";
     }
   };
@@ -115,12 +118,20 @@ export function TournamentSection({
                 <span className={`text-[10px] px-2 py-1 rounded font-medium ${statusBadge(reg.status)}`}>
                   {reg.status}
                 </span>
-                {reg.status === "REGISTERED" && onConfirmRegistration && (
+                {(reg.status === "REGISTERED" || reg.status === "PENDING") && onConfirmRegistration && (
                   <button
                     onClick={() => onConfirmRegistration(reg.id)}
                     className="text-[10px] px-3 py-1.5 bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/30 rounded-lg hover:bg-[#10b981]/20 transition-colors flex items-center gap-1 font-medium"
                   >
                     <CheckCircle2 className="w-3 h-3" /> Confirm
+                  </button>
+                )}
+                {(reg.status === "REGISTERED" || reg.status === "PENDING") && onRejectRegistration && (
+                  <button
+                    onClick={() => onRejectRegistration(reg.id)}
+                    className="text-[10px] px-3 py-1.5 bg-[#ef4444]/10 text-[#ef4444] border border-[#ef4444]/30 rounded-lg hover:bg-[#ef4444]/20 transition-colors flex items-center gap-1 font-medium"
+                  >
+                    <XCircle className="w-3 h-3" /> Reject
                   </button>
                 )}
               </div>

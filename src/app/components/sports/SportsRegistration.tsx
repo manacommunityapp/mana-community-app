@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { safeStorage } from "../../../utils/storage";
 import { CheckCircle, Loader2, Trophy, Users, Calendar, MapPin, Settings, ShieldCheck, Trash2, Building2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { sportsService } from "../../../services/sportsService";
@@ -48,7 +49,14 @@ function getCategory(age: number, gender: string): string {
 
 export function SportsRegistration() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>("tournaments");
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    const saved = safeStorage.getItem("sports_registration_active_tab");
+    return (saved as TabId) || "tournaments";
+  });
+
+  useEffect(() => {
+    safeStorage.setItem("sports_registration_active_tab", activeTab);
+  }, [activeTab]);
 
   // Registration form states
   const [apiSports, setApiSports] = useState<SportMeta[]>([]);

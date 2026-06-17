@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { ShieldCheck, Upload, FileText, CheckCircle, AlertCircle, Camera, User, Loader2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { authService } from "../../../../services/authService";
-import { getToken } from "../../../../services/apiClient";
+import { getToken, getStoredUser } from "../../../../services/apiClient";
 import type { GovtIdType } from "../../../../types/api";
 
 type KYCFormValues = {
@@ -56,7 +56,7 @@ export function KYCVerification() {
     setIsSubmitting(true);
     setStep("submitting");
     try {
-      const userId = JSON.parse(localStorage.getItem("mana_user") ?? "{}").userId ?? "unknown";
+      const userId = getStoredUser()?.userId ?? "unknown";
       const idSlug = kycFormData.govtIdType.toLowerCase();
       await authService.verifyKyc({
         govtIdType: kycFormData.govtIdType,

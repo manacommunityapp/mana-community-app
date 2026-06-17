@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { safeStorage } from "../../../utils/storage";
 import { useParams, Link } from "react-router";
 import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, Target, Activity } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -357,7 +358,15 @@ function generateKnockoutBracket(players: BracketPlayer[]): BracketRound[] {
 export function SportsSchedule() {
   const { eventId } = useParams<{ eventId?: string }>();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<Tab>(eventId ? "Setup Schedule" : "My Matches");
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    if (eventId) return "Setup Schedule";
+    const saved = safeStorage.getItem("sports_schedule_active_tab");
+    return (saved as Tab) || "My Matches";
+  });
+
+  useEffect(() => {
+    safeStorage.setItem("sports_schedule_active_tab", activeTab);
+  }, [activeTab]);
   const [allEvents, setAllEvents] = useState<SportsEvent[]>([]);
   const [myMatches, setMyMatches] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);

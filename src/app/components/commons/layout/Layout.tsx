@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
-import { Users, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, Bell, ShieldCheck, Zap, Search, LogOut } from "lucide-react";
+import { Users, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, Bell, ShieldCheck, Zap, Search, LogOut, MessageCircle } from "lucide-react";
 import { useState } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -8,6 +8,8 @@ import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_MARKETPLACE,
   VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN,
 } from "../../../../constants/permissions";
+import { FloatingChat } from "../../chat/FloatingChat";
+import { ChatProvider } from "../../../../contexts/ChatContext";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -67,7 +69,8 @@ export function Layout() {
                  : "Verified Member";
 
   return (
-    <div className="h-screen bg-background flex font-sans">
+    <ChatProvider>
+      <div className="h-screen bg-background flex font-sans">
       {isSidebarOpen && (
         <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={() => setIsSidebarOpen(false)} />
       )}
@@ -263,7 +266,9 @@ export function Layout() {
             <Outlet />
           </div>
         </main>
+        <FloatingChat />
       </div>
     </div>
+    </ChatProvider>
   );
 }

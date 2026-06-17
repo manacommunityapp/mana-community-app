@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
-import { Loader2, ArrowLeft, Info } from "lucide-react";
+import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sportsService";
+import { otpService } from "../../../services/otpService";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   CREATE_EDIT_EVENT_REGISTRATIONS,
@@ -238,10 +239,18 @@ const SPORT_CONFIGS: Record<string, SportConfig> = {
   },
 };
 
+// ─── Secure-registration config (build-time, optional) ──────────────────────────
+// Both gates mirror the backend's config switches. When unset the UI degrades to
+// the existing authenticated flow (backend verification is also off by default).
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string | undefined;
+const OTP_REQUIRED = import.meta.env.VITE_REGISTRATION_OTP_ENABLED === "true";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function SportsRegister() {
-  const { eventId } = useParams();
+  const { eventUuid } = useParams();
   const navigate = useNavigate();
   const { user, hasPermission, hasAnyPermission } = useAuth();
   const isAnyAdmin = hasAnyPermission(CREATE_EDIT_EVENT_REGISTRATIONS, CREATE_EDIT_SPORTS_MAIN);
@@ -250,6 +259,14 @@ export function SportsRegister() {
   const [categories, setCategories] = useState<PlayerCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // Email-OTP verification state.
+  const [email, setEmail] = useState(user?.email ?? "");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [emailVerified, setEmailVerified] = useState(false);
 
   const [formData, setFormData] = useState({
     categoryId: "",
@@ -275,9 +292,13 @@ export function SportsRegister() {
   useEffect(() => {
     const load = async () => {
       try {
+        // Links carry the event UUID; tolerate a legacy numeric id as a fallback.
+        const fetchEvent = eventUuid && UUID_RE.test(eventUuid)
+          ? sportsService.getEventByUuid(eventUuid)
+          : sportsService.getEventById(Number(eventUuid));
         const [cats, ev] = await Promise.all([
           sportsService.getCategories(),
-          sportsService.getEventById(Number(eventId)),
+          fetchEvent,
         ]);
         setCategories(cats);
         setEvent(ev);
@@ -288,7 +309,19 @@ export function SportsRegister() {
       }
     };
     load();
-  }, [eventId]);
+  }, [eventUuid]);
+
+  // Load Google reCAPTCHA (v2 checkbox) only when a site key is configured.
+  useEffect(() => {
+    if (!RECAPTCHA_SITE_KEY) return;
+    if (document.querySelector('script[data-mana-recaptcha]')) return;
+    const script = document.createElement("script");
+    script.src = "https://www.google.com/recaptcha/api.js";
+    script.async = true;
+    script.defer = true;
+    script.setAttribute("data-mana-recaptcha", "true");
+    document.body.appendChild(script);
+  }, []);
 
   // Clear role when category changes
   useEffect(() => {
@@ -310,11 +343,82 @@ export function SportsRegister() {
     }));
   };
 
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    // Any edit invalidates a prior verification.
+    setEmailVerified(false);
+    setOtpSent(false);
+    setOtpCode("");
+  };
+
+  const sendOtp = async () => {
+    if (!emailValid) {
+      toast.error("Enter a valid email first");
+      return;
+    }
+    setOtpSending(true);
+    try {
+      const res = await otpService.send(email.trim(), formData.playerName || user?.fullName);
+      if (res.success) {
+        setOtpSent(true);
+        toast.success(res.message || "Verification code sent");
+      } else {
+        toast.error(res.message || "Could not send code");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not send code");
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    if (!otpCode.trim()) {
+      toast.error("Enter the code from your email");
+      return;
+    }
+    setOtpVerifying(true);
+    try {
+      const res = await otpService.verify(email.trim(), otpCode.trim());
+      if (res.verified) {
+        setEmailVerified(true);
+        toast.success("Email verified");
+      } else {
+        toast.error(res.message || "Incorrect code");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Verification failed");
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.categoryId) {
       toast.error("Please select a category");
       return;
+    }
+    if (!event?.id) {
+      toast.error("Event details are still loading");
+      return;
+    }
+    if (OTP_REQUIRED && !emailVerified) {
+      toast.error("Please verify your email before registering");
+      return;
+    }
+
+    // Grab the reCAPTCHA token (v2 checkbox) when the widget is configured.
+    let recaptchaToken: string | undefined;
+    if (RECAPTCHA_SITE_KEY) {
+      const grecaptcha = (window as unknown as { grecaptcha?: { getResponse: () => string } }).grecaptcha;
+      recaptchaToken = grecaptcha?.getResponse();
+      if (!recaptchaToken) {
+        toast.error("Please complete the captcha");
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -326,7 +430,7 @@ export function SportsRegister() {
       const finalCategoryId = selectedCat?.id ?? (categories[0]?.id ?? 1);
 
       await sportsService.registerForEvent({
-        eventId: Number(eventId),
+        eventId: event.id,
         categoryId: finalCategoryId,
         matchType: formData.matchType,
         role: formData.role,
@@ -337,11 +441,15 @@ export function SportsRegister() {
         strikeRate: formData.strikeRate,
         avgScore: formData.avgScore,
         playerName: formData.playerName,
+        email: email.trim() || undefined,
         relation: formData.relation,
         flatNumber: formData.flatNumber,
+        recaptchaToken,
       });
 
-      toast.success("Registration successful! Good luck.");
+      toast.success(event.adminApprovalRequired === false
+        ? "Registration confirmed! Good luck."
+        : "Registration submitted! You'll be notified once it's approved.");
       navigate("/sports");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Registration failed");
@@ -530,6 +638,78 @@ export function SportsRegister() {
           </div>
         </div>
 
+        {/* Email verification (only when the OTP feature is enabled) */}
+        {OTP_REQUIRED && (
+          <div className="bg-[#141c2e] border border-[#2a3a5c] rounded-2xl p-6 shadow-xl">
+            <div className="flex items-center gap-2 text-sm font-medium text-[#f97316] uppercase tracking-wider mb-6">
+              <ShieldCheck className="w-4 h-4" /> Verify Email
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 md:items-end">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-[#94a3b8] uppercase tracking-wide flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5" /> Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => handleEmailChange(e.target.value)}
+                    readOnly={emailVerified}
+                    placeholder="you@example.com"
+                    className="w-full bg-[#0c1220] border border-[#2a3a5c] rounded-xl px-4 py-3 text-sm text-[#f1f5f9] focus:outline-none focus:border-[#f97316] transition-colors disabled:opacity-60"
+                  />
+                </div>
+                {!emailVerified && (
+                  <button
+                    type="button"
+                    onClick={sendOtp}
+                    disabled={!emailValid || otpSending}
+                    className="h-[46px] px-4 bg-[#1a2540] border border-[#2a3a5c] rounded-xl text-sm font-medium text-[#f1f5f9] hover:bg-[#22304f] disabled:opacity-50 transition-all whitespace-nowrap"
+                  >
+                    {otpSending ? <Loader2 className="w-4 h-4 animate-spin" /> : otpSent ? "Resend code" : "Send code"}
+                  </button>
+                )}
+              </div>
+
+              {emailVerified ? (
+                <div className="flex items-center gap-2 text-sm text-[#10b981]">
+                  <CheckCircle2 className="w-4 h-4" /> Email verified
+                </div>
+              ) : otpSent && (
+                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3 md:items-end animate-in fade-in slide-in-from-top-1">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-[#94a3b8] uppercase tracking-wide">Enter Code</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value)}
+                      placeholder="6-digit code"
+                      className="w-full bg-[#0c1220] border border-[#3b82f6]/30 rounded-xl px-4 py-3 text-sm text-[#f1f5f9] tracking-[0.3em] focus:outline-none focus:border-[#3b82f6] transition-colors"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={verifyOtp}
+                    disabled={otpVerifying || !otpCode.trim()}
+                    className="h-[46px] px-5 bg-[#3b82f6] hover:bg-[#2563eb] rounded-xl text-sm font-semibold text-white disabled:opacity-50 transition-all whitespace-nowrap"
+                  >
+                    {otpVerifying ? <Loader2 className="w-4 h-4 animate-spin" /> : "Verify"}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* reCAPTCHA (only when a site key is configured) */}
+        {RECAPTCHA_SITE_KEY && (
+          <div className="flex justify-center">
+            <div className="g-recaptcha" data-sitekey={RECAPTCHA_SITE_KEY}></div>
+          </div>
+        )}
+
         <div className="flex gap-4">
           <button
             type="button"
@@ -540,8 +720,8 @@ export function SportsRegister() {
           </button>
           <button
             type="submit"
-            disabled={submitting}
-            className="flex-[2] py-4 bg-[#f97316] hover:bg-[#ea580c] text-white font-semibold rounded-2xl shadow-lg shadow-[#f97316]/20 disabled:opacity-70 transition-all flex items-center justify-center gap-2"
+            disabled={submitting || (OTP_REQUIRED && !emailVerified)}
+            className="flex-[2] py-4 bg-[#f97316] hover:bg-[#ea580c] text-white font-semibold rounded-2xl shadow-lg shadow-[#f97316]/20 disabled:opacity-70 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
           >
             {submitting ? <><Loader2 className="w-5 h-5 animate-spin" />Processing...</> : "Submit Registration ↗"}
           </button>
