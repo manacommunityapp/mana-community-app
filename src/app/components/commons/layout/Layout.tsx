@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
-import { Users, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, Bell, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers } from "lucide-react";
+import { Users, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, Bell, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge } from "lucide-react";
 import { useState } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -39,6 +39,7 @@ export function Layout() {
 
   const adminLinks = [
     ...(isAdmin ? [{ to: "/admin", icon: ShieldCheck, label: "Admin Dashboard" }] : []),
+    ...(isSuperAdmin ? [{ to: "/admin/logs", icon: Gauge, label: "System Logs & Monitoring" }] : []),
     ...(isSuperAdmin ? [{ to: "/architecture", icon: Layers, label: "Architecture Docs" }] : []),
   ];
 

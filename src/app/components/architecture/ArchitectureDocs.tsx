@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import {
   Database, Server, Globe, Code, Layers, GitBranch, Shield,
-  Activity, Box, ArrowRight, ChevronDown, ChevronRight, Loader2, AlertTriangle,
+  Activity, Box, ArrowRight, ChevronDown, ChevronRight, Loader2, AlertTriangle, Gauge,
 } from "lucide-react";
 import { schemaService, type DbTableSchema } from "../../../services/schemaService";
 
-export type ArchTab = "overview" | "database" | "ddl" | "apis" | "websocket" | "folders" | "security";
+export type ArchTab = "overview" | "database" | "ddl" | "apis" | "websocket" | "folders" | "security" | "monitoring";
 
 /** Fallback schema used only if the live DB schema can't be loaded. */
 const FALLBACK_TABLES: DbTableSchema[] = [
@@ -487,6 +487,7 @@ const tabDefs: { id: ArchTab; label: string; icon: React.ElementType }[] = [
   { id: "websocket",  label: "WebSocket",     icon: Activity },
   { id: "folders",    label: "Folder Structure", icon: GitBranch },
   { id: "security",   label: "Security",      icon: Shield },
+  { id: "monitoring", label: "System Logs & Monitoring", icon: Gauge },
 ];
 
 function ArchitectureContent({ tab }: { tab: ArchTab }) {
@@ -517,6 +518,117 @@ function ArchitectureContent({ tab }: { tab: ArchTab }) {
               <ul className="space-y-2">{s.items.map(i => <li key={i} className="flex items-start gap-2 text-sm text-gray-600"><span className="w-4 h-4 bg-blue-100 text-blue-600 rounded flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">✓</span>{i}</li>)}</ul>
             </div>
           ))}
+        </div>
+      )}
+      {tab === "monitoring" && (
+        <div className="space-y-6">
+          {/* Live Dashboard Quick Access Card */}
+          <div className="bg-gradient-to-r from-indigo-950 to-indigo-900 rounded-2xl border border-indigo-500/35 p-6 shadow-xl relative overflow-hidden text-left">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-semibold">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Live Operational Console
+                </div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Gauge className="w-5 h-5 text-indigo-400" />
+                  System Logs & Monitoring Dashboard
+                </h3>
+                <p className="text-sm text-indigo-200/80 max-w-2xl">
+                  Real-time operational dashboard featuring circular gauges for system resource usage (CPU, RAM, Disk, JVM), runtime stats (Uptime, Active Threads, Log File Size), and a high-performance terminal logs streaming console with on-the-fly filtering.
+                </p>
+              </div>
+              <button 
+                onClick={() => window.location.href = "/admin/logs"}
+                className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold text-center transition-all shadow-lg hover:shadow-indigo-500/30 flex items-center gap-2 whitespace-nowrap self-start md:self-center"
+              >
+                <Server className="w-4 h-4" />
+                Launch Live Dashboard
+              </button>
+            </div>
+
+            {/* Sub-grid of Features */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-5 border-t border-indigo-500/20">
+              {[
+                { label: "Gauges", desc: "CPU, RAM, Disk, JVM usage" },
+                { label: "Metrics", desc: "Uptime, threads, log file stats" },
+                { label: "Terminal Stream", desc: "Level highlights, auto-scroll" },
+                { label: "Search & Filters", desc: "Debug, Info, Warn, Error levels" },
+              ].map(f => (
+                <div key={f.label} className="bg-indigo-900/40 rounded-xl p-3 border border-indigo-500/10">
+                  <p className="text-xs font-bold text-white">{f.label}</p>
+                  <p className="text-[11px] text-indigo-300/80 mt-0.5">{f.desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Architecture Details Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+            <div className="bg-white rounded-xl border p-5 shadow-sm space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <Globe className="w-4 h-4 text-blue-500" />
+                Monitoring REST API Endpoints
+              </h3>
+              <div className="space-y-3">
+                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700 font-mono">GET</span>
+                    <code className="text-xs font-mono font-semibold text-gray-800">/api/admin/system-stats</code>
+                  </div>
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    Fetches real-time host CPU usage, RAM stats, Disk capacity, and JVM runtime memory usage percentages. No DB touch.
+                  </p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700 font-mono">GET</span>
+                    <code className="text-xs font-mono font-semibold text-gray-800">/api/admin/logs</code>
+                  </div>
+                  <p className="text-[11px] text-gray-500 leading-relaxed">
+                    Streams trailing lines from <code className="bg-gray-100 px-1 rounded">logs/mana-service.log</code> with optional filters for <code className="bg-gray-100 px-1 rounded">level</code> (INFO/WARN/ERROR) and keyword <code className="bg-gray-100 px-1 rounded font-normal font-mono">search</code>.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border p-5 shadow-sm space-y-3">
+              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <Code className="w-4 h-4 text-blue-500" />
+                Configuration (application.yaml)
+              </h3>
+              <pre className="text-[11px] font-mono bg-gray-950 text-gray-300 p-4 rounded-xl overflow-x-auto leading-relaxed" style={{ maxHeight: 180 }}>
+{`logging:
+  file:
+    name: logs/mana-service.log
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      total-size-cap: 100MB
+      max-history: 7`}
+              </pre>
+              <p className="text-[11px] text-gray-500">
+                Logs are written directly to a rolling file in the local filesystem, keeping database load at 0% and avoiding storage bloat.
+              </p>
+            </div>
+          </div>
+
+          {/* Standard logs items */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-left">
+            {[
+              { title: "Application Logging", items: ["Structured logging via SLF4J + Logback (JSON in prod)","Per-request correlation/trace ID in the MDC","Log levels per environment (DEBUG local, INFO/WARN prod)","GlobalExceptionHandler logs every unhandled 500 with full stack trace"] },
+              { title: "Audit Trail", items: ["AuditLogService records every sensitive mutation","Persisted to the audit_logs table (actor, action, module, old/new value, IP, user-agent)","Immutable, append-only history for compliance","Surfaced in-app under Admin → Logs"] },
+              { title: "Centralised Aggregation", items: ["App logs shipped to AWS CloudWatch Logs","Configurable retention + full-text search","Filter by level, path, correlation ID","Optional ship-out to ELK / OpenSearch"] },
+              { title: "Metrics & Health", items: ["Spring Boot Actuator: /actuator/health, /actuator/metrics","Micrometer → Prometheus registry","JVM, HTTP latency, DB connection-pool (HikariCP) & cache metrics","ALB target-group health checks on /actuator/health"] },
+              { title: "Alerting & Dashboards", items: ["CloudWatch Alarms on error rate, p95 latency, CPU/memory","Grafana / CloudWatch dashboards for live KPIs","Notifications to email / Slack on threshold breach","5xx spike & DB-saturation alerts wired to on-call"] },
+            ].map(s => (
+              <div key={s.title} className="bg-white rounded-xl border p-5 shadow-sm" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                <h3 className="text-sm font-semibold text-gray-950 mb-3 flex items-center gap-2"><Gauge className="w-4 h-4 text-indigo-500" />{s.title}</h3>
+                <ul className="space-y-2">{s.items.map(i => <li key={i} className="flex items-start gap-2 text-xs text-gray-600"><span className="w-4 h-4 bg-indigo-50 text-indigo-600 rounded flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">✓</span>{i}</li>)}</ul>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

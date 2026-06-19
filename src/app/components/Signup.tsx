@@ -15,6 +15,8 @@ import { toast, Toaster } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
 import { communityService } from "../../services/communityService";
 import type { CommunityResponse } from "../../types/api";
+import { PasswordStrengthMeter } from "./commons/PasswordStrengthMeter";
+import { evaluatePassword, generateStrongPassword } from "../../utils/passwordStrength";
 
 type SignupFormValues = {
   fullName: string;
@@ -53,8 +55,19 @@ export function Signup() {
   });
 
   const password = watch("password");
+  const email = watch("email");
+  const fullName = watch("fullName");
+  const phone = watch("phone");
   const communityType = watch("communityType");
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);
+
+  const handleSuggestPassword = () => {
+    const suggested = generateStrongPassword(16);
+    setValue("password", suggested, { shouldValidate: true });
+    setValue("confirmPassword", suggested, { shouldValidate: true });
+    setShowPassword(true);
+    setShowConfirmPassword(true);
+  };
 
   useEffect(() => {
     const fetchCommunities = async () => {
@@ -322,9 +335,18 @@ export function Signup() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label htmlFor="signup-password" className={labelCls}>
-                  Password
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="signup-password" className={labelCls}>
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleSuggestPassword}
+                    className="text-xs font-medium text-primary hover:underline mb-1"
+                  >
+                    Suggest strong password
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     id="signup-password"
@@ -332,6 +354,9 @@ export function Signup() {
                     {...register("password", {
                       required: "Password is required",
                       minLength: { value: 8, message: "Password must be at least 8 characters" },
+                      validate: (value) =>
+                        evaluatePassword(value, [email, fullName, phone]).acceptable ||
+                        "Password is too easy to guess — make it stronger.",
                     })}
                     className={`${inputCls} pr-11`}
                     placeholder="Minimum 8 characters"
@@ -344,6 +369,7 @@ export function Signup() {
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
+                <PasswordStrengthMeter password={password || ""} userInputs={[email, fullName, phone]} />
                 {errors.password && (
                   <p className="text-destructive text-xs mt-1">{errors.password.message}</p>
                 )}
