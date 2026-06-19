@@ -551,6 +551,18 @@ export interface UserProfileResponse {
   coverPicUrl?: string;
   skills: string[];
   stats: UserStats;
+  /** Earned achievement badges. Optional — empty/undefined until the backend provides them. */
+  achievements?: Achievement[];
+}
+
+export interface Achievement {
+  id: number;
+  /** Emoji or short symbol shown on the badge (e.g. "🏆"). */
+  icon?: string;
+  title: string;
+  description?: string;
+  /** ISO date the badge was earned, if known. */
+  earnedAt?: string;
 }
 
 export interface UserProfileRequest {
@@ -683,4 +695,12 @@ export interface ChatMessageDto {
   type: string; // TEXT | SYSTEM
   content: string;
   createdAt: string;
+}
+
+/** Pushed on /topic/chat-user/{userId} so a client updates its list row without refetching. */
+export interface ChatConversationEvent {
+  conversationId: number;
+  lastMessage: string;
+  lastMessageAt: string;
+  senderId: number;
 }

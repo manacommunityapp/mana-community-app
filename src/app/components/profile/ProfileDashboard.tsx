@@ -32,6 +32,7 @@ import {
   AlertTriangle,
   Smartphone,
   Shield,
+  Award,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { clsx, type ClassValue } from "clsx";
@@ -43,7 +44,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type Tab = "overview" | "activity" | "settings" | "security";
+type Tab = "overview" | "activity" | "achievements" | "settings" | "security";
 
 const defaultAvatar = "https://images.unsplash.com/photo-1707396172424-f3293f788364?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBwcm9maWxlJTIwYXZhdGFyJTIwcGVyc29ufGVufDF8fHx8MTc3NzA1ODgxOXww&ixlib=rb-4.1.0&q=80&w=1080";
 const defaultCover = "https://images.unsplash.com/photo-1560185007-c5ca9d2c014d?w=1200&q=80";
@@ -266,9 +267,12 @@ export function ProfileDashboard() {
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Overview" },
     { id: "activity", label: "Activity" },
+    { id: "achievements", label: "Achievements" },
     { id: "settings", label: "Settings" },
     { id: "security", label: "Security" },
   ];
+
+  const achievements = profile.achievements ?? [];
 
   return (
     <div className="space-y-0 -mt-4 sm:-mt-6 lg:-mt-8 -mx-4 sm:-mx-6 lg:-mx-8">
@@ -624,6 +628,49 @@ export function ProfileDashboard() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* ACHIEVEMENTS TAB */}
+          {activeTab === "achievements" && (
+            <div className="bg-white rounded-xl border border-slate-200 p-6">
+              <div className="flex items-center gap-2 mb-5">
+                <Award className="w-5 h-5 text-indigo-600" />
+                <div>
+                  <h2 className="font-semibold text-slate-900">Achievements</h2>
+                  <p className="text-sm text-slate-500 mt-0.5">Badges earned across the community</p>
+                </div>
+              </div>
+
+              {achievements.length === 0 ? (
+                <div className="flex flex-col items-center justify-center text-center py-12">
+                  <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center mb-3">
+                    <Award className="w-7 h-7 text-slate-400" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-700">No achievements yet</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-sm">
+                    Take part in sports, events and the community to start earning badges. They'll show up here.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {achievements.map((a) => (
+                    <div
+                      key={a.id}
+                      className="text-center p-4 rounded-xl border-2 border-indigo-100 bg-indigo-50/50"
+                    >
+                      <div className="text-3xl mb-2 leading-none">{a.icon || "🏅"}</div>
+                      <p className="text-sm font-bold text-slate-900">{a.title}</p>
+                      {a.description && <p className="text-xs text-slate-500 mt-1">{a.description}</p>}
+                      {a.earnedAt && (
+                        <p className="text-[10px] text-slate-400 mt-2">
+                          {new Date(a.earnedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

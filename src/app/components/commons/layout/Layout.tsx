@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
-import { Users, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, Bell, ShieldCheck, Zap, Search, LogOut, MessageCircle } from "lucide-react";
+import { Users, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, Bell, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers } from "lucide-react";
 import { useState } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -35,9 +35,12 @@ export function Layout() {
     { to: "/events", icon: CalendarDays, label: "Events" },
   ];
 
-  const adminLinks = isAdmin ? [{ to: "/admin", icon: ShieldCheck, label: "Admin Dashboard" }] : [];
-
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
+
+  const adminLinks = [
+    ...(isAdmin ? [{ to: "/admin", icon: ShieldCheck, label: "Admin Dashboard" }] : []),
+    ...(isSuperAdmin ? [{ to: "/architecture", icon: Layers, label: "Architecture Docs" }] : []),
+  ];
 
   const filteredNavLinks = navLinks.filter((link) => {
     if (isSuperAdmin) return true;

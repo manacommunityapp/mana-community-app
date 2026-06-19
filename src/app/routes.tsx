@@ -16,6 +16,7 @@ import { AdminVenues } from "./components/admin/AdminVenues";
 import { AdminCommunity } from "./components/admin/AdminCommunity";
 import { AdminRoleManagement } from "./components/admin/AdminRoleManagement";
 import { ProfileDashboard } from "./components/profile/ProfileDashboard";
+import { ArchitectureDocs } from "./components/architecture/ArchitectureDocs";
 import { RootErrorElement } from "./components/commons/error/RootErrorElement";
 import { PermissionGuard } from "./components/commons/guards/PermissionGuard";
 
@@ -152,9 +153,13 @@ export const router = createBrowserRouter([
         path: "chat",
         element: <Chat />,
       },
-      { 
-        path: "profile", 
-        Component: ProfileDashboard 
+      {
+        path: "profile",
+        Component: ProfileDashboard
+      },
+      {
+        path: "architecture",
+        element: <PermissionGuard superAdminOnly><ArchitectureDocs /></PermissionGuard>,
       },
     ],
   },

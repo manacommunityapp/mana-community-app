@@ -18,6 +18,12 @@ export default defineConfig({
         changeOrigin: true,
         // Do NOT rewrite the path — Spring listens on /api/...
       },
+      // STOMP/WebSocket handshake → Spring's /ws endpoint (ws: true upgrades the connection)
+      "/ws": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 })

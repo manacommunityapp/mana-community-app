@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { chatService } from "../services/chatService";
+import { stompClient } from "../services/stompClient";
 import { getStoredUser } from "../services/apiClient";
 import {
   type Conversation,
@@ -18,6 +19,7 @@ import type {
   ConversationDto,
   ChatMessageDto,
   ChatContactDto,
+  ChatConversationEvent,
 } from "../types/api";
 
 interface ChatContextType {
@@ -38,8 +40,11 @@ interface ChatContextType {
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
 
-/** Live-refresh cadence for the conversations list + active thread. */
-const POLL_INTERVAL_MS = 5000;
+/**
+ * Safety-net polling cadence. Real-time updates arrive over STOMP (see the
+ * subscription effects below); this slow poll only covers a dropped socket.
+ */
+const POLL_INTERVAL_MS = 20000;
 
 // ─── Mapping helpers (backend DTO → UI model) ──────────────────────────────
 
@@ -178,10 +183,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     };
   }, [currentUserId, refreshConversations]);
 
-  // Lightweight polling for near-real-time updates.
+  // Fallback poll — only does anything while the socket is DOWN. When STOMP is
+  // connected this fires and immediately returns, so steady-state idle traffic
+  // is zero; if the socket drops it recovers state within one interval.
   useEffect(() => {
     if (!currentUserId) return;
     const timer = setInterval(() => {
+      if (stompClient.connected) return;
       refreshConversations();
       const active = activeConvRef.current;
       if (active) loadMessages(active);
@@ -189,12 +197,97 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(timer);
   }, [currentUserId, refreshConversations, loadMessages]);
 
+  // On every (re)connect, fetch once to catch up on anything missed while the
+  // socket was establishing or briefly down. Costs one GET per connect (rare).
+  useEffect(() => {
+    if (!currentUserId) return;
+    const unsub = stompClient.onConnect(() => {
+      refreshConversations();
+      const active = activeConvRef.current;
+      if (active) loadMessages(active);
+    });
+    return unsub;
+  }, [currentUserId, refreshConversations, loadMessages]);
+
+  // Append a message into a thread, de-duplicating by id. Both the optimistic
+  // local echo and the STOMP broadcast of the same message flow through here.
+  const appendMessage = useCallback((convId: string, msg: Message) => {
+    setMessages((prev) => {
+      const existing = prev[convId] ?? [];
+      if (existing.some((m) => m.id === msg.id)) return prev;
+      return { ...prev, [convId]: [...existing, msg] };
+    });
+  }, []);
+
   const clearUnread = useCallback((id: string) => {
     setConversations((prev) =>
       prev.map((c) => (c.id === id ? { ...c, unreadCount: 0 } : c))
     );
     chatService.markRead(Number(id)).catch(() => {});
   }, []);
+
+  // ── Real-time: update the conversation list in place on any new message. ──
+  // No HTTP — the event carries last message + sender. Only a message in a
+  // thread we don't have yet triggers a one-off refetch to materialise it.
+  useEffect(() => {
+    if (!currentUserId) return;
+    const unsub = stompClient.subscribe(
+      `/topic/chat-user/${currentUserId}`,
+      (body) => {
+        const evt = body as ChatConversationEvent;
+        if (!evt || evt.conversationId == null) return;
+        const convId = String(evt.conversationId);
+        const fromSelf = String(evt.senderId) === currentUserId;
+
+        setConversations((prev) => {
+          if (!prev.some((c) => c.id === convId)) {
+            refreshConversations(); // brand-new thread — fetch it once
+            return prev;
+          }
+          const updated = prev.map((c) =>
+            c.id === convId
+              ? {
+                  ...c,
+                  lastMessage: evt.lastMessage ?? c.lastMessage,
+                  lastMessageTime: formatTime(evt.lastMessageAt),
+                  unreadCount:
+                    fromSelf || activeConvRef.current === convId
+                      ? 0
+                      : c.unreadCount + 1,
+                }
+              : c
+          );
+          // Float the just-updated thread to the top (matches server ordering).
+          const idx = updated.findIndex((c) => c.id === convId);
+          if (idx > 0) {
+            const [row] = updated.splice(idx, 1);
+            updated.unshift(row);
+          }
+          return updated;
+        });
+      }
+    );
+    return unsub;
+  }, [currentUserId, refreshConversations]);
+
+  // ── Real-time: stream messages for the conversation currently open. ──
+  // Appends locally (deduped); unread is reset by the list handler above.
+  useEffect(() => {
+    if (!currentUserId || !activeConvId) return;
+    const unsub = stompClient.subscribe(
+      `/topic/conversation/${activeConvId}`,
+      (body) => {
+        const dto = body as ChatMessageDto;
+        if (!dto || dto.id == null) return;
+        appendMessage(activeConvId, mapMessage(dto, currentUserId));
+        // Persist the read watermark while this thread is the active view.
+        if (String(dto.senderId) !== currentUserId) {
+          chatService.markRead(Number(activeConvId)).catch(() => {});
+        }
+      }
+    );
+    return unsub;
+  }, [currentUserId, activeConvId, appendMessage]);
 
   const selectConversation = useCallback(
     (id: string | null) => {
@@ -234,10 +327,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       try {
         const dto = await chatService.sendMessage(Number(convId), text.trim());
         const msg = mapMessage(dto, currentUserId);
-        setMessages((prev) => ({
-          ...prev,
-          [convId]: [...(prev[convId] ?? []), msg],
-        }));
+        appendMessage(convId, msg);
         setConversations((prev) =>
           prev.map((c) =>
             c.id === convId
@@ -249,7 +339,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         // ignore — message not sent
       }
     },
-    [currentUserId]
+    [currentUserId, appendMessage]
   );
 
   return (
