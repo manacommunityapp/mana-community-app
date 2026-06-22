@@ -3,6 +3,7 @@ import {
   systemLogService,
   type SystemStatsResponse,
   type SystemLogResponse,
+  type LogType,
 } from "../../../services/systemLogService";
 
 /* ────────────────────────────── helpers ────────────────────────────── */
@@ -298,6 +299,52 @@ const S = {
       transition: "background .15s",
     }) as React.CSSProperties,
 
+  /* ── log type tabs ── */
+  tabRow: {
+    display: "flex",
+    gap: "8px",
+    marginBottom: "22px",
+    background: "rgba(22,22,58,.55)",
+    border: "1px solid rgba(99,102,241,.12)",
+    borderRadius: 14,
+    padding: "6px",
+  } as React.CSSProperties,
+
+  tab: (active: boolean) =>
+    ({
+      flex: 1,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: "8px",
+      padding: "12px 18px",
+      borderRadius: 10,
+      border: "none",
+      background: active
+        ? "linear-gradient(135deg, #6366f1, #8b5cf6)"
+        : "transparent",
+      color: active ? "#fff" : "#6b7094",
+      fontSize: 13,
+      fontWeight: active ? 700 : 500,
+      fontFamily: "inherit",
+      cursor: "pointer",
+      transition: "all .25s ease",
+      boxShadow: active ? "0 4px 20px rgba(99,102,241,.3)" : "none",
+      letterSpacing: "0.01em",
+    }) as React.CSSProperties,
+
+  tabIcon: {
+    fontSize: 16,
+    lineHeight: 1,
+  } as React.CSSProperties,
+
+  tabLabel: {
+    fontSize: 12,
+    opacity: 0.7,
+    fontWeight: 400,
+    marginTop: 1,
+  } as React.CSSProperties,
+
   /* ── misc ── */
   spinner: {
     display: "flex",
@@ -350,6 +397,7 @@ export function LogsDashboard() {
   const [search, setSearch] = useState("");
   const [lineCount, setLineCount] = useState(200);
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [logType, setLogType] = useState<LogType>("APPLICATION");
 
   const terminalRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -363,7 +411,7 @@ export function LogsDashboard() {
       const lvl = level === "ALL" ? undefined : level;
       const srch = search.trim() || undefined;
       const [logsRes, statsRes] = await Promise.all([
-        systemLogService.getLogs(lineCount, lvl, srch),
+        systemLogService.getLogs(lineCount, lvl, srch, logType),
         systemLogService.getSystemStats(),
       ]);
       setLogData(logsRes);
@@ -374,7 +422,28 @@ export function LogsDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [level, search, lineCount]);
+  }, [level, search, lineCount, logType]);
+
+  const downloadFullLog = async () => {
+    try {
+      const lvl = level === "ALL" ? undefined : level;
+      const srch = search.trim() || undefined;
+      const res = await systemLogService.getLogs(-1, lvl, srch, logType);
+      
+      const content = res.lines.join("\n");
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${logType.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.log`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to download logs");
+    }
+  };
 
   /* initial + filter-change fetch */
   useEffect(() => {
@@ -487,6 +556,39 @@ export function LogsDashboard() {
         )}
       </div>
 
+      {/* ── log type tabs ── */}
+      <div style={S.tabRow}>
+        {([
+          { type: "APPLICATION" as LogType, icon: "⚙️", label: "Spring Boot / Backend", title: "Application" },
+          { type: "FRONTEND" as LogType,    icon: "🌐", label: "Vite / React Dev Server", title: "Web Server (Frontend)" },
+          { type: "DATABASE" as LogType,     icon: "🗄️", label: "SQL / Connection Pool", title: "Database" },
+        ]).map((tab) => (
+          <button
+            key={tab.type}
+            style={S.tab(logType === tab.type)}
+            onClick={() => { setLogType(tab.type); setLoading(true); }}
+            onMouseEnter={(e) => {
+              if (logType !== tab.type) {
+                (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,.12)";
+                (e.currentTarget as HTMLButtonElement).style.color = "#a5b4fc";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (logType !== tab.type) {
+                (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                (e.currentTarget as HTMLButtonElement).style.color = "#6b7094";
+              }
+            }}
+          >
+            <span style={S.tabIcon}>{tab.icon}</span>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+              <span>{tab.title}</span>
+              <span style={S.tabLabel}>{tab.label}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+
       {/* ── error banner ── */}
       {error && (
         <div style={S.errorBanner}>
@@ -577,12 +679,13 @@ export function LogsDashboard() {
         <select
           value={lineCount}
           onChange={(e) => setLineCount(Number(e.target.value))}
-          style={{ ...S.select, minWidth: 80 }}
+          style={{ ...S.select, minWidth: 120 }}
           aria-label="Line count"
         >
-          <option value={100}>100</option>
-          <option value={200}>200</option>
-          <option value={500}>500</option>
+          <option value={100}>100 Lines</option>
+          <option value={200}>200 Lines</option>
+          <option value={500}>500 Lines</option>
+          <option value={-1}>Complete Log</option>
         </select>
 
         <button
@@ -592,6 +695,15 @@ export function LogsDashboard() {
           onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "1")}
         >
           ↻ Refresh
+        </button>
+
+        <button
+          onClick={downloadFullLog}
+          style={{ ...S.btn, background: "linear-gradient(135deg, #10b981, #059669)", boxShadow: "0 2px 12px rgba(16,185,129,.25)" }}
+          onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "0.85")}
+          onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.opacity = "1")}
+        >
+          📥 Download Full Log
         </button>
 
         <label style={S.checkLabel}>
@@ -613,6 +725,26 @@ export function LogsDashboard() {
             <span style={S.terminalDot("#f59e0b")} />
             <span style={S.terminalDot("#10b981")} />
             <span style={S.terminalTitle}>
+              {logData.logType && (
+                <span style={{
+                  display: "inline-block",
+                  padding: "2px 8px",
+                  borderRadius: 6,
+                  background: logType === "APPLICATION" ? "rgba(99,102,241,.2)"
+                    : logType === "FRONTEND" ? "rgba(16,185,129,.2)"
+                    : "rgba(245,158,11,.2)",
+                  color: logType === "APPLICATION" ? "#a5b4fc"
+                    : logType === "FRONTEND" ? "#6ee7b7"
+                    : "#fcd34d",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  marginRight: 10,
+                  textTransform: "uppercase" as const,
+                }}>
+                  {logData.logType}
+                </span>
+              )}
               {logData.logFilePath || "application.log"}
             </span>
             <span

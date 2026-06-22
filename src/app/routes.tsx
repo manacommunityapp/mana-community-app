@@ -16,6 +16,7 @@ import { AdminVenues } from "./components/admin/AdminVenues";
 import { AdminCommunity } from "./components/admin/AdminCommunity";
 import { AdminRoleManagement } from "./components/admin/AdminRoleManagement";
 import { LogsDashboard } from "./components/admin/LogsDashboard";
+import { AuditTrail } from "./components/admin/AuditTrail";
 import { ProfileDashboard } from "./components/profile/ProfileDashboard";
 import { ArchitectureDocs } from "./components/architecture/ArchitectureDocs";
 import { RootErrorElement } from "./components/commons/error/RootErrorElement";
@@ -139,6 +140,10 @@ export const router = createBrowserRouter([
           {
             path: "logs",
             element: <PermissionGuard permission={VIEW_ADMIN}><LogsDashboard /></PermissionGuard>
+          },
+          {
+            path: "audit-logs",
+            element: <PermissionGuard superAdminOnly><AuditTrail /></PermissionGuard>
           },
         ]
       },
