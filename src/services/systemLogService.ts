@@ -27,7 +27,16 @@ export interface SystemLogResponse {
 }
 
 /** Supported log types for the System Logs & Monitoring dashboard */
-export type LogType = "APPLICATION" | "FRONTEND" | "DATABASE";
+export type LogType =
+  | "APPLICATION"
+  | "ERROR"
+  | "SECURITY"
+  | "AUDIT"
+  | "FRONTEND"
+  | "SCHEDULER"
+  | "AUCTION"
+  | "CHAT"
+  | "NOTIFICATION";
 
 export const systemLogService = {
   getLogs(lines = 200, level?: string, search?: string, logType: LogType = "APPLICATION"): Promise<SystemLogResponse> {
@@ -40,5 +49,8 @@ export const systemLogService = {
   },
   getSystemStats(): Promise<SystemStatsResponse> {
     return apiClient.get<SystemStatsResponse>("/admin/system-stats");
+  },
+  getLogTypes(): Promise<string[]> {
+    return apiClient.get<string[]>("/admin/log-types");
   },
 };

@@ -27,6 +27,18 @@ function logLineColor(line: string): string {
   return "#c7d2fe";
 }
 
+const LOG_TYPE_META: Record<string, { icon: string; title: string; label: string }> = {
+  APPLICATION:  { icon: "⚙️",  title: "Application",   label: "Spring Boot / Backend" },
+  ERROR:        { icon: "❌",  title: "Errors",         label: "Errors only (all modules)" },
+  SECURITY:     { icon: "🔒",  title: "Security",       label: "Auth / audit trail" },
+  AUDIT:        { icon: "📋",  title: "Audit",          label: "Business actions" },
+  FRONTEND:     { icon: "🌐",  title: "Frontend",       label: "Browser errors" },
+  SCHEDULER:    { icon: "⏱️",  title: "Scheduler",      label: "Cron / scheduled tasks" },
+  AUCTION:      { icon: "🏏",  title: "Auction",        label: "Live auction events" },
+  CHAT:         { icon: "💬",  title: "Chat",           label: "Messaging / STOMP" },
+  NOTIFICATION: { icon: "🔔",  title: "Notifications",  label: "Email / push" },
+};
+
 /* ────────────────────────────── styles ─────────────────────────────── */
 
 const S = {
@@ -398,12 +410,18 @@ export function LogsDashboard() {
   const [lineCount, setLineCount] = useState(200);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [logType, setLogType] = useState<LogType>("APPLICATION");
+  const [availableLogTypes, setAvailableLogTypes] = useState<string[]>(["APPLICATION", "FRONTEND"]);
 
   const terminalRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /* inject keyframes */
   useEffect(() => ensureKeyframes(), []);
+
+  /* fetch available log types once */
+  useEffect(() => {
+    systemLogService.getLogTypes().then(setAvailableLogTypes).catch(() => {});
+  }, []);
 
   /* fetcher */
   const fetchData = useCallback(async () => {
@@ -557,36 +575,36 @@ export function LogsDashboard() {
       </div>
 
       {/* ── log type tabs ── */}
-      <div style={S.tabRow}>
-        {([
-          { type: "APPLICATION" as LogType, icon: "⚙️", label: "Spring Boot / Backend", title: "Application" },
-          { type: "FRONTEND" as LogType,    icon: "🌐", label: "Vite / React Dev Server", title: "Web Server (Frontend)" },
-          { type: "DATABASE" as LogType,     icon: "🗄️", label: "SQL / Connection Pool", title: "Database" },
-        ]).map((tab) => (
-          <button
-            key={tab.type}
-            style={S.tab(logType === tab.type)}
-            onClick={() => { setLogType(tab.type); setLoading(true); }}
-            onMouseEnter={(e) => {
-              if (logType !== tab.type) {
-                (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,.12)";
-                (e.currentTarget as HTMLButtonElement).style.color = "#a5b4fc";
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (logType !== tab.type) {
-                (e.currentTarget as HTMLButtonElement).style.background = "transparent";
-                (e.currentTarget as HTMLButtonElement).style.color = "#6b7094";
-              }
-            }}
-          >
-            <span style={S.tabIcon}>{tab.icon}</span>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-              <span>{tab.title}</span>
-              <span style={S.tabLabel}>{tab.label}</span>
-            </div>
-          </button>
-        ))}
+      <div style={{ ...S.tabRow, flexWrap: "wrap" }}>
+        {availableLogTypes.map((t) => {
+          const meta = LOG_TYPE_META[t] ?? { icon: "📄", title: t.charAt(0) + t.slice(1).toLowerCase(), label: t.toLowerCase() + ".log" };
+          const active = logType === t;
+          return (
+            <button
+              key={t}
+              style={S.tab(active)}
+              onClick={() => { setLogType(t as LogType); setLoading(true); }}
+              onMouseEnter={(e) => {
+                if (!active) {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(99,102,241,.12)";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#a5b4fc";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!active) {
+                  (e.currentTarget as HTMLButtonElement).style.background = "transparent";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#6b7094";
+                }
+              }}
+            >
+              <span style={S.tabIcon}>{meta.icon}</span>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                <span>{meta.title}</span>
+                <span style={S.tabLabel}>{meta.label}</span>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── error banner ── */}

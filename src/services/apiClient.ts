@@ -1,6 +1,16 @@
 import { safeStorage } from "../utils/storage";
+import { createLogger, setCorrelationId } from "../utils/logger";
 
 const BASE_URL = "/api";
+const log = createLogger("ApiClient");
+
+function generateId(): string {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
 
 const TOKEN_KEY = "mana_token";
 const REFRESH_TOKEN_KEY = "mana_refresh_token";
@@ -156,28 +166,46 @@ interface RequestInitLike {
  * insufficient role) or a failed refresh ends the session and redirects to login.
  */
 async function request<T>(path: string, init: RequestInitLike, isRetry = false): Promise<T> {
-  const headers: Record<string, string> = {};
+  const correlationId = generateId();
+  setCorrelationId(correlationId);
+
+  const headers: Record<string, string> = {
+    "X-Correlation-Id": correlationId,
+  };
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
   if (!init.form) headers["Content-Type"] = "application/json";
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: init.method,
-    headers,
-    body: init.body,
-  });
+  const start = performance.now();
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      method: init.method,
+      headers,
+      body: init.body,
+    });
+  } catch (err) {
+    log.error(`Network error: ${init.method} ${path}`, err, { correlationId });
+    throw err;
+  }
+
+  const duration = Math.round(performance.now() - start);
+  if (res.ok) {
+    log.debug(`${init.method} ${path} ${res.status} (${duration}ms)`);
+  } else {
+    log.warn(`${init.method} ${path} ${res.status} (${duration}ms)`, undefined);
+  }
 
   if (res.status === 401 && !isRetry && path !== "/auth/refresh") {
     const refreshed = await ensureRefreshed();
     if (refreshed) {
-      return request<T>(path, init, true); // retry once with the fresh token
+      return request<T>(path, init, true);
     }
     forceLogout();
     throw new Error("Session expired — please log in again.");
   }
 
   if (res.status === 401 || res.status === 403) {
-    // Either a retry that still failed, or a genuine authorization failure.
     forceLogout();
     throw new Error(res.status === 401 ? "Unauthorized" : "Forbidden — please log in again");
   }

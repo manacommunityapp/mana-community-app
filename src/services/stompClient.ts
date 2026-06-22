@@ -1,5 +1,6 @@
 import { Client, type IMessage, type StompSubscription } from "@stomp/stompjs";
 import { getToken } from "./apiClient";
+import { createLogger } from "../utils/logger";
 
 /**
  * Thin singleton wrapper around a STOMP-over-WebSocket connection to the
@@ -10,6 +11,8 @@ import { getToken } from "./apiClient";
  * the wrapper re-applies all active destinations. Callers get an unsubscribe
  * function and never touch the raw client.
  */
+
+const log = createLogger("STOMP");
 
 type Handler = (body: unknown) => void;
 
@@ -52,9 +55,18 @@ class StompClientWrapper {
       heartbeatIncoming: 10000,
       heartbeatOutgoing: 10000,
       onConnect: () => {
-        // (Re)apply every tracked subscription after a fresh connection.
+        log.info("Connected");
         this.tracked.forEach((t) => this.applySubscription(t));
         this.connectHandlers.forEach((h) => h());
+      },
+      onStompError: (frame) => {
+        log.error("STOMP protocol error", frame.headers?.message ?? frame.body);
+      },
+      onWebSocketError: (event) => {
+        log.error("WebSocket error", event);
+      },
+      onDisconnect: () => {
+        log.info("Disconnected");
       },
     });
     this.client.activate();
