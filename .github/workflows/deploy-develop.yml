@@ -1,10 +1,15 @@
-name: Frontend Deployment
+name: Frontend Deployment (Develop)
 
 on:
   push:
     branches:
-      - main
+      - develop
   workflow_dispatch:
+
+# Cancel an in-progress develop deploy if a newer commit is pushed.
+concurrency:
+  group: deploy-develop
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -12,10 +17,10 @@ jobs:
 
     steps:
       - name: Checkout Source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: 22
 
@@ -33,6 +38,8 @@ jobs:
           git rev-parse HEAD
           git log -1 --oneline
 
+      # Same Lightsail host as production, but a separate staging dir so the
+      # two pipelines never overwrite each other's uploads.
       - name: Upload Build Files
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -40,9 +47,12 @@ jobs:
           username: ubuntu
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           source: "dist/*"
-          target: "/tmp/frontend"
+          target: "/tmp/frontend-dev"
           overwrite: true
 
+      # Deploys to a separate web root (/var/www/mana-community-dev).
+      # NOTE: an nginx server block must already point at this dir
+      # (e.g. a dev.<domain> subdomain or a /dev location).
       - name: Deploy to Nginx
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -50,10 +60,10 @@ jobs:
           username: ubuntu
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
           script: |
-            sudo mkdir -p /var/www/mana-community
-            sudo rm -rf /var/www/mana-community/*
-            sudo cp -r /tmp/frontend/dist/* /var/www/mana-community/
-            sudo chown -R www-data:www-data /var/www/mana-community
-            ls -lah /var/www/mana-community
+            sudo mkdir -p /var/www/mana-community-dev
+            sudo rm -rf /var/www/mana-community-dev/*
+            sudo cp -r /tmp/frontend-dev/dist/* /var/www/mana-community-dev/
+            sudo chown -R www-data:www-data /var/www/mana-community-dev
+            ls -lah /var/www/mana-community-dev
             sudo nginx -t
             sudo systemctl reload nginx
