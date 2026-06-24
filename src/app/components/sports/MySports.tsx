@@ -19,9 +19,10 @@ import {
   Trash2,
   Building2,
 } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
+import "./SportsAuction.css";
 import { sportsService } from "../../../services/sportsService";
 import { auctionService } from "../../../services/auctionService";
 import { communityService } from "../../../services/communityService";
@@ -78,8 +79,22 @@ const achievements = [
 
 export function MySports() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>("tournaments");
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<TabId>(() => {
+    if (location.pathname.endsWith("/register")) {
+      return "settings";
+    }
+    return "tournaments";
+  });
   const [activeStatsTab, setActiveStatsTab] = useState<StatsTab>("basketball");
+
+  useEffect(() => {
+    if (location.pathname.endsWith("/register")) {
+      setActiveTab("settings");
+    } else if (location.pathname.endsWith("/my-sports")) {
+      setActiveTab("tournaments");
+    }
+  }, [location.pathname]);
 
   // Registration form states
   const [apiSports, setApiSports] = useState<SportMeta[]>([]);
@@ -195,108 +210,92 @@ export function MySports() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in-up stagger-1">
+    <div className="auction-hub-wrapper animate-fade-in-up stagger-1">
       <Toaster position="top-center" richColors />
 
-      {/* Player Card */}
-      <div className="rounded-2xl overflow-hidden"
-        style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "0 2px 20px rgba(99,102,241,0.08)" }}>
-        <div className="h-28 relative" style={{ background: "linear-gradient(135deg, #1e1b4b 0%, #4f46e5 60%, #7c3aed 100%)" }}>
-          <div className="absolute inset-0 opacity-20"
-            style={{ backgroundImage: "radial-gradient(circle at 70% 50%, #818cf8 0%, transparent 60%)" }} />
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="brand-icon-wrapper">
+            <Trophy className="brand-icon" />
+          </div>
+          <div className="brand-title">My Sports Hub</div>
         </div>
-        <div className="px-6 pb-6 bg-white">
-          <div className="flex items-end justify-between -mt-10 mb-4">
-            <div className="h-20 w-20 rounded-2xl flex items-center justify-center text-white text-2xl font-bold ring-4 ring-white"
+        <div className="nav-section">
+          <div className="nav-label">Hub Menu</div>
+          {TABS.map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                className={`nav-item ${isActive ? "active" : ""}`}
+                onClick={() => setActiveTab(tab.id)}
+              >
+                <Icon className="nav-icon" size={16} />
+                <span className="nav-text">{tab.label}</span>
+                <div className="active-indicator" />
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      <main className="main-content">
+        <div className="page active space-y-6">
+          <div className="page-hdr">
+            <div>
+              <div className="page-title">{TABS.find(t => t.id === activeTab)?.label}</div>
+              <div className="page-sub">Manage your active tournaments, matches, teams, and registrations</div>
+            </div>
+          </div>
+
+          {/* Player Card */}
+          <div className="rounded-2xl p-6 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          {/* Left: Avatar & Info */}
+          <div className="flex items-center gap-4">
+            <div className="h-16 w-16 rounded-2xl flex items-center justify-center text-white text-xl font-bold shrink-0 shadow-lg shadow-indigo-500/20"
               style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
               {userInitials}
             </div>
-            <div className="flex gap-2 mb-2">
-              <Link to="/profile" className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
-                style={{ background: "rgba(99,102,241,0.08)", color: "#4f46e5", border: "1px solid rgba(99,102,241,0.2)" }}>
-                Edit Profile
-              </Link>
-            </div>
-          </div>
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
-            <div>
-              <h2 className="font-bold text-xl" style={{ color: "#0d0d2b" }}>{displayName}</h2>
-              <p className="text-sm" style={{ color: "#6b7094" }}>
-                Member since Nov 2025 · {myCommunity?.name ?? "Verified Community Resident"}
+            <div className="text-left">
+              <h2 className="font-bold text-xl text-[#0d0d2b] flex items-center gap-2">
+                {displayName}
+              </h2>
+              <p className="text-xs text-[#6b7094] mt-1">
+                Member since Nov 2025 · <span className="font-semibold text-indigo-600">{myCommunity?.name ?? "Verified Community Resident"}</span>
               </p>
             </div>
-            <div className="flex items-center gap-6 sm:ml-auto">
+          </div>
+
+          {/* Center/Right: Stats & Action */}
+          <div className="flex flex-wrap items-center gap-6 sm:gap-8 justify-between md:justify-end flex-1">
+            <div className="flex items-center gap-6 sm:gap-8">
               {[
                 { label: "Teams", value: teams.length.toString() },
                 { label: "Registrations", value: registrations.length.toString() },
                 { label: "Matches", value: myMatches.length.toString() }
               ].map((s) => (
-                <div key={s.label} className="text-center">
-                  <p className="font-bold text-lg" style={{ color: "#0d0d2b" }}>{s.value}</p>
-                  <p className="text-xs" style={{ color: "#6b7094" }}>{s.label}</p>
+                <div key={s.label} className="text-left md:text-center">
+                  <p className="font-extrabold text-lg text-[#0d0d2b]">{s.value}</p>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold text-[#6b7094]">{s.label}</p>
                 </div>
               ))}
+            </div>
+
+            <div className="shrink-0">
+              <Link to="/profile" className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-xs font-bold transition-all hover:bg-indigo-500/10 active:scale-[0.98]"
+                style={{ background: "rgba(99,102,241,0.08)", color: "#4f46e5", border: "1px solid rgba(99,102,241,0.2)" }}>
+                Edit Profile
+              </Link>
             </div>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Left Column: My Sports Hub Tabs and Active Tab Content */}
+        {/* Left Column: Active Tab Content */}
         <div className="lg:col-span-2 space-y-5">
-          {/* Header */}
-          <div className="text-left">
-            <h1 className="text-2xl font-semibold text-[#f1f5f9]">My Sports Hub</h1>
-            <p className="text-sm text-[#94a3b8] mt-1">Manage your active tournaments, matches, teams, and registrations</p>
-          </div>
-
-          {/* Sub Navigation Bar */}
-          <div 
-            className="p-1.5 rounded-xl flex gap-1 overflow-x-auto hide-scrollbar"
-            style={{
-              background: "white",
-              border: "1px solid rgba(99, 102, 241, 0.12)",
-              boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
-            }}
-          >
-            {TABS.map(tab => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className="flex-1 min-w-[120px] flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-semibold cursor-pointer border transition-all duration-200"
-                  style={isActive ? {
-                    background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
-                    color: "white",
-                    borderColor: "rgba(99, 102, 241, 0.45)",
-                    boxShadow: "0 2px 12px rgba(99, 102, 241, 0.35)",
-                  } : {
-                    background: "transparent",
-                    color: "rgb(107, 112, 148)",
-                    borderColor: "transparent",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = "rgba(99, 102, 241, 0.08)";
-                      e.currentTarget.style.color = "#4f46e5";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = "transparent";
-                      e.currentTarget.style.color = "rgb(107, 112, 148)";
-                    }
-                  }}
-                >
-                  <Icon className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
           {/* Active Tab Panel Content */}
           <div className="flex-1 min-w-0">
             {loadingData ? (
@@ -774,5 +773,7 @@ export function MySports() {
         </div>
       </div>
     </div>
+  </main>
+</div>
   );
 }

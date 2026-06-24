@@ -168,6 +168,7 @@ export interface SportsEvent {
   createdAt?: string;
   updatedAt?: string;
   auctionStatus?: string;
+  auctionEnabled?: boolean;
   contactNumber?: string;
   contactEmail?: string;
   otherContacts?: { title: string; name: string; detail: string; }[];
@@ -201,6 +202,7 @@ export interface SportsEventRequest {
   contactNumber?: string;
   contactEmail?: string;
   otherContacts?: { title: string; name: string; detail: string; }[];
+  auctionEnabled?: boolean;
   bannerImage?: string;
   tournamentLevel?: "Standard" | "Professional" | "Premium";
   description?: string;
@@ -499,6 +501,10 @@ export interface SportFormEvent {
   maxAge: string;
   tournamentType: string;
   venueId?: string | number;
+  contactNumber?: string;
+  contactEmail?: string;
+  otherContacts?: { title: string; name: string; detail: string; }[];
+  auctionEnabled?: boolean;
 }
 
 export interface SportFormEntry {

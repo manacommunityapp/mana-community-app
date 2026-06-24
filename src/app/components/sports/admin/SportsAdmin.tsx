@@ -1681,19 +1681,7 @@ export function SportsAdmin() {
     setSelectedCommId(ev.community?.id ?? "");
     setEventContactNumber(ev.contactNumber || "");
     setEventContactEmail(ev.contactEmail || "");
-    let parsedContacts = [];
-    if (ev.otherContacts) {
-      if (typeof ev.otherContacts === "string") {
-        try {
-          parsedContacts = JSON.parse(ev.otherContacts);
-        } catch {
-          parsedContacts = [];
-        }
-      } else if (Array.isArray(ev.otherContacts)) {
-        parsedContacts = ev.otherContacts;
-      }
-    }
-    setOtherContacts(parsedContacts);
+    setOtherContacts(parseOtherContacts(ev.otherContacts));
     setSponsors(ev.sponsors || []);
     setBannerImage(ev.bannerImage || "");
     setTournamentLevel(ev.tournamentLevel || "Standard");
@@ -2031,6 +2019,22 @@ export function SportsAdmin() {
     } finally { setCategorySubmitting(false); }
   };
 
+  // Normalises an event's otherContacts (stored as a JSON string by the API)
+  // into the array shape used by the forms.
+  const parseOtherContacts = (raw: any): { title: string; name: string; detail: string; }[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return raw;
+    if (typeof raw === "string") {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
   // ─── Sports Event CRUD ───────────────────────────────────────────
   const createDefaultEvent = (sportName: string): SportFormEvent => {
     const isTeam = isTeamSport(sportName);
@@ -2049,6 +2053,10 @@ export function SportsAdmin() {
       maxAge: "70",
       tournamentType: "",
       venueId: "",
+      contactNumber: "",
+      contactEmail: "",
+      otherContacts: [],
+      auctionEnabled: false,
     };
   };
 
@@ -2251,6 +2259,10 @@ export function SportsAdmin() {
         maxAge: e.maxAge != null ? String(e.maxAge) : "70",
         tournamentType: e.tournamentType || "",
         venueId: e.venue?.id ?? "",
+        contactNumber: e.contactNumber || "",
+        contactEmail: e.contactEmail || "",
+        otherContacts: parseOtherContacts(e.otherContacts),
+        auctionEnabled: !!e.auctionEnabled,
       }],
     };
     setSportForms([editEntry]);
@@ -2287,6 +2299,12 @@ export function SportsAdmin() {
         } else {
           if (!ev.formats || ev.formats.length === 0) { toast.error("Participant Type is required"); return; }
         }
+        if (!ev.contactNumber?.trim()) { toast.error("Contact Number is required"); return; }
+        if (!ev.contactEmail?.trim()) { toast.error("Contact Email is required"); return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ev.contactEmail.trim())) {
+          toast.error("Please enter a valid Contact Email");
+          return;
+        }
       }
     }
 
@@ -2315,6 +2333,14 @@ export function SportsAdmin() {
           format: isTeam ? "TEAM" : (ev.formats && ev.formats.length > 0 ? ev.formats.join(",") : "SINGLES"),
           tournamentType: ev.tournamentType || "KNOCKOUT",
           categoryIds: selectedTemplates[ev.id] ? [Number(selectedTemplates[ev.id])] : undefined,
+          contactNumber: ev.contactNumber?.trim() || "",
+          contactEmail: ev.contactEmail?.trim() || "",
+          otherContacts: JSON.stringify(
+            (ev.otherContacts || []).filter(c => c.title.trim() || c.name.trim() || c.detail.trim())
+          ) as any,
+          // Auction only applies to team sports (intent flag; actual auction
+          // config is created later on the Auction screen).
+          auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
         };
 
         try {
