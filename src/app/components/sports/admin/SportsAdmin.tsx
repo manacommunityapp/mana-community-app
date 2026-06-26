@@ -245,6 +245,7 @@ export function SportsAdmin() {
   const [regEndDate, setRegEndDate] = useState<Date>();
 
   // --- New Event Fields states ---
+  const [eventContactName, setEventContactName] = useState("");
   const [eventContactNumber, setEventContactNumber] = useState("");
   const [eventContactEmail, setEventContactEmail] = useState("");
   const [otherContacts, setOtherContacts] = useState<{ title: string; name: string; detail: string; }[]>([]);
@@ -1427,6 +1428,7 @@ export function SportsAdmin() {
     }
     
     // Contact Information validations
+    if (!eventContactName.trim()) { toast.error("Tournament Contact Name is required"); return; }
     if (!eventContactNumber.trim()) { toast.error("Tournament Contact Number is required"); return; }
     if (!eventContactEmail.trim()) { toast.error("Tournament Contact Email is required"); return; }
     
@@ -1518,6 +1520,7 @@ export function SportsAdmin() {
           startTime: startTime,
           dueTime: dueTime,
           maxParticipants: parseInt(maxPax) || undefined,
+          contactName: eventContactName,
           contactNumber: eventContactNumber,
           contactEmail: eventContactEmail,
           otherContacts: JSON.stringify(otherContacts.filter(c => c.title.trim() || c.name.trim() || c.detail.trim())),
@@ -1544,6 +1547,7 @@ export function SportsAdmin() {
           startTime: startTime,
           dueTime: dueTime,
           maxParticipants: parseInt(maxPax) || undefined,
+          contactName: eventContactName,
           contactNumber: eventContactNumber,
           contactEmail: eventContactEmail,
           otherContacts: JSON.stringify(otherContacts.filter(c => c.title.trim() || c.name.trim() || c.detail.trim())),
@@ -1581,6 +1585,7 @@ export function SportsAdmin() {
     setSelectedSportsWithEvents([]);
     setSelectedCats([]);
     setSelectedCommId("");
+    setEventContactName("");
     setEventContactNumber("");
     setEventContactEmail("");
     setOtherContacts([]);
@@ -1679,6 +1684,7 @@ export function SportsAdmin() {
 
     setSelectedCats(ev.categories?.map((c: any) => c.id) ?? []);
     setSelectedCommId(ev.community?.id ?? "");
+    setEventContactName(ev.contactName || "");
     setEventContactNumber(ev.contactNumber || "");
     setEventContactEmail(ev.contactEmail || "");
     setOtherContacts(parseOtherContacts(ev.otherContacts));
@@ -2842,7 +2848,16 @@ export function SportsAdmin() {
 
                 <div className="pt-2 text-left">
                   <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">Tournament Contact Information</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                    <div>
+                      <label className="text-xs text-slate-500 font-semibold block mb-1.5">Contact Name *</label>
+                      <input
+                        value={eventContactName}
+                        onChange={e => setEventContactName(e.target.value)}
+                        placeholder="e.g. John Doe"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
+                      />
+                    </div>
                     <div>
                       <label className="text-xs text-slate-500 font-semibold block mb-1.5">Contact Number *</label>
                       <input
