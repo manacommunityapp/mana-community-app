@@ -169,6 +169,7 @@ export interface SportsEvent {
   updatedAt?: string;
   auctionStatus?: string;
   auctionEnabled?: boolean;
+  contactName?: string;
   contactNumber?: string;
   contactEmail?: string;
   otherContacts?: { title: string; name: string; detail: string; }[];
@@ -199,6 +200,7 @@ export interface SportsEventRequest {
   format?: string;
   tournamentType?: string;
   categoryIds?: number[];
+  contactName?: string;
   contactNumber?: string;
   contactEmail?: string;
   otherContacts?: { title: string; name: string; detail: string; }[];
@@ -501,6 +503,7 @@ export interface SportFormEvent {
   maxAge: string;
   tournamentType: string;
   venueId?: string | number;
+  contactName?: string;
   contactNumber?: string;
   contactEmail?: string;
   otherContacts?: { title: string; name: string; detail: string; }[];

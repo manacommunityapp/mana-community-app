@@ -2053,6 +2053,7 @@ export function SportsAdmin() {
       maxAge: "70",
       tournamentType: "",
       venueId: "",
+      contactName: "",
       contactNumber: "",
       contactEmail: "",
       otherContacts: [],
@@ -2259,6 +2260,7 @@ export function SportsAdmin() {
         maxAge: e.maxAge != null ? String(e.maxAge) : "70",
         tournamentType: e.tournamentType || "",
         venueId: e.venue?.id ?? "",
+        contactName: e.contactName || "",
         contactNumber: e.contactNumber || "",
         contactEmail: e.contactEmail || "",
         otherContacts: parseOtherContacts(e.otherContacts),
@@ -2299,6 +2301,7 @@ export function SportsAdmin() {
         } else {
           if (!ev.formats || ev.formats.length === 0) { toast.error("Participant Type is required"); return; }
         }
+        if (!ev.contactName?.trim()) { toast.error("Contact Name is required"); return; }
         if (!ev.contactNumber?.trim()) { toast.error("Contact Number is required"); return; }
         if (!ev.contactEmail?.trim()) { toast.error("Contact Email is required"); return; }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ev.contactEmail.trim())) {
@@ -2333,6 +2336,7 @@ export function SportsAdmin() {
           format: isTeam ? "TEAM" : (ev.formats && ev.formats.length > 0 ? ev.formats.join(",") : "SINGLES"),
           tournamentType: ev.tournamentType || "KNOCKOUT",
           categoryIds: selectedTemplates[ev.id] ? [Number(selectedTemplates[ev.id])] : undefined,
+          contactName: ev.contactName?.trim() || "",
           contactNumber: ev.contactNumber?.trim() || "",
           contactEmail: ev.contactEmail?.trim() || "",
           otherContacts: JSON.stringify(

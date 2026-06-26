@@ -701,6 +701,16 @@ export function SportsEventSection({
                       {/* ─── Event Contact Information ─── */}
                       <div className="pt-3 mt-1 border-t border-slate-200">
                         <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Event Contact Information</div>
+                        <div className="mb-3">
+                          <label className="text-xs text-slate-500 font-semibold block mb-1">Contact Name *</label>
+                          <input
+                            type="text"
+                            value={ev.contactName || ""}
+                            onChange={e => updateSportFormEvent(form.id, ev.id, "contactName", e.target.value)}
+                            placeholder="e.g. John Doe"
+                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
+                          />
+                        </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="text-xs text-slate-500 font-semibold block mb-1">Contact Number *</label>
