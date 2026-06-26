@@ -707,7 +707,6 @@ export function SportsEventSection({
                             <label className="text-xs text-slate-500 font-semibold block mb-1">Contact Name *</label>
                             <ContactNameAutocomplete
                               value={ev.contactName || ""}
-                              communityId={activeCommId}
                               onChange={(name) => updateSportFormEvent(form.id, ev.id, "contactName", name)}
                               onSelect={(u) => {
                                 updateSportFormEvent(form.id, ev.id, "contactName", u.fullName);

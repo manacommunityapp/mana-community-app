@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { userService } from "../../../../services/userService";
+import { useAuth } from "../../../../contexts/AuthContext";
 import type { UserResponse } from "../../../../types/api";
 
 interface ContactNameAutocompleteProps {
   /** Current name text. */
   value: string;
-  /** Community to search members within. When absent, the typeahead is inert (free text only). */
-  communityId?: number;
   /** Fired on every keystroke (free typing). */
   onChange: (name: string) => void;
   /** Fired when a member is picked — use it to auto-fill name/email/phone. */
@@ -24,12 +23,14 @@ interface ContactNameAutocompleteProps {
  */
 export function ContactNameAutocomplete({
   value,
-  communityId,
   onChange,
   onSelect,
   placeholder,
   className,
 }: ContactNameAutocompleteProps) {
+  const { user } = useAuth();
+  // Always scope member search to the logged-in user's own community.
+  const communityId = user?.communityId;
   const [results, setResults] = useState<UserResponse[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);

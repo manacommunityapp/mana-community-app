@@ -2854,7 +2854,6 @@ export function SportsAdmin() {
                       <label className="text-xs text-slate-500 font-semibold block mb-1.5">Contact Name *</label>
                       <ContactNameAutocomplete
                         value={eventContactName}
-                        communityId={activeCommId}
                         onChange={setEventContactName}
                         onSelect={(u) => {
                           setEventContactName(u.fullName);
