@@ -243,6 +243,32 @@
   }
 }
 
+/* ─── Mobile safety nets ────────────────────────────────────────────────── */
+/* Keep the app within the viewport on phones: no accidental horizontal scroll
+   from a stray wide element, and media never overflows its container. */
+#root {
+  overflow-x: clip;
+}
+
+img,
+video,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Long unbroken strings (URLs, emails, IDs) wrap instead of forcing width. */
+@media (max-width: 640px) {
+  p,
+  h1, h2, h3, h4,
+  span,
+  a,
+  label,
+  td, th {
+    overflow-wrap: anywhere;
+  }
+}
+
 /* ─── Custom UI Utility Classes ─────────────────────────────────────────── */
 
 .shimmer-bg {
