@@ -36,6 +36,7 @@ import { SportEventConfigModal } from "./SportEventConfigModal";
 import { VenueDetailsModal } from "./VenueDetailsModal";
 import { TournamentSection } from "./TournamentSection";
 import { SportsEventSection } from "./SportsEventSection";
+import { ContactNameAutocomplete } from "./ContactNameAutocomplete";
 import { VenueCreationSection } from "./VenueCreationSection";
 import { PlayerCategorySection } from "./PlayerCategorySection";
 import { SportsMetaSection } from "./SportsMetaSection";
@@ -2851,10 +2852,16 @@ export function SportsAdmin() {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
                     <div>
                       <label className="text-xs text-slate-500 font-semibold block mb-1.5">Contact Name *</label>
-                      <input
+                      <ContactNameAutocomplete
                         value={eventContactName}
-                        onChange={e => setEventContactName(e.target.value)}
-                        placeholder="e.g. John Doe"
+                        communityId={activeCommId}
+                        onChange={setEventContactName}
+                        onSelect={(u) => {
+                          setEventContactName(u.fullName);
+                          setEventContactNumber(u.phone);
+                          setEventContactEmail(u.email);
+                        }}
+                        placeholder="Type 3+ letters to search members"
                         className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
                       />
                     </div>

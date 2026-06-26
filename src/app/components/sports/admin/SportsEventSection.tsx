@@ -1,5 +1,6 @@
 import React from "react";
 import { Plus, X, Search, Loader2, Trash2, CalendarIcon, Users, Edit2, ChevronDown, Check, Gavel } from "lucide-react";
+import { ContactNameAutocomplete } from "./ContactNameAutocomplete";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import { Button } from "../../ui/button";
 import { Calendar } from "../../ui/calendar";
@@ -704,11 +705,16 @@ export function SportsEventSection({
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div>
                             <label className="text-xs text-slate-500 font-semibold block mb-1">Contact Name *</label>
-                            <input
-                              type="text"
+                            <ContactNameAutocomplete
                               value={ev.contactName || ""}
-                              onChange={e => updateSportFormEvent(form.id, ev.id, "contactName", e.target.value)}
-                              placeholder="e.g. John Doe"
+                              communityId={activeCommId}
+                              onChange={(name) => updateSportFormEvent(form.id, ev.id, "contactName", name)}
+                              onSelect={(u) => {
+                                updateSportFormEvent(form.id, ev.id, "contactName", u.fullName);
+                                updateSportFormEvent(form.id, ev.id, "contactNumber", u.phone);
+                                updateSportFormEvent(form.id, ev.id, "contactEmail", u.email);
+                              }}
+                              placeholder="Type 3+ letters to search members"
                               className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
                             />
                           </div>
