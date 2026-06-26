@@ -1,9 +1,12 @@
-const enum LogLevel {
-  DEBUG = 0,
-  INFO = 1,
-  WARN = 2,
-  ERROR = 3,
-}
+// Plain const object instead of an enum so the file is type-erasable
+// (tsconfig `erasableSyntaxOnly`); numeric values preserve level ordering.
+const LogLevel = {
+  DEBUG: 0,
+  INFO: 1,
+  WARN: 2,
+  ERROR: 3,
+} as const;
+type LogLevel = (typeof LogLevel)[keyof typeof LogLevel];
 
 const LEVEL_LABELS: Record<LogLevel, string> = {
   [LogLevel.DEBUG]: "DEBUG",

@@ -4,6 +4,7 @@ import {
   Activity, Box, ArrowRight, ChevronDown, ChevronRight, Loader2, AlertTriangle, Gauge,
 } from "lucide-react";
 import { schemaService, type DbTableSchema } from "../../../services/schemaService";
+import { buildInfo, formatBuildTime } from "../../../utils/buildInfo";
 
 export type ArchTab = "overview" | "database" | "ddl" | "apis" | "websocket" | "folders" | "security" | "monitoring";
 
@@ -647,6 +648,22 @@ export function ArchitectureDocs() {
         <p className="text-sm text-gray-500 mt-1">
           System design reference — data model, REST APIs, real-time layer and security.
         </p>
+
+        {/* Deployment info — reflects the version/branch/time of the live build. */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs">
+          <span className="font-semibold text-indigo-700">Deployment</span>
+          <span className="text-gray-600">
+            Version <span className="font-mono font-semibold text-gray-900">{buildInfo.version}</span>
+          </span>
+          <span className="text-gray-600 flex items-center gap-1">
+            <GitBranch className="w-3.5 h-3.5 text-indigo-500" />
+            <span className="font-mono font-semibold text-gray-900">{buildInfo.branch}</span>
+            <span className="text-gray-400">@ {buildInfo.commit}</span>
+          </span>
+          <span className="text-gray-600">
+            Deployed <span className="font-semibold text-gray-900">{formatBuildTime()}</span>
+          </span>
+        </div>
       </div>
 
       <div className="flex gap-0.5 mb-5 border-b border-gray-200 overflow-x-auto" style={{ scrollbarWidth: "none" }}>

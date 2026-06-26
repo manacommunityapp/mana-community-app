@@ -67,9 +67,10 @@ export function SportsLayout() {
 
   return (
     <div className="flex flex-col gap-4 h-full min-h-0">
-      {/* Breadcrumb + page header */}
-      <div className="shrink-0">
-        <div className="flex items-center gap-2 text-xs mb-3" style={{ color: "#6b7094" }}>
+      {/* Breadcrumb + page header in a single horizontal row */}
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
+        {/* Left: Breadcrumbs */}
+        <div className="flex items-center gap-2 text-xs" style={{ color: "#6b7094" }}>
           <span>Home</span>
           <ChevronRight className="h-3 w-3" />
           <span style={{ color: "#4f46e5" }}>Sports</span>
@@ -80,18 +81,20 @@ export function SportsLayout() {
             </>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <div
-            className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}
-          >
-            <Trophy className="h-5 w-5 text-white" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold leading-tight" style={{ color: "#0d0d2b" }}>Sports</h2>
-            <p className="text-sm" style={{ color: "#6b7094" }}>
+
+        {/* Right: Page Header */}
+        <div className="flex items-center gap-3 sm:text-right sm:justify-end">
+          <div className="text-left sm:text-right">
+            <h2 className="text-xl font-bold leading-tight" style={{ color: "#0d0d2b" }}>Sports</h2>
+            <p className="text-xs" style={{ color: "#6b7094" }}>
               Leagues, teams, schedules &amp; player auctions
             </p>
+          </div>
+          <div
+            className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 order-first sm:order-last"
+            style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)" }}
+          >
+            <Trophy className="h-4.5 w-4.5 text-white" />
           </div>
         </div>
       </div>
