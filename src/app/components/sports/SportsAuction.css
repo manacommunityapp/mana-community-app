@@ -483,3 +483,81 @@
 .auction-hub-wrapper input::placeholder {
   color: var(--muted) !important;
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Responsive / mobile
+   The hub is a fixed two-column (220px sidebar + content) layout. On narrow
+   screens we stack it: the sidebar becomes a horizontally-scrollable top nav
+   and every multi-column grid collapses so nothing overflows or gets clipped
+   (the wrapper is overflow:hidden, so un-collapsed grids would be cut off).
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 820px) {
+  .auction-hub-wrapper {
+    flex-direction: column;
+    border-radius: 10px;
+  }
+
+  /* Sidebar → horizontal scrolling tab strip */
+  .auction-hub-wrapper .sidebar {
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .auction-hub-wrapper .sidebar::-webkit-scrollbar { display: none; }
+  .auction-hub-wrapper .sidebar-brand { display: none; }
+  .auction-hub-wrapper .nav-section {
+    flex-direction: row;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .auction-hub-wrapper .nav-label { display: none; }
+  .auction-hub-wrapper .nav-item {
+    width: auto;
+    flex-shrink: 0;
+    white-space: nowrap;
+    padding: 8px 14px;
+  }
+  .auction-hub-wrapper .active-indicator { display: none; }
+
+  /* Page chrome */
+  .auction-hub-wrapper .page { padding: 16px; }
+  .auction-hub-wrapper .page-hdr {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .auction-hub-wrapper .page-title { font-size: 24px; }
+
+  /* Collapse multi-column grids */
+  .auction-hub-wrapper .stat-grid,
+  .auction-hub-wrapper .grid4 { grid-template-columns: repeat(2, 1fr); }
+  .auction-hub-wrapper .grid3,
+  .auction-hub-wrapper .grid2 { grid-template-columns: 1fr; }
+  .auction-hub-wrapper .form-row,
+  .auction-hub-wrapper .form-row-3 { grid-template-columns: 1fr; }
+
+  /* Live-auction blocks */
+  .auction-hub-wrapper .auction-stage { padding: 16px; }
+  .auction-hub-wrapper .stats-row { gap: 14px; flex-wrap: wrap; }
+  .auction-hub-wrapper .bid-amount { font-size: 38px; }
+  .auction-hub-wrapper .bid-actions { flex-wrap: wrap; }
+  .auction-hub-wrapper .bid-raise,
+  .auction-hub-wrapper .bid-sold,
+  .auction-hub-wrapper .bid-pass { flex: 1 1 100%; }
+}
+
+@media (max-width: 480px) {
+  .auction-hub-wrapper .page { padding: 12px; }
+  .auction-hub-wrapper .page-title { font-size: 21px; }
+  .auction-hub-wrapper .stat-val { font-size: 26px; }
+  .auction-hub-wrapper .stat-grid,
+  .auction-hub-wrapper .grid4 { gap: 10px; }
+  .auction-hub-wrapper .bid-amount { font-size: 32px; }
+}

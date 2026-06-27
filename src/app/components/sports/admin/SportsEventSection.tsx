@@ -1,5 +1,6 @@
 import React from "react";
 import { Plus, X, Search, Loader2, Trash2, CalendarIcon, Users, Edit2, ChevronDown, Check, Gavel } from "lucide-react";
+import { ContactNameAutocomplete } from "./ContactNameAutocomplete";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import { Button } from "../../ui/button";
 import { Calendar } from "../../ui/calendar";
@@ -701,7 +702,21 @@ export function SportsEventSection({
                       {/* ─── Event Contact Information ─── */}
                       <div className="pt-3 mt-1 border-t border-slate-200">
                         <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2.5">Event Contact Information</div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-xs text-slate-500 font-semibold block mb-1">Contact Name *</label>
+                            <ContactNameAutocomplete
+                              value={ev.contactName || ""}
+                              onChange={(name) => updateSportFormEvent(form.id, ev.id, "contactName", name)}
+                              onSelect={(u) => {
+                                updateSportFormEvent(form.id, ev.id, "contactName", u.fullName);
+                                updateSportFormEvent(form.id, ev.id, "contactNumber", u.phone);
+                                updateSportFormEvent(form.id, ev.id, "contactEmail", u.email);
+                              }}
+                              placeholder="Type 3+ letters to search members"
+                              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
+                            />
+                          </div>
                           <div>
                             <label className="text-xs text-slate-500 font-semibold block mb-1">Contact Number *</label>
                             <input
