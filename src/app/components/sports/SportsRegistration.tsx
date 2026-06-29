@@ -49,14 +49,7 @@ function getCategory(age: number, gender: string): string {
 
 export function SportsRegistration() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>(() => {
-    const saved = safeStorage.getItem("sports_registration_active_tab");
-    return (saved as TabId) || "tournaments";
-  });
-
-  useEffect(() => {
-    safeStorage.setItem("sports_registration_active_tab", activeTab);
-  }, [activeTab]);
+  const [activeTab, setActiveTab] = useState<TabId>("tournaments");
 
   // Registration form states
   const [apiSports, setApiSports] = useState<SportMeta[]>([]);
@@ -475,15 +468,15 @@ export function SportsRegistration() {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-xs text-muted-foreground block mb-1.5">Full Name</label>
-                        <input defaultValue={user?.fullName ?? "Community Player"} className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary outline-none" />
+                        <input defaultValue={user?.fullName ?? "Community Player"} className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none" />
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground block mb-1.5">Age</label>
-                        <input type="number" value={age} onChange={e => setAge(e.target.value)} className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:border-primary outline-none" />
+                        <input type="number" value={age} onChange={e => setAge(e.target.value)} className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm focus:border-primary outline-none" />
                       </div>
                       <div>
                         <label className="text-xs text-muted-foreground block mb-1.5">Gender</label>
-                        <select value={gender} onChange={e => setGender(e.target.value)} className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground">
+                        <select value={gender} onChange={e => setGender(e.target.value)} className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm">
                           <option>Male</option><option>Female</option><option>Other</option>
                         </select>
                       </div>

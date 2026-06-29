@@ -8,7 +8,9 @@ import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/Signup";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
+import { AdminHub } from "./components/admin/AdminHub";
 import { Chat } from "./components/chat/Chat";
+import AppFlowChatbot from "./components/chat/AppFlowChatbot";
 
 import { AdminCreateUser } from "./components/admin/AdminCreateUser";
 import { AdminBulkUpload } from "./components/admin/AdminBulkUpload";
@@ -115,7 +117,7 @@ export const router = createBrowserRouter([
         children: [
           { 
             index: true, 
-            element: <PermissionGuard permission={VIEW_ADMIN}><AdminDashboard /></PermissionGuard> 
+            element: <PermissionGuard permission={VIEW_ADMIN}><AdminHub /></PermissionGuard> 
           },
           { 
             path: "create-user", 
@@ -162,6 +164,10 @@ export const router = createBrowserRouter([
       {
         path: "chat",
         element: <Chat />,
+      },
+      {
+        path: "flow-chatbot",
+        element: <AppFlowChatbot />,
       },
       {
         path: "profile",

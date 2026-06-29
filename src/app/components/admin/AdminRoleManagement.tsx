@@ -32,7 +32,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { communityService } from "../../../services/communityService";
 import { PERMISSION_CATEGORIES, SPORTS_PERMISSION_MATRIX, MANAGE_COMMUNITIES as PERM_MANAGE_COMMUNITIES } from "../../../constants/permissions";
 import type { SportsPermissionRow } from "../../../constants/permissions";
-import type { CommunityResponse } from "../../../types/api";
+import type { CommunityResponse, UserResponse } from "../../../types/api";
 
 // --- TYPES ---
 interface UserItem {
@@ -163,7 +163,17 @@ export function AdminRoleManagement() {
       const data = (isSuperAdmin && activeCommId) 
         ? await userService.getCommunityUsers(Number(activeCommId))
         : await userService.getAllUsers();
-      const mapped = data.map((u) => ({
+      
+      let usersList: UserResponse[] = [];
+      if (data) {
+        if (Array.isArray(data)) {
+          usersList = data;
+        } else if (typeof data === "object" && Array.isArray((data as any).content)) {
+          usersList = (data as any).content;
+        }
+      }
+
+      const mapped = usersList.map((u) => ({
         id: u.id,
         name: u.fullName,
         email: u.email,

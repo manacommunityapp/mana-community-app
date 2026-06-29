@@ -9,6 +9,7 @@ import {
   VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN,
 } from "../../../../constants/permissions";
 import { FloatingChat } from "../../chat/FloatingChat";
+import { FloatingChatBot } from "../../chat/FloatingChatBot";
 import { ChatProvider } from "../../../../contexts/ChatContext";
 
 function cn(...inputs: ClassValue[]) {
@@ -38,8 +39,7 @@ export function Layout() {
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
 
   const adminLinks = [
-    ...(isAdmin ? [{ to: "/admin", icon: ShieldCheck, label: "Admin Dashboard" }] : []),
-    ...(isSuperAdmin ? [{ to: "/admin/audit-logs", icon: Gauge, label: "Audit Trail" }] : []),
+    ...(isAdmin ? [{ to: "/admin", icon: ShieldCheck, label: "Admin Hub" }] : []),
     ...(isSuperAdmin ? [{ to: "/architecture", icon: Layers, label: "Architecture Docs" }] : []),
   ];
 
@@ -271,6 +271,7 @@ export function Layout() {
           </div>
         </main>
         <FloatingChat />
+        <FloatingChatBot />
       </div>
     </div>
     </ChatProvider>

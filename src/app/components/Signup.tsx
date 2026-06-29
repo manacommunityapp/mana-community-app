@@ -109,7 +109,7 @@ export function Signup() {
   ];
 
   // Shared input classes for the dark theme
-  const inputCls = "w-full px-4 py-3 bg-[var(--mana-bg-input)] border border-border rounded-lg text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all";
+  const inputCls = "w-full px-4 py-3 bg-[var(--mana-bg-input)] border border-border rounded-lg placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all";
   const labelCls = "block text-sm font-medium text-muted-foreground mb-2";
 
   return (

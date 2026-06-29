@@ -81,13 +81,8 @@ export function SportsAuction() {
   type TabType = 'overview' | 'config' | 'live' | 'teams' | 'players' | 'registrations' | 'results' | 'badminton' | 'football' | 'volleyball' | string;
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     if (eventId) return "live";
-    const saved = safeStorage.getItem("sports_auction_active_tab");
-    return (saved as TabType) || "overview";
+    return "overview";
   });
-
-  useEffect(() => {
-    safeStorage.setItem("sports_auction_active_tab", activeTab);
-  }, [activeTab]);
 
   // Config State
   const [sport, setSport] = useState("cricket");
