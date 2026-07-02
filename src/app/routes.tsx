@@ -16,6 +16,7 @@ import { AssetCheckout } from "./components/assets/AssetCheckout";
 import { ExpenseUpload } from "./components/assets/ExpenseUpload";
 import { TreasurerQueue } from "./components/assets/TreasurerQueue";
 import { InventoryDashboard } from "./components/inventory/InventoryDashboard";
+import { InventoryManagement } from "./components/inventory/InventoryManagement";
 
 // Community Management grouped pages
 import { ProcurementDashboard } from "./components/community/ProcurementDashboard";
@@ -194,6 +195,10 @@ export const router = createBrowserRouter([
           {
             path: "inventory",
             element: <InventoryDashboard />
+          },
+          {
+            path: "inventory-management",
+            element: <InventoryManagement />
           },
           {
             path: "procurement",

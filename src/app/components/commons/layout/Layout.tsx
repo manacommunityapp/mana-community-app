@@ -197,6 +197,26 @@ export function Layout() {
                   )}
                 </NavLink>
 
+                <NavLink
+                  to="/community/inventory-management"
+                  onClick={() => setIsSidebarOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                      isActive 
+                        ? "text-indigo-600 bg-gradient-to-r from-indigo-50 to-violet-50 border-indigo-100/50 shadow-sm" 
+                        : "text-[#6b7094] hover:text-[#0d0d2b] hover:bg-slate-50"
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Store className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-indigo-600" : "text-[#6b7094]")} />
+                      Inventory Management
+                    </>
+                  )}
+                </NavLink>
+
                 {isAdmin && (
                   <>
                     <NavLink
