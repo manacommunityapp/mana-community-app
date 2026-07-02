@@ -9,8 +9,23 @@ import { Signup } from "./components/Signup";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { AdminHub } from "./components/admin/AdminHub";
+import { ExpensesDashboard } from "./components/finance/ExpensesDashboard";
 import { Chat } from "./components/chat/Chat";
 import AppFlowChatbot from "./components/chat/AppFlowChatbot";
+import { AssetCheckout } from "./components/assets/AssetCheckout";
+import { ExpenseUpload } from "./components/assets/ExpenseUpload";
+import { TreasurerQueue } from "./components/assets/TreasurerQueue";
+import { InventoryDashboard } from "./components/inventory/InventoryDashboard";
+
+// Community Management grouped pages
+import { ProcurementDashboard } from "./components/community/ProcurementDashboard";
+import { MaintenanceDashboard } from "./components/community/MaintenanceDashboard";
+import { AssetAuditDashboard } from "./components/community/AssetAuditDashboard";
+
+// Finance Management grouped pages
+import { InvoicesDashboard } from "./components/finance/InvoicesDashboard";
+import { BudgetDashboard } from "./components/finance/BudgetDashboard";
+import { FinancialReports } from "./components/finance/FinancialReports";
 
 import { AdminCreateUser } from "./components/admin/AdminCreateUser";
 import { AdminBulkUpload } from "./components/admin/AdminBulkUpload";
@@ -56,6 +71,10 @@ export const router = createBrowserRouter([
   {
     path: "/kyc-verification",
     Component: KYCVerification,
+  },
+  {
+    path: "/items/:id",
+    Component: AssetCheckout,
   },
   {
     path: "/",
@@ -147,6 +166,10 @@ export const router = createBrowserRouter([
             path: "audit-logs",
             element: <PermissionGuard superAdminOnly><AuditTrail /></PermissionGuard>
           },
+          {
+            path: "expenses",
+            element: <PermissionGuard permission={VIEW_ADMIN}><ExpensesDashboard /></PermissionGuard>
+          },
         ]
       },
       { 
@@ -160,6 +183,52 @@ export const router = createBrowserRouter([
       { 
         path: "events", 
         element: <PermissionGuard permission={VIEW_EVENTS}><Events /></PermissionGuard> 
+      },
+      { 
+        path: "inventory", 
+        element: <InventoryDashboard /> 
+      },
+      {
+        path: "community",
+        children: [
+          {
+            path: "inventory",
+            element: <InventoryDashboard />
+          },
+          {
+            path: "procurement",
+            element: <ProcurementDashboard />
+          },
+          {
+            path: "maintenance",
+            element: <MaintenanceDashboard />
+          },
+          {
+            path: "audit",
+            element: <AssetAuditDashboard />
+          }
+        ]
+      },
+      {
+        path: "finance",
+        children: [
+          {
+            path: "expenses",
+            element: <PermissionGuard permission={VIEW_ADMIN}><ExpensesDashboard /></PermissionGuard>
+          },
+          {
+            path: "invoices",
+            element: <PermissionGuard permission={VIEW_ADMIN}><InvoicesDashboard /></PermissionGuard>
+          },
+          {
+            path: "budget",
+            element: <PermissionGuard permission={VIEW_ADMIN}><BudgetDashboard /></PermissionGuard>
+          },
+          {
+            path: "reports",
+            element: <PermissionGuard permission={VIEW_ADMIN}><FinancialReports /></PermissionGuard>
+          }
+        ]
       },
       {
         path: "chat",

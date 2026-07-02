@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   LayoutDashboard,
   Users,
+  Package,
   ShieldCheck,
   Building2,
   FileSpreadsheet,
@@ -27,8 +28,11 @@ import {
   Filter,
   Search,
   AlertTriangle,
+  UploadCloud,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useNavigate } from "react-router";
+import { toast } from "sonner";
 import { userService } from "../../../services/userService";
 import { venueService } from "../../../services/venueService";
 import { sportsService } from "../../../services/sportsService";
@@ -41,6 +45,10 @@ import { AdminRoleManagement } from "./AdminRoleManagement";
 import { LogsDashboard } from "./LogsDashboard";
 import { AuditTrail } from "./AuditTrail";
 import { AdminSportsMeta } from "./AdminSportsMeta";
+import { ExpenseUpload } from "../assets/ExpenseUpload";
+import { TreasurerQueue } from "../assets/TreasurerQueue";
+import { assetService } from "../../../services/assetService";
+import type { Asset } from "../../../services/assetService";
 import type { UserResponse } from "../../../types/api";
 import type { Venue } from "../../../types/api";
 
@@ -158,6 +166,8 @@ function OverviewTab({
   onRetry: () => void;
   onNavigate: (tab: TabId) => void;
 }) {
+  const navigate = useNavigate();
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -340,11 +350,13 @@ function OverviewTab({
           <Activity className="h-4 w-4 text-primary" />
           Quick Actions
         </h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <QuickAction icon={UserPlus} label="Create User" desc="Add a new community member" color="#818cf8" bg="rgba(129,140,248,0.12)" onClick={() => onNavigate("users")} />
           <QuickAction icon={FileSpreadsheet} label="Bulk Upload" desc="Import users via CSV/Excel" color="#a78bfa" bg="rgba(167,139,250,0.12)" onClick={() => onNavigate("bulk")} />
           <QuickAction icon={Building2} label="Community" desc="Manage community settings" color="#34d399" bg="rgba(52,211,153,0.12)" onClick={() => onNavigate("community")} />
           <QuickAction icon={Crown} label="Roles & Permissions" desc="Configure access control" color="#fbbf24" bg="rgba(251,191,36,0.12)" onClick={() => onNavigate("roles")} />
+          <QuickAction icon={UploadCloud} label="OCR Invoice Upload" desc="Volunteers: 1-click snap & upload receipt" color="#f472b6" bg="rgba(244,114,182,0.12)" onClick={() => navigate("/inventory?tab=upload")} />
+          <QuickAction icon={ClipboardList} label="Approval Queue" desc="Treasurers: Audit & Quick-settle invoices" color="#38bdf8" bg="rgba(56,189,248,0.12)" onClick={() => navigate("/inventory?tab=approve")} />
         </div>
       </div>
     </div>
@@ -461,6 +473,8 @@ function UsersTab({ users, loading }: { users: UserResponse[]; loading: boolean 
     </div>
   );
 }
+
+
 
 // ── Main AdminHub Component ───────────────────────────────────────────────────
 export function AdminHub() {
