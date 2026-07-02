@@ -60,7 +60,7 @@ export function Login() {
                   required: "Email is required",
                   pattern: { value: /^\S+@\S+$/i, message: "Invalid email format" },
                 })}
-                className="w-full px-4 py-3 bg-[var(--mana-bg-input)] border border-border rounded-lg text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
+                className="w-full px-4 py-3 bg-[var(--mana-bg-input)] border border-border rounded-lg placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
                 placeholder="you@example.com"
               />
               {errors.email && (
@@ -77,7 +77,7 @@ export function Login() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   {...register("password", { required: "Password is required" })}
-                  className="w-full px-4 py-3 bg-[var(--mana-bg-input)] border border-border rounded-lg text-foreground placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all pr-11"
+                  className="w-full px-4 py-3 bg-[var(--mana-bg-input)] border border-border rounded-lg placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all pr-11"
                   placeholder="Enter your password"
                 />
                 <button

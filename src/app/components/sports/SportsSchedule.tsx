@@ -1,18 +1,30 @@
 import { useState, useEffect, useMemo } from "react";
 import { safeStorage } from "../../../utils/storage";
 import { useParams, Link } from "react-router";
-import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, Target, Activity } from "lucide-react";
+import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, Target, Activity, CalendarIcon, Plus, Edit2, Trash2, X, Search, Trophy, Play, Check } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sportsService";
+import { venueService } from "../../../services/venueService";
 import { useAuth } from "../../../contexts/AuthContext";
-import type { SportsEvent } from "../../../types/api";
+import type { SportsEvent, Venue, SportMeta } from "../../../types/api";
+import { CREATE_EDIT_SPORTS_MAIN } from "../../../constants/permissions";
+import { showSuccess, showWarning, showError, showInfo } from "../../../utils/ToastUtils";
+import { confirmAction } from "../../../utils/AlertUtils";
+import { TIME_OPTIONS } from "../../../constants/timeOptions";
 import "./SportsAuction.css";
+
+const toast = {
+  success: (msg: string) => showSuccess(msg),
+  warning: (msg: string) => showWarning(msg),
+  error: (msg: string) => showError(msg),
+  info: (msg: string) => showInfo(msg),
+};
 
 import { TournamentScheduler } from "../scheduler/TournamentScheduler";
 import { SetupSchedule } from "../scheduler/SetupSchedule";
 import { ManualScheduler } from "../scheduler/ManualScheduler";
 
-const TABS = ["My Matches", "All Events", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
+const TABS = ["Overview", "My Matches", "All Events", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
 type Tab = typeof TABS[number];
 
 type Sport = "Basketball" | "Soccer" | "Volleyball";
@@ -63,7 +75,9 @@ const BasketballIcon = ({ size = 24, className, ...props }: React.ComponentProps
 const sportIcons: Record<string, React.ElementType> = { 
   Basketball: BasketballIcon, basketball: BasketballIcon,
   Soccer: Target, soccer: Target, Football: Target, football: Target,
-  Volleyball: Activity, volleyball: Activity
+  Volleyball: Activity, volleyball: Activity,
+  Cricket: Target, cricket: Target,
+  Badminton: Activity, badminton: Activity
 };
 const sportColors: Record<string, { color: string; bg: string }> = {
   Basketball: { color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
@@ -74,6 +88,10 @@ const sportColors: Record<string, { color: string; bg: string }> = {
   football: { color: "#10b981", bg: "rgba(16,185,129,0.1)" },
   Volleyball: { color: "#6366f1", bg: "rgba(99,102,241,0.1)" },
   volleyball: { color: "#6366f1", bg: "rgba(99,102,241,0.1)" },
+  Cricket: { color: "#06b6d4", bg: "rgba(6,182,212,0.1)" },
+  cricket: { color: "#06b6d4", bg: "rgba(6,182,212,0.1)" },
+  Badminton: { color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
+  badminton: { color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
 };
 
 const getSportIcon = (sportName: string) => {
@@ -357,64 +375,167 @@ function generateKnockoutBracket(players: BracketPlayer[]): BracketRound[] {
 
 export function SportsSchedule() {
   const { eventId } = useParams<{ eventId?: string }>();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const isAdmin = hasPermission ? hasPermission(CREATE_EDIT_SPORTS_MAIN) : false;
+
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     if (eventId) return "Setup Schedule";
-    const saved = safeStorage.getItem("sports_schedule_active_tab");
-    return (saved as Tab) || "My Matches";
+    return "Overview";
   });
-
-  useEffect(() => {
-    safeStorage.setItem("sports_schedule_active_tab", activeTab);
-  }, [activeTab]);
   const [allEvents, setAllEvents] = useState<SportsEvent[]>([]);
   const [myMatches, setMyMatches] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<string>("All");
 
-  const gamesToDisplay = useMemo(() => {
-    const games = allEvents.length > 0 
-      ? allEvents.map((ev): Game => {
-          const isLive = ev.registrationStatus === "LIVE";
-          const isCompleted = ev.registrationStatus === "COMPLETED";
-          const status = isLive ? "Live" : isCompleted ? "Completed" : "Upcoming";
-          
-          let homeTeam = ev.name;
-          let awayTeam = "TBD";
-          if (ev.name.includes(" vs ")) {
-            const parts = ev.name.split(" vs ");
-            homeTeam = parts[0];
-            awayTeam = parts[1];
-          } else if (ev.name.includes(" - ")) {
-            const parts = ev.name.split(" - ");
-            homeTeam = parts[0];
-            awayTeam = parts[1];
-          }
-          
-          return {
-            id: String(ev.id),
-            sport: (ev.sport?.name as Sport) || "Basketball",
-            homeTeam,
-            awayTeam,
-            date: ev.eventDateStart,
-            location: ev.venue?.name || "TBD",
-            status,
-            score: isLive ? { home: 12, away: 8 } : isCompleted ? { home: 3, away: 2 } : undefined
-          };
-        })
-      : mockGames;
+  // ─── Fixtures / Schedule state & handlers ───
+  const [fixturesList, setFixturesList] = useState([
+    { id: 1, name: "Qualifier 1: City Hoopers vs Downtown Dunkers", sport: "Basketball", venue: "Court A, Sector 12 Ground", date: "2026-07-15", time: "10:00 AM", status: "SCHEDULED", team1: "City Hoopers", team2: "Downtown Dunkers", score1: "", score2: "" },
+    { id: 2, name: "Semifinal: Spike Syndicate vs Net Ninjas", sport: "Volleyball", venue: "Volleyball Court, Central Park", date: "2026-07-16", time: "04:30 PM", status: "LIVE", team1: "Spike Syndicate", team2: "Net Ninjas", score1: "15", score2: "12" },
+    { id: 3, name: "Group Stage Match 4: United FC vs Galacticos", sport: "Soccer", venue: "Main Field, Sector 12 Ground", date: "2026-06-25", time: "09:00 AM", status: "COMPLETED", team1: "United FC", team2: "Galacticos", score1: "3", score2: "1" },
+    { id: 4, name: "Friendly: Smashers vs Shuttle Kings", sport: "Badminton", venue: "Indoor Court 2, Club House", date: "2026-07-18", time: "06:00 PM", status: "SCHEDULED", team1: "Smashers", team2: "Shuttle Kings", score1: "", score2: "" }
+  ]);
+  const [showFixtureForm, setShowFixtureForm] = useState(false);
+  const [editingFixtureId, setEditingFixtureId] = useState<number | null>(null);
+  const [fixtureName, setFixtureName] = useState("");
+  const [fixtureSport, setFixtureSport] = useState("");
+  const [fixtureVenue, setFixtureVenue] = useState("");
+  const [fixtureDate, setFixtureDate] = useState("");
+  const [fixtureTime, setFixtureTime] = useState("");
+  const [fixtureTeam1, setFixtureTeam1] = useState("");
+  const [fixtureTeam2, setFixtureTeam2] = useState("");
+  const [fixtureStatus, setFixtureStatus] = useState("SCHEDULED");
+  const [fixtureScore1, setFixtureScore1] = useState("");
+  const [fixtureScore2, setFixtureScore2] = useState("");
+  const [fixtureSearchQuery, setFixtureSearchQuery] = useState("");
+  const [fixtureSportFilter, setFixtureSportFilter] = useState("All");
 
-    let filtered = games;
-    if (activeFilter !== "All") {
-      filtered = filtered.filter(g => g.sport.toLowerCase() === activeFilter.toLowerCase());
+  const [showScoreModal, setShowScoreModal] = useState(false);
+  const [scoringFixtureId, setScoringFixtureId] = useState<number | null>(null);
+
+  const [venues, setVenues] = useState<Venue[]>([]);
+  const [sportsMeta, setSportsMeta] = useState<SportMeta[]>([]);
+
+  useEffect(() => {
+    if (user?.communityId) {
+      venueService.getVenues(user.communityId).then(setVenues).catch(() => {});
+      sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
+    }
+  }, [user?.communityId]);
+
+  const handleFixtureSave = () => {
+    if (!fixtureName.trim() || !fixtureSport || !fixtureVenue || !fixtureDate || !fixtureTime || !fixtureTeam1 || !fixtureTeam2) {
+      toast.error("Please fill in all required fields");
+      return;
     }
 
-    const statusWeight = { Live: 0, Upcoming: 1, Completed: 2 };
-    return [...filtered].sort((a, b) => {
-      if (statusWeight[a.status] !== statusWeight[b.status]) return statusWeight[a.status] - statusWeight[b.status];
+    if (editingFixtureId !== null) {
+      setFixturesList(prev => prev.map(f => f.id === editingFixtureId ? {
+        ...f,
+        name: fixtureName,
+        sport: fixtureSport,
+        venue: fixtureVenue,
+        date: fixtureDate,
+        time: fixtureTime,
+        team1: fixtureTeam1,
+        team2: fixtureTeam2,
+        status: fixtureStatus,
+        score1: fixtureScore1,
+        score2: fixtureScore2
+      } : f));
+      toast.success("Fixture updated successfully");
+    } else {
+      const newFixture = {
+        id: Date.now(),
+        name: fixtureName,
+        sport: fixtureSport,
+        venue: fixtureVenue,
+        date: fixtureDate,
+        time: fixtureTime,
+        team1: fixtureTeam1,
+        team2: fixtureTeam2,
+        status: fixtureStatus,
+        score1: fixtureScore1,
+        score2: fixtureScore2
+      };
+      setFixturesList(prev => [...prev, newFixture]);
+      toast.success("Fixture added successfully");
+    }
+
+    resetFixtureForm();
+  };
+
+  const handleFixtureEdit = (f: any) => {
+    setEditingFixtureId(f.id);
+    setFixtureName(f.name);
+    setFixtureSport(f.sport);
+    setFixtureVenue(f.venue);
+    setFixtureDate(f.date);
+    setFixtureTime(f.time);
+    setFixtureTeam1(f.team1);
+    setFixtureTeam2(f.team2);
+    setFixtureStatus(f.status);
+    setFixtureScore1(f.score1);
+    setFixtureScore2(f.score2);
+    setShowFixtureForm(true);
+  };
+
+  const handleFixtureDelete = async (id: number) => {
+    const confirmed = await confirmAction(
+      "Delete Fixture",
+      "Are you sure you want to delete this fixture?"
+    );
+    if (!confirmed) return;
+    setFixturesList(prev => prev.filter(f => f.id !== id));
+    toast.success("Fixture deleted successfully");
+  };
+
+  const handleScoreUpdateSubmit = () => {
+    if (scoringFixtureId === null) return;
+    setFixturesList(prev => prev.map(f => f.id === scoringFixtureId ? {
+      ...f,
+      score1: fixtureScore1,
+      score2: fixtureScore2,
+      status: "COMPLETED"
+    } : f));
+    toast.success("Scores updated and match completed!");
+    setShowScoreModal(false);
+    setScoringFixtureId(null);
+    setFixtureScore1("");
+    setFixtureScore2("");
+  };
+
+  const resetFixtureForm = () => {
+    setEditingFixtureId(null);
+    setFixtureName("");
+    setFixtureSport("");
+    setFixtureVenue("");
+    setFixtureDate("");
+    setFixtureTime("");
+    setFixtureTeam1("");
+    setFixtureTeam2("");
+    setFixtureStatus("SCHEDULED");
+    setFixtureScore1("");
+    setFixtureScore2("");
+    setShowFixtureForm(false);
+  };
+
+  const filteredFixtures = useMemo(() => {
+    return fixturesList.filter(f => {
+      const searchStr = `${f.name} ${f.team1} ${f.team2} ${f.venue}`.toLowerCase();
+      const matchesSearch = searchStr.includes(fixtureSearchQuery.toLowerCase());
+      const matchesSport = fixtureSportFilter === "All" || f.sport.toLowerCase().includes(fixtureSportFilter.toLowerCase());
+      return matchesSearch && matchesSport;
+    });
+  }, [fixturesList, fixtureSearchQuery, fixtureSportFilter]);
+
+  const sortedFixtures = useMemo(() => {
+    const statusWeight = { LIVE: 0, SCHEDULED: 1, COMPLETED: 2 };
+    return [...filteredFixtures].sort((a, b) => {
+      const weightA = statusWeight[a.status as keyof typeof statusWeight] ?? 99;
+      const weightB = statusWeight[b.status as keyof typeof statusWeight] ?? 99;
+      if (weightA !== weightB) return weightA - weightB;
       return new Date(a.date).getTime() - new Date(b.date).getTime();
     });
-  }, [allEvents, activeFilter]);
+  }, [filteredFixtures]);
 
   useEffect(() => {
     if (!user?.userId) return;
@@ -437,9 +558,58 @@ export function SportsSchedule() {
         })
         .catch(() => { })
         .finally(() => setLoading(false));
-    } else if (activeTab === "All Events" && user?.communityId) {
+    } else if ((activeTab === "All Events" || activeTab === "Overview") && user?.communityId) {
       sportsService.getOpenEvents(user.communityId)
-        .then(setAllEvents)
+        .then(events => {
+          setAllEvents(events);
+          if (events && events.length > 0) {
+            const mapped = events.map((ev): any => {
+              const isLive = ev.registrationStatus === "LIVE";
+              const isCompleted = ev.registrationStatus === "COMPLETED";
+              const status = isLive ? "LIVE" : isCompleted ? "COMPLETED" : "SCHEDULED";
+              
+              let homeTeam = ev.name;
+              let awayTeam = "TBD";
+              if (ev.name.includes(" vs ")) {
+                const parts = ev.name.split(" vs ");
+                homeTeam = parts[0];
+                awayTeam = parts[1];
+              } else if (ev.name.includes(" - ")) {
+                const parts = ev.name.split(" - ");
+                homeTeam = parts[0];
+                awayTeam = parts[1];
+              }
+              
+              const eventDate = ev.eventDateStart ? ev.eventDateStart.split("T")[0] : "";
+              let eventTime = "12:00 PM";
+              try {
+                if (ev.eventDateStart) {
+                  eventTime = format(new Date(ev.eventDateStart), "hh:mm a");
+                }
+              } catch (e) {}
+
+              return {
+                id: ev.id,
+                name: ev.name,
+                sport: ev.sport?.name || "Basketball",
+                venue: ev.venue?.name || "TBD",
+                date: eventDate,
+                time: eventTime,
+                status,
+                team1: homeTeam,
+                team2: awayTeam,
+                score1: isLive ? "12" : isCompleted ? "3" : "",
+                score2: isLive ? "8" : isCompleted ? "2" : ""
+              };
+            });
+
+            setFixturesList(prev => {
+              const existingIds = new Set(prev.map(f => f.id));
+              const newFixtures = mapped.filter(m => !existingIds.has(m.id));
+              return [...prev, ...newFixtures];
+            });
+          }
+        })
         .catch(() => { })
         .finally(() => setLoading(false));
     } else {
@@ -455,6 +625,12 @@ export function SportsSchedule() {
         </div>
         <div className="nav-section">
           <div className="nav-label">Main</div>
+          <button
+            className={`nav-item ${activeTab === "Overview" ? "active" : ""}`}
+            onClick={() => setActiveTab("Overview")}
+          >
+            <div className="nav-dot"></div>Overview
+          </button>
           <button
             className={`nav-item ${activeTab === "My Matches" ? "active" : ""}`}
             onClick={() => setActiveTab("My Matches")}
@@ -506,6 +682,235 @@ export function SportsSchedule() {
             </div>
           </div>
 
+      {/* Overview */}
+      {activeTab === "Overview" && (
+        <div className="space-y-6 animate-fade-in-up text-left">
+          {/* Welcome/Hero Banner */}
+          <div
+            className="rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
+            style={{
+              background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)",
+            }}
+          >
+            <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+              <Trophy className="w-48 h-48 rotate-12" />
+            </div>
+            <div className="max-w-xl relative z-10 space-y-2">
+              <span className="px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200">
+                Tournament Hub
+              </span>
+              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Schedule & Live Center</h2>
+              <p className="text-xs md:text-sm text-indigo-200 leading-relaxed max-w-lg">
+                Track tournament match scheduling, ongoing live scores, team brackets, and complete event results all in one place.
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Scheduled Matches</span>
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <CalendarIcon className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{fixturesList.length}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Total</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
+                <div className="p-2 bg-red-50 text-red-600 rounded-xl">
+                  <Activity className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">
+                  {fixturesList.filter(f => f.status === "LIVE").length}
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-red-100 text-red-700 font-bold animate-pulse">LIVE</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
+                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                  <Trophy className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">
+                  {fixturesList.filter(f => f.status === "COMPLETED").length}
+                </span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Done</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Venues</span>
+                <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                  <MapPin className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{venues.length || 4}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">Active</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Two Column Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column: Live Matches & Navigation */}
+            <div className="lg:col-span-2 space-y-6">
+              {/* Ongoing Matches Section */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
+                    Live Matches
+                  </h3>
+                  <button onClick={() => setActiveTab("All Events")} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">
+                    View All →
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {fixturesList.filter(f => f.status === "LIVE").length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 text-xs">
+                      No live matches running at the moment.
+                    </div>
+                  ) : (
+                    fixturesList.filter(f => f.status === "LIVE").map((fixture) => {
+                      const IconComponent = getSportIcon(fixture.sport);
+                      const colors = getSportColors(fixture.sport);
+                      return (
+                        <div key={fixture.id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2.5 rounded-lg" style={{ backgroundColor: colors.bg, color: colors.color }}>
+                              <IconComponent className="w-4 h-4" />
+                            </div>
+                            <div className="text-left">
+                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{fixture.sport}</p>
+                              <h4 className="text-sm font-bold text-slate-800 leading-snug">{fixture.team1} vs {fixture.team2}</h4>
+                              <p className="text-[11px] text-slate-400 mt-0.5 truncate max-w-[220px]">{fixture.venue}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200/60 shadow-sm font-mono text-sm font-bold text-slate-800">
+                            <span>{fixture.score1 || "0"}</span>
+                            <span className="text-slate-300">-</span>
+                            <span>{fixture.score2 || "0"}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Navigation Cards */}
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">
+                  Quick Navigation
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div
+                    onClick={() => setActiveTab("My Matches")}
+                    className="p-4 bg-slate-50 hover:bg-indigo-50/30 rounded-xl border border-slate-100 hover:border-indigo-100 transition cursor-pointer text-left space-y-2 group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all duration-200">
+                      <Clock className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-slate-800">My Timeline</h4>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">Check matches registered for your personal schedule.</p>
+                  </div>
+
+                  <div
+                    onClick={() => setActiveTab("All Events")}
+                    className="p-4 bg-slate-50 hover:bg-indigo-50/30 rounded-xl border border-slate-100 hover:border-indigo-100 transition cursor-pointer text-left space-y-2 group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all duration-200">
+                      <CalendarIcon className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-slate-800">All Fixtures</h4>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">Browse, search and configure overall match listings.</p>
+                  </div>
+
+                  <div
+                    onClick={() => setActiveTab("Brackets")}
+                    className="p-4 bg-slate-50 hover:bg-indigo-50/30 rounded-xl border border-slate-100 hover:border-indigo-100 transition cursor-pointer text-left space-y-2 group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all duration-200">
+                      <Trophy className="w-4 h-4" />
+                    </div>
+                    <h4 className="text-xs font-bold text-slate-800">Tournament Brackets</h4>
+                    <p className="text-[11px] text-slate-500 leading-relaxed">View elimination rounds, quarter, and semifinals.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Recent Results & Timeline */}
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">
+                  Recent Results
+                </h3>
+                <div className="space-y-3.5">
+                  {fixturesList.filter(f => f.status === "COMPLETED").length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 text-xs">
+                      No completed matches found.
+                    </div>
+                  ) : (
+                    fixturesList.filter(f => f.status === "COMPLETED").slice(0, 4).map((fixture) => {
+                      const IconComponent = getSportIcon(fixture.sport);
+                      const colors = getSportColors(fixture.sport);
+                      const score1 = Number(fixture.score1 || 0);
+                      const score2 = Number(fixture.score2 || 0);
+                      return (
+                        <div key={fixture.id} className="text-left space-y-2 pb-3.5 border-b border-slate-100 last:border-b-0 last:pb-0">
+                          <div className="flex items-center justify-between text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                            <span className="flex items-center gap-1">
+                              <IconComponent className="w-3 h-3" style={{ color: colors.color }} />
+                              {fixture.sport}
+                            </span>
+                            <span>{fixture.date}</span>
+                          </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className={`text-xs ${score1 > score2 ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team1}</span>
+                              <span className={`text-xs font-mono font-bold ${score1 > score2 ? "text-slate-800" : "text-slate-500"}`}>{score1}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className={`text-xs ${score2 > score1 ? "font-bold text-slate-800" : "text-slate-600"}`}>{fixture.team2}</span>
+                              <span className={`text-xs font-mono font-bold ${score2 > score1 ? "text-slate-800" : "text-slate-500"}`}>{score2}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Info Box */}
+              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 text-left space-y-2">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Administrative Note</h4>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  If you are an organizer, use the operations panel (Config, Setup Schedule, Manual) to run automated round robin schedulers or create custom matches. Match results are synchronized live.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* My Matches */}
       {activeTab === "My Matches" && (
         <div className="rounded-xl p-4"
@@ -532,181 +937,477 @@ export function SportsSchedule() {
 
       {/* All Events */}
       {activeTab === "All Events" && (
-        <div className="space-y-5">
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl text-left"
-            style={{
-              background: "white",
-              border: "1px solid rgba(99, 102, 241, 0.12)",
-              boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
-            }}
-          >
-            <div>
-              <p className="text-sm font-bold" style={{ color: "#6b7094" }}>
-                {gamesToDisplay.length} games · {gamesToDisplay.filter(g => g.status === "Live").length} live
-              </p>
+        <div className="space-y-6 animate-fade-in-up text-left">
+          {/* Stats Row */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Games</span>
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <CalendarIcon className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{fixturesList.length}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Scheduled</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Filter className="h-4 w-4 hidden sm:block" style={{ color: "#6b7094" }} />
-              {["All", "Basketball", "Soccer", "Volleyball"].map((f) => {
-                const isActive = activeFilter === f;
-                return (
-                  <button key={f} onClick={() => setActiveFilter(f)}
-                    className="px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all cursor-pointer"
-                    style={isActive
-                      ? { background: "linear-gradient(135deg, #4f46e5, #7c3aed)", color: "white", boxShadow: "0 2px 8px rgba(99,102,241,0.3)" }
-                      : { background: "white", color: "#6b7094", border: "1px solid rgba(99, 102, 241, 0.15)" }}>
-                    {f}
-                  </button>
-                );
-              })}
+
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
+                <div className="p-2 bg-red-50 text-red-600 rounded-xl">
+                  <Activity className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{fixturesList.filter(f => f.status === "LIVE").length}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-red-100 text-red-700 font-bold animate-pulse">LIVE</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Upcoming</span>
+                <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                  <Clock className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">Pending</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
+                <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                  <Trophy className="w-5 h-5" />
+                </div>
+              </div>
+              <div className="mt-4 flex items-baseline gap-2">
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{fixturesList.filter(f => f.status === "COMPLETED").length}</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Done</span>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            <div className="lg:col-span-2 space-y-3">
-              {loading ? (
-                <div className="flex items-center justify-center py-8 bg-white border border-slate-200/60 rounded-2xl">
-                  <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
-                </div>
-              ) : gamesToDisplay.length === 0 ? (
-                <div className="rounded-2xl p-12 flex flex-col items-center text-center"
-                  style={{ background: "white", border: "1px solid rgba(99, 102, 241, 0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
-                  <ShieldAlert className="h-10 w-10 mb-3" style={{ color: "#9ca3af" }} />
-                  <p className="font-semibold" style={{ color: "#0d0d2b" }}>No games found</p>
-                  <p className="text-sm mt-1" style={{ color: "#6b7094" }}>No scheduled games for this filter right now.</p>
-                </div>
-              ) : (
-                gamesToDisplay.map((game) => {
-                  const Icon = getSportIcon(game.sport);
-                  const { color, bg } = getSportColors(game.sport);
-                  const isLive = game.status === "Live";
-                  const isDone = game.status === "Completed";
-
-                  return (
-                    <div key={game.id} className="rounded-2xl overflow-hidden card-hover-lift"
-                      style={{
-                        background: "white",
-                        border: isLive ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(99, 102, 241, 0.12)",
-                        boxShadow: isLive ? "0 4px 20px rgba(239,68,68,0.1)" : "rgba(99, 102, 241, 0.06) 0px 2px 12px",
-                      }}>
-                      <div className="flex flex-col sm:flex-row">
-                        {/* Date column */}
-                        <div className="sm:w-36 p-4 flex sm:flex-col justify-between sm:justify-center items-center gap-3"
-                          style={{
-                            background: isLive ? "rgba(239,68,68,0.04)" : "rgba(99, 102, 241, 0.03)",
-                            borderRight: "1px solid rgba(99, 102, 241, 0.08)",
-                          }}>
-                          <div className="text-center">
-                            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#6b7094" }}>
-                              {safeFormatDate(game.date, "MMM d")}
-                            </p>
-                            <p className="text-lg font-bold mt-0.5" style={{ color: "#0d0d2b" }}>
-                              {safeFormatDate(game.date, "h:mm a")}
-                            </p>
-                          </div>
-                          {isLive && (
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold animate-pulse"
-                              style={{ background: "rgba(239,68,68,0.12)", color: "#dc2626" }}>
-                              <div className="h-1.5 w-1.5 bg-red-500 rounded-full" />
-                              LIVE
-                            </div>
-                          )}
-                          {isDone && (
-                            <span className="px-2.5 py-1 rounded-full text-xs font-bold"
-                              style={{ background: "rgba(99, 102, 241, 0.08)", color: "#4f46e5" }}>
-                              FINAL
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Match details */}
-                        <div className="p-5 flex-1 text-left">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
-                              style={{ background: bg, color }}>
-                              <Icon className="h-3 w-3" />
-                              {game.sport}
-                            </span>
-                            <span className="flex items-center gap-1 text-xs" style={{ color: "#6b7094" }}>
-                              <MapPin className="h-3 w-3 shrink-0" />
-                              <span className="truncate max-w-[150px]">{game.location}</span>
-                            </span>
-                          </div>
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-slate-800 text-sm truncate max-w-[180px]">{game.homeTeam}</span>
-                              {game.score && (
-                                <span className="text-base font-bold font-mono text-slate-800">
-                                  {game.score.home}
-                                </span>
-                              )}
-                            </div>
-                            {game.awayTeam && (
-                              <div className="flex items-center justify-between">
-                                <span className="font-semibold text-slate-800 text-sm truncate max-w-[180px]">{game.awayTeam}</span>
-                                {game.score && (
-                                  <span className="text-base font-bold font-mono text-slate-800">
-                                    {game.score.away}
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="sm:flex items-center px-4 hidden">
-                          <button className="p-2 rounded-xl transition-colors cursor-pointer" style={{ color: "#4f46e5" }}
-                            onMouseEnter={e => (e.currentTarget.style.background = "rgba(99, 102, 241, 0.08)")}
-                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                            <ChevronRight className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Sidebar */}
-            <div className="space-y-4">
-              <div className="rounded-2xl p-5"
-                style={{ background: "white", border: "1px solid rgba(99, 102, 241, 0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
-                <h3 className="font-semibold mb-4 text-left text-slate-800 text-sm uppercase tracking-wider">Season Highlights</h3>
-                <div className="space-y-3">
-                  {[
-                    { label: "Total Games Played", value: "94" },
-                    { label: "Active Teams", value: "26" },
-                    { label: "Next Tournament", value: "Jul 15" },
-                  ].map((s) => (
-                    <div key={s.label} className="flex justify-between items-center py-2 text-left"
-                      style={{ borderBottom: "1px solid rgba(99, 102, 241, 0.06)" }}>
-                      <span className="text-xs font-medium" style={{ color: "#6b7094" }}>{s.label}</span>
-                      <span className="font-bold text-xs text-slate-800">{s.value}</span>
-                    </div>
-                  ))}
-                </div>
-                <button className="w-full mt-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer"
-                  style={{ background: "rgba(99, 102, 241, 0.06)", color: "#4f46e5", border: "1px solid rgba(99, 102, 241, 0.15)" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(99, 102, 241, 0.12)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "rgba(99, 102, 241, 0.06)")}>
-                  Full Standings →
+          {/* Add / Edit Fixture Form (Inline Card) */}
+          {isAdmin && showFixtureForm && (
+            <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-md animate-fade-in-up space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h3 className="text-base font-bold text-slate-800">{editingFixtureId !== null ? "Edit Fixture" : "Create New Fixture"}</h3>
+                <button onClick={resetFixtureForm} className="text-slate-400 hover:text-slate-600">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-
-              <div className="rounded-2xl p-5 text-left"
-                style={{ background: "linear-gradient(135deg, #f59e0b, #f97316)", boxShadow: "0 4px 20px rgba(245,158,11,0.3)" }}>
-                <h3 className="font-bold text-white mb-1 text-sm">Summer 2026 Season</h3>
-                <p className="text-xs text-white/80 mb-4">Registration is open for all sports.</p>
-                <Link to="/sports/register"
-                  className="block w-full text-center py-2.5 rounded-xl text-xs font-bold transition-all hover:bg-slate-50"
-                  style={{ background: "white", color: "#f59e0b" }}>
-                  Register a Team
-                </Link>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Match Name / Round</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Semifinal 1 or Group Match"
+                    value={fixtureName}
+                    onChange={e => setFixtureName(e.target.value)}
+                    className="w-full bg-[var(--mana-bg-input)] border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Sport</label>
+                  <select
+                    value={fixtureSport}
+                    onChange={e => setFixtureSport(e.target.value)}
+                    className="w-full bg-[var(--mana-bg-input)] border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  >
+                    <option value="">Select Sport</option>
+                    {sportsMeta.map(s => (
+                      <option key={s.id} value={s.name}>{s.name}</option>
+                    ))}
+                    {sportsMeta.length === 0 && (
+                      <>
+                        <option value="Basketball">Basketball</option>
+                        <option value="Soccer">Soccer</option>
+                        <option value="Volleyball">Volleyball</option>
+                        <option value="Cricket">Cricket</option>
+                        <option value="Badminton">Badminton</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Venue</label>
+                  <select
+                    value={fixtureVenue}
+                    onChange={e => setFixtureVenue(e.target.value)}
+                    className="w-full bg-[var(--mana-bg-input)] border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  >
+                    <option value="">Select Venue</option>
+                    {venues.map(v => (
+                      <option key={v.id} value={v.name}>{v.name}</option>
+                    ))}
+                    {venues.length === 0 && (
+                      <>
+                        <option value="Court A, Sector 12 Ground">Court A, Sector 12 Ground</option>
+                        <option value="Volleyball Court, Central Park">Volleyball Court, Central Park</option>
+                        <option value="Main Field, Sector 12 Ground">Main Field, Sector 12 Ground</option>
+                        <option value="Indoor Court 2, Club House">Indoor Court 2, Club House</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Date</label>
+                  <input
+                    type="date"
+                    value={fixtureDate}
+                    onChange={e => setFixtureDate(e.target.value)}
+                    className="w-full bg-[var(--mana-bg-input)] border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Start Time</label>
+                  <select
+                    value={fixtureTime}
+                    onChange={e => setFixtureTime(e.target.value)}
+                    className="w-full bg-[var(--mana-bg-input)] border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  >
+                    <option value="">Select Time</option>
+                    {TIME_OPTIONS.map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Team 1 (Home)</label>
+                  <input
+                    type="text"
+                    placeholder="Home Team Name"
+                    value={fixtureTeam1}
+                    onChange={e => setFixtureTeam1(e.target.value)}
+                    className="w-full bg-[var(--mana-bg-input)] border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Team 2 (Away)</label>
+                  <input
+                    type="text"
+                    placeholder="Away Team Name"
+                    value={fixtureTeam2}
+                    onChange={e => setFixtureTeam2(e.target.value)}
+                    className="w-full bg-[var(--mana-bg-input)] border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Status</label>
+                  <select
+                    value={fixtureStatus}
+                    onChange={e => setFixtureStatus(e.target.value)}
+                    className="w-full bg-[var(--mana-bg-input)] border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  >
+                    <option value="SCHEDULED">Scheduled</option>
+                    <option value="LIVE">Live</option>
+                    <option value="COMPLETED">Completed</option>
+                  </select>
+                </div>
+                {fixtureStatus === "COMPLETED" && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Score 1</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={fixtureScore1}
+                        onChange={e => setFixtureScore1(e.target.value)}
+                        className="w-full bg-[var(--mana-bg-input)] border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Score 2</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={fixtureScore2}
+                        onChange={e => setFixtureScore2(e.target.value)}
+                        className="w-full bg-[var(--mana-bg-input)] border border-border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  onClick={resetFixtureForm}
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleFixtureSave}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition shadow-md shadow-indigo-100"
+                >
+                  {editingFixtureId !== null ? "Save Changes" : "Add Fixture"}
+                </button>
               </div>
             </div>
+          )}
+
+          {/* Search, Filter and Actions Bar */}
+          <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-2 flex-1 max-w-md bg-slate-50 px-3 py-2 rounded-xl border border-slate-200/50">
+              <Search className="w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search teams, venues, match names..."
+                value={fixtureSearchQuery}
+                onChange={e => setFixtureSearchQuery(e.target.value)}
+                className="bg-transparent border-none outline-none text-slate-800 placeholder-slate-400 text-sm w-full"
+              />
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                {["All", "Cricket", "Basketball", "Volleyball", "Badminton", "Soccer"].map((f) => {
+                  const isActive = fixtureSportFilter === f;
+                  return (
+                    <button
+                      key={f}
+                      onClick={() => setFixtureSportFilter(f)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all duration-150 cursor-pointer ${
+                        isActive
+                          ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md shadow-indigo-100"
+                          : "bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60"
+                      }`}
+                    >
+                      {f}
+                    </button>
+                  );
+                })}
+              </div>
+              {isAdmin && !showFixtureForm && (
+                <button
+                  onClick={() => setShowFixtureForm(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition shadow-md shadow-indigo-100 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Match
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Fixtures List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {sortedFixtures.map((fixture) => {
+              const IconComponent = getSportIcon(fixture.sport);
+              const sportStyle = getSportColors(fixture.sport);
+              const isLive = fixture.status === "LIVE";
+              const isCompleted = fixture.status === "COMPLETED";
+
+              return (
+                <div
+                  key={fixture.id}
+                  className="bg-white rounded-2xl p-5 border shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                  style={{
+                    borderColor: isLive ? "rgba(239, 68, 68, 0.4)" : "rgba(226, 232, 240, 0.8)",
+                    boxShadow: isLive ? "0 4px 18px rgba(239, 68, 68, 0.08)" : "none"
+                  }}
+                >
+                  <div>
+                    {/* Card Header: Sport badge, Venue and Status */}
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <span
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold"
+                        style={{ backgroundColor: sportStyle.bg, color: sportStyle.color }}
+                      >
+                        <IconComponent className="w-3 h-3" />
+                        {fixture.sport}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {isLive && (
+                          <span className="flex items-center gap-1 px-2 py-0.5 rounded bg-red-50 text-red-600 text-[10px] font-bold animate-pulse border border-red-200">
+                            <span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span>
+                            LIVE
+                          </span>
+                        )}
+                        {isCompleted && (
+                          <span className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-semibold border border-emerald-100">
+                            COMPLETED
+                          </span>
+                        )}
+                        {!isLive && !isCompleted && (
+                          <span className="px-2 py-0.5 rounded bg-slate-50 text-slate-500 text-[10px] font-semibold border border-slate-200">
+                            SCHEDULED
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-slate-800 line-clamp-1">{fixture.name}</h4>
+
+                    {/* Venue, Date & Time info */}
+                    <div className="mt-3 space-y-1.5 text-slate-500 text-xs">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span className="truncate">{fixture.venue}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>{fixture.date} at {fixture.time}</span>
+                      </div>
+                    </div>
+
+                    {/* Teams and Scores Display */}
+                    <div className="mt-4 bg-slate-50 rounded-xl p-3 border border-slate-100 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs font-semibold ${isCompleted && Number(fixture.score1) > Number(fixture.score2) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                          {fixture.team1}
+                        </span>
+                        {(isLive || isCompleted) && (
+                          <span className="text-xs font-bold font-mono bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
+                            {fixture.score1 || "0"}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs font-semibold ${isCompleted && Number(fixture.score2) > Number(fixture.score1) ? "text-slate-800 font-bold" : "text-slate-600"}`}>
+                          {fixture.team2}
+                        </span>
+                        {(isLive || isCompleted) && (
+                          <span className="text-xs font-bold font-mono bg-white px-2 py-0.5 rounded border border-slate-200 shadow-sm text-slate-800">
+                            {fixture.score2 || "0"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions Row */}
+                  {isAdmin && (
+                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {fixture.status === "SCHEDULED" && (
+                          <button
+                            onClick={() => {
+                              setFixturesList(prev => prev.map(f => f.id === fixture.id ? { ...f, status: "LIVE" } : f));
+                              toast.success("Match is now LIVE!");
+                            }}
+                            className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold rounded-lg transition"
+                          >
+                            <Play className="w-3 h-3 fill-red-600" />
+                            Go Live
+                          </button>
+                        )}
+                        {fixture.status === "LIVE" && (
+                          <button
+                            onClick={() => {
+                              setScoringFixtureId(fixture.id);
+                              setFixtureScore1(fixture.score1 || "");
+                              setFixtureScore2(fixture.score2 || "");
+                              setShowScoreModal(true);
+                            }}
+                            className="flex items-center gap-1 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-lg transition"
+                          >
+                            <Trophy className="w-3 h-3" />
+                            Update Score
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleFixtureEdit(fixture)}
+                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleFixtureDelete(fixture.id)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {sortedFixtures.length === 0 && (
+              <div className="col-span-1 md:col-span-2 bg-white rounded-2xl p-12 border border-slate-100 shadow-sm text-center">
+                <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <h4 className="text-sm font-bold text-slate-700">No matching fixtures found</h4>
+                <p className="text-xs text-slate-500 mt-1">Try adjusting your filters or search keywords.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Inline Score Modal */}
+          {showScoreModal && scoringFixtureId !== null && (
+            <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+              <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                  <h3 className="text-base font-bold text-slate-800">Update Match Score</h3>
+                  <button
+                    onClick={() => {
+                      setShowScoreModal(false);
+                      setScoringFixtureId(null);
+                    }}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mb-4 font-semibold uppercase tracking-wider">
+                  {fixturesList.find(f => f.id === scoringFixtureId)?.name}
+                </p>
+                <div className="grid grid-cols-2 gap-4 mb-5">
+                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                      {fixturesList.find(f => f.id === scoringFixtureId)?.team1}
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      min="0"
+                      value={fixtureScore1}
+                      onChange={e => setFixtureScore1(e.target.value)}
+                      className="w-full text-center bg-white border border-slate-200 rounded-xl py-2 text-lg font-bold text-slate-800 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                      {fixturesList.find(f => f.id === scoringFixtureId)?.team2}
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      min="0"
+                      value={fixtureScore2}
+                      onChange={e => setFixtureScore2(e.target.value)}
+                      className="w-full text-center bg-white border border-slate-200 rounded-xl py-2 text-lg font-bold text-slate-800 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                  <button
+                    onClick={() => {
+                      setShowScoreModal(false);
+                      setScoringFixtureId(null);
+                    }}
+                    className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleScoreUpdateSubmit}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-md shadow-emerald-100"
+                  >
+                    Complete & Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

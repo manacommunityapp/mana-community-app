@@ -51,6 +51,7 @@ const MATCH_TYPES: Record<string, string[]> = {
 };
 
 const TABS = [
+  { id: "overview",    label: "Overview",       icon: Trophy },
   { id: "tournaments", label: "My Tournaments", icon: Trophy },
   { id: "community",   label: "My Community",   icon: Building2 },
   { id: "teams",       label: "My Teams",       icon: Users },
@@ -84,7 +85,7 @@ export function MySports() {
     if (location.pathname.endsWith("/register")) {
       return "settings";
     }
-    return "tournaments";
+    return "overview";
   });
   const [activeStatsTab, setActiveStatsTab] = useState<StatsTab>("basketball");
 
@@ -92,7 +93,7 @@ export function MySports() {
     if (location.pathname.endsWith("/register")) {
       setActiveTab("settings");
     } else if (location.pathname.endsWith("/my-sports")) {
-      setActiveTab("tournaments");
+      setActiveTab("overview");
     }
   }, [location.pathname]);
 
@@ -305,6 +306,110 @@ export function MySports() {
               </div>
             ) : (
               <>
+                {/* ════════════ OVERVIEW TAB ════════════ */}
+                {activeTab === "overview" && (
+                  <div className="space-y-5 text-left">
+                    {/* Welcome banner */}
+                    <div
+                      className="rounded-3xl p-6 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
+                      style={{
+                        background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)",
+                      }}
+                    >
+                      <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+                        <Trophy className="w-48 h-48 rotate-12" />
+                      </div>
+                      <div className="max-w-xl relative z-10 space-y-2">
+                        <span className="px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200">
+                          My Profile
+                        </span>
+                        <h2 className="text-xl md:text-2xl font-extrabold tracking-tight">Welcome back, {displayName}!</h2>
+                        <p className="text-xs text-indigo-200 leading-relaxed max-w-md">
+                          Review your upcoming fixtures, tournament standings, active team rosters, and track your achievements.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Upcoming Matches Preview */}
+                    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-indigo-500" />
+                          Upcoming Matches
+                        </h3>
+                        <button onClick={() => setActiveTab("matches")} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">
+                          View All Timeline →
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        {myMatches.length === 0 ? (
+                          <div className="text-center py-6 text-slate-400 text-xs">
+                            No upcoming matches found in your schedule.
+                          </div>
+                        ) : (
+                          myMatches.slice(0, 2).map((m) => (
+                            <div key={m.id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
+                              <div className="text-left space-y-1">
+                                <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                                  {m.sport?.name || "Sport"}
+                                </span>
+                                <h4 className="text-sm font-bold text-slate-800">{m.name}</h4>
+                                <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                                  <MapPin className="w-3.5 h-3.5 text-indigo-500" /> {m.venue?.name || "TBD"}
+                                </p>
+                              </div>
+                              <span className="text-xs font-semibold text-slate-600 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200/60 shadow-sm">
+                                {m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBD"}
+                              </span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Registrations Status Overview */}
+                    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                          <Trophy className="w-4 h-4 text-amber-500" />
+                          My Registrations
+                        </h3>
+                        <button onClick={() => setActiveTab("tournaments")} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">
+                          Manage →
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {registrations.length === 0 ? (
+                          <div className="col-span-2 text-center py-6 text-slate-400 text-xs">
+                            You have not registered for any tournaments.
+                          </div>
+                        ) : (
+                          registrations.slice(0, 2).map((reg) => {
+                            const isConfirmed = reg.status === "CONFIRMED" || reg.status === "REGISTERED";
+                            return (
+                              <div key={reg.id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{reg.event?.sport?.name}</span>
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                                    isConfirmed ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                                    "bg-yellow-50 text-yellow-600 border border-yellow-100"
+                                  }`}>
+                                    {reg.status}
+                                  </span>
+                                </div>
+                                <h4 className="text-xs font-bold text-slate-800 truncate leading-snug">{reg.event?.name}</h4>
+                                <p className="text-[10px] text-slate-500 font-medium">Registered: {reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString() : "TBD"}</p>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* ════════════ MY TOURNAMENTS TAB ════════════ */}
                 {activeTab === "tournaments" && (
                   <div className="space-y-4 text-left">

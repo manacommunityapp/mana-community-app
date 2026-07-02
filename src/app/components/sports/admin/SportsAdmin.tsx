@@ -598,14 +598,7 @@ export function SportsAdmin() {
 
   const [submitting, setSubmitting] = useState(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState<TabId>(() => {
-    const saved = safeStorage.getItem("sports_admin_active_tab");
-    return (saved as TabId) || "sports-event";
-  });
-
-  useEffect(() => {
-    safeStorage.setItem("sports_admin_active_tab", activeTab);
-  }, [activeTab]);
+  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
   const [teamsList, setTeamsList] = useState(initialTeams);
   const [pendingList, setPendingList] = useState(initialPendingRegistrations);
@@ -2397,6 +2390,7 @@ export function SportsAdmin() {
 
   // ─── Sidebar menu items ───────────────────────────────────────────
   const menuItems: { id: TabId; label: string; icon: React.ReactNode }[] = [
+    { id: "dashboard", label: "Overview", icon: <LayoutDashboard className="w-4 h-4" /> },
     { id: "sports-event", label: "Sports Event", icon: <ClipboardList className="w-4 h-4" /> },
     { id: "teams", label: "Teams", icon: <Users className="w-4 h-4" /> },
     { id: "schedule", label: "Schedule", icon: <CalendarIcon className="w-4 h-4" /> },
@@ -2442,6 +2436,219 @@ export function SportsAdmin() {
               <div className="page-sub">Manage community sports events and rules</div>
             </div>
           </div>
+
+        {/* ════════════ OVERVIEW / DASHBOARD TAB ════════════ */}
+        {activeTab === "dashboard" && (
+          <div className="space-y-6 animate-fade-in-up text-left">
+            {/* Hero Welcome Banner */}
+            <div
+              className="rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
+              style={{
+                background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)",
+              }}
+            >
+              <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
+                <ShieldCheck className="w-48 h-48 rotate-12" />
+              </div>
+              <div className="max-w-xl relative z-10 space-y-2">
+                <span className="px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200">
+                  Control Panel
+                </span>
+                <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Admin Command Center</h2>
+                <p className="text-xs md:text-sm text-indigo-200 leading-relaxed max-w-lg">
+                  Configure sports rules, approve pending teams, manage tournament categories, and overview active registrations.
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Metrics */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Tournaments</span>
+                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                    <Trophy className="w-5 h-5" />
+                  </div>
+                </div>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{activeTournaments.length}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Events</span>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Registered Teams</span>
+                  <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                    <Users className="w-5 h-5" />
+                  </div>
+                </div>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{teamsList.length}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Approved</span>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Approval</span>
+                  <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                    <ClipboardList className="w-5 h-5" />
+                  </div>
+                </div>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{pendingList.length}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-700 font-bold animate-pulse">Pending</span>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Venues</span>
+                  <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                </div>
+                <div className="mt-4 flex items-baseline gap-2">
+                  <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{venues.length}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">Locations</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Grid Layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Left Column: Tournaments Quick List & Pending Approvals */}
+              <div className="lg:col-span-2 space-y-6">
+                {/* Pending Approvals Widget */}
+                <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
+                      Pending Registrations
+                    </h3>
+                    <button onClick={() => setActiveTab("teams")} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">
+                      Manage →
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {pendingList.length === 0 ? (
+                      <div className="text-center py-8 text-slate-400 text-xs">
+                        All team registrations have been processed.
+                      </div>
+                    ) : (
+                      pendingList.slice(0, 3).map((reg) => (
+                        <div key={reg.id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
+                          <div className="text-left">
+                            <h4 className="text-sm font-bold text-slate-800">{reg.teamName}</h4>
+                            <p className="text-[11px] text-slate-400 mt-0.5">
+                              Captain: {reg.captain} · Email: {reg.email}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => approveTeam(reg.id)}
+                              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition"
+                            >
+                              Approve
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Quick Navigation Cards */}
+                <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">
+                    Quick Navigation
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div
+                      onClick={() => setActiveTab("sports-event")}
+                      className="p-4 bg-slate-50 hover:bg-indigo-50/30 rounded-xl border border-slate-100 hover:border-indigo-100 transition cursor-pointer text-left space-y-2 group"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all duration-200">
+                        <ClipboardList className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800">Event Rules</h4>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">Configure rule descriptions, caps, and options.</p>
+                    </div>
+
+                    <div
+                      onClick={() => setActiveTab("create-venue")}
+                      className="p-4 bg-slate-50 hover:bg-indigo-50/30 rounded-xl border border-slate-100 hover:border-indigo-100 transition cursor-pointer text-left space-y-2 group"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all duration-200">
+                        <MapPin className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800">Manage Venues</h4>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">Define court locations and booking settings.</p>
+                    </div>
+
+                    <div
+                      onClick={() => setActiveTab("player-category")}
+                      className="p-4 bg-slate-50 hover:bg-indigo-50/30 rounded-xl border border-slate-100 hover:border-indigo-100 transition cursor-pointer text-left space-y-2 group"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all duration-200">
+                        <Users className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-800">Player Categories</h4>
+                      <p className="text-[11px] text-slate-500 leading-relaxed">Set tier limits and register grading boundaries.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Active Tournaments / Sports List */}
+              <div className="space-y-6">
+                <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+                  <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">
+                    Active Tournaments
+                  </h3>
+                  <div className="space-y-3.5">
+                    {activeTournaments.length === 0 ? (
+                      <div className="text-center py-8 text-slate-400 text-xs">
+                        No tournaments created yet.
+                      </div>
+                    ) : (
+                      activeTournaments.slice(0, 4).map((t) => {
+                        const isLive = t.registrationStatus === "LIVE";
+                        const isDone = t.registrationStatus === "COMPLETED";
+                        return (
+                          <div key={t.id} className="text-left space-y-1 pb-3.5 border-b border-slate-100 last:border-b-0 last:pb-0">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-xs font-bold text-slate-800">{t.name}</h4>
+                              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                                isLive ? "bg-red-50 text-red-600 border border-red-100" :
+                                isDone ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                                "bg-slate-50 text-slate-400 border border-slate-100"
+                              }`}>
+                                {t.registrationStatus || "DRAFT"}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 leading-snug">
+                              Sport: {t.sport?.name || "General"} · Max Teams: {t.maxTeams || "N/A"}
+                            </p>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 text-left space-y-2">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Quick Hint</h4>
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    To schedule matches or update match results live, open the dedicated **Sports Schedule** page from the sidebar menu. Settings and sports rules are configurable in this dashboard.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ════════════ SPORTS EVENT / TOURNAMENTS TAB ════════════ */}
         {activeTab === "sports-event" && (
@@ -3242,26 +3449,23 @@ export function SportsAdmin() {
 
         {/* ════════════ SCHEDULE TAB ════════════ */}
         {activeTab === "schedule" && (
-          <div className="rounded-2xl p-5 text-left"
-            style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "0 2px 12px rgba(99,102,241,0.06)" }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold" style={{ color: "#0d0d2b" }}>Schedule Manager</h3>
-              <button className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium text-white cursor-pointer"
-                style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
-                onClick={() => toast.info("Create fixture feature coming soon!")}>
-                <Plus className="h-3.5 w-3.5" />
-                Add Game
-              </button>
+          <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm text-center max-w-xl mx-auto my-8 space-y-5 animate-fade-in-up">
+            <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+              <CalendarIcon className="w-8 h-8" />
             </div>
-            <div className="text-center py-12">
-              <CalendarIcon className="h-12 w-12 mx-auto mb-3" style={{ color: "#9ca3af" }} />
-              <p className="font-medium" style={{ color: "#0d0d2b" }}>Schedule management</p>
-              <p className="text-sm mt-1" style={{ color: "#6b7094" }}>Use the Schedule tab to view all games. Add new fixtures here.</p>
-              <button className="mt-4 px-4 py-2 rounded-xl text-sm font-medium text-white cursor-pointer"
-                style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
-                onClick={() => toast.info("Fixture creation form opened")}>
-                Create Fixture
-              </button>
+            <div>
+              <h3 className="text-lg font-bold text-slate-800">Schedule Management</h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                Match fixtures, live scoring, and scheduling controls have been centralized into the dedicated Sports Schedule panel.
+              </p>
+            </div>
+            <div className="pt-2">
+              <Link
+                to="/sports/schedule"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-100 transition-all duration-150 cursor-pointer"
+              >
+                Open Sports Schedule
+              </Link>
             </div>
           </div>
         )}

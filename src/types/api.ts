@@ -86,6 +86,7 @@ export interface CommunityResponse {
   state?: string;
   area?: string;
   subtype?: string;
+  active?: boolean;
 }
 
 export interface Community extends CommunityResponse { }
