@@ -359,12 +359,12 @@ export function AdminRoleManagement() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
+            <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
               <Shield className="w-7 h-7 text-indigo-600 animate-pulse" />
               {currentView === 'list'
                 ? "Community Users & Roles"
                 : `Edit Role: ${editingRole}`}
-            </h1>
+            </h2>
             <p className="text-slate-500 text-sm mt-0.5">
               {currentView === 'list'
                 ? "Manage users, toggle access status, and configure role-based permissions"

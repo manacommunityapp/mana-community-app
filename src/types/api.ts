@@ -473,6 +473,7 @@ export interface UserResponse {
   flatNo?: string;
   block?: string;
   communityId?: number;
+  roleId?: number;
   isActive?: boolean;
   permissions?: string[];
 }
@@ -714,3 +715,17 @@ export interface ChatConversationEvent {
   lastMessageAt: string;
   senderId: number;
 }
+
+export interface MenuRolePermissionResponse {
+  id: number;
+  roleId: number;
+  roleName: string;
+  menuId: number;
+  menuKey: string;
+  menuLabel: string;
+  canView: boolean;
+  canAdd: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+}
+

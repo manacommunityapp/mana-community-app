@@ -28,16 +28,16 @@ export function FloatingChatBot() {
   }, [isOpen]);
 
   return (
-    <div className="fixed bottom-6 right-24 z-50 font-sans">
+    <div className="fixed bottom-24 right-6 sm:bottom-6 sm:right-24 z-50 font-sans">
       {/* Panel */}
       {isOpen && (
         <div
           ref={panelRef}
-          className={`absolute bottom-16 right-0 ${
+          className={`fixed inset-x-4 bottom-24 top-4 sm:absolute sm:inset-auto sm:bottom-16 sm:right-0 ${
             AI_AGENT_CHATBOT_ENABLED
-              ? "w-[400px] h-[620px] max-h-[80vh]"
-              : "w-[520px] h-[900px] max-h-[85vh]"
-          } max-w-[calc(100vw-2rem)] flex flex-col rounded-2xl border border-slate-200/80 shadow-2xl overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-bottom-5 bg-white`}
+              ? "sm:w-[400px] sm:h-[620px] sm:max-h-[80vh]"
+              : "sm:w-[520px] sm:h-[900px] sm:max-h-[85vh]"
+          } flex flex-col rounded-2xl border border-slate-200/80 shadow-2xl overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-bottom-5 bg-white`}
           style={{
             boxShadow: "0 10px 40px rgba(0,0,0,0.15)",
           }}

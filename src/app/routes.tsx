@@ -27,6 +27,7 @@ import { AssetAuditDashboard } from "./components/community/AssetAuditDashboard"
 import { InvoicesDashboard } from "./components/finance/InvoicesDashboard";
 import { BudgetDashboard } from "./components/finance/BudgetDashboard";
 import { FinancialReports } from "./components/finance/FinancialReports";
+import { LedgerFinance } from "./components/finance/LedgerFinance";
 
 import { AdminCreateUser } from "./components/admin/AdminCreateUser";
 import { AdminBulkUpload } from "./components/admin/AdminBulkUpload";
@@ -232,6 +233,10 @@ export const router = createBrowserRouter([
           {
             path: "reports",
             element: <PermissionGuard permission={VIEW_ADMIN}><FinancialReports /></PermissionGuard>
+          },
+          {
+            path: "ledger",
+            element: <PermissionGuard permission={VIEW_ADMIN}><LedgerFinance /></PermissionGuard>
           }
         ]
       },

@@ -70,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             fullName: me.fullName,
             email: me.email,
             communityId: me.communityId,
+            roleId: me.roleId,
             permissions: me.permissions,
           });
         })
@@ -105,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fullName: me.fullName,
         email: me.email,
         communityId: me.communityId,
+        roleId: me.roleId,
         permissions: me.permissions,
       };
       storeUser(updated);
@@ -139,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fullName: me.fullName,
         email: me.email,
         communityId: me.communityId,
+        roleId: me.roleId,
         permissions: me.permissions,
       };
       storeUser(updated);
