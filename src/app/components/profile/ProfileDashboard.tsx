@@ -33,6 +33,7 @@ import {
   Smartphone,
   Shield,
   Award,
+  PenLine,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { clsx, type ClassValue } from "clsx";
@@ -72,7 +73,6 @@ export function ProfileDashboard() {
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -123,11 +123,11 @@ export function ProfileDashboard() {
   const getRoleConfig = (roleStr?: string) => {
     const r = (roleStr || "MEMBER").toUpperCase();
     if (r === "SUPER_ADMIN" || r === "ADMIN" || r === "COMMUNITY_ADMIN" || r === "SPORTS_ADMIN") {
-      return { label: "Admin", color: "bg-purple-100 text-purple-700 border border-purple-200", icon: ShieldCheck };
+      return { label: "Admin", color: "bg-violet-50 text-violet-700 border border-violet-200", icon: Award };
     } else if (r === "VENDOR") {
-      return { label: "Vendor", color: "bg-blue-100 text-blue-700 border border-blue-200", icon: ShieldCheck };
+      return { label: "Vendor", color: "bg-blue-50 text-blue-700 border border-blue-200", icon: ShieldCheck };
     }
-    return { label: "Verified Member", color: "bg-green-100 text-green-700 border border-green-200", icon: ShieldCheck };
+    return { label: "Verified Member", color: "bg-green-50 text-green-700 border border-green-200", icon: ShieldCheck };
   };
 
   const handleSaveProfile = () => {
@@ -184,24 +184,6 @@ export function ProfileDashboard() {
     });
   };
 
-  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !profile) return;
-
-    // Simulate S3 upload with temporary Unsplash URL for display
-    const placeholderUrl = `https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&q=80`;
-    profileService.updateProfile({
-      coverPicUrl: placeholderUrl,
-    })
-    .then(res => {
-      setProfile(res);
-      toast.success("Cover picture updated!");
-    })
-    .catch(err => {
-      console.error(err);
-      toast.error("Failed to update cover photo.");
-    });
-  };
 
   const handleAddSkill = () => {
     if (!profile || !newSkill.trim()) return;
@@ -278,99 +260,95 @@ export function ProfileDashboard() {
     <div className="space-y-0 -mt-4 sm:-mt-6 lg:-mt-8 -mx-4 sm:-mx-6 lg:-mx-8">
       <Toaster position="top-center" richColors />
 
-      {/* Cover Photo */}
-      <div className="relative h-48 sm:h-64 bg-gradient-to-br from-indigo-500 via-purple-600 to-indigo-700 overflow-hidden">
-        <img
-          src={userCover}
-          alt="Cover"
-          className="w-full h-full object-cover opacity-40"
-        />
-        <button
-          onClick={() => coverInputRef.current?.click()}
-          className="absolute bottom-4 right-4 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"
-        >
-          <Camera className="w-3.5 h-3.5" />
-          Edit Cover
-        </button>
-        <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
-      </div>
+  
 
       {/* Profile Header */}
-      <div className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 pb-0">
+      <div className="bg-white border-b border-slate-200 px-6 sm:px-10 pt-22 pb-0">
         <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-16 sm:-mt-20 pb-5">
+          <div className="flex flex-col md:flex-row gap-6 items-start md:items-end -mt-16 md:-mt-20 pb-5">
             {/* Avatar */}
             <div className="relative flex-shrink-0">
-              <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-2xl border-4 border-white shadow-xl overflow-hidden bg-slate-200">
+              <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-[2rem] overflow-hidden border-4 border-white shadow-2xl ring-4 ring-indigo-100">
                 <img src={userAvatar} alt={profile.fullName} className="w-full h-full object-cover" />
               </div>
+              <div className="absolute top-3 right-3 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow" />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-1 right-1 bg-indigo-600 hover:bg-indigo-700 text-white p-1.5 rounded-lg shadow-md transition-colors"
+                className="absolute -bottom-3 -right-3 bg-[#4f46e5] hover:bg-[#4338ca] text-white p-2.5 rounded-xl shadow-lg transition-all hover:scale-110 active:scale-95"
               >
-                <Camera className="w-3.5 h-3.5" />
+                <Camera className="w-4 h-4" />
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
             </div>
 
             {/* Name & Meta */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">{profile.fullName}</h1>
-                    {profile.kycStatus === "VERIFIED" && (
-                      <span title="KYC Verified">
-                        <CheckCircle2 className="w-6 h-6 text-indigo-600 flex-shrink-0" />
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap mt-1">
-                    <span className={cn("inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold", role.color)}>
-                      <role.icon className="w-3 h-3" />
-                      {role.label}
-                    </span>
-                    <span className="text-slate-400 text-sm">#USR-{profile.userId.toString().padStart(4, "0")}</span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-1.5 text-slate-500 text-sm">
-                    <Building2 className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>{profile.communityName || "No Community"}</span>
-                    <span className="text-slate-300">·</span>
-                    <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>Bangalore, IN</span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      if (activeTab !== "settings") {
-                        setActiveTab("settings");
-                      }
-                      setIsEditing(!isEditing);
-                    }}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
-                  >
-                    <Edit3 className="w-4 h-4" />
-                    {isEditing ? "Cancel Edit" : "Edit Profile"}
-                  </button>
-                </div>
+            <div className="flex-1 pb-2">
+              <div className="flex flex-wrap items-center gap-3 mb-2">
+                <h1 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">{profile.fullName}</h1>
+                {profile.kycStatus === "VERIFIED" && (
+                  <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest">
+                    <ShieldCheck className="w-3.5 h-3.5" /> KYC Verified
+                  </span>
+                )}
+                <span className={cn("inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest", role.color)}>
+                  <role.icon className="w-3.5 h-3.5" /> {role.label}
+                </span>
               </div>
+              <div className="flex flex-wrap gap-3 text-sm text-slate-500">
+                <span className="flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-indigo-400" />
+                  {profile.communityName || "No Community"}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-rose-400" />
+                  Bangalore, India
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4 text-amber-400" />
+                  Member since {profile.joinedAt ? new Date(profile.joinedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "Nov 2025"}
+                </span>
+                <span className="flex items-center gap-1.5 text-xs bg-slate-100 px-2.5 py-1 rounded-lg font-mono">
+                  USR-{profile.userId.toString().padStart(4, "0")}
+                </span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pb-2">
+              <button
+                onClick={() => {
+                  if (activeTab !== "settings") {
+                    setActiveTab("settings");
+                  }
+                  setIsEditing(!isEditing);
+                }}
+                className="flex items-center gap-2 px-6 py-3 bg-[#4f46e5] hover:bg-[#4338ca] text-white font-bold rounded-2xl transition-all shadow-lg shadow-indigo-300/40 hover:-translate-y-0.5"
+              >
+                <PenLine className="w-4 h-4" />
+                {isEditing ? "Cancel Edit" : "Edit Profile"}
+              </button>
+              <button
+                onClick={() => setActiveTab("settings")}
+                className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl transition-all"
+              >
+                <Bell className="w-5 h-5" />
+              </button>
             </div>
           </div>
 
           {/* Stats Bar */}
-          <div className="grid grid-cols-3 sm:grid-cols-6 border-t border-slate-100 -mx-4 sm:-mx-6 lg:-mx-8">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mt-8">
             {[
-              { label: "Posts", value: profile.stats.posts, icon: Users },
-              { label: "Connections", value: profile.stats.connections, icon: Link2 },
-              { label: "Events", value: profile.stats.eventsAttended, icon: Calendar },
-              { label: "Listings", value: profile.stats.itemsSold, icon: Package },
-              { label: "Jobs Posted", value: profile.stats.jobsPosted, icon: Briefcase },
-              { label: "Sports Played", value: profile.stats.sportsPlayed, icon: Trophy },
+              { label: "Posts", value: profile.stats.posts, colorClass: "text-indigo-600", bgClass: "bg-indigo-50 border-indigo-100" },
+              { label: "Network", value: profile.stats.connections, colorClass: "text-violet-600", bgClass: "bg-violet-50 border-violet-100" },
+              { label: "Events", value: profile.stats.eventsAttended, colorClass: "text-rose-600", bgClass: "bg-rose-50 border-rose-100" },
+              { label: "Items", value: profile.stats.itemsSold, colorClass: "text-emerald-600", bgClass: "bg-emerald-50 border-emerald-100" },
+              { label: "Jobs", value: profile.stats.jobsPosted, colorClass: "text-blue-600", bgClass: "bg-blue-50 border-blue-100" },
+              { label: "Sports", value: profile.stats.sportsPlayed, colorClass: "text-amber-600", bgClass: "bg-amber-50 border-amber-100" },
             ].map((stat) => (
-              <div key={stat.label} className="flex flex-col items-center py-3 px-2 hover:bg-slate-50 transition-colors cursor-pointer border-r border-slate-100 last:border-r-0">
-                <span className="text-xl font-bold text-slate-900">{stat.value}</span>
-                <span className="text-xs text-slate-500 mt-0.5">{stat.label}</span>
+              <div key={stat.label} className={cn("rounded-2xl p-4 text-center border", stat.bgClass)}>
+                <div className={cn("text-2xl font-black", stat.colorClass)}>{stat.value}</div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">{stat.label}</div>
               </div>
             ))}
           </div>

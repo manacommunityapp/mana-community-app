@@ -14,7 +14,9 @@ import {
   CheckCircle, 
   Clock, 
   X, 
-  DollarSign 
+  DollarSign,
+  ArrowUpRight,
+  ArrowDownLeft
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 
@@ -361,32 +363,65 @@ export function InventoryManagement() {
   const openPOs = purchaseOrders.filter(o => o.status !== "fulfilled").length;
   const openSOs = salesOrders.filter(o => o.status !== "fulfilled").length;
   const topSeller = [...products].sort((a, b) => b.unitsSold - a.unitsSold)[0];
+  const activities = [
+    ...purchaseOrders.map(o => ({
+      id: o.id,
+      type: "purchase" as const,
+      partyId: o.partyId,
+      date: o.date,
+      status: o.status,
+      items: o.items
+    })),
+    ...salesOrders.map(o => ({
+      id: o.id,
+      type: "sale" as const,
+      partyId: o.partyId,
+      date: o.date,
+      status: o.status,
+      items: o.items
+    }))
+  ];
+  const recentActivities = activities
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime() || b.id.localeCompare(a.id))
+    .slice(0, 6);
 
   return (
-    <div className="min-h-screen text-[#0d0d2b] p-6 font-sans">
+    <div className="flex flex-col gap-4 h-full min-h-0 text-[#0d0d2b] font-sans">
       <Toaster position="top-center" richColors />
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-slate-100 pb-5 bg-white -mx-6 px-6 -mt-6 pt-6">
-        <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-sm border border-indigo-100/50">
-            <Package className="h-6 w-6 text-indigo-600" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-[#0d0d2b]">Inventory Management</h1>
-            <p className="text-[#6b7094] text-xs font-semibold uppercase tracking-wider mt-0.5">Facility &amp; Stock Hub</p>
-          </div>
+      {/* Breadcrumb + page header */}
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
+        {/* Left: Breadcrumbs */}
+        <div className="flex items-center gap-2 text-xs" style={{ color: "#6b7094" }}>
+          <span>Home</span>
+          <span className="text-slate-300">›</span>
+          <span style={{ color: "#4f46e5" }}>Inventory</span>
         </div>
-        <div className="text-right text-xs text-[#6b7094] font-bold bg-slate-50 border border-slate-200/50 px-4 py-2.5 rounded-xl self-start sm:self-auto">
-          {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}
-          <span className="block text-[10px] text-indigo-600 mt-0.5">
-            {lowStock.length > 0 ? `${lowStock.length} items need restock` : "All stock levels healthy"}
-          </span>
+
+        {/* Right: Page Header */}
+        <div className="flex items-center gap-3 sm:text-right sm:justify-end">
+          <div className="text-left sm:text-right">
+            <h2 className="text-xl font-bold leading-tight" style={{ color: "#0d0d2b" }}>Inventory Management</h2>
+            <p className="text-xs" style={{ color: "#6b7094" }}>Facility &amp; Stock Hub</p>
+          </div>
+          <div
+            className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 order-first sm:order-last"
+            style={{ background: "linear-gradient(135deg, #4f46e5, #6366f1)" }}
+          >
+            <Package className="h-4.5 w-4.5 text-white" />
+          </div>
         </div>
       </div>
 
-      {/* Pill Tab Switcher */}
-      <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-2xl w-fit mb-8 overflow-x-auto max-w-full">
+      {/* Sports-style pill nav bar */}
+      <div
+        className="rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto shrink-0"
+        style={{
+          background: "white",
+          border: "1px solid rgba(99, 102, 241, 0.12)",
+          boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+        }}
+      >
         {TABS.map(tab => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -394,44 +429,71 @@ export function InventoryManagement() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap border-none ${
-                isActive 
-                  ? "bg-[#0d0d2b] text-white shadow-sm" 
-                  : "text-[#6b7094] hover:text-[#0d0d2b] bg-transparent"
-              }`}
+              className="flex-shrink-0 border-none bg-transparent p-0"
             >
-              <Icon className="h-4 w-4" />
-              {tab.label}
+              <div
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer"
+                style={
+                  isActive
+                    ? {
+                        background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                        color: "white",
+                        boxShadow: "0 2px 12px rgba(99, 102, 241, 0.35)",
+                      }
+                    : {
+                        color: "rgb(107, 112, 148)",
+                        background: "transparent",
+                      }
+                }
+                onMouseEnter={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "rgba(99, 102, 241, 0.08)";
+                    e.currentTarget.style.color = "#4f46e5";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isActive) {
+                    e.currentTarget.style.background = "transparent";
+                    e.currentTarget.style.color = "rgb(107, 112, 148)";
+                  }
+                }}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                {tab.label}
+              </div>
             </button>
           );
         })}
       </div>
+
+      {/* Page content */}
+      <div className="flex-1 min-h-0 overflow-y-auto hide-scrollbar">
 
       {/* ============================= SUBVIEWS ============================= */}
 
       {/* 1. DASHBOARD VIEW */}
       {activeTab === "dashboard" && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="bg-white border border-[#6366f1]/12 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)] relative overflow-hidden before:content-[''] before:absolute before:top-0 before:left-0 before:bottom-0 before:width-[4px] before:bg-indigo-600">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#6b7094] block mb-2">Units in stock</span>
-              <h3 className="text-2xl font-black">{totalInvUnits.toLocaleString()}</h3>
-              <p className="text-xs text-[#6b7094] mt-2">across {products.length} products</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+            <div className="bg-white border border-[#6366f1]/12 rounded-xl py-1.5 px-3 sm:p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)] relative overflow-hidden before:content-[''] before:absolute before:top-0 before:left-0 before:bottom-0 before:w-[2.5px] sm:before:w-[4px] before:bg-indigo-600 w-full">
+              <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-widest text-[#6b7094] block mb-0.5 leading-none">Units in stock</span>
+              <h2 className="text-base sm:text-2xl font-black leading-none">{totalInvUnits.toLocaleString()}</h2>
+              <p className="text-[9px] sm:text-xs text-[#6b7094] mt-0.5 leading-none truncate">across {products.length} products</p>
             </div>
-            <div className="bg-white border border-[#6366f1]/12 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)] relative overflow-hidden before:content-[''] before:absolute before:top-0 before:left-0 before:bottom-0 before:width-[4px] before:bg-indigo-400">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#6b7094] block mb-2">Inventory value</span>
-              <h3 className="text-2xl font-black">₹{totalInvValue.toFixed(2)}</h3>
-              <p className="text-xs text-[#6b7094] mt-2">at current unit prices</p>
+            <div className="bg-white border border-[#6366f1]/12 rounded-xl py-1.5 px-3 sm:p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)] relative overflow-hidden before:content-[''] before:absolute before:top-0 before:left-0 before:bottom-0 before:w-[2.5px] sm:before:w-[4px] before:bg-indigo-400 w-full">
+              <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-widest text-[#6b7094] block mb-0.5 leading-none">Inventory value</span>
+              <h2 className="text-base sm:text-2xl font-black leading-none">₹{totalInvValue.toFixed(2)}</h2>
+              <p className="text-[9px] sm:text-xs text-[#6b7094] mt-0.5 leading-none truncate">at current unit prices</p>
             </div>
-            <div className={`bg-white border border-[#6366f1]/12 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)] relative overflow-hidden before:content-[''] before:absolute before:top-0 before:left-0 before:bottom-0 before:width-[4px] ${lowStock.length > 0 ? "before:bg-red-500" : "before:bg-emerald-500"}`}>
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#6b7094] block mb-2">Needs Restock</span>
-              <h3 className="text-2xl font-black">{lowStock.length}</h3>
-              <p className="text-xs text-[#6b7094] truncate mt-2">{lowStock.length ? lowStock.map(p => p.name).join(", ") : "nothing right now"}</p>
+            <div className={`bg-white border border-[#6366f1]/12 rounded-xl py-1.5 px-3 sm:p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)] relative overflow-hidden before:content-[''] before:absolute before:top-0 before:left-0 before:bottom-0 before:w-[2.5px] sm:before:w-[4px] ${lowStock.length > 0 ? "before:bg-red-500" : "before:bg-emerald-500"} w-full`}>
+              <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-widest text-[#6b7094] block mb-0.5 leading-none">Needs Restock</span>
+              <h2 className="text-base sm:text-2xl font-black leading-none">{lowStock.length}</h2>
+              <p className="text-[9px] sm:text-xs text-[#6b7094] mt-0.5 leading-none truncate">{lowStock.length ? lowStock.map(p => p.name).join(", ") : "nothing right now"}</p>
             </div>
-            <div className="bg-white border border-[#6366f1]/12 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)] relative overflow-hidden before:content-[''] before:absolute before:top-0 before:left-0 before:bottom-0 before:width-[4px] before:bg-amber-500">
-              <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#6b7094] block mb-2">Open Orders</span>
-              <h3 className="text-2xl font-black">{openPOs + openSOs}</h3>
-              <p className="text-xs text-[#6b7094] mt-2">{openPOs} purchase Â· {openSOs} sales</p>
+            <div className="bg-white border border-[#6366f1]/12 rounded-xl py-1.5 px-3 sm:p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)] relative overflow-hidden before:content-[''] before:absolute before:top-0 before:left-0 before:bottom-0 before:w-[2.5px] sm:before:w-[4px] before:bg-amber-500 w-full">
+              <span className="text-[9px] sm:text-[10px] font-extrabold uppercase tracking-widest text-[#6b7094] block mb-0.5 leading-none">Open Orders</span>
+              <h2 className="text-base sm:text-2xl font-black leading-none">{openPOs + openSOs}</h2>
+              <p className="text-[9px] sm:text-xs text-[#6b7094] mt-0.5 leading-none truncate">{openPOs} purchase · {openSOs} sales</p>
             </div>
           </div>
 
@@ -442,7 +504,8 @@ export function InventoryManagement() {
                 {topSeller && <p className="text-xs text-[#6b7094] mt-0.5">Top mover: {topSeller.emoji} {topSeller.name} â€” {topSeller.unitsSold} units sold</p>}
               </div>
             </div>
-            <div className="overflow-x-auto">
+            {/* Desktop Table View */}
+            <div className="overflow-x-auto hidden md:block">
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50/60 border-b border-slate-100 text-left">
@@ -483,6 +546,143 @@ export function InventoryManagement() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Card List View */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {products.map(p => {
+                const inv = inventoryOf(p);
+                const st = stockState(p);
+                return (
+                  <div key={p.id} className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{p.emoji}</span>
+                      <div>
+                        <span className="font-bold text-sm text-[#0d0d2b] block">{p.name}</span>
+                        <span className="text-[10px] text-[#6b7094] font-semibold">{p.category} · Value: ₹{(inv * p.unitPrice).toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-mono font-bold text-sm block">{inv} units</span>
+                      <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${
+                        st === "in" ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
+                        : st === "low" ? "bg-yellow-50 text-yellow-600 border-yellow-200" 
+                        : "bg-red-50 text-red-600 border-red-200"
+                      }`}>
+                        {st === "in" ? "In" : st === "low" ? "Low" : "Out"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Recent Activity Section */}
+          <div className="bg-white border border-[#6366f1]/12 rounded-2xl shadow-[0_4px_20px_rgba(99,102,241,0.05)] overflow-hidden mt-6">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                <h3 className="font-extrabold text-sm text-[#0d0d2b]">Recent Activity</h3>
+                <p className="text-xs text-[#6b7094] mt-0.5">Latest purchase and sales operations</p>
+              </div>
+            </div>
+
+            {/* Desktop View */}
+            <div className="overflow-x-auto hidden md:block">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-slate-50/60 border-b border-slate-100 text-left">
+                    <th className="px-5 py-3 text-[10px] font-extrabold text-[#6b7094] uppercase tracking-widest">Type</th>
+                    <th className="px-5 py-3 text-[10px] font-extrabold text-[#6b7094] uppercase tracking-widest">Order</th>
+                    <th className="px-5 py-3 text-[10px] font-extrabold text-[#6b7094] uppercase tracking-widest">Party</th>
+                    <th className="px-5 py-3 text-[10px] font-extrabold text-[#6b7094] uppercase tracking-widest">Date</th>
+                    <th className="px-5 py-3 text-[10px] font-extrabold text-[#6b7094] uppercase tracking-widest">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentActivities.map(act => {
+                    const partyName = act.type === "purchase" 
+                      ? getSupplierById(act.partyId)?.name 
+                      : getCustomerById(act.partyId)?.name;
+                    return (
+                      <tr key={act.id} className="border-b border-slate-100 hover:bg-slate-50/40">
+                        <td className="px-5 py-3.5 text-sm font-semibold">
+                          <span className="flex items-center gap-1.5">
+                            {act.type === "sale" ? (
+                              <>
+                                <span className="p-1 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                  <ArrowUpRight className="w-3.5 h-3.5" />
+                                </span>
+                                <span>Sale</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="p-1 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                                  <ArrowDownLeft className="w-3.5 h-3.5" />
+                                </span>
+                                <span>Purchase</span>
+                              </>
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 font-bold font-mono text-sm">#{act.id}</td>
+                        <td className="px-5 py-3.5 text-sm font-medium">{partyName || "—"}</td>
+                        <td className="px-5 py-3.5 text-xs text-[#6b7094] font-semibold">
+                          {new Date(act.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider border ${
+                            act.status === "fulfilled" ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
+                            : act.status === "pending" ? "bg-yellow-50 text-yellow-600 border-yellow-200" 
+                            : "bg-blue-50 text-blue-600 border-blue-200"
+                          }`}>
+                            {act.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile View */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {recentActivities.map(act => {
+                const partyName = act.type === "purchase" 
+                  ? getSupplierById(act.partyId)?.name 
+                  : getCustomerById(act.partyId)?.name;
+                return (
+                  <div key={act.id} className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="p-2 rounded-xl flex items-center justify-center shrink-0">
+                        {act.type === "sale" ? (
+                          <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
+                            <ArrowUpRight className="w-4 h-4" />
+                          </span>
+                        ) : (
+                          <span className="p-1.5 rounded-lg bg-blue-50 text-blue-600">
+                            <ArrowDownLeft className="w-4 h-4" />
+                          </span>
+                        )}
+                      </span>
+                      <div>
+                        <span className="font-bold text-sm text-[#0d0d2b] block">#{act.id} · {act.type === "sale" ? "Sale" : "Purchase"}</span>
+                        <span className="text-[10px] text-[#6b7094] font-semibold">{partyName || "—"} · {act.date}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${
+                        act.status === "fulfilled" ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
+                        : act.status === "pending" ? "bg-yellow-50 text-yellow-600 border-yellow-200" 
+                        : "bg-blue-50 text-blue-600 border-blue-200"
+                      }`}>
+                        {act.status}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
@@ -500,7 +700,8 @@ export function InventoryManagement() {
               Add Product
             </button>
           </div>
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="overflow-x-auto hidden md:block">
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50/60 border-b border-slate-100 text-left">
@@ -557,6 +758,56 @@ export function InventoryManagement() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {products.map(p => {
+              const inv = inventoryOf(p);
+              const st = stockState(p);
+              return (
+                <div key={p.id} className="p-4 flex flex-col gap-3">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">{p.emoji}</span>
+                      <div>
+                        <span className="font-bold text-sm text-[#0d0d2b] block">{p.name}</span>
+                        <span className="text-[10px] text-[#6b7094] font-semibold">#{p.id} · {p.category}</span>
+                      </div>
+                    </div>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${
+                      st === "in" ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
+                      : st === "low" ? "bg-yellow-50 text-yellow-600 border-yellow-200" 
+                      : "bg-red-50 text-red-600 border-red-200"
+                    }`}>
+                      {st === "in" ? "In Stock" : st === "low" ? "Low Stock" : "Out"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl text-center text-xs">
+                    <div>
+                      <span className="text-[9px] uppercase tracking-wider text-[#6b7094] block font-bold">Price</span>
+                      <span className="font-mono font-bold text-[#0d0d2b]">₹{p.unitPrice.toFixed(2)}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] uppercase tracking-wider text-[#6b7094] block font-bold">On Hand</span>
+                      <span className="font-mono font-bold text-[#0d0d2b]">{inv}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] uppercase tracking-wider text-[#6b7094] block font-bold">Sold</span>
+                      <span className="font-mono text-[#6b7094]">{p.unitsSold}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button onClick={() => openProductModal(p.id)} className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/60 hover:bg-slate-100 text-[#0d0d2b] text-xs font-bold transition-all cursor-pointer flex items-center gap-1">
+                      <Edit3 className="w-3 h-3" /> Edit
+                    </button>
+                    <button onClick={() => deleteProduct(p.id)} className="px-3 py-1.5 rounded-lg bg-red-50 border border-red-200/60 hover:bg-red-100 text-red-600 text-xs font-bold transition-all cursor-pointer flex items-center gap-1">
+                      <Trash2 className="w-3 h-3" /> Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -573,7 +824,8 @@ export function InventoryManagement() {
               Add Supplier
             </button>
           </div>
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="overflow-x-auto hidden md:block">
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50/60 border-b border-slate-100 text-left">
@@ -614,6 +866,38 @@ export function InventoryManagement() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {suppliers.map(s => {
+              const openCount = purchaseOrders.filter(o => o.partyId === s.id && o.status !== "fulfilled").length;
+              return (
+                <div key={s.id} className="p-4 flex flex-col gap-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-bold text-sm text-[#0d0d2b] block">{s.name}</span>
+                      <span className="text-[10px] font-mono text-[#6b7094] font-semibold">#{s.id} · Contact: {s.contact}</span>
+                    </div>
+                    <span className="bg-indigo-50 text-indigo-600 border border-indigo-100/50 px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider">
+                      {openCount} Open POs
+                    </span>
+                  </div>
+                  <div className="text-xs text-[#6b7094] space-y-1 bg-slate-50 p-2.5 rounded-xl">
+                    <p><span className="font-bold text-[#0d0d2b]/60">Phone:</span> <span className="font-mono text-[#0d0d2b]">{s.phone}</span></p>
+                    <p><span className="font-bold text-[#0d0d2b]/60">Email:</span> <span className="text-[#0d0d2b]">{s.email}</span></p>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button onClick={() => openSupplierModal(s.id)} className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/60 text-[#0d0d2b] text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                      <Edit3 className="w-3 h-3" /> Edit
+                    </button>
+                    <button onClick={() => deleteSupplier(s.id)} className="px-3 py-1.5 rounded-lg bg-red-50 border border-red-200/60 text-red-600 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                      <Trash2 className="w-3 h-3" /> Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -630,7 +914,8 @@ export function InventoryManagement() {
               Add Customer
             </button>
           </div>
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="overflow-x-auto hidden md:block">
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50/60 border-b border-slate-100 text-left">
@@ -669,6 +954,38 @@ export function InventoryManagement() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {customers.map(c => {
+              const openCount = salesOrders.filter(o => o.partyId === c.id && o.status !== "fulfilled").length;
+              return (
+                <div key={c.id} className="p-4 flex flex-col gap-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-bold text-sm text-[#0d0d2b] block">{c.name}</span>
+                      <span className="text-[10px] font-mono text-[#6b7094] font-semibold">#{c.id}</span>
+                    </div>
+                    <span className="bg-indigo-50 text-indigo-600 border border-indigo-100/50 px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase tracking-wider">
+                      {openCount} Open Sales
+                    </span>
+                  </div>
+                  <div className="text-xs text-[#6b7094] space-y-1 bg-slate-50 p-2.5 rounded-xl">
+                    <p><span className="font-bold text-[#0d0d2b]/60">Phone:</span> <span className="font-mono text-[#0d0d2b]">{c.phone}</span></p>
+                    <p><span className="font-bold text-[#0d0d2b]/60">Email:</span> <span className="text-[#0d0d2b]">{c.email}</span></p>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button onClick={() => openCustomerModal(c.id)} className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/60 text-[#0d0d2b] text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                      <Edit3 className="w-3.5 h-3.5" /> Edit
+                    </button>
+                    <button onClick={() => deleteCustomer(c.id)} className="px-3 py-1.5 rounded-lg bg-red-50 border border-red-200/60 text-red-600 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -685,7 +1002,8 @@ export function InventoryManagement() {
               New Purchase Order
             </button>
           </div>
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="overflow-x-auto hidden md:block">
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50/60 border-b border-slate-100 text-left">
@@ -704,7 +1022,7 @@ export function InventoryManagement() {
                   return (
                     <tr key={o.id} className="border-b border-slate-100 hover:bg-slate-50/40">
                       <td className="px-5 py-3.5 font-bold font-mono text-sm">#{o.id}</td>
-                      <td className="px-5 py-3.5 text-sm font-semibold">{sup ? sup.name : "â€”"}</td>
+                      <td className="px-5 py-3.5 text-sm font-semibold">{sup ? sup.name : "—"}</td>
                       <td className="px-5 py-3.5 text-xs text-[#6b7094] font-semibold">{o.date}</td>
                       <td className="px-5 py-3.5 text-xs text-[#6b7094] max-w-[280px] truncate">{itemsSummary(o.items)}</td>
                       <td className="px-5 py-3.5 text-sm font-mono font-bold text-indigo-600">₹{orderTotal(o).toFixed(2)}</td>
@@ -733,6 +1051,43 @@ export function InventoryManagement() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {purchaseOrders.map(o => {
+              const sup = getSupplierById(o.partyId);
+              return (
+                <div key={o.id} className="p-4 flex flex-col gap-2.5">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-mono font-bold text-sm text-[#0d0d2b] block">#{o.id}</span>
+                      <span className="text-[10px] text-[#6b7094] font-semibold">{o.date}</span>
+                    </div>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${
+                      o.status === "fulfilled" ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
+                      : o.status === "pending" ? "bg-yellow-50 text-yellow-600 border-yellow-200" 
+                      : "bg-blue-50 text-blue-600 border-blue-200"
+                    }`}>
+                      {o.status}
+                    </span>
+                  </div>
+                  <div className="text-xs text-[#0d0d2b] bg-slate-50 p-2.5 rounded-xl space-y-1">
+                    <p><span className="font-bold text-[#6b7094]">Supplier:</span> {sup ? sup.name : "—"}</p>
+                    <p className="truncate"><span className="font-bold text-[#6b7094]">Items:</span> {itemsSummary(o.items)}</p>
+                    <p><span className="font-bold text-[#6b7094]">Total:</span> <span className="font-mono font-bold text-indigo-600">₹{orderTotal(o).toFixed(2)}</span></p>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button onClick={() => openOrderModal("purchase", o.id)} className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/60 text-[#0d0d2b] text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                      <Edit3 className="w-3 h-3" /> Edit
+                    </button>
+                    <button onClick={() => deleteOrder("purchase", o.id)} className="px-3 py-1.5 rounded-lg bg-red-50 border border-red-200/60 text-red-600 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -749,7 +1104,8 @@ export function InventoryManagement() {
               New Sales Order
             </button>
           </div>
-          <div className="overflow-x-auto">
+          {/* Desktop Table View */}
+          <div className="overflow-x-auto hidden md:block">
             <table className="w-full">
               <thead>
                 <tr className="bg-slate-50/60 border-b border-slate-100 text-left">
@@ -768,7 +1124,7 @@ export function InventoryManagement() {
                   return (
                     <tr key={o.id} className="border-b border-slate-100 hover:bg-slate-50/40">
                       <td className="px-5 py-3.5 font-bold font-mono text-sm">#{o.id}</td>
-                      <td className="px-5 py-3.5 text-sm font-semibold">{cust ? cust.name : "â€”"}</td>
+                      <td className="px-5 py-3.5 text-sm font-semibold">{cust ? cust.name : "—"}</td>
                       <td className="px-5 py-3.5 text-xs text-[#6b7094] font-semibold">{o.date}</td>
                       <td className="px-5 py-3.5 text-xs text-[#6b7094] max-w-[280px] truncate">{itemsSummary(o.items)}</td>
                       <td className="px-5 py-3.5 text-sm font-mono font-bold text-indigo-600">₹{orderTotal(o).toFixed(2)}</td>
@@ -797,6 +1153,43 @@ export function InventoryManagement() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Card List View */}
+          <div className="md:hidden divide-y divide-slate-100">
+            {salesOrders.map(o => {
+              const cust = getCustomerById(o.partyId);
+              return (
+                <div key={o.id} className="p-4 flex flex-col gap-2.5">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-mono font-bold text-sm text-[#0d0d2b] block">#{o.id}</span>
+                      <span className="text-[10px] text-[#6b7094] font-semibold">{o.date}</span>
+                    </div>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider border ${
+                      o.status === "fulfilled" ? "bg-emerald-50 text-emerald-600 border-emerald-200" 
+                      : o.status === "pending" ? "bg-yellow-50 text-yellow-600 border-yellow-200" 
+                      : "bg-blue-50 text-blue-600 border-blue-200"
+                    }`}>
+                      {o.status}
+                    </span>
+                  </div>
+                  <div className="text-xs text-[#0d0d2b] bg-slate-50 p-2.5 rounded-xl space-y-1">
+                    <p><span className="font-bold text-[#6b7094]">Customer:</span> {cust ? cust.name : "—"}</p>
+                    <p className="truncate"><span className="font-bold text-[#6b7094]">Items:</span> {itemsSummary(o.items)}</p>
+                    <p><span className="font-bold text-[#6b7094]">Total:</span> <span className="font-mono font-bold text-indigo-600">₹{orderTotal(o).toFixed(2)}</span></p>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button onClick={() => openOrderModal("sales", o.id)} className="px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200/60 text-[#0d0d2b] text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                      <Edit3 className="w-3 h-3" /> Edit
+                    </button>
+                    <button onClick={() => deleteOrder("sales", o.id)} className="px-3 py-1.5 rounded-lg bg-red-50 border border-red-200/60 text-red-600 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer">
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 
@@ -804,8 +1197,8 @@ export function InventoryManagement() {
 
       {/* Product Form Modal */}
       {modalType === "product" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setModalType(null)}>
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm" onClick={() => setModalType(null)}>
+          <div className="bg-white border border-slate-200 rounded-t-2xl rounded-b-none sm:rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 absolute bottom-0 sm:relative sm:bottom-auto max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center pb-2 border-b border-slate-200">
               <h3 className="font-extrabold text-base text-[#0d0d2b]">{editingId ? "Edit Product" : "Add Product"}</h3>
               <button onClick={() => setModalType(null)} className="text-[#6b7094] hover:text-[#0d0d2b] bg-transparent border-none text-lg">âœ•</button>
@@ -856,8 +1249,8 @@ export function InventoryManagement() {
 
       {/* Supplier Form Modal */}
       {modalType === "supplier" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setModalType(null)}>
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm" onClick={() => setModalType(null)}>
+          <div className="bg-white border border-slate-200 rounded-t-2xl rounded-b-none sm:rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 absolute bottom-0 sm:relative sm:bottom-auto max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center pb-2 border-b border-slate-200">
               <h3 className="font-extrabold text-base text-[#0d0d2b]">{editingId ? "Edit Supplier" : "Add Supplier"}</h3>
               <button onClick={() => setModalType(null)} className="text-[#6b7094] hover:text-[#0d0d2b] bg-transparent border-none text-lg">âœ•</button>
@@ -892,8 +1285,8 @@ export function InventoryManagement() {
 
       {/* Customer Form Modal */}
       {modalType === "customer" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setModalType(null)}>
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm" onClick={() => setModalType(null)}>
+          <div className="bg-white border border-slate-200 rounded-t-2xl rounded-b-none sm:rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 absolute bottom-0 sm:relative sm:bottom-auto max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center pb-2 border-b border-slate-200">
               <h3 className="font-extrabold text-base text-[#0d0d2b]">{editingId ? "Edit Customer" : "Add Customer"}</h3>
               <button onClick={() => setModalType(null)} className="text-[#6b7094] hover:text-[#0d0d2b] bg-transparent border-none text-lg">âœ•</button>
@@ -924,8 +1317,8 @@ export function InventoryManagement() {
 
       {/* Order Form Modal (PO & SO) */}
       {modalType === "order" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setModalType(null)}>
-          <div className="bg-white border border-slate-200 rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm" onClick={() => setModalType(null)}>
+          <div className="bg-white border border-slate-200 rounded-t-2xl rounded-b-none sm:rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4 absolute bottom-0 sm:relative sm:bottom-auto max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center pb-2 border-b border-slate-200">
               <h3 className="font-extrabold text-base text-[#0d0d2b]">{editingId ? `Edit ${orderKind} order #${editingId}` : `New ${orderKind} order`}</h3>
               <button onClick={() => setModalType(null)} className="text-[#6b7094] hover:text-[#0d0d2b] bg-transparent border-none text-lg">âœ•</button>
@@ -1037,6 +1430,7 @@ export function InventoryManagement() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -22,6 +22,7 @@ import {
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
 import { billingService, type BillingExpense, type BillingInvoice } from "../../../services/billingService";
+import { cn } from "../ui/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,7 @@ export function ExpensesDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<"expenses" | "invoices">("expenses");
+  const [subTab, setSubTab] = useState<"dashboard" | "business-expenses" | "stock-purchases" | "purchase-orders" | "vendor-payments" | "debit-notes" | "vendors">("dashboard");
   const [expenses, setExpenses] = useState<BillingExpense[]>([]);
   const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -207,48 +209,127 @@ export function ExpensesDashboard() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <span className="text-xs text-indigo-600 font-bold uppercase tracking-wider">Finance Management</span>
-          <h1 className="text-2xl font-black text-[#0d0d2b] flex items-center gap-2 mt-0.5">
+          <h2 className="text-2xl font-black text-[#0d0d2b] flex items-center gap-2 mt-0.5">
             <Receipt className="w-7 h-7 text-indigo-600" />
-            Expense & Invoice Dashboard
-          </h1>
+            Expense Dashboard
+          </h2>
           <p className="text-[#6b7094] text-sm mt-1">Track community expenses and manage resident invoices</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowExpenseForm(true)}
-            className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:opacity-95 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 shadow-md shadow-indigo-500/20 cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            Log Expense
-          </button>
-          <button className="px-4 py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-[#374151] text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer">
-            <Download className="w-4 h-4" />
-            Export
-          </button>
+           
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit mb-6">
-        <button
-          onClick={() => { setActiveTab("expenses"); setFilterStatus("all"); setSearchQuery(""); }}
-          className={`px-5 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === "expenses" ? "bg-white text-[#0d0d2b] shadow-sm" : "text-[#6b7094] hover:text-[#0d0d2b]"
-          }`}
-        >
-          <Receipt className="w-4 h-4" />
-          Expenses
-        </button>
-        <button
-          onClick={() => { setActiveTab("invoices"); setFilterStatus("all"); setSearchQuery(""); }}
-          className={`px-5 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
-            activeTab === "invoices" ? "bg-white text-[#0d0d2b] shadow-sm" : "text-[#6b7094] hover:text-[#0d0d2b]"
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          Invoices
-        </button>
-      </div>
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Left Side Submenu / Sidebar */}
+        <aside className="w-full lg:w-60 shrink-0">
+          <div className="bg-white border border-[#6366f1]/12 rounded-2xl p-4 shadow-[0_4px_20px_rgba(99,102,241,0.05)] space-y-1">
+            <div className="px-3 mb-2.5">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#6b7094]/65">
+                Expenses Menu
+              </span>
+            </div>
+            
+            <button
+              onClick={() => { setActiveTab("expenses"); setSubTab("dashboard"); }}
+              className={cn(
+                "w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer text-left border",
+                activeTab === "expenses" && subTab === "dashboard"
+                  ? "text-[#6366f1] bg-[#6366f1]/8 border-[#6366f1]/12 shadow-xs"
+                  : "text-[#6b7094] hover:text-[#0d0d2b] hover:bg-slate-50 border-transparent"
+              )}
+            >
+              <Receipt className="w-4 h-4 mr-2.5" />
+              Expenses Dashboard
+            </button>
+
+            <div className="h-px bg-slate-100 my-2" />
+
+            <button
+              onClick={() => { setActiveTab("expenses"); setSubTab("business-expenses"); }}
+              className={cn(
+                "w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer text-left border",
+                activeTab === "expenses" && subTab === "business-expenses"
+                  ? "text-[#6366f1] bg-[#6366f1]/8 border-[#6366f1]/12 shadow-xs"
+                  : "text-[#6b7094] hover:text-[#0d0d2b] hover:bg-slate-50 border-transparent"
+              )}
+            >
+              <CreditCard className="w-4 h-4 mr-2.5" />
+              Business Expenses
+            </button>
+
+            <button
+              onClick={() => { setActiveTab("expenses"); setSubTab("stock-purchases"); }}
+              className={cn(
+                "w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer text-left border",
+                activeTab === "expenses" && subTab === "stock-purchases"
+                  ? "text-[#6366f1] bg-[#6366f1]/8 border-[#6366f1]/12 shadow-xs"
+                  : "text-[#6b7094] hover:text-[#0d0d2b] hover:bg-slate-50 border-transparent"
+              )}
+            >
+              <Plus className="w-4 h-4 mr-2.5" />
+              Stock Purchases
+            </button>
+
+            <button
+              onClick={() => { setActiveTab("expenses"); setSubTab("purchase-orders"); }}
+              className={cn(
+                "w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer text-left border",
+                activeTab === "expenses" && subTab === "purchase-orders"
+                  ? "text-[#6366f1] bg-[#6366f1]/8 border-[#6366f1]/12 shadow-xs"
+                  : "text-[#6b7094] hover:text-[#0d0d2b] hover:bg-slate-50 border-transparent"
+              )}
+            >
+              <FileText className="w-4 h-4 mr-2.5" />
+              Purchase Orders
+            </button>
+
+            <button
+              onClick={() => { setActiveTab("expenses"); setSubTab("vendor-payments"); }}
+              className={cn(
+                "w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer text-left border",
+                activeTab === "expenses" && subTab === "vendor-payments"
+                  ? "text-[#6366f1] bg-[#6366f1]/8 border-[#6366f1]/12 shadow-xs"
+                  : "text-[#6b7094] hover:text-[#0d0d2b] hover:bg-slate-50 border-transparent"
+              )}
+            >
+              <IndianRupee className="w-4 h-4 mr-2.5" />
+              Vendor Payments
+            </button>
+
+            <button
+              onClick={() => { setActiveTab("expenses"); setSubTab("debit-notes"); }}
+              className={cn(
+                "w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer text-left border",
+                activeTab === "expenses" && subTab === "debit-notes"
+                  ? "text-[#6366f1] bg-[#6366f1]/8 border-[#6366f1]/12 shadow-xs"
+                  : "text-[#6b7094] hover:text-[#0d0d2b] hover:bg-slate-50 border-transparent"
+              )}
+            >
+              <FileText className="w-4 h-4 mr-2.5" />
+              Debit Notes
+            </button>
+
+            <button
+              onClick={() => { setActiveTab("expenses"); setSubTab("vendors"); }}
+              className={cn(
+                "w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer text-left border",
+                activeTab === "expenses" && subTab === "vendors"
+                  ? "text-[#6366f1] bg-[#6366f1]/8 border-[#6366f1]/12 shadow-xs"
+                  : "text-[#6b7094] hover:text-[#0d0d2b] hover:bg-slate-50 border-transparent"
+              )}
+            >
+              <TrendingUp className="w-4 h-4 mr-2.5" />
+              Vendors
+            </button>
+          </div>
+        </aside>
+
+        {/* Right Side Content Area */}
+        <div className="flex-1 min-w-0">
+          {subTab === "dashboard" ? (
+            <>
+              
 
       {/* Stats */}
       {loading ? (
@@ -527,6 +608,397 @@ export function ExpensesDashboard() {
           </div>
         </div>
       )}
+            </>
+          ) : subTab === "business-expenses" ? (
+            <div className="space-y-6">
+              {/* Business Expenses Dashboard */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div className="bg-white border border-[#6366f1]/12 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-[#6b7094] uppercase tracking-wider block mb-2">Total Business Expenses</span>
+                  <div className="text-2xl font-black text-[#0d0d2b]">INR 48,500.00</div>
+                  <p className="text-xs text-[#6b7094] mt-1">5 active logs</p>
+                </div>
+                <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider block mb-2">Paid amount</span>
+                  <div className="text-2xl font-black text-emerald-600">INR 40,700.00</div>
+                  <p className="text-xs text-[#6b7094] mt-1">4 transactions</p>
+                </div>
+                <div className="bg-white border border-yellow-200 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-yellow-600 uppercase tracking-wider block mb-2">Outstanding</span>
+                  <div className="text-2xl font-black text-yellow-600">INR 7,800.00</div>
+                  <p className="text-xs text-[#6b7094] mt-1">1 pending payment</p>
+                </div>
+              </div>
+
+              <div className="bg-white border border-[#6366f1]/12 rounded-2xl overflow-hidden shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                <div className="px-6 py-4.5 border-b border-slate-100 flex justify-between items-center">
+                  <h3 className="text-sm font-black text-[#0d0d2b]">Business Expense Ledger</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-[#6b7094] uppercase tracking-wider">
+                        <th className="px-6 py-4.5">Expense Details</th>
+                        <th className="px-6 py-4.5">Vendor</th>
+                        <th className="px-6 py-4.5">Category</th>
+                        <th className="px-6 py-4.5 text-right">Amount</th>
+                        <th className="px-6 py-4.5">Date</th>
+                        <th className="px-6 py-4.5">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {[
+                        { title: "Monthly Server Cloud Hosting", vendor: "AWS Cloud", category: "IT & Software", amount: 18200, date: "2026-06-25", status: "Paid" },
+                        { title: "Security Guards Uniforms", vendor: "Standard Uniforms", category: "Operations", amount: 15800, date: "2026-06-20", status: "Paid" },
+                        { title: "Plumbing Equipment Repair Tools", vendor: "Hardware Depot", category: "Maintenance", amount: 7800, date: "2026-06-10", status: "Pending" },
+                        { title: "Office Stationery & Printer Ink", vendor: "Amazon Business", category: "Office Supplies", amount: 4500, date: "2026-06-28", status: "Paid" },
+                        { title: "Community Hall Tea & Refreshments", vendor: "Local Chai Vendor", category: "Refreshments", amount: 2200, date: "2026-06-15", status: "Paid" },
+                      ].map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="px-6 py-4 font-bold text-[#0d0d2b]">{item.title}</td>
+                          <td className="px-6 py-4 text-[#374151]">{item.vendor}</td>
+                          <td className="px-6 py-4 text-xs text-[#6b7094]">{item.category}</td>
+                          <td className="px-6 py-4 text-right font-bold text-[#0d0d2b]">{formatCurrency(item.amount)}</td>
+                          <td className="px-6 py-4 text-xs text-[#6b7094]">{item.date}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-0.5 text-[10px] font-bold border uppercase tracking-wider rounded-full ${
+                              item.status === "Paid" ? "bg-emerald-50 border-emerald-200 text-emerald-600" : "bg-yellow-50 border-yellow-200 text-yellow-600"
+                            }`}>
+                              {item.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : subTab === "stock-purchases" ? (
+            <div className="space-y-6">
+              {/* Stock Purchases Dashboard */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div className="bg-white border border-[#6366f1]/12 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-[#6b7094] uppercase tracking-wider block mb-2">Total Stock Value</span>
+                  <div className="text-2xl font-black text-[#0d0d2b]">INR 85,200.00</div>
+                  <p className="text-xs text-[#6b7094] mt-1">162 received items</p>
+                </div>
+                <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider block mb-2">Delivered Orders</span>
+                  <div className="text-2xl font-black text-emerald-600">4 orders</div>
+                  <p className="text-xs text-[#6b7094] mt-1">Fully checked & stocked</p>
+                </div>
+                <div className="bg-white border border-yellow-200 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-yellow-600 uppercase tracking-wider block mb-2">Pending Delivery</span>
+                  <div className="text-2xl font-black text-yellow-600">1 order</div>
+                  <p className="text-xs text-[#6b7094] mt-1">Estimated delivery: 2 days</p>
+                </div>
+              </div>
+
+              <div className="bg-white border border-[#6366f1]/12 rounded-2xl overflow-hidden shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                <div className="px-6 py-4.5 border-b border-slate-100 flex justify-between items-center">
+                  <h3 className="text-sm font-black text-[#0d0d2b]">Stock Purchase History</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-[#6b7094] uppercase tracking-wider">
+                        <th className="px-6 py-4.5">Item Purchased</th>
+                        <th className="px-6 py-4.5">Vendor</th>
+                        <th className="px-6 py-4.5">Quantity</th>
+                        <th className="px-6 py-4.5 text-right">Total Cost</th>
+                        <th className="px-6 py-4.5">Purchase Date</th>
+                        <th className="px-6 py-4.5">Delivery Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {[
+                        { title: "High-Speed CCTV Dome Cameras", vendor: "SafeVision Security", qty: "8 units", amount: 32000, date: "2026-06-24", status: "Delivered" },
+                        { title: "Swimming Pool Chlorine Drums", vendor: "AquaChem Ind.", qty: "5 drums", amount: 16500, date: "2026-06-12", status: "Delivered" },
+                        { title: "Backup Diesel Generator Spares", vendor: "PowerSpares Ltd.", qty: "2 units", amount: 15800, date: "2026-06-08", status: "Pending" },
+                        { title: "LED Tubelights & Bulbs", vendor: "Electrical World", qty: "50 units", amount: 12500, date: "2026-06-28", status: "Delivered" },
+                        { title: "Garden Fertilizer & Grass Seeds", vendor: "GreenLife Nursery", qty: "20 bags", amount: 8400, date: "2026-06-18", status: "Delivered" },
+                      ].map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="px-6 py-4 font-bold text-[#0d0d2b]">{item.title}</td>
+                          <td className="px-6 py-4 text-[#374151]">{item.vendor}</td>
+                          <td className="px-6 py-4 text-xs text-[#6b7094]">{item.qty}</td>
+                          <td className="px-6 py-4 text-right font-bold text-[#0d0d2b]">{formatCurrency(item.amount)}</td>
+                          <td className="px-6 py-4 text-xs text-[#6b7094]">{item.date}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-0.5 text-[10px] font-bold border uppercase tracking-wider rounded-full ${
+                              item.status === "Delivered" ? "bg-emerald-50 border-emerald-200 text-emerald-600" : "bg-yellow-50 border-yellow-200 text-yellow-600"
+                            }`}>
+                              {item.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : subTab === "purchase-orders" ? (
+            <div className="space-y-6">
+              {/* Purchase Orders Dashboard */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div className="bg-white border border-[#6366f1]/12 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-[#6b7094] uppercase tracking-wider block mb-2">Total PO Amount</span>
+                  <div className="text-2xl font-black text-[#0d0d2b]">INR 1,24,000.00</div>
+                  <p className="text-xs text-[#6b7094] mt-1">5 purchase orders raised</p>
+                </div>
+                <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider block mb-2">Approved & Closed</span>
+                  <div className="text-2xl font-black text-emerald-600">4 POs</div>
+                  <p className="text-xs text-[#6b7094] mt-1">Contracts executed</p>
+                </div>
+                <div className="bg-white border border-yellow-200 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-yellow-600 uppercase tracking-wider block mb-2">Pending Approval</span>
+                  <div className="text-2xl font-black text-yellow-600">1 PO</div>
+                  <p className="text-xs text-[#6b7094] mt-1">Awaiting management signoff</p>
+                </div>
+              </div>
+
+              <div className="bg-white border border-[#6366f1]/12 rounded-2xl overflow-hidden shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                <div className="px-6 py-4.5 border-b border-slate-100 flex justify-between items-center">
+                  <h3 className="text-sm font-black text-[#0d0d2b]">Purchase Orders Registry</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-[#6b7094] uppercase tracking-wider">
+                        <th className="px-6 py-4.5">PO Number</th>
+                        <th className="px-6 py-4.5">Vendor Name</th>
+                        <th className="px-6 py-4.5">Raised By</th>
+                        <th className="px-6 py-4.5 text-right">Amount</th>
+                        <th className="px-6 py-4.5">Date</th>
+                        <th className="px-6 py-4.5">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {[
+                        { po: "PO-2026-0045", vendor: "Apex Construction", raisedBy: "Maintenance Admin", amount: 45000, date: "2026-06-29", status: "Pending" },
+                        { po: "PO-2026-0044", vendor: "Elite Elevators", raisedBy: "Facilities Manager", amount: 35000, date: "2026-06-26", status: "Approved" },
+                        { po: "PO-2026-0043", vendor: "Super Cleaners", raisedBy: "Sanitation Lead", amount: 12800, date: "2026-06-20", status: "Closed" },
+                        { po: "PO-2026-0042", vendor: "SecureLink Systems", raisedBy: "IT Coordinator", amount: 18200, date: "2026-06-15", status: "Closed" },
+                        { po: "PO-2026-0041", vendor: "Greenery Landscapes", raisedBy: "Garden Committee", amount: 13000, date: "2026-06-10", status: "Closed" },
+                      ].map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="px-6 py-4 font-mono font-bold text-[#0d0d2b]">{item.po}</td>
+                          <td className="px-6 py-4 text-[#374151]">{item.vendor}</td>
+                          <td className="px-6 py-4 text-xs text-[#6b7094]">{item.raisedBy}</td>
+                          <td className="px-6 py-4 text-right font-bold text-[#0d0d2b]">{formatCurrency(item.amount)}</td>
+                          <td className="px-6 py-4 text-xs text-[#6b7094]">{item.date}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-0.5 text-[10px] font-bold border uppercase tracking-wider rounded-full ${
+                              item.status === "Closed" ? "bg-slate-100 border-slate-200 text-slate-600" :
+                              item.status === "Approved" ? "bg-emerald-50 border-emerald-200 text-emerald-600" :
+                              "bg-yellow-50 border-yellow-200 text-yellow-600"
+                            }`}>
+                              {item.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : subTab === "vendor-payments" ? (
+            <div className="space-y-6">
+              {/* Vendor Payments Dashboard */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div className="bg-white border border-[#6366f1]/12 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-[#6b7094] uppercase tracking-wider block mb-2">Total Disbursed</span>
+                  <div className="text-2xl font-black text-[#0d0d2b]">INR 1,92,000.00</div>
+                  <p className="text-xs text-[#6b7094] mt-1">4 processed vendor payouts</p>
+                </div>
+                <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider block mb-2">Completed Payments</span>
+                  <div className="text-2xl font-black text-emerald-600">4 payments</div>
+                  <p className="text-xs text-[#6b7094] mt-1">Settled to bank accounts</p>
+                </div>
+                <div className="bg-white border border-yellow-200 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-yellow-600 uppercase tracking-wider block mb-2">In Flight</span>
+                  <div className="text-2xl font-black text-yellow-600">INR 24,000.00</div>
+                  <p className="text-xs text-[#6b7094] mt-1">1 UPI transaction processing</p>
+                </div>
+              </div>
+
+              <div className="bg-white border border-[#6366f1]/12 rounded-2xl overflow-hidden shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                <div className="px-6 py-4.5 border-b border-slate-100 flex justify-between items-center">
+                  <h3 className="text-sm font-black text-[#0d0d2b]">Vendor Payout Ledger</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-[#6b7094] uppercase tracking-wider">
+                        <th className="px-6 py-4.5">Reference #</th>
+                        <th className="px-6 py-4.5">Vendor Name</th>
+                        <th className="px-6 py-4.5">Payment Mode</th>
+                        <th className="px-6 py-4.5 text-right">Paid Amount</th>
+                        <th className="px-6 py-4.5">Date</th>
+                        <th className="px-6 py-4.5">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {[
+                        { ref: "TXN-9028481", vendor: "SafeVision Security", mode: "Bank Transfer", amount: 32000, date: "2026-06-28", status: "Success" },
+                        { ref: "TXN-9028452", vendor: "AWS Cloud", mode: "Credit Card", amount: 18200, date: "2026-06-26", status: "Success" },
+                        { ref: "TXN-9028410", vendor: "Standard Uniforms", mode: "UPI", amount: 15800, date: "2026-06-22", status: "Success" },
+                        { ref: "TXN-9028389", vendor: "Electrical World", mode: "Net Banking", amount: 12500, date: "2026-06-19", status: "Success" },
+                        { ref: "TXN-9028350", vendor: "Apex Construction", mode: "UPI", amount: 24000, date: "2026-06-15", status: "Processing" },
+                      ].map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="px-6 py-4 font-mono text-[#374151]">{item.ref}</td>
+                          <td className="px-6 py-4 font-bold text-[#0d0d2b]">{item.vendor}</td>
+                          <td className="px-6 py-4 text-xs text-[#6b7094]">{item.mode}</td>
+                          <td className="px-6 py-4 text-right font-bold text-[#0d0d2b]">{formatCurrency(item.amount)}</td>
+                          <td className="px-6 py-4 text-xs text-[#6b7094]">{item.date}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-0.5 text-[10px] font-bold border uppercase tracking-wider rounded-full ${
+                              item.status === "Success" ? "bg-emerald-50 border-emerald-200 text-emerald-600" : "bg-yellow-50 border-yellow-200 text-yellow-600"
+                            }`}>
+                              {item.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : subTab === "debit-notes" ? (
+            <div className="space-y-6">
+              {/* Debit Notes Dashboard */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div className="bg-white border border-[#6366f1]/12 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-[#6b7094] uppercase tracking-wider block mb-2">Total Credit Value</span>
+                  <div className="text-2xl font-black text-[#0d0d2b]">INR 18,500.00</div>
+                  <p className="text-xs text-[#6b7094] mt-1">4 active debit notes</p>
+                </div>
+                <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider block mb-2">Refunded / Adjusted</span>
+                  <div className="text-2xl font-black text-emerald-600">INR 11,000.00</div>
+                  <p className="text-xs text-[#6b7094] mt-1">2 settled notes</p>
+                </div>
+                <div className="bg-white border border-yellow-200 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-yellow-600 uppercase tracking-wider block mb-2">Open Balances</span>
+                  <div className="text-2xl font-black text-yellow-600">INR 7,500.00</div>
+                  <p className="text-xs text-[#6b7094] mt-1">2 outstanding notes</p>
+                </div>
+              </div>
+
+              <div className="bg-white border border-[#6366f1]/12 rounded-2xl overflow-hidden shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                <div className="px-6 py-4.5 border-b border-slate-100 flex justify-between items-center">
+                  <h3 className="text-sm font-black text-[#0d0d2b]">Vendor Debit Notes Ledger</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-[#6b7094] uppercase tracking-wider">
+                        <th className="px-6 py-4.5">Debit Note #</th>
+                        <th className="px-6 py-4.5">Original Inv #</th>
+                        <th className="px-6 py-4.5">Vendor Name</th>
+                        <th className="px-6 py-4.5 text-right">Credit Amount</th>
+                        <th className="px-6 py-4.5">Date</th>
+                        <th className="px-6 py-4.5">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {[
+                        { dn: "DN-2026-008", inv: "INV-EL-8822", vendor: "Electrical World", amount: 3500, date: "2026-06-27", status: "Open" },
+                        { dn: "DN-2026-007", inv: "INV-SL-9011", vendor: "SecureLink Systems", amount: 7500, date: "2026-06-20", status: "Refunded" },
+                        { dn: "DN-2026-006", inv: "INV-AM-1048", vendor: "Amazon Business", amount: 1500, date: "2026-06-15", status: "Refunded" },
+                        { dn: "DN-2026-005", inv: "INV-HW-7733", vendor: "Hardware Depot", amount: 6000, date: "2026-06-10", status: "Open" },
+                      ].map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="px-6 py-4 font-mono font-bold text-[#0d0d2b]">{item.dn}</td>
+                          <td className="px-6 py-4 font-mono text-[#6b7094]">{item.inv}</td>
+                          <td className="px-6 py-4 font-bold text-[#0d0d2b]">{item.vendor}</td>
+                          <td className="px-6 py-4 text-right font-bold text-[#0d0d2b]">{formatCurrency(item.amount)}</td>
+                          <td className="px-6 py-4 text-xs text-[#6b7094]">{item.date}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-0.5 text-[10px] font-bold border uppercase tracking-wider rounded-full ${
+                              item.status === "Refunded" ? "bg-slate-100 border-slate-200 text-slate-600" : "bg-emerald-50 border-emerald-200 text-emerald-600"
+                            }`}>
+                              {item.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Vendors List */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+                <div className="bg-white border border-[#6366f1]/12 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-[#6b7094] uppercase tracking-wider block mb-2">Registered Vendors</span>
+                  <div className="text-2xl font-black text-[#0d0d2b]">12 vendors</div>
+                  <p className="text-xs text-[#6b7094] mt-1">Verified partner registry</p>
+                </div>
+                <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider block mb-2">Total Paid (YTD)</span>
+                  <div className="text-2xl font-black text-emerald-600">INR 2,85,000.00</div>
+                  <p className="text-xs text-[#6b7094] mt-1">Contract payouts</p>
+                </div>
+                <div className="bg-white border border-yellow-200 rounded-2xl p-5 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                  <span className="text-xs font-bold text-yellow-600 uppercase tracking-wider block mb-2">Vendor Rating Avg</span>
+                  <div className="text-2xl font-black text-yellow-600">4.6 / 5.0</div>
+                  <p className="text-xs text-[#6b7094] mt-1">Based on SLA performance</p>
+                </div>
+              </div>
+
+              <div className="bg-white border border-[#6366f1]/12 rounded-2xl overflow-hidden shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+                <div className="px-6 py-4.5 border-b border-slate-100 flex justify-between items-center">
+                  <h3 className="text-sm font-black text-[#0d0d2b]">Partner Vendor Directory</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-[#6b7094] uppercase tracking-wider">
+                        <th className="px-6 py-4.5">Vendor Name</th>
+                        <th className="px-6 py-4.5">Business Category</th>
+                        <th className="px-6 py-4.5">Contact Details</th>
+                        <th className="px-6 py-4.5">Performance Rating</th>
+                        <th className="px-6 py-4.5">SLA Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-sm">
+                      {[
+                        { name: "SafeVision Security", cat: "Security Systems", contact: "info@safevision.com · +91 98765 43210", rating: "4.8 / 5.0", status: "Active" },
+                        { name: "Electrical World", cat: "Electrical Spares", contact: "sales@elecworld.com · +91 98765 43211", rating: "4.5 / 5.0", status: "Active" },
+                        { name: "AWS Cloud", cat: "Cloud Infrastructure", contact: "billing@aws.com · Online Portal", rating: "4.9 / 5.0", status: "Active" },
+                        { name: "Apex Construction", cat: "Civil Work & Repair", contact: "contact@apexconstruct.in · +91 98765 43212", rating: "4.1 / 5.0", status: "Active" },
+                        { name: "GreenLife Nursery", cat: "Gardening & Landscape", contact: "trees@greenlife.com · +91 98765 43213", rating: "4.6 / 5.0", status: "Active" },
+                      ].map((item, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/50">
+                          <td className="px-6 py-4 font-bold text-[#0d0d2b]">{item.name}</td>
+                          <td className="px-6 py-4 text-[#374151]">{item.cat}</td>
+                          <td className="px-6 py-4 text-xs text-[#6b7094]">{item.contact}</td>
+                          <td className="px-6 py-4 text-xs font-bold text-indigo-600">{item.rating}</td>
+                          <td className="px-6 py-4">
+                            <span className="px-2 py-0.5 text-[10px] font-bold border uppercase tracking-wider rounded-full bg-emerald-50 border-emerald-200 text-emerald-600">
+                              {item.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Log Expense Modal */}
       {showExpenseForm && (

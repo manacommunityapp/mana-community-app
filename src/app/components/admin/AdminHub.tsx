@@ -573,12 +573,12 @@ export function AdminHub() {
       <div className="border-b border-border bg-card/60 backdrop-blur px-6 py-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-foreground flex items-center gap-2.5">
+            <h2 className="text-xl font-bold text-foreground flex items-center gap-2.5">
               <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
                 <ShieldCheck className="h-4 w-4 text-white" />
               </div>
               Admin Control Center
-            </h1>
+            </h2>
             <p className="text-xs text-muted-foreground mt-0.5 ml-10">
               {user?.role?.replace(/_/g, " ")} · {user?.fullName}
             </p>
