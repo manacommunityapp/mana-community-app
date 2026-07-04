@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { toast } from "sonner";
-import { type LineItem, Field } from "./ledgerShared";
+import { type LineItem, Field } from "../ledgerShared";
 import { ledgerFinanceService, type FinanceDocument, type LedgerCustomer } from "../../../../services/ledgerFinanceService";
 
 export function NewSalesOrderView(props: {

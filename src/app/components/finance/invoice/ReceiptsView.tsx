@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { StatCard } from "./ledgerShared";
+import { StatCard } from "../ledgerShared";
 import { ledgerFinanceService, type FinanceReceipt } from "../../../../services/ledgerFinanceService";
 
 export function ReceiptsView({ onNewReceipt, canAdd = true }: { onNewReceipt: () => void; canAdd?: boolean }) {

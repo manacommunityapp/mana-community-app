@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { type LineItem, emptyLine } from "./invoice/ledgerShared";
-import { LEDGER_CSS } from "./invoice/ledgerStyles";
+import { type LineItem, emptyLine } from "./ledgerShared";
+import { LEDGER_CSS } from "./ledgerStyles";
 import { DashboardView } from "./invoice/DashboardView";
 import { InvoicesView } from "./invoice/InvoicesView";
 import { ImportInvoiceView } from "./invoice/ImportInvoiceView";
@@ -17,18 +17,29 @@ import { CreditNotesView } from "./invoice/CreditNotesView";
 import { NewCreditNoteView } from "./invoice/NewCreditNoteView";
 import { CustomersView } from "./invoice/CustomersView";
 import { CustomerImportsView } from "./invoice/CustomerImportsView";
-import { PlaceholderView } from "./invoice/PlaceholderView";
+import { PlaceholderView } from "./PlaceholderView";
+import { BusinessExpensesView } from "./expense/BusinessExpensesView";
+import { NewExpenseView } from "./expense/NewExpenseView";
+import { StockPurchasesView } from "./expense/StockPurchasesView";
+import { NewPurchaseView } from "./expense/NewPurchaseView";
+import { PurchaseOrdersView } from "./expense/PurchaseOrdersView";
+import { DebitNotesView } from "./expense/DebitNotesView";
+import { VendorsView } from "./expense/VendorsView";
+import { NewVendorView } from "./expense/NewVendorView";
+import { VendorPaymentsView } from "./expense/VendorPaymentsView";
+import { NewPurchaseOrderView } from "./expense/NewPurchaseOrderView";
 import { useAuth } from "../../../contexts/AuthContext";
 import { menuPermissionService } from "../../../services/menuPermissionService";
 import type { MenuRolePermissionResponse } from "../../../types/api";
 
-type View = "dashboard" | "invoices" | "receipts" | "new-invoice" | "import-invoice" | "new-receipt" | "new-advance-receipt" | "new-other-income" | "estimates" | "new-estimate" | "sales-orders" | "new-sales-order" | "credit-notes" | "new-credit-note" | "customers" | "import-customers" | "placeholder";
+type View = "dashboard" | "invoices" | "receipts" | "new-invoice" | "import-invoice" | "new-receipt" | "new-advance-receipt" | "new-other-income" | "estimates" | "new-estimate" | "sales-orders" | "new-sales-order" | "credit-notes" | "new-credit-note" | "customers" | "import-customers" | "business-expenses" | "new-expense" | "stock-purchases" | "new-purchase" | "purchase-orders" | "new-purchase-order" | "debit-notes" | "vendors" | "new-vendor" | "vendor-payments" | "placeholder";
 
-export function LedgerFinance() {
+export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "expense" }) {
   const { user } = useAuth();
-  const [view, setView] = useState<View>("dashboard");
+  const [view, setView] = useState<View>(section === "expense" ? "business-expenses" : "dashboard");
   const [placeholderTitle, setPlaceholderTitle] = useState("Section");
   const [incomeOpen, setIncomeOpen] = useState(true);
+  const [expenseOpen, setExpenseOpen] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("dashboard");
   const [permissions, setPermissions] = useState<MenuRolePermissionResponse[]>([]);
@@ -121,12 +132,15 @@ export function LedgerFinance() {
         {/* ── Sidebar ── */}
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
           <nav className="menu">
-            <button type="button" className={`nav-link${activeNav === "dashboard" ? " active" : ""}`} onClick={() => go("dashboard", "dashboard")}>
-              <svg className="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z" stroke="#DCE5DD" strokeWidth="1.5" strokeLinejoin="round" /></svg>
-              Dashboard
-            </button>
+            {section === "invoice" && (
+              <button type="button" className={`nav-link${activeNav === "dashboard" ? " active" : ""}`} onClick={() => go("dashboard", "dashboard")}>
+                <svg className="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z" stroke="#DCE5DD" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+                Dashboard
+              </button>
+            )}
 
             {/* Income group */}
+            {section === "invoice" && (
             <div className={`nav-group${incomeOpen ? " open" : ""}`}>
               <button type="button" className="nav-group-toggle" onClick={() => setIncomeOpen((v) => !v)}>
                 <svg className="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M17 7.5c0-1.9-2.2-3-5-3s-5 1.3-5 3 2.2 2.6 5 3 5 1.3 5 3-2.2 3-5 3-5-1.1-5-3" stroke="#DCE5DD" strokeWidth="1.5" strokeLinecap="round" /></svg>
@@ -142,6 +156,26 @@ export function LedgerFinance() {
                 {hasMenuPermission("customers", "view") && navItem("Customers", "customers", () => go("customers", "customers"), true)}
               </div>
             </div>
+            )}
+
+            {/* Expenses group */}
+            {section === "expense" && (
+            <div className={`nav-group${expenseOpen ? " open" : ""}`}>
+              <button type="button" className="nav-group-toggle" onClick={() => setExpenseOpen((v) => !v)}>
+                <svg className="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M17 16.5c0 1.9-2.2 3-5 3s-5-1.3-5-3 2.2-2.6 5-3 5-1.3 5-3-2.2-3-5-3-5 1.1-5 3" stroke="#DCE5DD" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                Expenses
+                <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="#8CA391" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
+              <div className="nav-children">
+                {navItem("Business Expenses", "business-expenses", () => go("business-expenses", "business-expenses"), true)}
+                {navItem("Stock Purchases", "stock-purchases", () => go("stock-purchases", "stock-purchases"), true)}
+                {navItem("Purchase Orders", "purchase-orders", () => go("purchase-orders", "purchase-orders"), true)}
+                {navItem("Vendor Payments", "vendor-payments", () => go("vendor-payments", "vendor-payments"), true)}
+                {navItem("Debit Notes", "debit-notes", () => go("debit-notes", "debit-notes"), true)}
+                {navItem("Vendors", "vendors", () => go("vendors", "vendors"), true)}
+              </div>
+            </div>
+            )}
 
           </nav>
 
@@ -258,6 +292,56 @@ export function LedgerFinance() {
               <CustomerImportsView 
                 onCancel={() => go("customers", "customers")}
                 onSave={() => go("customers", "customers")}
+              />
+            )}
+            {view === "business-expenses" && (
+              <BusinessExpensesView
+                onNewExpense={() => go("new-expense", "business-expenses")}
+                canAdd={hasMenuPermission("expenses", "add")}
+              />
+            )}
+            {view === "new-expense" && (
+              <NewExpenseView
+                onCancel={() => go("business-expenses", "business-expenses")}
+                onSave={() => go("business-expenses", "business-expenses")}
+              />
+            )}
+            {view === "stock-purchases" && (
+              <StockPurchasesView
+                onNewPurchase={() => go("new-purchase", "stock-purchases")}
+                canAdd={hasMenuPermission("stock_purchases", "add")}
+              />
+            )}
+            {view === "new-purchase" && (
+              <NewPurchaseView
+                onCancel={() => go("stock-purchases", "stock-purchases")}
+                onSave={() => go("stock-purchases", "stock-purchases")}
+              />
+            )}
+            {view === "purchase-orders" && (
+              <PurchaseOrdersView
+                onNewPurchaseOrder={() => go("new-purchase-order", "purchase-orders")}
+                canAdd={hasMenuPermission("purchase_orders", "add")}
+              />
+            )}
+            {view === "new-purchase-order" && (
+              <NewPurchaseOrderView
+                onCancel={() => go("purchase-orders", "purchase-orders")}
+                onSave={() => go("purchase-orders", "purchase-orders")}
+              />
+            )}
+            {view === "debit-notes" && <DebitNotesView />}
+            {view === "vendor-payments" && <VendorPaymentsView />}
+            {view === "vendors" && (
+              <VendorsView
+                onNewVendor={() => go("new-vendor", "vendors")}
+                canAdd={hasMenuPermission("vendors", "add")}
+              />
+            )}
+            {view === "new-vendor" && (
+              <NewVendorView
+                onCancel={() => go("vendors", "vendors")}
+                onSave={() => go("vendors", "vendors")}
               />
             )}
             {view === "placeholder" && <PlaceholderView title={placeholderTitle} />}

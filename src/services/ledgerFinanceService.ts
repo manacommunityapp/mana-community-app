@@ -25,7 +25,8 @@ export interface LedgerCustomer {
 }
 
 export type FinanceDocumentType =
-  | "INVOICE" | "ESTIMATE" | "SALES_ORDER" | "CREDIT_NOTE" | "REFUND";
+  | "INVOICE" | "ESTIMATE" | "SALES_ORDER" | "CREDIT_NOTE" | "REFUND"
+  | "EXPENSE" | "PURCHASE" | "PURCHASE_RETURN" | "PURCHASE_ORDER" | "DEBIT_NOTE";
 
 export interface FinanceDocumentLine {
   item?: string;
@@ -58,6 +59,40 @@ export interface FinanceDocument {
   items: FinanceDocumentLine[];
 }
 
+export interface Vendor {
+  id?: number;
+  name: string;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  gstin?: string;
+  pan?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  status?: string; // "Active" | "Inactive"
+  createdAt?: string;
+}
+
+export type VendorPaymentType = "PAID_BILL" | "ADVANCE" | "OTHER";
+
+export interface VendorPayment {
+  id?: number;
+  code?: string;
+  paymentType?: VendorPaymentType;
+  vendorId?: number;
+  vendorName?: string;
+  paymentDate?: string; // yyyy-MM-dd
+  amount?: number;
+  paymentMode?: string;
+  paidFrom?: string;
+  reference?: string;
+  status?: string;
+  notes?: string;
+  createdAt?: string;
+}
+
 export type ReceiptType = "INVOICE" | "ADVANCE" | "OTHER";
 
 export interface FinanceReceipt {
@@ -85,6 +120,18 @@ export const ledgerFinanceService = {
   createDocument: (d: FinanceDocument) => apiClient.post<FinanceDocument>("/finance/documents", d),
   updateDocument: (id: number, d: FinanceDocument) => apiClient.put<FinanceDocument>(`/finance/documents/${id}`, d),
   deleteDocument: (id: number) => apiClient.delete<void>(`/finance/documents/${id}`),
+
+  // ── Vendors (supplier side: purchases / purchase orders / debit notes) ──
+  getVendors: () => apiClient.get<Vendor[]>("/finance/vendors"),
+  createVendor: (v: Vendor) => apiClient.post<Vendor>("/finance/vendors", v),
+  updateVendor: (id: number, v: Vendor) => apiClient.put<Vendor>(`/finance/vendors/${id}`, v),
+  deleteVendor: (id: number) => apiClient.delete<void>(`/finance/vendors/${id}`),
+
+  // ── Vendor payments (money paid to a vendor — outflow) ──
+  getVendorPayments: (type?: VendorPaymentType) => apiClient.get<VendorPayment[]>(`/finance/vendor-payments${type ? `?type=${type}` : ""}`),
+  createVendorPayment: (p: VendorPayment) => apiClient.post<VendorPayment>("/finance/vendor-payments", p),
+  updateVendorPayment: (id: number, p: VendorPayment) => apiClient.put<VendorPayment>(`/finance/vendor-payments/${id}`, p),
+  deleteVendorPayment: (id: number) => apiClient.delete<void>(`/finance/vendor-payments/${id}`),
 
   // ── Receipts (invoice / advance / other income) ──
   getReceipts: (type: ReceiptType) => apiClient.get<FinanceReceipt[]>(`/finance/receipts?type=${type}`),

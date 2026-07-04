@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Field } from "./ledgerShared";
+import { Field } from "../ledgerShared";
 import { ledgerFinanceService, type FinanceReceipt } from "../../../../services/ledgerFinanceService";
 
 export function NewOtherIncomeView({ onCancel, onSave, onNavigateInvoice, onNavigateAdvance }: { onCancel: () => void; onSave: () => void; onNavigateInvoice: () => void; onNavigateAdvance: () => void }) {

@@ -220,11 +220,11 @@ export const router = createBrowserRouter([
         children: [
           {
             path: "expenses",
-            element: <PermissionGuard permission={VIEW_ADMIN}><ExpensesDashboard /></PermissionGuard>
+            element: <PermissionGuard permission={VIEW_ADMIN}><LedgerFinance section="expense" /></PermissionGuard>
           },
           {
             path: "invoices",
-            element: <PermissionGuard permission={VIEW_ADMIN}><InvoicesDashboard /></PermissionGuard>
+            element: <PermissionGuard permission={VIEW_ADMIN}><LedgerFinance section="invoice" /></PermissionGuard>
           },
           {
             path: "budget",
@@ -233,10 +233,6 @@ export const router = createBrowserRouter([
           {
             path: "reports",
             element: <PermissionGuard permission={VIEW_ADMIN}><FinancialReports /></PermissionGuard>
-          },
-          {
-            path: "ledger",
-            element: <PermissionGuard permission={VIEW_ADMIN}><LedgerFinance /></PermissionGuard>
           }
         ]
       },

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Field } from "./ledgerShared";
+import { Field } from "../ledgerShared";
 import { ledgerFinanceService, type FinanceReceipt } from "../../../../services/ledgerFinanceService";
 
 export function NewReceiptView({ onCancel, onSave, onNavigateAdvance, onNavigateOther }: { onCancel: () => void; onSave: () => void; onNavigateAdvance: () => void; onNavigateOther: () => void }) {
