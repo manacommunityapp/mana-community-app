@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { ShieldCheck, Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
+import { ShieldCheck, Eye, EyeOff, ArrowRight, Loader2, WifiOff, RefreshCw, ServerCrash } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -11,8 +11,18 @@ type LoginFormValues = {
   rememberMe: boolean;
 };
 
+function isNetworkError(err: unknown): boolean {
+  if (err instanceof TypeError) {
+    const msg = err.message.toLowerCase();
+    return msg.includes("failed to fetch") || msg.includes("network") || msg.includes("load failed");
+  }
+  return false;
+}
+
 export function Login() {
   const [showPassword, setShowPassword] = useState(false);
+  const [serviceError, setServiceError] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const {
@@ -22,13 +32,35 @@ export function Login() {
   } = useForm<LoginFormValues>();
 
   const onSubmit = async (data: LoginFormValues) => {
+    setServiceError(false);
     try {
       await login({ email: data.email, password: data.password });
       toast.success("Welcome back!");
       navigate("/");
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Login failed";
-      toast.error(message);
+      if (isNetworkError(err)) {
+        setServiceError(true);
+      } else {
+        const message = err instanceof Error ? err.message : "Login failed";
+        toast.error(message);
+      }
+    }
+  };
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    try {
+      const res = await fetch("/api/auth/login", { method: "OPTIONS" }).catch(() => null);
+      if (res && res.ok) {
+        setServiceError(false);
+        toast.success("Connection restored!");
+      } else {
+        toast.error("Service is still unavailable. Please try again later.");
+      }
+    } catch {
+      toast.error("Service is still unavailable. Please try again later.");
+    } finally {
+      setRetrying(false);
     }
   };
 
@@ -48,6 +80,39 @@ export function Login() {
         </div>
 
         <div className="bg-card rounded-2xl shadow-2xl border border-border p-8">
+          {serviceError && (
+            <div className="mb-6 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-950/30 p-5 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-start gap-4">
+                <div className="flex-shrink-0 p-2.5 bg-red-100 dark:bg-red-900/40 rounded-xl">
+                  <ServerCrash className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-bold text-red-800 dark:text-red-300 mb-1">
+                    Service Unavailable
+                  </h3>
+                  <p className="text-xs text-red-600/80 dark:text-red-400/80 leading-relaxed mb-3">
+                    We're unable to connect to the server right now. This could be due to maintenance or a temporary outage. Please try again in a moment.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleRetry}
+                      disabled={retrying}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white transition-all disabled:opacity-60 cursor-pointer border-none shadow-sm"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${retrying ? "animate-spin" : ""}`} />
+                      {retrying ? "Checking…" : "Retry Connection"}
+                    </button>
+                    <div className="flex items-center gap-1.5 text-[10px] text-red-500/70 dark:text-red-400/50">
+                      <WifiOff className="w-3 h-3" />
+                      <span>Connection failed</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-muted-foreground mb-2">

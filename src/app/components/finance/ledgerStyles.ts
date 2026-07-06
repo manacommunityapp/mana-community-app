@@ -1,5 +1,4 @@
 export const LEDGER_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 .ledger-app{
   /* Figma AI "Sports Scheduler" palette: lavender surfaces, indigo primary,
      dark-indigo sidebar/hero, violet accents. */
