@@ -21,7 +21,7 @@ const statusPill = (status: string): React.CSSProperties => {
 const isThisMonth = (iso?: string) => (iso || "").startsWith("2026-07");
 const inr = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export function VendorPaymentsView() {
+export function VendorPaymentsView({ onNewPaidBill, onNewAdvance, onNewOther }: { onNewPaidBill: () => void; onNewAdvance: () => void; onNewOther: () => void }) {
   const [tab, setTab] = useState<Tab>("paid");
   const [periodFilter, setPeriodFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("");
@@ -98,7 +98,7 @@ export function VendorPaymentsView() {
   const searchBar = (placeholder: string) => (
     <div className="filter-right">
       <div className="search-row" style={{ margin: 0, width: 280 }}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#5C6B60" strokeWidth="1.7" /><path d="m20 20-3.5-3.5" stroke="#5C6B60" strokeWidth="1.7" strokeLinecap="round" /></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8b8fc8" strokeWidth="1.7" /><path d="m20 20-3.5-3.5" stroke="#8b8fc8" strokeWidth="1.7" strokeLinecap="round" /></svg>
         <input type="text" placeholder={placeholder} value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
       <button type="button" className={`filter-toggle${advOpen ? " active" : ""}`} title="More Filters" onClick={() => setAdvOpen((v) => !v)}>
@@ -144,10 +144,30 @@ export function VendorPaymentsView() {
           <h1>Payment Vouchers</h1>
           <p className="masthead-desc">Track payments made to vendors and other accounts</p>
         </div>
-        <div className="tabs">
-          <button className={`tab${tab === "paid" ? " active" : ""}`} onClick={() => { setTab("paid"); clearFilters(); }}>Paid Bills</button>
-          <button className={`tab${tab === "advance" ? " active" : ""}`} onClick={() => { setTab("advance"); clearFilters(); }}>Advance Payments</button>
-          <button className={`tab${tab === "other" ? " active" : ""}`} onClick={() => { setTab("other"); clearFilters(); }}>Other Payments</button>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <div className="tabs">
+            <button className={`tab${tab === "paid" ? " active" : ""}`} onClick={() => { setTab("paid"); clearFilters(); }}>Paid Bills</button>
+            <button className={`tab${tab === "advance" ? " active" : ""}`} onClick={() => { setTab("advance"); clearFilters(); }}>Advance Payments</button>
+            <button className={`tab${tab === "other" ? " active" : ""}`} onClick={() => { setTab("other"); clearFilters(); }}>Other Payments</button>
+          </div>
+          {tab === "paid" && (
+            <button type="button" className="btn btn-primary" onClick={onNewPaidBill} style={{ display: "inline-flex", alignItems: "center" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ verticalAlign: -2, marginRight: 5 }}><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+              New Payment
+            </button>
+          )}
+          {tab === "advance" && (
+            <button type="button" className="btn btn-primary" onClick={onNewAdvance} style={{ display: "inline-flex", alignItems: "center" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ verticalAlign: -2, marginRight: 5 }}><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+              New Advance Payment
+            </button>
+          )}
+          {tab === "other" && (
+            <button type="button" className="btn btn-primary" onClick={onNewOther} style={{ display: "inline-flex", alignItems: "center" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ verticalAlign: -2, marginRight: 5 }}><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+              New Other Payment
+            </button>
+          )}
         </div>
       </div>
 
@@ -173,7 +193,7 @@ export function VendorPaymentsView() {
                   <thead><tr>{["Voucher Number", "Payment Date", "Payment To", "Amount", "Payment Mode", "Actions"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
                   <tbody>
                     {filteredPaid.length === 0 ? (
-                      <tr className="empty-table-row"><td colSpan={6}><div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 7h18v10H3zM3 11h18" stroke="#5C6B60" strokeWidth="1.6" strokeLinejoin="round" /></svg></div>No Payment vouchers present.</td></tr>
+                      <tr className="empty-table-row"><td colSpan={6}><div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 7h18v10H3zM3 11h18" stroke="#8b8fc8" strokeWidth="1.6" strokeLinejoin="round" /></svg></div>No Payment vouchers present.</td></tr>
                     ) : filteredPaid.map((p) => (
                       <tr key={p.id}>
                         <td style={{ fontWeight: 600, color: "var(--ink)" }}>{p.code || `#${p.id}`}</td>
@@ -222,7 +242,7 @@ export function VendorPaymentsView() {
                   <thead><tr>{["Voucher Number", "Customer Name", "Record Date", "Balance", "Status", "Actions"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
                   <tbody>
                     {filteredAdv.length === 0 ? (
-                      <tr className="empty-table-row"><td colSpan={6}><div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 7h18v10H3zM3 11h18" stroke="#5C6B60" strokeWidth="1.6" strokeLinejoin="round" /></svg></div>No GST advance payments present.</td></tr>
+                      <tr className="empty-table-row"><td colSpan={6}><div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 7h18v10H3zM3 11h18" stroke="#8b8fc8" strokeWidth="1.6" strokeLinejoin="round" /></svg></div>No GST advance payments present.</td></tr>
                     ) : filteredAdv.map((p) => (
                       <tr key={p.id}>
                         <td style={{ fontWeight: 600, color: "var(--ink)" }}>{p.code || `#${p.id}`}</td>
@@ -262,7 +282,7 @@ export function VendorPaymentsView() {
                   <thead><tr>{["Voucher Number", "Payment Date", "Payment To", "Amount", "Payment Mode", "Actions"].map((h) => <th key={h}>{h}</th>)}</tr></thead>
                   <tbody>
                     {filteredOther.length === 0 ? (
-                      <tr className="empty-table-row"><td colSpan={6}><div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 7h18v10H3zM3 11h18" stroke="#5C6B60" strokeWidth="1.6" strokeLinejoin="round" /></svg></div>No Other payment vouchers present.</td></tr>
+                      <tr className="empty-table-row"><td colSpan={6}><div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 7h18v10H3zM3 11h18" stroke="#8b8fc8" strokeWidth="1.6" strokeLinejoin="round" /></svg></div>No Other payment vouchers present.</td></tr>
                     ) : filteredOther.map((p) => (
                       <tr key={p.id}>
                         <td style={{ fontWeight: 600, color: "var(--ink)" }}>{p.code || `#${p.id}`}</td>

@@ -116,7 +116,7 @@ export function ReceiptsView({ onNewReceipt, canAdd = true }: { onNewReceipt: ()
           <div className="card table-card">
             <div className="card-head"><h2>Invoice Receipts</h2><span className="tag">0 results</span></div>
             <div className="search-row">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#5C6B60" strokeWidth="1.7" /><path d="m20 20-3.5-3.5" stroke="#5C6B60" strokeWidth="1.7" strokeLinecap="round" /></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8b8fc8" strokeWidth="1.7" /><path d="m20 20-3.5-3.5" stroke="#8b8fc8" strokeWidth="1.7" strokeLinecap="round" /></svg>
               <input type="text" placeholder="Search receipt no..." />
             </div>
             <div className="card-body">
@@ -155,7 +155,7 @@ export function ReceiptsView({ onNewReceipt, canAdd = true }: { onNewReceipt: ()
           <div className="card table-card">
             <div className="search-row" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12, marginTop: 18 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 9, flex: 1, minWidth: 200 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#5C6B60" strokeWidth="1.7" /><path d="m20 20-3.5-3.5" stroke="#5C6B60" strokeWidth="1.7" strokeLinecap="round" /></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8b8fc8" strokeWidth="1.7" /><path d="m20 20-3.5-3.5" stroke="#8b8fc8" strokeWidth="1.7" strokeLinecap="round" /></svg>
                 <input type="text" placeholder="Search advance no..." style={{ border: "none", background: "transparent", outline: "none", width: "100%", fontSize: "13.5px" }} />
               </div>
 

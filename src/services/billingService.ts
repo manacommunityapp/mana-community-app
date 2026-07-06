@@ -41,7 +41,8 @@ export interface PagedResponse<T> {
 
 export const billingService = {
   async getExpenses(page = 0, size = 20, status?: string): Promise<PagedResponse<BillingExpense>> {
-    let url = `/billing/expenses?page=${page}&size=${size}`;
+    // Dedicated expense module (was /billing/expenses; migrated to the ExpenseController).
+    let url = `/expenses?page=${page}&size=${size}`;
     if (status && status !== "all") {
       url += `&status=${status}`;
     }
@@ -49,15 +50,15 @@ export const billingService = {
   },
 
   async createExpense(formData: FormData): Promise<BillingExpense> {
-    return apiClient.postForm<BillingExpense>("/billing/expenses", formData);
+    return apiClient.postForm<BillingExpense>("/expenses", formData);
   },
 
   async approveExpense(id: number): Promise<BillingExpense> {
-    return apiClient.post<BillingExpense>(`/billing/expenses/${id}/approve`);
+    return apiClient.post<BillingExpense>(`/expenses/${id}/approve`);
   },
 
   async rejectExpense(id: number): Promise<BillingExpense> {
-    return apiClient.post<BillingExpense>(`/billing/expenses/${id}/reject`);
+    return apiClient.post<BillingExpense>(`/expenses/${id}/reject`);
   },
 
   async getInvoices(page = 0, size = 20, status?: string): Promise<PagedResponse<BillingInvoice>> {

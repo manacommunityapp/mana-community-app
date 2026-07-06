@@ -27,20 +27,18 @@ import { DebitNotesView } from "./expense/DebitNotesView";
 import { VendorsView } from "./expense/VendorsView";
 import { NewVendorView } from "./expense/NewVendorView";
 import { VendorPaymentsView } from "./expense/VendorPaymentsView";
+import { NewVendorPaymentView } from "./expense/NewVendorPaymentView";
 import { NewPurchaseOrderView } from "./expense/NewPurchaseOrderView";
 import { useAuth } from "../../../contexts/AuthContext";
 import { menuPermissionService } from "../../../services/menuPermissionService";
 import type { MenuRolePermissionResponse } from "../../../types/api";
 
-type View = "dashboard" | "invoices" | "receipts" | "new-invoice" | "import-invoice" | "new-receipt" | "new-advance-receipt" | "new-other-income" | "estimates" | "new-estimate" | "sales-orders" | "new-sales-order" | "credit-notes" | "new-credit-note" | "customers" | "import-customers" | "business-expenses" | "new-expense" | "stock-purchases" | "new-purchase" | "purchase-orders" | "new-purchase-order" | "debit-notes" | "vendors" | "new-vendor" | "vendor-payments" | "placeholder";
+type View = "dashboard" | "invoices" | "receipts" | "new-invoice" | "import-invoice" | "new-receipt" | "new-advance-receipt" | "new-other-income" | "estimates" | "new-estimate" | "sales-orders" | "new-sales-order" | "credit-notes" | "new-credit-note" | "customers" | "import-customers" | "business-expenses" | "new-expense" | "stock-purchases" | "new-purchase" | "purchase-orders" | "new-purchase-order" | "debit-notes" | "vendors" | "new-vendor" | "vendor-payments" | "new-vendor-payment" | "new-advance-payment" | "new-other-payment" | "placeholder";
 
 export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "expense" }) {
   const { user } = useAuth();
   const [view, setView] = useState<View>(section === "expense" ? "business-expenses" : "dashboard");
   const [placeholderTitle, setPlaceholderTitle] = useState("Section");
-  const [incomeOpen, setIncomeOpen] = useState(true);
-  const [expenseOpen, setExpenseOpen] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeNav, setActiveNav] = useState("dashboard");
   const [permissions, setPermissions] = useState<MenuRolePermissionResponse[]>([]);
 
@@ -95,7 +93,6 @@ export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "
     setView(v);
     setActiveNav(navKey);
     if (v === "placeholder") setPlaceholderTitle(title || "Section");
-    setSidebarOpen(false);
     window.scrollTo({ top: 0 });
   };
 
@@ -108,10 +105,10 @@ export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "
   // items typed into one document don't bleed into the next.
   const resetDoc = () => { setLines([{ ...emptyLine }]); setTaxInclusive(false); };
 
-  const navItem = (label: string, navKey: string, onClick: () => void, child = false) => (
+  const navPill = (label: string, navKey: string, onClick: () => void) => (
     <button
       type="button"
-      className={`nav-link${child ? " child" : ""}${activeNav === navKey ? " active" : ""}`}
+      className={`nav-pill${activeNav === navKey ? " active" : ""}`}
       onClick={onClick}
     >
       {label}
@@ -122,65 +119,51 @@ export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "
     <div className="ledger-app">
       <style>{LEDGER_CSS}</style>
 
-      {/* Mobile menu toggle + scrim */}
-      <button className="menu-toggle" aria-label="Open menu" onClick={() => setSidebarOpen((v) => !v)}>
-        <svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="#EFEBDD" strokeWidth="1.8" strokeLinecap="round" /></svg>
-      </button>
-      {sidebarOpen && <div className="scrim show" onClick={() => setSidebarOpen(false)} />}
-
       <div className="app">
-        {/* ── Sidebar ── */}
-        <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
-          <nav className="menu">
-            {section === "invoice" && (
-              <button type="button" className={`nav-link${activeNav === "dashboard" ? " active" : ""}`} onClick={() => go("dashboard", "dashboard")}>
-                <svg className="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z" stroke="#DCE5DD" strokeWidth="1.5" strokeLinejoin="round" /></svg>
-                Dashboard
-              </button>
-            )}
-
-            {/* Income group */}
-            {section === "invoice" && (
-            <div className={`nav-group${incomeOpen ? " open" : ""}`}>
-              <button type="button" className="nav-group-toggle" onClick={() => setIncomeOpen((v) => !v)}>
-                <svg className="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M17 7.5c0-1.9-2.2-3-5-3s-5 1.3-5 3 2.2 2.6 5 3 5 1.3 5 3-2.2 3-5 3-5-1.1-5-3" stroke="#DCE5DD" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                Income
-                <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="#8CA391" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </button>
-              <div className="nav-children">
-                {hasMenuPermission("invoices", "view") && navItem("Invoices", "invoices", () => go("invoices", "invoices"), true)}
-                {hasMenuPermission("receipts", "view") && navItem("Receipts", "receipts", () => go("receipts", "receipts"), true)}
-                {hasMenuPermission("estimates", "view") && navItem("Estimate", "estimates", () => go("estimates", "estimates"), true)}
-                {hasMenuPermission("sales_orders", "view") && navItem("Sales Orders", "sales-orders", () => go("sales-orders", "sales-orders"), true)}
-                {hasMenuPermission("credit_notes", "view") && navItem("Credit Notes", "credit-notes", () => go("credit-notes", "credit-notes"), true)}
-                {hasMenuPermission("customers", "view") && navItem("Customers", "customers", () => go("customers", "customers"), true)}
-              </div>
+        {/* ── Breadcrumb + page header ── */}
+        <div className="page-head">
+          <div className="crumbs">
+            <span>Home</span>
+            <span className="sep">›</span>
+            <span className="cur">{section === "expense" ? "Expense" : "Income"}</span>
+          </div>
+          <div className="page-title">
+            <div className="pt-text">
+              <h2>{section === "expense" ? "Expenses" : "Income & Invoices"}</h2>
+              <p>{section === "expense" ? "Bills, purchases & vendor payments" : "Invoices, receipts & customers"}</p>
             </div>
-            )}
+            <div className="pt-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M6 3h9l3 3v14a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" /><path d="M9 8.5h6M9 12h6M9 15.5h4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+            </div>
+          </div>
+        </div>
 
-            {/* Expenses group */}
+        {/* ── Horizontal pill nav ── */}
+        <div className="navbar">
+          <nav className="topnav">
+            {section === "invoice" && (
+              <>
+                {navPill("Dashboard", "dashboard", () => go("dashboard", "dashboard"))}
+                {hasMenuPermission("invoices", "view") && navPill("Invoices", "invoices", () => go("invoices", "invoices"))}
+                {hasMenuPermission("receipts", "view") && navPill("Receipts", "receipts", () => go("receipts", "receipts"))}
+                {hasMenuPermission("estimates", "view") && navPill("Estimate", "estimates", () => go("estimates", "estimates"))}
+                {hasMenuPermission("sales_orders", "view") && navPill("Sales Orders", "sales-orders", () => go("sales-orders", "sales-orders"))}
+                {hasMenuPermission("credit_notes", "view") && navPill("Credit Notes", "credit-notes", () => go("credit-notes", "credit-notes"))}
+                {hasMenuPermission("customers", "view") && navPill("Customers", "customers", () => go("customers", "customers"))}
+              </>
+            )}
             {section === "expense" && (
-            <div className={`nav-group${expenseOpen ? " open" : ""}`}>
-              <button type="button" className="nav-group-toggle" onClick={() => setExpenseOpen((v) => !v)}>
-                <svg className="nav-icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M17 16.5c0 1.9-2.2 3-5 3s-5-1.3-5-3 2.2-2.6 5-3 5-1.3 5-3-2.2-3-5-3-5 1.1-5 3" stroke="#DCE5DD" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                Expenses
-                <svg className="chev" width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="m9 6 6 6-6 6" stroke="#8CA391" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </button>
-              <div className="nav-children">
-                {navItem("Business Expenses", "business-expenses", () => go("business-expenses", "business-expenses"), true)}
-                {navItem("Stock Purchases", "stock-purchases", () => go("stock-purchases", "stock-purchases"), true)}
-                {navItem("Purchase Orders", "purchase-orders", () => go("purchase-orders", "purchase-orders"), true)}
-                {navItem("Vendor Payments", "vendor-payments", () => go("vendor-payments", "vendor-payments"), true)}
-                {navItem("Debit Notes", "debit-notes", () => go("debit-notes", "debit-notes"), true)}
-                {navItem("Vendors", "vendors", () => go("vendors", "vendors"), true)}
-              </div>
-            </div>
+              <>
+                {navPill("Business Expenses", "business-expenses", () => go("business-expenses", "business-expenses"))}
+                {navPill("Stock Purchases", "stock-purchases", () => go("stock-purchases", "stock-purchases"))}
+                {navPill("Purchase Orders", "purchase-orders", () => go("purchase-orders", "purchase-orders"))}
+                {navPill("Vendor Payments", "vendor-payments", () => go("vendor-payments", "vendor-payments"))}
+                {navPill("Debit Notes", "debit-notes", () => go("debit-notes", "debit-notes"))}
+                {navPill("Vendors", "vendors", () => go("vendors", "vendors"))}
+              </>
             )}
-
           </nav>
-
-          <div className="sidebar-foot">v2.4 · FY 2026–27</div>
-        </aside>
+        </div>
 
         {/* ── Main ── */}
         <main className="main">
@@ -331,7 +314,21 @@ export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "
               />
             )}
             {view === "debit-notes" && <DebitNotesView />}
-            {view === "vendor-payments" && <VendorPaymentsView />}
+            {view === "vendor-payments" && (
+              <VendorPaymentsView
+                onNewPaidBill={() => go("new-vendor-payment", "vendor-payments")}
+                onNewAdvance={() => go("new-advance-payment", "vendor-payments")}
+                onNewOther={() => go("new-other-payment", "vendor-payments")}
+              />
+            )}
+            {(view === "new-vendor-payment" || view === "new-advance-payment" || view === "new-other-payment") && (
+              <NewVendorPaymentView
+                kind={view === "new-advance-payment" ? "advance" : view === "new-other-payment" ? "other" : "paid"}
+                onSwitchKind={(k) => go(k === "advance" ? "new-advance-payment" : k === "other" ? "new-other-payment" : "new-vendor-payment", "vendor-payments")}
+                onCancel={() => go("vendor-payments", "vendor-payments")}
+                onSave={() => go("vendor-payments", "vendor-payments")}
+              />
+            )}
             {view === "vendors" && (
               <VendorsView
                 onNewVendor={() => go("new-vendor", "vendors")}

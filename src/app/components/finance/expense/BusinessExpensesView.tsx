@@ -122,7 +122,7 @@ export function BusinessExpensesView({ onNewExpense, canAdd = true }: { onNewExp
           </div>
           <div className="filter-right">
             <div className="search-row" style={{ margin: 0, width: 260 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#5C6B60" strokeWidth="1.7" /><path d="m20 20-3.5-3.5" stroke="#5C6B60" strokeWidth="1.7" strokeLinecap="round" /></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8b8fc8" strokeWidth="1.7" /><path d="m20 20-3.5-3.5" stroke="#8b8fc8" strokeWidth="1.7" strokeLinecap="round" /></svg>
               <input type="text" placeholder="Search expenses..." value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <button type="button" className={`filter-toggle${advOpen ? " active" : ""}`} title="More Filters" onClick={() => setAdvOpen((v) => !v)}>
@@ -188,7 +188,7 @@ export function BusinessExpensesView({ onNewExpense, canAdd = true }: { onNewExp
                 {expenses.length === 0 ? (
                   <tr className="empty-table-row">
                     <td colSpan={8}>
-                      <div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13" stroke="#5C6B60" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
+                      <div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13" stroke="#8b8fc8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg></div>
                       No Expenses present.
                     </td>
                   </tr>

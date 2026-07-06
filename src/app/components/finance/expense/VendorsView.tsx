@@ -85,7 +85,7 @@ export function VendorsView({ onNewVendor, canAdd = true }: { onNewVendor: () =>
           </div>
           <div className="filter-right">
             <div className="search-row" style={{ margin: 0, width: 260 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#5C6B60" strokeWidth="1.7" /><path d="m20 20-3.5-3.5" stroke="#5C6B60" strokeWidth="1.7" strokeLinecap="round" /></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8b8fc8" strokeWidth="1.7" /><path d="m20 20-3.5-3.5" stroke="#8b8fc8" strokeWidth="1.7" strokeLinecap="round" /></svg>
               <input type="text" placeholder="Search vendors..." value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
           </div>
@@ -101,7 +101,7 @@ export function VendorsView({ onNewVendor, canAdd = true }: { onNewVendor: () =>
                 {vendors.length === 0 ? (
                   <tr className="empty-table-row">
                     <td colSpan={6}>
-                      <div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="#5C6B60" strokeWidth="1.6" /><path d="M5 20c1.2-4 4.4-6 7-6s5.8 2 7 6" stroke="#5C6B60" strokeWidth="1.6" strokeLinecap="round" /></svg></div>
+                      <div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="3.2" stroke="#8b8fc8" strokeWidth="1.6" /><path d="M5 20c1.2-4 4.4-6 7-6s5.8 2 7 6" stroke="#8b8fc8" strokeWidth="1.6" strokeLinecap="round" /></svg></div>
                       No vendors present.
                     </td>
                   </tr>
