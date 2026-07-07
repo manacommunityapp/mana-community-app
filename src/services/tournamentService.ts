@@ -73,6 +73,11 @@ export const tournamentService = {
     return apiClient.put<ConfigInfo>(`/tournament/config/${id}`, data);
   },
 
+  /** GET /api/tournament/{configId}/teams */
+  async getConfigTeams(configId: number): Promise<any[]> {
+    return apiClient.get<any[]>(`/tournament/${configId}/teams`);
+  },
+
   /** POST /api/tournament/{configId}/manual/groups/assign */
   async assignTeamsToGroups(configId: number, assignments: { teamId: string, groupId: string }[]): Promise<string> {
     return apiClient.post<string>(`/tournament/${configId}/manual/groups/assign`, assignments);
