@@ -36,6 +36,8 @@ export interface DashboardUpcomingEvent {
   registrationStatus: string | null;
   eventDateStart: string | null;
   startTime: string | null;
+  tournamentId?: number | null;
+  tournamentName?: string | null;
 }
 
 export interface DashboardMyRegistration {
@@ -52,17 +54,60 @@ export interface DashboardMyRegistration {
   captainConfirmation: boolean | null;
 }
 
+export interface DashboardTournamentCard {
+  id: number;
+  name: string;
+  bannerImage: string | null;
+  eventDateStart: string | null;
+  eventDateEnd: string | null;
+  registrationStatus: string | null;
+  communityId: number | null;
+  communityName: string | null;
+  events: DashboardEventCard[];
+}
+
 export interface SportsDashboardResponse {
   stats: DashboardStats;
   openRegistrations: DashboardEventCard[];
   closedRegistrations: DashboardEventCard[];
   myUpcomingEvents: DashboardUpcomingEvent[];
   myRegistrations: DashboardMyRegistration[];
+  openTournaments: DashboardTournamentCard[];
+}
+
+export interface DashboardNotification {
+  id: number;
+  type: string | null;
+  category: string | null;
+  title: string;
+  body: string | null;
+  icon: string | null;
+  actionUrl: string | null;
+  referenceType: string | null;
+  referenceId: number | null;
+  priority: string | null;
+  read: boolean;
+  readAt: string | null;
+  createdAt: string;
 }
 
 export const sportsDashboardService = {
-  /** GET /api/sports/dashboard — single aggregated payload for the Sports Dashboard page. */
-  async getDashboard(): Promise<SportsDashboardResponse> {
-    return apiClient.get<SportsDashboardResponse>("/sports/dashboard");
+  async getStats(): Promise<DashboardStats> {
+    return apiClient.get<DashboardStats>("/sports/dashboard/stats");
   },
+  async getUpcomingEvents(): Promise<DashboardUpcomingEvent[]> {
+    return apiClient.get<DashboardUpcomingEvent[]>("/sports/dashboard/upcoming");
+  },
+  async getOpenTournaments(): Promise<DashboardTournamentCard[]> {
+    return apiClient.get<DashboardTournamentCard[]>("/sports/dashboard/open-tournaments");
+  },
+  async getClosedTournaments(): Promise<DashboardTournamentCard[]> {
+    return apiClient.get<DashboardTournamentCard[]>("/sports/dashboard/closed-tournaments");
+  },
+  async getMyRegistrations(): Promise<DashboardMyRegistration[]> {
+    return apiClient.get<DashboardMyRegistration[]>("/sports/dashboard/my-registrations");
+  },
+  async getNotifications(): Promise<DashboardNotification[]> {
+    return apiClient.get<DashboardNotification[]>("/sports/dashboard/notifications");
+  }
 };

@@ -11,7 +11,7 @@ const MODULE_CATEGORIES = [
   {
     id: "sports",
     label: "Sports",
-    modules: ["sports_dashboard", "events", "registration", "auction", "scheduler"],
+    modules: ["sports_dashboard", "events", "registration", "auction", "scheduler", "sports_analytics"],
   },
   {
     id: "admin",
@@ -19,9 +19,14 @@ const MODULE_CATEGORIES = [
     modules: ["admin", "venues", "roles"],
   },
   {
+    id: "finance",
+    label: "Finance",
+    modules: ["finance", "inventory", "assets"],
+  },
+  {
     id: "community",
-    label: "More",
-    modules: ["marketplace", "jobs"],
+    label: "Community",
+    modules: ["community_ops", "marketplace", "jobs"],
   },
 ];
 
@@ -92,6 +97,11 @@ const MODULES: Record<string, { label: string; icon: string; color: string; flow
       { id: "view_upcoming", label: "View Upcoming Events", icon: "📅" },
       { id: "stat_cards", label: "Understanding Stat Cards", icon: "📈" },
       { id: "sports_navigation", label: "Sports Tab Navigation", icon: "🧭" },
+      { id: "my_registrations", label: "Check My Registrations", icon: "🎫" },
+      { id: "find_my_team", label: "Find My Team", icon: "👥" },
+      { id: "event_status_badges", label: "Event Status Badges", icon: "🏷️" },
+      { id: "quick_register", label: "Quick Register for Event", icon: "⚡" },
+      { id: "whats_happening", label: "What's Happening Now", icon: "🔴" },
     ],
   },
   events: {
@@ -198,6 +208,9 @@ const MODULES: Record<string, { label: string; icon: string; color: string; flow
     flows: [
       { id: "browse_listings", label: "Browse Listings", icon: "🔍" },
       { id: "create_listing", label: "Create a Listing", icon: "➕" },
+      { id: "edit_listing", label: "Edit / Delete Listing", icon: "✏️" },
+      { id: "contact_seller", label: "Contact a Seller", icon: "💬" },
+      { id: "search_marketplace", label: "Search & Filter", icon: "🔎" },
       { id: "listing_rules", label: "Listing Guidelines", icon: "📋" },
     ],
   },
@@ -209,6 +222,70 @@ const MODULES: Record<string, { label: string; icon: string; color: string; flow
       { id: "post_job", label: "Post a Job", icon: "📝" },
       { id: "apply_job", label: "Apply for a Job", icon: "📨" },
       { id: "referral_program", label: "Referral Program", icon: "🤝" },
+      { id: "edit_job", label: "Edit / Close Job", icon: "✏️" },
+      { id: "search_jobs", label: "Search & Filter Jobs", icon: "🔍" },
+      { id: "view_applications", label: "View Applications", icon: "📋" },
+    ],
+  },
+  finance: {
+    label: "Finance & Billing",
+    icon: "💰",
+    color: "#059669",
+    flows: [
+      { id: "finance_overview", label: "Finance Dashboard", icon: "📊" },
+      { id: "create_expense", label: "Create an Expense", icon: "➕" },
+      { id: "approve_expense", label: "Approve / Reject Expense", icon: "✅" },
+      { id: "invoice_management", label: "Invoice Management", icon: "📄" },
+      { id: "gst_breakdown", label: "GST Preview & Breakdown", icon: "🧾" },
+      { id: "budget_planning", label: "Budget Planning", icon: "📈" },
+      { id: "financial_reports", label: "Financial Reports", icon: "📑" },
+      { id: "ledger_guide", label: "Ledger & Accounts", icon: "📒" },
+    ],
+  },
+  inventory: {
+    label: "Inventory",
+    icon: "📦",
+    color: "#0891b2",
+    flows: [
+      { id: "inventory_dashboard", label: "Inventory Dashboard", icon: "📊" },
+      { id: "add_inventory", label: "Add / Edit Items", icon: "➕" },
+      { id: "stock_tracking", label: "Stock Level Tracking", icon: "📉" },
+      { id: "inventory_management", label: "Inventory Management", icon: "⚙️" },
+      { id: "inventory_search", label: "Search & Filter Items", icon: "🔍" },
+    ],
+  },
+  assets: {
+    label: "Assets & Expenses",
+    icon: "🏷️",
+    color: "#7c3aed",
+    flows: [
+      { id: "asset_checkout", label: "Asset Checkout Flow", icon: "🛒" },
+      { id: "expense_upload", label: "Upload Expense Receipts", icon: "📤" },
+      { id: "treasurer_queue", label: "Treasurer Approval Queue", icon: "📋" },
+    ],
+  },
+  community_ops: {
+    label: "Community Operations",
+    icon: "🏘️",
+    color: "#ea580c",
+    flows: [
+      { id: "procurement_dashboard", label: "Procurement Dashboard", icon: "📊" },
+      { id: "raise_procurement", label: "Raise a Procurement Request", icon: "➕" },
+      { id: "maintenance_dashboard", label: "Maintenance Dashboard", icon: "🔧" },
+      { id: "raise_maintenance", label: "Raise a Maintenance Ticket", icon: "🎫" },
+      { id: "asset_audit", label: "Asset Audit Trail", icon: "📜" },
+      { id: "community_settings", label: "Community Settings", icon: "⚙️" },
+    ],
+  },
+  sports_analytics: {
+    label: "Sports Analytics",
+    icon: "📊",
+    color: "#4f46e5",
+    flows: [
+      { id: "analytics_dashboard", label: "Analytics Dashboard", icon: "📈" },
+      { id: "participation_trends", label: "Participation Trends", icon: "📉" },
+      { id: "event_reports", label: "Event Reports", icon: "📑" },
+      { id: "export_analytics", label: "Export Analytics Data", icon: "📤" },
     ],
   },
 };
@@ -430,6 +507,54 @@ const FLOW_DATA: Record<string, { title: string; steps: { step: number; name: st
       { step: 4, name: "Auction", desc: "Configure and run player auctions. Set budgets, manage player pools, and run live bidding sessions.", tip: "You need auction permissions to access this tab." },
       { step: 5, name: "Admin", desc: "Sports administration — create events, manage categories, configure sports metadata. Admin/Sports Admin only.", tip: "This tab is hidden if you don't have 'Create/Edit Sports Main' permission." },
       { step: 6, name: "Analytics", desc: "View sports analytics — event participation trends, registration stats, and auction summaries.", tip: "Analytics data is community-scoped and updates as events complete." },
+    ],
+  },
+
+  // ── Sports Dashboard (additional flows) ──
+  my_registrations: {
+    title: "Check My Registrations",
+    steps: [
+      { step: 1, name: "Go to My Sports", desc: "Click the 'My Sports' tab in the sports section. This shows all events you've registered for.", tip: "You can also see a quick summary on the Sports Dashboard under 'My Registrations' section." },
+      { step: 2, name: "View Your Status", desc: "Each registration shows: event name, category you registered in, status (PENDING, CONFIRMED, REJECTED), and captain nomination status.", tip: "PENDING means an admin hasn't reviewed your registration yet — check back later or contact the organizer." },
+      { step: 3, name: "Track Upcoming Matches", desc: "For confirmed registrations, you'll see your upcoming matches with date, time, venue, and opponent details.", tip: "Enable notifications to get alerts when match schedules are published or updated." },
+      { step: 4, name: "View Past Results", desc: "Completed events show your match history, team placement, and personal stats if recorded.", tip: "Your sports history builds over time — it's visible to organizers for future event selections." },
+    ],
+  },
+  find_my_team: {
+    title: "Find My Team",
+    steps: [
+      { step: 1, name: "After Auction", desc: "Once the player auction is completed, go to Sports → Auction → select the event. Your team assignment appears under 'Auction Results'.", tip: "If the auction hasn't happened yet, team assignments aren't available. Check the event status." },
+      { step: 2, name: "Team Details", desc: "Click on your team to see: team name, captain, all team members, total spent, remaining budget, and team color.", tip: "Screenshot your team roster and share it in the event group chat for coordination." },
+      { step: 3, name: "Team Chat", desc: "If the organizer enabled team chats, you'll find a dedicated team chat channel in the Chat section after teams are formed.", tip: "Use the team chat to coordinate practice sessions and discuss strategy before matches." },
+      { step: 4, name: "Match Schedule", desc: "Go to Sports → Schedule → select the event. Find matches where your team is playing — highlighted with your team color.", tip: "Add match dates to your personal calendar so you don't miss a game." },
+    ],
+  },
+  event_status_badges: {
+    title: "Event Status Badges Explained",
+    steps: [
+      { step: 1, name: "Green — Open", desc: "A green badge means the event is currently accepting registrations. You can sign up now!", tip: "Don't wait too long — popular events reach max participants quickly." },
+      { step: 2, name: "Blue — Upcoming", desc: "A blue badge means the event is scheduled but registration hasn't opened yet. Check back on the registration start date.", tip: "Follow the event to get notified when registration opens." },
+      { step: 3, name: "Orange — In Progress", desc: "An orange badge means the event is currently LIVE — matches are being played. Check the Schedule tab for live updates.", tip: "If you're a participant, ensure you arrive at the venue on time for your scheduled match." },
+      { step: 4, name: "Red — Closed", desc: "A red badge means registration is closed. You can still view event details but can't register.", tip: "Contact the event organizer if you missed registration — they may be able to add you manually." },
+      { step: 5, name: "Gray — Completed / Cancelled", desc: "A gray badge means the event is finished or was cancelled. Results are available for completed events.", tip: "Check Analytics for detailed event reports and your personal performance data." },
+    ],
+  },
+  quick_register: {
+    title: "Quick Register for an Event",
+    steps: [
+      { step: 1, name: "From Dashboard", desc: "On the Sports Dashboard, look for events with a green 'Register' button next to them. Click it to jump directly to the registration form.", tip: "The dashboard shows the most relevant open events at the top." },
+      { step: 2, name: "Select Category", desc: "Choose your player category from the dropdown. Only categories matching your age and gender are shown.", tip: "If you don't see any categories, the event may have age/gender restrictions that don't match your profile." },
+      { step: 3, name: "Confirm & Submit", desc: "Review your details (auto-filled from your profile), add any optional info (role preference, partner for doubles), and click 'Register'.", tip: "Registration takes seconds — your profile details are pre-filled so you just need to confirm." },
+      { step: 4, name: "Check Status", desc: "After submitting, your registration appears in 'My Sports' with status PENDING or CONFIRMED depending on event settings.", tip: "You'll receive a notification when your registration is approved or if any action is needed." },
+    ],
+  },
+  whats_happening: {
+    title: "What's Happening Right Now",
+    steps: [
+      { step: 1, name: "Live Events", desc: "On the Sports Dashboard, the 'Live Now' section shows events currently in progress with real-time match updates.", tip: "Live events have an animated red dot indicator — they're always at the top of the dashboard." },
+      { step: 2, name: "Today's Matches", desc: "The 'Today' section shows all matches scheduled for today: teams, time, venue, court, and current status.", tip: "Matches update in real-time via WebSocket — no need to refresh the page." },
+      { step: 3, name: "Active Auctions", desc: "If a player auction is LIVE, you'll see a prominent banner on the dashboard. Click it to watch or participate in bidding.", tip: "Live auctions are time-sensitive — join quickly to not miss player picks." },
+      { step: 4, name: "Recent Activity", desc: "The activity feed shows recent actions: new registrations, match results, team formations, and announcements from organizers.", tip: "This is the best place to stay updated without checking each section individually." },
     ],
   },
 
@@ -872,6 +997,289 @@ const FLOW_DATA: Record<string, { title: string; steps: { step: number; name: st
       { step: 2, name: "Make a Referral", desc: "On any job listing, click 'Refer Someone' and select a community member. They'll be notified about the opportunity.", tip: "Only refer people you know are qualified — your reputation is on the line." },
     ],
   },
+  edit_job: {
+    title: "Edit / Close a Job Posting",
+    steps: [
+      { step: 1, name: "Find Your Job", desc: "Go to Jobs & Referrals. Your posted jobs appear with an 'Edit' icon. Click it to modify the listing.", tip: "Only the job creator and admins can edit/close a job posting." },
+      { step: 2, name: "Edit Details", desc: "Update any field — title, description, requirements, salary, or location. Click 'Save' to apply changes immediately.", tip: "If you change requirements, consider notifying existing applicants." },
+      { step: 3, name: "Close the Posting", desc: "Click 'Close Job' to stop accepting applications. The listing remains visible as 'Closed' but no new applications are accepted.", tip: "Close the posting once you've filled the position to avoid unnecessary applications." },
+    ],
+  },
+  search_jobs: {
+    title: "Search & Filter Jobs",
+    steps: [
+      { step: 1, name: "Open Jobs Page", desc: "Navigate to Jobs & Referrals from the sidebar. All available jobs in your community are listed.", tip: "Jobs are community-scoped — you only see postings from your community members." },
+      { step: 2, name: "Search by Keyword", desc: "Use the search bar to find jobs by title, company name, or skills. Results update as you type.", tip: "Try broad keywords first (e.g., 'developer') then narrow down if too many results." },
+      { step: 3, name: "Apply Filters", desc: "Filter by job type, location, salary range, or posting date. Combine multiple filters to narrow results.", tip: "Save your filter preferences if you check jobs regularly." },
+    ],
+  },
+  view_applications: {
+    title: "View Applications (Job Poster)",
+    steps: [
+      { step: 1, name: "Open Your Posting", desc: "Go to Jobs & Referrals → find your job listing. Click to open details — you'll see an 'Applications' tab or count.", tip: "You receive a notification each time someone applies to your job." },
+      { step: 2, name: "Review Applicants", desc: "Each application shows the applicant's name, profile details, and any message they included. Review their community profile for more context.", tip: "Community members have verified profiles — KYC-verified applicants are more trustworthy." },
+      { step: 3, name: "Respond", desc: "Contact promising applicants directly via community chat. You can also mark applications as 'Reviewed', 'Shortlisted', or 'Rejected'.", tip: "Respond promptly — it builds your reputation as a job poster in the community." },
+    ],
+  },
+
+  // ── Marketplace (new flows) ──
+  edit_listing: {
+    title: "Edit / Delete a Marketplace Listing",
+    steps: [
+      { step: 1, name: "Find Your Listing", desc: "Go to Marketplace. Your own listings have an 'Edit' and 'Delete' option visible on the listing card.", tip: "Only the listing creator and community admins can edit or delete listings." },
+      { step: 2, name: "Edit Listing", desc: "Click 'Edit' to update the title, price, description, or photos. Changes are reflected immediately after saving.", tip: "If you've lowered the price, update the description to mention it — it attracts more buyers." },
+      { step: 3, name: "Delete Listing", desc: "Click 'Delete' and confirm. The listing is permanently removed from the marketplace.", tip: "Consider marking as 'Sold' instead of deleting if the item was purchased — it helps track community activity." },
+    ],
+  },
+  contact_seller: {
+    title: "Contact a Seller",
+    steps: [
+      { step: 1, name: "Find the Listing", desc: "Browse or search the marketplace to find an item you're interested in. Click on it to see full details.", tip: "Check the listing date — older listings may already be sold." },
+      { step: 2, name: "Message Seller", desc: "Click the 'Contact Seller' or 'Chat' button on the listing. This opens a direct message with the seller.", tip: "Introduce yourself and mention which listing you're interested in — sellers may have multiple items." },
+      { step: 3, name: "Negotiate & Arrange", desc: "Discuss price, condition, and pickup/delivery details via chat. Agree on terms before meeting.", tip: "Meet in a common area of your community for safety. Avoid sharing personal address details." },
+    ],
+  },
+  search_marketplace: {
+    title: "Search & Filter Marketplace",
+    steps: [
+      { step: 1, name: "Open Marketplace", desc: "Click 'Marketplace' in the sidebar. All active listings from your community are displayed.", tip: "Listings are sorted by newest first by default." },
+      { step: 2, name: "Search Items", desc: "Use the search bar to find items by name or keyword. Results filter in real-time as you type.", tip: "Try different keywords — 'sofa' vs 'couch' may show different results." },
+      { step: 3, name: "Filter by Category", desc: "Use category filters (Electronics, Furniture, Books, etc.) to narrow down listings. Combine with price range if available.", tip: "Check back regularly — new items are posted daily in active communities." },
+    ],
+  },
+
+  // ── Finance & Billing ──
+  finance_overview: {
+    title: "Finance Dashboard Overview",
+    steps: [
+      { step: 1, name: "Access Finance", desc: "Click 'Finance' in the sidebar navigation. You'll see sub-sections: Expenses, Invoices, Budget, and Reports.", tip: "You need 'View Admin' permission to access the finance module." },
+      { step: 2, name: "Expenses Tab", desc: "View all community expenses — pending approvals, approved expenses, and rejected ones. Each shows amount, category, creator, and status.", tip: "Expenses are community-scoped — you only see expenses from your own community." },
+      { step: 3, name: "Invoices Tab", desc: "View generated invoices with GST breakdown (CGST + SGST). Track payment status — PAID, UNPAID, OVERDUE, or PARTIAL.", tip: "Invoices are auto-generated when an expense is approved and split among active residents." },
+      { step: 4, name: "Stats Cards", desc: "At the top, summary cards show: Total Expenses, Approved Amount, Pending Count, Outstanding Invoices, and Collected Amount.", tip: "Click on any stat card to filter the table below to that specific status." },
+    ],
+  },
+  create_expense: {
+    title: "Create an Expense",
+    steps: [
+      { step: 1, name: "Open Expense Form", desc: "Go to Finance → Expenses. Click the '+ Create Expense' button. A modal form opens.", tip: "You need admin permissions to create expenses." },
+      { step: 2, name: "Fill Details", desc: "Enter: Title (e.g., 'Monthly Maintenance'), Amount, Category (Maintenance, Utilities, Events, etc.), and an optional Description.", tip: "Be specific with the title — it appears on resident invoices." },
+      { step: 3, name: "GST Preview", desc: "As you enter the amount, a real-time GST preview shows: Taxable Amount, CGST (9%), SGST (9%), and Total Amount (118% of base).", tip: "GST is calculated at 18% total — split equally as 9% CGST and 9% SGST per Indian tax rules." },
+      { step: 4, name: "Attach Receipt", desc: "Optionally upload a receipt file (PDF, JPG, PNG). This is stored for audit purposes and visible in expense details.", tip: "Always attach receipts for expenses above ₹5,000 — it speeds up approval." },
+      { step: 5, name: "Submit", desc: "Click 'Submit'. The expense is created in PENDING status. An admin must approve it before invoices are generated.", tip: "Submitted expenses trigger a notification to all users with admin permissions." },
+    ],
+  },
+  approve_expense: {
+    title: "Approve / Reject an Expense",
+    steps: [
+      { step: 1, name: "View Pending Expenses", desc: "Go to Finance → Expenses. Filter by 'Pending' status to see expenses awaiting approval.", tip: "The pending count badge on the Finance menu shows how many expenses need action." },
+      { step: 2, name: "Review Details", desc: "Click on an expense to see full details: title, amount, GST breakdown, category, description, receipt, and who created it.", tip: "Check the receipt attachment matches the claimed amount before approving." },
+      { step: 3, name: "Approve", desc: "Click 'Approve'. The expense status changes to APPROVED. Invoice generation starts automatically in the background — each active resident gets an individual invoice.", tip: "Approval triggers async batch invoice generation. For 100 residents, invoices are generated within seconds." },
+      { step: 4, name: "Reject", desc: "Click 'Reject' to decline the expense. The status changes to REJECTED. The creator is notified.", tip: "Add a reason when rejecting so the creator can fix the issue and re-submit." },
+    ],
+  },
+  invoice_management: {
+    title: "Invoice Management",
+    steps: [
+      { step: 1, name: "View All Invoices", desc: "Go to Finance → Invoices. See all community invoices with columns: Invoice #, Resident, Flat No, Amount, CGST, SGST, Total, Due Date, Status.", tip: "Invoices are auto-generated when an expense is approved — each resident gets their share." },
+      { step: 2, name: "Invoice Details", desc: "Click an invoice to see full breakdown: taxable amount, CGST (9%), SGST (9%), total amount, linked expense title, and payment history.", tip: "The invoice number is unique and follows the format INV-YYYYMMDD-XXXX." },
+      { step: 3, name: "Filter by Status", desc: "Filter invoices by: PAID, UNPAID, OVERDUE, or PARTIAL. Use this to chase outstanding payments.", tip: "OVERDUE invoices are those past their due date (30 days from generation by default)." },
+      { step: 4, name: "Mark as Paid", desc: "When a resident pays, click 'Mark as Paid'. The status changes to PAID with a timestamp. The outstanding balance updates.", tip: "For partial payments, the status can be set to PARTIAL until the full amount is received." },
+      { step: 5, name: "My Invoices (Resident View)", desc: "Regular residents can view their own invoices at Finance → Invoices → 'My Invoices' tab. They see only invoices addressed to them.", tip: "Residents don't need admin permissions to view their own invoices." },
+    ],
+  },
+  gst_breakdown: {
+    title: "GST Preview & Breakdown",
+    steps: [
+      { step: 1, name: "What Is GST", desc: "GST (Goods and Services Tax) is an Indian tax applied at 18% on community expenses. It's split into CGST (Central GST: 9%) and SGST (State GST: 9%).", tip: "This is the standard GST rate for community maintenance and service charges in India." },
+      { step: 2, name: "How It's Calculated", desc: "For an expense of ₹10,000: Taxable = ₹10,000, CGST = ₹900, SGST = ₹900, Total = ₹11,800. Each resident's invoice shows their proportional share.", tip: "The amount per resident = Total ÷ Number of Active Residents." },
+      { step: 3, name: "Preview Before Submitting", desc: "When creating an expense, enter the amount and the GST preview updates in real-time. Use the /billing/gst-preview API endpoint for programmatic access.", tip: "The preview helps you verify the total before submission — no surprises for residents." },
+    ],
+  },
+  budget_planning: {
+    title: "Budget Planning",
+    steps: [
+      { step: 1, name: "Access Budget", desc: "Navigate to Finance → Budget. The budget dashboard shows your community's financial planning overview.", tip: "You need 'View Admin' permission to access the budget section." },
+      { step: 2, name: "View Allocations", desc: "See budget allocations by category: Maintenance, Utilities, Events, Staff, Miscellaneous. Each shows allocated vs spent amounts.", tip: "Categories match the expense categories — spending is tracked automatically." },
+      { step: 3, name: "Set Budget Limits", desc: "Define monthly or quarterly budget limits for each category. The system warns when spending approaches the limit.", tip: "Set realistic limits based on previous months' actuals. Review and adjust quarterly." },
+      { step: 4, name: "Budget vs Actual", desc: "Compare budgeted amounts with actual spending. Variance reports highlight overspending and underspending by category.", tip: "Large variances may indicate either poor budgeting or unexpected expenses — investigate both." },
+    ],
+  },
+  financial_reports: {
+    title: "Financial Reports",
+    steps: [
+      { step: 1, name: "Access Reports", desc: "Navigate to Finance → Reports. Choose from available report types: Monthly Summary, Category Breakdown, and Collection Report.", tip: "Reports are generated on-demand with the latest data — no need to refresh." },
+      { step: 2, name: "Monthly Summary", desc: "Shows total expenses, total invoices generated, amount collected, and amount outstanding for a selected month.", tip: "Compare month-over-month to spot trends in community spending." },
+      { step: 3, name: "Category Breakdown", desc: "Pie chart and table showing spending by category. Useful for identifying where the community's money is going.", tip: "Present this report in community meetings for transparency." },
+      { step: 4, name: "Collection Report", desc: "Shows invoice payment rates: how many residents have paid, how many are overdue, and total outstanding amount.", tip: "Use this to follow up with residents who have outstanding invoices." },
+    ],
+  },
+  ledger_guide: {
+    title: "Ledger & Accounts",
+    steps: [
+      { step: 1, name: "Access Ledger", desc: "Navigate to Finance → Ledger. The ledger provides a detailed view of all financial transactions in chronological order.", tip: "The ledger is the single source of truth for all community financial data." },
+      { step: 2, name: "Transaction View", desc: "Each entry shows: date, description, debit/credit amount, balance, and linked expense or invoice reference.", tip: "Click on any entry to see the original expense or invoice it relates to." },
+      { step: 3, name: "Filter & Search", desc: "Filter by date range, transaction type (expense, payment, adjustment), or search by description keyword.", tip: "Export the ledger as CSV for your accountant or auditor." },
+    ],
+  },
+
+  // ── Inventory ──
+  inventory_dashboard: {
+    title: "Inventory Dashboard",
+    steps: [
+      { step: 1, name: "Access Inventory", desc: "Click 'Inventory' in the sidebar or navigate to Community → Inventory. The dashboard shows all community inventory items.", tip: "Inventory is community-scoped — you only see items belonging to your community." },
+      { step: 2, name: "Overview Cards", desc: "Stat cards show: Total Items, Low Stock Items, Recently Added, and Items Due for Audit. Each is clickable to filter.", tip: "Check 'Low Stock' regularly to avoid running out of essential supplies." },
+      { step: 3, name: "Item List", desc: "A table shows all items: name, category, quantity, unit, location, last updated, and status. Sort by any column.", tip: "Items with red indicators are below minimum stock levels and need reordering." },
+    ],
+  },
+  add_inventory: {
+    title: "Add / Edit Inventory Items",
+    steps: [
+      { step: 1, name: "Add New Item", desc: "In the Inventory Dashboard, click '+ Add Item'. Enter: item name, category, quantity, unit (pcs, kg, liters), location, and minimum stock level.", tip: "Set a realistic minimum stock level — the system alerts you when stock drops below this." },
+      { step: 2, name: "Set Category", desc: "Choose a category: Cleaning Supplies, Electrical, Plumbing, Sports Equipment, Office Supplies, or create a custom one.", tip: "Consistent categorization helps in generating useful inventory reports." },
+      { step: 3, name: "Edit Existing Item", desc: "Click the 'Edit' icon on any item to update its details. Changes are logged in the audit trail.", tip: "When adjusting quantity, add a note explaining why (e.g., 'used for Diwali event')." },
+      { step: 4, name: "Save", desc: "Click 'Save' to create or update the item. It appears immediately in the inventory list.", tip: "New items start with the quantity you enter — use stock adjustments for subsequent changes." },
+    ],
+  },
+  stock_tracking: {
+    title: "Stock Level Tracking",
+    steps: [
+      { step: 1, name: "View Stock Levels", desc: "The inventory dashboard shows current stock for each item with a visual indicator: green (OK), yellow (low), red (critical).", tip: "Critical stock means quantity is at or below the minimum level." },
+      { step: 2, name: "Adjust Stock", desc: "Click an item → 'Adjust Stock'. Enter the new quantity and reason (received delivery, consumed, damaged, etc.).", tip: "Always provide a reason for stock adjustments — it's used for audit compliance." },
+      { step: 3, name: "Stock History", desc: "Each item has a history tab showing all stock changes: date, previous quantity, new quantity, adjusted by, and reason.", tip: "Review stock history to spot patterns — frequent adjustments may indicate waste or theft." },
+    ],
+  },
+  inventory_management: {
+    title: "Inventory Management (Advanced)",
+    steps: [
+      { step: 1, name: "Access Management View", desc: "Navigate to Community → Inventory Management. This provides advanced tools beyond the basic dashboard.", tip: "This view is designed for community managers who handle procurement and asset tracking." },
+      { step: 2, name: "Bulk Operations", desc: "Select multiple items for bulk actions: update category, adjust stock levels, or export to CSV.", tip: "Use bulk operations when receiving a large delivery — faster than updating items one by one." },
+      { step: 3, name: "Reorder Alerts", desc: "Configure automatic alerts when items fall below minimum stock. Notifications are sent to designated admin users.", tip: "Link reorder alerts to the procurement module for a seamless restock workflow." },
+      { step: 4, name: "Reports", desc: "Generate inventory reports: stock valuation, consumption trends, and category-wise summaries.", tip: "Run monthly inventory reports for community committee reviews." },
+    ],
+  },
+  inventory_search: {
+    title: "Search & Filter Inventory",
+    steps: [
+      { step: 1, name: "Search Bar", desc: "Use the search bar at the top of the inventory dashboard to find items by name or description.", tip: "Search matches partial words — typing 'bulb' will find 'LED Bulb 9W' and 'Bulb Holder'." },
+      { step: 2, name: "Category Filter", desc: "Click a category chip to filter by type: Cleaning, Electrical, Plumbing, etc. Combine with search for precise results.", tip: "Click the active filter again to deselect it and show all items." },
+      { step: 3, name: "Sort Options", desc: "Sort the list by: name, quantity (ascending/descending), last updated, or category.", tip: "Sort by quantity ascending to quickly find items that need restocking." },
+    ],
+  },
+
+  // ── Assets ──
+  asset_checkout: {
+    title: "Asset Checkout Flow",
+    steps: [
+      { step: 1, name: "Browse Assets", desc: "Navigate to the assets page or access an item directly via a shared link (/items/:id). You'll see the asset details, availability, and checkout options.", tip: "Assets include community equipment: projectors, sports gear, event supplies, etc." },
+      { step: 2, name: "Request Checkout", desc: "Click 'Checkout' on an available asset. Select the date range you need it for and add a purpose note.", tip: "Some assets require admin approval before checkout is confirmed." },
+      { step: 3, name: "Confirmation", desc: "If auto-approved, the asset is marked as checked out to you. If approval-required, you'll see a 'Pending' status until an admin confirms.", tip: "Return assets on time — late returns may affect your ability to check out future items." },
+      { step: 4, name: "Return Asset", desc: "When done, go to your active checkouts and click 'Return'. The asset becomes available for others.", tip: "Note any damage or issues during return — it helps maintain the community's assets." },
+    ],
+  },
+  expense_upload: {
+    title: "Upload Expense Receipts",
+    steps: [
+      { step: 1, name: "Access Upload", desc: "Go to the expense creation form or the expense details page. Look for the 'Upload Receipt' or 'Attach File' button.", tip: "Supported formats: PDF, JPG, PNG. Maximum file size is 5MB." },
+      { step: 2, name: "Select File", desc: "Click the upload button and select your receipt file from your device. A preview is shown before submission.", tip: "Take a clear photo of paper receipts — blurry images make verification difficult." },
+      { step: 3, name: "Submit", desc: "The receipt is uploaded and linked to the expense. Admins can view it when reviewing the expense for approval.", tip: "Receipts are stored securely and accessible only to community admins and the uploader." },
+    ],
+  },
+  treasurer_queue: {
+    title: "Treasurer Approval Queue",
+    steps: [
+      { step: 1, name: "Access Queue", desc: "Treasurers see a dedicated approval queue showing all expenses awaiting financial approval. Navigate via the Admin or Finance section.", tip: "The treasurer queue is separate from general admin approvals — it focuses on financial items." },
+      { step: 2, name: "Review Items", desc: "Each queue item shows: expense title, amount, GST breakdown, category, creator, receipt attachment, and submission date.", tip: "Review receipts carefully — verify the amount on the receipt matches the claimed amount." },
+      { step: 3, name: "Approve or Return", desc: "Approve to trigger invoice generation, or return with comments for the creator to revise.", tip: "Returned items go back to the creator's draft — they can edit and resubmit." },
+    ],
+  },
+
+  // ── Community Operations ──
+  procurement_dashboard: {
+    title: "Procurement Dashboard",
+    steps: [
+      { step: 1, name: "Access Procurement", desc: "Navigate to Community → Procurement. The dashboard shows all procurement requests and their statuses.", tip: "Procurement covers purchasing supplies, services, and equipment for the community." },
+      { step: 2, name: "View Requests", desc: "Each request shows: item/service description, estimated cost, urgency, requested by, date, and status (Draft, Submitted, Approved, Ordered, Received).", tip: "Filter by status to focus on actionable items — 'Submitted' needs your review." },
+      { step: 3, name: "Procurement Workflow", desc: "The typical flow: Draft → Submitted → Approved → Ordered → Received. Each step is tracked with timestamps and user details.", tip: "Link procurement requests to inventory items for automatic stock updates when items are received." },
+    ],
+  },
+  raise_procurement: {
+    title: "Raise a Procurement Request",
+    steps: [
+      { step: 1, name: "Click New Request", desc: "In the Procurement Dashboard, click '+ New Request'. A form opens for the procurement details.", tip: "Check existing inventory first — the item you need might already be in stock." },
+      { step: 2, name: "Fill Details", desc: "Enter: item/service name, description, estimated quantity, estimated cost, urgency (Low/Medium/High), and preferred vendor (optional).", tip: "Add vendor quotes as attachments if you've already sourced pricing." },
+      { step: 3, name: "Submit", desc: "Click 'Submit'. The request goes to the community admin/treasurer for approval. You'll be notified when it's approved.", tip: "High-urgency requests are highlighted in the admin's queue for faster processing." },
+    ],
+  },
+  maintenance_dashboard: {
+    title: "Maintenance Dashboard",
+    steps: [
+      { step: 1, name: "Access Maintenance", desc: "Navigate to Community → Maintenance. The dashboard shows all maintenance requests with status indicators.", tip: "Both residents and admins can view the dashboard — residents see their own requests, admins see all." },
+      { step: 2, name: "Overview", desc: "Stat cards show: Open Tickets, In Progress, Resolved Today, and Average Resolution Time. Below is the full ticket list.", tip: "Click on any stat card to filter the ticket list to that status." },
+      { step: 3, name: "Ticket Details", desc: "Each ticket shows: issue description, location (Block/Flat/Common Area), priority, reported by, assigned to, and status history.", tip: "Photos attached to tickets help maintenance staff understand the issue before visiting." },
+    ],
+  },
+  raise_maintenance: {
+    title: "Raise a Maintenance Ticket",
+    steps: [
+      { step: 1, name: "Click New Ticket", desc: "In the Maintenance Dashboard, click '+ New Ticket'. Fill in the issue details.", tip: "Any community member can raise a maintenance ticket — no special permissions needed." },
+      { step: 2, name: "Describe the Issue", desc: "Enter: title, detailed description, location (select block, flat, or common area), and priority (Low/Medium/High/Urgent).", tip: "Be specific — 'Leaking pipe in Block A, 3rd floor corridor near lift' is better than 'Water leak'." },
+      { step: 3, name: "Attach Photos", desc: "Upload photos of the issue. Multiple images can be attached for complex problems.", tip: "Take photos from different angles and include close-ups of the damage or issue." },
+      { step: 4, name: "Submit", desc: "Click 'Submit'. The ticket is created and assigned to the maintenance team. You'll receive updates as the status changes.", tip: "For urgent issues (broken elevator, water main burst), also call the community helpline directly." },
+    ],
+  },
+  asset_audit: {
+    title: "Asset Audit Trail",
+    steps: [
+      { step: 1, name: "Access Audit", desc: "Navigate to Community → Audit. This shows a comprehensive log of all asset-related activities.", tip: "Only admins can access the asset audit trail — it's designed for compliance and accountability." },
+      { step: 2, name: "Audit Log", desc: "Each entry shows: timestamp, asset name, action (Added, Modified, Checked Out, Returned, Disposed), performed by, and details.", tip: "Use date filters to narrow down to a specific period for auditing." },
+      { step: 3, name: "Run an Audit", desc: "Click 'Start Audit' to begin a physical verification. The system generates a checklist of all assets for you to verify against actual items.", tip: "Schedule quarterly audits — they help catch discrepancies early." },
+      { step: 4, name: "Audit Report", desc: "After completing verification, generate an audit report showing: verified items, missing items, damaged items, and discrepancies.", tip: "Share the audit report with the community committee for review and action." },
+    ],
+  },
+  community_settings: {
+    title: "Community Settings",
+    steps: [
+      { step: 1, name: "Access Settings", desc: "Go to Admin → Community Settings. This page lets you configure community-level preferences and metadata.", tip: "Only community admins and super admins can modify community settings." },
+      { step: 2, name: "Basic Info", desc: "Update community name, description, address, contact details, and logo. These appear on event pages and invoices.", tip: "Keep the community name consistent — it appears on all official documents." },
+      { step: 3, name: "Feature Toggles", desc: "Enable or disable modules for your community: Marketplace, Jobs, Sports, Finance. Disabled modules are hidden from all users.", tip: "Disable unused modules to simplify the navigation for your community members." },
+    ],
+  },
+
+  // ── Sports Analytics ──
+  analytics_dashboard: {
+    title: "Sports Analytics Dashboard",
+    steps: [
+      { step: 1, name: "Access Analytics", desc: "Navigate to Sports → Analytics tab. The dashboard shows visual summaries of your community's sports activity.", tip: "You need 'View Sports Menu' permission to access analytics." },
+      { step: 2, name: "Key Metrics", desc: "Stat cards show: Total Events Conducted, Total Participants, Average Participation Rate, and Active Players (last 6 months).", tip: "Compare metrics across seasons to measure community engagement growth." },
+      { step: 3, name: "Charts", desc: "Interactive charts show: participation by sport, monthly event trends, registration conversion rates, and top players by appearances.", tip: "Hover over chart elements for detailed tooltips with exact numbers." },
+    ],
+  },
+  participation_trends: {
+    title: "Participation Trends",
+    steps: [
+      { step: 1, name: "View Trends", desc: "In the Analytics dashboard, the 'Participation Trends' section shows month-over-month registration and attendance data.", tip: "Rising trends indicate growing community interest — capitalize with more events." },
+      { step: 2, name: "Sport Breakdown", desc: "See which sports are most popular: cricket, football, badminton, etc. Bar charts compare participation across sports.", tip: "Use this data to decide which sports to invest in for next season." },
+      { step: 3, name: "Demographics", desc: "Age group and gender distribution charts show who's participating. Useful for planning inclusive events.", tip: "Low participation from a demographic? Consider dedicated events or categories for that group." },
+    ],
+  },
+  event_reports: {
+    title: "Event-Specific Reports",
+    steps: [
+      { step: 1, name: "Select Event", desc: "In Analytics, use the event dropdown to select a specific event. The report loads with that event's complete data.", tip: "Completed events have the most comprehensive data — in-progress events show partial stats." },
+      { step: 2, name: "Registration Stats", desc: "See: total registrations, approval rate, withdrawal rate, category-wise distribution, and registration timeline.", tip: "High withdrawal rates may indicate scheduling conflicts or better alternative events." },
+      { step: 3, name: "Auction Summary", desc: "If the event had an auction: total money spent, average player price, most expensive player, team spending comparison.", tip: "Compare auction summaries across seasons to see how player valuations change." },
+      { step: 4, name: "Match Results", desc: "Complete match results, win/loss records, top scorers, and tournament bracket history.", tip: "These results persist permanently — great for settling future debates about past tournaments!" },
+    ],
+  },
+  export_analytics: {
+    title: "Export Analytics Data",
+    steps: [
+      { step: 1, name: "Choose Format", desc: "In the Analytics dashboard, click 'Export'. Choose your format: CSV (data), PDF (formatted report), or Excel.", tip: "CSV is best for further analysis in spreadsheet tools. PDF is best for sharing with committee members." },
+      { step: 2, name: "Select Date Range", desc: "Choose the period to export: last month, last quarter, last year, or custom date range.", tip: "Quarterly exports work well for committee meeting presentations." },
+      { step: 3, name: "Download", desc: "Click 'Download'. The file is generated and saved to your device. Large exports may take a few seconds.", tip: "For committee meetings, export as PDF — it includes charts and formatting ready for presentation." },
+    ],
+  },
+
 };
 
 // ─── Quick Replies (context-aware) ────────────────────────────────────────────
@@ -889,6 +1297,129 @@ const QUICK_REPLIES_MODULE = [
   "Common issues",
   "Show next step",
 ];
+
+const MODULE_QUICK_REPLIES: Record<string, string[]> = {
+  sports_dashboard: [
+    "How do I register for an event?",
+    "Where can I see my team?",
+    "What's happening today?",
+    "How do I check match schedule?",
+  ],
+  events: [
+    "How do I create an event?",
+    "How does event status work?",
+    "How to share event link?",
+    "How to add sponsors?",
+  ],
+  registration: [
+    "How do I register for an event?",
+    "What does PENDING mean?",
+    "How to become captain?",
+    "Can I withdraw my registration?",
+  ],
+  auction: [
+    "How to set up an auction?",
+    "How does bidding work?",
+    "What is RTM?",
+    "How to upload players via CSV?",
+  ],
+  scheduler: [
+    "How to generate a schedule?",
+    "How do playoffs work?",
+    "How to set venue timings?",
+    "How to update match results?",
+  ],
+  auth: [
+    "I forgot my password",
+    "OTP is not arriving",
+    "How does KYC work?",
+    "My session keeps expiring",
+  ],
+  feed: [
+    "How do I create a post?",
+    "Who can see my posts?",
+    "Can I delete someone's post?",
+    "What are the community rules?",
+  ],
+  chat: [
+    "How to start a chat?",
+    "How do group chats work?",
+    "What is admin chat?",
+    "How to mute notifications?",
+  ],
+  admin: [
+    "How to create a user?",
+    "How to bulk upload users?",
+    "How to check audit logs?",
+    "How to manage communities?",
+  ],
+  finance: [
+    "How to create an expense?",
+    "How does GST work here?",
+    "How to view my invoices?",
+    "How to generate reports?",
+  ],
+  inventory: [
+    "How to add an item?",
+    "How to track stock levels?",
+    "How to search inventory?",
+    "What is inventory management?",
+  ],
+  community_ops: [
+    "How to raise maintenance ticket?",
+    "How does procurement work?",
+    "How to run an asset audit?",
+    "How to change community settings?",
+  ],
+  marketplace: [
+    "How to create a listing?",
+    "How to contact a seller?",
+    "How to search items?",
+    "Can I edit my listing?",
+  ],
+  jobs: [
+    "How to post a job?",
+    "How to apply for a job?",
+    "How do referrals work?",
+    "How to view applications?",
+  ],
+  roles: [
+    "What roles are available?",
+    "How to create a custom role?",
+    "How to assign a role?",
+    "How does the permission matrix work?",
+  ],
+  venues: [
+    "How to add a venue?",
+    "How to manage courts?",
+    "How to add a map link?",
+    "How to set venue timings?",
+  ],
+  profile: [
+    "How to edit my profile?",
+    "How to change profile picture?",
+    "How to submit KYC docs?",
+    "How to change my password?",
+  ],
+  notifications: [
+    "What notification types are there?",
+    "How to mark all as read?",
+    "How to change notification settings?",
+    "Common issues",
+  ],
+  assets: [
+    "How to checkout an asset?",
+    "How to upload a receipt?",
+    "How does treasurer approval work?",
+    "Common issues",
+  ],
+  sports_analytics: [
+    "How to view analytics?",
+    "How to see participation trends?",
+    "How to export reports?",
+    "What data is available?",
+  ],
+};
 
 // ─── UI Components ────────────────────────────────────────────────────────────
 
@@ -987,6 +1518,17 @@ export default function AppFlowChatbot({ isFloating }: { isFloating?: boolean })
     });
   }, []);
 
+  const MODULE_WELCOME: Record<string, string> = {
+    sports_dashboard: `Here are the guides for **Sports Dashboard**. Whether you want to register for an event, check your team, or see live matches — pick a topic below:\n\n💡 **Quick tip:** Try the suggested questions below for the most common tasks!`,
+    events: `Here are the guides for **Sports Events**. From creating events to managing their lifecycle — everything is covered:\n\n💡 **Quick tip:** Start with 'Event Status Lifecycle' if you're new to organizing events.`,
+    registration: `Here are the guides for **Player Registration**. Learn how to sign up, get approved, and manage your registrations:\n\n💡 **Quick tip:** If you received a link from someone, check 'Register via Shared Link'.`,
+    auction: `Here are the guides for **Player Auction**. Set up configs, manage player pools, and run live bidding sessions:\n\n💡 **Quick tip:** Follow the guides in order: Config → Player Pool → Teams → Start Auction.`,
+    finance: `Here are the guides for **Finance & Billing**. Manage expenses, invoices with GST breakdown, budgets, and reports:\n\n💡 **Quick tip:** If you're a resident, check 'Invoice Management' → 'My Invoices' to see your bills.`,
+    admin: `Here are the guides for **Admin Dashboard**. Manage users, roles, communities, and system settings:\n\n💡 **Quick tip:** New admin? Start with 'Admin Dashboard Guide' for an overview of all sections.`,
+    community_ops: `Here are the guides for **Community Operations**. Handle procurement, maintenance requests, and asset audits:\n\n💡 **Quick tip:** Any resident can raise a maintenance ticket — no special permissions needed!`,
+    inventory: `Here are the guides for **Inventory**. Track community supplies, equipment, and stock levels:\n\n💡 **Quick tip:** Check 'Stock Level Tracking' to see items that need restocking.`,
+  };
+
   const handleModuleSelect = useCallback(async (moduleKey: string) => {
     const mod = MODULES[moduleKey];
     if (!mod) return;
@@ -994,10 +1536,9 @@ export default function AppFlowChatbot({ isFloating }: { isFloating?: boolean })
     setSelectedFlow(null);
     setCurrentStep(0);
     setMessages((prev) => [...prev, { id: Date.now(), role: "user", content: `${mod.icon} ${mod.label}`, type: "text" }]);
-    await addBotMessage(
-      `Here are the guides for **${mod.label}**. Tap any topic to get a step-by-step walkthrough:`,
-      "text"
-    );
+    const welcomeMsg = MODULE_WELCOME[moduleKey]
+      || `Here are the guides for **${mod.label}**. Tap any topic to get a step-by-step walkthrough:\n\n💡 **Quick tip:** Use the suggested questions below or pick a guide above!`;
+    await addBotMessage(welcomeMsg, "text");
   }, [addBotMessage]);
 
   const handleFlowSelect = useCallback(async (flowId: string) => {
@@ -1046,14 +1587,14 @@ export default function AppFlowChatbot({ isFloating }: { isFloating?: boolean })
 
     if (reply === "How do I get started?") {
       await addBotMessage(
-        "Here's how to get started:\n\n1. **Sign up** — Create an account with your community code\n2. **Complete KYC** — Submit your ID for verification\n3. **Explore the Feed** — See what's happening in your community\n4. **Register for Sports** — Join upcoming events\n5. **Chat** — Connect with community members\n\nTap any module above for detailed guides!"
+        "Here's how to get started:\n\n1. **Sign up** — Create an account with your community code\n2. **Complete KYC** — Submit your ID for verification\n3. **Explore the Feed** — See what's happening in your community\n4. **Register for Sports** — Join upcoming events\n5. **Chat** — Connect with community members\n6. **Check Finance** — View your invoices and payments\n7. **Browse Marketplace** — Buy/sell within your community\n8. **Report Issues** — Raise maintenance tickets\n\nTap any module above for detailed guides!"
       );
       return;
     }
 
     if (reply === "What can I do here?") {
       await addBotMessage(
-        "Mana Community is your all-in-one community platform:\n\n📰 **Community Feed** — Share updates and announcements\n🏆 **Sports** — Events, registrations, auctions, and schedules\n💬 **Chat** — Direct and group messaging\n🛒 **Marketplace** — Buy and sell within your community\n💼 **Jobs** — Post and find job opportunities\n🛡️ **Admin** — Manage users, roles, and community settings\n\nPick a module to explore any of these!"
+        "Mana Community is your all-in-one community platform:\n\n📰 **Community Feed** — Share updates and announcements\n🏆 **Sports** — Events, registrations, auctions, and schedules\n💬 **Chat** — Direct and group messaging\n💰 **Finance** — Expenses, invoices with GST, budgets, and reports\n📦 **Inventory** — Track community supplies and equipment\n🏘️ **Community Ops** — Procurement, maintenance tickets, and asset audits\n🏷️ **Assets** — Checkout equipment, upload receipts\n🛒 **Marketplace** — Buy and sell within your community\n💼 **Jobs** — Post and find job opportunities\n🛡️ **Admin** — Manage users, roles, and community settings\n📊 **Analytics** — Sports participation trends and event reports\n\nPick a module to explore any of these!"
       );
       return;
     }
@@ -1084,6 +1625,11 @@ export default function AppFlowChatbot({ isFloating }: { isFloating?: boolean })
         roles: "**Manage Roles** permission required. Only ADMIN and SUPER_ADMIN by default.",
         marketplace: "**View Marketplace** to browse. **Create Listing** to post items.",
         jobs: "**View Jobs** to browse. **Create Job** to post openings.",
+        finance: "**View Admin** to access Finance. All billing endpoints (expenses, invoices, GST) require admin authority. Residents can view their own invoices via 'My Invoices'.",
+        inventory: "**View Admin** or inventory management role to access. All community members can view the inventory dashboard, but adding/editing requires admin permissions.",
+        assets: "All authenticated users can browse and checkout available assets. Expense receipt upload requires the relevant expense permission. Treasurer queue requires admin/treasurer role.",
+        community_ops: "Any member can **raise maintenance tickets**. Procurement requests require admin permission. **Asset audit** is admin/super admin only.",
+        sports_analytics: "**View Sports Menu** to access analytics. Data is read-only — no special write permissions needed.",
       };
       await addBotMessage(permMap[selectedModule] || `Permissions for ${mod.label} depend on your role. Contact your admin for access.`);
       return;
@@ -1093,11 +1639,24 @@ export default function AppFlowChatbot({ isFloating }: { isFloating?: boolean })
       const issueMap: Record<string, string> = {
         auth: "**Common issues:**\n• OTP not arriving → Check spam, wait 30s, try resend\n• Account locked → Contact your admin\n• Session expired → Re-login, save work frequently",
         feed: "**Common issues:**\n• Can't see feed → Check 'View Feed' permission\n• Can't post → Need 'Create Post' permission\n• Empty feed → No posts in your community yet",
+        chat: "**Common issues:**\n• Messages not delivered → Check internet connection (WebSocket needs stable connection)\n• Can't find user → They must be in your community\n• No typing indicator → Other user may have the chat minimized",
+        notifications: "**Common issues:**\n• Not receiving notifications → Check notification preferences in Profile → Settings\n• Too many notifications → Mute specific group chats or event channels\n• Old notifications won't clear → Click 'Dismiss All' in the notification panel",
+        profile: "**Common issues:**\n• Can't edit fields → Some fields are locked by your admin (e.g., community, role)\n• Profile picture won't upload → Check file is JPG/PNG and under 5MB\n• KYC stuck on PENDING → Your admin needs to review and approve it",
+        sports_dashboard: "**Common issues:**\n• Dashboard empty → No events created in your community yet\n• Stats show zero → Check you have 'View Sports Menu' permission\n• Can't see events → Events may be in DRAFT status (admin only)",
         events: "**Common issues:**\n• Can't create event → Need 'Create/Edit Sports Main' permission\n• Event not visible → Check status is not DRAFT\n• Can't set venue → Create venue first in Admin → Venues",
         registration: "**Common issues:**\n• Registration button disabled → Registration may be closed or you're already registered\n• Status stuck on PENDING → Admin needs to approve\n• Wrong category → Withdraw and re-register",
         auction: "**Common issues:**\n• Can't start auction → Change status to ACTIVE first, then LIVE\n• Budget exceeded → Can't bid more than remaining team budget\n• Players missing → Check they're added to the player pool",
         scheduler: "**Common issues:**\n• Can't generate schedule → Groups must be assigned first\n• Time conflict → Two matches on same court at same time\n• Missing matches → Check all groups have players",
         admin: "**Common issues:**\n• Can't see admin → Need 'View Admin' permission\n• Bulk upload fails → Check CSV format matches template\n• Can't change role → Only ADMIN/SUPER_ADMIN can change roles",
+        venues: "**Common issues:**\n• Can't add venue → Need admin or sports admin permissions\n• Map link not working → Use Google Maps 'Share' link, not the browser URL\n• Court conflict in scheduling → Two matches assigned to same court at same time",
+        roles: "**Common issues:**\n• Can't create roles → Need 'Manage Roles' permission (ADMIN/SUPER_ADMIN only)\n• User permissions not updating → User needs to log out and back in\n• Missing permission options → Some permissions are only available at Super Admin level",
+        marketplace: "**Common issues:**\n• Can't post listing → Need 'Create Listing' permission (most roles have it)\n• Listing not visible → It may have been removed by an admin for guideline violations\n• Can't contact seller → They must be an active member in your community",
+        jobs: "**Common issues:**\n• Can't post job → Need 'Create Job' permission\n• Job not visible → Check if it was closed by the poster\n• Can't apply → The posting may have reached its application limit",
+        finance: "**Common issues:**\n• Can't see Finance → Need 'View Admin' permission\n• GST amounts look wrong → GST is 18% total (9% CGST + 9% SGST), applied on the base amount\n• Invoices not generated → Expense must be APPROVED first; generation runs asynchronously",
+        inventory: "**Common issues:**\n• Inventory page empty → No items added yet; click '+ Add Item' to start\n• Stock count incorrect → Use 'Adjust Stock' with a reason note for corrections\n• Can't edit item → Check you have admin or inventory management permissions",
+        assets: "**Common issues:**\n• Can't checkout asset → It may already be checked out by someone else\n• Receipt upload fails → File must be under 5MB, formats: PDF, JPG, PNG\n• Treasurer queue empty → No pending expense approvals at the moment",
+        community_ops: "**Common issues:**\n• Maintenance ticket not assigned → Admin needs to assign a maintenance staff member\n• Procurement stuck on 'Submitted' → Waiting for admin/treasurer approval\n• Audit report incomplete → Complete all verification checkmarks before generating the report",
+        sports_analytics: "**Common issues:**\n• Analytics show no data → Need completed events with results for meaningful analytics\n• Export fails → Try a smaller date range or switch from PDF to CSV format\n• Charts not loading → Refresh the page; large datasets may take a moment to render",
       };
       await addBotMessage(issueMap[selectedModule] || "For common issues with this module, try: check your permissions, refresh the page, or contact your admin.");
       return;
@@ -1112,13 +1671,17 @@ export default function AppFlowChatbot({ isFloating }: { isFloating?: boolean })
 
       const systemPrompt = `You are the Mana Community app support assistant. You help users navigate a community management platform with these features:
 - Community Feed (posts, comments)
-- Sports (events, player registration, player auction with live bidding, tournament scheduling with group/knockout/playoff formats, match scheduling)
+- Sports (events, player registration, player auction with live bidding, tournament scheduling with group/knockout/playoff formats, match scheduling, analytics)
 - Chat (direct messages, group chat, admin chat)
 - Notifications (event updates, admin alerts)
 - User Profile (edit details, KYC verification, settings)
 - Admin Dashboard (user management, role/permission management, community creation, venues, audit logs)
-- Marketplace (buy/sell within community)
-- Jobs & Referrals (job postings, applications)
+- Finance & Billing (expenses with approval workflow, invoices with GST breakdown - 9% CGST + 9% SGST, budget planning, financial reports, ledger)
+- Inventory (community supplies tracking, stock levels, reorder alerts)
+- Assets (checkout equipment, expense receipt uploads, treasurer approval queue)
+- Community Operations (procurement requests, maintenance tickets, asset audits)
+- Marketplace (buy/sell within community, contact sellers, listing guidelines)
+- Jobs & Referrals (job postings, applications, search & filter)
 
 Available modules and flows: ${allModules}
 
@@ -1184,7 +1747,11 @@ Give practical, specific help for Mana Community features. Be concise (3-5 sente
     );
   };
 
-  const quickReplies = selectedFlow ? QUICK_REPLIES_MODULE : QUICK_REPLIES_DEFAULT;
+  const quickReplies = selectedFlow
+    ? QUICK_REPLIES_MODULE
+    : selectedModule && MODULE_QUICK_REPLIES[selectedModule]
+      ? MODULE_QUICK_REPLIES[selectedModule]
+      : QUICK_REPLIES_DEFAULT;
   const visibleModules = MODULE_CATEGORIES.find(c => c.id === activeCategory)?.modules || [];
 
   return (

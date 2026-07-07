@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { StatCard } from "./ledgerShared";
+import { StatCard } from "../ledgerShared";
 import { ledgerFinanceService } from "../../../../services/ledgerFinanceService";
 
 export function InvoicesView({ tab, setTab, onNewInvoice, onImportClick, canAdd = true }: { tab: "invoices" | "refunds"; setTab: (t: "invoices" | "refunds") => void; onNewInvoice: (type: "credit" | "cash") => void; onImportClick: () => void; canAdd?: boolean }) {
@@ -190,7 +190,7 @@ export function InvoicesView({ tab, setTab, onNewInvoice, onImportClick, canAdd 
       <div className="card table-card">
         <div className="card-head"><h2>{isInvoices ? "All Invoices" : "Refund Vouchers"}</h2><span className="tag">{isInvoices ? invoices.length : 0} results</span></div>
         <div className="search-row">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#5C6B60" strokeWidth="1.7" /><path d="m20 20-3.5-3.5" stroke="#5C6B60" strokeWidth="1.7" strokeLinecap="round" /></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="#8b8fc8" strokeWidth="1.7" /><path d="m20 20-3.5-3.5" stroke="#8b8fc8" strokeWidth="1.7" strokeLinecap="round" /></svg>
           <input type="text" placeholder={isInvoices ? "Search invoice no. or customer..." : "Search refunds..."} />
         </div>
         <div className="card-body">
@@ -220,7 +220,7 @@ export function InvoicesView({ tab, setTab, onNewInvoice, onImportClick, canAdd 
                 ) : (
                   <tr className="empty-table-row">
                     <td colSpan={7}>
-                      <div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M7 3h10a1 1 0 0 1 1 1v16l-3-2-3 2-3-2-3 2V4a1 1 0 0 1 1-1Z" stroke="#5C6B60" strokeWidth="1.6" strokeLinejoin="round" /></svg></div>
+                      <div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M7 3h10a1 1 0 0 1 1 1v16l-3-2-3 2-3-2-3 2V4a1 1 0 0 1 1-1Z" stroke="#8b8fc8" strokeWidth="1.6" strokeLinejoin="round" /></svg></div>
                       {isInvoices ? "No invoices present." : "No Refund vouchers present."}
                     </td>
                   </tr>

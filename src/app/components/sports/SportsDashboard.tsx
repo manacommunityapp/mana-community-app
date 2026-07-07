@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
-import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight } from "lucide-react";
+import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sportsService";
-import { sportsDashboardService } from "../../../services/sportsDashboardService";
+import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sportsDashboardService";
 import { auctionService } from "../../../services/auctionService";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -281,7 +281,11 @@ export function SportsDashboard() {
   const navigate = useNavigate();
   const [liveEvents, setLiveEvents] = useState<any[]>([]);
   const [openRegs, setOpenRegs] = useState<OpenRegistration[]>([]);
+  const [openTournaments, setOpenTournaments] = useState<(DashboardTournamentCard & { mappedEvents: OpenRegistration[] })[]>([]);
+  const [expandedTournaments, setExpandedTournaments] = useState<Set<number>>(new Set());
   const [closedRegs, setClosedRegs] = useState<OpenRegistration[]>([]);
+  const [closedTournaments, setClosedTournaments] = useState<(DashboardTournamentCard & { mappedEvents: OpenRegistration[] })[]>([]);
+  const [expandedClosedTournaments, setExpandedClosedTournaments] = useState<Set<number>>(new Set());
   const [myRegistrations, setMyRegistrations] = useState<any[]>([]);
   const [captainRegistration, setCaptainRegistration] = useState<any[]>([]);
   const [captainRegs, setCaptainRegs] = useState<any[]>([]);
@@ -312,15 +316,21 @@ export function SportsDashboard() {
     setLoading(true);
     setError(null);
     try {
-      // Single lean aggregation call — the backend decides community/super-admin
-      // scope and returns only the fields this page renders.
-      const data = await sportsDashboardService.getDashboard();
+      // Trigger parallel granular fetch requests
+      const [statsData, upcomingData, openTournamentsData, closedTournamentsData, myRegsData, notificationsData] = await Promise.all([
+        sportsDashboardService.getStats(),
+        sportsDashboardService.getUpcomingEvents(),
+        sportsDashboardService.getOpenTournaments(),
+        sportsDashboardService.getClosedTournaments(),
+        sportsDashboardService.getMyRegistrations(),
+        sportsDashboardService.getNotifications()
+      ]);
 
       const fmtRange = (start: string | null, end: string | null) =>
         start && end ? `${format(new Date(start), "MMM d")} - ${format(new Date(end), "MMM d")}` : "TBD";
 
-      // My registrations — rebuilt into the nested shape the render code expects.
-      const fetchedMyRegs = data.myRegistrations.map(r => ({
+      // Map my registrations
+      const fetchedMyRegs = myRegsData.map(r => ({
         id: r.id,
         eventId: r.eventId,
         event: {
@@ -338,8 +348,8 @@ export function SportsDashboard() {
       }));
       setMyRegistrations(fetchedMyRegs);
 
-      // Open registrations
-      setOpenRegs(data.openRegistrations.map(e => {
+      // Helper event mapping function
+      const mapEventCard = (e: any): OpenRegistration => {
         let actionVal = "Register";
         if (e.myRegistrationId) {
           actionVal = e.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Withdraw";
@@ -359,23 +369,51 @@ export function SportsDashboard() {
           registrationId: e.myRegistrationId ?? undefined,
           isTeamSport: e.teamSport,
         };
-      }));
+      };
 
-      // Closed registrations
-      setClosedRegs(data.closedRegistrations.map(e => ({
-        id: e.id,
-        name: e.name,
-        date: fmtRange(e.eventDateStart, e.eventDateEnd),
-        category: `${e.sportName ?? "Sport"} · ${e.categoryName ?? "Open"} · ${e.venueName ?? "TBD"}`,
-        spots: "Registration closed",
-        progress: 100,
-        progressColor: "#ef4444",
-        dotColor: "#ef4444",
-        action: "View" as const,
-        status: e.registrationStatus ?? "REGISTRATION_CLOSED",
-        auctionStatus: e.auctionStatus ?? "DRAFT",
-        isTeamSport: e.teamSport,
-      })));
+      // Grouped open tournaments
+      if (openTournamentsData?.length) {
+        setOpenTournaments(openTournamentsData.map(t => ({
+          ...t,
+          mappedEvents: t.events.map(mapEventCard),
+        })));
+        setExpandedTournaments(new Set(openTournamentsData.map(t => t.id)));
+      } else {
+        setOpenTournaments([]);
+      }
+
+      // Helper closed event mapping function
+      const mapClosedEventCard = (e: any): OpenRegistration => {
+        return {
+          id: e.id,
+          uuid: e.uuid ?? undefined,
+          name: e.name,
+          date: fmtRange(e.eventDateStart, e.eventDateEnd),
+          category: `${e.sportName ?? "Sport"} · ${e.categoryName ?? "Open"} · ${e.venueName ?? "TBD"}`,
+          spots: "Registration closed",
+          progress: 100,
+          progressColor: "#ef4444",
+          dotColor: "#ef4444",
+          action: "View" as const,
+          status: e.registrationStatus ?? "REGISTRATION_CLOSED",
+          auctionStatus: e.auctionStatus ?? "DRAFT",
+          isTeamSport: e.teamSport,
+        };
+      };
+
+      // Grouped closed tournaments
+      if (closedTournamentsData?.length) {
+        setClosedTournaments(closedTournamentsData.map(t => ({
+          ...t,
+          mappedEvents: t.events.map(mapClosedEventCard),
+        })));
+        setExpandedClosedTournaments(new Set(closedTournamentsData.map(t => t.id)));
+      } else {
+        setClosedTournaments([]);
+      }
+
+      // Re-populate closedRegs flat array just in case there are single fallback items
+      setClosedRegs(closedTournamentsData.flatMap(t => t.events).map(mapClosedEventCard));
 
       // Captain registrations (auction domain — separate concern, kept as-is)
       try {
@@ -385,11 +423,11 @@ export function SportsDashboard() {
         setCaptainRegistration([]);
       }
 
-      // My upcoming events
-      const mappedMyEvents = data.myUpcomingEvents.map(e => ({
+      // Map my upcoming events
+      const mappedMyEvents = upcomingData.map(e => ({
         id: e.id,
         name: e.name,
-        subtitle: e.sportName ?? "",
+        subtitle: e.tournamentName ? `${e.tournamentName} · ${e.sportName ?? ""}` : (e.sportName ?? ""),
         venue: e.venueName ?? "TBD",
         category: e.categoryName ?? "General",
         status: (e.registrationStatus === "LIVE" ? "LIVE" : e.registrationStatus === "COMPLETED" ? "COMPLETED" : "UPCOMING") as any,
@@ -403,10 +441,10 @@ export function SportsDashboard() {
 
       // Stats (server-computed counts)
       setStats([
-        { id: 1, value: data.stats.yourRegistrations, label: "Your Registrations", badge: "Live Updates", badgeType: "orange", color: "#f97316", icon: Trophy },
-        { id: 2, value: data.stats.liveEvents, label: "Live Events", badge: data.stats.liveEvents > 0 ? "● Running" : "None live", badgeType: "green", color: "#10b981", icon: Zap },
-        { id: 3, value: data.stats.openRegistrations, label: "Open Registrations", badge: "Join now", badgeType: "blue", color: "#3b82f6", icon: CalendarDays },
-        { id: 4, value: data.stats.communityPlayers, label: "Community Players", badge: "Global", badgeType: "purple", color: "#8b5cf6", icon: Users },
+        { id: 1, value: statsData.yourRegistrations, label: "Your Registrations", badge: "Live Updates", badgeType: "orange", color: "#f97316", icon: Trophy },
+        { id: 2, value: statsData.liveEvents, label: "Live Events", badge: statsData.liveEvents > 0 ? "● Running" : "None live", badgeType: "green", color: "#10b981", icon: Zap },
+        { id: 3, value: statsData.openRegistrations, label: "Open Registrations", badge: "Join now", badgeType: "blue", color: "#3b82f6", icon: CalendarDays },
+        { id: 4, value: statsData.communityPlayers, label: "Community Players", badge: "Global", badgeType: "purple", color: "#8b5cf6", icon: Users },
       ] as any);
 
       // Next match
@@ -417,23 +455,23 @@ export function SportsDashboard() {
       if (upcoming) {
         setNextMatch({
           title: upcoming.name,
-          subtitle: `${upcoming.venue} · ${upcoming.category}`,
+          subtitle: upcoming.subtitle ? `${upcoming.subtitle} · ${upcoming.venue}` : `${upcoming.venue} · ${upcoming.category}`,
           targetDate: upcoming.targetDate
         });
       }
 
-      // Notifications
-      const notifs = data.myUpcomingEvents.slice(0, 4).map((e) => ({
-        id: e.id,
-        icon: "🏏",
-        iconBg: "rgba(16,185,129,0.15)",
-        iconColor: "#10b981",
-        text: `Event ${e.name} is`,
-        bold: e.registrationStatus ?? "",
-        textAfter: `. Venue: ${e.venueName ?? "TBD"}`,
-        time: "Just now"
-      }));
-      setNotifications(notifs);
+      // Database notifications
+      setNotifications(notificationsData.map(n => ({
+        id: n.id,
+        icon: n.icon || "🔔",
+        iconBg: n.priority === "HIGH" ? "rgba(239,68,68,0.15)" : "rgba(99,102,241,0.15)",
+        iconColor: n.priority === "HIGH" ? "#ef4444" : "#6366f1",
+        text: n.title,
+        bold: n.body || "",
+        textAfter: "",
+        time: n.createdAt ? format(new Date(n.createdAt), "MMM d, h:mm a") : "Recent"
+      })));
+
     } catch {
       setError("Could not load live events.");
     } finally {
@@ -517,32 +555,32 @@ export function SportsDashboard() {
 
       {/* Hero Banner */}
       <div 
-        className="rounded-2xl p-6 relative overflow-hidden text-left text-white"
+        className="rounded-2xl py-3 px-5 relative overflow-hidden text-left text-white"
         style={{
           background: "linear-gradient(135deg, #1e1b4b 0%, #4f46e5 60%, #7c3aed 100%)",
           boxShadow: "0 10px 30px rgba(99, 102, 241, 0.15)",
         }}
       >
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_70%_120%,#818cf8,transparent_60%)]" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight font-sans" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>
+            <h1 className="text-lg md:text-xl font-extrabold tracking-tight font-sans" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>
               WELCOME TO THE SPORTS ARENA
             </h1>
-            <p className="text-sm text-indigo-200 mt-2 max-w-xl font-medium leading-relaxed">
+            <p className="text-[11px] md:text-xs text-indigo-200 mt-1 max-w-xl font-medium leading-relaxed">
               Track matches, check live auction rankings, register for upcoming leagues, and lead your community team to victory!
             </p>
           </div>
-          <div className="flex gap-3 shrink-0">
+          <div className="flex gap-2 shrink-0">
             <button
               onClick={() => navigate("/sports/my-sports")}
-              className="px-4 py-2.5 bg-white text-indigo-700 font-bold text-xs rounded-xl shadow-md transition-all hover:bg-indigo-50 active:scale-[0.98] border-none cursor-pointer"
+              className="px-3 py-1.5 bg-white text-indigo-700 font-bold text-[10px] rounded-lg shadow-sm transition-all hover:bg-indigo-50 active:scale-[0.98] border-none cursor-pointer"
             >
               My Hub
             </button>
             <button
               onClick={() => navigate("/sports/schedule")}
-              className="px-4 py-2.5 bg-indigo-500/30 text-white font-bold text-xs rounded-xl border border-white/20 transition-all hover:bg-indigo-500/40 active:scale-[0.98] cursor-pointer"
+              className="px-3 py-1.5 bg-indigo-500/30 text-white font-bold text-[10px] rounded-lg border border-white/20 transition-all hover:bg-indigo-500/40 active:scale-[0.98] cursor-pointer"
             >
               View Schedule
             </button>
@@ -637,24 +675,106 @@ export function SportsDashboard() {
             })
             )}
           </div>
-          {/* Open registrations */}
+          {/* Open registrations — grouped by tournament */}
           <div className="rounded-2xl p-5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
             <div className="flex items-center justify-between mb-3">
               <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Open for Registration</div>
               <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-green-500/10 text-[#10b981]">
-                {openRegs.length} event{openRegs.length !== 1 ? "s" : ""}
+                {openTournaments.length > 0
+                  ? `${openTournaments.length} tournament${openTournaments.length !== 1 ? "s" : ""}`
+                  : `${openRegs.length} event${openRegs.length !== 1 ? "s" : ""}`}
               </span>
             </div>
             {loading ? (
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
               </div>
-            ) : openRegs.length === 0 ? (
+            ) : openTournaments.length === 0 && openRegs.length === 0 ? (
               <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                 <div className="text-2xl mb-2">🏅</div>
                 <p className="text-sm font-semibold text-slate-800">No events open for registration right now</p>
                 <p className="text-[10px] mt-1" style={{ color: "#6b7094" }}>Check back later or ask your admin to open registrations</p>
               </div>
+            ) : openTournaments.length > 0 ? (
+              openTournaments.map((t, tIdx) => {
+                const isExpanded = expandedTournaments.has(t.id);
+                return (
+                  <div key={t.id} className={`mb-4 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
+                    {/* Tournament header */}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedTournaments(prev => {
+                        const next = new Set(prev);
+                        if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
+                        return next;
+                      })}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100 hover:border-indigo-200 transition-all cursor-pointer text-left group"
+                    >
+                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <Trophy className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-[#0d0d2b] truncate">{t.name}</div>
+                        <div className="text-[10px] text-[#6b7094] mt-0.5 font-medium">
+                          {t.eventDateStart && t.eventDateEnd
+                            ? `${format(new Date(t.eventDateStart), "MMM d")} - ${format(new Date(t.eventDateEnd), "MMM d")}`
+                            : "Dates TBD"}
+                          {" · "}
+                          {t.mappedEvents.length} event{t.mappedEvents.length !== 1 ? "s" : ""}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 uppercase tracking-wider">
+                          Open
+                        </span>
+                        {isExpanded
+                          ? <ChevronDown className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />
+                          : <ChevronRight className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />}
+                      </div>
+                    </button>
+                    {/* Child events */}
+                    {isExpanded && (
+                      <div className="mt-2 ml-4 pl-3 border-l-2 border-indigo-100 space-y-0">
+                        {t.mappedEvents.map((item, idx) => (
+                          <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
+                            <RegCard
+                              item={item}
+                              onRegister={() => navigate(`/sports/register/${item.uuid ?? item.id}`)}
+                              onView={() => navigate("/sports/auction")}
+                              onWithdraw={async (regItem) => {
+                                if (!regItem.registrationId) return;
+                                if (!window.confirm(`Are you sure you want to withdraw your registration for ${regItem.name}?`)) return;
+                                try {
+                                  await sportsService.withdraw(regItem.registrationId);
+                                  toast.success(`Successfully withdrawn from ${regItem.name}`);
+                                  fetchData();
+                                } catch (err: any) {
+                                  toast.error(err?.message || "Failed to withdraw registration");
+                                }
+                              }}
+                              isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
+                              toggling={togglingId === item.id}
+                              onToggleStatus={async (evt) => {
+                                setTogglingId(evt.id);
+                                try {
+                                  const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
+                                  await sportsService.updateEventStatus(evt.id, newStatus);
+                                  toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
+                                  fetchData();
+                                } catch {
+                                  toast.error("Failed to update status");
+                                } finally {
+                                  setTogglingId(null);
+                                }
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             ) : (
               openRegs.map((item, idx) => (
                 <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
@@ -695,50 +815,131 @@ export function SportsDashboard() {
           </div>
 
           {/* Closed registrations */}
-          {(canManageCaptainNominations || confirmedMyRegistrations.length > 0) && closedRegs.length > 0 && (
+          {(canManageCaptainNominations || confirmedMyRegistrations.length > 0) && (closedTournaments.length > 0 || closedRegs.length > 0) && (
             <div className="rounded-2xl p-5 mt-4 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Closed Registrations</div>
                 <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-red-500/10 text-red-500">
-                  {closedRegs.length} event{closedRegs.length !== 1 ? "s" : ""}
+                  {closedTournaments.length > 0
+                    ? `${closedTournaments.length} tournament${closedTournaments.length !== 1 ? "s" : ""}`
+                    : `${closedRegs.length} event${closedRegs.length !== 1 ? "s" : ""}`}
                 </span>
               </div>
-              {closedRegs.map((item, idx) => (
-                <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
-                  <RegCard
-                    item={item}
-                    onRegister={() => { }}
-                    onView={() => navigate("/sports/auction")}
-                    isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
-                    toggling={togglingId === item.id}
-                    onToggleStatus={async (evt) => {
-                      setTogglingId(evt.id);
-                      try {
-                         const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
-                         await sportsService.updateEventStatus(evt.id, newStatus);
-                         toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
-                         fetchData();
-                       } catch {
-                         toast.error("Failed to update status");
-                       } finally {
-                         setTogglingId(null);
-                       }
-                    }}
-                    onStartAuction={async (evt) => {
-                      try {
-                        await auctionService.updateStatus(evt.id, "LIVE");
-                        navigate(`/sports/auction/${evt.id}`);
-                      } catch {
-                        // If it fails, still navigate, maybe it's already live or config doesn't exist yet
-                        navigate(`/sports/auction/${evt.id}`);
-                      }
-                    }}
-                    onScheduleMatches={(evt) => {
-                      navigate(`/sports/schedule/${evt.id}`);
-                    }}
-                  />
-                </div>
-              ))}
+              {closedTournaments.length > 0 ? (
+                closedTournaments.map((t, tIdx) => {
+                  const isExpanded = expandedClosedTournaments.has(t.id);
+                  return (
+                    <div key={t.id} className={`mb-4 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedClosedTournaments(prev => {
+                          const next = new Set(prev);
+                          if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
+                          return next;
+                        })}
+                        className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-slate-50 to-red-50/20 border border-slate-100 hover:border-slate-200 transition-all cursor-pointer text-left group"
+                      >
+                        <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center flex-shrink-0 shadow-sm">
+                          <Trophy className="h-4 w-4 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-bold text-[#0d0d2b] truncate">{t.name}</div>
+                          <div className="text-[10px] text-[#6b7094] mt-0.5 font-medium">
+                            {t.eventDateStart && t.eventDateEnd
+                              ? `${format(new Date(t.eventDateStart), "MMM d")} - ${format(new Date(t.eventDateEnd), "MMM d")}`
+                              : "Dates TBD"}
+                            {" · "}
+                            {t.mappedEvents.length} event{t.mappedEvents.length !== 1 ? "s" : ""}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 uppercase tracking-wider">
+                            Closed
+                          </span>
+                          {isExpanded
+                            ? <ChevronDown className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />
+                            : <ChevronRight className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />}
+                        </div>
+                      </button>
+                      {isExpanded && (
+                        <div className="mt-2 ml-4 pl-3 border-l-2 border-slate-200 space-y-0">
+                          {t.mappedEvents.map((item, idx) => (
+                            <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
+                              <RegCard
+                                item={item}
+                                onRegister={() => { }}
+                                onView={() => navigate("/sports/auction")}
+                                isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
+                                toggling={togglingId === item.id}
+                                onToggleStatus={async (evt) => {
+                                  setTogglingId(evt.id);
+                                  try {
+                                    const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
+                                    await sportsService.updateEventStatus(evt.id, newStatus);
+                                    toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
+                                    fetchData();
+                                  } catch {
+                                    toast.error("Failed to update status");
+                                  } finally {
+                                    setTogglingId(null);
+                                  }
+                                }}
+                                onStartAuction={async (evt) => {
+                                  try {
+                                    await auctionService.updateStatus(evt.id, "LIVE");
+                                    navigate(`/sports/auction/${evt.id}`);
+                                  } catch {
+                                    navigate(`/sports/auction/${evt.id}`);
+                                  }
+                                }}
+                                onScheduleMatches={(evt) => {
+                                  navigate(`/sports/schedule/${evt.id}`);
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                closedRegs.map((item, idx) => (
+                  <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
+                    <RegCard
+                      item={item}
+                      onRegister={() => { }}
+                      onView={() => navigate("/sports/auction")}
+                      isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
+                      toggling={togglingId === item.id}
+                      onToggleStatus={async (evt) => {
+                        setTogglingId(evt.id);
+                        try {
+                           const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
+                           await sportsService.updateEventStatus(evt.id, newStatus);
+                           toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
+                           fetchData();
+                         } catch {
+                           toast.error("Failed to update status");
+                         } finally {
+                           setTogglingId(null);
+                         }
+                      }}
+                      onStartAuction={async (evt) => {
+                        try {
+                          await auctionService.updateStatus(evt.id, "LIVE");
+                          navigate(`/sports/auction/${evt.id}`);
+                        } catch {
+                          navigate(`/sports/auction/${evt.id}`);
+                        }
+                      }}
+                      onScheduleMatches={(evt) => {
+                        navigate(`/sports/schedule/${evt.id}`);
+                      }}
+                    />
+                  </div>
+                ))
+              )}
             </div>
           )}
 

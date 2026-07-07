@@ -24,7 +24,7 @@ export function Field({ label, children }: { label: string; children: React.Reac
 export function EmptyBlock({ title, text, noTop }: { title: string; text: string; noTop?: boolean }) {
   return (
     <div className="empty" style={noTop ? { borderTop: "none", marginTop: 0, paddingTop: 8 } : undefined}>
-      <div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M7 3h10a1 1 0 0 1 1 1v16l-3-2-3 2-3-2-3 2V4a1 1 0 0 1 1-1Z" stroke="#5C6B60" strokeWidth="1.6" strokeLinejoin="round" /></svg></div>
+      <div className="glyph"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M7 3h10a1 1 0 0 1 1 1v16l-3-2-3 2-3-2-3 2V4a1 1 0 0 1 1-1Z" stroke="#8b8fc8" strokeWidth="1.6" strokeLinejoin="round" /></svg></div>
       <h3>{title}</h3><p>{text}</p>
     </div>
   );

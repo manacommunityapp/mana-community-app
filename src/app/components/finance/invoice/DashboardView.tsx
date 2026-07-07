@@ -1,4 +1,4 @@
-import { EmptyBlock } from "./ledgerShared";
+import { EmptyBlock } from "../ledgerShared";
 
 export function DashboardView({ periodTab, setPeriodTab }: { periodTab: number; setPeriodTab: (i: number) => void }) {
   const periods = ["This Month", "Last 6 Months", "Financial Year"];

@@ -1,20 +1,33 @@
-import React, { useState } from 'react';
-import { Calendar, GripVertical, Trophy, Save, Shield } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, GripVertical, Trophy, Save, Shield, Loader2 } from 'lucide-react';
 import { tournamentService } from '../../../services/tournamentService';
 
-// --- MOCK DATA ---
-const INITIAL_TEAMS = [
-  { id: 'T1', name: 'Mumbai Indians', group: 'UNASSIGNED', color: '#3b82f6' },
-  { id: 'T2', name: 'Chennai Super Kings', group: 'UNASSIGNED', color: '#eab308' },
-  { id: 'T3', name: 'Royal Challengers', group: 'UNASSIGNED', color: '#ef4444' },
-  { id: 'T4', name: 'Delhi Capitals', group: 'UNASSIGNED', color: '#0ea5e9' },
-  { id: 'T5', name: 'Kolkata Knight Riders', group: 'UNASSIGNED', color: '#a855f7' },
-  { id: 'T6', name: 'Rajasthan Royals', group: 'UNASSIGNED', color: '#ec4899' },
-];
+interface ManualSchedulerProps {
+  configId?: number;
+}
 
-export function ManualScheduler() {
+const TEAM_COLORS = ['#3b82f6', '#eab308', '#ef4444', '#0ea5e9', '#a855f7', '#ec4899', '#10b981', '#f97316'];
+
+export function ManualScheduler({ configId }: ManualSchedulerProps) {
   const [activeTab, setActiveTab] = useState('GROUPS');
-  const [teams, setTeams] = useState(INITIAL_TEAMS);
+  const [teams, setTeams] = useState<{ id: string; name: string; group: string; color: string }[]>([]);
+  const [loadingTeams, setLoadingTeams] = useState(false);
+
+  useEffect(() => {
+    if (!configId) return;
+    setLoadingTeams(true);
+    tournamentService.getConfigTeams?.(configId)
+      .then((data: any[]) => {
+        setTeams(data.map((t, i) => ({
+          id: String(t.id || t.teamId || `T${i + 1}`),
+          name: t.name || t.teamName || `Team ${i + 1}`,
+          group: t.group || t.groupId || 'UNASSIGNED',
+          color: TEAM_COLORS[i % TEAM_COLORS.length],
+        })));
+      })
+      .catch(() => setTeams([]))
+      .finally(() => setLoadingTeams(false));
+  }, [configId]);
   const [matches, setMatches] = useState<any[]>([]);
   const [draggedTeam, setDraggedTeam] = useState<string | null>(null);
 
@@ -51,10 +64,13 @@ export function ManualScheduler() {
   };
 
   const saveGroupsToDB = async () => {
+    if (!configId) {
+      alert("No tournament config selected.");
+      return;
+    }
     try {
       const assignments = teams.map(t => ({ teamId: t.id, groupId: t.group }));
-      // NOTE: Replace '1' with your actual configId when passing props
-      await tournamentService.assignTeamsToGroups(1, assignments);
+      await tournamentService.assignTeamsToGroups(configId, assignments);
       alert("Groups saved successfully!");
     } catch (err) {
       console.error("Failed to save groups", err);
@@ -81,8 +97,11 @@ export function ManualScheduler() {
     setMatches([...matches, newMatch]);
 
     try {
-      // NOTE: Replace '1' with your actual configId
-      await tournamentService.scheduleManualMatch(1, {
+      if (!configId) {
+        alert("No tournament config selected.");
+        return;
+      }
+      await tournamentService.scheduleManualMatch(configId, {
         homeTeamId: matchForm.home === 'TBD' ? '' : matchForm.home,
         awayTeamId: matchForm.away === 'TBD' ? '' : matchForm.away,
         matchType: matchForm.type,
@@ -114,9 +133,21 @@ export function ManualScheduler() {
 
   const getTeamsByGroup = (groupId: string) => teams.filter(t => t.group === groupId);
 
+  if (loadingTeams) {
+    return <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-[#f97316] animate-spin" /></div>;
+  }
+
+  if (!configId) {
+    return (
+      <div className="bg-white/50 border border-[rgba(99,102,241,0.12)] border-dashed rounded-xl p-8 text-center text-[#6b7094] text-sm">
+        Select a tournament configuration to use the Manual Scheduler.
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
-      
+
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between md:items-end gap-4 border-b border-[rgba(99,102,241,0.12)] pb-4 mb-6">
         <div>

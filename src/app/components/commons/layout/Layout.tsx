@@ -303,26 +303,6 @@ export function Layout() {
               {isFinanceOpen && (
                 <div className="pl-5 space-y-0.5 animate-in slide-in-from-top-1 duration-150">
                   <NavLink
-                    to="/finance/ledger"
-                    onClick={() => setIsSidebarOpen(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                        isActive
-                          ? "text-white bg-primary border-primary/25 shadow-sm"
-                          : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                      )
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        <BookOpen className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                        Invoices
-                      </>
-                    )}
-                  </NavLink>
-
-                  <NavLink
                     to="/finance/expenses"
                     onClick={() => setIsSidebarOpen(false)}
                     className={({ isActive }) =>
