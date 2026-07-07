@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
-import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight } from "lucide-react";
+import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sportsService";
-import { sportsDashboardService } from "../../../services/sportsDashboardService";
+import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sportsDashboardService";
 import { auctionService } from "../../../services/auctionService";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -281,6 +281,8 @@ export function SportsDashboard() {
   const navigate = useNavigate();
   const [liveEvents, setLiveEvents] = useState<any[]>([]);
   const [openRegs, setOpenRegs] = useState<OpenRegistration[]>([]);
+  const [openTournaments, setOpenTournaments] = useState<(DashboardTournamentCard & { mappedEvents: OpenRegistration[] })[]>([]);
+  const [expandedTournaments, setExpandedTournaments] = useState<Set<number>>(new Set());
   const [closedRegs, setClosedRegs] = useState<OpenRegistration[]>([]);
   const [myRegistrations, setMyRegistrations] = useState<any[]>([]);
   const [captainRegistration, setCaptainRegistration] = useState<any[]>([]);
@@ -360,6 +362,38 @@ export function SportsDashboard() {
           isTeamSport: e.teamSport,
         };
       }));
+
+      // Open tournaments — grouped with child events
+      const mapEventCard = (e: typeof data.openRegistrations[0]): OpenRegistration => {
+        let actionVal = "Register";
+        if (e.myRegistrationId) {
+          actionVal = e.myRegistrationStatus === "CONFIRMED" ? "Confirmed" : "Withdraw";
+        }
+        return {
+          id: e.id,
+          uuid: e.uuid ?? undefined,
+          name: e.name,
+          date: fmtRange(e.eventDateStart, e.eventDateEnd),
+          category: `${e.sportName ?? "Sport"} · ${e.categoryName ?? "Open"} · ${e.venueName ?? "TBD"}`,
+          spots: e.maxParticipants ? `${e.maxParticipants} max spots` : "Unlimited spots",
+          progress: 30,
+          progressColor: "#3b82f6",
+          dotColor: "#10b981",
+          action: actionVal,
+          status: e.registrationStatus ?? "REGISTRATION_OPEN",
+          registrationId: e.myRegistrationId ?? undefined,
+          isTeamSport: e.teamSport,
+        };
+      };
+      if (data.openTournaments?.length) {
+        setOpenTournaments(data.openTournaments.map(t => ({
+          ...t,
+          mappedEvents: t.events.map(mapEventCard),
+        })));
+        setExpandedTournaments(new Set(data.openTournaments.map(t => t.id)));
+      } else {
+        setOpenTournaments([]);
+      }
 
       // Closed registrations
       setClosedRegs(data.closedRegistrations.map(e => ({
@@ -517,32 +551,32 @@ export function SportsDashboard() {
 
       {/* Hero Banner */}
       <div 
-        className="rounded-2xl p-6 relative overflow-hidden text-left text-white"
+        className="rounded-2xl py-3 px-5 relative overflow-hidden text-left text-white"
         style={{
           background: "linear-gradient(135deg, #1e1b4b 0%, #4f46e5 60%, #7c3aed 100%)",
           boxShadow: "0 10px 30px rgba(99, 102, 241, 0.15)",
         }}
       >
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_70%_120%,#818cf8,transparent_60%)]" />
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold tracking-tight font-sans" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>
+            <h1 className="text-lg md:text-xl font-extrabold tracking-tight font-sans" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>
               WELCOME TO THE SPORTS ARENA
             </h1>
-            <p className="text-sm text-indigo-200 mt-2 max-w-xl font-medium leading-relaxed">
+            <p className="text-[11px] md:text-xs text-indigo-200 mt-1 max-w-xl font-medium leading-relaxed">
               Track matches, check live auction rankings, register for upcoming leagues, and lead your community team to victory!
             </p>
           </div>
-          <div className="flex gap-3 shrink-0">
+          <div className="flex gap-2 shrink-0">
             <button
               onClick={() => navigate("/sports/my-sports")}
-              className="px-4 py-2.5 bg-white text-indigo-700 font-bold text-xs rounded-xl shadow-md transition-all hover:bg-indigo-50 active:scale-[0.98] border-none cursor-pointer"
+              className="px-3 py-1.5 bg-white text-indigo-700 font-bold text-[10px] rounded-lg shadow-sm transition-all hover:bg-indigo-50 active:scale-[0.98] border-none cursor-pointer"
             >
               My Hub
             </button>
             <button
               onClick={() => navigate("/sports/schedule")}
-              className="px-4 py-2.5 bg-indigo-500/30 text-white font-bold text-xs rounded-xl border border-white/20 transition-all hover:bg-indigo-500/40 active:scale-[0.98] cursor-pointer"
+              className="px-3 py-1.5 bg-indigo-500/30 text-white font-bold text-[10px] rounded-lg border border-white/20 transition-all hover:bg-indigo-500/40 active:scale-[0.98] cursor-pointer"
             >
               View Schedule
             </button>
@@ -637,24 +671,106 @@ export function SportsDashboard() {
             })
             )}
           </div>
-          {/* Open registrations */}
+          {/* Open registrations — grouped by tournament */}
           <div className="rounded-2xl p-5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
             <div className="flex items-center justify-between mb-3">
               <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Open for Registration</div>
               <span className="text-[10px] px-2 py-0.5 rounded font-bold bg-green-500/10 text-[#10b981]">
-                {openRegs.length} event{openRegs.length !== 1 ? "s" : ""}
+                {openTournaments.length > 0
+                  ? `${openTournaments.length} tournament${openTournaments.length !== 1 ? "s" : ""}`
+                  : `${openRegs.length} event${openRegs.length !== 1 ? "s" : ""}`}
               </span>
             </div>
             {loading ? (
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="w-6 h-6 text-[#f97316] animate-spin" />
               </div>
-            ) : openRegs.length === 0 ? (
+            ) : openTournaments.length === 0 && openRegs.length === 0 ? (
               <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                 <div className="text-2xl mb-2">🏅</div>
                 <p className="text-sm font-semibold text-slate-800">No events open for registration right now</p>
                 <p className="text-[10px] mt-1" style={{ color: "#6b7094" }}>Check back later or ask your admin to open registrations</p>
               </div>
+            ) : openTournaments.length > 0 ? (
+              openTournaments.map((t, tIdx) => {
+                const isExpanded = expandedTournaments.has(t.id);
+                return (
+                  <div key={t.id} className={`mb-4 last:mb-0 animate-fade-in-up stagger-${(tIdx % 8) + 1}`}>
+                    {/* Tournament header */}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedTournaments(prev => {
+                        const next = new Set(prev);
+                        if (next.has(t.id)) next.delete(t.id); else next.add(t.id);
+                        return next;
+                      })}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100 hover:border-indigo-200 transition-all cursor-pointer text-left group"
+                    >
+                      <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                        <Trophy className="h-4 w-4 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-[#0d0d2b] truncate">{t.name}</div>
+                        <div className="text-[10px] text-[#6b7094] mt-0.5 font-medium">
+                          {t.eventDateStart && t.eventDateEnd
+                            ? `${format(new Date(t.eventDateStart), "MMM d")} - ${format(new Date(t.eventDateEnd), "MMM d")}`
+                            : "Dates TBD"}
+                          {" · "}
+                          {t.mappedEvents.length} event{t.mappedEvents.length !== 1 ? "s" : ""}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 uppercase tracking-wider">
+                          Open
+                        </span>
+                        {isExpanded
+                          ? <ChevronDown className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />
+                          : <ChevronRight className="w-4 h-4 text-[#6b7094] group-hover:text-indigo-600 transition-colors" />}
+                      </div>
+                    </button>
+                    {/* Child events */}
+                    {isExpanded && (
+                      <div className="mt-2 ml-4 pl-3 border-l-2 border-indigo-100 space-y-0">
+                        {t.mappedEvents.map((item, idx) => (
+                          <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>
+                            <RegCard
+                              item={item}
+                              onRegister={() => navigate(`/sports/register/${item.uuid ?? item.id}`)}
+                              onView={() => navigate("/sports/auction")}
+                              onWithdraw={async (regItem) => {
+                                if (!regItem.registrationId) return;
+                                if (!window.confirm(`Are you sure you want to withdraw your registration for ${regItem.name}?`)) return;
+                                try {
+                                  await sportsService.withdraw(regItem.registrationId);
+                                  toast.success(`Successfully withdrawn from ${regItem.name}`);
+                                  fetchData();
+                                } catch (err: any) {
+                                  toast.error(err?.message || "Failed to withdraw registration");
+                                }
+                              }}
+                              isAdmin={hasAnyPermission(CREATE_EDIT_SPORTS_MAIN, CREATE_EDIT_PLAYER_POOL)}
+                              toggling={togglingId === item.id}
+                              onToggleStatus={async (evt) => {
+                                setTogglingId(evt.id);
+                                try {
+                                  const newStatus = evt.status === "REGISTRATION_OPEN" ? "REGISTRATION_CLOSED" : "REGISTRATION_OPEN";
+                                  await sportsService.updateEventStatus(evt.id, newStatus);
+                                  toast.success(`Registration ${newStatus === "REGISTRATION_OPEN" ? "reopened" : "closed"} for ${evt.name}`);
+                                  fetchData();
+                                } catch {
+                                  toast.error("Failed to update status");
+                                } finally {
+                                  setTogglingId(null);
+                                }
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             ) : (
               openRegs.map((item, idx) => (
                 <div key={item.id} className={`animate-fade-in-up stagger-${(idx % 8) + 1}`}>

@@ -286,6 +286,7 @@ export interface SportsTournament {
   tournamentType?: string;
   createdAt?: string;
   updatedAt?: string;
+  communityId?: number;
 }
 
 export type SportsTournamentRequest = SportsEventRequest;

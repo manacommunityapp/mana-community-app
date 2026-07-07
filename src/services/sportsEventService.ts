@@ -11,7 +11,7 @@ import type {
 export const sportsEventService = {
   mapEvent(e: SportsEvent): SportsEvent {
     if (e) {
-      e.status = e.registrationStatus || e.tournament?.registrationStatus;
+      e.status = e.status || e.registrationStatus || e.tournament?.registrationStatus;
     }
     return e;
   },

@@ -41,8 +41,9 @@ export const sportsService = {
     return apiClient.get<SportsTournament[]>("/tournaments/all");
   },
   /** GET /api/sports/events/all — list of all events (from sports_event table via SportsController) */
-  async getAllEvents(): Promise<SportsEvent[]> {
-    return apiClient.get<SportsEvent[]>("/sports/events/all")
+  async getAllEvents(includeInactive = false): Promise<SportsEvent[]> {
+    const suffix = includeInactive ? "?includeInactive=true" : "";
+    return apiClient.get<SportsEvent[]>(`/sports/events/all${suffix}`)
       .then(res => res.map(x => sportsEventService.mapEvent(x)));
   },
 
@@ -51,8 +52,9 @@ export const sportsService = {
     return apiClient.get<SportsTournament[]>(`/tournaments/community?communityId=${communityId}`);
   },
   /** GET /api/sports/events/community?communityId= — all events for a specific community (via SportsController) */
-  async getCommunityEvents(communityId: number): Promise<SportsEvent[]> {
-    return apiClient.get<SportsEvent[]>(`/sports/events/community?communityId=${communityId}`)
+  async getCommunityEvents(communityId: number, includeInactive = false): Promise<SportsEvent[]> {
+    const suffix = includeInactive ? "&includeInactive=true" : "";
+    return apiClient.get<SportsEvent[]>(`/sports/events/community?communityId=${communityId}${suffix}`)
       .then(res => res.map(x => sportsEventService.mapEvent(x)));
   },
 

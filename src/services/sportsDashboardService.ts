@@ -52,12 +52,25 @@ export interface DashboardMyRegistration {
   captainConfirmation: boolean | null;
 }
 
+export interface DashboardTournamentCard {
+  id: number;
+  name: string;
+  bannerImage: string | null;
+  eventDateStart: string | null;
+  eventDateEnd: string | null;
+  registrationStatus: string | null;
+  communityId: number | null;
+  communityName: string | null;
+  events: DashboardEventCard[];
+}
+
 export interface SportsDashboardResponse {
   stats: DashboardStats;
   openRegistrations: DashboardEventCard[];
   closedRegistrations: DashboardEventCard[];
   myUpcomingEvents: DashboardUpcomingEvent[];
   myRegistrations: DashboardMyRegistration[];
+  openTournaments: DashboardTournamentCard[];
 }
 
 export const sportsDashboardService = {

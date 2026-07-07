@@ -687,20 +687,20 @@ export function SportsSchedule() {
         <div className="space-y-6 animate-fade-in-up text-left">
           {/* Welcome/Hero Banner */}
           <div
-            className="rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
+            className="rounded-3xl py-3 px-5 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
             style={{
               background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)",
             }}
           >
-            <div className="absolute top-0 right-0 p-6 opacity-10 pointer-events-none">
-              <Trophy className="w-48 h-48 rotate-12" />
+            <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
+              <Trophy className="w-28 h-28 rotate-12" />
             </div>
-            <div className="max-w-xl relative z-10 space-y-2">
-              <span className="px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200">
+            <div className="max-w-xl relative z-10 space-y-1">
+              <span className="px-2 py-0.5 rounded-full text-[8px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block mb-0.5">
                 Tournament Hub
               </span>
-              <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">Schedule & Live Center</h2>
-              <p className="text-xs md:text-sm text-indigo-200 leading-relaxed max-w-lg">
+              <h2 className="text-lg md:text-xl font-extrabold tracking-tight">Schedule & Live Center</h2>
+              <p className="text-[11px] text-indigo-200 leading-relaxed max-w-lg">
                 Track tournament match scheduling, ongoing live scores, team brackets, and complete event results all in one place.
               </p>
             </div>

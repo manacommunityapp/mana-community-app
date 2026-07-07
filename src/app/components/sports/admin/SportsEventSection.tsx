@@ -866,7 +866,7 @@ export function SportsEventSection({
               const endStr = e.eventDateEnd ? format(new Date(e.eventDateEnd), "MMM d, yyyy") : "";
               
               return (
-                <div key={e.id} className="p-4 rounded-xl transition-all duration-300 flex flex-col justify-between bg-slate-50 border border-slate-200 hover:border-indigo-500/20 shadow-sm">
+                <div key={e.id} className={cn("p-4 rounded-xl transition-all duration-300 flex flex-col justify-between border shadow-sm", e.active !== false ? "bg-slate-50 border-slate-200 hover:border-indigo-500/20" : "bg-slate-100/60 border-slate-200/60 opacity-75")}>
                   <div className="flex gap-3">
                     {iconUrl ? (
                       <div className="w-8 h-8 flex items-center justify-center overflow-hidden rounded-lg flex-shrink-0 bg-white border border-slate-200 shadow-sm">
@@ -879,6 +879,31 @@ export function SportsEventSection({
                       <h4 className="text-sm font-semibold text-slate-800 truncate leading-snug">{e.name}</h4>
                       
                       <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                        {e.active !== false ? (
+                          <span className="text-[9px] bg-emerald-50 text-emerald-600 border border-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="text-[9px] bg-red-50 text-red-600 border border-red-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                            Closed
+                          </span>
+                        )}
+                        {e.status && (
+                          <span className={cn(
+                            "text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide border",
+                            e.status === "REGISTRATION_OPEN"
+                              ? "bg-blue-50 text-blue-600 border-blue-100"
+                              : e.status === "LIVE"
+                                ? "bg-green-50 text-green-600 border-green-100"
+                                : e.status === "COMPLETED"
+                                  ? "bg-slate-100 text-slate-500 border-slate-200"
+                                  : e.status === "CANCELLED"
+                                    ? "bg-red-50 text-red-500 border-red-100"
+                                    : "bg-slate-50 text-slate-500 border-slate-200"
+                          )}>
+                            {e.status.replace(/_/g, ' ')}
+                          </span>
+                        )}
                         <span className="text-[9px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
                           {e.format || "SINGLES"}
                         </span>
