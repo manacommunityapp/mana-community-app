@@ -27,28 +27,6 @@ import { ManualScheduler } from "../scheduler/ManualScheduler";
 const TABS = ["Overview", "My Matches", "All Events", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
 type Tab = typeof TABS[number];
 
-type Sport = "Basketball" | "Soccer" | "Volleyball";
-
-interface Game {
-  id: string;
-  sport: Sport;
-  homeTeam: string;
-  awayTeam: string;
-  date: string;
-  location: string;
-  status: "Upcoming" | "Live" | "Completed";
-  score?: { home: number; away: number };
-}
-
-const mockGames: Game[] = [
-  { id: "g1", sport: "Basketball", homeTeam: "City Hoopers", awayTeam: "Downtown Dunkers", date: "2026-06-14T18:00:00", location: "Main Gym – Court 1", status: "Upcoming" },
-  { id: "g2", sport: "Soccer", homeTeam: "United FC", awayTeam: "Rovers", date: "2026-06-14T19:30:00", location: "Turf Field A", status: "Upcoming" },
-  { id: "g3", sport: "Volleyball", homeTeam: "Spike Syndicate", awayTeam: "Net Ninjas", date: "2026-06-14T17:00:00", location: "Community Center – Court 2", status: "Upcoming" },
-  { id: "g4", sport: "Basketball", homeTeam: "Alley-Oops", awayTeam: "Fastbreakers", date: "2026-06-13T20:00:00", location: "Main Gym – Court 2", status: "Live", score: { home: 58, away: 51 } },
-  { id: "g5", sport: "Soccer", homeTeam: "Galacticos", awayTeam: "Athletic Club", date: "2026-06-12T18:00:00", location: "Turf Field B", status: "Completed", score: { home: 2, away: 1 } },
-  { id: "g6", sport: "Basketball", homeTeam: "Rim Rockers", awayTeam: "Court Kings", date: "2026-06-15T19:00:00", location: "Main Gym – Court 1", status: "Upcoming" },
-  { id: "g7", sport: "Soccer", homeTeam: "Athletic Club", awayTeam: "United FC", date: "2026-06-10T18:00:00", location: "Turf Field A", status: "Completed", score: { home: 1, away: 3 } },
-];
 
 const BasketballIcon = ({ size = 24, className, ...props }: React.ComponentPropsWithoutRef<"svg"> & { size?: number | string }) => (
   <svg
@@ -387,12 +365,7 @@ export function SportsSchedule() {
   const [loading, setLoading] = useState(false);
 
   // ─── Fixtures / Schedule state & handlers ───
-  const [fixturesList, setFixturesList] = useState([
-    { id: 1, name: "Qualifier 1: City Hoopers vs Downtown Dunkers", sport: "Basketball", venue: "Court A, Sector 12 Ground", date: "2026-07-15", time: "10:00 AM", status: "SCHEDULED", team1: "City Hoopers", team2: "Downtown Dunkers", score1: "", score2: "" },
-    { id: 2, name: "Semifinal: Spike Syndicate vs Net Ninjas", sport: "Volleyball", venue: "Volleyball Court, Central Park", date: "2026-07-16", time: "04:30 PM", status: "LIVE", team1: "Spike Syndicate", team2: "Net Ninjas", score1: "15", score2: "12" },
-    { id: 3, name: "Group Stage Match 4: United FC vs Galacticos", sport: "Soccer", venue: "Main Field, Sector 12 Ground", date: "2026-06-25", time: "09:00 AM", status: "COMPLETED", team1: "United FC", team2: "Galacticos", score1: "3", score2: "1" },
-    { id: 4, name: "Friendly: Smashers vs Shuttle Kings", sport: "Badminton", venue: "Indoor Court 2, Club House", date: "2026-07-18", time: "06:00 PM", status: "SCHEDULED", team1: "Smashers", team2: "Shuttle Kings", score1: "", score2: "" }
-  ]);
+  const [fixturesList, setFixturesList] = useState<{ id: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; score1: string; score2: string }[]>([]);
   const [showFixtureForm, setShowFixtureForm] = useState(false);
   const [editingFixtureId, setEditingFixtureId] = useState<number | null>(null);
   const [fixtureName, setFixtureName] = useState("");
@@ -591,23 +564,19 @@ export function SportsSchedule() {
               return {
                 id: ev.id,
                 name: ev.name,
-                sport: ev.sport?.name || "Basketball",
+                sport: ev.sport?.name || "Other",
                 venue: ev.venue?.name || "TBD",
                 date: eventDate,
                 time: eventTime,
                 status,
                 team1: homeTeam,
                 team2: awayTeam,
-                score1: isLive ? "12" : isCompleted ? "3" : "",
-                score2: isLive ? "8" : isCompleted ? "2" : ""
+                score1: "",
+                score2: ""
               };
             });
 
-            setFixturesList(prev => {
-              const existingIds = new Set(prev.map(f => f.id));
-              const newFixtures = mapped.filter(m => !existingIds.has(m.id));
-              return [...prev, ...newFixtures];
-            });
+            setFixturesList(mapped);
           }
         })
         .catch(() => { })
@@ -1024,15 +993,6 @@ export function SportsSchedule() {
                     {sportsMeta.map(s => (
                       <option key={s.id} value={s.name}>{s.name}</option>
                     ))}
-                    {sportsMeta.length === 0 && (
-                      <>
-                        <option value="Basketball">Basketball</option>
-                        <option value="Soccer">Soccer</option>
-                        <option value="Volleyball">Volleyball</option>
-                        <option value="Cricket">Cricket</option>
-                        <option value="Badminton">Badminton</option>
-                      </>
-                    )}
                   </select>
                 </div>
                 <div>
@@ -1046,14 +1006,6 @@ export function SportsSchedule() {
                     {venues.map(v => (
                       <option key={v.id} value={v.name}>{v.name}</option>
                     ))}
-                    {venues.length === 0 && (
-                      <>
-                        <option value="Court A, Sector 12 Ground">Court A, Sector 12 Ground</option>
-                        <option value="Volleyball Court, Central Park">Volleyball Court, Central Park</option>
-                        <option value="Main Field, Sector 12 Ground">Main Field, Sector 12 Ground</option>
-                        <option value="Indoor Court 2, Club House">Indoor Court 2, Club House</option>
-                      </>
-                    )}
                   </select>
                 </div>
                 <div>
@@ -1166,7 +1118,7 @@ export function SportsSchedule() {
             </div>
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-1.5">
-                {["All", "Cricket", "Basketball", "Volleyball", "Badminton", "Soccer"].map((f) => {
+                {["All", ...sportsMeta.map(s => s.name)].map((f) => {
                   const isActive = fixtureSportFilter === f;
                   return (
                     <button
