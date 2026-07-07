@@ -300,7 +300,7 @@ function computeTopPerformers(
   > = {};
 
   // From user's own registrations
-  dashboard.myRegistrations.forEach((reg) => {
+  dashboard.myRegistrations.forEach((reg: DashboardMyRegistration) => {
     // We don't have individual player names from dashboard registrations
     // but we can use event-level data
   });
@@ -328,7 +328,7 @@ function computeTopPerformers(
 
   // If we have myRegistrations, show top events user participated in
   if (eventPerformers.length === 0 && dashboard.myRegistrations.length > 0) {
-    return dashboard.myRegistrations.slice(0, 5).map((reg, i) => ({
+    return dashboard.myRegistrations.slice(0, 5).map((reg: DashboardMyRegistration, i: number) => ({
       rank: i + 1,
       name: reg.eventName || "Event",
       eventName: reg.sportName || "Sport",
@@ -347,16 +347,32 @@ function computeTopPerformers(
 
 export const analyticsService = {
   async getAnalyticsData(): Promise<AnalyticsData> {
-    // Fetch all data sources in parallel
-    const [dashboard, overview, configs] = await Promise.all([
-      sportsDashboardService.getDashboard(),
+    // Fetch all data sources in parallel (dashboard split into granular requests)
+    const [stats, upcoming, openTournaments, closedTournaments, myRegistrations, overview, configs] = await Promise.all([
+      sportsDashboardService.getStats(),
+      sportsDashboardService.getUpcomingEvents(),
+      sportsDashboardService.getOpenTournaments(),
+      sportsDashboardService.getClosedTournaments(),
+      sportsDashboardService.getMyRegistrations(),
       sportsAdminService.getOverview(),
       tournamentService.getConfigs().catch(() => [] as ConfigInfo[]),
     ]);
 
+    const openRegistrations = openTournaments.flatMap(t => t.events);
+    const closedRegistrations = closedTournaments.flatMap(t => t.events);
+
+    const dashboard: SportsDashboardResponse = {
+      stats,
+      openRegistrations,
+      closedRegistrations,
+      myUpcomingEvents: upcoming,
+      myRegistrations,
+      openTournaments
+    };
+
     // Extract unique sport names from events
     const sportNameSet = new Set<string>();
-    overview.events.forEach((ev) => {
+    overview.events.forEach((ev: AdminEventRow) => {
       if (ev.sport?.name) sportNameSet.add(ev.sport.name);
     });
     const sportNames = Array.from(sportNameSet).sort();
@@ -364,11 +380,11 @@ export const analyticsService = {
 
     // Fetch matches for each config (limit to active/recent ones to avoid too many calls)
     const activeConfigs = configs
-      .filter((c) => c.status === "PUBLISHED" || c.status === "DRAFT" || c.status === "LIVE")
+      .filter((c: ConfigInfo) => c.status === "PUBLISHED" || c.status === "DRAFT" || c.status === "LIVE")
       .slice(0, 10); // cap at 10 to avoid excessive API calls
 
     const matchResults = await Promise.all(
-      activeConfigs.map((c) =>
+      activeConfigs.map((c: ConfigInfo) =>
         tournamentService
           .getMatchesByConfigId(c.id)
           .then((matches) => [c.id, matches] as [number, any[]])
