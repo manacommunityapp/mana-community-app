@@ -59,15 +59,7 @@ export function TournamentScheduler() {
       setEvents(resEvents);
       setConfigs(resConfigs);
     } catch (e) {
-      console.error(e);
-      setTypes([
-        { id: "KNOCKOUT", name: "Knockout", description: "Single elimination", teamRange: "2-64", formatNote: "ceil(log2 N) rounds" },
-        { id: "GROUP_KNOCKOUT", name: "Group + Knockout", description: "Groups then knockout", teamRange: "4-32", formatNote: "Group + KO" },
-        { id: "ROUND_ROBIN", name: "Round Robin", description: "Everyone vs everyone", teamRange: "3-20", formatNote: "N*(N-1)/2" },
-        { id: "DOUBLE_ELIMINATION", name: "Double Elimination", description: "Two losses to exit", teamRange: "4-32", formatNote: "~2x KO" },
-        { id: "SWISS", name: "Swiss System", description: "Score-paired rounds", teamRange: "4-128", formatNote: "ceil(log2 N) rounds" },
-        { id: "SUPER_LEAGUE", name: "Super League", description: "IPL-style playoffs", teamRange: "6-10", formatNote: "League + 4" },
-      ]);
+      console.error("Failed to load tournament data", e);
     }
     // Load venues
     try {
