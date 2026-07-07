@@ -41,7 +41,7 @@ interface SetupScheduleProps {
 
 export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
   // Data
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const canEditTiming = hasPermission("Edit Venue Timing");
   const [types, setTypes] = useState<TournamentTypeInfo[]>([]);
 
@@ -320,7 +320,7 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
       setConfigs(c);
     } catch { /* fallback handled by existing types */ }
     try {
-      const v = await venueService.getVenues();
+      const v = await venueService.getVenues(user?.communityId);
       setVenues(v);
     } catch { /* no venues */ }
   };

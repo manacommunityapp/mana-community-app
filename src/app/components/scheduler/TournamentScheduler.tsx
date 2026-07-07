@@ -8,7 +8,7 @@ import { venueService } from "../../../services/venueService";
 import type { Venue } from "../../../types/api";
 
 export function TournamentScheduler() {
-  const { token } = useAuth() as any;
+  const { token, user } = useAuth() as any;
   const [types, setTypes] = useState<TournamentTypeInfo[]>([]);
   const [events, setEvents] = useState<EventInfo[]>([]);
   const [configs, setConfigs] = useState<ConfigInfo[]>([]);
@@ -63,7 +63,7 @@ export function TournamentScheduler() {
     }
     // Load venues
     try {
-      const v = await venueService.getVenues();
+      const v = await venueService.getVenues(user?.communityId);
       setVenueList(v);
     } catch (e) {
       console.error('Failed to load venues', e);
