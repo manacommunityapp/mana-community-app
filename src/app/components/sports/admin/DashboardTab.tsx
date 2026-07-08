@@ -1,4 +1,4 @@
-import { Trophy, Users, MapPin, ClipboardList, ShieldCheck } from "lucide-react";
+import { Trophy, Users, MapPin, ClipboardList, ShieldCheck, CalendarCheck } from "lucide-react";
 
 interface PendingReg {
   id: number;
@@ -26,6 +26,7 @@ interface DashboardTabProps {
   teamsList: Team[];
   pendingList: PendingReg[];
   venues: any[];
+  activeEvents: any[];
   approveTeam: (id: number) => void;
   setActiveTab: (tab: any) => void;
 }
@@ -35,6 +36,7 @@ export function DashboardTab({
   teamsList,
   pendingList,
   venues,
+  activeEvents,
   approveTeam,
   setActiveTab,
 }: DashboardTabProps) {
@@ -62,7 +64,7 @@ export function DashboardTab({
       </div>
 
       {/* Quick Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Tournaments</span>
@@ -73,6 +75,19 @@ export function DashboardTab({
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{activeTournaments.length}</span>
             <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Events</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Events</span>
+            <div className="p-2 bg-violet-50 text-violet-600 rounded-xl">
+              <CalendarCheck className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{activeEvents.filter(e => e.active !== false).length}</span>
+            <span className="text-[10px] px-2 py-0.5 rounded bg-violet-50 text-violet-600 font-medium">Scheduled</span>
           </div>
         </div>
 

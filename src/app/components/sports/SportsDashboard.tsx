@@ -444,7 +444,7 @@ export function SportsDashboard() {
         { id: 1, value: statsData.yourRegistrations, label: "Your Registrations", badge: "Live Updates", badgeType: "orange", color: "#f97316", icon: Trophy },
         { id: 2, value: statsData.liveEvents, label: "Live Events", badge: statsData.liveEvents > 0 ? "● Running" : "None live", badgeType: "green", color: "#10b981", icon: Zap },
         { id: 3, value: statsData.openRegistrations, label: "Open Registrations", badge: "Join now", badgeType: "blue", color: "#3b82f6", icon: CalendarDays },
-        { id: 4, value: statsData.communityPlayers, label: "Community Players", badge: "Global", badgeType: "purple", color: "#8b5cf6", icon: Users },
+        { id: 4, value: statsData.upcomingTournaments, label: "Upcoming Tournaments", badge: "Register", badgeType: "purple", color: "#8b5cf6", icon: Trophy },
       ] as any);
 
       // Next match

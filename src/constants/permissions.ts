@@ -82,6 +82,11 @@ export const VIEW_MARKETPLACE = "View Marketplace";
 export const CREATE_LISTING   = "Create Listing";
 export const DELETE_LISTING   = "Delete Listing";
 
+// ──── VISITOR / GATE PASS ────
+export const VIEW_VISITORS       = "View Visitors";
+export const CREATE_VISITOR_PASS = "Create Visitor Pass";
+export const MANAGE_GATE         = "Manage Gate";
+
 // ──── JOBS & REFERRALS ────
 export const VIEW_JOBS  = "View Jobs";
 export const CREATE_JOB = "Create Job";
@@ -137,6 +142,11 @@ export const PERMISSION_CATEGORIES = [
     id: "marketplace",
     title: "MARKETPLACE Permission",
     permissions: [VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING],
+  },
+  {
+    id: "visitors",
+    title: "VISITOR / GATE PASS Permission",
+    permissions: [VIEW_VISITORS, CREATE_VISITOR_PASS, MANAGE_GATE],
   },
   {
     id: "jobs",

@@ -6,7 +6,7 @@ export interface DashboardStats {
   yourRegistrations: number;
   liveEvents: number;
   openRegistrations: number;
-  communityPlayers: number;
+  upcomingTournaments: number;
 }
 
 export interface DashboardEventCard {

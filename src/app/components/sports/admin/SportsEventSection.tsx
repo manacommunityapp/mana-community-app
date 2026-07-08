@@ -876,7 +876,12 @@ export function SportsEventSection({
                       <span className="text-2xl leading-none">{icon}</span>
                     )}
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-semibold text-slate-800 truncate leading-snug">{e.name}</h4>
+                      <h4 className="text-sm font-semibold text-slate-800 truncate leading-snug">
+                        {e.name}
+                        {e.tournament?.name && (
+                          <strong className="font-bold text-slate-900"> ({e.tournament.name})</strong>
+                        )}
+                      </h4>
                       
                       <div className="flex flex-wrap items-center gap-1.5 mt-2">
                         {e.active !== false ? (

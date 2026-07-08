@@ -52,13 +52,15 @@ import { SportsRegister }     from "./components/sports/SportsRegister";
 import { MySports }           from "./components/sports/MySports";
 import { SportsAnalytics }    from "./components/sports/SportsAnalytics";
 
+import { VisitorManagement } from "./components/visitors/VisitorManagement";
+
 // Permission constants
 import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_EVENT_REGISTRATIONS,
   VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD,
   VIEW_PLAYER_POOL, VIEW_AUCTION_RESULTS,
   CREATE_EDIT_SPORTS_MAIN, VIEW_ADMIN, BULK_UPLOAD, MANAGE_COMMUNITIES,
-  MANAGE_ROLES, VIEW_MARKETPLACE, VIEW_JOBS, VIEW_EVENTS,
+  MANAGE_ROLES, VIEW_MARKETPLACE, VIEW_JOBS, VIEW_EVENTS, VIEW_VISITORS,
 } from "../constants/permissions";
 
 export const router = createBrowserRouter([
@@ -174,9 +176,13 @@ export const router = createBrowserRouter([
           },
         ]
       },
-      { 
-        path: "marketplace", 
-        element: <PermissionGuard permission={VIEW_MARKETPLACE}><Marketplace /></PermissionGuard> 
+      {
+        path: "marketplace",
+        element: <PermissionGuard permission={VIEW_MARKETPLACE}><Marketplace /></PermissionGuard>
+      },
+      {
+        path: "visitors",
+        element: <PermissionGuard permission={VIEW_VISITORS}><VisitorManagement /></PermissionGuard>
       },
       { 
         path: "jobs", 

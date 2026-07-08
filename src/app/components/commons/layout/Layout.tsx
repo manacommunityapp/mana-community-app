@@ -1,12 +1,12 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, Bell, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen } from "lucide-react";
+import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, Bell, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield } from "lucide-react";
 import { useState } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { useAuth } from "../../../../contexts/AuthContext";
 import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_MARKETPLACE,
-  VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN,
+  VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN, VIEW_VISITORS,
 } from "../../../../constants/permissions";
 import { FloatingChat } from "../../chat/FloatingChat";
 import { FloatingChatBot } from "../../chat/FloatingChatBot";
@@ -33,6 +33,7 @@ export function Layout() {
     { to: "/", icon: Users, label: "Community Feed" },
     { to: "/sports", icon: Trophy, label: "Sports" },
     { to: "/marketplace", icon: Store, label: "Marketplace" },
+    { to: "/visitors", icon: Shield, label: "Visitors" },
     { to: "/jobs", icon: Briefcase, label: "Jobs & Referrals" },
     { to: "/events", icon: CalendarDays, label: "Events" },
   ];
@@ -50,6 +51,7 @@ export function Layout() {
     if (link.label === "Community Feed") return permissions.includes(VIEW_FEED);
     if (link.label === "Sports") return permissions.includes(VIEW_SPORTS_MENU);
     if (link.label === "Marketplace") return permissions.includes(VIEW_MARKETPLACE);
+    if (link.label === "Visitors") return permissions.includes(VIEW_VISITORS);
     if (link.label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
     if (link.label === "Events") return permissions.includes(VIEW_EVENTS);
     return true;

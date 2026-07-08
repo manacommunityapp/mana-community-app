@@ -1,7 +1,7 @@
 import { Plus, Clock, Users, Trash2, MapPin, Edit2, EyeOff, Eye, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { TIME_OPTIONS } from "../../../../constants/timeOptions";
-import type { Court, CommunityResponse, Venue } from "../../../../types/api";
+import type { Court, CommunityResponse, Venue, EventContact } from "../../../../types/api";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { VenueTimingModal } from "../../scheduler/VenueTimingModal";
 
@@ -36,12 +36,10 @@ interface VenueCreationSectionProps {
   setVenueOpeningTime: (val: string) => void;
   venueClosingTime: string;
   setVenueClosingTime: (val: string) => void;
-  contactName: string;
-  setContactName: (val: string) => void;
-  contactNumber: string;
-  setContactNumber: (val: string) => void;
-  contactEmail: string;
-  setContactEmail: (val: string) => void;
+  venueContacts: EventContact[];
+  addVenueContact: () => void;
+  removeVenueContact: (index: number) => void;
+  updateVenueContact: (index: number, field: keyof EventContact, value: string) => void;
   courts: Court[];
   addCourt: () => void;
   removeCourt: (index: number) => void;
@@ -88,12 +86,10 @@ export function VenueCreationSection({
   setVenueOpeningTime,
   venueClosingTime,
   setVenueClosingTime,
-  contactName,
-  setContactName,
-  contactNumber,
-  setContactNumber,
-  contactEmail,
-  setContactEmail,
+  venueContacts,
+  addVenueContact,
+  removeVenueContact,
+  updateVenueContact,
   courts,
   addCourt,
   removeCourt,
@@ -325,42 +321,81 @@ export function VenueCreationSection({
 
             {/* Contact Information Section */}
             <div className="md:col-span-2 border-t pt-4 mt-2" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
-              <div className="flex items-center gap-2 mb-3">
-                <Users className="w-4 h-4" style={{ color: "#4f46e5" }} />
-                <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#6b7094" }}>Contact Information</span>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4" style={{ color: "#4f46e5" }} />
+                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: "#6b7094" }}>Contact Information</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={addVenueContact}
+                  className="text-xs text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1 cursor-pointer font-bold bg-transparent border-none outline-none"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Contact
+                </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-xs font-semibold block mb-1.5" style={{ color: "#6b7094" }}>Contact Name *</label>
-                  <input 
-                    value={contactName} 
-                    onChange={e => setContactName(e.target.value)} 
-                    placeholder="e.g. John Doe" 
-                    className="w-full bg-white border rounded-xl px-3.5 py-2.5 text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500" 
-                    style={{ borderColor: "rgba(99, 102, 241, 0.18)", color: "#0d0d2b" }}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold block mb-1.5" style={{ color: "#6b7094" }}>Contact Number *</label>
-                  <input 
-                    value={contactNumber} 
-                    onChange={e => setContactNumber(e.target.value)} 
-                    placeholder="e.g. +91 9876543210" 
-                    className="w-full bg-white border rounded-xl px-3.5 py-2.5 text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500" 
-                    style={{ borderColor: "rgba(99, 102, 241, 0.18)", color: "#0d0d2b" }}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold block mb-1.5" style={{ color: "#6b7094" }}>Contact Email *</label>
-                  <input 
-                    type="email" 
-                    value={contactEmail} 
-                    onChange={e => setContactEmail(e.target.value)} 
-                    placeholder="e.g. john@example.com" 
-                    className="w-full bg-white border rounded-xl px-3.5 py-2.5 text-sm outline-none transition-all duration-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500" 
-                    style={{ borderColor: "rgba(99, 102, 241, 0.18)", color: "#0d0d2b" }}
-                  />
-                </div>
+
+              <div className="space-y-4">
+                {venueContacts.map((contact, index) => (
+                  <div key={index} className="relative p-4 rounded-xl border bg-slate-50/50 flex flex-col gap-3" style={{ borderColor: "rgba(99, 102, 241, 0.12)" }}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">Contact #{index + 1}</span>
+                      {venueContacts.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeVenueContact(index)}
+                          className="text-red-500 hover:text-red-700 transition-colors cursor-pointer bg-transparent border-none outline-none"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div>
+                        <label className="text-[10px] font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Name *</label>
+                        <input
+                          value={contact.name}
+                          onChange={e => updateVenueContact(index, "name", e.target.value)}
+                          placeholder="e.g. John Doe"
+                          className="w-full bg-white border rounded-xl px-3 py-2 text-xs outline-none transition-all duration-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                          style={{ borderColor: "rgba(99, 102, 241, 0.18)", color: "#0d0d2b" }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold block mb-1" style={{ color: "#6b7094" }}>Title (Role/Designation)</label>
+                        <input
+                          value={contact.title || ""}
+                          onChange={e => updateVenueContact(index, "title", e.target.value)}
+                          placeholder="e.g. Manager / Secretary"
+                          className="w-full bg-white border rounded-xl px-3 py-2 text-xs outline-none transition-all duration-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                          style={{ borderColor: "rgba(99, 102, 241, 0.18)", color: "#0d0d2b" }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Number *</label>
+                        <input
+                          value={contact.number}
+                          onChange={e => updateVenueContact(index, "number", e.target.value)}
+                          placeholder="e.g. +91 9876543210"
+                          className="w-full bg-white border rounded-xl px-3 py-2 text-xs outline-none transition-all duration-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                          style={{ borderColor: "rgba(99, 102, 241, 0.18)", color: "#0d0d2b" }}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-semibold block mb-1" style={{ color: "#6b7094" }}>Contact Email *</label>
+                        <input
+                          type="email"
+                          value={contact.email}
+                          onChange={e => updateVenueContact(index, "email", e.target.value)}
+                          placeholder="e.g. john@example.com"
+                          className="w-full bg-white border rounded-xl px-3 py-2 text-xs outline-none transition-all duration-200 focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                          style={{ borderColor: "rgba(99, 102, 241, 0.18)", color: "#0d0d2b" }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -566,15 +601,27 @@ export function VenueCreationSection({
               </div>
 
               {/* Courts list & Contact info display inside card */}
-              {((v.courts && v.courts.length > 0) || v.contactName) && (
-                <div className="mt-1 ml-[52px] flex flex-wrap items-center gap-3 border-t pt-2.5" style={{ borderColor: "rgba(99, 102, 241, 0.08)" }}>
-                  {v.contactName && (
+              {((v.courts && v.courts.length > 0) || (v.contacts && v.contacts.length > 0) || v.contactName) && (
+                <div className="mt-1 ml-[52px] flex flex-col gap-1 border-t pt-2.5" style={{ borderColor: "rgba(99, 102, 241, 0.08)" }}>
+                  {v.contacts && v.contacts.length > 0 ? (
+                    <div className="flex flex-col gap-1.5">
+                      {v.contacts.map((c, idx) => (
+                        <span key={idx} className="text-[10px] flex items-center gap-1 flex-wrap" style={{ color: "#6b7094" }}>
+                          <Users className="w-3.5 h-3.5 text-slate-400" /> 
+                          Contact #{idx + 1}: <strong className="font-semibold text-slate-700">{c.name}</strong> 
+                          {c.title && <span className="text-slate-500">({c.title})</span>}
+                          <span className="text-slate-600">· {c.number}</span>
+                          {c.email && <span className="text-slate-400">· {c.email}</span>}
+                        </span>
+                      ))}
+                    </div>
+                  ) : v.contactName ? (
                     <span className="text-[10px] flex items-center gap-1 flex-wrap" style={{ color: "#6b7094" }}>
                       <Users className="w-3.5 h-3.5 text-slate-400" /> Contact: <strong className="font-semibold text-slate-700">{v.contactName}</strong> ({v.contactNumber}) {v.contactEmail && <span className="text-slate-400">· {v.contactEmail}</span>}
                     </span>
-                  )}
+                  ) : null}
                   {v.courts && v.courts.length > 0 && (
-                    <div className="flex items-center gap-1.5 ml-auto flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap mt-1">
                       <span className="text-[9px] uppercase tracking-wider font-bold" style={{ color: "#6b7094" }}>Courts:</span>
                       {v.courts.map((court, i) => (
                         <span
