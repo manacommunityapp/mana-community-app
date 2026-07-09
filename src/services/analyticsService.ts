@@ -121,7 +121,7 @@ function computeKPIs(
 ): AnalyticsKPI {
   return {
     totalEvents: overview.events.length,
-    activePlayers: dashboard.stats.communityPlayers,
+    activePlayers: dashboard.stats.upcomingTournaments,
     liveEvents: dashboard.stats.liveEvents,
     totalTournaments: overview.tournaments.length,
     openRegistrations: dashboard.stats.openRegistrations,

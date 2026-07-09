@@ -623,7 +623,22 @@ export function SportsEventSection({
                       {/* Participant Type (Singles, Doubles pills) or Min/Max Players (Teams) */}
                       {!isTeamSport(form.name) ? (
                         <div>
-                          <label className="text-xs text-slate-500 font-semibold block mb-1.5">Participant Type *</label>
+                          <div className="grid grid-cols-2 gap-3 mb-1.5">
+                            <div>
+                              <label className="text-xs text-slate-500 font-semibold block">Participant Type *</label>
+                            </div>
+                            <div className="flex items-center">
+                              <label className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold cursor-pointer select-none">
+                                <span>Needs Confirmation</span>
+                                <input
+                                  type="checkbox"
+                                  checked={ev.adminApprovalRequired !== false}
+                                  onChange={e => updateSportFormEvent(form.id, ev.id, "adminApprovalRequired", e.target.checked)}
+                                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                                />
+                              </label>
+                            </div>
+                          </div>
                           <div className="flex gap-2 flex-wrap">
                             {["SINGLES", "DOUBLES", "MIXED_DOUBLES"].map(formatType => {
                               const list = ev.formats || [];
@@ -876,7 +891,12 @@ export function SportsEventSection({
                       <span className="text-2xl leading-none">{icon}</span>
                     )}
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-semibold text-slate-800 truncate leading-snug">{e.name}</h4>
+                      <h4 className="text-sm font-semibold text-slate-800 truncate leading-snug">
+                        {e.name}
+                        {e.tournament?.name && (
+                          <strong className="font-bold text-slate-900"> ({e.tournament.name})</strong>
+                        )}
+                      </h4>
                       
                       <div className="flex flex-wrap items-center gap-1.5 mt-2">
                         {e.active !== false ? (

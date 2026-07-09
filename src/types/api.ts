@@ -120,6 +120,14 @@ export interface Court {
   closingTime?: string;
 }
 
+export interface EventContact {
+  id?: number;
+  name: string;
+  title?: string;
+  number: string;
+  email: string;
+}
+
 export interface Venue {
   id: number;
   name: string;
@@ -136,6 +144,9 @@ export interface Venue {
   contactName?: string;
   contactNumber?: string;
   contactEmail?: string;
+  contactTitle?: string;
+  contactId?: number;
+  contacts?: EventContact[];
   pinCode?: string;
   communityId?: number;
   communityName?: string;
@@ -173,6 +184,9 @@ export interface SportsEvent {
   contactName?: string;
   contactNumber?: string;
   contactEmail?: string;
+  contactId?: number;
+  contactTitle?: string;
+  contacts?: EventContact[];
   otherContacts?: { title: string; name: string; detail: string; }[];
   bannerImage?: string;
   tournamentLevel?: "Standard" | "Professional" | "Premium";
@@ -287,6 +301,12 @@ export interface SportsTournament {
   createdAt?: string;
   updatedAt?: string;
   communityId?: number;
+  contactId?: number;
+  contactName?: string;
+  contactNumber?: string;
+  contactEmail?: string;
+  contactTitle?: string;
+  contacts?: EventContact[];
 }
 
 export type SportsTournamentRequest = SportsEventRequest;
@@ -509,8 +529,10 @@ export interface SportFormEvent {
   contactName?: string;
   contactNumber?: string;
   contactEmail?: string;
+  contacts?: EventContact[];
   otherContacts?: { title: string; name: string; detail: string; }[];
   auctionEnabled?: boolean;
+  adminApprovalRequired?: boolean;
 }
 
 export interface SportFormEntry {

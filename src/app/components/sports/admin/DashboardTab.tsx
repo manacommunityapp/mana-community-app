@@ -1,4 +1,4 @@
-import { Trophy, Users, MapPin, ClipboardList, ShieldCheck } from "lucide-react";
+import { Trophy, Users, MapPin, ClipboardList, ShieldCheck, CalendarCheck } from "lucide-react";
 
 interface PendingReg {
   id: number;
@@ -26,6 +26,7 @@ interface DashboardTabProps {
   teamsList: Team[];
   pendingList: PendingReg[];
   venues: any[];
+  activeEvents: any[];
   approveTeam: (id: number) => void;
   setActiveTab: (tab: any) => void;
 }
@@ -35,6 +36,7 @@ export function DashboardTab({
   teamsList,
   pendingList,
   venues,
+  activeEvents,
   approveTeam,
   setActiveTab,
 }: DashboardTabProps) {
@@ -42,7 +44,7 @@ export function DashboardTab({
     <div className="space-y-6 animate-fade-in-up text-left">
       {/* Hero Welcome Banner */}
       <div
-        className="rounded-3xl py-3 px-5 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
+        className="rounded-3xl py-4 px-6 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
         style={{
           background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)",
         }}
@@ -50,19 +52,30 @@ export function DashboardTab({
         <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
           <ShieldCheck className="w-28 h-28 rotate-12" />
         </div>
-        <div className="max-w-xl relative z-10 space-y-1">
-          <span className="px-2 py-0.5 rounded-full text-[8px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block mb-0.5">
-            Control Panel
-          </span>
-          <h2 className="text-lg md:text-xl font-extrabold tracking-tight">Admin Command Center</h2>
-          <p className="text-[11px] text-indigo-200 leading-relaxed max-w-lg">
-            Configure sports rules, approve pending teams, manage tournament categories, and overview active registrations.
-          </p>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h2 className="text-xl md:text-2xl font-extrabold tracking-tight flex flex-wrap items-baseline gap-2">
+              <span>Overview</span>
+              <span className="text-xs md:text-sm font-normal text-indigo-200">
+                Manage community sports events and rules
+              </span>
+            </h2>
+          </div>
+          
+          <div className="text-left md:text-right space-y-1 max-w-md">
+            <span className="px-2 py-0.5 rounded-full text-[8px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block mb-0.5">
+              Control Panel
+            </span>
+            <h3 className="text-sm md:text-base font-extrabold tracking-tight">Admin Command Center</h3>
+            <p className="text-[10px] md:text-[11px] text-indigo-200 leading-relaxed">
+              Configure sports rules, approve pending teams, manage tournament categories, and overview active registrations.
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Quick Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Tournaments</span>
@@ -73,6 +86,19 @@ export function DashboardTab({
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{activeTournaments.length}</span>
             <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Events</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Events</span>
+            <div className="p-2 bg-violet-50 text-violet-600 rounded-xl">
+              <CalendarCheck className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{activeEvents.filter(e => e.active !== false).length}</span>
+            <span className="text-[10px] px-2 py-0.5 rounded bg-violet-50 text-violet-600 font-medium">Scheduled</span>
           </div>
         </div>
 

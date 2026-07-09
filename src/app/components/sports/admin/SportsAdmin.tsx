@@ -14,6 +14,7 @@ const toast = {
   info: (msg: string) => showInfo(msg),
 };
 import { sportsService } from "../../../../services/sportsService";
+import { sportsAdminService } from "../../../../services/sportsAdminService";
 import { venueService } from "../../../../services/venueService";
 import { communityService } from "../../../../services/communityService";
 import { auctionService } from "../../../../services/auctionService";
@@ -30,12 +31,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import { Calendar } from "../../ui/calendar";
 import { Button } from "../../ui/button";
 import { cn } from "../../ui/utils";
-import type { Venue, SportMeta, PlayerCategory, CommunityResponse, TournamentRegistration, AuctionTeam, Court, EventRegistration, MatchFormat, SportsEventRequest, SportFormEvent, SportFormEntry } from "../../../../types/api";
+import type { Venue, SportMeta, PlayerCategory, CommunityResponse, TournamentRegistration, AuctionTeam, Court, EventRegistration, MatchFormat, SportsEventRequest, SportFormEvent, SportFormEntry, EventContact } from "../../../../types/api";
 import { CheckCircle2, ClipboardList } from "lucide-react";
 import { SportEventConfigModal } from "./SportEventConfigModal";
 import { VenueDetailsModal } from "./VenueDetailsModal";
-import { TournamentSection } from "./TournamentSection";
-import { SportsEventSection } from "./SportsEventSection";
 import { ContactNameAutocomplete } from "./ContactNameAutocomplete";
 import { VenueCreationSection } from "./VenueCreationSection";
 import { PlayerCategorySection } from "./PlayerCategorySection";
@@ -47,6 +46,7 @@ import { DashboardTab } from "./DashboardTab";
 import { TeamsTab } from "./TeamsTab";
 import { ScheduleTab, ResultsTab, SettingsTab } from "./PlaceholderTabs";
 import { CreateTournamentTab } from "./CreateTournamentTab";
+import { SportsEventTab } from "./SportsEventTab";
 import { NotificationSetupModal } from "./NotificationSetupModal";
 import { AddPlayerModal } from "./AddPlayerModal";
 import { ImportPlayersModal } from "./ImportPlayersModal";
@@ -170,19 +170,8 @@ const getDefaultMinPlayers = (sportName: string): number => {
   return 5;
 };
 
-const initialTeams = [
-  { id: 1, name: "City Hoopers", sport: "Basketball", division: "Competitive", captain: "Arjun Mehta", members: 12, status: "active", record: "8-3" },
-  { id: 2, name: "Downtown Dunkers", sport: "Basketball", division: "Competitive", captain: "Ravi Kumar", members: 10, status: "active", record: "6-5" },
-  { id: 3, name: "United FC", sport: "Soccer", division: "Recreational", captain: "Suresh Nair", members: 11, status: "active", record: "5-4-1" },
-  { id: 4, name: "Galacticos", sport: "Soccer", division: "Recreational", captain: "Deepak Joshi", members: 11, status: "active", record: "5-5" },
-  { id: 5, name: "Spike Syndicate", sport: "Volleyball", division: "Competitive", captain: "Priya Singh", members: 9, status: "pending", record: "0-0" },
-  { id: 6, name: "Net Ninjas", sport: "Volleyball", division: "Recreational", captain: "Anita Sharma", members: 7, status: "pending", record: "0-0" },
-];
-
-const initialPendingRegistrations = [
-  { id: 1, teamName: "Thunder Hawks", sport: "Basketball", captain: "Manoj Pillai", email: "manoj@email.com", members: 8, date: "Jun 10" },
-  { id: 2, teamName: "Green Warriors", sport: "Soccer", captain: "Sandeep Rao", email: "sandeep@email.com", members: 9, date: "Jun 11" },
-];
+const initialTeams: any[] = [];
+const initialPendingRegistrations: any[] = [];
 
 const BasketballIcon = ({ size = 24, className, ...props }: React.ComponentPropsWithoutRef<"svg"> & { size?: number | string }) => (
   <svg
@@ -606,31 +595,63 @@ export function SportsAdmin() {
   const [submitting, setSubmitting] = useState(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
-  const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
-  const [teamsList, setTeamsList] = useState(initialTeams);
-  const [pendingList, setPendingList] = useState(initialPendingRegistrations);
+  const [teamsList, setTeamsList] = useState<any[]>([]);
+  const [pendingList, setPendingList] = useState<any[]>([]);
   const [adminSearchQuery, setAdminSearchQuery] = useState("");
 
-  const approveTeam = (id: number) => {
-    const reg = pendingList.find(p => p.id === id);
-    if (!reg) return;
-    const newTeam = {
-      id: Date.now(),
-      name: reg.teamName,
-      sport: reg.sport,
-      division: "Competitive",
-      captain: reg.captain,
-      members: reg.members,
-      status: "active" as const,
-      record: "0-0"
-    };
-    setTeamsList(prev => [...prev, newTeam]);
-    setPendingList(prev => prev.filter(p => p.id !== id));
-    toast.success(`Team "${reg.teamName}" approved successfully!`);
+  const refreshDashboardOverview = useCallback(async () => {
+    try {
+      const data = await sportsAdminService.getOverview(activeCommId);
+      
+      const pendingMapped = (data.pendingRegistrations || []).map((reg) => ({
+        id: reg.id,
+        teamName: reg.proposedTeamName || reg.playerName || `Registration #${reg.id}`,
+        sport: reg.event?.sport?.name || reg.event?.name || "General",
+        captain: reg.playerName || reg.user?.fullName || "—",
+        email: reg.email || reg.user?.email || "—",
+        members: 1,
+        date: reg.registeredAt ? format(new Date(reg.registeredAt), "MMM d") : ""
+      }));
+      setPendingList(pendingMapped);
+
+      const confirmedMapped = (data.confirmedRegistrations || []).map((reg) => ({
+        id: reg.id,
+        name: reg.proposedTeamName || reg.playerName || `Registration #${reg.id}`,
+        sport: reg.event?.sport?.name || reg.event?.name || "General",
+        division: "Competitive",
+        captain: reg.playerName || reg.user?.fullName || "—",
+        members: 1,
+        status: "active" as const,
+        record: "—"
+      }));
+      setTeamsList(confirmedMapped);
+    } catch (err) {
+      console.error("Failed to load dashboard overview data", err);
+    }
+  }, [activeCommId]);
+
+  useEffect(() => {
+    if (activeTab === "dashboard") {
+      refreshDashboardOverview();
+    }
+  }, [activeTab, refreshDashboardOverview]);
+
+  const approveTeam = async (id: number) => {
+    try {
+      await sportsService.confirmRegistration(id);
+      toast.success("Registration approved successfully!");
+      refreshDashboardOverview();
+    } catch {
+      toast.error("Failed to approve registration");
+    }
   };
   // Track which tabs have already done their initial data load so we don't
   // re-fetch on every revisit. Mutations explicitly refresh their own data.
   const hydratedTabs = useRef(new Set<TabId>());
+  // Fetch-once guards: tournaments/events are shared across multiple tabs;
+  // fetch them a single time regardless of which tab triggers the need.
+  const tournamentsFetchedRef = useRef(false);
+  const eventsFetchedRef = useRef(false);
 
   // ─── Sports Event form state ───
   const [showSportForm, setShowSportForm] = useState(false);
@@ -665,10 +686,20 @@ export function SportsAdmin() {
 
   // ─── Courts & Contact Info states ───
   const [courts, setCourts] = useState<Court[]>([]);
-  const [contactName, setContactName] = useState("");
-  const [contactNumber, setContactNumber] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
+  const [venueContacts, setVenueContacts] = useState<EventContact[]>([{ name: "", title: "", number: "", email: "" }]);
   const [venuePinCode, setVenuePinCode] = useState("");
+
+  const addVenueContact = () => {
+    setVenueContacts(prev => [...prev, { name: "", title: "", number: "", email: "" }]);
+  };
+
+  const removeVenueContact = (index: number) => {
+    setVenueContacts(prev => prev.length > 1 ? prev.filter((_, i) => i !== index) : prev);
+  };
+
+  const updateVenueContact = (index: number, field: keyof EventContact, value: string) => {
+    setVenueContacts(prev => prev.map((c, i) => i === index ? { ...c, [field]: value } : c));
+  };
 
   const addCourt = () => {
     setCourts(prev => [...prev, { name: "", color: "#3b82f6" }]);
@@ -752,14 +783,15 @@ export function SportsAdmin() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [friendSearchQuery, setFriendSearchQuery] = useState("");
 
-  // ─── Venue CRUD ─────────────────────────────────────────────────────
-  const refreshVenues = useCallback(() => {
+  const lastFetchedVenueCommIdRef = useRef<number | null>(null);
+  const refreshVenues = useCallback((force?: boolean) => {
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
     const activeCommId = isSuperAdmin ? (selectedCommId ? Number(selectedCommId) : undefined) : user?.communityId;
     
     if (!activeCommId) {
       setVenues([]);
       setSelectedVenueId("");
+      lastFetchedVenueCommIdRef.current = null;
       return;
     }
 
@@ -770,6 +802,10 @@ export function SportsAdmin() {
 
     const fetchId = isGeneral ? user?.communityId : activeCommId;
     if (fetchId !== undefined) {
+      if (force !== true && lastFetchedVenueCommIdRef.current === fetchId) {
+        return;
+      }
+      lastFetchedVenueCommIdRef.current = fetchId;
       venueService.getVenues(fetchId).then(setVenues).catch(() => { });
     }
   }, [selectedCommId, user?.communityId, user?.role, communities, (user as any)?.community]);
@@ -1154,31 +1190,70 @@ export function SportsAdmin() {
 
   // Load data the first time each tab becomes active; skip on revisits.
   // Mutations (save / delete / activate) refresh their own data directly.
+  const fetchTournamentsOnce = useCallback(() => {
+    if (tournamentsFetchedRef.current) return;
+    tournamentsFetchedRef.current = true;
+    refreshTournaments();
+  }, [refreshTournaments]);
+
+  const fetchEventsOnce = useCallback(() => {
+    if (eventsFetchedRef.current) return;
+    eventsFetchedRef.current = true;
+    refreshEvents();
+  }, [refreshEvents]);
+
   useEffect(() => {
     if (hydratedTabs.current.has(activeTab)) return;
     hydratedTabs.current.add(activeTab);
 
-    if (activeTab === "dashboard" || activeTab === "sports-event") {
-      refreshTournaments();
-      refreshEvents();
-      sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
-      sportsService.getCategories().then(setPlayerCategories).catch(() => {});
-    } else if (activeTab === "create-tournament") {
-      // Tournament list is not needed in the form — only meta / categories / communities
-      sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
-      sportsService.getCategories().then(setPlayerCategories).catch(() => {});
-      communityService.getCommunities().then(setCommunities).catch(() => {});
-    } else if (activeTab === "create-venue") {
-      communityService.getCommunities().then(setCommunities).catch(() => {});
-    } else if (activeTab === "player-category") {
-      refreshCategories();
+    switch (activeTab) {
+      case "dashboard":
+        fetchTournamentsOnce();
+        fetchEventsOnce();
+        refreshVenues();
+        break;
+      case "sports-event":
+        fetchEventsOnce();
+        fetchTournamentsOnce();
+        sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
+        sportsService.getCategories().then(setPlayerCategories).catch(() => {});
+        break;
+      case "teams":
+        fetchTournamentsOnce();
+        break;
+      case "schedule":
+        fetchTournamentsOnce();
+        fetchEventsOnce();
+        break;
+      case "create-venue":
+        communityService.getCommunities().then(setCommunities).catch(() => {});
+        refreshVenues();
+        break;
+      case "player-category":
+        refreshCategories();
+        break;
+      case "results":
+        fetchTournamentsOnce();
+        fetchEventsOnce();
+        break;
+      case "settings":
+        break;
+      case "sports-meta":
+        sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
+        break;
+      case "create-tournament":
+        sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
+        sportsService.getCategories().then(setPlayerCategories).catch(() => {});
+        communityService.getCommunities().then(setCommunities).catch(() => {});
+        break;
+      default:
+        break;
     }
-    // sports-meta: SportsMetaSection loads its own data internally
-  }, [activeTab, refreshTournaments, refreshEvents, refreshCategories]);
+  }, [activeTab, fetchTournamentsOnce, fetchEventsOnce, refreshCategories, refreshVenues]);
 
   // Fetch venues on first visit to any tab that needs them; re-fetch when the
   // refreshVenues callback identity changes (community or role changed).
-  const venueTabsNeedFetch = activeTab === "create-venue" || activeTab === "create-tournament" || activeTab === "sports-event";
+  const venueTabsNeedFetch = activeTab === "dashboard" || activeTab === "create-venue" || activeTab === "create-tournament" || activeTab === "sports-event";
   const lastVenuesFetchRef = useRef<typeof refreshVenues | null>(null);
   useEffect(() => {
     if (!venueTabsNeedFetch) return;
@@ -1874,9 +1949,7 @@ export function SportsAdmin() {
     setVenueOpeningTime("08:00 AM"); setVenueClosingTime("08:00 PM");
     setVenueType(""); setVenueCommId("");
     setCourts([]);
-    setContactName("");
-    setContactNumber("");
-    setContactEmail("");
+    setVenueContacts([{ name: "", title: "", number: "", email: "" }]);
     setVenuePinCode("");
     setEditingVenueId(null); setShowVenueForm(false);
   };
@@ -1889,9 +1962,22 @@ export function SportsAdmin() {
     setVenueClosingTime(v.closingTime || "08:00 PM");
     setVenueType(v.venueType || "");
     setCourts(v.courts || []);
-    setContactName(v.contactName || "");
-    setContactNumber(v.contactNumber || "");
-    setContactEmail(v.contactEmail || "");
+    if (v.contacts && v.contacts.length > 0) {
+      setVenueContacts(v.contacts.map(c => ({
+        id: c.id,
+        name: c.name || "",
+        title: c.title || "",
+        number: c.number || "",
+        email: c.email || ""
+      })));
+    } else {
+      setVenueContacts([{
+        name: v.contactName || "",
+        title: v.contactTitle || "",
+        number: v.contactNumber || "",
+        email: v.contactEmail || ""
+      }]);
+    }
     setVenuePinCode(v.pinCode || "");
     setEditingVenueId(v.id); setShowVenueForm(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1905,7 +1991,7 @@ export function SportsAdmin() {
     if (!confirmed) return;
     try {
       await venueService.deleteVenue(id);
-      toast.success("Venue deleted"); refreshVenues();
+      toast.success("Venue deleted"); refreshVenues(true);
     } catch { toast.error("Failed to delete venue"); }
   };
 
@@ -1926,14 +2012,21 @@ export function SportsAdmin() {
       toast.error("Community is required"); return;
     }
 
-    // Contact Information validation
-    if (!contactName.trim()) { toast.error("Contact Name is required"); return; }
-    if (!contactNumber.trim()) { toast.error("Contact Number is required"); return; }
-    if (!contactEmail.trim()) { toast.error("Contact Email is required"); return; }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(contactEmail)) {
-      toast.error("Please enter a valid Contact Email");
+    // Validate venueContacts
+    if (!venueContacts || venueContacts.length === 0) {
+      toast.error("At least one contact is required");
       return;
+    }
+    for (let i = 0; i < venueContacts.length; i++) {
+      const c = venueContacts[i];
+      if (!c.name?.trim()) { toast.error(`Contact #${i + 1} Name is required`); return; }
+      if (!c.number?.trim()) { toast.error(`Contact #${i + 1} Number is required`); return; }
+      if (!c.email?.trim()) { toast.error(`Contact #${i + 1} Email is required`); return; }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(c.email)) {
+        toast.error(`Please enter a valid email for Contact #${i + 1}`);
+        return;
+      }
     }
 
     setVenueSubmitting(true);
@@ -1949,9 +2042,11 @@ export function SportsAdmin() {
         closingTime: venueClosingTime,
         venueType, venueCategory: category,
         courts,
-        contactName,
-        contactNumber,
-        contactEmail,
+        contactName: venueContacts[0]?.name || "",
+        contactNumber: venueContacts[0]?.number || "",
+        contactEmail: venueContacts[0]?.email || "",
+        contactTitle: venueContacts[0]?.title || "",
+        contacts: venueContacts,
         pinCode: venuePinCode,
       };
 
@@ -1962,7 +2057,7 @@ export function SportsAdmin() {
         await venueService.createVenue(commId, payload);
         toast.success("Venue created!");
       }
-      resetVenueForm(); refreshVenues();
+      resetVenueForm(); refreshVenues(true);
     } catch (err) {
       console.error("Save venue error:", err);
       toast.error(err instanceof Error ? err.message : "Failed to save venue");
@@ -2065,6 +2160,7 @@ export function SportsAdmin() {
       contactEmail: "",
       otherContacts: [],
       auctionEnabled: false,
+      adminApprovalRequired: true,
     };
   };
 
@@ -2272,6 +2368,7 @@ export function SportsAdmin() {
         contactEmail: e.contactEmail || "",
         otherContacts: parseOtherContacts(e.otherContacts),
         auctionEnabled: !!e.auctionEnabled,
+        adminApprovalRequired: e.adminApprovalRequired !== false,
       }],
     };
     setSportForms([editEntry]);
@@ -2352,6 +2449,7 @@ export function SportsAdmin() {
           // Auction only applies to team sports (intent flag; actual auction
           // config is created later on the Auction screen).
           auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
+          adminApprovalRequired: ev.adminApprovalRequired !== false,
         };
 
         try {
@@ -2435,14 +2533,16 @@ export function SportsAdmin() {
 
       <main className="main-content">
         <div className="page active">
-          <div className="page-hdr">
-            <div>
-              <div className="page-title">
-                {menuItems.find(m => m.id === activeTab)?.label || "Admin"}
+          {activeTab !== "dashboard" && (
+            <div className="page-hdr">
+              <div>
+                <div className="page-title">
+                  {menuItems.find(m => m.id === activeTab)?.label || "Admin"}
+                </div>
+                <div className="page-sub">Manage community sports events and rules</div>
               </div>
-              <div className="page-sub">Manage community sports events and rules</div>
             </div>
-          </div>
+          )}
 
         {/* ════════════ OVERVIEW / DASHBOARD TAB ════════════ */}
         {activeTab === "dashboard" && (
@@ -2451,6 +2551,7 @@ export function SportsAdmin() {
             teamsList={teamsList}
             pendingList={pendingList}
             venues={venues}
+            activeEvents={activeEvents}
             approveTeam={approveTeam}
             setActiveTab={setActiveTab}
           />
@@ -2458,132 +2559,63 @@ export function SportsAdmin() {
 
         {/* ════════════ SPORTS EVENT / TOURNAMENTS TAB ════════════ */}
         {activeTab === "sports-event" && (
-          <div className="space-y-6">
-            {/* Sub-tab toggle */}
-            <div className="flex border-b border-slate-100 pb-px gap-6 mb-4">
-              <button
-                onClick={() => setSportsEventSubTab("list")}
-                className={`pb-2.5 text-sm font-semibold border-b-2 transition-all cursor-pointer ${sportsEventSubTab === "list" ? "border-indigo-600 text-indigo-600 font-bold" : "border-transparent text-slate-500 hover:text-indigo-600"}`}
-              >
-                Tournaments List
-              </button>
-              <button
-                onClick={() => setSportsEventSubTab("config")}
-                className={`pb-2.5 text-sm font-semibold border-b-2 transition-all cursor-pointer ${sportsEventSubTab === "config" ? "border-indigo-600 text-indigo-600 font-bold" : "border-transparent text-slate-500 hover:text-indigo-600"}`}
-              >
-                Configure Events
-              </button>
-            </div>
-
-            {sportsEventSubTab === "list" ? (
-              <div className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="text-left">
-                    <h3 className="text-xl font-bold text-slate-800">Sports Event List</h3>
-                    <p className="text-sm text-slate-500 mt-1">Manage tournaments and venues for your community</p>
-                  </div>
-                  <button
-                    onClick={() => setActiveTab("create-tournament")}
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-                    style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", boxShadow: "0 2px 10px rgba(99,102,241,0.3)" }}
-                  >
-                    <Plus className="w-4 h-4" /> New Tournament
-                  </button>
-                </div>
-
-                {/* Draft Tournaments */}
-                <TournamentSection
-                  title="Draft Tournaments"
-                  badge={draftEvents.length}
-                  badgeColor="bg-slate-100 text-slate-600 border border-slate-200"
-                  emptyText="No draft tournaments"
-                  events={draftEvents}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onActivate={handleActivate}
-                  showActivate
-                />
-
-                {/* Active Tournaments */}
-                <TournamentSection
-                  title="Open for Registration"
-                  badge={liveEvents.length}
-                  badgeColor="bg-emerald-50 text-emerald-600 border border-emerald-200"
-                  emptyText="No active tournaments"
-                  events={liveEvents}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onViewPlayers={handleViewPlayers}
-                  onViewCaptains={handleViewCaptains}
-                  viewingEventId={viewingEventId}
-                  viewMode={viewMode}
-                  registrations={registrations}
-                  nominatedCaptains={nominatedCaptains}
-                  loadingRegs={loadingRegs}
-                  onConfirmRegistration={handleConfirmRegistration}
-                  onRejectRegistration={handleRejectRegistration}
-                  onConfirmCaptain={handleConfirmCaptain}
-                  onAddParticipant={(eventId) => {
-                    setSelectedEventIdForAdd(eventId);
-                    setShowAddPlayerModal(true);
-                  }}
-                  onImportParticipants={(eventId) => {
-                    setSelectedEventIdForImport(eventId);
-                    setShowImportModal(true);
-                    setImportStep(1);
-                  }}
-                />
-
-                {/* Completed Tournaments */}
-                <TournamentSection
-                  title="Completed Tournaments"
-                  badge={completedEvents.length}
-                  badgeColor="bg-blue-50 text-blue-600 border border-blue-200"
-                  emptyText="No completed tournaments"
-                  events={completedEvents}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                />
-              </div>
-            ) : (
-              <SportsEventSection
-                user={user}
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                showSportForm={showSportForm}
-                setShowSportForm={setShowSportForm}
-                showSportPicker={showSportPicker}
-                setShowSportPicker={setShowSportPicker}
-                sportPickerSearch={sportPickerSearch}
-                setSportPickerSearch={setSportPickerSearch}
-                sportSubmitting={sportSubmitting}
-                sportForms={sportForms}
-                sportsMeta={sportsMeta}
-                playerCategories={playerCategories}
-                venues={venues}
-                activeEvents={activeEvents}
-                handleSportPickerSelect={handleSportPickerSelect}
-                handleCreateCustomSport={handleCreateCustomSport}
-                removeSportForm={removeSportForm}
-                addEventToSportForm={addEventToSportForm}
-                removeEventFromSportForm={removeEventFromSportForm}
-                updateSportFormEvent={updateSportFormEvent}
-                handleSportSave={handleSportSave}
-                handleSportEdit={handleSportEdit}
-                handleSportDelete={handleSportDelete}
-                resetSportForm={resetSportForm}
-                selectedTemplates={selectedTemplates}
-                setSelectedTemplates={setSelectedTemplates}
-                openDropdownEventId={openDropdownEventId}
-                setOpenDropdownEventId={setOpenDropdownEventId}
-                searchQueries={searchQueries}
-                setSearchQueries={setSearchQueries}
-                activeCommId={activeCommId}
-                isSuperAdmin={isSuperAdmin}
-                isAdmin={isAdmin}
-              />
-            )}
-          </div>
+          <SportsEventTab
+            user={user}
+            isAdmin={isAdmin}
+            isSuperAdmin={isSuperAdmin}
+            activeCommId={activeCommId}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            draftEvents={draftEvents}
+            liveEvents={liveEvents}
+            completedEvents={completedEvents}
+            handleEdit={handleEdit}
+            handleDelete={handleDelete}
+            handleActivate={handleActivate}
+            handleViewPlayers={handleViewPlayers}
+            handleViewCaptains={handleViewCaptains}
+            viewingEventId={viewingEventId}
+            viewMode={viewMode}
+            registrations={registrations}
+            nominatedCaptains={nominatedCaptains}
+            loadingRegs={loadingRegs}
+            handleConfirmRegistration={handleConfirmRegistration}
+            handleRejectRegistration={handleRejectRegistration}
+            handleConfirmCaptain={handleConfirmCaptain}
+            setSelectedEventIdForAdd={setSelectedEventIdForAdd}
+            setShowAddPlayerModal={setShowAddPlayerModal}
+            setSelectedEventIdForImport={setSelectedEventIdForImport}
+            setShowImportModal={setShowImportModal}
+            setImportStep={setImportStep}
+            showSportForm={showSportForm}
+            setShowSportForm={setShowSportForm}
+            showSportPicker={showSportPicker}
+            setShowSportPicker={setShowSportPicker}
+            sportPickerSearch={sportPickerSearch}
+            setSportPickerSearch={setSportPickerSearch}
+            sportSubmitting={sportSubmitting}
+            sportForms={sportForms}
+            sportsMeta={sportsMeta}
+            playerCategories={playerCategories}
+            venues={venues}
+            activeEvents={activeEvents}
+            handleSportPickerSelect={handleSportPickerSelect}
+            handleCreateCustomSport={handleCreateCustomSport}
+            removeSportForm={removeSportForm}
+            addEventToSportForm={addEventToSportForm}
+            removeEventFromSportForm={removeEventFromSportForm}
+            updateSportFormEvent={updateSportFormEvent}
+            handleSportSave={handleSportSave}
+            handleSportEdit={handleSportEdit}
+            handleSportDelete={handleSportDelete}
+            resetSportForm={resetSportForm}
+            selectedTemplates={selectedTemplates}
+            setSelectedTemplates={setSelectedTemplates}
+            openDropdownEventId={openDropdownEventId}
+            setOpenDropdownEventId={setOpenDropdownEventId}
+            searchQueries={searchQueries}
+            setSearchQueries={setSearchQueries}
+          />
         )}
 
         {/* ════════════ CREATE TOURNAMENT TAB ════════════ */}
@@ -2652,13 +2684,10 @@ export function SportsAdmin() {
         {/* ════════════ TEAMS MANAGEMENT TAB ════════════ */}
         {activeTab === "teams" && (
           <TeamsTab
-            pendingList={pendingList}
-            setPendingList={setPendingList}
-            teamsList={teamsList}
-            setTeamsList={setTeamsList}
-            adminSearchQuery={adminSearchQuery}
-            setAdminSearchQuery={setAdminSearchQuery}
-            approveTeam={approveTeam}
+            activeTournaments={activeTournaments}
+            activeEvents={activeEvents}
+            communityId={user?.role !== "SUPER_ADMIN" ? user?.communityId : null}
+            isSuperAdmin={user?.role === "SUPER_ADMIN"}
           />
         )}
 
@@ -2704,12 +2733,10 @@ export function SportsAdmin() {
             setVenueOpeningTime={setVenueOpeningTime}
             venueClosingTime={venueClosingTime}
             setVenueClosingTime={setVenueClosingTime}
-            contactName={contactName}
-            setContactName={setContactName}
-            contactNumber={contactNumber}
-            setContactNumber={setContactNumber}
-            contactEmail={contactEmail}
-            setContactEmail={setContactEmail}
+            venueContacts={venueContacts}
+            addVenueContact={addVenueContact}
+            removeVenueContact={removeVenueContact}
+            updateVenueContact={updateVenueContact}
             courts={courts}
             addCourt={addCourt}
             removeCourt={removeCourt}

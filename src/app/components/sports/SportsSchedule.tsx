@@ -363,6 +363,13 @@ export function SportsSchedule() {
   const [allEvents, setAllEvents] = useState<SportsEvent[]>([]);
   const [myMatches, setMyMatches] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState<{ totalGames: number; liveNow: number; upcoming: number; completed: number } | null>(null);
+
+  const fetchScheduleStats = () => {
+    sportsService.getScheduleStats()
+      .then(res => setStats(res))
+      .catch(err => console.error("Failed to load schedule stats:", err));
+  };
 
   // ─── Fixtures / Schedule state & handlers ───
   const [fixturesList, setFixturesList] = useState<{ id: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; score1: string; score2: string }[]>([]);
@@ -434,6 +441,7 @@ export function SportsSchedule() {
     }
 
     resetFixtureForm();
+    fetchScheduleStats();
   };
 
   const handleFixtureEdit = (f: any) => {
@@ -459,6 +467,7 @@ export function SportsSchedule() {
     if (!confirmed) return;
     setFixturesList(prev => prev.filter(f => f.id !== id));
     toast.success("Fixture deleted successfully");
+    fetchScheduleStats();
   };
 
   const handleScoreUpdateSubmit = () => {
@@ -474,6 +483,7 @@ export function SportsSchedule() {
     setScoringFixtureId(null);
     setFixtureScore1("");
     setFixtureScore2("");
+    fetchScheduleStats();
   };
 
   const resetFixtureForm = () => {
@@ -532,6 +542,7 @@ export function SportsSchedule() {
         .catch(() => { })
         .finally(() => setLoading(false));
     } else if ((activeTab === "All Events" || activeTab === "Overview") && user?.communityId) {
+      fetchScheduleStats();
       sportsService.getOpenEvents(user.communityId)
         .then(events => {
           setAllEvents(events);
@@ -685,7 +696,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{fixturesList.length}</span>
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Total</span>
               </div>
             </div>
@@ -699,7 +710,7 @@ export function SportsSchedule() {
               </div>
               <div className="mt-4 flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold text-slate-800 tracking-tight">
-                  {fixturesList.filter(f => f.status === "LIVE").length}
+                  {stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-red-100 text-red-700 font-bold animate-pulse">LIVE</span>
               </div>
@@ -714,7 +725,7 @@ export function SportsSchedule() {
               </div>
               <div className="mt-4 flex items-baseline gap-2">
                 <span className="text-3xl font-extrabold text-slate-800 tracking-tight">
-                  {fixturesList.filter(f => f.status === "COMPLETED").length}
+                  {stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Done</span>
               </div>
@@ -917,7 +928,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{fixturesList.length}</span>
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Scheduled</span>
               </div>
             </div>
@@ -930,7 +941,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{fixturesList.filter(f => f.status === "LIVE").length}</span>
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-red-100 text-red-700 font-bold animate-pulse">LIVE</span>
               </div>
             </div>
@@ -943,7 +954,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.upcoming ?? fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">Pending</span>
               </div>
             </div>
@@ -956,7 +967,7 @@ export function SportsSchedule() {
                 </div>
               </div>
               <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{fixturesList.filter(f => f.status === "COMPLETED").length}</span>
+                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Done</span>
               </div>
             </div>
@@ -1242,6 +1253,7 @@ export function SportsSchedule() {
                             onClick={() => {
                               setFixturesList(prev => prev.map(f => f.id === fixture.id ? { ...f, status: "LIVE" } : f));
                               toast.success("Match is now LIVE!");
+                              fetchScheduleStats();
                             }}
                             className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold rounded-lg transition"
                           >
