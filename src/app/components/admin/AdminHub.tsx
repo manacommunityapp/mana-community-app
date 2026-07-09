@@ -29,10 +29,15 @@ import {
   Search,
   AlertTriangle,
   UploadCloud,
+  ToggleLeft,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigate } from "react-router";
-import { toast } from "sonner";
+import { showSuccess, showError } from "../../../utils/ToastUtils";
+const toast = {
+  success: (msg: string) => showSuccess(msg),
+  error: (msg: string) => showError(msg),
+};
 import { userService } from "../../../services/userService";
 import { venueService } from "../../../services/venueService";
 import { sportsService } from "../../../services/sportsService";
@@ -48,8 +53,9 @@ import { AdminSportsMeta } from "./AdminSportsMeta";
 import { ExpenseUpload } from "../assets/ExpenseUpload";
 import { TreasurerQueue } from "../assets/TreasurerQueue";
 import { assetService } from "../../../services/assetService";
+import { communityService } from "../../../services/communityService";
 import type { Asset } from "../../../services/assetService";
-import type { UserResponse } from "../../../types/api";
+import type { UserResponse, CommunityResponse } from "../../../types/api";
 import type { Venue } from "../../../types/api";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -70,6 +76,7 @@ const TAB_ITEMS = [
   { id: "users",      label: "Users",         icon: Users },
   { id: "kyc",        label: "KYC Review",    icon: ShieldCheck },
   { id: "roles",      label: "Roles",         icon: Crown },
+  { id: "modules",    label: "Modules",       icon: ToggleLeft },
   { id: "bulk",       label: "Bulk Upload",   icon: FileSpreadsheet },
   { id: "community",  label: "Community",     icon: Building2 },
 ] as const;
@@ -476,6 +483,192 @@ function UsersTab({ users, loading }: { users: UserResponse[]; loading: boolean 
 
 
 
+// ── All available feature modules ────────────────────────────────────────────
+const ALL_MODULES = [
+  { key: "COMMUNITY_FEED", label: "Community Feed",   icon: Users,        color: "#60a5fa", bg: "rgba(96,165,250,0.12)" },
+  { key: "SPORTS",          label: "Sports",           icon: Trophy,       color: "#34d399", bg: "rgba(52,211,153,0.12)" },
+  { key: "MARKETPLACE",     label: "Marketplace",      icon: Package,      color: "#818cf8", bg: "rgba(129,140,248,0.12)" },
+  { key: "VISITORS",        label: "Visitors",         icon: Users,        color: "#a78bfa", bg: "rgba(167,139,250,0.12)" },
+  { key: "NOTICES",         label: "Notices",          icon: AlertCircle,  color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
+  { key: "BOOKINGS",        label: "Bookings",         icon: Building2,    color: "#38bdf8", bg: "rgba(56,189,248,0.12)" },
+  { key: "HELPDESK",        label: "Helpdesk",         icon: ClipboardList,color: "#f472b6", bg: "rgba(244,114,182,0.12)" },
+  { key: "POLLS",           label: "Polls",            icon: Activity,     color: "#fb923c", bg: "rgba(251,146,60,0.12)" },
+  { key: "JOBS",            label: "Jobs & Referrals",  icon: Dumbbell,    color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+  { key: "EVENTS",          label: "Events",           icon: Clock,        color: "#c084fc", bg: "rgba(192,132,252,0.12)" },
+  { key: "COMMUNITY_MGMT",  label: "Community Mgmt",   icon: Package,     color: "#2dd4bf", bg: "rgba(45,212,191,0.12)" },
+  { key: "FINANCE_MGMT",    label: "Finance Mgmt",     icon: Building2,   color: "#f59e0b", bg: "rgba(245,158,11,0.12)" },
+  { key: "ADMIN_HUB",       label: "Admin Hub",        icon: ShieldCheck,  color: "#ef4444", bg: "rgba(239,68,68,0.12)" },
+];
+
+// ── Modules Tab ──────────────────────────────────────────────────────────────
+function ModulesTab() {
+  const [communities, setCommunities] = useState<CommunityResponse[]>([]);
+  const [selectedCommunityId, setSelectedCommunityId] = useState<number | null>(null);
+  const [enabledModules, setEnabledModules] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const loadModules = async (communityId: number) => {
+    try {
+      const modules = await communityService.getCommunityModules(communityId);
+      setEnabledModules(modules.filter((m) => m.isEnabled).map((m) => m.moduleKey));
+    } catch {
+      const community = communities.find((c) => c.id === communityId);
+      setEnabledModules(community?.enabledModules || []);
+    }
+  };
+
+  useEffect(() => {
+    communityService.getCommunities().then((list) => {
+      setCommunities(list);
+      if (list.length > 0) {
+        setSelectedCommunityId(list[0].id);
+        loadModules(list[0].id);
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const handleCommunityChange = (id: number) => {
+    setSelectedCommunityId(id);
+    loadModules(id);
+  };
+
+  const toggleModule = (key: string) => {
+    setEnabledModules((prev) =>
+      prev.includes(key) ? prev.filter((m) => m !== key) : [...prev, key]
+    );
+  };
+
+  const toggleAll = () => {
+    if (enabledModules.length === ALL_MODULES.length) {
+      setEnabledModules([]);
+    } else {
+      setEnabledModules(ALL_MODULES.map((m) => m.key));
+    }
+  };
+
+  const handleSave = async () => {
+    if (!selectedCommunityId) return;
+    setSaving(true);
+    try {
+      const toggles = ALL_MODULES.map((m) => ({
+        moduleKey: m.key,
+        isEnabled: enabledModules.includes(m.key),
+      }));
+      await communityService.bulkUpdateModules(selectedCommunityId, toggles);
+      toast.success("Community modules updated successfully");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update modules");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const selectedCommunity = communities.find((c) => c.id === selectedCommunityId);
+
+  return (
+    <div className="space-y-6 animate-fade-in-up stagger-1">
+      {/* Community Selector */}
+      <div className="bg-card border border-border rounded-2xl p-5 shadow-lg">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <Building2 className="h-4 w-4 text-primary" />
+          Select Community
+        </h3>
+        <select
+          value={selectedCommunityId ?? ""}
+          onChange={(e) => handleCommunityChange(Number(e.target.value))}
+          className="w-full max-w-md bg-input border border-border rounded-xl text-sm px-4 py-2.5 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer"
+        >
+          {communities.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Module Toggles */}
+      {selectedCommunity && (
+        <div className="bg-card border border-border rounded-2xl p-5 shadow-lg">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="font-semibold text-foreground flex items-center gap-2">
+              <ToggleLeft className="h-4 w-4 text-primary" />
+              Feature Modules for {selectedCommunity.name}
+            </h3>
+            <button
+              onClick={toggleAll}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-input border border-border hover:bg-primary/10 hover:border-primary/30 transition-all cursor-pointer text-muted-foreground hover:text-foreground"
+            >
+              {enabledModules.length === ALL_MODULES.length ? "Disable All" : "Enable All"}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {ALL_MODULES.map((mod) => {
+              const isEnabled = enabledModules.includes(mod.key);
+              const Icon = mod.icon;
+              return (
+                <button
+                  key={mod.key}
+                  onClick={() => toggleModule(mod.key)}
+                  className={`flex items-center gap-3 p-4 rounded-xl border transition-all duration-200 cursor-pointer text-left ${
+                    isEnabled
+                      ? "border-primary/40 bg-primary/5 shadow-sm"
+                      : "border-border bg-card hover:bg-input/50"
+                  }`}
+                >
+                  <div
+                    className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: isEnabled ? mod.bg : "rgba(100,100,100,0.1)" }}
+                  >
+                    <Icon className="h-4 w-4" style={{ color: isEnabled ? mod.color : "#888" }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${isEnabled ? "text-foreground" : "text-muted-foreground"}`}>
+                      {mod.label}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                      {isEnabled ? "Enabled" : "Disabled"}
+                    </p>
+                  </div>
+                  <div className={`h-5 w-9 rounded-full transition-all duration-200 flex items-center px-0.5 ${
+                    isEnabled ? "bg-primary" : "bg-input border border-border"
+                  }`}>
+                    <div className={`h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ${
+                      isEnabled ? "translate-x-3.5" : "translate-x-0"
+                    }`} />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center justify-between mt-5 pt-4 border-t border-border">
+            <p className="text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">{enabledModules.length}</span> of {ALL_MODULES.length} modules enabled
+            </p>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-all disabled:opacity-50 cursor-pointer"
+            >
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save Changes
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main AdminHub Component ───────────────────────────────────────────────────
 export function AdminHub() {
   const { user, isAdmin, hasPermission } = useAuth();
@@ -559,6 +752,7 @@ export function AdminHub() {
   // Filter tabs based on permissions
   const visibleTabs = TAB_ITEMS.filter((t) => {
     if (t.id === "kyc") return isSuperAdmin || isAdmin;
+    if (t.id === "modules") return isSuperAdmin;
     if (t.id === "community") return canManageCommunities;
     if (t.id === "roles") return isSuperAdmin || hasPermission("Manage Roles");
     return true;
@@ -646,6 +840,7 @@ export function AdminHub() {
         )}
         {activeTab === "kyc" && <AdminDashboard />}
         {activeTab === "roles" && <AdminRoleManagement />}
+        {activeTab === "modules" && <ModulesTab />}
         {activeTab === "bulk" && <AdminBulkUpload />}
         {activeTab === "community" && <AdminCommunity />}
       </div>
