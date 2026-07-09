@@ -545,7 +545,7 @@ export function TeamsTab({ activeTournaments, activeEvents = [], communityId, is
               <div className="flex-1 min-w-0 text-left">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-extrabold text-slate-800 truncate">{tournamentName}</p>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={ss}>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold" style={{ background: ss.bg, color: ss.text }}>
                     {status.replace(/_/g, " ")}
                   </span>
                   {sport && (

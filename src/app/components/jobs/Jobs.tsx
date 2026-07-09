@@ -35,7 +35,7 @@ export function Jobs() {
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobResponse | null>(null);
-  const searchTimer = useRef<ReturnType<typeof setTimeout>>();
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const fetchJobs = useCallback(async (q?: string) => {
     setLoading(true);
