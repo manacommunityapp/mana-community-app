@@ -14,6 +14,7 @@ const toast = {
   info: (msg: string) => showInfo(msg),
 };
 import { sportsService } from "../../../../services/sportsService";
+import { sportsAdminService } from "../../../../services/sportsAdminService";
 import { venueService } from "../../../../services/venueService";
 import { communityService } from "../../../../services/communityService";
 import { auctionService } from "../../../../services/auctionService";
@@ -169,19 +170,8 @@ const getDefaultMinPlayers = (sportName: string): number => {
   return 5;
 };
 
-const initialTeams = [
-  { id: 1, name: "City Hoopers", sport: "Basketball", division: "Competitive", captain: "Arjun Mehta", members: 12, status: "active", record: "8-3" },
-  { id: 2, name: "Downtown Dunkers", sport: "Basketball", division: "Competitive", captain: "Ravi Kumar", members: 10, status: "active", record: "6-5" },
-  { id: 3, name: "United FC", sport: "Soccer", division: "Recreational", captain: "Suresh Nair", members: 11, status: "active", record: "5-4-1" },
-  { id: 4, name: "Galacticos", sport: "Soccer", division: "Recreational", captain: "Deepak Joshi", members: 11, status: "active", record: "5-5" },
-  { id: 5, name: "Spike Syndicate", sport: "Volleyball", division: "Competitive", captain: "Priya Singh", members: 9, status: "pending", record: "0-0" },
-  { id: 6, name: "Net Ninjas", sport: "Volleyball", division: "Recreational", captain: "Anita Sharma", members: 7, status: "pending", record: "0-0" },
-];
-
-const initialPendingRegistrations = [
-  { id: 1, teamName: "Thunder Hawks", sport: "Basketball", captain: "Manoj Pillai", email: "manoj@email.com", members: 8, date: "Jun 10" },
-  { id: 2, teamName: "Green Warriors", sport: "Soccer", captain: "Sandeep Rao", email: "sandeep@email.com", members: 9, date: "Jun 11" },
-];
+const initialTeams: any[] = [];
+const initialPendingRegistrations: any[] = [];
 
 const BasketballIcon = ({ size = 24, className, ...props }: React.ComponentPropsWithoutRef<"svg"> & { size?: number | string }) => (
   <svg
@@ -605,26 +595,55 @@ export function SportsAdmin() {
   const [submitting, setSubmitting] = useState(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
-  const [teamsList, setTeamsList] = useState(initialTeams);
-  const [pendingList, setPendingList] = useState(initialPendingRegistrations);
+  const [teamsList, setTeamsList] = useState<any[]>([]);
+  const [pendingList, setPendingList] = useState<any[]>([]);
   const [adminSearchQuery, setAdminSearchQuery] = useState("");
 
-  const approveTeam = (id: number) => {
-    const reg = pendingList.find(p => p.id === id);
-    if (!reg) return;
-    const newTeam = {
-      id: Date.now(),
-      name: reg.teamName,
-      sport: reg.sport,
-      division: "Competitive",
-      captain: reg.captain,
-      members: reg.members,
-      status: "active" as const,
-      record: "0-0"
-    };
-    setTeamsList(prev => [...prev, newTeam]);
-    setPendingList(prev => prev.filter(p => p.id !== id));
-    toast.success(`Team "${reg.teamName}" approved successfully!`);
+  const refreshDashboardOverview = useCallback(async () => {
+    try {
+      const data = await sportsAdminService.getOverview(activeCommId);
+      
+      const pendingMapped = (data.pendingRegistrations || []).map((reg) => ({
+        id: reg.id,
+        teamName: reg.proposedTeamName || reg.playerName || `Registration #${reg.id}`,
+        sport: reg.event?.sport?.name || reg.event?.name || "General",
+        captain: reg.playerName || reg.user?.fullName || "—",
+        email: reg.email || reg.user?.email || "—",
+        members: 1,
+        date: reg.registeredAt ? format(new Date(reg.registeredAt), "MMM d") : ""
+      }));
+      setPendingList(pendingMapped);
+
+      const confirmedMapped = (data.confirmedRegistrations || []).map((reg) => ({
+        id: reg.id,
+        name: reg.proposedTeamName || reg.playerName || `Registration #${reg.id}`,
+        sport: reg.event?.sport?.name || reg.event?.name || "General",
+        division: "Competitive",
+        captain: reg.playerName || reg.user?.fullName || "—",
+        members: 1,
+        status: "active" as const,
+        record: "—"
+      }));
+      setTeamsList(confirmedMapped);
+    } catch (err) {
+      console.error("Failed to load dashboard overview data", err);
+    }
+  }, [activeCommId]);
+
+  useEffect(() => {
+    if (activeTab === "dashboard") {
+      refreshDashboardOverview();
+    }
+  }, [activeTab, refreshDashboardOverview]);
+
+  const approveTeam = async (id: number) => {
+    try {
+      await sportsService.confirmRegistration(id);
+      toast.success("Registration approved successfully!");
+      refreshDashboardOverview();
+    } catch {
+      toast.error("Failed to approve registration");
+    }
   };
   // Track which tabs have already done their initial data load so we don't
   // re-fetch on every revisit. Mutations explicitly refresh their own data.

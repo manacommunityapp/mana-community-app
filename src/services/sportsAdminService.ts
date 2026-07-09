@@ -1,5 +1,5 @@
 import { apiClient } from "./apiClient";
-import type { CommunityResponse } from "../types/api";
+import type { CommunityResponse, EventRegistration } from "../types/api";
 
 // ── Overview (Dashboard / Sports Event tabs) ─────────────────────────────
 
@@ -39,6 +39,8 @@ export interface AdminTournamentRow {
 export interface SportsAdminOverview {
   tournaments: AdminTournamentRow[];
   events: AdminEventRow[];
+  pendingRegistrations: EventRegistration[];
+  confirmedRegistrations: EventRegistration[];
 }
 
 // ── Form data (Create Tournament / Create Venue tabs) ────────────────────
@@ -71,8 +73,9 @@ export interface SportsAdminFormData {
 
 export const sportsAdminService = {
   /** GET /api/sports/admin/overview — lean tournaments + events lists for the admin list tabs. */
-  async getOverview(): Promise<SportsAdminOverview> {
-    return apiClient.get<SportsAdminOverview>("/sports/admin/overview");
+  async getOverview(communityId?: number): Promise<SportsAdminOverview> {
+    const query = communityId ? `?communityId=${communityId}` : "";
+    return apiClient.get<SportsAdminOverview>(`/sports/admin/overview${query}`);
   },
 
   /** GET /api/sports/admin/form-data — sports + categories + communities for the create forms. */
