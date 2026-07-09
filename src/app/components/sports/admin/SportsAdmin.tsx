@@ -2141,6 +2141,7 @@ export function SportsAdmin() {
       contactEmail: "",
       otherContacts: [],
       auctionEnabled: false,
+      adminApprovalRequired: true,
     };
   };
 
@@ -2348,6 +2349,7 @@ export function SportsAdmin() {
         contactEmail: e.contactEmail || "",
         otherContacts: parseOtherContacts(e.otherContacts),
         auctionEnabled: !!e.auctionEnabled,
+        adminApprovalRequired: e.adminApprovalRequired !== false,
       }],
     };
     setSportForms([editEntry]);
@@ -2428,6 +2430,7 @@ export function SportsAdmin() {
           // Auction only applies to team sports (intent flag; actual auction
           // config is created later on the Auction screen).
           auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
+          adminApprovalRequired: ev.adminApprovalRequired !== false,
         };
 
         try {
@@ -2511,14 +2514,16 @@ export function SportsAdmin() {
 
       <main className="main-content">
         <div className="page active">
-          <div className="page-hdr">
-            <div>
-              <div className="page-title">
-                {menuItems.find(m => m.id === activeTab)?.label || "Admin"}
+          {activeTab !== "dashboard" && (
+            <div className="page-hdr">
+              <div>
+                <div className="page-title">
+                  {menuItems.find(m => m.id === activeTab)?.label || "Admin"}
+                </div>
+                <div className="page-sub">Manage community sports events and rules</div>
               </div>
-              <div className="page-sub">Manage community sports events and rules</div>
             </div>
-          </div>
+          )}
 
         {/* ════════════ OVERVIEW / DASHBOARD TAB ════════════ */}
         {activeTab === "dashboard" && (

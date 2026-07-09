@@ -532,6 +532,7 @@ export interface SportFormEvent {
   contacts?: EventContact[];
   otherContacts?: { title: string; name: string; detail: string; }[];
   auctionEnabled?: boolean;
+  adminApprovalRequired?: boolean;
 }
 
 export interface SportFormEntry {

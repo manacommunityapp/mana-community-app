@@ -87,6 +87,26 @@ export const VIEW_VISITORS       = "View Visitors";
 export const CREATE_VISITOR_PASS = "Create Visitor Pass";
 export const MANAGE_GATE         = "Manage Gate";
 
+// ──── AMENITY BOOKING ────
+export const VIEW_AMENITIES   = "View Amenities";
+export const BOOK_AMENITY     = "Book Amenity";
+export const MANAGE_AMENITIES = "Manage Amenities";
+
+// ──── NOTICE BOARD ────
+export const VIEW_NOTICES  = "View Notices";
+export const CREATE_NOTICE = "Create Notice";
+export const DELETE_NOTICE = "Delete Notice";
+
+// ──── HELPDESK / COMPLAINTS ────
+export const VIEW_TICKETS   = "View Tickets";
+export const CREATE_TICKET  = "Create Ticket";
+export const MANAGE_TICKETS = "Manage Tickets";
+
+// ──── POLLING / VOTING ────
+export const VIEW_POLLS  = "View Polls";
+export const CREATE_POLL = "Create Poll";
+export const VOTE_POLL   = "Vote Poll";
+
 // ──── JOBS & REFERRALS ────
 export const VIEW_JOBS  = "View Jobs";
 export const CREATE_JOB = "Create Job";
@@ -147,6 +167,26 @@ export const PERMISSION_CATEGORIES = [
     id: "visitors",
     title: "VISITOR / GATE PASS Permission",
     permissions: [VIEW_VISITORS, CREATE_VISITOR_PASS, MANAGE_GATE],
+  },
+  {
+    id: "amenities",
+    title: "AMENITY BOOKING Permission",
+    permissions: [VIEW_AMENITIES, BOOK_AMENITY, MANAGE_AMENITIES],
+  },
+  {
+    id: "notices",
+    title: "NOTICE BOARD Permission",
+    permissions: [VIEW_NOTICES, CREATE_NOTICE, DELETE_NOTICE],
+  },
+  {
+    id: "helpdesk",
+    title: "HELPDESK / COMPLAINTS Permission",
+    permissions: [VIEW_TICKETS, CREATE_TICKET, MANAGE_TICKETS],
+  },
+  {
+    id: "polling",
+    title: "POLLING / VOTING Permission",
+    permissions: [VIEW_POLLS, CREATE_POLL, VOTE_POLL],
   },
   {
     id: "jobs",

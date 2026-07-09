@@ -53,6 +53,10 @@ import { MySports }           from "./components/sports/MySports";
 import { SportsAnalytics }    from "./components/sports/SportsAnalytics";
 
 import { VisitorManagement } from "./components/visitors/VisitorManagement";
+import { NoticeBoard } from "./components/notices/NoticeBoard";
+import { AmenityBooking } from "./components/bookings/AmenityBooking";
+import { Helpdesk } from "./components/helpdesk/Helpdesk";
+import { Polling } from "./components/polling/Polling";
 
 // Permission constants
 import {
@@ -61,6 +65,7 @@ import {
   VIEW_PLAYER_POOL, VIEW_AUCTION_RESULTS,
   CREATE_EDIT_SPORTS_MAIN, VIEW_ADMIN, BULK_UPLOAD, MANAGE_COMMUNITIES,
   MANAGE_ROLES, VIEW_MARKETPLACE, VIEW_JOBS, VIEW_EVENTS, VIEW_VISITORS,
+  VIEW_NOTICES, VIEW_AMENITIES, VIEW_TICKETS, VIEW_POLLS,
 } from "../constants/permissions";
 
 export const router = createBrowserRouter([
@@ -184,7 +189,23 @@ export const router = createBrowserRouter([
         path: "visitors",
         element: <PermissionGuard permission={VIEW_VISITORS}><VisitorManagement /></PermissionGuard>
       },
-      { 
+      {
+        path: "notices",
+        element: <PermissionGuard permission={VIEW_NOTICES}><NoticeBoard /></PermissionGuard>
+      },
+      {
+        path: "bookings",
+        element: <PermissionGuard permission={VIEW_AMENITIES}><AmenityBooking /></PermissionGuard>
+      },
+      {
+        path: "helpdesk",
+        element: <PermissionGuard permission={VIEW_TICKETS}><Helpdesk /></PermissionGuard>
+      },
+      {
+        path: "polls",
+        element: <PermissionGuard permission={VIEW_POLLS}><Polling /></PermissionGuard>
+      },
+      {
         path: "jobs", 
         element: <PermissionGuard permission={VIEW_JOBS}><Jobs /></PermissionGuard> 
       },

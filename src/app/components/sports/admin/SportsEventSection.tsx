@@ -623,7 +623,22 @@ export function SportsEventSection({
                       {/* Participant Type (Singles, Doubles pills) or Min/Max Players (Teams) */}
                       {!isTeamSport(form.name) ? (
                         <div>
-                          <label className="text-xs text-slate-500 font-semibold block mb-1.5">Participant Type *</label>
+                          <div className="grid grid-cols-2 gap-3 mb-1.5">
+                            <div>
+                              <label className="text-xs text-slate-500 font-semibold block">Participant Type *</label>
+                            </div>
+                            <div className="flex items-center">
+                              <label className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold cursor-pointer select-none">
+                                <span>Needs Confirmation</span>
+                                <input
+                                  type="checkbox"
+                                  checked={ev.adminApprovalRequired !== false}
+                                  onChange={e => updateSportFormEvent(form.id, ev.id, "adminApprovalRequired", e.target.checked)}
+                                  className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                                />
+                              </label>
+                            </div>
+                          </div>
                           <div className="flex gap-2 flex-wrap">
                             {["SINGLES", "DOUBLES", "MIXED_DOUBLES"].map(formatType => {
                               const list = ev.formats || [];
