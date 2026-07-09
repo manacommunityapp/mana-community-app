@@ -1,7 +1,7 @@
 import {
   Headphones, Plus, X, Loader2, MessageSquare, Clock, AlertCircle,
   ChevronDown, Send, Tag, User, Wrench, Zap, Car, Volume2, Sparkles,
-  Elevator, CircleDot, ArrowUpRight
+  ArrowUpDown, CircleDot, ArrowUpRight
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { clsx, type ClassValue } from "clsx";
@@ -32,7 +32,7 @@ const categoryConfig: Record<string, { label: string; icon: React.ReactNode }> =
   PARKING: { label: "Parking", icon: <Car className="w-3.5 h-3.5" /> },
   NOISE: { label: "Noise", icon: <Volume2 className="w-3.5 h-3.5" /> },
   CLEANLINESS: { label: "Cleanliness", icon: <Sparkles className="w-3.5 h-3.5" /> },
-  ELEVATOR: { label: "Elevator", icon: <Elevator className="w-3.5 h-3.5" /> },
+  ELEVATOR: { label: "Elevator", icon: <ArrowUpDown className="w-3.5 h-3.5" /> },
   OTHER: { label: "Other", icon: <CircleDot className="w-3.5 h-3.5" /> },
 };
 
