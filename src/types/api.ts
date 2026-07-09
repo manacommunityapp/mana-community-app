@@ -28,6 +28,7 @@ export interface AuthResponse {
   role?: string;
   communityId?: number;
   dateOfBirth?: string;
+  enabledModules?: string[];
 }
 
 export type GovtIdType = "AADHAAR" | "VOTER_ID" | "DRIVING_LICENCE";
@@ -87,6 +88,7 @@ export interface CommunityResponse {
   area?: string;
   subtype?: string;
   active?: boolean;
+  enabledModules?: string[];
 }
 
 export interface Community extends CommunityResponse { }
@@ -497,6 +499,7 @@ export interface UserResponse {
   roleId?: number;
   isActive?: boolean;
   permissions?: string[];
+  enabledModules?: string[];
 }
 
 export type RolePermissionsMap = Record<string, string[]>;

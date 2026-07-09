@@ -26,7 +26,21 @@ export function Layout() {
 
   // AuthContext fetches /users/me on boot and populates user.permissions
   const permissions = user?.permissions || [];
+  const enabledModules = user?.enabledModules || [];
   const loadingPermissions = !!user && !user.permissions;
+
+  const labelToModule: Record<string, string> = {
+    "Community Feed": "COMMUNITY_FEED",
+    "Sports": "SPORTS",
+    "Marketplace": "MARKETPLACE",
+    "Visitors": "VISITORS",
+    "Notices": "NOTICES",
+    "Bookings": "BOOKINGS",
+    "Helpdesk": "HELPDESK",
+    "Polls": "POLLS",
+    "Jobs & Referrals": "JOBS",
+    "Events": "EVENTS",
+  };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
@@ -52,7 +66,11 @@ export function Layout() {
 
   const filteredNavLinks = navLinks.filter((link) => {
     if (isSuperAdmin) return true;
-    if (loadingPermissions) return true; // default while loading
+    if (loadingPermissions) return true;
+
+    const moduleKey = labelToModule[link.label];
+    if (moduleKey && (!enabledModules || !enabledModules.includes(moduleKey))) return false;
+
     if (link.label === "Community Feed") return permissions.includes(VIEW_FEED);
     if (link.label === "Sports") return permissions.includes(VIEW_SPORTS_MENU);
     if (link.label === "Marketplace") return permissions.includes(VIEW_MARKETPLACE);
@@ -172,6 +190,7 @@ export function Layout() {
           ))}
 
           {/* Community Management Collapsible Group */}
+          {(isSuperAdmin || (enabledModules && enabledModules.includes("COMMUNITY_MGMT"))) && (
           <div className="space-y-1">
             <button
               onClick={() => setIsCommunityOpen(!isCommunityOpen)}
@@ -294,9 +313,10 @@ export function Layout() {
               </div>
             )}
           </div>
+          )}
 
           {/* Finance Management Collapsible Group */}
-          {isAdmin && (
+          {isAdmin && (isSuperAdmin || (enabledModules && enabledModules.includes("FINANCE_MGMT"))) && (
             <div className="space-y-1">
               <button
                 onClick={() => setIsFinanceOpen(!isFinanceOpen)}

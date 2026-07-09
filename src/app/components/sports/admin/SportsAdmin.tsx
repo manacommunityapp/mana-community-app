@@ -307,6 +307,9 @@ export function SportsAdmin() {
     }
   });
 
+  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const activeCommId = isSuperAdmin ? (selectedCommId ? Number(selectedCommId) : undefined) : user?.communityId;
+
   const getTournamentStartDateTime = useCallback(() => {
     if (!startDate) return null;
     const baseDate = new Date(startDate);
@@ -2486,8 +2489,6 @@ export function SportsAdmin() {
   });
   const completedEvents = activeTournaments.filter(e => (e.event?.registrationStatus || e.registrationStatus) === "COMPLETED");
 
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
-  const activeCommId = isSuperAdmin ? (selectedCommId ? Number(selectedCommId) : undefined) : user?.communityId;
   const selectedComm = communities.find(c => c.id === activeCommId);
   const isGeneralCommunity = selectedComm
     ? (selectedComm.type === "GENERAL" || selectedComm.name.toLowerCase() === "general")

@@ -92,7 +92,7 @@ export const router = createBrowserRouter([
     children: [
       { 
         index: true, 
-        element: <PermissionGuard permission={VIEW_FEED}><Feed /></PermissionGuard> 
+        element: <PermissionGuard permission={VIEW_FEED} requiredModule="COMMUNITY_FEED"><Feed /></PermissionGuard> 
       },
       {
         path: "sports",
@@ -100,43 +100,43 @@ export const router = createBrowserRouter([
         children: [
           { 
             index: true, 
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU}><SportsDashboard /></PermissionGuard> 
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsDashboard /></PermissionGuard> 
           },
           { 
             path: "my-sports", 
-            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS}><MySports /></PermissionGuard> 
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><MySports /></PermissionGuard> 
           },
           { 
             path: "register", 
-            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS}><MySports /></PermissionGuard> 
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><MySports /></PermissionGuard> 
           },
           {
             path: "register/:eventUuid",
-            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS}><SportsRegister /></PermissionGuard>
+            element: <PermissionGuard permission={VIEW_EVENT_REGISTRATIONS} requiredModule="SPORTS"><SportsRegister /></PermissionGuard>
           },
           {
             path: "schedule",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU}><SportsSchedule /></PermissionGuard>
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsSchedule /></PermissionGuard>
           },
           {
             path: "schedule/:eventId",
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU}><SportsSchedule /></PermissionGuard>
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsSchedule /></PermissionGuard>
           },
           {
             path: "auction",
-            element: <PermissionGuard anyPermissions={[VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD, VIEW_PLAYER_POOL, VIEW_EVENT_REGISTRATIONS, VIEW_AUCTION_RESULTS]}><SportsAuction /></PermissionGuard>
+            element: <PermissionGuard anyPermissions={[VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD, VIEW_PLAYER_POOL, VIEW_EVENT_REGISTRATIONS, VIEW_AUCTION_RESULTS]} requiredModule="SPORTS"><SportsAuction /></PermissionGuard>
           },
           {
             path: "auction/:eventId",
-            element: <PermissionGuard anyPermissions={[VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD, VIEW_PLAYER_POOL, VIEW_EVENT_REGISTRATIONS, VIEW_AUCTION_RESULTS]}><SportsAuction /></PermissionGuard>
+            element: <PermissionGuard anyPermissions={[VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD, VIEW_PLAYER_POOL, VIEW_EVENT_REGISTRATIONS, VIEW_AUCTION_RESULTS]} requiredModule="SPORTS"><SportsAuction /></PermissionGuard>
           },
           { 
             path: "admin", 
-            element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN}><SportsAdmin /></PermissionGuard> 
+            element: <PermissionGuard permission={CREATE_EDIT_SPORTS_MAIN} requiredModule="SPORTS"><SportsAdmin /></PermissionGuard> 
           },
           { 
             path: "analytics", 
-            element: <PermissionGuard permission={VIEW_SPORTS_MENU}><SportsAnalytics /></PermissionGuard> 
+            element: <PermissionGuard permission={VIEW_SPORTS_MENU} requiredModule="SPORTS"><SportsAnalytics /></PermissionGuard> 
           },
         ],
       },
@@ -145,31 +145,31 @@ export const router = createBrowserRouter([
         children: [
           { 
             index: true, 
-            element: <PermissionGuard permission={VIEW_ADMIN}><AdminHub /></PermissionGuard> 
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AdminHub /></PermissionGuard> 
           },
           { 
             path: "create-user", 
-            element: <PermissionGuard permission={VIEW_ADMIN}><AdminCreateUser /></PermissionGuard> 
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AdminCreateUser /></PermissionGuard> 
           },
           { 
             path: "bulk-upload", 
-            element: <PermissionGuard permission={BULK_UPLOAD}><AdminBulkUpload /></PermissionGuard> 
+            element: <PermissionGuard permission={BULK_UPLOAD} requiredModule="ADMIN_HUB"><AdminBulkUpload /></PermissionGuard> 
           },
           { 
             path: "venues", 
-            element: <PermissionGuard permission={VIEW_ADMIN}><AdminVenues /></PermissionGuard> 
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AdminVenues /></PermissionGuard> 
           },
           { 
             path: "create-community", 
-            element: <PermissionGuard permission={MANAGE_COMMUNITIES}><AdminCommunity /></PermissionGuard> 
+            element: <PermissionGuard permission={MANAGE_COMMUNITIES} requiredModule="ADMIN_HUB"><AdminCommunity /></PermissionGuard> 
           },
           { 
             path: "roles", 
-            element: <PermissionGuard permission={MANAGE_ROLES}><AdminRoleManagement /></PermissionGuard> 
+            element: <PermissionGuard permission={MANAGE_ROLES} requiredModule="ADMIN_HUB"><AdminRoleManagement /></PermissionGuard> 
           },
           {
             path: "logs",
-            element: <PermissionGuard permission={VIEW_ADMIN}><LogsDashboard /></PermissionGuard>
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><LogsDashboard /></PermissionGuard>
           },
           {
             path: "audit-logs",
@@ -177,41 +177,41 @@ export const router = createBrowserRouter([
           },
           {
             path: "expenses",
-            element: <PermissionGuard permission={VIEW_ADMIN}><ExpensesDashboard /></PermissionGuard>
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><ExpensesDashboard /></PermissionGuard>
           },
         ]
       },
       {
         path: "marketplace",
-        element: <PermissionGuard permission={VIEW_MARKETPLACE}><Marketplace /></PermissionGuard>
+        element: <PermissionGuard permission={VIEW_MARKETPLACE} requiredModule="MARKETPLACE"><Marketplace /></PermissionGuard>
       },
       {
         path: "visitors",
-        element: <PermissionGuard permission={VIEW_VISITORS}><VisitorManagement /></PermissionGuard>
+        element: <PermissionGuard permission={VIEW_VISITORS} requiredModule="VISITORS"><VisitorManagement /></PermissionGuard>
       },
       {
         path: "notices",
-        element: <PermissionGuard permission={VIEW_NOTICES}><NoticeBoard /></PermissionGuard>
+        element: <PermissionGuard permission={VIEW_NOTICES} requiredModule="NOTICES"><NoticeBoard /></PermissionGuard>
       },
       {
         path: "bookings",
-        element: <PermissionGuard permission={VIEW_AMENITIES}><AmenityBooking /></PermissionGuard>
+        element: <PermissionGuard permission={VIEW_AMENITIES} requiredModule="BOOKINGS"><AmenityBooking /></PermissionGuard>
       },
       {
         path: "helpdesk",
-        element: <PermissionGuard permission={VIEW_TICKETS}><Helpdesk /></PermissionGuard>
+        element: <PermissionGuard permission={VIEW_TICKETS} requiredModule="HELPDESK"><Helpdesk /></PermissionGuard>
       },
       {
         path: "polls",
-        element: <PermissionGuard permission={VIEW_POLLS}><Polling /></PermissionGuard>
+        element: <PermissionGuard permission={VIEW_POLLS} requiredModule="POLLS"><Polling /></PermissionGuard>
       },
       {
         path: "jobs", 
-        element: <PermissionGuard permission={VIEW_JOBS}><Jobs /></PermissionGuard> 
+        element: <PermissionGuard permission={VIEW_JOBS} requiredModule="JOBS"><Jobs /></PermissionGuard> 
       },
       { 
         path: "events", 
-        element: <PermissionGuard permission={VIEW_EVENTS}><Events /></PermissionGuard> 
+        element: <PermissionGuard permission={VIEW_EVENTS} requiredModule="EVENTS"><Events /></PermissionGuard> 
       },
       { 
         path: "inventory", 
@@ -222,23 +222,23 @@ export const router = createBrowserRouter([
         children: [
           {
             path: "inventory",
-            element: <InventoryDashboard />
+            element: <PermissionGuard requiredModule="COMMUNITY_MGMT"><InventoryDashboard /></PermissionGuard>
           },
           {
             path: "inventory-management",
-            element: <InventoryManagement />
+            element: <PermissionGuard requiredModule="COMMUNITY_MGMT"><InventoryManagement /></PermissionGuard>
           },
           {
             path: "procurement",
-            element: <ProcurementDashboard />
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><ProcurementDashboard /></PermissionGuard>
           },
           {
             path: "maintenance",
-            element: <MaintenanceDashboard />
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><MaintenanceDashboard /></PermissionGuard>
           },
           {
             path: "audit",
-            element: <AssetAuditDashboard />
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><AssetAuditDashboard /></PermissionGuard>
           }
         ]
       },
@@ -247,19 +247,19 @@ export const router = createBrowserRouter([
         children: [
           {
             path: "expenses",
-            element: <PermissionGuard permission={VIEW_ADMIN}><LedgerFinance section="expense" /></PermissionGuard>
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><LedgerFinance section="expense" /></PermissionGuard>
           },
           {
             path: "invoices",
-            element: <PermissionGuard permission={VIEW_ADMIN}><LedgerFinance section="invoice" /></PermissionGuard>
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><LedgerFinance section="invoice" /></PermissionGuard>
           },
           {
             path: "budget",
-            element: <PermissionGuard permission={VIEW_ADMIN}><BudgetDashboard /></PermissionGuard>
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><BudgetDashboard /></PermissionGuard>
           },
           {
             path: "reports",
-            element: <PermissionGuard permission={VIEW_ADMIN}><FinancialReports /></PermissionGuard>
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><FinancialReports /></PermissionGuard>
           }
         ]
       },

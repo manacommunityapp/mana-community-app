@@ -54,6 +54,7 @@ export interface StoredUser {
   email?: string;
   dateOfBirth?: string;
   permissions?: string[];
+  enabledModules?: string[];
 }
 
 export function getStoredUser(): StoredUser | null {

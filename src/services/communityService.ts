@@ -19,4 +19,29 @@ export const communityService = {
   async deleteCommunity(id: number): Promise<void> {
     return apiClient.delete<void>(`/communities/${id}`);
   },
+
+  async updateModules(id: number, modules: string[]): Promise<CommunityResponse> {
+    return apiClient.put<CommunityResponse>(`/communities/${id}/modules`, { modules });
+  },
+
+  async getCommunityModules(communityId: number) {
+    return apiClient.get<CommunityModuleResponse[]>(`/community-modules/${communityId}`);
+  },
+
+  async bulkUpdateModules(communityId: number, modules: { moduleKey: string; isEnabled: boolean }[]) {
+    return apiClient.post<CommunityModuleResponse[]>(`/community-modules/bulk`, { communityId, modules });
+  },
+
+  async initializeModules(communityId: number): Promise<void> {
+    return apiClient.post<void>(`/community-modules/${communityId}/initialize`);
+  },
 };
+
+export interface CommunityModuleResponse {
+  id: number;
+  communityId: number;
+  moduleKey: string;
+  moduleLabel: string;
+  isEnabled: boolean;
+  sortOrder: number;
+}

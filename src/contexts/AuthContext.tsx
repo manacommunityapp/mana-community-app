@@ -72,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             communityId: me.communityId,
             roleId: me.roleId,
             permissions: me.permissions,
+            enabledModules: me.enabledModules,
           });
         })
         .catch((err) => {
@@ -94,6 +95,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       fullName: response.fullName ?? (payload?.fullName != null ? String(payload.fullName) : payload?.sub != null ? String(payload.sub) : undefined),
       email: response.email ?? (payload?.email != null ? String(payload.email) : undefined),
       dateOfBirth: response.dateOfBirth,
+      enabledModules: response.enabledModules,
     };
     storeUser(newUser);
     setUser(newUser);
@@ -108,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         communityId: me.communityId,
         roleId: me.roleId,
         permissions: me.permissions,
+        enabledModules: me.enabledModules,
       };
       storeUser(updated);
       setUser(updated);
@@ -129,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       fullName: response.fullName ?? (payload?.fullName != null ? String(payload.fullName) : undefined),
       email: response.email ?? data.email,
       dateOfBirth: response.dateOfBirth,
+      enabledModules: response.enabledModules,
     };
     storeUser(newUser);
     setUser(newUser);
@@ -143,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         communityId: me.communityId,
         roleId: me.roleId,
         permissions: me.permissions,
+        enabledModules: me.enabledModules,
       };
       storeUser(updated);
       setUser(updated);
