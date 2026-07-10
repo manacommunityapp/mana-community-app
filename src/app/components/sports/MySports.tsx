@@ -257,16 +257,16 @@ export function MySports() {
           </div>
 
           {/* Player Card */}
-          <div className="rounded-2xl p-6 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="rounded-2xl p-4 sm:p-6 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6">
           {/* Left: Avatar & Info */}
-          <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-2xl flex items-center justify-center text-white text-xl font-bold shrink-0 shadow-lg shadow-indigo-500/20"
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-2xl flex items-center justify-center text-white text-base sm:text-xl font-bold shrink-0 shadow-lg shadow-indigo-500/20"
               style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
               {userInitials}
             </div>
             <div className="text-left">
-              <h2 className="font-bold text-xl text-[#0d0d2b] flex items-center gap-2">
+              <h2 className="font-bold text-base sm:text-xl text-[#0d0d2b] flex items-center gap-2">
                 {displayName}
               </h2>
               <p className="text-xs text-[#6b7094] mt-1">
@@ -276,15 +276,15 @@ export function MySports() {
           </div>
 
           {/* Center/Right: Stats & Action */}
-          <div className="flex flex-wrap items-center gap-6 sm:gap-8 justify-between md:justify-end flex-1">
-            <div className="flex items-center gap-6 sm:gap-8">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-8 justify-between md:justify-end flex-1">
+            <div className="flex items-center gap-4 sm:gap-8">
               {[
                 { label: "Teams", value: teams.length.toString() },
                 { label: "Registrations", value: registrations.length.toString() },
                 { label: "Matches", value: myMatches.length.toString() }
               ].map((s) => (
                 <div key={s.label} className="text-left md:text-center">
-                  <p className="font-extrabold text-lg text-[#0d0d2b]">{s.value}</p>
+                  <p className="font-extrabold text-base sm:text-lg text-[#0d0d2b]">{s.value}</p>
                   <p className="text-[10px] uppercase tracking-wider font-semibold text-[#6b7094]">{s.label}</p>
                 </div>
               ))}
@@ -323,7 +323,7 @@ export function MySports() {
                       }}
                     >
                       <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
-                        <Trophy className="w-28 h-28 rotate-12" />
+                        <Trophy className="w-16 h-16 sm:w-28 sm:h-28 rotate-12" />
                       </div>
                       <div className="max-w-xl relative z-10 space-y-1">
                         <span className="px-2 py-0.5 rounded-full text-[8px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block mb-0.5">
@@ -337,7 +337,7 @@ export function MySports() {
                     </div>
 
                     {/* Upcoming Matches Preview */}
-                    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+                    <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm space-y-3 sm:space-y-4">
                       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                           <Clock className="w-4 h-4 text-indigo-500" />
@@ -355,7 +355,7 @@ export function MySports() {
                           </div>
                         ) : (
                           myMatches.slice(0, 2).map((m) => (
-                            <div key={m.id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
+                            <div key={m.id} className="p-3 sm:p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
                               <div className="text-left space-y-1">
                                 <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                                   {m.sport?.name || "Sport"}
@@ -375,7 +375,7 @@ export function MySports() {
                     </div>
 
                     {/* Registrations Status Overview */}
-                    <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+                    <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm space-y-3 sm:space-y-4">
                       <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                           <Trophy className="w-4 h-4 text-amber-500" />
@@ -395,7 +395,7 @@ export function MySports() {
                           registrations.slice(0, 2).map((reg) => {
                             const isConfirmed = reg.status === "CONFIRMED" || reg.status === "REGISTERED";
                             return (
-                              <div key={reg.id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-2">
+                              <div key={reg.id} className="p-3 sm:p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-2">
                                 <div className="flex items-center justify-between">
                                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{reg.event?.sport?.name}</span>
                                   <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
@@ -444,7 +444,7 @@ export function MySports() {
                           };
 
                           return (
-                            <div key={reg.id} className="p-5 bg-white rounded-xl flex flex-col justify-between gap-4 relative hover:border-indigo-500/30 transition-all duration-300"
+                            <div key={reg.id} className="p-3 sm:p-5 bg-white rounded-xl flex flex-col justify-between gap-3 sm:gap-4 relative hover:border-indigo-500/30 transition-all duration-300"
                               style={{ border: "1px solid rgba(99, 102, 241, 0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
@@ -507,11 +507,11 @@ export function MySports() {
                         <p className="text-xs mt-1 text-[#6b7094]">Make sure you have selected or joined a community in your profile dashboard.</p>
                       </div>
                     ) : (
-                      <div className="bg-white rounded-2xl p-6 shadow-xl relative hover:border-indigo-500/20 transition-all duration-300"
+                      <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-xl relative hover:border-indigo-500/20 transition-all duration-300"
                         style={{ border: "1px solid rgba(99, 102, 241, 0.12)" }}>
-                        <div className="flex items-center gap-4 border-b border-slate-100 pb-4 mb-5">
-                          <div className="p-3.5 bg-indigo-500/10 rounded-2xl border border-indigo-500/20 text-indigo-500">
-                            <Building2 className="w-6 h-6" />
+                        <div className="flex items-center gap-3 sm:gap-4 border-b border-slate-100 pb-3 sm:pb-4 mb-4 sm:mb-5">
+                          <div className="p-2.5 sm:p-3.5 bg-indigo-500/10 rounded-2xl border border-indigo-500/20 text-indigo-500">
+                            <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
                           </div>
                           <div className="text-left">
                             <h3 className="text-base font-bold uppercase tracking-wider text-slate-800">{myCommunity.name}</h3>
@@ -567,7 +567,7 @@ export function MySports() {
                           const percent = Math.min(100, Math.round((spent / total) * 100));
 
                           return (
-                            <div key={team.id} className="p-5 bg-white rounded-xl flex flex-col gap-4 hover:border-indigo-500/30 transition-all duration-300 animate-fade-in-up"
+                            <div key={team.id} className="p-3 sm:p-5 bg-white rounded-xl flex flex-col gap-3 sm:gap-4 hover:border-indigo-500/30 transition-all duration-300 animate-fade-in-up"
                               style={{ border: "1px solid rgba(99, 102, 241, 0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
                               <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3">
                                 <div>
@@ -610,9 +610,9 @@ export function MySports() {
                         <p className="text-xs mt-1 text-[#6b7094]">Once brackets are seeded and matches are scheduled, they will appear in your timeline.</p>
                       </div>
                     ) : (
-                      <div className="bg-white rounded-xl p-5 shadow-lg"
+                      <div className="bg-white rounded-xl p-3 sm:p-5 shadow-lg"
                         style={{ border: "1px solid rgba(99, 102, 241, 0.12)" }}>
-                        <div className="text-xs font-semibold text-[#6b7094] uppercase tracking-widest mb-5 border-b border-slate-100 pb-2 text-left">My Match Timeline</div>
+                        <div className="text-xs font-semibold text-[#6b7094] uppercase tracking-widest mb-4 sm:mb-5 border-b border-slate-100 pb-2 text-left">My Match Timeline</div>
                         <div className="space-y-1">
                           {myMatches.map((m, i) => {
                             const statusColors: Record<string, string> = {
@@ -792,7 +792,7 @@ export function MySports() {
         {/* Right Column: Dynamic Performance Stats & Static Achievements/Progress */}
         <div className="space-y-5">
           {/* My Performance */}
-          <div className="rounded-2xl p-5"
+          <div className="rounded-2xl p-3 sm:p-5"
             style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold" style={{ color: "#0d0d2b" }}>My Performance</h3>
@@ -819,7 +819,7 @@ export function MySports() {
                 {(stats[activeStatsTab || sportNames[0]] || []).map((stat) => (
                   <div key={stat.label} className="rounded-xl p-3 text-center"
                     style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.08)" }}>
-                    <p className="text-2xl font-bold" style={{ color: "#4f46e5" }}>{stat.value}</p>
+                    <p className="text-xl sm:text-2xl font-bold" style={{ color: "#4f46e5" }}>{stat.value}</p>
                     <p className="text-[10px] font-semibold mt-0.5" style={{ color: "#0d0d2b" }}>{stat.label}</p>
                     {stat.sub && <p className="text-[9px] mt-0.5" style={{ color: "#10b981" }}>{stat.sub}</p>}
                   </div>
@@ -829,7 +829,7 @@ export function MySports() {
           </div>
 
           {/* Achievements */}
-          <div className="rounded-2xl p-5"
+          <div className="rounded-2xl p-3 sm:p-5"
             style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold" style={{ color: "#0d0d2b" }}>Achievements</h3>
@@ -844,7 +844,7 @@ export function MySports() {
                     border: `1px solid ${a.unlocked ? a.color + "25" : "rgba(107,112,148,0.08)"}`,
                     opacity: a.unlocked ? 1 : 0.6,
                   }}>
-                  <div className="h-9 w-9 rounded-xl flex items-center justify-center mx-auto mb-2"
+                  <div className="h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center mx-auto mb-1.5 sm:mb-2"
                     style={{ background: a.unlocked ? `${a.color}20` : "rgba(107,112,148,0.08)" }}>
                     <a.icon className="h-4 w-4" style={{ color: a.unlocked ? a.color : "#9ca3af" }} />
                   </div>
@@ -857,7 +857,7 @@ export function MySports() {
           </div>
 
           {/* Progress */}
-          <div className="rounded-2xl p-5"
+          <div className="rounded-2xl p-3 sm:p-5"
             style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
             <h3 className="font-semibold mb-4" style={{ color: "#0d0d2b" }}>Activity Summary</h3>
             <div className="space-y-3">
@@ -880,7 +880,7 @@ export function MySports() {
           </div>
 
           {/* Auction CTA */}
-          <div className="rounded-2xl p-5 animate-pulse"
+          <div className="rounded-2xl p-3 sm:p-5 animate-pulse"
             style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)", boxShadow: "0 4px 20px rgba(245,158,11,0.2)" }}>
             <TrendingUp className="h-6 w-6 text-white opacity-85 mb-2" />
             <h3 className="font-semibold text-white">Player Auction</h3>

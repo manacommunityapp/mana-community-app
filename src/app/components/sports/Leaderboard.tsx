@@ -66,7 +66,7 @@ export function Leaderboard() {
         <select
           value={selectedConfigId ?? ""}
           onChange={(e) => setSelectedConfigId(Number(e.target.value))}
-          className="border border-slate-200 rounded-xl px-3 py-2 text-sm text-slate-700 bg-white outline-none focus:border-indigo-500 min-w-[200px]"
+          className="border border-slate-200 rounded-xl px-3 py-2 text-xs sm:text-sm text-slate-700 bg-white outline-none focus:border-indigo-500 w-full sm:w-auto sm:min-w-[200px]"
         >
           {configs.map((c) => (
             <option key={c.id} value={c.id}>{c.tournamentName}</option>
@@ -74,12 +74,12 @@ export function Leaderboard() {
         </select>
 
         {/* Type Tabs */}
-        <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+        <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-0.5 sm:p-1">
           {LEADERBOARD_TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveType(tab)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+              className={`px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-semibold rounded-lg transition ${
                 activeType === tab
                   ? "bg-white text-slate-800 shadow-sm"
                   : "text-slate-500 hover:text-slate-700"

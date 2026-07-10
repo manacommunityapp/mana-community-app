@@ -177,11 +177,11 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 py-3 flex items-center justify-between z-10 rounded-t-2xl">
+        <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-indigo-700 px-4 py-2.5 sm:px-5 sm:py-3 flex items-center justify-between z-10 rounded-t-2xl">
           <div className="flex items-center gap-3">
             <span className="text-sm font-bold text-white">Live Scorer</span>
             <div className="flex items-center gap-1.5">
@@ -197,10 +197,10 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
 
         {/* Mini Scoreboard */}
         {state && inn && (
-          <div className="bg-slate-800 px-5 py-3 text-white flex items-center justify-between">
+          <div className="bg-slate-800 px-4 py-2.5 sm:px-5 sm:py-3 text-white flex items-center justify-between">
             <div>
               <div className="text-xs text-slate-400">{inn.battingTeamName} — Innings {inningsNumber}</div>
-              <div className="text-2xl font-extrabold">
+              <div className="text-xl sm:text-2xl font-extrabold">
                 {inn.totalRuns}/{inn.totalWickets}
                 <span className="text-xs text-slate-400 font-normal ml-2">({inn.totalOvers} ov)</span>
               </div>
@@ -216,17 +216,17 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
 
         {/* This Over */}
         {inn && inn.thisOver.length > 0 && (
-          <div className="px-5 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-2 flex-wrap">
+          <div className="px-4 py-2 sm:px-5 bg-slate-50 border-b border-slate-100 flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <span className="text-[10px] text-slate-400 font-semibold uppercase mr-1">This Over:</span>
             {inn.thisOver.map((ball, i) => (
-              <span key={i} className={`w-7 h-7 flex items-center justify-center rounded-full text-[10px] font-bold ${ballColor(ball)}`}>
+              <span key={i} className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-[10px] font-bold ${ballColor(ball)}`}>
                 {ball}
               </span>
             ))}
           </div>
         )}
 
-        <div className="p-5 space-y-4">
+        <div className="p-3 sm:p-5 space-y-3 sm:space-y-4">
           {/* Innings Selector */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500 font-semibold">Innings:</span>
