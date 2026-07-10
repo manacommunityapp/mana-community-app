@@ -102,6 +102,16 @@ class StompClientWrapper {
     };
   }
 
+  /** Publish a message to an application destination (routed through /app prefix). */
+  publish(destination: string, body: unknown) {
+    const client = this.ensureClient();
+    if (!client.connected) {
+      log.error("Cannot publish — not connected", destination);
+      return;
+    }
+    client.publish({ destination, body: JSON.stringify(body) });
+  }
+
   /** Tear the socket down (e.g. on logout). */
   disconnect() {
     this.tracked.forEach((t) => t.sub?.unsubscribe());
