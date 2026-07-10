@@ -1,340 +1,208 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import {
   Database, Server, Globe, Code, Layers, GitBranch, Shield,
   Activity, Box, ArrowRight, ChevronDown, ChevronRight, Loader2, AlertTriangle, Gauge,
 } from "lucide-react";
 import { schemaService, type DbTableSchema } from "../../../services/schemaService";
+import { apiCatalogService, type ApiGroup } from "../../../services/apiCatalogService";
 import { buildInfo, formatBuildTime } from "../../../utils/buildInfo";
 
-export type ArchTab = "overview" | "database" | "ddl" | "apis" | "websocket" | "folders" | "security" | "monitoring";
+export type ArchTab = "overview" | "database" | "apis" | "websocket" | "folders" | "security" | "monitoring";
 
-/** Fallback schema used only if the live DB schema can't be loaded. */
 const FALLBACK_TABLES: DbTableSchema[] = [
-  { name: "users",               columns: ["id","name","email","mobile","password_hash","community_id","flat_number","tower","profession","bio","profile_photo","role_id","status","verified_at","created_at"] },
-  { name: "roles",               columns: ["id","name","description","created_at"] },
-  { name: "permissions",         columns: ["id","name","module","action","description"] },
-  { name: "user_roles",          columns: ["user_id","role_id","assigned_by","assigned_at"] },
-  { name: "role_permissions",    columns: ["role_id","permission_id"] },
-  { name: "communities",         columns: ["id","name","type","address","city","state","admin_id","invite_code","member_count","created_at"] },
-  { name: "events",              columns: ["id","title","description","category","community_id","organizer_id","start_at","end_at","venue","capacity","rsvp_count","created_at"] },
-  { name: "event_rsvps",         columns: ["event_id","user_id","status","rsvped_at"] },
-  { name: "posts",               columns: ["id","author_id","community_id","content","type","media_urls","like_count","comment_count","created_at"] },
-  { name: "comments",            columns: ["id","post_id","author_id","content","parent_id","created_at"] },
-  { name: "jobs",                columns: ["id","title","company","location","type","salary_min","salary_max","description","skills","poster_id","community_id","status","created_at"] },
-  { name: "job_referrals",       columns: ["job_id","referrer_id","referred_email","status","created_at"] },
-  { name: "marketplace_listings",columns: ["id","title","description","price","category","condition","seller_id","community_id","images","status","created_at"] },
-  { name: "services",            columns: ["id","name","category","description","provider_id","community_id","fee","availability","rating","review_count","created_at"] },
-  { name: "appointments",        columns: ["id","service_id","user_id","scheduled_at","notes","status","created_at"] },
-  { name: "sports",              columns: ["id","name","type","icon","active"] },
-  { name: "sports_events",       columns: ["id","name","sport_id","community_id","format","sequence","scoring","start_date","end_date","venue_id","status","created_at"] },
-  { name: "tournaments",         columns: ["id","sports_event_id","name","round_count","current_round","status","third_place","created_at"] },
-  { name: "matches",             columns: ["id","tournament_id","round","player1_id","player2_id","court_id","scheduled_at","score_p1","score_p2","winner_id","status","is_bye"] },
-  { name: "venues",              columns: ["id","name","community_id","address","capacity","active"] },
-  { name: "courts",              columns: ["id","venue_id","name","sport","active"] },
-  { name: "auctions",            columns: ["id","name","community_id","config","status","starts_at","ends_at","created_by","created_at"] },
-  { name: "teams",               columns: ["id","auction_id","name","short_code","color","budget","spent","captain_id","created_at"] },
-  { name: "player_registrations",columns: ["id","auction_id","user_id","sport","role","base_price","current_bid","team_id","status","sold_price","created_at"] },
-  { name: "notifications",       columns: ["id","user_id","type","title","body","data","read","scheduled_at","sent_at","created_at"] },
-  { name: "chat_conversations",  columns: ["id","type","name","community_id","created_by","created_at"] },
-  { name: "chat_participants",   columns: ["conversation_id","user_id","joined_at","last_read_at"] },
-  { name: "chat_messages",       columns: ["id","conversation_id","sender_id","content","type","metadata","delivered_at","read_at","created_at"] },
-  { name: "audit_logs",          columns: ["id","user_id","action","module","resource_type","resource_id","old_value","new_value","ip_address","user_agent","created_at"] },
+  { name: "community",                     columns: ["id","name","type","invite_code","city","state","area","subtype","created_at"] },
+  { name: "roles",                         columns: ["id","name","community_id"] },
+  { name: "app_user",                      columns: ["id","full_name","email","phone","password_hash","date_of_birth","gender","role","role_id","kyc_status","govt_id_type","govt_id_number","flat_no","block","profile_pic_url","community_id","is_active","failed_login_attempts","locked_until","created_at","updated_at"] },
+  { name: "role_permissions",              columns: ["id","role","role_id","user_id","permission_key"] },
+  { name: "user_profile",                  columns: ["id","user_id","bio","skills","cover_pic_url","posts_count","connections_count","events_attended_count","items_sold_count","jobs_posted_count","sports_played_count","created_at","updated_at"] },
+  { name: "email_otp",                     columns: ["id","email","code_hash","expires_at","attempts","consumed","verified","verified_at","created_at"] },
+  { name: "community_module",              columns: ["id","community_id","module_key","enabled","created_at","updated_at"] },
+  { name: "sports_meta",                   columns: ["id","name","icon","icon_url","format","active","community_id","created_at","updated_at"] },
+  { name: "player_category",              columns: ["id","name","category_type","description","gender","type","min_age","max_age","community_id"] },
+  { name: "venue",                         columns: ["id","name","address","area","city","pin_code","map_link","capacity","venue_type","venue_category","opening_time","closing_time","contact_name","contact_number","contact_email","community_id"] },
+  { name: "court",                         columns: ["id","venue_id","name","color","opening_time","closing_time"] },
+  { name: "sports_event",                  columns: ["id","uuid","name","sport_id","community_id","venue_id","tournament_id","created_by","event_date_start","event_date_end","registration_date_start","registration_date_end","format","tournament_type","gender","min_age","max_age","max_participants","status","active","created_at","updated_at"] },
+  { name: "event_category",               columns: ["event_id","category_id"] },
+  { name: "sports_event_registration",     columns: ["id","event_id","user_id","partner_user_id","category_id","player_name","email","flat_number","match_type","role","age","status","captain_nomination","captain_confirmation","registered_at","updated_at"] },
+  { name: "sports_event_sponsor",          columns: ["id","event_id","tournament_id","category","name","url","created_at"] },
+  { name: "sports_event_dispute_committee", columns: ["sports_event_id","user_id"] },
+  { name: "sports_notification_scheduler", columns: ["id","event_id","tournament_id","trigger_key","label","offset_minutes","enabled","title","body","recipients","channels","priority","is_custom","sent","notify_at","created_at","updated_at"] },
+  { name: "tournament_config",             columns: ["id","tournament_name","tournament_type","status","community_id","event_id","sport_id","venue_id","created_by","total_teams","number_of_groups","teams_per_group","teams_advancing_per_group","swiss_rounds","match_duration_minutes","break_between_matches_minutes","points_for_win","points_for_draw","points_for_loss","start_date","end_date","created_at","updated_at"] },
+  { name: "tournament_group",              columns: ["id","config_id","group_name","group_order"] },
+  { name: "tournament_match",              columns: ["id","config_id","group_id","round","round_number","swiss_round_number","match_number","bracket_slot","team_a_id","team_b_id","winner_team_id","score_teama","score_teamb","status","venue_id","court_id","scheduled_at","started_at","completed_at","reminder_sent","created_at"] },
+  { name: "group_team_standing",           columns: ["id","group_id","team_id","seed_rank","played","won","drawn","lost","points","runs_for","runs_against","net_run_rate","qualified","eliminated"] },
+  { name: "schedule_generation_log",       columns: ["id","config_id","event_id","community_id","generated_by","action","status","tournament_type","total_teams","total_matches","duration_ms","created_at"] },
+  { name: "auction_config",               columns: ["id","season_name","auction_format","status","unsold_rule","sport_id","event_id","created_by","total_teams","total_players","budget_per_team","base_price","bid_increment_default","bid_increment_threshold","bid_increment_above","bid_timer_seconds","rtm_enabled","created_at","updated_at"] },
+  { name: "auction_config_category",       columns: ["id","config_id","category_name"] },
+  { name: "auction_dispute_committee",     columns: ["id","config_id","user_id","member_name","role","added_at"] },
+  { name: "auction_player",               columns: ["id","config_id","user_id","assigned_team_id","player_name","player_role","category","age","base_price","sold_price","queue_order","rtm_used","status","stats_json","sold_at"] },
+  { name: "auction_team",                 columns: ["id","event_id","config_id","owner_user_id","captain_user_id","team_name","owner_name","color_hex","total_budget","remaining_budget","spent","captain_nomination","captain_confirmation","created_at"] },
+  { name: "auction_bid",                  columns: ["id","config_id","player_id","team_id","bid_by_user_id","bid_amount","increment_used","is_rtm","bid_at"] },
+  { name: "auction_session_log",           columns: ["id","config_id","player_id","team_id","performed_by_user_id","action","amount","notes","logged_at"] },
+  { name: "post",                          columns: ["id","user_id","community_id","content","image_url","is_official","likes_count","comments_count","created_at","updated_at"] },
+  { name: "post_comment",                 columns: ["id","post_id","user_id","content","created_at","updated_at"] },
+  { name: "post_like",                    columns: ["id","post_id","user_id","created_at"] },
+  { name: "notification",                 columns: ["id","user_id","community_id","type","category","title","body","icon","action_url","reference_type","reference_id","priority","channels","is_read","is_dismissed","read_at","expires_at","created_at"] },
+  { name: "chat_conversation",            columns: ["id","type","title","community_id","last_message","last_message_at","created_at","updated_at"] },
+  { name: "chat_participant",             columns: ["id","conversation_id","user_id","last_read_at","created_at"] },
+  { name: "chat_message",                columns: ["id","conversation_id","sender_id","type","content","created_at"] },
+  { name: "audit_log",                    columns: ["id","user_id","action","module","resource_type","resource_id","old_value","new_value","ip_address","correlation_id","created_at"] },
+  { name: "user_sessions",               columns: ["id","user_id","device","browser","ip_address","login_time","logout_time","status"] },
 ];
-
-const DDL = `-- =====================================================
--- Mana Community PostgreSQL DDL
--- =====================================================
-
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Users
-CREATE TABLE users (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name          VARCHAR(120)  NOT NULL,
-  email         VARCHAR(255)  UNIQUE NOT NULL,
-  mobile        VARCHAR(15)   UNIQUE,
-  password_hash TEXT          NOT NULL,
-  community_id  UUID          REFERENCES communities(id),
-  flat_number   VARCHAR(20),
-  tower         VARCHAR(20),
-  profession    VARCHAR(120),
-  bio           TEXT,
-  profile_photo TEXT,
-  status        VARCHAR(20)   DEFAULT 'active' CHECK (status IN ('active','inactive','suspended')),
-  verified_at   TIMESTAMPTZ,
-  created_at    TIMESTAMPTZ   DEFAULT NOW()
-);
-CREATE INDEX idx_users_community ON users(community_id);
-CREATE INDEX idx_users_email ON users(email);
-
--- Roles & Permissions
-CREATE TABLE roles (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name        VARCHAR(50) UNIQUE NOT NULL,
-  description TEXT,
-  created_at  TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE permissions (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name        VARCHAR(80) UNIQUE NOT NULL,
-  module      VARCHAR(40) NOT NULL,
-  action      VARCHAR(40) NOT NULL,
-  description TEXT
-);
-
-CREATE TABLE user_roles (
-  user_id     UUID REFERENCES users(id) ON DELETE CASCADE,
-  role_id     UUID REFERENCES roles(id) ON DELETE CASCADE,
-  assigned_by UUID REFERENCES users(id),
-  assigned_at TIMESTAMPTZ DEFAULT NOW(),
-  PRIMARY KEY (user_id, role_id)
-);
-
-CREATE TABLE role_permissions (
-  role_id       UUID REFERENCES roles(id) ON DELETE CASCADE,
-  permission_id UUID REFERENCES permissions(id) ON DELETE CASCADE,
-  PRIMARY KEY (role_id, permission_id)
-);
-
--- Communities
-CREATE TABLE communities (
-  id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name         VARCHAR(120) NOT NULL,
-  type         VARCHAR(30)  CHECK (type IN ('apartment','villa','school','college','sports','professional')),
-  address      TEXT,
-  city         VARCHAR(80),
-  state        VARCHAR(80),
-  admin_id     UUID         REFERENCES users(id),
-  invite_code  VARCHAR(20)  UNIQUE NOT NULL DEFAULT substring(md5(random()::text), 1, 8),
-  member_count INT          DEFAULT 0,
-  created_at   TIMESTAMPTZ  DEFAULT NOW()
-);
-
--- Posts & Feed
-CREATE TABLE posts (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  author_id     UUID        REFERENCES users(id) ON DELETE CASCADE,
-  community_id  UUID        REFERENCES communities(id),
-  content       TEXT        NOT NULL,
-  type          VARCHAR(20) DEFAULT 'post' CHECK (type IN ('post','announcement','poll','event','job','marketplace')),
-  media_urls    TEXT[],
-  like_count    INT         DEFAULT 0,
-  comment_count INT         DEFAULT 0,
-  created_at    TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX idx_posts_community ON posts(community_id, created_at DESC);
-CREATE INDEX idx_posts_author ON posts(author_id);
-
--- Matches
-CREATE TABLE matches (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  tournament_id UUID        REFERENCES tournaments(id),
-  round         INT         NOT NULL,
-  player1_id    UUID        REFERENCES users(id),
-  player2_id    UUID        REFERENCES users(id),
-  court_id      UUID        REFERENCES courts(id),
-  scheduled_at  TIMESTAMPTZ,
-  score_p1      INT,
-  score_p2      INT,
-  winner_id     UUID        REFERENCES users(id),
-  status        VARCHAR(20) DEFAULT 'scheduled' CHECK (status IN ('scheduled','live','completed','cancelled')),
-  is_bye        BOOLEAN     DEFAULT FALSE,
-  created_at    TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX idx_matches_tournament ON matches(tournament_id, round);
-CREATE INDEX idx_matches_scheduled ON matches(scheduled_at);
-
--- Chat
-CREATE TABLE chat_messages (
-  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  conversation_id  UUID        REFERENCES chat_conversations(id),
-  sender_id        UUID        REFERENCES users(id),
-  content          TEXT        NOT NULL,
-  type             VARCHAR(20) DEFAULT 'text' CHECK (type IN ('text','image','file','system')),
-  metadata         JSONB,
-  delivered_at     TIMESTAMPTZ,
-  read_at          TIMESTAMPTZ,
-  created_at       TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX idx_messages_conversation ON chat_messages(conversation_id, created_at DESC);
-
--- Audit Logs
-CREATE TABLE audit_logs (
-  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id       UUID        REFERENCES users(id),
-  action        VARCHAR(50) NOT NULL,
-  module        VARCHAR(40) NOT NULL,
-  resource_type VARCHAR(40),
-  resource_id   UUID,
-  old_value     JSONB,
-  new_value     JSONB,
-  ip_address    INET,
-  user_agent    TEXT,
-  created_at    TIMESTAMPTZ DEFAULT NOW()
-);
-CREATE INDEX idx_audit_user ON audit_logs(user_id, created_at DESC);
-CREATE INDEX idx_audit_module ON audit_logs(module, created_at DESC);`;
-
-const APIS = [
-  { tag: "Auth",         endpoints: [["POST","/api/auth/register","Register new user"],["POST","/api/auth/login","Login & get JWT"],["POST","/api/auth/refresh","Refresh access token"],["POST","/api/auth/logout","Invalidate token"],["POST","/api/auth/verify-email","Email verification"],["POST","/api/auth/forgot-password","Send reset link"]] },
-  { tag: "Users",        endpoints: [["GET","/api/users","List users (paginated)"],["GET","/api/users/{id}","Get user profile"],["PUT","/api/users/{id}","Update user profile"],["DELETE","/api/users/{id}","Delete user"],["POST","/api/users/bulk-import","CSV/XLS bulk import"],["GET","/api/users/template","Download import template"],["POST","/api/users/{id}/verify","Admin verify user"]] },
-  { tag: "Communities",  endpoints: [["GET","/api/communities","List communities"],["POST","/api/communities","Create community"],["GET","/api/communities/{id}/members","List members"],["POST","/api/communities/join","Join via invite code"],["GET","/api/communities/{id}/stats","Community statistics"]] },
-  { tag: "Feed & Posts", endpoints: [["GET","/api/posts","Community feed (paginated)"],["POST","/api/posts","Create post/poll/announcement"],["PUT","/api/posts/{id}","Update post"],["DELETE","/api/posts/{id}","Delete post"],["POST","/api/posts/{id}/like","Toggle like"],["POST","/api/posts/{id}/comments","Add comment"],["POST","/api/posts/{id}/vote","Vote on poll"]] },
-  { tag: "Events",       endpoints: [["GET","/api/events","List events"],["POST","/api/events","Create event"],["POST","/api/events/{id}/rsvp","RSVP to event"],["GET","/api/events/{id}/attendees","List attendees"],["PUT","/api/events/{id}","Update event"]] },
-  { tag: "Sports",       endpoints: [["GET","/api/sports/events","List sports events"],["POST","/api/sports/events","Create sports event"],["POST","/api/sports/events/{id}/schedule","Generate schedule"],["GET","/api/sports/matches","List matches"],["PUT","/api/sports/matches/{id}/score","Update match score"],["GET","/api/sports/rankings","Player rankings"],["GET","/api/sports/standings","Team standings"]] },
-  { tag: "Auction",      endpoints: [["GET","/api/auctions","List auctions"],["POST","/api/auctions","Create auction"],["GET","/api/auctions/{id}/players","Player pool"],["POST","/api/auctions/{id}/bid","Place bid"],["POST","/api/auctions/{id}/sell","Mark player sold"],["GET","/api/auctions/{id}/results","Auction results"],["GET","/api/auctions/{id}/live","Live auction state (SSE)"]] },
-  { tag: "Chat",         endpoints: [["GET","/api/conversations","List conversations"],["POST","/api/conversations","Create conversation"],["GET","/api/conversations/{id}/messages","Get messages"],["POST","/api/conversations/{id}/messages","Send message"],["PUT","/api/conversations/{id}/read","Mark as read"]] },
-  { tag: "Admin",        endpoints: [["GET","/api/admin/users","All users with filters"],["POST","/api/admin/users","Create user (admin)"],["PUT","/api/admin/users/{id}/role","Assign role"],["GET","/api/admin/audit-logs","Audit logs"],["GET","/api/admin/approvals","Pending approvals"],["PUT","/api/admin/approvals/{id}","Approve/decline"],["GET","/api/admin/analytics","Dashboard analytics"]] },
-];
-
-const FOLDERS = {
-  react: `src/
-├── app/
-│   ├── App.tsx
-│   ├── routes.tsx
-│   ├── store/
-│   │   ├── index.ts            (Redux store)
-│   │   ├── authSlice.ts
-│   │   ├── communitySlice.ts
-│   │   ├── notifSlice.ts
-│   │   └── chatSlice.ts
-│   ├── hooks/
-│   │   ├── useAuth.ts
-│   │   ├── useWebSocket.ts     (STOMP/WebSocket)
-│   │   ├── usePermissions.ts
-│   │   └── useAuction.ts
-│   ├── api/
-│   │   ├── client.ts           (Axios instance + JWT interceptor)
-│   │   ├── auth.api.ts
-│   │   ├── users.api.ts
-│   │   ├── posts.api.ts
-│   │   ├── sports.api.ts
-│   │   ├── auction.api.ts
-│   │   └── chat.api.ts
-│   ├── components/
-│   │   ├── layout/
-│   │   │   ├── Sidebar.tsx
-│   │   │   ├── Header.tsx
-│   │   │   └── PageWrapper.tsx
-│   │   ├── common/
-│   │   │   ├── Badge.tsx
-│   │   │   ├── Avatar.tsx
-│   │   │   ├── DataTable.tsx
-│   │   │   ├── Modal.tsx
-│   │   │   └── Charts.tsx
-│   │   ├── IPLAuction.tsx
-│   │   ├── ChatModule.tsx
-│   │   ├── AdminPanel.tsx
-│   │   ├── ProfilePage.tsx
-│   │   └── ArchitectureDocs.tsx
-│   ├── pages/
-│   │   ├── Overview.tsx
-│   │   ├── Feed.tsx
-│   │   ├── Events.tsx
-│   │   ├── Jobs.tsx
-│   │   ├── Marketplace.tsx
-│   │   ├── Services.tsx
-│   │   ├── Sports.tsx
-│   │   └── Auth/
-│   │       ├── Login.tsx
-│   │       └── Register.tsx
-│   └── types/
-│       ├── auth.types.ts
-│       ├── sports.types.ts
-│       └── auction.types.ts
-├── styles/
-│   ├── theme.css
-│   └── fonts.css
-└── main.tsx`,
-
-  springboot: `commune-api/
-├── src/main/java/com/commune/api/
-│   ├── CommuneApiApplication.java
-│   ├── config/
-│   │   ├── SecurityConfig.java      (JWT + RBAC)
-│   │   ├── WebSocketConfig.java     (STOMP endpoints)
-│   │   ├── CorsConfig.java
-│   │   ├── RedisConfig.java
-│   │   └── SwaggerConfig.java
-│   ├── security/
-│   │   ├── JwtTokenProvider.java
-│   │   ├── JwtAuthenticationFilter.java
-│   │   ├── PermissionEvaluator.java
-│   │   └── UserDetailsServiceImpl.java
-│   ├── websocket/
-│   │   ├── ChatWebSocketController.java
-│   │   ├── AuctionWebSocketController.java
-│   │   └── NotificationWebSocketService.java
-│   ├── domain/
-│   │   ├── user/
-│   │   │   ├── User.java (Entity)
-│   │   │   ├── UserRepository.java
-│   │   │   ├── UserService.java
-│   │   │   └── UserController.java
-│   │   ├── auction/
-│   │   │   ├── Auction.java
-│   │   │   ├── AuctionEngine.java   (Core bidding logic)
-│   │   │   ├── AuctionService.java
-│   │   │   └── AuctionController.java
-│   │   ├── sports/
-│   │   │   ├── SchedulerEngine.java (7 scheduling rules)
-│   │   │   ├── TournamentService.java
-│   │   │   └── MatchController.java
-│   │   ├── chat/
-│   │   │   ├── ChatMessage.java
-│   │   │   ├── ChatService.java
-│   │   │   └── ChatController.java
-│   │   └── notification/
-│   │       ├── NotificationScheduler.java
-│   │       └── NotificationService.java
-│   └── common/
-│       ├── audit/AuditLogger.java
-│       ├── exception/GlobalExceptionHandler.java
-│       └── dto/ApiResponse.java
-└── src/main/resources/
-    ├── application.yml
-    ├── application-dev.yml
-    └── application-prod.yml`,
-};
 
 const WS_DESIGN = `/* ── WebSocket Architecture ────────────────────────────
-   Spring Boot + STOMP + SockJS + JWT
+   Spring Boot 3.x + STOMP + native WebSocket + JWT
 ─────────────────────────────────────────────────────── */
 
 // 1. Connection endpoint
-ws://api.commune.app/ws
-  → SockJS fallback for HTTP polling
+ws://<host>/ws
+  → Native WebSocket (no SockJS)
+  → CORS: allowed-origins from application.yaml
 
-// 2. STOMP broker destinations
-/topic/community/{id}/feed      → Community feed updates
-/topic/community/{id}/chat/{cid}→ Group/Team chat messages
-/topic/auction/{id}/bids        → Live bid updates
-/topic/auction/{id}/state       → Auction state machine
-/user/{userId}/notifications    → Personal notifications
-/user/{userId}/direct           → Direct messages
+// 2. STOMP broker destinations (server → client)
+/topic/conversation/{conversationId}  → Group/direct chat messages
+/topic/chat-user/{userId}             → Chat presence & delivery events
+/topic/notifications/{userId}         → Personal push notifications
+/topic/auction/{configId}             → Live auction events (bids, sold, passed, status)
 
 // 3. Application destinations (client → server)
-/app/chat.send                  → Send message
-/app/auction.bid                → Place bid
-/app/auction.control            → Start/pause/sell/skip
+/app/chat.send                        → Send chat message
 
-// 4. JWT Authentication
-Connection handshake:
-  StompHeaderAccessor.getFirstNativeHeader("Authorization")
-  → "Bearer <JWT>" verified before subscription
+// 4. JWT Authentication on CONNECT
+StompHeaderAccessor.getFirstNativeHeader("Authorization")
+  → "Bearer <JWT>" validated via JwtTokenProvider
+  → Dev shortcut: "Bearer mock-token-{userId}" (local profile only)
+  → User principal set as authenticated STOMP session
 
-// 5. Auction state machine
-WAITING → LIVE → (SOLD | UNSOLD) → NEXT_PLAYER
-         ↑ 30-second countdown timer
-         ↑ Auto-extends 15s on new bid
-         ↑ Publishes state to /topic/auction/{id}/state
+// 5. In-memory simple broker
+Prefixes: /topic, /queue, /user
+  → No external broker (RabbitMQ/ActiveMQ) — simple broker only
+  → Sufficient for single-instance deployment
 
-// 6. Chat delivery
-Message → ChatService → saved to DB
-        → Broadcast to /topic/community/{id}/chat/{cid}
-        → WebSocket push to participants
-        → Offline users: FCM/APNs via NotificationScheduler`;
+// 6. Auction STOMP event types (sent to /topic/auction/{configId})
+{
+  type: "BID_PLACED",     payload: AuctionBidResponse
+  type: "PLAYER_PICKED",  payload: PlayerWithBidResponse
+  type: "PLAYER_SOLD",    payload: { playerId, playerName, teamId, teamName, soldPrice }
+  type: "PLAYER_PASSED",  payload: { playerId, playerName, newStatus, queueOrder }
+  type: "STATUS_CHANGED", payload: { configId, oldStatus, newStatus }
+}
+
+// 7. Chat message flow
+Client /app/chat.send → ChatService.sendMessage()
+  → Persisted to chat_message table
+  → Broadcast to /topic/conversation/{conversationId}
+  → Presence event to /topic/chat-user/{userId} per participant
+
+// 8. Push notifications (AiWebSocketPushService)
+Server-side event → pushToUser(userId, PushEvent)
+  → Sent to /topic/notifications/{userId}
+  → Types: MATCH_REMINDER, SCHEDULE_UPDATE, AI_ALERT
+  → Ephemeral (not persisted — offline users see in-app notifications)`;
+
+const FOLDERS = {
+  react: `mana-community-app/src/
+├── app/
+│   ├── App.tsx
+│   ├── routes.tsx
+│   └── components/
+│       ├── admin/           (AdminPanel, LogsDashboard, AuditTrail)
+│       ├── architecture/    (ArchitectureDocs)
+│       ├── assets/          (Asset management)
+│       ├── bookings/        (Facility bookings)
+│       ├── chat/            (ChatModule, conversations)
+│       ├── commons/
+│       │   ├── error/       (ErrorBoundary, RootErrorElement)
+│       │   ├── guards/      (PermissionGuard, AuthGuard)
+│       │   ├── layout/      (Layout, Sidebar, Header)
+│       │   ├── login/       (Login page)
+│       │   ├── register/    (Registration flow)
+│       │   └── verification/ (Email/OTP verification)
+│       ├── community/       (Community management)
+│       ├── events/          (Event listings)
+│       ├── finance/
+│       │   ├── expense/     (Expense tracker)
+│       │   └── invoice/     (Invoice management)
+│       ├── helpdesk/        (Support tickets)
+│       ├── inventory/       (Stock management)
+│       ├── jobs/            (Job board)
+│       ├── marketplace/     (Buy/sell listings)
+│       ├── medical/         (Health records)
+│       ├── notices/         (Notice board)
+│       ├── polling/         (Polls & surveys)
+│       ├── profile/         (ProfileDashboard)
+│       ├── scheduler/       (Tournament scheduler)
+│       ├── sports/
+│       │   ├── admin/       (SportsAdmin, useSportsAdminState hook)
+│       │   └── hooks/       (Sports-specific hooks)
+│       ├── ui/              (Shared UI primitives)
+│       └── visitors/        (Visitor management)
+├── config/                  (App configuration)
+├── constants/               (Shared constants)
+├── contexts/                (React contexts)
+├── hooks/                   (Global custom hooks)
+├── services/                (API service layer — apiClient, schemaService, etc.)
+├── styles/                  (Global CSS, theme)
+├── types/                   (TypeScript type definitions)
+└── utils/                   (Utility functions — buildInfo, etc.)`,
+
+  springboot: `mana-community-service/src/main/java/com/manacommunity/api/
+├── ManaCommunityApplication.java
+├── ai/
+│   ├── config/          (ChatAgentConfig — Ollama/Spring AI)
+│   ├── controller/      (AI chat endpoints)
+│   ├── dto/             (AI request/response DTOs)
+│   ├── service/         (AiWebSocketPushService, chat agent)
+│   └── tool/            (AI function-calling tools)
+├── booking/             (controller, dto, entity, repository, service)
+├── config/
+│   ├── SecurityConfig.java        (JWT + RBAC filter chains)
+│   ├── WebSocketConfig.java       (STOMP /ws endpoint + JWT auth)
+│   ├── WebConfig.java             (CORS)
+│   ├── SchemaConstraintPatcher.java (startup schema fixes)
+│   └── TableDropperConfig.java
+├── constants/           (PermissionConstants)
+├── controller/          (35 REST controllers — sports, auction, admin, etc.)
+├── dto/                 (Request/response DTOs, chat/, dashboard/, scheduler/)
+├── email/               (EmailService, templates)
+├── events/              (controller, dto, entity, repository, service)
+├── exception/           (GlobalExceptionHandler, custom exceptions)
+├── finance/             (Billing, Budget, Expense — controller/dto/entity/repo/service)
+├── helpdesk/            (controller, dto, entity, repository, service)
+├── inventory/           (config, controller, dto, entity, mapper, repository, service)
+├── jobs/                (controller, dto, entity, repository, service)
+├── marketplace/         (controller, dto, entity, repository, service)
+├── model/               (JPA entities — AppUser, SportsEvent, AuctionConfig, etc.)
+├── noticeboard/         (controller, dto, entity, repository, service)
+├── polling/             (controller, dto, entity, repository, service)
+├── repository/          (JPA repositories + scheduler/)
+├── retail/              (controller, dto, entity, repository, service)
+├── scheduler/           (NotificationScheduler, MatchReminderScheduler)
+├── security/            (JwtTokenProvider, JwtAuthFilter, AuditService, MaskingUtil)
+├── service/
+│   ├── impl/            (Service implementations)
+│   ├── sample/data/     (Seeders — UserSeeder, SportsEventSeeder, etc.)
+│   └── scheduler/       (Scheduled tasks, seeding/)
+├── sms/                 (Twilio SMS/WhatsApp integration)
+├── user/
+│   ├── controller/      (AuthController, UserController)
+│   ├── dto/             (Auth DTOs)
+│   ├── model/           (AppUser entity)
+│   ├── repository/      (AppUserRepository)
+│   ├── security/        (UserPrincipal, UserDetailsService)
+│   └── service/         (LoggedInUserService, ResolvedUser)
+└── visitor/             (controller, dto, entity, repository, service)
+
+src/main/resources/
+├── application.yaml          (shared config)
+├── application-local.yaml    (ddl-auto: create, mock-auth)
+├── application-dev.yaml
+├── application-prod.yaml     (ddl-auto: validate, PostgreSQL)
+├── application-test.yaml     (H2 in-memory)
+├── logback-spring.xml        (multi-file rolling log strategy)
+└── db/sql/v1.0.0/            (migration scripts for prod)`,
+};
 
 function CodeBlock({ code, lang = "sql" }: { code: string; lang?: string }) {
   const [copied, setCopied] = useState(false);
@@ -349,12 +217,53 @@ function CodeBlock({ code, lang = "sql" }: { code: string; lang?: string }) {
   );
 }
 
-function ApiAccordion() {
-  const [open, setOpen] = useState<string | null>("Auth");
-  const methodColor: Record<string, string> = { GET: "bg-blue-100 text-blue-700", POST: "bg-emerald-100 text-emerald-700", PUT: "bg-amber-100 text-amber-700", DELETE: "bg-red-100 text-red-700", PATCH: "bg-purple-100 text-purple-700" };
+function LiveApiAccordion() {
+  const [open, setOpen] = useState<string | null>(null);
+  const [groups, setGroups] = useState<ApiGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const methodColor: Record<string, string> = {
+    GET: "bg-blue-100 text-blue-700",
+    POST: "bg-emerald-100 text-emerald-700",
+    PUT: "bg-amber-100 text-amber-700",
+    DELETE: "bg-red-100 text-red-700",
+    PATCH: "bg-purple-100 text-purple-700",
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    apiCatalogService.getApiCatalog()
+      .then(data => { if (!cancelled) setGroups(data); })
+      .catch(() => { if (!cancelled) setError("Could not load the live API catalog — the backend may be unreachable."); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-500">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        Loading API catalog from backend…
+      </div>
+    );
+  }
+
+  if (error || groups.length === 0) {
+    return (
+      <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+        <span>{error ?? "No API endpoints found."}</span>
+      </div>
+    );
+  }
+
+  const totalEndpoints = groups.reduce((sum, g) => sum + g.endpoints.length, 0);
+
   return (
     <div className="space-y-2">
-      {APIS.map(g => (
+      <p className="text-sm text-gray-500 mb-3">{groups.length} controllers · {totalEndpoints} endpoints — live from backend introspection</p>
+      {groups.map(g => (
         <div key={g.tag} className="bg-white rounded-xl border overflow-hidden" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
           <button onClick={() => setOpen(open === g.tag ? null : g.tag)} className="w-full flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition-colors">
             <div className="flex items-center gap-3">
@@ -365,11 +274,11 @@ function ApiAccordion() {
           </button>
           {open === g.tag && (
             <div className="border-t border-gray-100">
-              {g.endpoints.map(([method, path, desc], i) => (
+              {g.endpoints.map((ep, i) => (
                 <div key={i} className="flex items-center gap-3 px-5 py-3 border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded w-14 text-center shrink-0 ${methodColor[method] ?? "bg-gray-100 text-gray-600"}`}>{method}</span>
-                  <code className="text-xs font-mono text-gray-700 flex-1">{path}</code>
-                  <span className="text-xs text-gray-400">{desc}</span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded w-16 text-center shrink-0 ${methodColor[ep.method] ?? "bg-gray-100 text-gray-600"}`}>{ep.method}</span>
+                  <code className="text-xs font-mono text-gray-700 flex-1">{ep.path}</code>
+                  <span className="text-xs text-gray-400 font-mono">{ep.handler}()</span>
                 </div>
               ))}
             </div>
@@ -397,7 +306,6 @@ function ERDiagram() {
       })
       .catch(() => {
         if (cancelled) return;
-        // Endpoint unavailable — fall back to the static schema so the view still renders.
         setTables(FALLBACK_TABLES);
         setError("Could not load the live database schema — showing the reference schema instead.");
       })
@@ -453,11 +361,11 @@ function ERDiagram() {
 
 function HLArchitecture() {
   const layers = [
-    { label: "Client Layer", items: ["React 19 + Redux Toolkit","Axios + React Query","WebSocket (STOMP/SockJS)","JWT token management"], color: "#EFF6FF", border: "#BFDBFE", text: "#1E40AF" },
-    { label: "API Gateway", items: ["AWS ALB","Rate limiting","SSL termination","JWT verification"], color: "#F0FDF4", border: "#BBF7D0", text: "#166534" },
-    { label: "Application Layer", items: ["Spring Boot 3.x","Spring Security","WebSocket/STOMP","Scheduled Jobs"], color: "#FFF7ED", border: "#FED7AA", text: "#9A3412" },
-    { label: "Data Layer", items: ["PostgreSQL 15","Redis (cache/sessions)","S3 (media storage)","Elasticsearch (search)"], color: "#FDF4FF", border: "#E9D5FF", text: "#6B21A8" },
-    { label: "Infrastructure", items: ["AWS ECS (Fargate)","RDS Multi-AZ","ElastiCache","CloudFront CDN"], color: "#F8FAFC", border: "#E2E8F0", text: "#475569" },
+    { label: "Client Layer", items: ["React 19 + Vite","Axios + custom hooks","STOMP WebSocket (native)","JWT token management"], color: "#EFF6FF", border: "#BFDBFE", text: "#1E40AF" },
+    { label: "Application Layer", items: ["Spring Boot 3.x","Spring Security (JWT + RBAC)","STOMP/WebSocket broker","Scheduled jobs (cron)"], color: "#FFF7ED", border: "#FED7AA", text: "#9A3412" },
+    { label: "Data Layer", items: ["PostgreSQL 15","JPA / Hibernate","Local filesystem (logs, uploads)","In-memory STOMP broker"], color: "#FDF4FF", border: "#E9D5FF", text: "#6B21A8" },
+    { label: "Observability", items: ["Logback (multi-file rolling)","Micrometer + Prometheus","Grafana dashboards","Correlation ID tracing"], color: "#F0FDF4", border: "#BBF7D0", text: "#166534" },
+    { label: "Infrastructure", items: ["AWS EC2 (single instance)","PostgreSQL (same host)","Nginx reverse proxy","HTTPS / Let's Encrypt"], color: "#F8FAFC", border: "#E2E8F0", text: "#475569" },
   ];
   return (
     <div className="space-y-3">
@@ -483,7 +391,6 @@ function HLArchitecture() {
 const tabDefs: { id: ArchTab; label: string; icon: React.ElementType }[] = [
   { id: "overview",   label: "Architecture",  icon: Layers },
   { id: "database",   label: "ER Diagram",    icon: Database },
-  { id: "ddl",        label: "PostgreSQL DDL",icon: Code },
   { id: "apis",       label: "REST APIs",     icon: Globe },
   { id: "websocket",  label: "WebSocket",     icon: Activity },
   { id: "folders",    label: "Folder Structure", icon: GitBranch },
@@ -492,12 +399,12 @@ const tabDefs: { id: ArchTab; label: string; icon: React.ElementType }[] = [
 ];
 
 function ArchitectureContent({ tab }: { tab: ArchTab }) {
+  const navigate = useNavigate();
   return (
     <div>
       {tab === "overview"   && <HLArchitecture />}
       {tab === "database"   && <ERDiagram />}
-      {tab === "ddl"        && <CodeBlock code={DDL} lang="postgresql" />}
-      {tab === "apis"       && <ApiAccordion />}
+      {tab === "apis"       && <LiveApiAccordion />}
       {tab === "websocket"  && <CodeBlock code={WS_DESIGN} lang="websocket-design" />}
       {tab === "folders"    && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -508,11 +415,40 @@ function ArchitectureContent({ tab }: { tab: ArchTab }) {
       {tab === "security" && (
         <div className="space-y-4">
           {[
-            { title: "Authentication — JWT", items: ["RS256-signed access token (15 min TTL)","Refresh token (7 days, HttpOnly cookie)","Token rotation on every refresh","Blacklist via Redis on logout"] },
-            { title: "Authorization — RBAC", items: ["6 roles: SUPER_ADMIN, COMMUNITY_ADMIN, SPORTS_ADMIN, AUCTION_ADMIN, VENDOR, MEMBER","Per-endpoint @PreAuthorize with custom PermissionEvaluator","Menu and API access dynamically computed from role_permissions","Community-scoped data isolation via row-level checks"] },
-            { title: "WebSocket Security", items: ["JWT extracted from STOMP CONNECT header","Per-subscription topic authorization","Auto-disconnect on token expiry","CSRF protection via SockJS token"] },
-            { title: "Data Security", items: ["Passwords hashed with BCrypt (12 rounds)","PII encrypted at rest (AES-256)","All SQL via JPA / parameterized queries (no raw SQL)","Audit log every mutation with old/new values + IP"] },
-            { title: "Infrastructure Security", items: ["VPC with private subnets for DB and cache","ALB WAF rules (OWASP Top 10)","Secrets in AWS Secrets Manager","TLS 1.3 enforced, HSTS, no mixed content"] },
+            { title: "Authentication — JWT (HMAC-SHA)", items: [
+              "HMAC-SHA256 signed access token (15 min TTL, configurable via JWT_EXPIRATION_MS)",
+              "Refresh token (7 days TTL) — returned in JSON response body",
+              "Token rotation on every refresh call (/api/auth/refresh)",
+              "Session tracking via user_sessions DB table (device, browser, IP, login/logout time)",
+              "Mock-token shortcut for local dev (mock-token-{userId}, local profile only)",
+            ]},
+            { title: "Authorization — Permission-key RBAC", items: [
+              "Roles: SUPER_ADMIN, COMMUNITY_ADMIN, SPORTS_ADMIN, plus per-user permission keys",
+              "Per-endpoint checks via PermissionCheckService.requireAnyPermission()",
+              "Granular permission_key system (role_permissions table: role + user-level overrides)",
+              "Community-scoped data isolation via ResolvedUser.scopeCommunityId()",
+              "Community-level module gating (community_module table — enable/disable features per community)",
+            ]},
+            { title: "WebSocket Security", items: [
+              "JWT extracted from STOMP CONNECT frame Authorization header",
+              "Validated via JwtTokenProvider before session establishment",
+              "UsernamePasswordAuthenticationToken set as STOMP session principal",
+              "Mock-auth restricted to local profile via @PostConstruct validation",
+            ]},
+            { title: "Data Security", items: [
+              "Passwords hashed with BCrypt (Spring Security default rounds)",
+              "PII field encryption via FieldEncryptionService (AES)",
+              "All SQL via JPA parameterized queries — no raw string concatenation",
+              "Sensitive data masking in logs via MaskingUtil (email, mobile, Aadhaar, tokens)",
+              "Audit trail for every sensitive mutation (audit_log table + AUDIT logger)",
+            ]},
+            { title: "API Hardening", items: [
+              "Per-IP rate limiting (configurable requests-per-minute, fixed window)",
+              "File upload size limits (max-file-size: 5MB, max-request-size: 6MB)",
+              "Tomcat max-http-form-post-size: 2MB (large-payload DoS mitigation)",
+              "Server header suppressed, error details never exposed to client",
+              "reCAPTCHA + OTP gates on public event registration (configurable, off by default)",
+            ]},
           ].map(s => (
             <div key={s.title} className="bg-white rounded-xl border p-5" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
               <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2"><Shield className="w-4 h-4 text-blue-500" />{s.title}</h3>
@@ -523,7 +459,6 @@ function ArchitectureContent({ tab }: { tab: ArchTab }) {
       )}
       {tab === "monitoring" && (
         <div className="space-y-6">
-          {/* Live Dashboard Quick Access Card */}
           <div className="bg-gradient-to-r from-indigo-950 to-indigo-900 rounded-2xl border border-indigo-500/35 p-6 shadow-xl relative overflow-hidden text-left">
             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
@@ -540,16 +475,14 @@ function ArchitectureContent({ tab }: { tab: ArchTab }) {
                   Real-time operational dashboard featuring circular gauges for system resource usage (CPU, RAM, Disk, JVM), runtime stats (Uptime, Active Threads, Log File Size), and a high-performance terminal logs streaming console with on-the-fly filtering.
                 </p>
               </div>
-              <button 
-                onClick={() => window.location.href = "/admin/logs"}
+              <button
+                onClick={() => navigate("/architecture/logs")}
                 className="px-5 py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-semibold text-center transition-all shadow-lg hover:shadow-indigo-500/30 flex items-center gap-2 whitespace-nowrap self-start md:self-center"
               >
                 <Server className="w-4 h-4" />
                 Launch Live Dashboard
               </button>
             </div>
-
-            {/* Sub-grid of Features */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-6 pt-5 border-t border-indigo-500/20">
               {[
                 { label: "Gauges", desc: "CPU, RAM, Disk, JVM usage" },
@@ -565,7 +498,6 @@ function ArchitectureContent({ tab }: { tab: ArchTab }) {
             </div>
           </div>
 
-          {/* Architecture Details Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
             <div className="bg-white rounded-xl border p-5 shadow-sm space-y-4">
               <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
@@ -597,32 +529,33 @@ function ArchitectureContent({ tab }: { tab: ArchTab }) {
             <div className="bg-white rounded-xl border p-5 shadow-sm space-y-3">
               <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                 <Code className="w-4 h-4 text-blue-500" />
-                Configuration (application.yaml)
+                Log Architecture (logback-spring.xml)
               </h3>
-              <pre className="text-[11px] font-mono bg-gray-950 text-gray-300 p-4 rounded-xl overflow-x-auto leading-relaxed" style={{ maxHeight: 180 }}>
-{`logging:
-  file:
-    name: logs/mana-service.log
-  logback:
-    rollingpolicy:
-      max-file-size: 10MB
-      total-size-cap: 100MB
-      max-history: 7`}
+              <pre className="text-[11px] font-mono bg-gray-950 text-gray-300 p-4 rounded-xl overflow-x-auto leading-relaxed" style={{ maxHeight: 200 }}>
+{`Log files (daily + 10MB rolling, 30-day retention, gzip):
+  mana-service.log   — primary app log (admin dashboard reads this)
+  error.log          — ERROR level only
+  security.log       — SECURITY_AUDIT (auth/login events)
+  audit.log          — AUDIT (business mutation mirror)
+  scheduler.log      — tournament scheduler
+  auction.log        — AUCTION module logger
+  chat.log           — CHAT module logger (metadata only, never content)
+  notification.log   — NOTIFICATION module logger
+
+Every log line: [cid=<correlationId> uid=<userId>]
+  MDC correlation id auto-set by CorrelationIdFilter
+  Echoed on response header + ErrorResponse for support`}
               </pre>
-              <p className="text-[11px] text-gray-500">
-                Logs are written directly to a rolling file in the local filesystem, keeping database load at 0% and avoiding storage bloat.
-              </p>
             </div>
           </div>
 
-          {/* Standard logs items */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-left">
             {[
-              { title: "Application Logging", items: ["Structured logging via SLF4J + Logback (JSON in prod)","Per-request correlation/trace ID in the MDC","Log levels per environment (DEBUG local, INFO/WARN prod)","GlobalExceptionHandler logs every unhandled 500 with full stack trace"] },
-              { title: "Audit Trail", items: ["AuditLogService records every sensitive mutation","Persisted to the audit_logs table (actor, action, module, old/new value, IP, user-agent)","Immutable, append-only history for compliance","Surfaced in-app under Admin → Logs"] },
-              { title: "Centralised Aggregation", items: ["App logs shipped to AWS CloudWatch Logs","Configurable retention + full-text search","Filter by level, path, correlation ID","Optional ship-out to ELK / OpenSearch"] },
-              { title: "Metrics & Health", items: ["Spring Boot Actuator: /actuator/health, /actuator/metrics","Micrometer → Prometheus registry","JVM, HTTP latency, DB connection-pool (HikariCP) & cache metrics","ALB target-group health checks on /actuator/health"] },
-              { title: "Alerting & Dashboards", items: ["CloudWatch Alarms on error rate, p95 latency, CPU/memory","Grafana / CloudWatch dashboards for live KPIs","Notifications to email / Slack on threshold breach","5xx spike & DB-saturation alerts wired to on-call"] },
+              { title: "Application Logging", items: ["Structured logging via SLF4J + Logback","Per-request correlation ID in MDC (X-Correlation-Id header)","Log levels per environment (DEBUG local, INFO/WARN prod)","Slow-API detection: WARN at 2s, ERROR at 5s (PERFORMANCE logger)","GlobalExceptionHandler logs every unhandled 500 with correlation ID"] },
+              { title: "Audit Trail", items: ["AuditService records every sensitive mutation (after success)","Persisted to audit_log table (actor, action, module, old/new value, IP, correlation ID)","Immutable, append-only — action/module stored as strings (not DB enums)","Mirrored to AUDIT logger for file-based analysis","Surfaced in-app under Admin → Audit Trail"] },
+              { title: "Metrics & Prometheus", items: ["Spring Boot Actuator: /actuator/health, /actuator/metrics, /actuator/prometheus","Micrometer → Prometheus registry (self-hosted, free)","Custom: chat_messages_sent_total, auction_bids_placed_total, admin_logs_fetch_errors_total","JVM, HTTP latency, HikariCP connection pool — auto-exported","Docker-compose stack: Prometheus + Grafana with auto-provisioned dashboards"] },
+              { title: "Alerting & Dashboards", items: ["Grafana dashboard: app up, 5xx rate, JVM heap, request rate, p95 latency, chat/auction rates","AdminLogsServerError alert: fires on any 5xx to /api/admin/logs","Alert rules in prometheus/alerts.yml (Alertmanager routing to Slack/email: ready to enable)","Health endpoint public for load-balancer probes; /actuator/prometheus SUPER_ADMIN-only"] },
+              { title: "Session & Security Audit", items: ["Auth events → SECURITY_AUDIT logger → security.log (emails masked)","Sessions tracked in user_sessions table (device, browser, IP, login/logout)","Concurrent active sessions flagged as MULTIPLE_DEVICE_LOGIN","JWT is stateless — user_sessions is an observability trail, not a session store"] },
             ].map(s => (
               <div key={s.title} className="bg-white rounded-xl border p-5 shadow-sm" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
                 <h3 className="text-sm font-semibold text-gray-950 mb-3 flex items-center gap-2"><Gauge className="w-4 h-4 text-indigo-500" />{s.title}</h3>
@@ -649,7 +582,6 @@ export function ArchitectureDocs() {
           System design reference — data model, REST APIs, real-time layer and security.
         </p>
 
-        {/* Deployment info — reflects the version/branch/time of the live build. */}
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs">
           <span className="font-semibold text-indigo-700">Deployment</span>
           <span className="text-gray-600">
