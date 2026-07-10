@@ -168,10 +168,6 @@ export const router = createBrowserRouter([
             element: <PermissionGuard permission={MANAGE_ROLES} requiredModule="ADMIN_HUB"><AdminRoleManagement /></PermissionGuard> 
           },
           {
-            path: "logs",
-            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><LogsDashboard /></PermissionGuard>
-          },
-          {
             path: "audit-logs",
             element: <PermissionGuard superAdminOnly><AuditTrail /></PermissionGuard>
           },
@@ -278,6 +274,10 @@ export const router = createBrowserRouter([
       {
         path: "architecture",
         element: <PermissionGuard superAdminOnly><ArchitectureDocs /></PermissionGuard>,
+      },
+      {
+        path: "architecture/logs",
+        element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><LogsDashboard /></PermissionGuard>
       },
     ],
   },
