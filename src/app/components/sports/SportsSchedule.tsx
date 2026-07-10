@@ -1517,7 +1517,8 @@ export function SportsSchedule() {
                 </div>
               </div>
             </div>
-          )}
+            );
+          })()}
         </div>
       )}
 
