@@ -23,8 +23,13 @@ const toast = {
 import { TournamentScheduler } from "../scheduler/TournamentScheduler";
 import { SetupSchedule } from "../scheduler/SetupSchedule";
 import { ManualScheduler } from "../scheduler/ManualScheduler";
+import { tournamentService } from "../../../services/tournamentService";
+import { MatchDetailView } from "./MatchDetailView";
+import { LiveMatchView } from "./LiveMatchView";
+import { LiveScoringPanel } from "./LiveScoringPanel";
+import { Leaderboard } from "./Leaderboard";
 
-const TABS = ["Overview", "My Matches", "All Events", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
+const TABS = ["Overview", "My Matches", "All Events", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
 type Tab = typeof TABS[number];
 
 
@@ -372,7 +377,7 @@ export function SportsSchedule() {
   };
 
   // ─── Fixtures / Schedule state & handlers ───
-  const [fixturesList, setFixturesList] = useState<{ id: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; score1: string; score2: string }[]>([]);
+  const [fixturesList, setFixturesList] = useState<{ id: number; matchId?: number; teamAId?: number; teamBId?: number; name: string; sport: string; venue: string; date: string; time: string; status: string; team1: string; team2: string; score1: string; score2: string }[]>([]);
   const [showFixtureForm, setShowFixtureForm] = useState(false);
   const [editingFixtureId, setEditingFixtureId] = useState<number | null>(null);
   const [fixtureName, setFixtureName] = useState("");
@@ -390,6 +395,9 @@ export function SportsSchedule() {
 
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoringFixtureId, setScoringFixtureId] = useState<number | null>(null);
+  const [viewingMatchId, setViewingMatchId] = useState<number | null>(null);
+  const [liveViewMatchId, setLiveViewMatchId] = useState<number | null>(null);
+  const [liveScoringMatchId, setLiveScoringMatchId] = useState<number | null>(null);
 
   const [venues, setVenues] = useState<Venue[]>([]);
   const [sportsMeta, setSportsMeta] = useState<SportMeta[]>([]);
@@ -470,19 +478,47 @@ export function SportsSchedule() {
     fetchScheduleStats();
   };
 
-  const handleScoreUpdateSubmit = () => {
+  const [scoreSaving, setScoreSaving] = useState(false);
+  const [scoreWinnerId, setScoreWinnerId] = useState<number | null>(null);
+  const [scoreResultType, setScoreResultType] = useState("WIN");
+  const [scoreMatchNotes, setScoreMatchNotes] = useState("");
+
+  const handleScoreUpdateSubmit = async () => {
     if (scoringFixtureId === null) return;
+    const fixture = fixturesList.find(f => f.id === scoringFixtureId);
+    if (!fixture) return;
+
+    if (fixture.matchId) {
+      setScoreSaving(true);
+      try {
+        const winnerId = scoreResultType === "TIE" || scoreResultType === "DRAW" || scoreResultType === "NO_RESULT"
+          ? null : scoreWinnerId;
+        await tournamentService.recordResult({
+          matchId: fixture.matchId,
+          winnerTeamId: winnerId ?? undefined,
+          scoreTeamA: fixtureScore1,
+          scoreTeamB: fixtureScore2,
+          matchNotes: scoreMatchNotes || undefined,
+        });
+        toast.success("Match result saved!");
+      } catch (e: any) {
+        toast.error(e?.message || "Failed to save result");
+        setScoreSaving(false);
+        return;
+      }
+      setScoreSaving(false);
+    }
+
     setFixturesList(prev => prev.map(f => f.id === scoringFixtureId ? {
-      ...f,
-      score1: fixtureScore1,
-      score2: fixtureScore2,
-      status: "COMPLETED"
+      ...f, score1: fixtureScore1, score2: fixtureScore2, status: "COMPLETED"
     } : f));
-    toast.success("Scores updated and match completed!");
     setShowScoreModal(false);
     setScoringFixtureId(null);
     setFixtureScore1("");
     setFixtureScore2("");
+    setScoreWinnerId(null);
+    setScoreResultType("WIN");
+    setScoreMatchNotes("");
     fetchScheduleStats();
   };
 
@@ -543,52 +579,86 @@ export function SportsSchedule() {
         .finally(() => setLoading(false));
     } else if ((activeTab === "All Events" || activeTab === "Overview") && user?.communityId) {
       fetchScheduleStats();
-      sportsService.getOpenEvents(user.communityId)
-        .then(events => {
+      const eventsPromise = sportsService.getOpenEvents(user.communityId);
+      const configsPromise = tournamentService.getConfigs();
+
+      Promise.all([eventsPromise, configsPromise])
+        .then(async ([events, configs]) => {
           setAllEvents(events);
-          if (events && events.length > 0) {
-            const mapped = events.map((ev): any => {
-              const isLive = ev.registrationStatus === "LIVE";
-              const isCompleted = ev.registrationStatus === "COMPLETED";
-              const status = isLive ? "LIVE" : isCompleted ? "COMPLETED" : "SCHEDULED";
-              
-              let homeTeam = ev.name;
-              let awayTeam = "TBD";
-              if (ev.name.includes(" vs ")) {
-                const parts = ev.name.split(" vs ");
-                homeTeam = parts[0];
-                awayTeam = parts[1];
-              } else if (ev.name.includes(" - ")) {
-                const parts = ev.name.split(" - ");
-                homeTeam = parts[0];
-                awayTeam = parts[1];
+
+          const eventFixtures = (events || []).map((ev): any => {
+            const isLive = ev.registrationStatus === "LIVE";
+            const isCompleted = ev.registrationStatus === "COMPLETED";
+            const status = isLive ? "LIVE" : isCompleted ? "COMPLETED" : "SCHEDULED";
+
+            let homeTeam = ev.name;
+            let awayTeam = "TBD";
+            if (ev.name.includes(" vs ")) {
+              const parts = ev.name.split(" vs ");
+              homeTeam = parts[0];
+              awayTeam = parts[1];
+            } else if (ev.name.includes(" - ")) {
+              const parts = ev.name.split(" - ");
+              homeTeam = parts[0];
+              awayTeam = parts[1];
+            }
+
+            const eventDate = ev.eventDateStart ? ev.eventDateStart.split("T")[0] : "";
+            let eventTime = "12:00 PM";
+            try {
+              if (ev.eventDateStart) {
+                eventTime = format(new Date(ev.eventDateStart), "hh:mm a");
               }
-              
-              const eventDate = ev.eventDateStart ? ev.eventDateStart.split("T")[0] : "";
-              let eventTime = "12:00 PM";
-              try {
-                if (ev.eventDateStart) {
-                  eventTime = format(new Date(ev.eventDateStart), "hh:mm a");
-                }
-              } catch (e) {}
+            } catch (e) {}
 
-              return {
-                id: ev.id,
-                name: ev.name,
-                sport: ev.sport?.name || "Other",
-                venue: ev.venue?.name || "TBD",
-                date: eventDate,
-                time: eventTime,
-                status,
-                team1: homeTeam,
-                team2: awayTeam,
-                score1: "",
-                score2: ""
-              };
-            });
+            return {
+              id: ev.id,
+              name: ev.name,
+              sport: ev.sport?.name || "Other",
+              venue: ev.venue?.name || "TBD",
+              date: eventDate,
+              time: eventTime,
+              status,
+              team1: homeTeam,
+              team2: awayTeam,
+              score1: "",
+              score2: ""
+            };
+          });
 
-            setFixturesList(mapped);
+          const matchFixtures: any[] = [];
+          for (const cfg of configs || []) {
+            try {
+              const matches = await tournamentService.getMatchesByConfigId(cfg.id);
+              for (const m of matches) {
+                if (m.status === "BYE") continue;
+                const scheduledDate = m.scheduledAt ? m.scheduledAt.split("T")[0] : "";
+                let scheduledTime = "";
+                try {
+                  if (m.scheduledAt) scheduledTime = format(new Date(m.scheduledAt), "hh:mm a");
+                } catch (_e) {}
+
+                matchFixtures.push({
+                  id: -(m.matchId ?? 0),
+                  matchId: m.matchId,
+                  teamAId: m.teamAId,
+                  teamBId: m.teamBId,
+                  name: `${cfg.tournamentName} — ${m.roundName} #${m.matchNumber}`,
+                  sport: cfg.eventName || "Tournament",
+                  venue: m.venueName || "TBD",
+                  date: scheduledDate,
+                  time: scheduledTime,
+                  status: m.status === "COMPLETED" ? "COMPLETED" : m.status === "IN_PROGRESS" ? "LIVE" : "SCHEDULED",
+                  team1: m.teamAName || "TBD",
+                  team2: m.teamBName || "TBD",
+                  score1: m.scoreTeamA || "",
+                  score2: m.scoreTeamB || "",
+                });
+              }
+            } catch (_e) {}
           }
+
+          setFixturesList([...eventFixtures, ...matchFixtures]);
         })
         .catch(() => { })
         .finally(() => setLoading(false));
@@ -622,6 +692,12 @@ export function SportsSchedule() {
             onClick={() => setActiveTab("All Events")}
           >
             <div className="nav-dot"></div>All Events
+          </button>
+          <button
+            className={`nav-item ${activeTab === "Leaderboard" ? "active" : ""}`}
+            onClick={() => setActiveTab("Leaderboard")}
+          >
+            <div className="nav-dot"></div>Leaderboard
           </button>
           <button
             className={`nav-item ${activeTab === "Brackets" ? "active" : ""}`}
@@ -1244,6 +1320,32 @@ export function SportsSchedule() {
                     </div>
                   </div>
 
+                  {/* Live match view for spectators */}
+                  {isLive && fixture.matchId && (
+                    <div className="mt-3 pt-3 border-t border-slate-100">
+                      <button
+                        onClick={() => setLiveViewMatchId(fixture.matchId!)}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded-xl transition"
+                      >
+                        <Activity className="w-3.5 h-3.5" />
+                        Watch Live
+                      </button>
+                    </div>
+                  )}
+
+                  {/* View Details for completed tournament matches */}
+                  {isCompleted && fixture.matchId && (
+                    <div className="mt-3 pt-3 border-t border-slate-100">
+                      <button
+                        onClick={() => setViewingMatchId(fixture.matchId!)}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition"
+                      >
+                        <Trophy className="w-3.5 h-3.5" />
+                        View Scorecard
+                      </button>
+                    </div>
+                  )}
+
                   {/* Actions Row */}
                   {isAdmin && (
                     <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
@@ -1262,18 +1364,29 @@ export function SportsSchedule() {
                           </button>
                         )}
                         {fixture.status === "LIVE" && (
-                          <button
-                            onClick={() => {
-                              setScoringFixtureId(fixture.id);
-                              setFixtureScore1(fixture.score1 || "");
-                              setFixtureScore2(fixture.score2 || "");
-                              setShowScoreModal(true);
-                            }}
-                            className="flex items-center gap-1 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-lg transition"
-                          >
-                            <Trophy className="w-3 h-3" />
-                            Update Score
-                          </button>
+                          <>
+                            {fixture.matchId && (
+                              <button
+                                onClick={() => setLiveScoringMatchId(fixture.matchId!)}
+                                className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold rounded-lg transition"
+                              >
+                                <Activity className="w-3 h-3" />
+                                Live Score
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                setScoringFixtureId(fixture.id);
+                                setFixtureScore1(fixture.score1 || "");
+                                setFixtureScore2(fixture.score2 || "");
+                                setShowScoreModal(true);
+                              }}
+                              className="flex items-center gap-1 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-lg transition"
+                            >
+                              <Trophy className="w-3 h-3" />
+                              End Match
+                            </button>
+                          </>
                         )}
                       </div>
                       <div className="flex items-center gap-1">
@@ -1306,67 +1419,100 @@ export function SportsSchedule() {
           </div>
 
           {/* Inline Score Modal */}
-          {showScoreModal && scoringFixtureId !== null && (
+          {showScoreModal && scoringFixtureId !== null && (() => {
+            const scoringFixture = fixturesList.find(f => f.id === scoringFixtureId);
+            return (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-              <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left">
+              <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                   <h3 className="text-base font-bold text-slate-800">Update Match Score</h3>
                   <button
-                    onClick={() => {
-                      setShowScoreModal(false);
-                      setScoringFixtureId(null);
-                    }}
+                    onClick={() => { setShowScoreModal(false); setScoringFixtureId(null); }}
                     className="text-slate-400 hover:text-slate-600"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
                 <p className="text-xs text-slate-500 mb-4 font-semibold uppercase tracking-wider">
-                  {fixturesList.find(f => f.id === scoringFixtureId)?.name}
+                  {scoringFixture?.name}
                 </p>
-                <div className="grid grid-cols-2 gap-4 mb-5">
+
+                {/* Result Type */}
+                <div className="mb-4">
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Result</label>
+                  <select value={scoreResultType} onChange={e => setScoreResultType(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl py-2 px-3 text-sm text-slate-800 outline-none focus:border-indigo-500">
+                    <option value="WIN">Win</option>
+                    <option value="TIE">Tie</option>
+                    <option value="DRAW">Draw</option>
+                    <option value="NO_RESULT">No Result</option>
+                    <option value="ABANDONED">Abandoned</option>
+                  </select>
+                </div>
+
+                {/* Scores */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
-                      {fixturesList.find(f => f.id === scoringFixtureId)?.team1}
+                      {scoringFixture?.team1}
                     </label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      min="0"
-                      value={fixtureScore1}
+                    <input type="text" placeholder="0" value={fixtureScore1}
                       onChange={e => setFixtureScore1(e.target.value)}
                       className="w-full text-center bg-white border border-slate-200 rounded-xl py-2 text-lg font-bold text-slate-800 outline-none focus:border-indigo-500"
                     />
                   </div>
                   <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
-                      {fixturesList.find(f => f.id === scoringFixtureId)?.team2}
+                      {scoringFixture?.team2}
                     </label>
-                    <input
-                      type="number"
-                      placeholder="0"
-                      min="0"
-                      value={fixtureScore2}
+                    <input type="text" placeholder="0" value={fixtureScore2}
                       onChange={e => setFixtureScore2(e.target.value)}
                       className="w-full text-center bg-white border border-slate-200 rounded-xl py-2 text-lg font-bold text-slate-800 outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
+
+                {/* Winner Selection (only for WIN result) */}
+                {scoreResultType === "WIN" && scoringFixture?.teamAId && scoringFixture?.teamBId && (
+                  <div className="mb-4">
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Winner</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button type="button"
+                        onClick={() => setScoreWinnerId(scoringFixture.teamAId!)}
+                        className={`px-3 py-2 text-sm font-semibold rounded-xl border transition ${scoreWinnerId === scoringFixture.teamAId ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+                        {scoringFixture.team1}
+                      </button>
+                      <button type="button"
+                        onClick={() => setScoreWinnerId(scoringFixture.teamBId!)}
+                        className={`px-3 py-2 text-sm font-semibold rounded-xl border transition ${scoreWinnerId === scoringFixture.teamBId ? 'bg-emerald-50 border-emerald-500 text-emerald-700' : 'bg-white border-slate-200 text-slate-600 hover:border-slate-300'}`}>
+                        {scoringFixture.team2}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Notes */}
+                <div className="mb-4">
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Notes (optional)</label>
+                  <input type="text" placeholder="e.g. Won by 45 runs" value={scoreMatchNotes}
+                    onChange={e => setScoreMatchNotes(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl py-2 px-3 text-sm text-slate-800 outline-none focus:border-indigo-500"
+                  />
+                </div>
+
                 <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
                   <button
-                    onClick={() => {
-                      setShowScoreModal(false);
-                      setScoringFixtureId(null);
-                    }}
+                    onClick={() => { setShowScoreModal(false); setScoringFixtureId(null); }}
                     className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 rounded-xl transition"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleScoreUpdateSubmit}
-                    className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-md shadow-emerald-100"
+                    disabled={scoreSaving || (scoreResultType === "WIN" && scoringFixture?.matchId && !scoreWinnerId)}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition shadow-md shadow-emerald-100 disabled:opacity-50"
                   >
-                    Complete & Save
+                    {scoreSaving ? "Saving..." : "Complete & Save"}
                   </button>
                 </div>
               </div>
@@ -1374,6 +1520,9 @@ export function SportsSchedule() {
           )}
         </div>
       )}
+
+      {/* Leaderboard */}
+      {activeTab === "Leaderboard" && <Leaderboard />}
 
       {/* Brackets */}
       {activeTab === "Brackets" && <BracketView eventId={eventId} />}
@@ -1386,6 +1535,21 @@ export function SportsSchedule() {
 
       {/* Manual Scheduler */}
       {activeTab === "Manual" && <ManualScheduler />}
+
+      {/* Match Detail Modal */}
+      {viewingMatchId !== null && (
+        <MatchDetailView matchId={viewingMatchId} onClose={() => setViewingMatchId(null)} />
+      )}
+
+      {/* Live Match View (Spectator) */}
+      {liveViewMatchId !== null && (
+        <LiveMatchView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
+      )}
+
+      {/* Live Scoring Panel (Admin) */}
+      {liveScoringMatchId !== null && (
+        <LiveScoringPanel matchId={liveScoringMatchId} onClose={() => setLiveScoringMatchId(null)} />
+      )}
         </div>
       </main>
     </div>
