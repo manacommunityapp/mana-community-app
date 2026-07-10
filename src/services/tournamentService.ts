@@ -47,6 +47,166 @@ export interface ConfigInfo {
   hasSeeding?: boolean;
 }
 
+// ─── Match Result Types ──────────────────────────────────────────────────────
+
+export interface MatchResultRequestData {
+  matchId: number;
+  winnerTeamId?: number | null;
+  scoreTeamA?: string;
+  scoreTeamB?: string;
+  matchNotes?: string;
+  runsTeamA?: number;
+  runsTeamB?: number;
+  oversTeamA?: number;
+  oversTeamB?: number;
+}
+
+export interface MatchResultDetailRequestData {
+  matchId: number;
+  winnerTeamId?: number | null;
+  resultType?: string;
+  scoreTeamA?: string;
+  scoreTeamB?: string;
+  winMargin?: string;
+  matchNotes?: string;
+  matchSummary?: string;
+  tossWinnerTeamId?: number | null;
+  tossDecision?: string;
+  manOfMatchPlayerId?: number | null;
+  bestBatterPlayerId?: number | null;
+  bestBowlerPlayerId?: number | null;
+  umpires?: string;
+  runsTeamA?: number;
+  runsTeamB?: number;
+  oversTeamA?: number;
+  oversTeamB?: number;
+  innings?: InningsRequestData[];
+}
+
+export interface InningsRequestData {
+  inningsNumber: number;
+  battingTeamId: number;
+  bowlingTeamId: number;
+  totalRuns: number;
+  totalWickets: number;
+  totalOvers: string;
+  extras: number;
+  extrasDetail?: string;
+  target?: number;
+  batting?: BattingEntryData[];
+  bowling?: BowlingEntryData[];
+  fallOfWickets?: string;
+}
+
+export interface BattingEntryData {
+  playerId: number;
+  battingPosition: number;
+  runsScored: number;
+  ballsFaced: number;
+  fours: number;
+  sixes: number;
+  dismissalType?: string;
+  dismissedByPlayerId?: number;
+  fielderPlayerId?: number;
+}
+
+export interface BowlingEntryData {
+  playerId: number;
+  bowlingOrder: number;
+  oversBowled: string;
+  maidens: number;
+  runsConceded: number;
+  wicketsTaken: number;
+  dotBalls: number;
+  wides: number;
+  noBalls: number;
+}
+
+export interface MatchDetailData {
+  matchId: number;
+  roundName: string;
+  matchNumber: number;
+  scheduledAt: string;
+  status: string;
+  teamA: { id: number | null; name: string; color: string };
+  teamB: { id: number | null; name: string; color: string };
+  resultType?: string;
+  scoreTeamA?: string;
+  scoreTeamB?: string;
+  winMargin?: string;
+  winnerName?: string;
+  matchSummary?: string;
+  matchNotes?: string;
+  tossWinnerName?: string;
+  tossDecision?: string;
+  manOfMatch?: { id: number; name: string; teamName: string };
+  bestBatter?: { id: number; name: string; teamName: string };
+  bestBowler?: { id: number; name: string; teamName: string };
+  umpires?: string;
+  venueName?: string;
+  courtName?: string;
+  innings?: InningsDetailData[];
+  topRunScorers?: PlayerStatsData[];
+  topWicketTakers?: PlayerStatsData[];
+}
+
+export interface InningsDetailData {
+  inningsNumber: number;
+  battingTeamName: string;
+  bowlingTeamName: string;
+  totalRuns: number;
+  totalWickets: number;
+  totalOvers: string;
+  extras: number;
+  extrasDetail?: string;
+  target?: number;
+  runRate: string;
+  batting: BattingRowData[];
+  bowling: BowlingRowData[];
+  fallOfWickets?: string;
+}
+
+export interface BattingRowData {
+  playerId: number;
+  playerName: string;
+  battingPosition: number;
+  runsScored: number;
+  ballsFaced: number;
+  fours: number;
+  sixes: number;
+  strikeRate: string;
+  dismissalType?: string;
+  dismissedBy?: string;
+  fielder?: string;
+}
+
+export interface BowlingRowData {
+  playerId: number;
+  playerName: string;
+  bowlingOrder: number;
+  oversBowled: string;
+  maidens: number;
+  runsConceded: number;
+  wicketsTaken: number;
+  economyRate: string;
+  dotBalls: number;
+  wides: number;
+  noBalls: number;
+}
+
+export interface PlayerStatsData {
+  playerId: number;
+  playerName: string;
+  teamName: string;
+  matchesPlayed: number;
+  totalRuns: number;
+  totalWickets: number;
+  battingAverage: string;
+  strikeRate: string;
+  economyRate: string;
+  manOfMatchCount: number;
+}
+
 export const tournamentService = {
   /** GET /api/tournament/types */
   async getTournamentTypes(): Promise<TournamentTypeInfo[]> {
@@ -128,5 +288,30 @@ export const tournamentService = {
       "/tournament/schedule/save",
       payload
     );
+  },
+
+  /** POST /api/tournament/match/result — basic result (scores + winner) */
+  async recordResult(data: MatchResultRequestData): Promise<any> {
+    return apiClient.post<any>("/tournament/match/result", data);
+  },
+
+  /** POST /api/tournament/match/result/detail — detailed result with scorecard */
+  async recordDetailedResult(data: MatchResultDetailRequestData): Promise<MatchDetailData> {
+    return apiClient.post<MatchDetailData>("/tournament/match/result/detail", data);
+  },
+
+  /** GET /api/tournament/match/{matchId}/detail — full match detail with scorecard */
+  async getMatchDetail(matchId: number): Promise<MatchDetailData> {
+    return apiClient.get<MatchDetailData>(`/tournament/match/${matchId}/detail`);
+  },
+
+  /** GET /api/tournament/{configId}/leaderboard?type=runs|wickets|mvp */
+  async getLeaderboard(configId: number, type: string = "runs"): Promise<PlayerStatsData[]> {
+    return apiClient.get<PlayerStatsData[]>(`/tournament/${configId}/leaderboard?type=${type}`);
+  },
+
+  /** GET /api/tournament/player/{playerId}/stats — career stats across tournaments */
+  async getPlayerStats(playerId: number): Promise<PlayerStatsData[]> {
+    return apiClient.get<PlayerStatsData[]>(`/tournament/player/${playerId}/stats`);
   }
 };
