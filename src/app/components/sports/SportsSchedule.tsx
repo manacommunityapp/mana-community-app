@@ -25,6 +25,8 @@ import { SetupSchedule } from "../scheduler/SetupSchedule";
 import { ManualScheduler } from "../scheduler/ManualScheduler";
 import { tournamentService } from "../../../services/tournamentService";
 import { MatchDetailView } from "./MatchDetailView";
+import { LiveMatchView } from "./LiveMatchView";
+import { LiveScoringPanel } from "./LiveScoringPanel";
 import { Leaderboard } from "./Leaderboard";
 
 const TABS = ["Overview", "My Matches", "All Events", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
@@ -394,6 +396,8 @@ export function SportsSchedule() {
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoringFixtureId, setScoringFixtureId] = useState<number | null>(null);
   const [viewingMatchId, setViewingMatchId] = useState<number | null>(null);
+  const [liveViewMatchId, setLiveViewMatchId] = useState<number | null>(null);
+  const [liveScoringMatchId, setLiveScoringMatchId] = useState<number | null>(null);
 
   const [venues, setVenues] = useState<Venue[]>([]);
   const [sportsMeta, setSportsMeta] = useState<SportMeta[]>([]);
@@ -1316,6 +1320,19 @@ export function SportsSchedule() {
                     </div>
                   </div>
 
+                  {/* Live match view for spectators */}
+                  {isLive && fixture.matchId && (
+                    <div className="mt-3 pt-3 border-t border-slate-100">
+                      <button
+                        onClick={() => setLiveViewMatchId(fixture.matchId!)}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold rounded-xl transition"
+                      >
+                        <Activity className="w-3.5 h-3.5" />
+                        Watch Live
+                      </button>
+                    </div>
+                  )}
+
                   {/* View Details for completed tournament matches */}
                   {isCompleted && fixture.matchId && (
                     <div className="mt-3 pt-3 border-t border-slate-100">
@@ -1347,18 +1364,29 @@ export function SportsSchedule() {
                           </button>
                         )}
                         {fixture.status === "LIVE" && (
-                          <button
-                            onClick={() => {
-                              setScoringFixtureId(fixture.id);
-                              setFixtureScore1(fixture.score1 || "");
-                              setFixtureScore2(fixture.score2 || "");
-                              setShowScoreModal(true);
-                            }}
-                            className="flex items-center gap-1 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-lg transition"
-                          >
-                            <Trophy className="w-3 h-3" />
-                            Update Score
-                          </button>
+                          <>
+                            {fixture.matchId && (
+                              <button
+                                onClick={() => setLiveScoringMatchId(fixture.matchId!)}
+                                className="flex items-center gap-1 px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-bold rounded-lg transition"
+                              >
+                                <Activity className="w-3 h-3" />
+                                Live Score
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                setScoringFixtureId(fixture.id);
+                                setFixtureScore1(fixture.score1 || "");
+                                setFixtureScore2(fixture.score2 || "");
+                                setShowScoreModal(true);
+                              }}
+                              className="flex items-center gap-1 px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-lg transition"
+                            >
+                              <Trophy className="w-3 h-3" />
+                              End Match
+                            </button>
+                          </>
                         )}
                       </div>
                       <div className="flex items-center gap-1">
@@ -1511,6 +1539,16 @@ export function SportsSchedule() {
       {/* Match Detail Modal */}
       {viewingMatchId !== null && (
         <MatchDetailView matchId={viewingMatchId} onClose={() => setViewingMatchId(null)} />
+      )}
+
+      {/* Live Match View (Spectator) */}
+      {liveViewMatchId !== null && (
+        <LiveMatchView matchId={liveViewMatchId} onClose={() => setLiveViewMatchId(null)} />
+      )}
+
+      {/* Live Scoring Panel (Admin) */}
+      {liveScoringMatchId !== null && (
+        <LiveScoringPanel matchId={liveScoringMatchId} onClose={() => setLiveScoringMatchId(null)} />
       )}
         </div>
       </main>
