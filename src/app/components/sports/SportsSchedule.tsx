@@ -24,8 +24,10 @@ import { TournamentScheduler } from "../scheduler/TournamentScheduler";
 import { SetupSchedule } from "../scheduler/SetupSchedule";
 import { ManualScheduler } from "../scheduler/ManualScheduler";
 import { tournamentService } from "../../../services/tournamentService";
+import { MatchDetailView } from "./MatchDetailView";
+import { Leaderboard } from "./Leaderboard";
 
-const TABS = ["Overview", "My Matches", "All Events", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
+const TABS = ["Overview", "My Matches", "All Events", "Leaderboard", "Brackets", "Config", "Setup Schedule", "Manual"] as const;
 type Tab = typeof TABS[number];
 
 
@@ -391,6 +393,7 @@ export function SportsSchedule() {
 
   const [showScoreModal, setShowScoreModal] = useState(false);
   const [scoringFixtureId, setScoringFixtureId] = useState<number | null>(null);
+  const [viewingMatchId, setViewingMatchId] = useState<number | null>(null);
 
   const [venues, setVenues] = useState<Venue[]>([]);
   const [sportsMeta, setSportsMeta] = useState<SportMeta[]>([]);
@@ -685,6 +688,12 @@ export function SportsSchedule() {
             onClick={() => setActiveTab("All Events")}
           >
             <div className="nav-dot"></div>All Events
+          </button>
+          <button
+            className={`nav-item ${activeTab === "Leaderboard" ? "active" : ""}`}
+            onClick={() => setActiveTab("Leaderboard")}
+          >
+            <div className="nav-dot"></div>Leaderboard
           </button>
           <button
             className={`nav-item ${activeTab === "Brackets" ? "active" : ""}`}
@@ -1307,6 +1316,19 @@ export function SportsSchedule() {
                     </div>
                   </div>
 
+                  {/* View Details for completed tournament matches */}
+                  {isCompleted && fixture.matchId && (
+                    <div className="mt-3 pt-3 border-t border-slate-100">
+                      <button
+                        onClick={() => setViewingMatchId(fixture.matchId!)}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition"
+                      >
+                        <Trophy className="w-3.5 h-3.5" />
+                        View Scorecard
+                      </button>
+                    </div>
+                  )}
+
                   {/* Actions Row */}
                   {isAdmin && (
                     <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
@@ -1471,6 +1493,9 @@ export function SportsSchedule() {
         </div>
       )}
 
+      {/* Leaderboard */}
+      {activeTab === "Leaderboard" && <Leaderboard />}
+
       {/* Brackets */}
       {activeTab === "Brackets" && <BracketView eventId={eventId} />}
 
@@ -1482,6 +1507,11 @@ export function SportsSchedule() {
 
       {/* Manual Scheduler */}
       {activeTab === "Manual" && <ManualScheduler />}
+
+      {/* Match Detail Modal */}
+      {viewingMatchId !== null && (
+        <MatchDetailView matchId={viewingMatchId} onClose={() => setViewingMatchId(null)} />
+      )}
         </div>
       </main>
     </div>
