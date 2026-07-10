@@ -32,7 +32,7 @@ function ScorecardTable({ innings, index }: { innings: InningsDetailData; index:
       </button>
 
       {expanded && (
-        <div className="p-4 space-y-4">
+        <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
           {/* Batting */}
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -134,12 +134,12 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10 rounded-t-2xl">
-          <h2 className="text-lg font-bold text-slate-800">Match Details</h2>
+        <div className="sticky top-0 bg-white border-b border-slate-100 px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between z-10 rounded-t-2xl">
+          <h2 className="text-base sm:text-lg font-bold text-slate-800">Match Details</h2>
           <button onClick={onClose} className="p-1.5 hover:bg-slate-100 rounded-lg transition">
             <X className="w-5 h-5 text-slate-500" />
           </button>
@@ -158,7 +158,7 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
         )}
 
         {detail && !loading && (
-          <div className="p-6 space-y-6">
+          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
             {/* Match Header */}
             <div className="text-center space-y-2">
               <div className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
@@ -169,14 +169,14 @@ export function MatchDetailView({ matchId, onClose }: MatchDetailViewProps) {
                 <div className="text-right flex-1">
                   <div className="text-sm font-bold" style={{ color: detail.teamA.color }}>{detail.teamA.name}</div>
                   {detail.scoreTeamA && (
-                    <div className="text-2xl font-bold text-slate-800 mt-1">{detail.scoreTeamA}</div>
+                    <div className="text-xl sm:text-2xl font-bold text-slate-800 mt-1">{detail.scoreTeamA}</div>
                   )}
                 </div>
                 <div className="text-xs font-bold text-slate-300 px-3">VS</div>
                 <div className="text-left flex-1">
                   <div className="text-sm font-bold" style={{ color: detail.teamB.color }}>{detail.teamB.name}</div>
                   {detail.scoreTeamB && (
-                    <div className="text-2xl font-bold text-slate-800 mt-1">{detail.scoreTeamB}</div>
+                    <div className="text-xl sm:text-2xl font-bold text-slate-800 mt-1">{detail.scoreTeamB}</div>
                   )}
                 </div>
               </div>

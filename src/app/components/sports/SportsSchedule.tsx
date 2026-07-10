@@ -749,7 +749,7 @@ export function SportsSchedule() {
             }}
           >
             <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
-              <Trophy className="w-28 h-28 rotate-12" />
+              <Trophy className="w-16 h-16 sm:w-28 sm:h-28 rotate-12" />
             </div>
             <div className="max-w-xl relative z-10 space-y-1">
               <span className="px-2 py-0.5 rounded-full text-[8px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block mb-0.5">
@@ -763,59 +763,59 @@ export function SportsSchedule() {
           </div>
 
           {/* Quick Metrics */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+            <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Scheduled Matches</span>
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Scheduled Matches</span>
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                  <CalendarIcon className="w-5 h-5" />
+                  <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
+              <div className="mt-2 sm:mt-4 flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Total</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+            <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
                 <div className="p-2 bg-red-50 text-red-600 rounded-xl">
-                  <Activity className="w-5 h-5" />
+                  <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">
+              <div className="mt-2 sm:mt-4 flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">
                   {stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-red-100 text-red-700 font-bold animate-pulse">LIVE</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+            <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
                 <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-                  <Trophy className="w-5 h-5" />
+                  <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">
+              <div className="mt-2 sm:mt-4 flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">
                   {stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Done</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+            <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Venues</span>
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Venues</span>
                 <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
-                  <MapPin className="w-5 h-5" />
+                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{venues.length || 4}</span>
+              <div className="mt-2 sm:mt-4 flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">{venues.length || 4}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">Active</span>
               </div>
             </div>
@@ -826,7 +826,7 @@ export function SportsSchedule() {
             {/* Left Column: Live Matches & Navigation */}
             <div className="lg:col-span-2 space-y-6">
               {/* Ongoing Matches Section */}
-              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+              <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
                     <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse"></span>
@@ -871,7 +871,7 @@ export function SportsSchedule() {
               </div>
 
               {/* Quick Navigation Cards */}
-              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+              <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm space-y-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">
                   Quick Navigation
                 </h3>
@@ -880,7 +880,7 @@ export function SportsSchedule() {
                     onClick={() => setActiveTab("My Matches")}
                     className="p-4 bg-slate-50 hover:bg-indigo-50/30 rounded-xl border border-slate-100 hover:border-indigo-100 transition cursor-pointer text-left space-y-2 group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all duration-200">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all duration-200">
                       <Clock className="w-4 h-4" />
                     </div>
                     <h4 className="text-xs font-bold text-slate-800">My Timeline</h4>
@@ -891,7 +891,7 @@ export function SportsSchedule() {
                     onClick={() => setActiveTab("All Events")}
                     className="p-4 bg-slate-50 hover:bg-indigo-50/30 rounded-xl border border-slate-100 hover:border-indigo-100 transition cursor-pointer text-left space-y-2 group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all duration-200">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-all duration-200">
                       <CalendarIcon className="w-4 h-4" />
                     </div>
                     <h4 className="text-xs font-bold text-slate-800">All Fixtures</h4>
@@ -902,7 +902,7 @@ export function SportsSchedule() {
                     onClick={() => setActiveTab("Brackets")}
                     className="p-4 bg-slate-50 hover:bg-indigo-50/30 rounded-xl border border-slate-100 hover:border-indigo-100 transition cursor-pointer text-left space-y-2 group"
                   >
-                    <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all duration-200">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-all duration-200">
                       <Trophy className="w-4 h-4" />
                     </div>
                     <h4 className="text-xs font-bold text-slate-800">Tournament Brackets</h4>
@@ -914,7 +914,7 @@ export function SportsSchedule() {
 
             {/* Right Column: Recent Results & Timeline */}
             <div className="space-y-6">
-              <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm space-y-4">
+              <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm space-y-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-3">
                   Recent Results
                 </h3>
@@ -956,7 +956,7 @@ export function SportsSchedule() {
               </div>
 
               {/* Quick Info Box */}
-              <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 text-left space-y-2">
+              <div className="bg-slate-50 rounded-2xl p-3 sm:p-5 border border-slate-100 text-left space-y-2">
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Administrative Note</h4>
                 <p className="text-[11px] text-slate-500 leading-relaxed">
                   If you are an organizer, use the operations panel (Config, Setup Schedule, Manual) to run automated round robin schedulers or create custom matches. Match results are synchronized live.
@@ -995,55 +995,55 @@ export function SportsSchedule() {
       {activeTab === "All Events" && (
         <div className="space-y-6 animate-fade-in-up text-left">
           {/* Stats Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+            <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Games</span>
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Games</span>
                 <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-                  <CalendarIcon className="w-5 h-5" />
+                  <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
+              <div className="mt-2 sm:mt-4 flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.totalGames ?? fixturesList.length}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 font-medium">Scheduled</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+            <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Live Now</span>
                 <div className="p-2 bg-red-50 text-red-600 rounded-xl">
-                  <Activity className="w-5 h-5" />
+                  <Activity className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}</span>
+              <div className="mt-2 sm:mt-4 flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.liveNow ?? fixturesList.filter(f => f.status === "LIVE").length}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-red-100 text-red-700 font-bold animate-pulse">LIVE</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+            <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Upcoming</span>
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Upcoming</span>
                 <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
-                  <Clock className="w-5 h-5" />
+                  <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.upcoming ?? fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
+              <div className="mt-2 sm:mt-4 flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.upcoming ?? fixturesList.filter(f => f.status === "SCHEDULED").length}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-amber-50 text-amber-600 font-medium">Pending</span>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
+            <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all duration-200">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
+                <span className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider">Completed</span>
                 <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-                  <Trophy className="w-5 h-5" />
+                  <Trophy className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}</span>
+              <div className="mt-2 sm:mt-4 flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">{stats?.completed ?? fixturesList.filter(f => f.status === "COMPLETED").length}</span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-50 text-emerald-600 font-medium">Done</span>
               </div>
             </div>
@@ -1051,7 +1051,7 @@ export function SportsSchedule() {
 
           {/* Add / Edit Fixture Form (Inline Card) */}
           {isAdmin && showFixtureForm && (
-            <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-md animate-fade-in-up space-y-4">
+            <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200/80 shadow-md animate-fade-in-up space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="text-base font-bold text-slate-800">{editingFixtureId !== null ? "Edit Fixture" : "Create New Fixture"}</h3>
                 <button onClick={resetFixtureForm} className="text-slate-400 hover:text-slate-600">
@@ -1235,7 +1235,7 @@ export function SportsSchedule() {
           </div>
 
           {/* Fixtures List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
             {sortedFixtures.map((fixture) => {
               const IconComponent = getSportIcon(fixture.sport);
               const sportStyle = getSportColors(fixture.sport);
@@ -1245,7 +1245,7 @@ export function SportsSchedule() {
               return (
                 <div
                   key={fixture.id}
-                  className="bg-white rounded-2xl p-5 border shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
+                  className="bg-white rounded-2xl p-3 sm:p-5 border shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between"
                   style={{
                     borderColor: isLive ? "rgba(239, 68, 68, 0.4)" : "rgba(226, 232, 240, 0.8)",
                     boxShadow: isLive ? "0 4px 18px rgba(239, 68, 68, 0.08)" : "none"
@@ -1423,9 +1423,9 @@ export function SportsSchedule() {
             const scoringFixture = fixturesList.find(f => f.id === scoringFixtureId);
             return (
             <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-              <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left max-h-[90vh] overflow-y-auto">
+              <div className="bg-white rounded-3xl p-4 sm:p-6 w-full max-w-[95vw] sm:max-w-md shadow-2xl border border-slate-100 animate-scale-up text-left max-h-[90vh] overflow-y-auto">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                  <h3 className="text-base font-bold text-slate-800">Update Match Score</h3>
+                  <h3 className="text-sm sm:text-base font-bold text-slate-800">Update Match Score</h3>
                   <button
                     onClick={() => { setShowScoreModal(false); setScoringFixtureId(null); }}
                     className="text-slate-400 hover:text-slate-600"
