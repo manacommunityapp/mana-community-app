@@ -60,7 +60,7 @@ const TABS = [
 ] as const;
 
 type TabId = typeof TABS[number]["id"];
-type StatsTab = "basketball" | "soccer";
+type StatsTab = string;
 
 function getCategory(age: number, gender: string): string {
   if (age < 12) return "Kids (Under 12)";
@@ -69,13 +69,13 @@ function getCategory(age: number, gender: string): string {
   return gender === "Female" ? "Womens (18-55)" : "Mens (18-55)";
 }
 
-const achievements = [
-  { id: 1, title: "Season MVP", desc: "Basketball Q1 2026", icon: Star, color: "#f59e0b", unlocked: true },
-  { id: 2, title: "Hat-trick Hero", desc: "3 goals in one game", icon: Target, color: "#10b981", unlocked: true },
-  { id: 3, title: "Iron Man", desc: "15 games no absence", icon: Zap, color: "#6366f1", unlocked: true },
-  { id: 4, title: "Champion", desc: "Win a league title", icon: Trophy, color: "#f59e0b", unlocked: false },
-  { id: 5, title: "All-Rounder", desc: "Play 3 different sports", icon: Activity, color: "#8b5cf6", unlocked: false },
-  { id: 6, title: "League Leader", desc: "Top scorer in league", icon: Award, color: "#ef4444", unlocked: false },
+const ACHIEVEMENT_DEFS = [
+  { id: 1, title: "First Registration", desc: "Register for an event", icon: Star, color: "#f59e0b", check: (r: number) => r >= 1 },
+  { id: 2, title: "Team Player", desc: "Join a team", icon: Users, color: "#10b981", check: (_r: number, t: number) => t >= 1 },
+  { id: 3, title: "Active Competitor", desc: "Play 5 matches", icon: Zap, color: "#6366f1", check: (_r: number, _t: number, m: number) => m >= 5 },
+  { id: 4, title: "Champion", desc: "Win a league title", icon: Trophy, color: "#f59e0b", check: () => false },
+  { id: 5, title: "All-Rounder", desc: "Play 3 different sports", icon: Activity, color: "#8b5cf6", check: () => false },
+  { id: 6, title: "League Leader", desc: "Top scorer in league", icon: Award, color: "#ef4444", check: () => false },
 ];
 
 export function MySports() {
@@ -87,7 +87,7 @@ export function MySports() {
     }
     return "overview";
   });
-  const [activeStatsTab, setActiveStatsTab] = useState<StatsTab>("basketball");
+  const [activeStatsTab, setActiveStatsTab] = useState<StatsTab>("");
 
   useEffect(() => {
     if (location.pathname.endsWith("/register")) {
@@ -113,10 +113,10 @@ export function MySports() {
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
-  const displayName = user?.fullName ?? "Alex Johnson";
-  const userInitials = user?.fullName 
-    ? user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() 
-    : "AJ";
+  const displayName = user?.fullName ?? "Player";
+  const userInitials = user?.fullName
+    ? user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
+    : "P";
 
   const fetchTabData = async () => {
     if (!user?.userId) return;
@@ -195,20 +195,26 @@ export function MySports() {
 
   const myCommunity = communities.find(c => c.id === user?.communityId);
 
-  const stats: Record<StatsTab, { label: string; value: string; sub: string }[]> = {
-    basketball: [
-      { label: "Points/Game", value: "22.4", sub: "+3.1 vs last season" },
-      { label: "Assists/Game", value: "6.8", sub: "+1.2 vs last season" },
-      { label: "Rebounds/Game", value: "7.2", sub: "+0.8 vs last season" },
-      { label: "Win Rate", value: "73%", sub: "8W – 3L" },
-    ],
-    soccer: [
-      { label: "Goals", value: "8", sub: "+3 vs last season" },
-      { label: "Assists", value: "5", sub: "Top 3 in team" },
-      { label: "Matches", value: "10", sub: "All started" },
-      { label: "Win Rate", value: "50%", sub: "5W – 5L" },
-    ],
-  };
+  const sportNames = Array.from(new Set(registrations.map(r => r.event?.sport?.name).filter(Boolean))) as string[];
+
+  const stats: Record<string, { label: string; value: string; sub: string }[]> = {};
+  for (const name of sportNames) {
+    const sRegs = registrations.filter(r => r.event?.sport?.name === name);
+    const sMatches = myMatches.filter(m => m.sport?.name === name);
+    const confirmed = sRegs.filter(r => r.status === "CONFIRMED" || r.status === "REGISTERED").length;
+    stats[name] = [
+      { label: "Registrations", value: String(sRegs.length), sub: `${confirmed} confirmed` },
+      { label: "Events", value: String(sMatches.length), sub: sMatches.length > 0 ? "Active" : "None yet" },
+      { label: "Teams", value: String(teams.length), sub: "" },
+      { label: "Status", value: confirmed > 0 ? "Active" : "Pending", sub: "" },
+    ];
+  }
+
+  const achievements = ACHIEVEMENT_DEFS.map(a => ({
+    ...a,
+    unlocked: a.check(registrations.length, teams.length, myMatches.length),
+  }));
+  const unlockedCount = achievements.filter(a => a.unlocked).length;
 
   return (
     <div className="auction-hub-wrapper animate-fade-in-up stagger-1">
@@ -264,7 +270,7 @@ export function MySports() {
                 {displayName}
               </h2>
               <p className="text-xs text-[#6b7094] mt-1">
-                Member since Nov 2025 · <span className="font-semibold text-indigo-600">{myCommunity?.name ?? "Verified Community Resident"}</span>
+                <span className="font-semibold text-indigo-600">{myCommunity?.name ?? "Community Member"}</span>
               </p>
             </div>
           </div>
@@ -790,28 +796,36 @@ export function MySports() {
             style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold" style={{ color: "#0d0d2b" }}>My Performance</h3>
-              <div className="flex rounded-xl p-1" style={{ background: "rgba(99,102,241,0.06)" }}>
-                {(["basketball", "soccer"] as StatsTab[]).map((tab) => (
-                  <button key={tab} onClick={() => setActiveStatsTab(tab)}
-                    className="px-3 py-1 rounded-lg text-xs font-medium capitalize transition-all cursor-pointer"
-                    style={activeStatsTab === tab
-                      ? { background: "white", color: "#4f46e5", boxShadow: "0 1px 4px rgba(99,102,241,0.15)" }
-                      : { color: "#6b7094" }}>
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                  </button>
+              {sportNames.length > 1 && (
+                <div className="flex rounded-xl p-1" style={{ background: "rgba(99,102,241,0.06)" }}>
+                  {sportNames.map((tab) => (
+                    <button key={tab} onClick={() => setActiveStatsTab(tab)}
+                      className="px-3 py-1 rounded-lg text-xs font-medium capitalize transition-all cursor-pointer"
+                      style={(activeStatsTab || sportNames[0]) === tab
+                        ? { background: "white", color: "#4f46e5", boxShadow: "0 1px 4px rgba(99,102,241,0.15)" }
+                        : { color: "#6b7094" }}>
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {sportNames.length === 0 ? (
+              <div className="text-center py-6 text-slate-400 text-xs">
+                Register for events to see your performance stats.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                {(stats[activeStatsTab || sportNames[0]] || []).map((stat) => (
+                  <div key={stat.label} className="rounded-xl p-3 text-center"
+                    style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.08)" }}>
+                    <p className="text-2xl font-bold" style={{ color: "#4f46e5" }}>{stat.value}</p>
+                    <p className="text-[10px] font-semibold mt-0.5" style={{ color: "#0d0d2b" }}>{stat.label}</p>
+                    {stat.sub && <p className="text-[9px] mt-0.5" style={{ color: "#10b981" }}>{stat.sub}</p>}
+                  </div>
                 ))}
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {stats[activeStatsTab].map((stat) => (
-                <div key={stat.label} className="rounded-xl p-3 text-center"
-                  style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.08)" }}>
-                  <p className="text-2xl font-bold" style={{ color: "#4f46e5" }}>{stat.value}</p>
-                  <p className="text-[10px] font-semibold mt-0.5" style={{ color: "#0d0d2b" }}>{stat.label}</p>
-                  <p className="text-[9px] mt-0.5" style={{ color: "#10b981" }}>{stat.sub}</p>
-                </div>
-              ))}
-            </div>
+            )}
           </div>
 
           {/* Achievements */}
@@ -820,7 +834,7 @@ export function MySports() {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold" style={{ color: "#0d0d2b" }}>Achievements</h3>
               <span className="text-xs font-medium px-2 py-0.5 rounded-full"
-                style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5" }}>3/6</span>
+                style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5" }}>{unlockedCount}/{achievements.length}</span>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {achievements.map((a) => (
@@ -845,12 +859,12 @@ export function MySports() {
           {/* Progress */}
           <div className="rounded-2xl p-5"
             style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
-            <h3 className="font-semibold mb-4" style={{ color: "#0d0d2b" }}>Season Progress</h3>
+            <h3 className="font-semibold mb-4" style={{ color: "#0d0d2b" }}>Activity Summary</h3>
             <div className="space-y-3">
               {[
-                { label: "Basketball", value: 73, color: "#f59e0b" },
-                { label: "Soccer", value: 50, color: "#10b981" },
-                { label: "Attendance", value: 88, color: "#6366f1" },
+                { label: "Registrations", value: Math.min(registrations.length * 20, 100), color: "#f59e0b" },
+                { label: "Teams Joined", value: Math.min(teams.length * 25, 100), color: "#10b981" },
+                { label: "Achievements", value: Math.round((unlockedCount / Math.max(achievements.length, 1)) * 100), color: "#6366f1" },
               ].map((p) => (
                 <div key={p.label}>
                   <div className="flex justify-between text-xs mb-1.5">
