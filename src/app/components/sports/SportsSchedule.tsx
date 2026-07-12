@@ -4,6 +4,7 @@ import { useParams, Link } from "react-router";
 import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, Target, Activity, CalendarIcon, Plus, Edit2, Trash2, X, Search, Trophy, Play, Check } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sportsService";
+import { sportsScheduleService, type EventListItem } from "../../../services/sportsScheduleService";
 import { venueService } from "../../../services/venueService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { SportsEvent, Venue, SportMeta } from "../../../types/api";
@@ -365,7 +366,7 @@ export function SportsSchedule() {
     if (eventId) return "Setup Schedule";
     return "Overview";
   });
-  const [allEvents, setAllEvents] = useState<SportsEvent[]>([]);
+  const [allEvents, setAllEvents] = useState<EventListItem[]>([]);
   const [myMatches, setMyMatches] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<{ totalGames: number; liveNow: number; upcoming: number; completed: number } | null>(null);
@@ -561,17 +562,17 @@ export function SportsSchedule() {
     setLoading(true);
 
     if (activeTab === "My Matches") {
-      sportsService.getMyEvents()
+      sportsScheduleService.getMyEvents()
         .then(events => {
           setMyMatches(events.map(e => ({
-            date: e.eventDateStart,
-            name: `${e.sport?.name ?? "Event"} — ${e.name}`,
-            venue: e.venue?.name ?? "TBD",
+            date: e.eventDateStart ?? "",
+            name: `${e.sportName ?? "Event"} — ${e.name}`,
+            venue: e.venueName ?? "TBD",
             status: e.registrationStatus ?? "",
             statusColor: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316",
             badges: [
               { label: e.registrationStatus ?? "", color: e.registrationStatus === "LIVE" ? "#10b981" : "#f97316" },
-              { label: e.categories?.[0]?.name ?? "General", color: "#3b82f6" }
+              { label: e.categoryName ?? "General", color: "#3b82f6" }
             ]
           })));
         })
@@ -579,7 +580,7 @@ export function SportsSchedule() {
         .finally(() => setLoading(false));
     } else if ((activeTab === "All Events" || activeTab === "Overview") && user?.communityId) {
       fetchScheduleStats();
-      const eventsPromise = sportsService.getOpenEvents(user.communityId);
+      const eventsPromise = sportsScheduleService.getOpenEvents(user.communityId);
       const configsPromise = tournamentService.getConfigs();
 
       Promise.all([eventsPromise, configsPromise])
@@ -614,8 +615,8 @@ export function SportsSchedule() {
             return {
               id: ev.id,
               name: ev.name,
-              sport: ev.sport?.name || "Other",
-              venue: ev.venue?.name || "TBD",
+              sport: ev.sportName || "Other",
+              venue: ev.venueName || "TBD",
               date: eventDate,
               time: eventTime,
               status,

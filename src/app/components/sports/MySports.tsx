@@ -24,9 +24,10 @@ import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
 import "./SportsAuction.css";
 import { sportsService } from "../../../services/sportsService";
+import { sportsScheduleService, type EventListItem, type RegistrationListItem } from "../../../services/sportsScheduleService";
 import { auctionService } from "../../../services/auctionService";
 import { communityService } from "../../../services/communityService";
-import type { SportMeta, EventRegistration, AuctionTeam, CommunityResponse } from "../../../types/api";
+import type { SportMeta, AuctionTeam, CommunityResponse } from "../../../types/api";
 
 const ALL_SPORTS = [
   { id: "cricket",     icon: "🏏", name: "Cricket" },
@@ -107,9 +108,9 @@ export function MySports() {
   const [submitting, setSubmitting] = useState(false);
 
   // Dashboard states
-  const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
+  const [registrations, setRegistrations] = useState<RegistrationListItem[]>([]);
   const [teams, setTeams] = useState<AuctionTeam[]>([]);
-  const [myMatches, setMyMatches] = useState<any[]>([]);
+  const [myMatches, setMyMatches] = useState<EventListItem[]>([]);
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
@@ -123,9 +124,9 @@ export function MySports() {
     setLoadingData(true);
     try {
       const [regs, myTeams, events, comms, sports] = await Promise.all([
-        sportsService.getMyRegistrations().catch(() => []),
+        sportsScheduleService.getMyRegistrations().catch(() => []),
         auctionService.getCaptainRegistration().catch(() => []),
-        sportsService.getMyEvents().catch(() => []),
+        sportsScheduleService.getMyEvents().catch(() => []),
         communityService.getCommunities().catch(() => []),
         sportsService.getSportsMeta().catch(() => [])
       ]);
@@ -195,12 +196,12 @@ export function MySports() {
 
   const myCommunity = communities.find(c => c.id === user?.communityId);
 
-  const sportNames = Array.from(new Set(registrations.map(r => r.event?.sport?.name).filter(Boolean))) as string[];
+  const sportNames = Array.from(new Set(registrations.map(r => r.sportName).filter(Boolean))) as string[];
 
   const stats: Record<string, { label: string; value: string; sub: string }[]> = {};
   for (const name of sportNames) {
-    const sRegs = registrations.filter(r => r.event?.sport?.name === name);
-    const sMatches = myMatches.filter(m => m.sport?.name === name);
+    const sRegs = registrations.filter(r => r.sportName === name);
+    const sMatches = myMatches.filter(m => m.sportName === name);
     const confirmed = sRegs.filter(r => r.status === "CONFIRMED" || r.status === "REGISTERED").length;
     stats[name] = [
       { label: "Registrations", value: String(sRegs.length), sub: `${confirmed} confirmed` },
@@ -358,11 +359,11 @@ export function MySports() {
                             <div key={m.id} className="p-2 sm:p-4 bg-slate-50 border border-slate-100 rounded-lg sm:rounded-xl flex items-center justify-between active:scale-[0.98] transition-all duration-150">
                               <div className="text-left space-y-0.5 sm:space-y-1">
                                 <span className="text-[8px] sm:text-[10px] bg-indigo-50 text-indigo-600 px-1.5 sm:px-2 py-0.5 rounded font-bold uppercase tracking-wider">
-                                  {m.sport?.name || "Sport"}
+                                  {m.sportName || "Sport"}
                                 </span>
                                 <h4 className="text-[11px] sm:text-sm font-bold text-slate-800">{m.name}</h4>
                                 <p className="text-[9px] sm:text-[11px] text-slate-400 flex items-center gap-1">
-                                  <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-500" /> {m.venue?.name || "TBD"}
+                                  <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-500" /> {m.venueName || "TBD"}
                                 </p>
                               </div>
                               <span className="text-[10px] sm:text-xs font-semibold text-slate-600 bg-white px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border border-slate-200/60 shadow-sm">
@@ -397,7 +398,7 @@ export function MySports() {
                             return (
                               <div key={reg.id} className="p-2 sm:p-4 bg-slate-50 border border-slate-100 rounded-lg sm:rounded-xl space-y-1.5 sm:space-y-2 active:scale-[0.98] transition-all duration-150">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">{reg.event?.sport?.name}</span>
+                                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">{reg.sportName}</span>
                                   <span className={`text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
                                     isConfirmed ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
                                     "bg-yellow-50 text-yellow-600 border border-yellow-100"
@@ -405,7 +406,7 @@ export function MySports() {
                                     {reg.status}
                                   </span>
                                 </div>
-                                <h4 className="text-[10px] sm:text-xs font-bold text-slate-800 truncate leading-snug">{reg.event?.name}</h4>
+                                <h4 className="text-[10px] sm:text-xs font-bold text-slate-800 truncate leading-snug">{reg.eventName}</h4>
                                 <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium">Registered: {reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString() : "TBD"}</p>
                               </div>
                             );
@@ -448,12 +449,12 @@ export function MySports() {
                               style={{ border: "1px solid rgba(99, 102, 241, 0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                  <div className="text-xs uppercase tracking-wider font-semibold text-indigo-600">{reg.event?.sport?.name || "Sport Event"}</div>
-                                  <h4 className="text-sm font-bold truncate mt-1 leading-snug text-slate-800">{reg.event?.name}</h4>
+                                  <div className="text-xs uppercase tracking-wider font-semibold text-indigo-600">{reg.sportName || "Sport Event"}</div>
+                                  <h4 className="text-sm font-bold truncate mt-1 leading-snug text-slate-800">{reg.eventName}</h4>
                                   <div className="flex flex-wrap items-center gap-2 mt-2">
-                                    {reg.category?.name && (
+                                    {reg.categoryName && (
                                       <span className="text-[10px] bg-indigo-500/10 text-indigo-600 px-2 py-0.5 rounded font-semibold uppercase tracking-wide">
-                                        {reg.category.name}
+                                        {reg.categoryName}
                                       </span>
                                     )}
                                     {reg.age && (
@@ -621,7 +622,7 @@ export function MySports() {
                               REGISTRATION_CLOSED: "#ea580c",
                               COMPLETED: "#818cf8",
                             };
-                            const color = statusColors[m.registrationStatus] || "#64748b";
+                            const color = statusColors[m.registrationStatus ?? ""] || "#64748b";
 
                             return (
                               <div key={m.id} className="relative flex gap-4 pb-6">
@@ -631,12 +632,12 @@ export function MySports() {
                                 </div>
                                 <div className="flex-1 min-w-0 pb-1 text-left animate-fade-in-up">
                                   <div className="text-xs text-[#6b7094] font-semibold">{m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }) : "Date TBD"}</div>
-                                  <h4 className="text-sm font-bold text-slate-800 mt-1">{m.sport?.name} — {m.name}</h4>
+                                  <h4 className="text-sm font-bold text-slate-800 mt-1">{m.sportName} — {m.name}</h4>
                                   <div className="text-xs text-[#6b7094] mt-1 flex items-center gap-1">
-                                    <MapPin className="w-3.5 h-3.5 text-indigo-500" /> {m.venue?.name || "Venue TBD"}{m.venue?.city ? `, ${m.venue.city}` : ""}
+                                    <MapPin className="w-3.5 h-3.5 text-indigo-500" /> {m.venueName || "Venue TBD"}{m.venueCity ? `, ${m.venueCity}` : ""}
                                   </div>
                                   <div className="flex gap-2 mt-2.5">
-                                    <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">{m.format || "SINGLES"}</span>
+                                    <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">{m.format?.[0] || "SINGLES"}</span>
                                     <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wide bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">{m.registrationStatus}</span>
                                   </div>
                                 </div>
