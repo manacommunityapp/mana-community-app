@@ -46,58 +46,58 @@ export function LiveMatchView({ matchId, onClose }: LiveMatchViewProps) {
   const otherInn = state.currentInnings === 1 ? state.innings2 : state.innings1;
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-slate-800 to-slate-900 px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between z-10 rounded-t-2xl">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-xs font-bold text-red-400 uppercase tracking-wider">LIVE</span>
+        <div className="sticky top-0 bg-gradient-to-r from-slate-800 to-slate-900 px-3 py-2 sm:px-6 sm:py-4 flex items-center justify-between z-10 rounded-t-xl sm:rounded-t-2xl">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1">
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-500 animate-pulse" />
+              <span className="text-[10px] sm:text-xs font-bold text-red-400 uppercase tracking-wider">LIVE</span>
             </div>
             {wsConnected ? (
-              <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+              <Wifi className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400" />
             ) : (
-              <WifiOff className="w-3.5 h-3.5 text-amber-400" />
+              <WifiOff className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400" />
             )}
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition">
-            <X className="w-5 h-5 text-white" />
+          <button onClick={onClose} className="p-1 sm:p-1.5 hover:bg-white/10 rounded-lg transition">
+            <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </button>
         </div>
 
         {/* Scoreboard */}
-        <div className="bg-gradient-to-b from-slate-800 to-slate-700 px-4 py-3 sm:px-6 sm:py-5 text-white">
+        <div className="bg-gradient-to-b from-slate-800 to-slate-700 px-3 py-2 sm:px-6 sm:py-5 text-white">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <div className="text-sm font-bold" style={{ color: state.teamAColor }}>{state.teamAName}</div>
-              <div className="text-xl sm:text-3xl font-extrabold mt-1">
+              <div className="text-[10px] sm:text-sm font-bold" style={{ color: state.teamAColor }}>{state.teamAName}</div>
+              <div className="text-lg sm:text-3xl font-extrabold mt-0.5 sm:mt-1">
                 {state.innings1.totalRuns}/{state.innings1.totalWickets}
-                <span className="text-sm font-normal text-slate-400 ml-2">({state.innings1.totalOvers} ov)</span>
+                <span className="text-[10px] sm:text-sm font-normal text-slate-400 ml-1 sm:ml-2">({state.innings1.totalOvers} ov)</span>
               </div>
             </div>
-            <div className="text-xs font-bold text-slate-500 px-4">VS</div>
+            <div className="text-[10px] sm:text-xs font-bold text-slate-500 px-2 sm:px-4">VS</div>
             <div className="flex-1 text-right">
-              <div className="text-sm font-bold" style={{ color: state.teamBColor }}>{state.teamBName}</div>
-              <div className="text-xl sm:text-3xl font-extrabold mt-1">
+              <div className="text-[10px] sm:text-sm font-bold" style={{ color: state.teamBColor }}>{state.teamBName}</div>
+              <div className="text-lg sm:text-3xl font-extrabold mt-0.5 sm:mt-1">
                 {state.innings2.totalRuns}/{state.innings2.totalWickets}
-                <span className="text-sm font-normal text-slate-400 ml-2">({state.innings2.totalOvers} ov)</span>
+                <span className="text-[10px] sm:text-sm font-normal text-slate-400 ml-1 sm:ml-2">({state.innings2.totalOvers} ov)</span>
               </div>
             </div>
           </div>
 
           {state.target && state.currentInnings === 2 && (
-            <div className="mt-3 text-center">
-              <span className="text-xs bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full font-semibold">
+            <div className="mt-2 sm:mt-3 text-center">
+              <span className="text-[9px] sm:text-xs bg-amber-500/20 text-amber-300 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full font-semibold">
                 Need {state.target - state.innings2.totalRuns} runs from {remainingBalls(state.innings2.totalOvers)} balls
               </span>
             </div>
           )}
 
-          <div className="mt-3 flex items-center justify-center gap-4 text-xs text-slate-400">
+          <div className="mt-2 sm:mt-3 flex items-center justify-center gap-3 sm:gap-4 text-[10px] sm:text-xs text-slate-400">
             <span>CRR: {inn.runRate}</span>
             {state.target && state.currentInnings === 2 && (
               <span>RRR: {requiredRunRate(state.target, state.innings2.totalRuns, state.innings2.totalOvers)}</span>
@@ -107,13 +107,13 @@ export function LiveMatchView({ matchId, onClose }: LiveMatchViewProps) {
 
         {/* This Over */}
         {inn.thisOver.length > 0 && (
-          <div className="px-4 py-2 sm:px-6 sm:py-3 bg-slate-50 border-b border-slate-100">
-            <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">This Over</div>
-            <div className="flex items-center gap-2 flex-wrap">
+          <div className="px-3 py-1.5 sm:px-6 sm:py-3 bg-slate-50 border-b border-slate-100">
+            <div className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">This Over</div>
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
               {inn.thisOver.map((ball, i) => (
                 <span
                   key={i}
-                  className={`w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-[10px] sm:text-xs font-bold ${ballColor(ball)}`}
+                  className={`w-5 h-5 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-[9px] sm:text-xs font-bold ${ballColor(ball)}`}
                 >
                   {ball}
                 </span>
@@ -122,11 +122,11 @@ export function LiveMatchView({ matchId, onClose }: LiveMatchViewProps) {
           </div>
         )}
 
-        <div className="p-3 sm:p-6 space-y-4 sm:space-y-5">
+        <div className="p-2.5 sm:p-6 space-y-3 sm:space-y-5">
           {/* Current Batters */}
           {inn.batters.filter(b => !b.isOut).length > 0 && (
             <div>
-              <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">At the Crease</div>
+              <div className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">At the Crease</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
@@ -164,7 +164,7 @@ export function LiveMatchView({ matchId, onClose }: LiveMatchViewProps) {
           {/* Current Bowler */}
           {inn.bowlers.length > 0 && (
             <div>
-              <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Bowling</div>
+              <div className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">Bowling</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
@@ -195,7 +195,7 @@ export function LiveMatchView({ matchId, onClose }: LiveMatchViewProps) {
           {/* Recent Balls */}
           {state.recentBalls.length > 0 && (
             <div>
-              <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Ball-by-Ball</div>
+              <div className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">Ball-by-Ball</div>
               <div className="space-y-1.5 max-h-48 overflow-y-auto">
                 {[...state.recentBalls].reverse().map((b) => (
                   <div key={b.id} className="flex items-center gap-2 text-xs text-slate-600 py-1 border-b border-slate-50">
@@ -222,7 +222,7 @@ export function LiveMatchView({ matchId, onClose }: LiveMatchViewProps) {
           {/* Dismissed Batters */}
           {inn.batters.filter(b => b.isOut).length > 0 && (
             <div>
-              <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-2">Dismissed</div>
+              <div className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase tracking-wider mb-1.5 sm:mb-2">Dismissed</div>
               <div className="space-y-1">
                 {inn.batters.filter(b => b.isOut).map((b) => (
                   <div key={b.playerId} className="flex items-center justify-between text-xs py-1">

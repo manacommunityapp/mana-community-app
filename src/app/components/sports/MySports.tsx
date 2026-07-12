@@ -248,7 +248,7 @@ export function MySports() {
       </aside>
 
       <main className="main-content">
-        <div className="page active space-y-6">
+        <div className="page active space-y-3 sm:space-y-6">
           <div className="page-hdr">
             <div>
               <div className="page-title">{TABS.find(t => t.id === activeTab)?.label}</div>
@@ -257,41 +257,41 @@ export function MySports() {
           </div>
 
           {/* Player Card */}
-          <div className="rounded-2xl p-4 sm:p-6 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6">
+          <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-6 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 sm:gap-6">
           {/* Left: Avatar & Info */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-2xl flex items-center justify-center text-white text-base sm:text-xl font-bold shrink-0 shadow-lg shadow-indigo-500/20"
+          <div className="flex items-center gap-2.5 sm:gap-4">
+            <div className="h-10 w-10 sm:h-16 sm:w-16 rounded-xl sm:rounded-2xl flex items-center justify-center text-white text-[11px] sm:text-xl font-bold shrink-0 shadow-lg shadow-indigo-500/20"
               style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}>
               {userInitials}
             </div>
             <div className="text-left">
-              <h2 className="font-bold text-base sm:text-xl text-[#0d0d2b] flex items-center gap-2">
+              <h2 className="font-bold text-[13px] sm:text-xl text-[#0d0d2b] flex items-center gap-2">
                 {displayName}
               </h2>
-              <p className="text-xs text-[#6b7094] mt-1">
+              <p className="text-[10px] sm:text-xs text-[#6b7094] mt-0.5 sm:mt-1">
                 <span className="font-semibold text-indigo-600">{myCommunity?.name ?? "Community Member"}</span>
               </p>
             </div>
           </div>
 
           {/* Center/Right: Stats & Action */}
-          <div className="flex flex-wrap items-center gap-4 sm:gap-8 justify-between md:justify-end flex-1">
-            <div className="flex items-center gap-4 sm:gap-8">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-8 justify-between md:justify-end flex-1">
+            <div className="flex items-center gap-3 sm:gap-8">
               {[
                 { label: "Teams", value: teams.length.toString() },
                 { label: "Registrations", value: registrations.length.toString() },
                 { label: "Matches", value: myMatches.length.toString() }
               ].map((s) => (
                 <div key={s.label} className="text-left md:text-center">
-                  <p className="font-extrabold text-base sm:text-lg text-[#0d0d2b]">{s.value}</p>
-                  <p className="text-[10px] uppercase tracking-wider font-semibold text-[#6b7094]">{s.label}</p>
+                  <p className="font-extrabold text-sm sm:text-lg text-[#0d0d2b]">{s.value}</p>
+                  <p className="text-[8px] sm:text-[10px] uppercase tracking-wider font-semibold text-[#6b7094]">{s.label}</p>
                 </div>
               ))}
             </div>
 
             <div className="shrink-0">
-              <Link to="/profile" className="inline-flex items-center justify-center px-4 py-2 rounded-xl text-xs font-bold transition-all hover:bg-indigo-500/10 active:scale-[0.98]"
+              <Link to="/profile" className="inline-flex items-center justify-center px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all hover:bg-indigo-500/10 active:scale-[0.96]"
                 style={{ background: "rgba(99,102,241,0.08)", color: "#4f46e5", border: "1px solid rgba(99,102,241,0.2)" }}>
                 Edit Profile
               </Link>
@@ -300,9 +300,9 @@ export function MySports() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-5">
         {/* Left Column: Active Tab Content */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-3 sm:space-y-5">
           {/* Active Tab Panel Content */}
           <div className="flex-1 min-w-0">
             {loadingData ? (
@@ -314,58 +314,58 @@ export function MySports() {
               <>
                 {/* ════════════ OVERVIEW TAB ════════════ */}
                 {activeTab === "overview" && (
-                  <div className="space-y-5 text-left">
+                  <div className="space-y-3 sm:space-y-5 text-left">
                     {/* Welcome banner */}
                     <div
-                      className="rounded-3xl py-3 px-5 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
+                      className="rounded-2xl sm:rounded-3xl py-2 px-3 sm:py-3 sm:px-5 text-white relative overflow-hidden shadow-lg border border-indigo-500/10"
                       style={{
                         background: "linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%)",
                       }}
                     >
                       <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
-                        <Trophy className="w-16 h-16 sm:w-28 sm:h-28 rotate-12" />
+                        <Trophy className="w-12 h-12 sm:w-28 sm:h-28 rotate-12" />
                       </div>
-                      <div className="max-w-xl relative z-10 space-y-1">
-                        <span className="px-2 py-0.5 rounded-full text-[8px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block mb-0.5">
+                      <div className="max-w-xl relative z-10 space-y-0.5 sm:space-y-1">
+                        <span className="px-1.5 py-0.5 rounded-full text-[7px] sm:text-[8px] font-bold tracking-widest uppercase bg-indigo-500/30 border border-indigo-400/20 text-indigo-200 inline-block mb-0.5">
                           My Profile
                         </span>
-                        <h2 className="text-base md:text-lg font-extrabold tracking-tight">Welcome back, {displayName}!</h2>
-                        <p className="text-[11px] text-indigo-200 leading-relaxed max-w-md">
+                        <h2 className="text-[13px] sm:text-base md:text-lg font-extrabold tracking-tight">Welcome back, {displayName}!</h2>
+                        <p className="text-[9px] sm:text-[11px] text-indigo-200 leading-relaxed max-w-md">
                           Review your upcoming fixtures, tournament standings, active team rosters, and track your achievements.
                         </p>
                       </div>
                     </div>
 
                     {/* Upcoming Matches Preview */}
-                    <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm space-y-3 sm:space-y-4">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                          <Clock className="w-4 h-4 text-indigo-500" />
+                    <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-sm space-y-2 sm:space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2 sm:pb-3">
+                        <h3 className="text-[11px] sm:text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 sm:gap-2">
+                          <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-500" />
                           Upcoming Matches
                         </h3>
-                        <button onClick={() => setActiveTab("matches")} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">
-                          View All Timeline →
+                        <button onClick={() => setActiveTab("matches")} className="text-[10px] sm:text-xs font-bold text-indigo-600 hover:text-indigo-800 active:scale-[0.95] transition">
+                          View All →
                         </button>
                       </div>
 
-                      <div className="space-y-3">
+                      <div className="space-y-2 sm:space-y-3">
                         {myMatches.length === 0 ? (
-                          <div className="text-center py-6 text-slate-400 text-xs">
+                          <div className="text-center py-4 sm:py-6 text-slate-400 text-[10px] sm:text-xs">
                             No upcoming matches found in your schedule.
                           </div>
                         ) : (
                           myMatches.slice(0, 2).map((m) => (
-                            <div key={m.id} className="p-3 sm:p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
-                              <div className="text-left space-y-1">
-                                <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider">
+                            <div key={m.id} className="p-2 sm:p-4 bg-slate-50 border border-slate-100 rounded-lg sm:rounded-xl flex items-center justify-between active:scale-[0.98] transition-all duration-150">
+                              <div className="text-left space-y-0.5 sm:space-y-1">
+                                <span className="text-[8px] sm:text-[10px] bg-indigo-50 text-indigo-600 px-1.5 sm:px-2 py-0.5 rounded font-bold uppercase tracking-wider">
                                   {m.sport?.name || "Sport"}
                                 </span>
-                                <h4 className="text-sm font-bold text-slate-800">{m.name}</h4>
-                                <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                                  <MapPin className="w-3.5 h-3.5 text-indigo-500" /> {m.venue?.name || "TBD"}
+                                <h4 className="text-[11px] sm:text-sm font-bold text-slate-800">{m.name}</h4>
+                                <p className="text-[9px] sm:text-[11px] text-slate-400 flex items-center gap-1">
+                                  <MapPin className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-indigo-500" /> {m.venue?.name || "TBD"}
                                 </p>
                               </div>
-                              <span className="text-xs font-semibold text-slate-600 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200/60 shadow-sm">
+                              <span className="text-[10px] sm:text-xs font-semibold text-slate-600 bg-white px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg border border-slate-200/60 shadow-sm">
                                 {m.eventDateStart ? new Date(m.eventDateStart).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "TBD"}
                               </span>
                             </div>
@@ -375,38 +375,38 @@ export function MySports() {
                     </div>
 
                     {/* Registrations Status Overview */}
-                    <div className="bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-sm space-y-3 sm:space-y-4">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                          <Trophy className="w-4 h-4 text-amber-500" />
+                    <div className="bg-white rounded-xl sm:rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-sm space-y-2 sm:space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2 sm:pb-3">
+                        <h3 className="text-[11px] sm:text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 sm:gap-2">
+                          <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-500" />
                           My Registrations
                         </h3>
-                        <button onClick={() => setActiveTab("tournaments")} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">
+                        <button onClick={() => setActiveTab("tournaments")} className="text-[10px] sm:text-xs font-bold text-indigo-600 hover:text-indigo-800 active:scale-[0.95] transition">
                           Manage →
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                         {registrations.length === 0 ? (
-                          <div className="col-span-2 text-center py-6 text-slate-400 text-xs">
+                          <div className="col-span-2 text-center py-4 sm:py-6 text-slate-400 text-[10px] sm:text-xs">
                             You have not registered for any tournaments.
                           </div>
                         ) : (
                           registrations.slice(0, 2).map((reg) => {
                             const isConfirmed = reg.status === "CONFIRMED" || reg.status === "REGISTERED";
                             return (
-                              <div key={reg.id} className="p-3 sm:p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-2">
+                              <div key={reg.id} className="p-2 sm:p-4 bg-slate-50 border border-slate-100 rounded-lg sm:rounded-xl space-y-1.5 sm:space-y-2 active:scale-[0.98] transition-all duration-150">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{reg.event?.sport?.name}</span>
-                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                                  <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400">{reg.event?.sport?.name}</span>
+                                  <span className={`text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
                                     isConfirmed ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
                                     "bg-yellow-50 text-yellow-600 border border-yellow-100"
                                   }`}>
                                     {reg.status}
                                   </span>
                                 </div>
-                                <h4 className="text-xs font-bold text-slate-800 truncate leading-snug">{reg.event?.name}</h4>
-                                <p className="text-[10px] text-slate-500 font-medium">Registered: {reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString() : "TBD"}</p>
+                                <h4 className="text-[10px] sm:text-xs font-bold text-slate-800 truncate leading-snug">{reg.event?.name}</h4>
+                                <p className="text-[9px] sm:text-[10px] text-slate-500 font-medium">Registered: {reg.registeredAt ? new Date(reg.registeredAt).toLocaleDateString() : "TBD"}</p>
                               </div>
                             );
                           })
@@ -790,12 +790,12 @@ export function MySports() {
         </div>
 
         {/* Right Column: Dynamic Performance Stats & Static Achievements/Progress */}
-        <div className="space-y-5">
+        <div className="space-y-3 sm:space-y-5">
           {/* My Performance */}
-          <div className="rounded-2xl p-3 sm:p-5"
+          <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-5"
             style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold" style={{ color: "#0d0d2b" }}>My Performance</h3>
+            <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+              <h3 className="font-semibold text-[11px] sm:text-base" style={{ color: "#0d0d2b" }}>My Performance</h3>
               {sportNames.length > 1 && (
                 <div className="flex rounded-xl p-1" style={{ background: "rgba(99,102,241,0.06)" }}>
                   {sportNames.map((tab) => (
@@ -815,13 +815,13 @@ export function MySports() {
                 Register for events to see your performance stats.
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 {(stats[activeStatsTab || sportNames[0]] || []).map((stat) => (
-                  <div key={stat.label} className="rounded-xl p-3 text-center"
+                  <div key={stat.label} className="rounded-lg sm:rounded-xl p-2 sm:p-3 text-center"
                     style={{ background: "rgba(99,102,241,0.04)", border: "1px solid rgba(99,102,241,0.08)" }}>
-                    <p className="text-xl sm:text-2xl font-bold" style={{ color: "#4f46e5" }}>{stat.value}</p>
-                    <p className="text-[10px] font-semibold mt-0.5" style={{ color: "#0d0d2b" }}>{stat.label}</p>
-                    {stat.sub && <p className="text-[9px] mt-0.5" style={{ color: "#10b981" }}>{stat.sub}</p>}
+                    <p className="text-base sm:text-2xl font-bold" style={{ color: "#4f46e5" }}>{stat.value}</p>
+                    <p className="text-[9px] sm:text-[10px] font-semibold mt-0.5" style={{ color: "#0d0d2b" }}>{stat.label}</p>
+                    {stat.sub && <p className="text-[8px] sm:text-[9px] mt-0.5" style={{ color: "#10b981" }}>{stat.sub}</p>}
                   </div>
                 ))}
               </div>
@@ -829,37 +829,37 @@ export function MySports() {
           </div>
 
           {/* Achievements */}
-          <div className="rounded-2xl p-3 sm:p-5"
+          <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-5"
             style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold" style={{ color: "#0d0d2b" }}>Achievements</h3>
-              <span className="text-xs font-medium px-2 py-0.5 rounded-full"
+            <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+              <h3 className="font-semibold text-[11px] sm:text-base" style={{ color: "#0d0d2b" }}>Achievements</h3>
+              <span className="text-[10px] sm:text-xs font-medium px-1.5 sm:px-2 py-0.5 rounded-full"
                 style={{ background: "rgba(99,102,241,0.1)", color: "#4f46e5" }}>{unlockedCount}/{achievements.length}</span>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {achievements.map((a) => (
-                <div key={a.id} className="rounded-xl p-3 text-center flex flex-col justify-between"
+                <div key={a.id} className="rounded-lg sm:rounded-xl p-2 sm:p-3 text-center flex flex-col justify-between"
                   style={{
                     background: a.unlocked ? `${a.color}10` : "rgba(107,112,148,0.03)",
                     border: `1px solid ${a.unlocked ? a.color + "25" : "rgba(107,112,148,0.08)"}`,
                     opacity: a.unlocked ? 1 : 0.6,
                   }}>
-                  <div className="h-7 w-7 sm:h-9 sm:w-9 rounded-xl flex items-center justify-center mx-auto mb-1.5 sm:mb-2"
+                  <div className="h-6 w-6 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl flex items-center justify-center mx-auto mb-1 sm:mb-2"
                     style={{ background: a.unlocked ? `${a.color}20` : "rgba(107,112,148,0.08)" }}>
-                    <a.icon className="h-4 w-4" style={{ color: a.unlocked ? a.color : "#9ca3af" }} />
+                    <a.icon className="h-3 w-3 sm:h-4 sm:w-4" style={{ color: a.unlocked ? a.color : "#9ca3af" }} />
                   </div>
-                  <p className="text-xs font-semibold" style={{ color: a.unlocked ? "#0d0d2b" : "#9ca3af" }}>{a.title}</p>
-                  <p className="text-[9px] mt-0.5 leading-tight" style={{ color: "#9ca3af" }}>{a.desc}</p>
-                  {a.unlocked && <CheckCircle className="h-3.5 w-3.5 mx-auto mt-1.5" style={{ color: a.color }} />}
+                  <p className="text-[10px] sm:text-xs font-semibold" style={{ color: a.unlocked ? "#0d0d2b" : "#9ca3af" }}>{a.title}</p>
+                  <p className="text-[8px] sm:text-[9px] mt-0.5 leading-tight" style={{ color: "#9ca3af" }}>{a.desc}</p>
+                  {a.unlocked && <CheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5 mx-auto mt-1 sm:mt-1.5" style={{ color: a.color }} />}
                 </div>
               ))}
             </div>
           </div>
 
           {/* Progress */}
-          <div className="rounded-2xl p-3 sm:p-5"
+          <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-5"
             style={{ background: "white", border: "1px solid rgba(99,102,241,0.12)", boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px" }}>
-            <h3 className="font-semibold mb-4" style={{ color: "#0d0d2b" }}>Activity Summary</h3>
+            <h3 className="font-semibold text-[11px] sm:text-base mb-2.5 sm:mb-4" style={{ color: "#0d0d2b" }}>Activity Summary</h3>
             <div className="space-y-3">
               {[
                 { label: "Registrations", value: Math.min(registrations.length * 20, 100), color: "#f59e0b" },
@@ -880,12 +880,12 @@ export function MySports() {
           </div>
 
           {/* Auction CTA */}
-          <div className="rounded-2xl p-3 sm:p-5 animate-pulse"
+          <div className="rounded-xl sm:rounded-2xl p-2.5 sm:p-5 animate-pulse"
             style={{ background: "linear-gradient(135deg, #f59e0b, #ef4444)", boxShadow: "0 4px 20px rgba(245,158,11,0.2)" }}>
-            <TrendingUp className="h-6 w-6 text-white opacity-85 mb-2" />
-            <h3 className="font-semibold text-white">Player Auction</h3>
-            <p className="text-xs text-white/80 mt-1 mb-3">Check active bids, player rankings, and budget usage.</p>
-            <Link to="/sports/auction" className="block w-full text-center py-2 rounded-xl text-xs font-semibold bg-white text-[#f59e0b] hover:bg-slate-50 transition-all active:scale-[0.97]">
+            <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-white opacity-85 mb-1.5 sm:mb-2" />
+            <h3 className="font-semibold text-white text-[11px] sm:text-base">Player Auction</h3>
+            <p className="text-[9px] sm:text-xs text-white/80 mt-0.5 sm:mt-1 mb-2 sm:mb-3">Check active bids, player rankings, and budget usage.</p>
+            <Link to="/sports/auction" className="block w-full text-center py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-semibold bg-white text-[#f59e0b] hover:bg-slate-50 active:scale-[0.96] transition-all">
               View Auction
             </Link>
           </div>
