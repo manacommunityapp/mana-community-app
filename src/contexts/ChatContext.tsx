@@ -36,6 +36,12 @@ interface ChatContextType {
   clearUnread: (id: string) => void;
   /** contactId is the backend user id (as a string). */
   startConversation: (contactId: string) => void;
+  /**
+   * Fetch the conversation list + contacts. Called when the chat is opened
+   * (the launcher button / the full Chat page) rather than eagerly on mount,
+   * so the two GETs only fire when the user actually opens chat.
+   */
+  loadChatData: () => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -128,7 +134,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [availableContacts, setAvailableContacts] = useState<Contact[]>([]);
-  const [loading, setLoading] = useState(true);
+  // No eager mount fetch — data loads when chat is opened (see loadChatData).
+  const [loading, setLoading] = useState(false);
 
   const currentUserId = getStoredUser()?.userId ?? null;
   // Track the active conversation inside callbacks/intervals without re-binding.
@@ -161,26 +168,24 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [currentUserId]
   );
 
-  // Initial load: conversations + contacts.
-  useEffect(() => {
-    if (!currentUserId) {
+  // On-demand load: conversations + contacts. Triggered when the user opens
+  // chat (launcher button or full Chat page), not eagerly on mount.
+  const loadChatData = useCallback(async () => {
+    if (!currentUserId) return;
+    setLoading(true);
+    try {
+      await Promise.all([
+        refreshConversations(),
+        chatService
+          .getContacts()
+          .then((contacts) => setAvailableContacts(contacts.map(mapContact)))
+          .catch(() => {
+            // ignore — contacts are non-critical
+          }),
+      ]);
+    } finally {
       setLoading(false);
-      return;
     }
-    let cancelled = false;
-    (async () => {
-      await refreshConversations();
-      try {
-        const contacts = await chatService.getContacts();
-        if (!cancelled) setAvailableContacts(contacts.map(mapContact));
-      } catch {
-        // ignore
-      }
-      if (!cancelled) setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
   }, [currentUserId, refreshConversations]);
 
   // Fallback poll — only does anything while the socket is DOWN. When STOMP is
@@ -355,6 +360,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         sendMessage,
         clearUnread,
         startConversation,
+        loadChatData,
       }}
     >
       {children}

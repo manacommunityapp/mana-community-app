@@ -1816,14 +1816,14 @@ export function useSportsAdminState() {
       eventName: "",
       startDate: "",
       endDate: "",
-      gender: "ALL",
-      playersBorn: "1900-01-01",
+      gender: "",
+      playersBorn: "",
       format: isTeam ? "TEAM" : "",
       formats: isTeam ? ["TEAM"] : [],
       minPlayers: isTeam ? String(getDefaultMinPlayers(sportName)) : "",
       maxPlayers: isTeam ? String(getDefaultMinPlayers(sportName) + 4) : "",
-      minAge: "10",
-      maxAge: "70",
+      minAge: "",
+      maxAge: "",
       tournamentType: "",
       venueId: "",
       contactName: "",
@@ -1831,7 +1831,7 @@ export function useSportsAdminState() {
       contactEmail: "",
       otherContacts: [],
       auctionEnabled: false,
-      adminApprovalRequired: true,
+      adminApprovalRequired: false,
     };
   };
 
@@ -2056,6 +2056,7 @@ export function useSportsAdminState() {
         if (!ev.eventName.trim()) { toast.error("Event Name is required"); return; }
         if (!ev.startDate || !ev.endDate) { toast.error("Start Date and End Date are required"); return; }
         if (!ev.tournamentType) { toast.error("Tournament Format is required"); return; }
+        if (!selectedTemplates[ev.id]) { toast.error("Player Category Template is required"); return; }
         if (isTeamSport(form.name)) {
           if (!ev.minPlayers || parseInt(ev.minPlayers) <= 0) { toast.error("Min Players is required"); return; }
           if (!ev.maxPlayers || parseInt(ev.maxPlayers) <= 0) { toast.error("Max Players is required"); return; }

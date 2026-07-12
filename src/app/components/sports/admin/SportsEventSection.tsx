@@ -356,17 +356,19 @@ export function SportsEventSection({
                           value={ev.eventName}
                           onChange={e => updateSportFormEvent(form.id, ev.id, "eventName", e.target.value)}
                           placeholder="Event Name"
-                          className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
+                          className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
+                            !ev.eventName.trim() ? "border-red-300" : "border-slate-200"
+                          }`}
                         />
                       </div>
 
                       {/* Start Date & End Date */}
                       <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
-                          <label className="text-xs text-slate-500 font-semibold">Start Date</label>
+                          <label className="text-xs text-slate-500 font-semibold">Start Date *</label>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button variant={"outline"} className={cn("w-full bg-white border-slate-200 hover:bg-slate-50 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-2 h-auto text-sm transition-colors shadow-sm", !ev.startDate && "text-slate-400")}>
+                              <Button variant={"outline"} className={cn("w-full bg-white hover:bg-slate-50 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-2 h-auto text-sm transition-colors shadow-sm", ev.startDate ? "border-slate-200" : "border-red-300 text-slate-400")}>
                                 <CalendarIcon className="mr-2 h-3.5 w-3.5 text-slate-400" />
                                 {ev.startDate ? format(new Date(ev.startDate), "PPP") : <span>Pick date</span>}
                               </Button>
@@ -382,10 +384,10 @@ export function SportsEventSection({
                           </Popover>
                         </div>
                         <div className="flex flex-col gap-1">
-                          <label className="text-xs text-slate-500 font-semibold">End Date</label>
+                          <label className="text-xs text-slate-500 font-semibold">End Date *</label>
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button variant={"outline"} className={cn("w-full bg-white border-slate-200 hover:bg-slate-50 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-2 h-auto text-sm transition-colors shadow-sm", !ev.endDate && "text-slate-400")}>
+                              <Button variant={"outline"} className={cn("w-full bg-white hover:bg-slate-50 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-2 h-auto text-sm transition-colors shadow-sm", ev.endDate ? "border-slate-200" : "border-red-300 text-slate-400")}>
                                 <CalendarIcon className="mr-2 h-3.5 w-3.5 text-slate-400" />
                                 {ev.endDate ? format(new Date(ev.endDate), "PPP") : <span>Pick date</span>}
                               </Button>
@@ -422,7 +424,7 @@ export function SportsEventSection({
                         </div>
                       </div>
 
-                      {/* Config Row 1: Gender & Players Born */}
+                      {/* Config Row 1: Gender & Format */}
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="text-xs text-slate-500 font-semibold block mb-1">Gender *</label>
@@ -430,8 +432,11 @@ export function SportsEventSection({
                             <select
                               value={ev.gender}
                               onChange={e => updateSportFormEvent(form.id, ev.id, "gender", e.target.value)}
-                              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none appearance-none transition-colors"
+                              className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none appearance-none transition-colors ${
+                                !ev.gender ? "border-red-300" : "border-slate-200"
+                              }`}
                             >
+                              <option value="" disabled>Select Gender...</option>
                               <option value="ALL">All Genders</option>
                               <option value="MALE">Male</option>
                               <option value="FEMALE">Female</option>
@@ -443,36 +448,16 @@ export function SportsEventSection({
                           </div>
                         </div>
                         <div>
-                          <label className="text-xs text-slate-500 font-semibold block mb-1">Players Born After *</label>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant={"outline"} className={cn("w-full bg-white border-slate-200 hover:bg-slate-50 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-2 h-auto text-sm transition-colors shadow-sm", !ev.playersBorn && "text-slate-400")}>
-                                <CalendarIcon className="mr-2 h-3.5 w-3.5 text-slate-400" />
-                                {ev.playersBorn ? format(new Date(ev.playersBorn), "PPP") : <span>Pick date</span>}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 bg-white" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={ev.playersBorn ? new Date(ev.playersBorn) : undefined}
-                                onSelect={(date) => updateSportFormEvent(form.id, ev.id, "playersBorn", date ? format(date, "yyyy-MM-dd") : "")}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </div>
-                      </div>
-
-                      {/* Config Row 2: Format & Player Category Template */}
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
                           <label className="text-xs text-slate-500 font-semibold block mb-1">Format *</label>
                           <div className="relative">
                             <select
-                              value={ev.tournamentType}
+                              value={ev.tournamentType || ""}
                               onChange={e => updateSportFormEvent(form.id, ev.id, "tournamentType", e.target.value)}
-                              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none appearance-none transition-colors"
+                              className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none appearance-none transition-colors ${
+                                !ev.tournamentType ? "border-red-300" : "border-slate-200"
+                              }`}
                             >
+                              <option value="" disabled>Select Format...</option>
                               <option value="KNOCKOUT_SINGLE">Knockout (Single Elimination)</option>
                               <option value="KNOCKOUT_DOUBLE">Double Elimination</option>
                               <option value="ROUND_ROBIN">Round Robin</option>
@@ -485,8 +470,12 @@ export function SportsEventSection({
                             </div>
                           </div>
                         </div>
+                      </div>
+
+                      {/* Config Row 2: Player Category Template & Players Born After */}
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-xs text-slate-500 font-semibold block mb-1">Player Category Template</label>
+                          <label className="text-xs text-slate-500 font-semibold block mb-1">Player Category Template *</label>
                           <Popover
                             open={openDropdownEventId === ev.id}
                             onOpenChange={(open) => setOpenDropdownEventId(open ? ev.id : null)}
@@ -496,7 +485,10 @@ export function SportsEventSection({
                                 variant="outline"
                                 role="combobox"
                                 aria-expanded={openDropdownEventId === ev.id}
-                                className="w-full bg-white border-slate-200 hover:bg-slate-50 hover:text-slate-800 text-slate-800 justify-between text-left font-normal px-3 py-2 h-auto text-sm truncate shadow-sm"
+                                className={cn(
+                                  "w-full bg-white hover:bg-slate-50 hover:text-slate-800 text-slate-800 justify-between text-left font-normal px-3 py-2 h-auto text-sm truncate shadow-sm",
+                                  selectedTemplates[ev.id] ? "border-slate-200" : "border-red-300"
+                                )}
                               >
                                 {selectedTemplates[ev.id]
                                   ? playerCategories.find((cat) => String(cat.id) === selectedTemplates[ev.id])?.name
@@ -555,6 +547,9 @@ export function SportsEventSection({
                                           }
                                           if (cat.maxAge != null) {
                                             updateSportFormEvent(form.id, ev.id, "maxAge", String(cat.maxAge));
+                                            // Auto-set "Players Born After" to Jan 1 of the oldest eligible birth year (currentYear - maxAge).
+                                            const bornAfterYear = new Date().getFullYear() - cat.maxAge;
+                                            updateSportFormEvent(form.id, ev.id, "playersBorn", `${bornAfterYear}-01-01`);
                                           }
                                           if (cat.gender) {
                                             updateSportFormEvent(form.id, ev.id, "gender", cat.gender);
@@ -594,6 +589,25 @@ export function SportsEventSection({
                             </PopoverContent>
                           </Popover>
                         </div>
+                        <div>
+                          <label className="text-xs text-slate-500 font-semibold block mb-1">Players Born After *</label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant={"outline"} className={cn("w-full bg-white hover:bg-slate-50 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-2 h-auto text-sm transition-colors shadow-sm", ev.playersBorn ? "border-slate-200" : "border-red-300 text-slate-400")}>
+                                <CalendarIcon className="mr-2 h-3.5 w-3.5 text-slate-400" />
+                                {ev.playersBorn ? format(new Date(ev.playersBorn), "PPP") : <span>Pick date</span>}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 bg-white" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={ev.playersBorn ? new Date(ev.playersBorn) : undefined}
+                                onSelect={(date) => updateSportFormEvent(form.id, ev.id, "playersBorn", date ? format(date, "yyyy-MM-dd") : "")}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                       </div>
 
                       {/* Config Row 3: Age Rules */}
@@ -605,7 +619,9 @@ export function SportsEventSection({
                             value={ev.minAge}
                             onChange={e => updateSportFormEvent(form.id, ev.id, "minAge", e.target.value)}
                             placeholder="e.g. 10"
-                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
+                            className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
+                              !ev.minAge?.trim() ? "border-red-300" : "border-slate-200"
+                            }`}
                           />
                         </div>
                         <div>
@@ -615,7 +631,9 @@ export function SportsEventSection({
                             value={ev.maxAge}
                             onChange={e => updateSportFormEvent(form.id, ev.id, "maxAge", e.target.value)}
                             placeholder="e.g. 70"
-                            className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
+                            className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
+                              !ev.maxAge?.trim() ? "border-red-300" : "border-slate-200"
+                            }`}
                           />
                         </div>
                       </div>
@@ -639,7 +657,9 @@ export function SportsEventSection({
                               </label>
                             </div>
                           </div>
-                          <div className="flex gap-2 flex-wrap">
+                          <div className={`flex gap-2 flex-wrap rounded-lg transition-colors ${
+                            !ev.formats || ev.formats.length === 0 ? "border border-red-300 p-2" : ""
+                          }`}>
                             {["SINGLES", "DOUBLES", "MIXED_DOUBLES"].map(formatType => {
                               const list = ev.formats || [];
                               const isSelected = list.includes(formatType);
@@ -678,7 +698,9 @@ export function SportsEventSection({
                               value={ev.minPlayers}
                               onChange={e => updateSportFormEvent(form.id, ev.id, "minPlayers", e.target.value)}
                               placeholder="e.g. 5"
-                              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
+                              className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
+                                !ev.minPlayers || parseInt(ev.minPlayers) <= 0 ? "border-red-300" : "border-slate-200"
+                              }`}
                             />
                           </div>
                           <div>
@@ -688,7 +710,9 @@ export function SportsEventSection({
                               value={ev.maxPlayers}
                               onChange={e => updateSportFormEvent(form.id, ev.id, "maxPlayers", e.target.value)}
                               placeholder="e.g. 11"
-                              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
+                              className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
+                                !ev.maxPlayers || parseInt(ev.maxPlayers) <= 0 ? "border-red-300" : "border-slate-200"
+                              }`}
                             />
                           </div>
                         </div>
@@ -729,7 +753,9 @@ export function SportsEventSection({
                                 updateSportFormEvent(form.id, ev.id, "contactEmail", u.email);
                               }}
                               placeholder="Type 3+ letters to search members"
-                              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
+                              className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
+                                !ev.contactName?.trim() ? "border-red-300" : "border-slate-200"
+                              }`}
                             />
                           </div>
                           <div>
@@ -739,7 +765,9 @@ export function SportsEventSection({
                               value={ev.contactNumber || ""}
                               onChange={e => updateSportFormEvent(form.id, ev.id, "contactNumber", e.target.value)}
                               placeholder="e.g. +91 9876543210"
-                              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
+                              className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
+                                !ev.contactNumber?.trim() ? "border-red-300" : "border-slate-200"
+                              }`}
                             />
                           </div>
                           <div>
@@ -749,7 +777,9 @@ export function SportsEventSection({
                               value={ev.contactEmail || ""}
                               onChange={e => updateSportFormEvent(form.id, ev.id, "contactEmail", e.target.value)}
                               placeholder="e.g. contact@tournament.com"
-                              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors"
+                              className={`w-full bg-white border rounded-lg px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 outline-none transition-colors ${
+                                !ev.contactEmail?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(ev.contactEmail.trim()) ? "border-red-300" : "border-slate-200"
+                              }`}
                             />
                           </div>
                         </div>

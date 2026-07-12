@@ -19,10 +19,16 @@ export function Chat() {
     selectConversation,
     sendMessage,
     startConversation,
+    loadChatData,
   } = useChat();
 
   const [showDetails, setShowDetails] = useState(false);
   const [showConvList, setShowConvList] = useState(true); // mobile toggle
+
+  // Load conversations + contacts when the chat page opens.
+  useEffect(() => {
+    loadChatData();
+  }, [loadChatData]);
 
   // Automatically select the first conversation if none is active on mount
   useEffect(() => {

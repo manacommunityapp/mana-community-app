@@ -17,6 +17,7 @@ export function FloatingChat() {
     selectConversation,
     sendMessage,
     startConversation,
+    loadChatData,
   } = useChat();
 
   const { user } = useAuth();
@@ -48,6 +49,8 @@ export function FloatingChat() {
   const toggleOpen = () => {
     setIsOpen((prev) => {
       const next = !prev;
+      // On open, fetch conversations + contacts (/api/chat/contacts).
+      if (next) loadChatData();
       setShowConvList(!(next && activeConvId));
       return next;
     });
