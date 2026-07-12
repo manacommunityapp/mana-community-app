@@ -16,9 +16,10 @@ export const userService = {
    *  The backend returns a PagedResponse ({ content, totalElements, ... });
    *  a large page size keeps the existing "all users" semantics, and we
    *  tolerate a raw array too for backward compatibility. */
-  async getAllUsers(): Promise<UserResponse[]> {
+  async getAllUsers(kycStatus?: string): Promise<UserResponse[]> {
+    const query = kycStatus ? `&kycStatus=${kycStatus}` : "";
     const res = await apiClient.get<UserResponse[] | { content?: UserResponse[] }>(
-      "/users?page=0&size=1000"
+      `/users?page=0&size=1000${query}`
     );
     if (Array.isArray(res)) return res;
     return res?.content ?? [];
@@ -68,5 +69,15 @@ export const userService = {
   /** GET /api/users/me */
   async getMe(): Promise<UserResponse> {
     return apiClient.get<UserResponse>("/users/me");
+  },
+
+  /** PUT /api/users/{id}/kyc */
+  async updateUserKycStatus(userId: number, status: "PENDING" | "VERIFIED" | "REJECTED"): Promise<void> {
+    return apiClient.put<void>(`/users/${userId}/kyc`, { status });
+  },
+
+  /** GET /api/users/kyc/stats */
+  async getKycStats(): Promise<{ total: number; pending: number; approved: number; rejected: number }> {
+    return apiClient.get<{ total: number; pending: number; approved: number; rejected: number }>("/users/kyc/stats");
   }
 };

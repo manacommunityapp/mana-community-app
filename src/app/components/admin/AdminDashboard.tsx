@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   ShieldCheck,
   UserCheck,
@@ -16,9 +16,14 @@ import {
   Building2,
   Trophy,
 } from "lucide-react";
-import { toast, Toaster } from "sonner";
+import { showSuccess, showError } from "../../../utils/ToastUtils";
+const toast = {
+  success: (msg: string) => showSuccess(msg),
+  error: (msg: string) => showError(msg),
+};
 import { useNavigate } from "react-router";
 import { useAuth } from "../../../contexts/AuthContext";
+import { userService } from "../../../services/userService";
 
 type VerificationStatus = "pending" | "approved" | "rejected";
 
@@ -114,42 +119,89 @@ export function AdminDashboard() {
     );
   }
 
-  const canManageCommunities = user?.role === "SUPER_ADMIN" || (user?.permissions || []).includes("Manage Communities");
-
-  const [applications, setApplications] = useState<UserApplication[]>(mockApplications);
+  const [applications, setApplications] = useState<UserApplication[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedApp, setSelectedApp] = useState<UserApplication | null>(null);
-  const [filterStatus, setFilterStatus] = useState<VerificationStatus | "all">("all");
+  const [filterStatus, setFilterStatus] = useState<VerificationStatus | "all">("pending");
+  const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 });
 
-  const filteredApplications = applications.filter(
-    (app) => filterStatus === "all" || app.status === filterStatus
-  );
+  const fetchApplications = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      let backendStatus: "PENDING" | "VERIFIED" | "REJECTED" | undefined = undefined;
+      if (filterStatus === "pending") backendStatus = "PENDING";
+      else if (filterStatus === "approved") backendStatus = "VERIFIED";
+      else if (filterStatus === "rejected") backendStatus = "REJECTED";
 
-  const stats = {
-    pending: applications.filter((a) => a.status === "pending").length,
-    approved: applications.filter((a) => a.status === "approved").length,
-    rejected: applications.filter((a) => a.status === "rejected").length,
-    total: applications.length,
+      const users = await userService.getAllUsers(backendStatus);
+      const mapped: UserApplication[] = users.map((u) => {
+        let status: VerificationStatus = "pending";
+        if (u.kycStatus === "VERIFIED") status = "approved";
+        else if (u.kycStatus === "REJECTED") status = "rejected";
+
+        return {
+          id: String(u.id),
+          fullName: u.fullName,
+          email: u.email,
+          communityType: u.communityId ? "Apartment" : "None",
+          communityCode: u.communityId ? `COMM-${u.communityId}` : "—",
+          userType: u.role === "VENDOR" ? "vendor" : "member",
+          idType: "Aadhar Card",
+          idNumber: u.phone ? `XXXX-XXXX-${u.phone.slice(-4)}` : "XXXX-XXXX-1234",
+          phoneNumber: u.phone || "—",
+          address: u.flatNo && u.block ? `${u.block}, Apt ${u.flatNo}` : "—",
+          submittedAt: "2026-07-09T10:00:00",
+          status,
+          documents: {
+            idFront: "https://images.unsplash.com/photo-1589310243389-96a5483213a8?w=400",
+            idBack: "https://images.unsplash.com/photo-1589310243389-96a5483213a8?w=400",
+            selfie: u.profilePicUrl || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400",
+          },
+        };
+      });
+      setApplications(mapped);
+
+      // Fetch stats count from the dedicated service
+      const statsData = await userService.getKycStats();
+      setStats(statsData);
+    } catch (err: any) {
+      toast.error("Failed to load applications from database");
+    } finally {
+      setLoading(false);
+    }
+  }, [filterStatus]);
+
+  useEffect(() => {
+    fetchApplications();
+  }, [fetchApplications]);
+
+  const filteredApplications = applications;
+
+  const handleApprove = async (id: string) => {
+    try {
+      await userService.updateUserKycStatus(Number(id), "VERIFIED");
+      toast.success("Application approved successfully");
+      fetchApplications();
+      setSelectedApp(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to approve application");
+    }
   };
 
-  const handleApprove = (id: string) => {
-    setApplications((prev) =>
-      prev.map((app) => (app.id === id ? { ...app, status: "approved" as VerificationStatus } : app))
-    );
-    toast.success("Application approved successfully");
-    setSelectedApp(null);
-  };
-
-  const handleReject = (id: string) => {
-    setApplications((prev) =>
-      prev.map((app) => (app.id === id ? { ...app, status: "rejected" as VerificationStatus } : app))
-    );
-    toast.error("Application rejected");
-    setSelectedApp(null);
+  const handleReject = async (id: string) => {
+    try {
+      await userService.updateUserKycStatus(Number(id), "REJECTED");
+      toast.error("Application rejected");
+      fetchApplications();
+      setSelectedApp(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to reject application");
+    }
   };
 
   return (
     <div className="space-y-6">
-      <Toaster position="top-center" richColors />
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -174,15 +226,6 @@ export function AdminDashboard() {
             <FileSpreadsheet className="w-4 h-4" />
             Bulk Upload
           </button>
-          {canManageCommunities && (
-            <button
-              onClick={() => navigate("/admin/create-community")}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm"
-            >
-              <Building2 className="w-4 h-4" />
-              Create Community
-            </button>
-          )}
           <button
             onClick={() => navigate("/admin/roles")}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm"
@@ -295,59 +338,73 @@ export function AdminDashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredApplications.map((app) => (
-                <tr key={app.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm">
-                        {app.fullName.charAt(0)}
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-slate-900">{app.fullName}</div>
-                        <div className="text-xs text-slate-500">{app.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-slate-900">{app.communityCode}</div>
-                    <div className="text-xs text-slate-500 capitalize">{app.communityType}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full capitalize">
-                      {app.userType}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                    {new Date(app.submittedAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {app.status === "pending" && (
-                      <span className="px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-700 rounded-full">
-                        Pending
-                      </span>
-                    )}
-                    {app.status === "approved" && (
-                      <span className="px-2 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
-                        Approved
-                      </span>
-                    )}
-                    {app.status === "rejected" && (
-                      <span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
-                        Rejected
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <button
-                      onClick={() => setSelectedApp(app)}
-                      className="text-indigo-600 hover:text-indigo-900 flex items-center gap-1 ml-auto"
-                    >
-                      <Eye className="w-4 h-4" />
-                      Review
-                    </button>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500 font-medium">
+                    Loading applications from database...
                   </td>
                 </tr>
-              ))}
+              ) : filteredApplications.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500 font-medium">
+                    No applications found matching the criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredApplications.map((app) => (
+                  <tr key={app.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm">
+                          {app.fullName.charAt(0)}
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-slate-900">{app.fullName}</div>
+                          <div className="text-xs text-slate-500">{app.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-slate-900">{app.communityCode}</div>
+                      <div className="text-xs text-slate-500 capitalize">{app.communityType}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full capitalize">
+                        {app.userType}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                      {new Date(app.submittedAt).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {app.status === "pending" && (
+                        <span className="px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-700 rounded-full">
+                          Pending
+                        </span>
+                      )}
+                      {app.status === "approved" && (
+                        <span className="px-2 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+                          Approved
+                        </span>
+                      )}
+                      {app.status === "rejected" && (
+                        <span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+                          Rejected
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <button
+                        onClick={() => setSelectedApp(app)}
+                        className="text-indigo-600 hover:text-indigo-900 flex items-center gap-1 ml-auto"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Review
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
