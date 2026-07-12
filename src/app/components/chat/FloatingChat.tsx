@@ -14,6 +14,7 @@ export function FloatingChat() {
     messages,
     activeConvId,
     typingStates,
+    initialize,
     selectConversation,
     sendMessage,
     startConversation,
@@ -48,6 +49,7 @@ export function FloatingChat() {
   const toggleOpen = () => {
     setIsOpen((prev) => {
       const next = !prev;
+      if (next) initialize();
       setShowConvList(!(next && activeConvId));
       return next;
     });

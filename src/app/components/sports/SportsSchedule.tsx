@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { safeStorage } from "../../../utils/storage";
 import { useParams, Link } from "react-router";
 import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, Target, Activity, CalendarIcon, Plus, Edit2, Trash2, X, Search, Trophy, Play, Check } from "lucide-react";
@@ -403,12 +403,14 @@ export function SportsSchedule() {
   const [venues, setVenues] = useState<Venue[]>([]);
   const [sportsMeta, setSportsMeta] = useState<SportMeta[]>([]);
 
+  const metaLoadedRef = useRef(false);
+  const needsMeta = activeTab === "Overview" || activeTab === "Setup Schedule" || activeTab === "Config" || activeTab === "Manual" || activeTab === "All Events";
   useEffect(() => {
-    if (user?.communityId) {
-      venueService.getVenues(user.communityId).then(setVenues).catch(() => {});
-      sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
-    }
-  }, [user?.communityId]);
+    if (!user?.communityId || metaLoadedRef.current || !needsMeta) return;
+    metaLoadedRef.current = true;
+    venueService.getVenues(user.communityId).then(setVenues).catch(() => {});
+    sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
+  }, [user?.communityId, needsMeta]);
 
   const handleFixtureSave = () => {
     if (!fixtureName.trim() || !fixtureSport || !fixtureVenue || !fixtureDate || !fixtureTime || !fixtureTeam1 || !fixtureTeam2) {
