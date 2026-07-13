@@ -267,7 +267,7 @@ export function useSportsAdminState() {
   const [selectedCommId, setSelectedCommId] = useState<number | "">("");
 
   const [eventName, setEventName] = useState("");
-  const [maxPax, setMaxPax] = useState("64");
+  const [maxPax, setMaxPax] = useState("");
 
   const [venues, setVenues] = useState<Venue[]>([]);
   const [selectedVenueId, setSelectedVenueId] = useState<number | "">("");
@@ -276,6 +276,8 @@ export function useSportsAdminState() {
   const [activeEvents, setActiveEvents] = useState<any[]>([]);
   const [activeTournaments, setActiveTournaments] = useState<any[]>([]);
   const [activatingTournament, setActivatingTournament] = useState<{ id: number; name: string } | null>(null);
+  const [activeTournamentId, setActiveTournamentId] = useState<number | null>(null);
+  const [activeTournamentName, setActiveTournamentName] = useState<string>("");
 
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
@@ -291,8 +293,8 @@ export function useSportsAdminState() {
   const [tournamentLevel, setTournamentLevel] = useState<"Standard" | "Professional" | "Premium">("Standard");
   const [description, setDescription] = useState("");
   const [allowAdminChat, setAllowAdminChat] = useState(false);
-  const [startTime, setStartTime] = useState("09:00 AM");
-  const [dueTime, setDueTime] = useState("06:00 PM");
+  const [startTime, setStartTime] = useState("");
+  const [dueTime, setDueTime] = useState("");
 
   const [globalChannels, setGlobalChannels] = useState<string[]>(["push", "email"]);
   const [previewTrigger, setPreviewTrigger] = useState<string>("2h");
@@ -1034,6 +1036,22 @@ export function useSportsAdminState() {
     refreshEvents();
   }, [refreshEvents]);
 
+  // Lazy loaders for the Sports Event sub-tabs — called when each sub-tab is opened.
+  // Fetch fresh from the APIs each time (not the ...Once guards) so opening
+  // Sports Event → Tournaments List always reloads the list data.
+  const loadTournamentsListData = useCallback(() => {
+    refreshEvents();
+    refreshTournaments();
+    eventsFetchedRef.current = true;
+    tournamentsFetchedRef.current = true;
+  }, [refreshEvents, refreshTournaments]);
+
+  const loadConfigureEventsData = useCallback(() => {
+    sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
+    sportsService.getCategories().then(setPlayerCategories).catch(() => {});
+    refreshVenues();
+  }, [refreshVenues]);
+
   useEffect(() => {
     if (hydratedTabs.current.has(activeTab)) return;
     hydratedTabs.current.add(activeTab);
@@ -1044,10 +1062,8 @@ export function useSportsAdminState() {
         refreshVenues();
         break;
       case "sports-event":
-        fetchEventsOnce();
-        fetchTournamentsOnce();
-        sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
-        sportsService.getCategories().then(setPlayerCategories).catch(() => {});
+        // Data is loaded lazily per sub-tab (see loadTournamentsListData /
+        // loadConfigureEventsData, wired through SportsEventTab).
         break;
       case "teams":
         fetchTournamentsOnce();
@@ -1263,21 +1279,7 @@ export function useSportsAdminState() {
 
   const handleSave = async () => {
     if (!eventName.trim() && !editingEventId) { toast.error("Tournament name is required"); return; }
-    if (selectedSports.length === 0) { toast.error("Select at least one sport"); return; }
     if (!startDate || !endDate) { toast.error("Dates are required"); return; }
-    for (const s of selectedSportsWithEvents) {
-      for (const e of s.events) {
-        if (!e.name.trim()) { toast.error(`Event name is required for sport: ${s.sportName}`); return; }
-        if (isTeamSport(s.sportName)) {
-          if (!e.minPlayers || e.minPlayers <= 0) { toast.error(`Valid Min Players is required for event "${e.name}" in sport ${s.sportName}`); return; }
-          if (!e.maxPlayers || e.maxPlayers <= 0) { toast.error(`Valid Max Players is required for event "${e.name}" in sport ${s.sportName}`); return; }
-          if (e.maxPlayers < e.minPlayers) { toast.error(`Max Players cannot be less than Min Players for event "${e.name}" in sport ${s.sportName}`); return; }
-        } else {
-          if (!e.format) { toast.error(`Participant Type is required for event "${e.name}" in sport ${s.sportName}`); return; }
-        }
-        if (!e.tournamentType) { toast.error(`Tournament Format is required for event "${e.name}" in sport ${s.sportName}`); return; }
-      }
-    }
     if (!eventContactName.trim()) { toast.error("Tournament Contact Name is required"); return; }
     if (!eventContactNumber.trim()) { toast.error("Tournament Contact Number is required"); return; }
     if (!eventContactEmail.trim()) { toast.error("Tournament Contact Email is required"); return; }
@@ -1385,8 +1387,14 @@ export function useSportsAdminState() {
           notifications: getNotificationPayloads(eventName),
           sportsEventIds: targetEventIds,
         };
-        await sportsService.createTournament(payload as any);
-        toast.success("Tournament created successfully!");
+        const created = await sportsService.createTournament(payload as any);
+        toast.success("Tournament created! Now add sports events to it.");
+        resetForm();
+        setActiveTournamentId(created.id);
+        setActiveTournamentName(eventName);
+        hydratedTabs.current.delete("sports-event");
+        setActiveTab("sports-event");
+        return;
       }
       resetForm();
       hydratedTabs.current.delete("sports-event");
@@ -1400,6 +1408,7 @@ export function useSportsAdminState() {
 
   const resetForm = () => {
     setEventName("");
+    setMaxPax("");
     setSelectedVenueId("");
     setStartDate(undefined);
     setEndDate(undefined);
@@ -1418,8 +1427,8 @@ export function useSportsAdminState() {
     setTournamentLevel("Standard");
     setDescription("");
     setAllowAdminChat(false);
-    setStartTime("09:00 AM");
-    setDueTime("06:00 PM");
+    setStartTime("");
+    setDueTime("");
     setEditingEventId(null);
     setSelectedEventIds([]);
     setGlobalChannels(["push", "email"]);
@@ -1427,6 +1436,16 @@ export function useSportsAdminState() {
     setExpandedTrigger(null);
     setCustomTriggers([]);
     setTriggerStates(DEFAULT_TRIGGER_STATES);
+  };
+
+  const clearTournamentContext = () => {
+    setActiveTournamentId(null);
+    setActiveTournamentName("");
+  };
+
+  const setTournamentContext = (id: number, name: string) => {
+    setActiveTournamentId(id);
+    setActiveTournamentName(name);
   };
 
   const handleEdit = (tournamentOrEvent: any) => {
@@ -1475,8 +1494,8 @@ export function useSportsAdminState() {
     setTournamentLevel(ev.tournamentLevel || "Standard");
     setDescription(ev.description || "");
     setAllowAdminChat(ev.allowAdminChat || false);
-    setStartTime(ev.startTime || "09:00 AM");
-    setDueTime(ev.dueTime || "06:00 PM");
+    setStartTime(ev.startTime || "");
+    setDueTime(ev.dueTime || "");
     if (ev.premiumNotifications && ev.premiumNotifications.length > 0) {
       const custom: any[] = [];
       const updatedDefaults = { ...triggerStates };
@@ -1519,7 +1538,42 @@ export function useSportsAdminState() {
 
   const handleActivate = (id: number) => {
     const tournament = activeTournaments.find(t => t.id === id);
-    const name = tournament?.name || "Tournament";
+    if (!tournament) return;
+
+    // 1. Validation: Check if any sports events are configured
+    const sportsEvents = tournament.sportsEvents || [];
+    if (sportsEvents.length === 0) {
+      toast.error("Cannot open for registration: No sports events are configured for this tournament. Please configure at least one event first.");
+      return;
+    }
+
+    const eventObj = tournament.event || tournament;
+    const regStartDateStr = eventObj.registrationDateStart;
+    const regEndDateStr = eventObj.registrationDateEnd;
+
+    // 2. Validation: Check if registration dates are configured
+    if (!regStartDateStr || !regEndDateStr) {
+      toast.error("Cannot open for registration: Registration start and end dates must be configured.");
+      return;
+    }
+
+    const regStartDate = new Date(regStartDateStr);
+    const regEndDate = new Date(regEndDateStr);
+    const now = new Date();
+
+    // 3. Validation: Check if registration end date has already passed
+    if (regEndDate < now) {
+      toast.error("Cannot open for registration: The registration end date has already passed. Please update the registration dates.");
+      return;
+    }
+
+    // 4. Validation: Check if start date is after end date
+    if (regEndDate < regStartDate) {
+      toast.error("Cannot open for registration: The registration end date cannot be before the start date.");
+      return;
+    }
+
+    const name = tournament.name || "Tournament";
     setActivatingTournament({ id, name });
   };
 
@@ -1816,14 +1870,14 @@ export function useSportsAdminState() {
       eventName: "",
       startDate: "",
       endDate: "",
-      gender: "ALL",
-      playersBorn: "1900-01-01",
+      gender: "",
+      playersBorn: "",
       format: isTeam ? "TEAM" : "",
       formats: isTeam ? ["TEAM"] : [],
       minPlayers: isTeam ? String(getDefaultMinPlayers(sportName)) : "",
       maxPlayers: isTeam ? String(getDefaultMinPlayers(sportName) + 4) : "",
-      minAge: "10",
-      maxAge: "70",
+      minAge: "",
+      maxAge: "",
       tournamentType: "",
       venueId: "",
       contactName: "",
@@ -1831,7 +1885,7 @@ export function useSportsAdminState() {
       contactEmail: "",
       otherContacts: [],
       auctionEnabled: false,
-      adminApprovalRequired: true,
+      adminApprovalRequired: false,
     };
   };
 
@@ -2056,6 +2110,7 @@ export function useSportsAdminState() {
         if (!ev.eventName.trim()) { toast.error("Event Name is required"); return; }
         if (!ev.startDate || !ev.endDate) { toast.error("Start Date and End Date are required"); return; }
         if (!ev.tournamentType) { toast.error("Tournament Format is required"); return; }
+        if (!selectedTemplates[ev.id]) { toast.error("Player Category Template is required"); return; }
         if (isTeamSport(form.name)) {
           if (!ev.minPlayers || parseInt(ev.minPlayers) <= 0) { toast.error("Min Players is required"); return; }
           if (!ev.maxPlayers || parseInt(ev.maxPlayers) <= 0) { toast.error("Max Players is required"); return; }
@@ -2102,6 +2157,7 @@ export function useSportsAdminState() {
           ) as any,
           auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
           adminApprovalRequired: ev.adminApprovalRequired !== false,
+          tournamentId: activeTournamentId ?? undefined,
         };
         try {
           if (form.editingSportId && eIdx === 0) {
@@ -2109,7 +2165,7 @@ export function useSportsAdminState() {
             toast.success(`Event "${payload.name}" updated successfully!`);
           } else {
             await sportsService.createSportsEvent(payload);
-            toast.success(`Event "${payload.name}" created successfully!`);
+            toast.success(`Event "${payload.name}" created${activeTournamentId ? ` under tournament` : ""}!`);
           }
           successCount++;
         } catch (err) {
@@ -2211,6 +2267,9 @@ export function useSportsAdminState() {
     getCompiledPreviewBody,
     getTournamentStartDateTime, formatINRDate,
 
+    // Tournament-first flow
+    activeTournamentId, activeTournamentName, clearTournamentContext, setTournamentContext,
+
     // Tournament data
     activeTournaments, activeEvents,
     draftEvents, liveEvents, completedEvents,
@@ -2257,6 +2316,7 @@ export function useSportsAdminState() {
     selectedTemplates, setSelectedTemplates,
     openDropdownEventId, setOpenDropdownEventId,
     searchQueries, setSearchQueries,
+    loadTournamentsListData, loadConfigureEventsData, refreshCategories,
 
     // Venues
     venues, selectedVenueId, selectedVenueDetails, loadingVenueDetails,

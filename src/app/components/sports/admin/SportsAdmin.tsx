@@ -121,6 +121,13 @@ export function SportsAdmin() {
               setOpenDropdownEventId={s.setOpenDropdownEventId}
               searchQueries={s.searchQueries}
               setSearchQueries={s.setSearchQueries}
+              onLoadList={s.loadTournamentsListData}
+              onLoadConfig={s.loadConfigureEventsData}
+              onLoadCategories={s.refreshCategories}
+              activeTournamentId={s.activeTournamentId}
+              activeTournamentName={s.activeTournamentName}
+              clearTournamentContext={s.clearTournamentContext}
+              setTournamentContext={s.setTournamentContext}
             />
           )}
 
@@ -137,11 +144,6 @@ export function SportsAdmin() {
               description={s.description}
               setDescription={s.setDescription}
               communities={s.communities}
-              activeEvents={s.activeEvents}
-              selectedEventIds={s.selectedEventIds}
-              toggleSportsEvent={s.toggleSportsEvent}
-              setConfiguringSportId={s.setConfiguringSportId}
-              setShowSportConfigModal={s.setShowSportConfigModal}
               startDate={s.startDate}
               setStartDate={s.setStartDate}
               endDate={s.endDate}
@@ -183,6 +185,10 @@ export function SportsAdmin() {
               handleSave={s.handleSave}
               resetForm={s.resetForm}
               setActiveTab={s.setActiveTab}
+              onAddEvents={(id, name) => {
+                s.setTournamentContext(id, name);
+                s.setActiveTab("sports-event");
+              }}
             />
           )}
 

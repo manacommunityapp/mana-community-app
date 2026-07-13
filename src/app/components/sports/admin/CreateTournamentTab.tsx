@@ -1,4 +1,5 @@
-import { Loader2, Plus, Edit2, Trash2, ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Plus, Trash2, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { TIME_OPTIONS } from "../../../../constants/timeOptions";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
@@ -21,11 +22,6 @@ interface CreateTournamentTabProps {
   description: string;
   setDescription: (v: string) => void;
   communities: CommunityResponse[];
-  activeEvents: any[];
-  selectedEventIds: number[];
-  toggleSportsEvent: (e: any) => void;
-  setConfiguringSportId: (id: number | null) => void;
-  setShowSportConfigModal: (v: boolean) => void;
   startDate?: Date;
   setStartDate: (v: Date | undefined) => void;
   endDate?: Date;
@@ -67,6 +63,7 @@ interface CreateTournamentTabProps {
   handleSave: () => void;
   resetForm: () => void;
   setActiveTab: (tab: any) => void;
+  onAddEvents?: (id: number, name: string) => void;
 }
 
 export function CreateTournamentTab({
@@ -81,11 +78,6 @@ export function CreateTournamentTab({
   description,
   setDescription,
   communities,
-  activeEvents,
-  selectedEventIds,
-  toggleSportsEvent,
-  setConfiguringSportId,
-  setShowSportConfigModal,
   startDate,
   setStartDate,
   endDate,
@@ -127,7 +119,9 @@ export function CreateTournamentTab({
   handleSave,
   resetForm,
   setActiveTab,
+  onAddEvents,
 }: CreateTournamentTabProps) {
+  const [openPopover, setOpenPopover] = useState<string | null>(null);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -135,7 +129,7 @@ export function CreateTournamentTab({
           <h3 className="text-xl font-bold text-slate-800">
             {editingEventId ? "Edit Tournament" : "CREATE TOURNAMENT"}
           </h3>
-          <p className="text-sm text-slate-500 mt-1">Configure tournament details and notification schedules</p>
+          <p className="text-sm text-slate-500 mt-1">{editingEventId ? "Update tournament details" : "Step 1: Create your tournament, then add sports events to it"}</p>
         </div>
         <button
           onClick={() => { resetForm(); setActiveTab("sports-event"); }}
@@ -148,6 +142,23 @@ export function CreateTournamentTab({
       <div className="max-w-5xl mx-auto">
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6 shadow-sm">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2">Tournament Details</div>
+
+          {editingEventId && onAddEvents && (
+            <div className="flex items-center justify-between bg-indigo-50/50 border border-indigo-100 rounded-xl px-4 py-3 text-left">
+              <div>
+                <span className="text-xs font-semibold text-indigo-700 block">Configure Events for this Tournament</span>
+                <span className="text-[10px] text-indigo-500 mt-0.5">Manage, add, or edit the sports events associated with this tournament.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onAddEvents(editingEventId, eventName)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition-all cursor-pointer border-none"
+                style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
+              >
+                Configure Events
+              </button>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="text-left">
@@ -193,65 +204,17 @@ export function CreateTournamentTab({
             </div>
           </div>
 
-          {/* Sports Event Settings */}
-          <div className="grid grid-cols-1 gap-6">
-            <div className="flex flex-col gap-3 border border-dashed border-indigo-200 bg-indigo-50/20 rounded-xl p-4 md:p-5 text-left">
-              <h4 className="text-indigo-600 font-bold text-sm uppercase tracking-wider">Sports Event Settings</h4>
-              <div className="flex flex-col gap-2 mt-1 max-h-52 overflow-y-auto p-1.5 border border-slate-200 rounded-lg bg-slate-50 pr-2">
-                {activeEvents.map(e => {
-                  const isSelected = selectedEventIds.includes(e.id);
-                  return (
-                    <div
-                      key={e.id}
-                      className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-lg text-xs font-semibold border transition-all ${
-                        isSelected
-                          ? "border-indigo-500 bg-indigo-50 text-indigo-600 shadow-sm"
-                          : "border-slate-200 bg-white text-slate-500 hover:border-indigo-500/30"
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleSportsEvent(e)}
-                        className="flex-1 text-left bg-transparent border-none outline-none cursor-pointer flex items-center justify-between gap-2 overflow-hidden hover:text-slate-800 transition-colors"
-                      >
-                        <span className="truncate">{e.name}</span>
-                        <span className="text-[10px] opacity-75 font-normal flex-shrink-0">({e.sport?.name || "Sport"})</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!isSelected) {
-                            toggleSportsEvent(e);
-                          }
-                          setConfiguringSportId(e.sport?.id || 0);
-                          setShowSportConfigModal(true);
-                        }}
-                        className="p-1.5 hover:bg-indigo-100 text-slate-400 hover:text-indigo-600 rounded-lg transition-all cursor-pointer bg-transparent border border-transparent hover:border-indigo-200"
-                        title="Edit Configuration"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
-                {activeEvents.length === 0 && (
-                  <div className="text-xs text-slate-400 italic p-2 text-center w-full">No active events found.</div>
-                )}
-              </div>
-            </div>
-          </div>
-
           {/* Date Pickers */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
             {([
-              { label: "Tournament Start Date", value: startDate, setter: setStartDate },
-              { label: "Tournament End Date", value: endDate, setter: setEndDate },
-              { label: "Reg Start Date", value: regStartDate, setter: setRegStartDate },
-              { label: "Reg End Date", value: regEndDate, setter: setRegEndDate },
-            ] as const).map(({ label, value, setter }) => (
+              { label: "Tournament Start Date", value: startDate, setter: setStartDate, key: "startDate" },
+              { label: "Tournament End Date", value: endDate, setter: setEndDate, key: "endDate" },
+              { label: "Reg Start Date", value: regStartDate, setter: setRegStartDate, key: "regStartDate" },
+              { label: "Reg End Date", value: regEndDate, setter: setRegEndDate, key: "regEndDate" },
+            ] as const).map(({ label, value, setter, key }) => (
               <div key={label} className="flex flex-col gap-1.5">
                 <label className="text-xs text-slate-500 font-semibold">{label}</label>
-                <Popover>
+                <Popover open={openPopover === key} onOpenChange={(open) => setOpenPopover(open ? key : null)}>
                   <PopoverTrigger asChild>
                     <Button variant={"outline"} className={cn("w-full bg-slate-50 border-slate-200 hover:bg-slate-100 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-5 transition-colors shadow-sm", !value && "text-slate-400")}>
                       <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" />
@@ -259,7 +222,15 @@ export function CreateTournamentTab({
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0 bg-white" align="start">
-                    <Calendar mode="single" selected={value} onSelect={setter} initialFocus />
+                    <Calendar
+                      mode="single"
+                      selected={value}
+                      onSelect={(val) => {
+                        setter(val);
+                        setOpenPopover(null);
+                      }}
+                      initialFocus
+                    />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -559,7 +530,7 @@ export function CreateTournamentTab({
                 boxShadow: "0 2px 10px rgba(99,102,241,0.3)"
               }}
             >
-              {submitting ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : (editingEventId ? "Update Tournament" : "Save Tournament ↗")}
+              {submitting ? <><Loader2 className="w-4 h-4 animate-spin" />Saving...</> : (editingEventId ? "Update Tournament" : "Create Tournament & Add Events →")}
             </button>
           </div>
         </div>

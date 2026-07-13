@@ -175,40 +175,40 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
   });
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-indigo-700 px-5 py-3 flex items-center justify-between z-10 rounded-t-2xl">
-          <div className="flex items-center gap-3">
-            <span className="text-sm font-bold text-white">Live Scorer</span>
-            <div className="flex items-center gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
-              <span className="text-[10px] font-bold text-red-300 uppercase">LIVE</span>
+        <div className="sticky top-0 bg-gradient-to-r from-indigo-600 to-indigo-700 px-3 py-2 sm:px-5 sm:py-3 flex items-center justify-between z-10 rounded-t-xl sm:rounded-t-2xl">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="text-[11px] sm:text-sm font-bold text-white">Live Scorer</span>
+            <div className="flex items-center gap-1">
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-red-400 animate-pulse" />
+              <span className="text-[9px] sm:text-[10px] font-bold text-red-300 uppercase">LIVE</span>
             </div>
-            {wsConnected ? <Wifi className="w-3.5 h-3.5 text-emerald-300" /> : <WifiOff className="w-3.5 h-3.5 text-amber-300" />}
+            {wsConnected ? <Wifi className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-300" /> : <WifiOff className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300" />}
           </div>
-          <button onClick={onClose} className="p-1.5 hover:bg-white/10 rounded-lg transition">
-            <X className="w-5 h-5 text-white" />
+          <button onClick={onClose} className="p-1 sm:p-1.5 hover:bg-white/10 rounded-lg transition">
+            <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </button>
         </div>
 
         {/* Mini Scoreboard */}
         {state && inn && (
-          <div className="bg-slate-800 px-5 py-3 text-white flex items-center justify-between">
+          <div className="bg-slate-800 px-3 py-2 sm:px-5 sm:py-3 text-white flex items-center justify-between">
             <div>
-              <div className="text-xs text-slate-400">{inn.battingTeamName} — Innings {inningsNumber}</div>
-              <div className="text-2xl font-extrabold">
+              <div className="text-[10px] sm:text-xs text-slate-400">{inn.battingTeamName} — Innings {inningsNumber}</div>
+              <div className="text-lg sm:text-2xl font-extrabold">
                 {inn.totalRuns}/{inn.totalWickets}
-                <span className="text-xs text-slate-400 font-normal ml-2">({inn.totalOvers} ov)</span>
+                <span className="text-[10px] sm:text-xs text-slate-400 font-normal ml-1.5 sm:ml-2">({inn.totalOvers} ov)</span>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-xs text-slate-400">CRR: {inn.runRate}</div>
+              <div className="text-[10px] sm:text-xs text-slate-400">CRR: {inn.runRate}</div>
               {state.target && inningsNumber === 2 && (
-                <div className="text-xs text-amber-400">Need {state.target - inn.totalRuns}</div>
+                <div className="text-[10px] sm:text-xs text-amber-400">Need {state.target - inn.totalRuns}</div>
               )}
             </div>
           </div>
@@ -216,25 +216,25 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
 
         {/* This Over */}
         {inn && inn.thisOver.length > 0 && (
-          <div className="px-5 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-2 flex-wrap">
-            <span className="text-[10px] text-slate-400 font-semibold uppercase mr-1">This Over:</span>
+          <div className="px-3 py-1.5 sm:px-5 sm:py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-1 sm:gap-2 flex-wrap">
+            <span className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase mr-1">This Over:</span>
             {inn.thisOver.map((ball, i) => (
-              <span key={i} className={`w-7 h-7 flex items-center justify-center rounded-full text-[10px] font-bold ${ballColor(ball)}`}>
+              <span key={i} className={`w-5 h-5 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-[9px] sm:text-[10px] font-bold ${ballColor(ball)}`}>
                 {ball}
               </span>
             ))}
           </div>
         )}
 
-        <div className="p-5 space-y-4">
+        <div className="p-2.5 sm:p-5 space-y-2.5 sm:space-y-4">
           {/* Innings Selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 font-semibold">Innings:</span>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <span className="text-[10px] sm:text-xs text-slate-500 font-semibold">Innings:</span>
             {[1, 2].map((n) => (
               <button
                 key={n}
                 onClick={() => setInningsNumber(n)}
-                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                className={`px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-semibold rounded-lg transition active:scale-[0.96] ${
                   inningsNumber === n ? "bg-indigo-100 text-indigo-700" : "text-slate-500 hover:bg-slate-100"
                 }`}
               >
@@ -244,28 +244,28 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
           </div>
 
           {/* Player Selectors */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <div>
-              <label className="text-[10px] text-slate-400 font-semibold uppercase">Striker</label>
+              <label className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase">Striker</label>
               <select value={batsmanId} onChange={(e) => setBatsmanId(Number(e.target.value))}
-                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs mt-1 outline-none focus:border-indigo-400">
+                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] sm:text-xs mt-1 outline-none focus:border-indigo-400">
                 <option value={0}>Select batter...</option>
                 {battingTeamPlayers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-[10px] text-slate-400 font-semibold uppercase">Non-Striker</label>
+              <label className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase">Non-Striker</label>
               <select value={nonStrikerId} onChange={(e) => setNonStrikerId(Number(e.target.value))}
-                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs mt-1 outline-none focus:border-indigo-400">
+                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] sm:text-xs mt-1 outline-none focus:border-indigo-400">
                 <option value={0}>Select batter...</option>
                 {battingTeamPlayers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </div>
           </div>
           <div>
-            <label className="text-[10px] text-slate-400 font-semibold uppercase">Bowler</label>
+            <label className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase">Bowler</label>
             <select value={bowlerId} onChange={(e) => setBowlerId(Number(e.target.value))}
-              className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-xs mt-1 outline-none focus:border-indigo-400">
+              className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-[10px] sm:text-xs mt-1 outline-none focus:border-indigo-400">
               <option value={0}>Select bowler...</option>
               {bowlingTeamPlayers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
@@ -273,8 +273,8 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
 
           {/* Run Buttons */}
           <div>
-            <div className="text-[10px] text-slate-400 font-semibold uppercase mb-2">Runs</div>
-            <div className="grid grid-cols-7 gap-2">
+            <div className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase mb-1.5 sm:mb-2">Runs</div>
+            <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
               {[0, 1, 2, 3, 4, 5, 6].map((r) => (
                 <button
                   key={r}
@@ -283,7 +283,7 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
                     isSix: r === 6,
                   })}
                   disabled={saving || !batsmanId || !bowlerId}
-                  className={`py-3 rounded-xl text-sm font-bold transition hover:scale-105 active:scale-95 disabled:opacity-40 ${
+                  className={`py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-[11px] sm:text-sm font-bold transition hover:scale-105 active:scale-95 disabled:opacity-40 ${
                     r === 4 ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" :
                     r === 6 ? "bg-purple-100 text-purple-700 hover:bg-purple-200" :
                     r === 0 ? "bg-slate-100 text-slate-500 hover:bg-slate-200" :
@@ -300,37 +300,37 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
           <div>
             <button
               onClick={() => setShowExtras(!showExtras)}
-              className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold hover:text-slate-700 transition"
+              className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs text-slate-500 font-semibold hover:text-slate-700 transition active:scale-[0.97]"
             >
               Extras {showExtras ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
             {showExtras && (
-              <div className="grid grid-cols-4 gap-2 mt-2">
+              <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
                 <button
                   onClick={() => recordBall(0, { extrasType: "WIDE", extrasRuns: 1 })}
                   disabled={saving || !batsmanId || !bowlerId}
-                  className="py-2.5 rounded-xl text-xs font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition disabled:opacity-40"
+                  className="py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition active:scale-95 disabled:opacity-40"
                 >
                   Wide
                 </button>
                 <button
                   onClick={() => recordBall(0, { extrasType: "NO_BALL", extrasRuns: 1 })}
                   disabled={saving || !batsmanId || !bowlerId}
-                  className="py-2.5 rounded-xl text-xs font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition disabled:opacity-40"
+                  className="py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition active:scale-95 disabled:opacity-40"
                 >
                   No Ball
                 </button>
                 <button
                   onClick={() => recordBall(0, { extrasType: "BYE", extrasRuns: 1 })}
                   disabled={saving || !batsmanId || !bowlerId}
-                  className="py-2.5 rounded-xl text-xs font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition disabled:opacity-40"
+                  className="py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition active:scale-95 disabled:opacity-40"
                 >
                   Bye
                 </button>
                 <button
                   onClick={() => recordBall(0, { extrasType: "LEG_BYE", extrasRuns: 1 })}
                   disabled={saving || !batsmanId || !bowlerId}
-                  className="py-2.5 rounded-xl text-xs font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition disabled:opacity-40"
+                  className="py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition active:scale-95 disabled:opacity-40"
                 >
                   Leg Bye
                 </button>
@@ -342,36 +342,36 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
           <div>
             <button
               onClick={() => setShowWicketPanel(!showWicketPanel)}
-              className={`w-full py-3 rounded-xl text-sm font-bold transition ${
+              className={`w-full py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-[11px] sm:text-sm font-bold transition active:scale-[0.98] ${
                 showWicketPanel ? "bg-red-600 text-white" : "bg-red-100 text-red-700 hover:bg-red-200"
               }`}
             >
               Wicket
             </button>
             {showWicketPanel && (
-              <div className="mt-3 space-y-3 bg-red-50 rounded-xl p-4 border border-red-100">
+              <div className="mt-2 sm:mt-3 space-y-2.5 sm:space-y-3 bg-red-50 rounded-lg sm:rounded-xl p-3 sm:p-4 border border-red-100">
                 <div>
-                  <label className="text-[10px] text-red-400 font-semibold uppercase">Dismissal Type</label>
+                  <label className="text-[9px] sm:text-[10px] text-red-400 font-semibold uppercase">Dismissal Type</label>
                   <select value={dismissalType} onChange={(e) => setDismissalType(e.target.value)}
-                    className="w-full border border-red-200 rounded-lg px-2 py-1.5 text-xs mt-1 outline-none focus:border-red-400">
+                    className="w-full border border-red-200 rounded-lg px-2 py-1.5 text-[10px] sm:text-xs mt-1 outline-none focus:border-red-400">
                     {["BOWLED", "CAUGHT", "LBW", "RUN_OUT", "STUMPED", "HIT_WICKET", "CAUGHT_AND_BOWLED", "RETIRED_HURT"].map((d) => (
                       <option key={d} value={d}>{d.replace(/_/g, " ")}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] text-red-400 font-semibold uppercase">Dismissed Player</label>
+                  <label className="text-[9px] sm:text-[10px] text-red-400 font-semibold uppercase">Dismissed Player</label>
                   <select value={dismissedPlayerId} onChange={(e) => setDismissedPlayerId(Number(e.target.value))}
-                    className="w-full border border-red-200 rounded-lg px-2 py-1.5 text-xs mt-1 outline-none focus:border-red-400">
+                    className="w-full border border-red-200 rounded-lg px-2 py-1.5 text-[10px] sm:text-xs mt-1 outline-none focus:border-red-400">
                     <option value={0}>Select player...</option>
                     {battingTeamPlayers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                 </div>
                 {(dismissalType === "CAUGHT" || dismissalType === "RUN_OUT" || dismissalType === "STUMPED") && (
                   <div>
-                    <label className="text-[10px] text-red-400 font-semibold uppercase">Fielder</label>
+                    <label className="text-[9px] sm:text-[10px] text-red-400 font-semibold uppercase">Fielder</label>
                     <select value={fielderId} onChange={(e) => setFielderId(Number(e.target.value))}
-                      className="w-full border border-red-200 rounded-lg px-2 py-1.5 text-xs mt-1 outline-none focus:border-red-400">
+                      className="w-full border border-red-200 rounded-lg px-2 py-1.5 text-[10px] sm:text-xs mt-1 outline-none focus:border-red-400">
                       <option value={0}>Select fielder...</option>
                       {bowlingTeamPlayers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
@@ -385,7 +385,7 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
                     fielderId: fielderId || undefined,
                   })}
                   disabled={saving || !batsmanId || !bowlerId}
-                  className="w-full py-2.5 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition disabled:opacity-40"
+                  className="w-full py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition active:scale-[0.98] disabled:opacity-40"
                 >
                   {saving ? "Recording..." : "Confirm Wicket"}
                 </button>
@@ -394,13 +394,13 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
           </div>
 
           {/* Undo */}
-          <div className="flex items-center gap-3 pt-2 border-t border-slate-100">
+          <div className="flex items-center gap-2 sm:gap-3 pt-2 border-t border-slate-100">
             <button
               onClick={handleUndo}
               disabled={saving}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-slate-500 bg-slate-100 rounded-xl hover:bg-slate-200 transition disabled:opacity-40"
+              className="flex items-center gap-1 sm:gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-semibold text-slate-500 bg-slate-100 rounded-lg sm:rounded-xl hover:bg-slate-200 transition active:scale-[0.96] disabled:opacity-40"
             >
-              <Undo2 className="w-3.5 h-3.5" />
+              <Undo2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               Undo Last Ball
             </button>
             <button
@@ -409,7 +409,7 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
                 setBatsmanId(nonStrikerId);
                 setNonStrikerId(temp);
               }}
-              className="px-4 py-2 text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-xl hover:bg-indigo-100 transition"
+              className="px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-semibold text-indigo-600 bg-indigo-50 rounded-lg sm:rounded-xl hover:bg-indigo-100 transition active:scale-[0.96]"
             >
               Swap Batsmen
             </button>

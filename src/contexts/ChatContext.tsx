@@ -31,6 +31,8 @@ interface ChatContextType {
   /** Kept for API compatibility with the UI (server chat has no typing yet). */
   typingStates: Record<string, boolean>;
   loading: boolean;
+  /** Call once to hydrate conversations/contacts and start real-time listeners. */
+  initialize: () => void;
   selectConversation: (id: string | null) => void;
   sendMessage: (text: string) => void;
   clearUnread: (id: string) => void;
@@ -128,12 +130,23 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [availableContacts, setAvailableContacts] = useState<Contact[]>([]);
-  const [loading, setLoading] = useState(true);
+  // No eager mount fetch — everything hydrates when the chat is opened (see initialize()).
+  const [loading, setLoading] = useState(false);
 
   const currentUserId = getStoredUser()?.userId ?? null;
   // Track the active conversation inside callbacks/intervals without re-binding.
   const activeConvRef = useRef<string | null>(null);
   activeConvRef.current = activeConvId;
+
+  const initializedRef = useRef(false);
+  const [initialized, setInitialized] = useState(false);
+
+  const initialize = useCallback(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    setLoading(true);
+    setInitialized(true);
+  }, []);
 
   const refreshConversations = useCallback(async () => {
     if (!currentUserId) return;
@@ -161,10 +174,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [currentUserId]
   );
 
-  // Initial load: conversations + contacts.
+  // Initial load: conversations + contacts — only after initialize() is called.
   useEffect(() => {
-    if (!currentUserId) {
-      setLoading(false);
+    if (!initialized || !currentUserId) {
       return;
     }
     let cancelled = false;
@@ -181,13 +193,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [currentUserId, refreshConversations]);
+  }, [initialized, currentUserId, refreshConversations]);
 
-  // Fallback poll — only does anything while the socket is DOWN. When STOMP is
-  // connected this fires and immediately returns, so steady-state idle traffic
-  // is zero; if the socket drops it recovers state within one interval.
+  // Fallback poll — only after chat is initialized.
   useEffect(() => {
-    if (!currentUserId) return;
+    if (!initialized || !currentUserId) return;
     const timer = setInterval(() => {
       if (stompClient.connected) return;
       refreshConversations();
@@ -195,19 +205,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (active) loadMessages(active);
     }, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [currentUserId, refreshConversations, loadMessages]);
+  }, [initialized, currentUserId, refreshConversations, loadMessages]);
 
-  // On every (re)connect, fetch once to catch up on anything missed while the
-  // socket was establishing or briefly down. Costs one GET per connect (rare).
+  // On every (re)connect, fetch once — only after chat is initialized.
   useEffect(() => {
-    if (!currentUserId) return;
+    if (!initialized || !currentUserId) return;
     const unsub = stompClient.onConnect(() => {
       refreshConversations();
       const active = activeConvRef.current;
       if (active) loadMessages(active);
     });
     return unsub;
-  }, [currentUserId, refreshConversations, loadMessages]);
+  }, [initialized, currentUserId, refreshConversations, loadMessages]);
 
   // Append a message into a thread, de-duplicating by id. Both the optimistic
   // local echo and the STOMP broadcast of the same message flow through here.
@@ -227,10 +236,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ── Real-time: update the conversation list in place on any new message. ──
-  // No HTTP — the event carries last message + sender. Only a message in a
-  // thread we don't have yet triggers a one-off refetch to materialise it.
   useEffect(() => {
-    if (!currentUserId) return;
+    if (!initialized || !currentUserId) return;
     const unsub = stompClient.subscribe(
       `/topic/chat-user/${currentUserId}`,
       (body) => {
@@ -268,12 +275,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
     );
     return unsub;
-  }, [currentUserId, refreshConversations]);
+  }, [initialized, currentUserId, refreshConversations]);
 
   // ── Real-time: stream messages for the conversation currently open. ──
-  // Appends locally (deduped); unread is reset by the list handler above.
   useEffect(() => {
-    if (!currentUserId || !activeConvId) return;
+    if (!initialized || !currentUserId || !activeConvId) return;
     const unsub = stompClient.subscribe(
       `/topic/conversation/${activeConvId}`,
       (body) => {
@@ -351,6 +357,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         availableContacts,
         typingStates: {},
         loading,
+        initialize,
         selectConversation,
         sendMessage,
         clearUnread,

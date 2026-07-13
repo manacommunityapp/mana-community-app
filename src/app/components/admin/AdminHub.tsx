@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -511,7 +511,14 @@ function ModulesTab() {
   const loadModules = async (communityId: number) => {
     try {
       const modules = await communityService.getCommunityModules(communityId);
-      setEnabledModules(modules.filter((m) => m.isEnabled).map((m) => m.moduleKey));
+      // A community that was never initialized has no module rows. The backend
+      // access gate treats "no rows" as all-enabled, so mirror that here rather
+      // than showing every module as OFF (which would let a Save mass-disable them).
+      if (modules.length === 0) {
+        setEnabledModules(ALL_MODULES.map((m) => m.key));
+      } else {
+        setEnabledModules(modules.filter((m) => m.isEnabled).map((m) => m.moduleKey));
+      }
     } catch {
       const community = communities.find((c) => c.id === communityId);
       setEnabledModules(community?.enabledModules || []);
@@ -557,6 +564,8 @@ function ModulesTab() {
         isEnabled: enabledModules.includes(m.key),
       }));
       await communityService.bulkUpdateModules(selectedCommunityId, toggles);
+      // Reload from the server so the UI reflects the persisted state (confirms the save).
+      await loadModules(selectedCommunityId);
       toast.success("Community modules updated successfully");
     } catch (err: any) {
       toast.error(err?.message || "Failed to update modules");
@@ -578,8 +587,8 @@ function ModulesTab() {
   return (
     <div className="space-y-6 animate-fade-in-up stagger-1">
       {/* Community Selector */}
-      <div className="bg-card border border-border rounded-2xl p-5 shadow-lg">
-        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-card border border-border rounded-2xl p-5 shadow-lg">
+        <h3 className="font-semibold text-foreground flex items-center gap-2">
           <Building2 className="h-4 w-4 text-primary" />
           Select Community
         </h3>
@@ -650,7 +659,7 @@ function ModulesTab() {
             })}
           </div>
 
-          <div className="flex items-center justify-between mt-5 pt-4 border-t border-border">
+          <div className="flex items-center justify-center gap-6 mt-5 pt-4 border-t border-border">
             <p className="text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">{enabledModules.length}</span> of {ALL_MODULES.length} modules enabled
             </p>
@@ -733,9 +742,27 @@ export function AdminHub() {
     }
   }, [user?.communityId]);
 
+  const hydratedRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
-    fetchOverview();
-  }, [fetchOverview]);
+    if (activeTab === "overview" && !hydratedRef.current.has("overview")) {
+      hydratedRef.current.add("overview");
+      fetchOverview();
+    }
+    if (activeTab === "users" && !hydratedRef.current.has("users") && !hydratedRef.current.has("overview")) {
+      hydratedRef.current.add("users");
+      setUsersLoading(true);
+      userService.getAllUsers()
+        .then(allUsers => {
+          let list: UserResponse[] = [];
+          if (Array.isArray(allUsers)) list = allUsers;
+          else if (typeof allUsers === "object" && Array.isArray((allUsers as any).content)) list = (allUsers as any).content;
+          setUsers(list);
+        })
+        .catch(() => {})
+        .finally(() => setUsersLoading(false));
+    }
+  }, [activeTab, fetchOverview]);
 
   if (!isAdmin) {
     return (

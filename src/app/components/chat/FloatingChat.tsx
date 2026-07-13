@@ -14,6 +14,7 @@ export function FloatingChat() {
     messages,
     activeConvId,
     typingStates,
+    initialize,
     selectConversation,
     sendMessage,
     startConversation,
@@ -48,6 +49,8 @@ export function FloatingChat() {
   const toggleOpen = () => {
     setIsOpen((prev) => {
       const next = !prev;
+      // On open, hydrate conversations + contacts (/api/chat/contacts) and start real-time listeners.
+      if (next) initialize();
       setShowConvList(!(next && activeConvId));
       return next;
     });
