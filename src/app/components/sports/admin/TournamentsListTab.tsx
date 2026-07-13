@@ -25,6 +25,10 @@ interface TournamentsListTabProps {
   setSelectedEventIdForImport: (id: number) => void;
   setShowImportModal: (show: boolean) => void;
   setImportStep: (step: number) => void;
+  activeTournamentId?: number | null;
+  setTournamentContext?: (id: number, name: string) => void;
+  clearTournamentContext?: () => void;
+  onGoToConfigureEvents?: () => void;
 }
 
 /** "Tournaments List" sub-tab of the Sports Event screen. */
@@ -51,7 +55,12 @@ export function TournamentsListTab({
   setSelectedEventIdForImport,
   setShowImportModal,
   setImportStep,
+  activeTournamentId,
+  setTournamentContext,
+  clearTournamentContext,
+  onGoToConfigureEvents,
 }: TournamentsListTabProps) {
+  const allTournaments = [...draftEvents, ...liveEvents, ...completedEvents];
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

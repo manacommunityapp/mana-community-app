@@ -1443,6 +1443,11 @@ export function useSportsAdminState() {
     setActiveTournamentName("");
   };
 
+  const setTournamentContext = (id: number, name: string) => {
+    setActiveTournamentId(id);
+    setActiveTournamentName(name);
+  };
+
   const handleEdit = (tournamentOrEvent: any) => {
     const ev = tournamentOrEvent.event
       ? {
@@ -1533,7 +1538,42 @@ export function useSportsAdminState() {
 
   const handleActivate = (id: number) => {
     const tournament = activeTournaments.find(t => t.id === id);
-    const name = tournament?.name || "Tournament";
+    if (!tournament) return;
+
+    // 1. Validation: Check if any sports events are configured
+    const sportsEvents = tournament.sportsEvents || [];
+    if (sportsEvents.length === 0) {
+      toast.error("Cannot open for registration: No sports events are configured for this tournament. Please configure at least one event first.");
+      return;
+    }
+
+    const eventObj = tournament.event || tournament;
+    const regStartDateStr = eventObj.registrationDateStart;
+    const regEndDateStr = eventObj.registrationDateEnd;
+
+    // 2. Validation: Check if registration dates are configured
+    if (!regStartDateStr || !regEndDateStr) {
+      toast.error("Cannot open for registration: Registration start and end dates must be configured.");
+      return;
+    }
+
+    const regStartDate = new Date(regStartDateStr);
+    const regEndDate = new Date(regEndDateStr);
+    const now = new Date();
+
+    // 3. Validation: Check if registration end date has already passed
+    if (regEndDate < now) {
+      toast.error("Cannot open for registration: The registration end date has already passed. Please update the registration dates.");
+      return;
+    }
+
+    // 4. Validation: Check if start date is after end date
+    if (regEndDate < regStartDate) {
+      toast.error("Cannot open for registration: The registration end date cannot be before the start date.");
+      return;
+    }
+
+    const name = tournament.name || "Tournament";
     setActivatingTournament({ id, name });
   };
 
@@ -2228,7 +2268,7 @@ export function useSportsAdminState() {
     getTournamentStartDateTime, formatINRDate,
 
     // Tournament-first flow
-    activeTournamentId, activeTournamentName, clearTournamentContext,
+    activeTournamentId, activeTournamentName, clearTournamentContext, setTournamentContext,
 
     // Tournament data
     activeTournaments, activeEvents,

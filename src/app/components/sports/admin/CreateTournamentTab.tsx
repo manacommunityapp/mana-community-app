@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Loader2, Plus, Trash2, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 import { TIME_OPTIONS } from "../../../../constants/timeOptions";
@@ -60,8 +61,8 @@ interface CreateTournamentTabProps {
   setShowNotificationModal: (v: boolean) => void;
   submitting: boolean;
   handleSave: () => void;
-  resetForm: () => void;
   setActiveTab: (tab: any) => void;
+  onAddEvents?: (id: number, name: string) => void;
 }
 
 export function CreateTournamentTab({
@@ -117,7 +118,9 @@ export function CreateTournamentTab({
   handleSave,
   resetForm,
   setActiveTab,
+  onAddEvents,
 }: CreateTournamentTabProps) {
+  const [openPopover, setOpenPopover] = useState<string | null>(null);
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -138,6 +141,23 @@ export function CreateTournamentTab({
       <div className="max-w-5xl mx-auto">
         <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-6 shadow-sm">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-widest border-b border-slate-200 pb-2">Tournament Details</div>
+
+          {editingEventId && onAddEvents && (
+            <div className="flex items-center justify-between bg-indigo-50/50 border border-indigo-100 rounded-xl px-4 py-3 text-left">
+              <div>
+                <span className="text-xs font-semibold text-indigo-700 block">Configure Events for this Tournament</span>
+                <span className="text-[10px] text-indigo-500 mt-0.5">Manage, add, or edit the sports events associated with this tournament.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => onAddEvents(editingEventId, eventName)}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition-all cursor-pointer border-none"
+                style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
+              >
+                Configure Events
+              </button>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="text-left">
@@ -186,14 +206,14 @@ export function CreateTournamentTab({
           {/* Date Pickers */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
             {([
-              { label: "Tournament Start Date", value: startDate, setter: setStartDate },
-              { label: "Tournament End Date", value: endDate, setter: setEndDate },
-              { label: "Reg Start Date", value: regStartDate, setter: setRegStartDate },
-              { label: "Reg End Date", value: regEndDate, setter: setRegEndDate },
-            ] as const).map(({ label, value, setter }) => (
+              { label: "Tournament Start Date", value: startDate, setter: setStartDate, key: "startDate" },
+              { label: "Tournament End Date", value: endDate, setter: setEndDate, key: "endDate" },
+              { label: "Reg Start Date", value: regStartDate, setter: setRegStartDate, key: "regStartDate" },
+              { label: "Reg End Date", value: regEndDate, setter: setRegEndDate, key: "regEndDate" },
+            ] as const).map(({ label, value, setter, key }) => (
               <div key={label} className="flex flex-col gap-1.5">
                 <label className="text-xs text-slate-500 font-semibold">{label}</label>
-                <Popover>
+                <Popover open={openPopover === key} onOpenChange={(open) => setOpenPopover(open ? key : null)}>
                   <PopoverTrigger asChild>
                     <Button variant={"outline"} className={cn("w-full bg-slate-50 border-slate-200 hover:bg-slate-100 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-5 transition-colors shadow-sm", !value && "text-slate-400")}>
                       <CalendarIcon className="mr-2 h-4 w-4 text-slate-400" />
@@ -201,7 +221,15 @@ export function CreateTournamentTab({
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0 bg-white" align="start">
-                    <Calendar mode="single" selected={value} onSelect={setter} initialFocus />
+                    <Calendar
+                      mode="single"
+                      selected={value}
+                      onSelect={(val) => {
+                        setter(val);
+                        setOpenPopover(null);
+                      }}
+                      initialFocus
+                    />
                   </PopoverContent>
                 </Popover>
               </div>

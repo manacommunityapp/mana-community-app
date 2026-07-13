@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
@@ -44,6 +45,14 @@ export function TournamentSection({
   loadingRegs, onConfirmRegistration, onRejectRegistration, onConfirmCaptain,
   onAddParticipant, onImportParticipants,
 }: TournamentSectionProps) {
+  const [expandedTournamentIds, setExpandedTournamentIds] = useState<Record<number, boolean>>({});
+
+  const toggleEvents = (tournamentId: number) => {
+    setExpandedTournamentIds(prev => ({
+      ...prev,
+      [tournamentId]: !prev[tournamentId]
+    }));
+  };
 
   const hasRegistrationButtons = !!(onViewPlayers || onViewCaptains);
 
@@ -265,6 +274,7 @@ export function TournamentSection({
         {events.map(item => {
           // ── Multi-event tournaments (nested sportsEvents array) ──
           if (item.sportsEvents && item.sportsEvents.length > 0) {
+            const isExpanded = expandedTournamentIds[item.id] !== false;
             return (
               <div key={item.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
                 {/* Tournament header */}
@@ -283,6 +293,16 @@ export function TournamentSection({
                         Open for Registration
                       </button>
                     )}
+                    <button
+                      onClick={() => toggleEvents(item.id)}
+                      className={`text-[10px] px-2 py-1.5 border rounded-lg transition-colors cursor-pointer ${
+                        isExpanded
+                          ? "bg-indigo-50 border-indigo-200 text-indigo-600 font-semibold"
+                          : "border-slate-200 text-slate-500 hover:border-indigo-500 hover:text-indigo-600"
+                      }`}
+                    >
+                      Events ({item.sportsEvents.length})
+                    </button>
                     <button onClick={() => onEdit(item)} className="text-[10px] px-2 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">
                       Edit
                     </button>
@@ -293,45 +313,47 @@ export function TournamentSection({
                 </div>
 
                 {/* Nested sports events */}
-                <div className="space-y-3 pl-3.5 border-l-2 border-slate-200 mt-2">
-                  {item.sportsEvents.map((ev: any) => {
-                    const registrationStatus = ev.registrationStatus || ev.status;
-                    return (
-                      <div key={ev.id} className="space-y-2">
-                        <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200/60 shadow-sm">
-                          <div className="min-w-0 flex-1 text-left">
-                            <div className="text-xs font-semibold text-slate-800">{ev.name}</div>
-                            <div className="text-[9px] text-slate-500 flex items-center gap-2 mt-0.5">
-                              {ev.gender && <span>Gender: {ev.gender}</span>}
-                              {ev.minAge && ev.maxAge && <span>Age: {ev.minAge}–{ev.maxAge}</span>}
-                              {ev.maxParticipants && <span>Max Participants: {ev.maxParticipants}</span>}
+                {isExpanded && (
+                  <div className="space-y-3 pl-3.5 border-l-2 border-slate-200 mt-2">
+                    {item.sportsEvents.map((ev: any) => {
+                      const registrationStatus = ev.registrationStatus || ev.status;
+                      return (
+                        <div key={ev.id} className="space-y-2">
+                          <div className="flex items-center justify-between p-2.5 bg-white rounded-lg border border-slate-200/60 shadow-sm">
+                            <div className="min-w-0 flex-1 text-left">
+                              <div className="text-xs font-semibold text-slate-800">{ev.name}</div>
+                              <div className="text-[9px] text-slate-500 flex items-center gap-2 mt-0.5">
+                                {ev.gender && <span>Gender: {ev.gender}</span>}
+                                {ev.minAge && ev.maxAge && <span>Age: {ev.minAge}–{ev.maxAge}</span>}
+                                {ev.maxParticipants && <span>Max Participants: {ev.maxParticipants}</span>}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {registrationStatus && (
+                                <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                                  registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN"
+                                    ? "bg-green-500/20 text-[#10b981]"
+                                    : registrationStatus === "COMPLETED"
+                                    ? "bg-blue-500/20 text-[#3b82f6]"
+                                    : "bg-[#f97316]/20 text-[#f97316]"
+                                }`}>
+                                  {registrationStatus}
+                                </span>
+                              )}
+                              {hasRegistrationButtons && (
+                                <>
+                                  <PlayersBtn evId={ev.id} size="xs" />
+                                  <CaptainsBtn evId={ev.id} sportName={ev.sport?.name || ""} size="xs" />
+                                </>
+                              )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {registrationStatus && (
-                              <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
-                                registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN"
-                                  ? "bg-green-500/20 text-[#10b981]"
-                                  : registrationStatus === "COMPLETED"
-                                  ? "bg-blue-500/20 text-[#3b82f6]"
-                                  : "bg-[#f97316]/20 text-[#f97316]"
-                              }`}>
-                                {registrationStatus}
-                              </span>
-                            )}
-                            {hasRegistrationButtons && (
-                              <>
-                                <PlayersBtn evId={ev.id} size="xs" />
-                                <CaptainsBtn evId={ev.id} sportName={ev.sport?.name || ""} size="xs" />
-                              </>
-                            )}
-                          </div>
+                          {hasRegistrationButtons && viewingEventId === ev.id && renderRegistrationPanel(ev)}
                         </div>
-                        {hasRegistrationButtons && viewingEventId === ev.id && renderRegistrationPanel(ev)}
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           }

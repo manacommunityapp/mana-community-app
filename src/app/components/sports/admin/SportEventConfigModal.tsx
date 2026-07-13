@@ -47,6 +47,7 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
   const [selectedTemplates, setSelectedTemplates] = React.useState<Record<string, string>>({});
   const [openDropdownEventId, setOpenDropdownEventId] = React.useState<string | null>(null);
   const [searchQueries, setSearchQueries] = React.useState<Record<string, string>>({});
+  const [openDatePickerId, setOpenDatePickerId] = React.useState<string | null>(null);
 
   if (!isOpen || configuringSportId === null) return null;
 
@@ -292,7 +293,7 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
                   {/* Players Born */}
                   <div className="flex flex-col gap-1 text-left">
                     <label className="text-xs text-slate-500 font-semibold">Players Born After</label>
-                    <Popover>
+                    <Popover open={openDatePickerId === ev.id} onOpenChange={(open) => setOpenDatePickerId(open ? ev.id : null)}>
                       <PopoverTrigger asChild>
                         <Button variant={"outline"} className={cn("w-full bg-white border-slate-200 hover:bg-slate-50 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-2 h-auto text-sm transition-colors shadow-sm", !ev.playersBorn && "text-slate-400")}>
                           <CalendarIcon className="mr-2 h-3.5 w-3.5 text-slate-400" />
@@ -303,7 +304,10 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
                         <Calendar
                           mode="single"
                           selected={ev.playersBorn ? new Date(ev.playersBorn) : undefined}
-                          onSelect={(date) => updateEventField(configuringSport.sportId, ev.id, "playersBorn", date ? format(date, "yyyy-MM-dd") : "")}
+                          onSelect={(date) => {
+                            updateEventField(configuringSport.sportId, ev.id, "playersBorn", date ? format(date, "yyyy-MM-dd") : "");
+                            setOpenDatePickerId(null);
+                          }}
                           initialFocus
                         />
                       </PopoverContent>

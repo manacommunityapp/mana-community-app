@@ -127,6 +127,7 @@ export function SportsAdmin() {
               activeTournamentId={s.activeTournamentId}
               activeTournamentName={s.activeTournamentName}
               clearTournamentContext={s.clearTournamentContext}
+              setTournamentContext={s.setTournamentContext}
             />
           )}
 
@@ -184,6 +185,10 @@ export function SportsAdmin() {
               handleSave={s.handleSave}
               resetForm={s.resetForm}
               setActiveTab={s.setActiveTab}
+              onAddEvents={(id, name) => {
+                s.setTournamentContext(id, name);
+                s.setActiveTab("sports-event");
+              }}
             />
           )}
 

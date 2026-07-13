@@ -69,6 +69,7 @@ interface SportsEventTabProps {
   activeTournamentId?: number | null;
   activeTournamentName?: string;
   clearTournamentContext?: () => void;
+  setTournamentContext?: (id: number, name: string) => void;
 }
 
 export function SportsEventTab({
@@ -133,6 +134,7 @@ export function SportsEventTab({
   activeTournamentId,
   activeTournamentName,
   clearTournamentContext,
+  setTournamentContext,
 }: SportsEventTabProps) {
   const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">(
     activeTournamentId ? "config" : "list"
@@ -188,8 +190,16 @@ export function SportsEventTab({
           Tournaments List
         </button>
         <button
+          disabled={!activeTournamentId}
           onClick={() => setSportsEventSubTab("config")}
-          className={`pb-2.5 text-sm font-semibold border-b-2 transition-all cursor-pointer ${sportsEventSubTab === "config" ? "border-indigo-600 text-indigo-600 font-bold" : "border-transparent text-slate-500 hover:text-indigo-600"}`}
+          className={`pb-2.5 text-sm font-semibold border-b-2 transition-all ${
+            !activeTournamentId
+              ? "border-transparent text-slate-300 cursor-not-allowed"
+              : sportsEventSubTab === "config"
+              ? "border-indigo-600 text-indigo-600 font-bold cursor-pointer"
+              : "border-transparent text-slate-500 hover:text-indigo-600 cursor-pointer"
+          }`}
+          title={!activeTournamentId ? "Select a tournament first to configure events" : ""}
         >
           Configure Events
         </button>
@@ -219,6 +229,10 @@ export function SportsEventTab({
           setSelectedEventIdForImport={setSelectedEventIdForImport}
           setShowImportModal={setShowImportModal}
           setImportStep={setImportStep}
+          activeTournamentId={activeTournamentId}
+          setTournamentContext={setTournamentContext}
+          clearTournamentContext={clearTournamentContext}
+          onGoToConfigureEvents={() => setSportsEventSubTab("config")}
         />
       ) : (
         <ConfigureEventsTab
