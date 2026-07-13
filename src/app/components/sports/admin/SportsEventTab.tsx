@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Plus, Trophy, X } from "lucide-react";
 import { TournamentSection } from "./TournamentSection";
 import { SportsEventSection } from "./SportsEventSection";
 import type { PlayerCategory, SportsEvent, Venue, SportMeta, TournamentRegistration, AuctionTeam } from "../../../../types/api";
@@ -60,6 +60,9 @@ interface SportsEventTabProps {
   setOpenDropdownEventId: any;
   searchQueries: Record<string, string>;
   setSearchQueries: any;
+  activeTournamentId?: number | null;
+  activeTournamentName?: string;
+  clearTournamentContext?: () => void;
 }
 
 export function SportsEventTab({
@@ -118,11 +121,48 @@ export function SportsEventTab({
   setOpenDropdownEventId,
   searchQueries,
   setSearchQueries,
+  activeTournamentId,
+  activeTournamentName,
+  clearTournamentContext,
 }: SportsEventTabProps) {
-  const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
+  const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">(
+    activeTournamentId ? "config" : "list"
+  );
+
+  useEffect(() => {
+    if (activeTournamentId) {
+      setSportsEventSubTab("config");
+      setShowSportPicker(true);
+    }
+  }, [activeTournamentId, setShowSportPicker]);
 
   return (
     <div className="space-y-6">
+      {/* Tournament context banner */}
+      {activeTournamentId && activeTournamentName && (
+        <div className="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+              <Trophy className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider">Adding events to tournament</p>
+              <p className="text-sm font-bold text-indigo-700">{activeTournamentName}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              clearTournamentContext?.();
+              setSportsEventSubTab("list");
+            }}
+            className="p-1.5 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer text-indigo-400 hover:text-indigo-600"
+            title="Done adding events"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Sub-tab toggle */}
       <div className="flex border-b border-slate-100 pb-px gap-6 mb-4">
         <button
