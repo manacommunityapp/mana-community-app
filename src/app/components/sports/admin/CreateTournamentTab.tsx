@@ -61,6 +61,7 @@ interface CreateTournamentTabProps {
   setShowNotificationModal: (v: boolean) => void;
   submitting: boolean;
   handleSave: () => void;
+  resetForm: () => void;
   setActiveTab: (tab: any) => void;
   onAddEvents?: (id: number, name: string) => void;
 }
