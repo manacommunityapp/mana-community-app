@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Trophy,
   Users,
@@ -119,33 +119,43 @@ export function MySports() {
     ? user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
     : "P";
 
-  const fetchTabData = async () => {
+  const hydratedRef = useRef<Set<string>>(new Set());
+
+  const fetchCoreData = async () => {
     if (!user?.userId) return;
     setLoadingData(true);
     try {
-      const [regs, myTeams, events, comms, sports] = await Promise.all([
+      const [regs, myTeams, events] = await Promise.all([
         sportsScheduleService.getMyRegistrations().catch(() => []),
         auctionService.getCaptainRegistration().catch(() => []),
         sportsScheduleService.getMyEvents().catch(() => []),
-        communityService.getCommunities().catch(() => []),
-        sportsService.getSportsMeta().catch(() => [])
       ]);
       setRegistrations(regs || []);
       setTeams(myTeams || []);
       setMyMatches(events || []);
-      setCommunities(comms || []);
-      setApiSports(sports || []);
     } catch (err) {
       console.error("Failed to load dashboard data", err);
     } finally {
       setLoadingData(false);
-      setLoadingMeta(false);
     }
   };
 
   useEffect(() => {
-    fetchTabData();
+    fetchCoreData();
   }, [user?.userId]);
+
+  useEffect(() => {
+    if (!user?.userId) return;
+    if (activeTab === "community" && !hydratedRef.current.has("community")) {
+      hydratedRef.current.add("community");
+      communityService.getCommunities().then(c => setCommunities(c || [])).catch(() => {});
+    }
+    if (activeTab === "settings" && !hydratedRef.current.has("settings")) {
+      hydratedRef.current.add("settings");
+      setLoadingMeta(true);
+      sportsService.getSportsMeta().then(s => setApiSports(s || [])).catch(() => {}).finally(() => setLoadingMeta(false));
+    }
+  }, [activeTab, user?.userId]);
 
   const toggleSport = (id: string) =>
     setSelected(prev => ({ ...prev, [id]: !prev[id] }));
@@ -161,7 +171,7 @@ export function MySports() {
     try {
       await sportsService.withdraw(regId);
       toast.success("Withdrawn successfully!");
-      fetchTabData();
+      fetchCoreData();
     } catch (err) {
       toast.error("Failed to withdraw from event");
     }
@@ -186,7 +196,7 @@ export function MySports() {
         });
       }
       toast.success(`Registered for ${selectedSports.length} sport(s)!`);
-      fetchTabData();
+      fetchCoreData();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Registration failed");
     } finally {

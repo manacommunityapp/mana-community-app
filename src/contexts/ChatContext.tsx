@@ -31,17 +31,13 @@ interface ChatContextType {
   /** Kept for API compatibility with the UI (server chat has no typing yet). */
   typingStates: Record<string, boolean>;
   loading: boolean;
+  /** Call once to hydrate conversations/contacts and start real-time listeners. */
+  initialize: () => void;
   selectConversation: (id: string | null) => void;
   sendMessage: (text: string) => void;
   clearUnread: (id: string) => void;
   /** contactId is the backend user id (as a string). */
   startConversation: (contactId: string) => void;
-  /**
-   * Fetch the conversation list + contacts. Called when the chat is opened
-   * (the launcher button / the full Chat page) rather than eagerly on mount,
-   * so the two GETs only fire when the user actually opens chat.
-   */
-  loadChatData: () => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -134,13 +130,23 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [availableContacts, setAvailableContacts] = useState<Contact[]>([]);
-  // No eager mount fetch — data loads when chat is opened (see loadChatData).
+  // No eager mount fetch — everything hydrates when the chat is opened (see initialize()).
   const [loading, setLoading] = useState(false);
 
   const currentUserId = getStoredUser()?.userId ?? null;
   // Track the active conversation inside callbacks/intervals without re-binding.
   const activeConvRef = useRef<string | null>(null);
   activeConvRef.current = activeConvId;
+
+  const initializedRef = useRef(false);
+  const [initialized, setInitialized] = useState(false);
+
+  const initialize = useCallback(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    setLoading(true);
+    setInitialized(true);
+  }, []);
 
   const refreshConversations = useCallback(async () => {
     if (!currentUserId) return;
@@ -168,31 +174,30 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [currentUserId]
   );
 
-  // On-demand load: conversations + contacts. Triggered when the user opens
-  // chat (launcher button or full Chat page), not eagerly on mount.
-  const loadChatData = useCallback(async () => {
-    if (!currentUserId) return;
-    setLoading(true);
-    try {
-      await Promise.all([
-        refreshConversations(),
-        chatService
-          .getContacts()
-          .then((contacts) => setAvailableContacts(contacts.map(mapContact)))
-          .catch(() => {
-            // ignore — contacts are non-critical
-          }),
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentUserId, refreshConversations]);
-
-  // Fallback poll — only does anything while the socket is DOWN. When STOMP is
-  // connected this fires and immediately returns, so steady-state idle traffic
-  // is zero; if the socket drops it recovers state within one interval.
+  // Initial load: conversations + contacts — only after initialize() is called.
   useEffect(() => {
-    if (!currentUserId) return;
+    if (!initialized || !currentUserId) {
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      await refreshConversations();
+      try {
+        const contacts = await chatService.getContacts();
+        if (!cancelled) setAvailableContacts(contacts.map(mapContact));
+      } catch {
+        // ignore
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialized, currentUserId, refreshConversations]);
+
+  // Fallback poll — only after chat is initialized.
+  useEffect(() => {
+    if (!initialized || !currentUserId) return;
     const timer = setInterval(() => {
       if (stompClient.connected) return;
       refreshConversations();
@@ -200,19 +205,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       if (active) loadMessages(active);
     }, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
-  }, [currentUserId, refreshConversations, loadMessages]);
+  }, [initialized, currentUserId, refreshConversations, loadMessages]);
 
-  // On every (re)connect, fetch once to catch up on anything missed while the
-  // socket was establishing or briefly down. Costs one GET per connect (rare).
+  // On every (re)connect, fetch once — only after chat is initialized.
   useEffect(() => {
-    if (!currentUserId) return;
+    if (!initialized || !currentUserId) return;
     const unsub = stompClient.onConnect(() => {
       refreshConversations();
       const active = activeConvRef.current;
       if (active) loadMessages(active);
     });
     return unsub;
-  }, [currentUserId, refreshConversations, loadMessages]);
+  }, [initialized, currentUserId, refreshConversations, loadMessages]);
 
   // Append a message into a thread, de-duplicating by id. Both the optimistic
   // local echo and the STOMP broadcast of the same message flow through here.
@@ -232,10 +236,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ── Real-time: update the conversation list in place on any new message. ──
-  // No HTTP — the event carries last message + sender. Only a message in a
-  // thread we don't have yet triggers a one-off refetch to materialise it.
   useEffect(() => {
-    if (!currentUserId) return;
+    if (!initialized || !currentUserId) return;
     const unsub = stompClient.subscribe(
       `/topic/chat-user/${currentUserId}`,
       (body) => {
@@ -273,12 +275,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       }
     );
     return unsub;
-  }, [currentUserId, refreshConversations]);
+  }, [initialized, currentUserId, refreshConversations]);
 
   // ── Real-time: stream messages for the conversation currently open. ──
-  // Appends locally (deduped); unread is reset by the list handler above.
   useEffect(() => {
-    if (!currentUserId || !activeConvId) return;
+    if (!initialized || !currentUserId || !activeConvId) return;
     const unsub = stompClient.subscribe(
       `/topic/conversation/${activeConvId}`,
       (body) => {
@@ -356,11 +357,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         availableContacts,
         typingStates: {},
         loading,
+        initialize,
         selectConversation,
         sendMessage,
         clearUnread,
         startConversation,
-        loadChatData,
       }}
     >
       {children}

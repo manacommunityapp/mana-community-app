@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -742,9 +742,27 @@ export function AdminHub() {
     }
   }, [user?.communityId]);
 
+  const hydratedRef = useRef<Set<string>>(new Set());
+
   useEffect(() => {
-    fetchOverview();
-  }, [fetchOverview]);
+    if (activeTab === "overview" && !hydratedRef.current.has("overview")) {
+      hydratedRef.current.add("overview");
+      fetchOverview();
+    }
+    if (activeTab === "users" && !hydratedRef.current.has("users") && !hydratedRef.current.has("overview")) {
+      hydratedRef.current.add("users");
+      setUsersLoading(true);
+      userService.getAllUsers()
+        .then(allUsers => {
+          let list: UserResponse[] = [];
+          if (Array.isArray(allUsers)) list = allUsers;
+          else if (typeof allUsers === "object" && Array.isArray((allUsers as any).content)) list = (allUsers as any).content;
+          setUsers(list);
+        })
+        .catch(() => {})
+        .finally(() => setUsersLoading(false));
+    }
+  }, [activeTab, fetchOverview]);
 
   if (!isAdmin) {
     return (

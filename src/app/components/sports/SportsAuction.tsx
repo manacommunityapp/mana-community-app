@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { safeStorage } from "../../../utils/storage";
 import { useParams } from "react-router";
 import { toast } from "sonner";
@@ -213,8 +213,12 @@ export function SportsAuction() {
     }).finally(() => setLoading(false));
   }, [selectedConfigId]);
 
-  // Fetch community events for the overview and map for dropdowns
+  // Fetch community events and event map only when a tab that needs them is active
+  const eventsLoadedRef = useRef(false);
+  const needsEvents = activeTab === 'overview' || activeTab === 'config' || activeTab === 'live' || activeTab === 'registrations' || activeTab === 'results';
   useEffect(() => {
+    if (eventsLoadedRef.current || !needsEvents) return;
+    eventsLoadedRef.current = true;
     const isSuperAdmin = user?.role === 'SUPER_ADMIN';
     const communityId = user?.communityId || undefined;
 
@@ -225,7 +229,7 @@ export function SportsAuction() {
       sportsService.getCommunityEvents(communityId).then(events => setCommunityEvents(events)).catch(err => console.error("Failed to fetch community events", err));
       sportsService.getEventMap(communityId).then(map => setEventMap(map)).catch(err => console.error("Failed to fetch event map", err));
     }
-  }, [user?.communityId, user?.role]);
+  }, [user?.communityId, user?.role, needsEvents]);
 
   // Fetch confirmed player count and committee when selected event changes
   useEffect(() => {
