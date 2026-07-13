@@ -121,6 +121,9 @@ export function SportsAdmin() {
               setOpenDropdownEventId={s.setOpenDropdownEventId}
               searchQueries={s.searchQueries}
               setSearchQueries={s.setSearchQueries}
+              onLoadList={s.loadTournamentsListData}
+              onLoadConfig={s.loadConfigureEventsData}
+              onLoadCategories={s.refreshCategories}
             />
           )}
 

@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { Plus } from "lucide-react";
-import { TournamentSection } from "./TournamentSection";
-import { SportsEventSection } from "./SportsEventSection";
+import { useState, useEffect } from "react";
+import { TournamentsListTab } from "./TournamentsListTab";
+import { ConfigureEventsTab } from "./ConfigureEventsTab";
 import type { PlayerCategory, SportsEvent, Venue, SportMeta, TournamentRegistration, AuctionTeam } from "../../../../types/api";
 
 interface SportsEventTabProps {
@@ -60,6 +59,12 @@ interface SportsEventTabProps {
   setOpenDropdownEventId: any;
   searchQueries: Record<string, string>;
   setSearchQueries: any;
+  /** Lazy-load the Tournaments List data (events + tournaments) on demand. */
+  onLoadList?: () => void;
+  /** Lazy-load the Configure Events data (sports meta, categories, venues) on demand. */
+  onLoadConfig?: () => void;
+  /** Reload player categories when the add/update sports event form opens. */
+  onLoadCategories?: () => void;
 }
 
 export function SportsEventTab({
@@ -118,8 +123,18 @@ export function SportsEventTab({
   setOpenDropdownEventId,
   searchQueries,
   setSearchQueries,
+  onLoadList,
+  onLoadConfig,
+  onLoadCategories,
 }: SportsEventTabProps) {
   const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
+
+  // Load each sub-tab's data only when it becomes active (initial "list" on mount,
+  // and "config" when the user clicks Configure Events).
+  useEffect(() => {
+    if (sportsEventSubTab === "list") onLoadList?.();
+    else onLoadConfig?.();
+  }, [sportsEventSubTab, onLoadList, onLoadConfig]);
 
   return (
     <div className="space-y-6">
@@ -140,77 +155,32 @@ export function SportsEventTab({
       </div>
 
       {sportsEventSubTab === "list" ? (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="text-left">
-              <h3 className="text-xl font-bold text-slate-800">Sports Event List</h3>
-              <p className="text-sm text-slate-500 mt-1">Manage tournaments and venues for your community</p>
-            </div>
-            <button
-              onClick={() => setActiveTab("create-tournament")}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
-              style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", boxShadow: "0 2px 10px rgba(99,102,241,0.3)" }}
-            >
-              <Plus className="w-4 h-4" /> New Tournament
-            </button>
-          </div>
-
-          {/* Draft Tournaments */}
-          <TournamentSection
-            title="Draft Tournaments"
-            badge={draftEvents.length}
-            badgeColor="bg-slate-100 text-slate-600 border border-slate-200"
-            emptyText="No draft tournaments"
-            events={draftEvents}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onActivate={handleActivate}
-            showActivate
-          />
-
-          {/* Active Tournaments */}
-          <TournamentSection
-            title="Open for Registration"
-            badge={liveEvents.length}
-            badgeColor="bg-emerald-50 text-emerald-600 border border-emerald-200"
-            emptyText="No active tournaments"
-            events={liveEvents}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-            onViewPlayers={handleViewPlayers}
-            onViewCaptains={handleViewCaptains}
-            viewingEventId={viewingEventId}
-            viewMode={viewMode || undefined}
-            registrations={registrations}
-            nominatedCaptains={nominatedCaptains}
-            loadingRegs={loadingRegs}
-            onConfirmRegistration={handleConfirmRegistration}
-            onRejectRegistration={handleRejectRegistration}
-            onConfirmCaptain={handleConfirmCaptain}
-            onAddParticipant={(eventId) => {
-              setSelectedEventIdForAdd(eventId);
-              setShowAddPlayerModal(true);
-            }}
-            onImportParticipants={(eventId) => {
-              setSelectedEventIdForImport(eventId);
-              setShowImportModal(true);
-              setImportStep(1);
-            }}
-          />
-
-          {/* Completed Tournaments */}
-          <TournamentSection
-            title="Completed Tournaments"
-            badge={completedEvents.length}
-            badgeColor="bg-blue-50 text-blue-600 border border-blue-200"
-            emptyText="No completed tournaments"
-            events={completedEvents}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
-        </div>
+        <TournamentsListTab
+          setActiveTab={setActiveTab}
+          draftEvents={draftEvents}
+          liveEvents={liveEvents}
+          completedEvents={completedEvents}
+          handleEdit={handleEdit}
+          handleDelete={handleDelete}
+          handleActivate={handleActivate}
+          handleViewPlayers={handleViewPlayers}
+          handleViewCaptains={handleViewCaptains}
+          viewingEventId={viewingEventId}
+          viewMode={viewMode}
+          registrations={registrations}
+          nominatedCaptains={nominatedCaptains}
+          loadingRegs={loadingRegs}
+          handleConfirmRegistration={handleConfirmRegistration}
+          handleRejectRegistration={handleRejectRegistration}
+          handleConfirmCaptain={handleConfirmCaptain}
+          setSelectedEventIdForAdd={setSelectedEventIdForAdd}
+          setShowAddPlayerModal={setShowAddPlayerModal}
+          setSelectedEventIdForImport={setSelectedEventIdForImport}
+          setShowImportModal={setShowImportModal}
+          setImportStep={setImportStep}
+        />
       ) : (
-        <SportsEventSection
+        <ConfigureEventsTab
           user={user}
           activeTab={activeTab}
           setActiveTab={setActiveTab}
@@ -245,6 +215,7 @@ export function SportsEventTab({
           activeCommId={activeCommId}
           isSuperAdmin={isSuperAdmin}
           isAdmin={isAdmin}
+          onLoadCategories={onLoadCategories}
         />
       )}
     </div>

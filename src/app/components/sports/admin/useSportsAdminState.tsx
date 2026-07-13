@@ -267,7 +267,7 @@ export function useSportsAdminState() {
   const [selectedCommId, setSelectedCommId] = useState<number | "">("");
 
   const [eventName, setEventName] = useState("");
-  const [maxPax, setMaxPax] = useState("64");
+  const [maxPax, setMaxPax] = useState("");
 
   const [venues, setVenues] = useState<Venue[]>([]);
   const [selectedVenueId, setSelectedVenueId] = useState<number | "">("");
@@ -291,8 +291,8 @@ export function useSportsAdminState() {
   const [tournamentLevel, setTournamentLevel] = useState<"Standard" | "Professional" | "Premium">("Standard");
   const [description, setDescription] = useState("");
   const [allowAdminChat, setAllowAdminChat] = useState(false);
-  const [startTime, setStartTime] = useState("09:00 AM");
-  const [dueTime, setDueTime] = useState("06:00 PM");
+  const [startTime, setStartTime] = useState("");
+  const [dueTime, setDueTime] = useState("");
 
   const [globalChannels, setGlobalChannels] = useState<string[]>(["push", "email"]);
   const [previewTrigger, setPreviewTrigger] = useState<string>("2h");
@@ -1034,6 +1034,22 @@ export function useSportsAdminState() {
     refreshEvents();
   }, [refreshEvents]);
 
+  // Lazy loaders for the Sports Event sub-tabs — called when each sub-tab is opened.
+  // Fetch fresh from the APIs each time (not the ...Once guards) so opening
+  // Sports Event → Tournaments List always reloads the list data.
+  const loadTournamentsListData = useCallback(() => {
+    refreshEvents();
+    refreshTournaments();
+    eventsFetchedRef.current = true;
+    tournamentsFetchedRef.current = true;
+  }, [refreshEvents, refreshTournaments]);
+
+  const loadConfigureEventsData = useCallback(() => {
+    sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
+    sportsService.getCategories().then(setPlayerCategories).catch(() => {});
+    refreshVenues();
+  }, [refreshVenues]);
+
   useEffect(() => {
     if (hydratedTabs.current.has(activeTab)) return;
     hydratedTabs.current.add(activeTab);
@@ -1044,10 +1060,8 @@ export function useSportsAdminState() {
         refreshVenues();
         break;
       case "sports-event":
-        fetchEventsOnce();
-        fetchTournamentsOnce();
-        sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
-        sportsService.getCategories().then(setPlayerCategories).catch(() => {});
+        // Data is loaded lazily per sub-tab (see loadTournamentsListData /
+        // loadConfigureEventsData, wired through SportsEventTab).
         break;
       case "teams":
         fetchTournamentsOnce();
@@ -1400,6 +1414,7 @@ export function useSportsAdminState() {
 
   const resetForm = () => {
     setEventName("");
+    setMaxPax("");
     setSelectedVenueId("");
     setStartDate(undefined);
     setEndDate(undefined);
@@ -1418,8 +1433,8 @@ export function useSportsAdminState() {
     setTournamentLevel("Standard");
     setDescription("");
     setAllowAdminChat(false);
-    setStartTime("09:00 AM");
-    setDueTime("06:00 PM");
+    setStartTime("");
+    setDueTime("");
     setEditingEventId(null);
     setSelectedEventIds([]);
     setGlobalChannels(["push", "email"]);
@@ -1475,8 +1490,8 @@ export function useSportsAdminState() {
     setTournamentLevel(ev.tournamentLevel || "Standard");
     setDescription(ev.description || "");
     setAllowAdminChat(ev.allowAdminChat || false);
-    setStartTime(ev.startTime || "09:00 AM");
-    setDueTime(ev.dueTime || "06:00 PM");
+    setStartTime(ev.startTime || "");
+    setDueTime(ev.dueTime || "");
     if (ev.premiumNotifications && ev.premiumNotifications.length > 0) {
       const custom: any[] = [];
       const updatedDefaults = { ...triggerStates };
@@ -2258,6 +2273,7 @@ export function useSportsAdminState() {
     selectedTemplates, setSelectedTemplates,
     openDropdownEventId, setOpenDropdownEventId,
     searchQueries, setSearchQueries,
+    loadTournamentsListData, loadConfigureEventsData, refreshCategories,
 
     // Venues
     venues, selectedVenueId, selectedVenueDetails, loadingVenueDetails,

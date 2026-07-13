@@ -94,6 +94,8 @@ interface SportsEventSectionProps {
   activeCommId: number | undefined;
   isSuperAdmin: boolean;
   isAdmin: boolean;
+  /** Loads player categories (GET /api/player-categories) — called when the add/update form opens. */
+  onLoadCategories?: () => void;
 }
 
 export function SportsEventSection({
@@ -131,7 +133,14 @@ export function SportsEventSection({
   activeCommId,
   isSuperAdmin,
   isAdmin,
+  onLoadCategories,
 }: SportsEventSectionProps) {
+  // Reload player categories whenever the add/update sports event form is opened,
+  // so the Player Category Template dropdown reflects the latest data.
+  React.useEffect(() => {
+    if (showSportForm) onLoadCategories?.();
+  }, [showSportForm, onLoadCategories]);
+
   return (
     <div className="space-y-4">
       {/* Header section */}
