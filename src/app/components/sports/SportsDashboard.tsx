@@ -564,9 +564,9 @@ export function SportsDashboard() {
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_70%_120%,#818cf8,transparent_60%)]" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-lg md:text-xl font-extrabold tracking-tight font-sans" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>
+            <h2 className="text-lg md:text-xl font-extrabold tracking-tight font-sans" style={{ fontFamily: "'Barlow Condensed', sans-serif" }}>
               WELCOME TO THE SPORTS ARENA
-            </h1>
+            </h2>
             <p className="text-[11px] md:text-xs text-indigo-200 mt-1 max-w-xl font-medium leading-relaxed">
               Track matches, check live auction rankings, register for upcoming leagues, and lead your community team to victory!
             </p>

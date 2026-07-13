@@ -274,7 +274,7 @@ export function TournamentSection({
         {events.map(item => {
           // ── Multi-event tournaments (nested sportsEvents array) ──
           if (item.sportsEvents && item.sportsEvents.length > 0) {
-            const isExpanded = expandedTournamentIds[item.id] !== false;
+            const isExpanded = !!expandedTournamentIds[item.id];
             return (
               <div key={item.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
                 {/* Tournament header */}
@@ -329,7 +329,7 @@ export function TournamentSection({
                               </div>
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
-                              {registrationStatus && (
+                              {registrationStatus && registrationStatus !== "DRAFT" && (
                                 <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
                                   registrationStatus === "LIVE" || registrationStatus === "REGISTRATION_OPEN"
                                     ? "bg-green-500/20 text-[#10b981]"
