@@ -276,6 +276,8 @@ export function useSportsAdminState() {
   const [activeEvents, setActiveEvents] = useState<any[]>([]);
   const [activeTournaments, setActiveTournaments] = useState<any[]>([]);
   const [activatingTournament, setActivatingTournament] = useState<{ id: number; name: string } | null>(null);
+  const [activeTournamentId, setActiveTournamentId] = useState<number | null>(null);
+  const [activeTournamentName, setActiveTournamentName] = useState<string>("");
 
   const [startDate, setStartDate] = useState<Date>();
   const [endDate, setEndDate] = useState<Date>();
@@ -1277,21 +1279,7 @@ export function useSportsAdminState() {
 
   const handleSave = async () => {
     if (!eventName.trim() && !editingEventId) { toast.error("Tournament name is required"); return; }
-    if (selectedSports.length === 0) { toast.error("Select at least one sport"); return; }
     if (!startDate || !endDate) { toast.error("Dates are required"); return; }
-    for (const s of selectedSportsWithEvents) {
-      for (const e of s.events) {
-        if (!e.name.trim()) { toast.error(`Event name is required for sport: ${s.sportName}`); return; }
-        if (isTeamSport(s.sportName)) {
-          if (!e.minPlayers || e.minPlayers <= 0) { toast.error(`Valid Min Players is required for event "${e.name}" in sport ${s.sportName}`); return; }
-          if (!e.maxPlayers || e.maxPlayers <= 0) { toast.error(`Valid Max Players is required for event "${e.name}" in sport ${s.sportName}`); return; }
-          if (e.maxPlayers < e.minPlayers) { toast.error(`Max Players cannot be less than Min Players for event "${e.name}" in sport ${s.sportName}`); return; }
-        } else {
-          if (!e.format) { toast.error(`Participant Type is required for event "${e.name}" in sport ${s.sportName}`); return; }
-        }
-        if (!e.tournamentType) { toast.error(`Tournament Format is required for event "${e.name}" in sport ${s.sportName}`); return; }
-      }
-    }
     if (!eventContactName.trim()) { toast.error("Tournament Contact Name is required"); return; }
     if (!eventContactNumber.trim()) { toast.error("Tournament Contact Number is required"); return; }
     if (!eventContactEmail.trim()) { toast.error("Tournament Contact Email is required"); return; }
@@ -1399,8 +1387,14 @@ export function useSportsAdminState() {
           notifications: getNotificationPayloads(eventName),
           sportsEventIds: targetEventIds,
         };
-        await sportsService.createTournament(payload as any);
-        toast.success("Tournament created successfully!");
+        const created = await sportsService.createTournament(payload as any);
+        toast.success("Tournament created! Now add sports events to it.");
+        resetForm();
+        setActiveTournamentId(created.id);
+        setActiveTournamentName(eventName);
+        hydratedTabs.current.delete("sports-event");
+        setActiveTab("sports-event");
+        return;
       }
       resetForm();
       hydratedTabs.current.delete("sports-event");
@@ -1442,6 +1436,11 @@ export function useSportsAdminState() {
     setExpandedTrigger(null);
     setCustomTriggers([]);
     setTriggerStates(DEFAULT_TRIGGER_STATES);
+  };
+
+  const clearTournamentContext = () => {
+    setActiveTournamentId(null);
+    setActiveTournamentName("");
   };
 
   const handleEdit = (tournamentOrEvent: any) => {
@@ -2118,6 +2117,7 @@ export function useSportsAdminState() {
           ) as any,
           auctionEnabled: isTeam ? !!ev.auctionEnabled : false,
           adminApprovalRequired: ev.adminApprovalRequired !== false,
+          tournamentId: activeTournamentId ?? undefined,
         };
         try {
           if (form.editingSportId && eIdx === 0) {
@@ -2125,7 +2125,7 @@ export function useSportsAdminState() {
             toast.success(`Event "${payload.name}" updated successfully!`);
           } else {
             await sportsService.createSportsEvent(payload);
-            toast.success(`Event "${payload.name}" created successfully!`);
+            toast.success(`Event "${payload.name}" created${activeTournamentId ? ` under tournament` : ""}!`);
           }
           successCount++;
         } catch (err) {
@@ -2226,6 +2226,9 @@ export function useSportsAdminState() {
     addCustomTrigger, removeCustomTrigger,
     getCompiledPreviewBody,
     getTournamentStartDateTime, formatINRDate,
+
+    // Tournament-first flow
+    activeTournamentId, activeTournamentName, clearTournamentContext,
 
     // Tournament data
     activeTournaments, activeEvents,

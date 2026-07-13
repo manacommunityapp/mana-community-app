@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Trophy, X } from "lucide-react";
 import { TournamentsListTab } from "./TournamentsListTab";
 import { ConfigureEventsTab } from "./ConfigureEventsTab";
 import type { PlayerCategory, SportsEvent, Venue, SportMeta, TournamentRegistration, AuctionTeam } from "../../../../types/api";
@@ -65,6 +66,9 @@ interface SportsEventTabProps {
   onLoadConfig?: () => void;
   /** Reload player categories when the add/update sports event form opens. */
   onLoadCategories?: () => void;
+  activeTournamentId?: number | null;
+  activeTournamentName?: string;
+  clearTournamentContext?: () => void;
 }
 
 export function SportsEventTab({
@@ -126,8 +130,20 @@ export function SportsEventTab({
   onLoadList,
   onLoadConfig,
   onLoadCategories,
+  activeTournamentId,
+  activeTournamentName,
+  clearTournamentContext,
 }: SportsEventTabProps) {
-  const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">("list");
+  const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">(
+    activeTournamentId ? "config" : "list"
+  );
+
+  useEffect(() => {
+    if (activeTournamentId) {
+      setSportsEventSubTab("config");
+      setShowSportPicker(true);
+    }
+  }, [activeTournamentId, setShowSportPicker]);
 
   // Load each sub-tab's data only when it becomes active (initial "list" on mount,
   // and "config" when the user clicks Configure Events).
@@ -138,6 +154,31 @@ export function SportsEventTab({
 
   return (
     <div className="space-y-6">
+      {/* Tournament context banner */}
+      {activeTournamentId && activeTournamentName && (
+        <div className="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+              <Trophy className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-xs text-indigo-500 font-semibold uppercase tracking-wider">Adding events to tournament</p>
+              <p className="text-sm font-bold text-indigo-700">{activeTournamentName}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              clearTournamentContext?.();
+              setSportsEventSubTab("list");
+            }}
+            className="p-1.5 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer text-indigo-400 hover:text-indigo-600"
+            title="Done adding events"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Sub-tab toggle */}
       <div className="flex border-b border-slate-100 pb-px gap-6 mb-4">
         <button

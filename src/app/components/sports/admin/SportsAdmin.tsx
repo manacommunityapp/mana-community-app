@@ -124,6 +124,9 @@ export function SportsAdmin() {
               onLoadList={s.loadTournamentsListData}
               onLoadConfig={s.loadConfigureEventsData}
               onLoadCategories={s.refreshCategories}
+              activeTournamentId={s.activeTournamentId}
+              activeTournamentName={s.activeTournamentName}
+              clearTournamentContext={s.clearTournamentContext}
             />
           )}
 
@@ -140,11 +143,6 @@ export function SportsAdmin() {
               description={s.description}
               setDescription={s.setDescription}
               communities={s.communities}
-              activeEvents={s.activeEvents}
-              selectedEventIds={s.selectedEventIds}
-              toggleSportsEvent={s.toggleSportsEvent}
-              setConfiguringSportId={s.setConfiguringSportId}
-              setShowSportConfigModal={s.setShowSportConfigModal}
               startDate={s.startDate}
               setStartDate={s.setStartDate}
               endDate={s.endDate}

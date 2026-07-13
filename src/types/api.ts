@@ -239,6 +239,7 @@ export interface SportsEventRequest {
   eventId?: number;
   sportsEventIds?: number[];
   adminApprovalRequired?: boolean;
+  tournamentId?: number;
 }
 
 export interface NotificationScheduleRequest {
