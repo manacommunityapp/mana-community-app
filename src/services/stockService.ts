@@ -13,6 +13,32 @@ export interface Product {
   qtyAvailable?: number;
 }
 
+export interface Lot {
+  id?: number;
+  name: string;
+  productId: number;
+  productName?: string;
+  expirationDate?: string;
+  notes?: string;
+  createdAt?: string;
+}
+
+export interface ScrapRecord {
+  id?: number;
+  productId: number;
+  productName?: string;
+  lotId?: number;
+  lotName?: string;
+  sourceLocationName?: string;
+  scrapLocationName?: string;
+  quantity: number;
+  reason?: string;
+  state: "DRAFT" | "DONE";
+  scrappedByName?: string;
+  scrappedAt?: string;
+  createdAt?: string;
+}
+
 export interface Warehouse {
   id?: number;
   name: string;
@@ -154,8 +180,47 @@ export const stockService = {
   },
 
   async scrapStock(params: { productId: number; locationId: number; lotId?: number; quantity: number; reason: string }): Promise<void> {
-    const url = `/inventory/pickings/scrap?productId=${params.productId}&locationId=${params.locationId}&quantity=${params.quantity}&reason=${encodeURIComponent(params.reason)}` + (params.lotId ? `&lotId=${params.lotId}` : "");
-    return apiClient.post<void>(url);
+    await this.quickScrap({
+      productId: params.productId,
+      locationId: params.locationId,
+      lotId: params.lotId,
+      quantity: params.quantity,
+      reason: params.reason
+    });
+  },
+
+  // Lots & Serials
+  async getLotsByProduct(productId: number): Promise<Lot[]> {
+    return apiClient.get<Lot[]>(`/inventory/lots/product/${productId}`);
+  },
+
+  async getLot(id: number): Promise<Lot> {
+    return apiClient.get<Lot>(`/inventory/lots/${id}`);
+  },
+
+  async createLot(lot: Omit<Lot, "id" | "productName" | "createdAt">): Promise<Lot> {
+    return apiClient.post<Lot>("/inventory/lots", lot);
+  },
+
+  // Scrap Operations
+  async getAllScraps(): Promise<ScrapRecord[]> {
+    return apiClient.get<ScrapRecord[]>("/inventory/scrap");
+  },
+
+  async getScrapsByProduct(productId: number): Promise<ScrapRecord[]> {
+    return apiClient.get<ScrapRecord[]>(`/inventory/scrap/product/${productId}`);
+  },
+
+  async createDraftScrap(scrap: { productId: number; lotId?: number; locationId: number; quantity: number; reason: string }): Promise<ScrapRecord> {
+    return apiClient.post<ScrapRecord>("/inventory/scrap/draft", scrap);
+  },
+
+  async confirmScrap(id: number): Promise<ScrapRecord> {
+    return apiClient.post<ScrapRecord>(`/inventory/scrap/${id}/confirm`);
+  },
+
+  async quickScrap(scrap: { productId: number; lotId?: number; locationId: number; quantity: number; reason: string }): Promise<ScrapRecord> {
+    return apiClient.post<ScrapRecord>("/inventory/scrap", scrap);
   },
 
   // Reporting

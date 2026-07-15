@@ -3,7 +3,7 @@ import {
   Package, RefreshCw, FileText, Sliders, Building, MapPin, 
   TrendingUp, Plus, CheckCircle2, XCircle, AlertCircle, Calendar, 
   DollarSign, ChevronRight, Play, Check, X, Clipboard,
-  Grid, Settings, FolderTree, Activity, Archive
+  Grid, Settings, FolderTree, Activity, Archive, Tags
 } from "lucide-react";
 import { stockService } from "../../../services/stockService";
 import type { 
@@ -12,8 +12,10 @@ import type {
 } from "../../../services/stockService";
 import { toast } from "sonner";
 import { InventoryOverviewDashboard } from "./InventoryOverviewDashboard";
+import { LotsManagement } from "./LotsManagement";
+import { ScrapManagement } from "./ScrapManagement";
 
-type MenuSection = "overview" | "scrap" | "products" | "moves-history" | "moves-analysis" | "stock" | "settings" | "warehouses" | "operation-types" | "categories";
+type MenuSection = "overview" | "scrap" | "lots" | "products" | "moves-history" | "moves-analysis" | "stock" | "settings" | "warehouses" | "operation-types" | "categories";
 
 const PRODUCT_CATEGORIES = [
   { id: 1, name: "All / Saleable" },
@@ -53,12 +55,6 @@ export function DoubleEntryInventory() {
   });
 
   // Form states
-  const [scrapForm, setScrapForm] = useState({
-    productId: "",
-    locationId: "",
-    quantity: 1,
-    reason: ""
-  });
 
   const [newPicking, setNewPicking] = useState({
     pickingTypeId: 0,
@@ -217,27 +213,7 @@ export function DoubleEntryInventory() {
     }
   };
 
-  // Handle Scrap Operations
-  const handleScrapSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (!scrapForm.productId || !scrapForm.locationId || scrapForm.quantity <= 0) {
-        toast.error("Please fill in all required scrap details.");
-        return;
-      }
-      await stockService.scrapStock({
-        productId: parseInt(scrapForm.productId),
-        locationId: parseInt(scrapForm.locationId),
-        quantity: scrapForm.quantity,
-        reason: scrapForm.reason
-      });
-      toast.success("Stock scrapped successfully!");
-      setScrapForm({ productId: "", locationId: "", quantity: 1, reason: "" });
-      loadReports();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to scrap stock");
-    }
-  };
+
 
   // Handle Products operations
   const handleCreateProduct = async (e: React.FormEvent) => {
@@ -337,11 +313,20 @@ export function DoubleEntryInventory() {
           <button 
             onClick={() => setActiveMenu("scrap")}
             className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 border-none cursor-pointer ${
-              activeMenu === "scrap" ? "bg-[#017e84]/10 text-[#017e84] font-extrabold" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 bg-transparent"
+              activeMenu === "scrap" ? "bg-[#017e84]/10 text-[#017e84] font-extrabold" : "text-slate-600 hover:bg-[#017e84]/5 hover:text-slate-900 bg-transparent"
             }`}
           >
             <Archive className="w-3.5 h-3.5" />
             Scrap
+          </button>
+          <button 
+            onClick={() => setActiveMenu("lots")}
+            className={`w-full text-left px-3 py-2 mt-1 rounded-lg text-xs font-bold transition-all flex items-center gap-2 border-none cursor-pointer ${
+              activeMenu === "lots" ? "bg-[#017e84]/10 text-[#017e84] font-extrabold" : "text-slate-600 hover:bg-[#017e84]/5 hover:text-slate-900 bg-transparent"
+            }`}
+          >
+            <Tags className="w-3.5 h-3.5" />
+            Lots & Serials
           </button>
         </div>
 
@@ -668,72 +653,18 @@ export function DoubleEntryInventory() {
 
         {/* OPERATIONS -> SCRAP */}
         {activeMenu === "scrap" && (
-          <div className="space-y-6">
-            <h3 className="font-extrabold text-base text-[#0d0d2b]">Record Product Scrap</h3>
-            <p className="text-xs text-slate-500">Deduct damaged or lost stock directly from your storage locations.</p>
+          <ScrapManagement
+            products={products}
+            locations={locations}
+            onScrapSuccess={loadReports}
+          />
+        )}
 
-            <form onSubmit={handleScrapSubmit} className="space-y-4 text-xs max-w-xl">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-500 font-bold mb-1.5 uppercase tracking-wider text-[10px]">Product *</label>
-                  <select 
-                    value={scrapForm.productId}
-                    onChange={(e) => setScrapForm(prev => ({ ...prev, productId: e.target.value }))}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl outline-none bg-white"
-                  >
-                    <option value="">Select Product...</option>
-                    {products.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} [{p.defaultCode}]</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-500 font-bold mb-1.5 uppercase tracking-wider text-[10px]">Location *</label>
-                  <select 
-                    value={scrapForm.locationId}
-                    onChange={(e) => setScrapForm(prev => ({ ...prev, locationId: e.target.value }))}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl outline-none bg-white"
-                  >
-                    <option value="">Select Location...</option>
-                    {locations.filter(l => l.usage === "INTERNAL").map(l => (
-                      <option key={l.id} value={l.id}>{l.completeName}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-500 font-bold mb-1.5 uppercase tracking-wider text-[10px]">Quantity *</label>
-                  <input 
-                    type="number" 
-                    value={scrapForm.quantity}
-                    onChange={(e) => setScrapForm(prev => ({ ...prev, quantity: parseFloat(e.target.value) || 0 }))}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl outline-none"
-                    min="1"
-                    step="any"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-500 font-bold mb-1.5 uppercase tracking-wider text-[10px]">Reason</label>
-                  <input 
-                    type="text" 
-                    value={scrapForm.reason}
-                    onChange={(e) => setScrapForm(prev => ({ ...prev, reason: e.target.value }))}
-                    placeholder="e.g. Water damage, broken casing"
-                    className="w-full p-2.5 border border-slate-200 rounded-xl outline-none"
-                  />
-                </div>
-              </div>
-
-              <button 
-                type="submit"
-                className="px-6 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold transition-all shadow-md shadow-rose-500/10 cursor-pointer border-none text-xs"
-              >
-                Record Scrap Adjustment
-              </button>
-            </form>
-          </div>
+        {/* OPERATIONS -> LOTS & SERIALS */}
+        {activeMenu === "lots" && (
+          <LotsManagement
+            products={products}
+          />
         )}
 
         {/* PRODUCTS -> PRODUCTS */}

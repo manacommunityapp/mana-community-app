@@ -4,7 +4,6 @@ import { TeamsTab } from "./TeamsTab";
 import { SettingsTab } from "./PlaceholderTabs";
 import { ScheduleAdminTab } from "./ScheduleAdminTab";
 import { ResultsAdminTab } from "./ResultsAdminTab";
-import { EmailPreviewTab } from "./EmailPreviewTab";
 import { NotificationAnalyticsTab } from "./NotificationAnalyticsTab";
 import { CreateTournamentTab } from "./CreateTournamentTab";
 import { SportsEventTab } from "./SportsEventTab";
@@ -208,7 +207,6 @@ export function SportsAdmin() {
           {s.activeTab === "schedule" && <ScheduleAdminTab />}
           {s.activeTab === "results" && <ResultsAdminTab />}
           {s.activeTab === "settings" && <SettingsTab />}
-          {s.activeTab === "email-preview" && <EmailPreviewTab />}
           {s.activeTab === "notification-analytics" && <NotificationAnalyticsTab />}
 
           {s.activeTab === "create-venue" && (

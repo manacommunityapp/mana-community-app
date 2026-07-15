@@ -43,10 +43,24 @@ export const emailAdminService = {
     return apiClient.get("/admin/email/templates");
   },
 
-  async getPreviewHtml(template: string): Promise<string> {
-    const res = await fetch(`/api/admin/email/preview/${template}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("mana_token") || ""}` },
-    });
+  async getPreviewHtml(template: string, customVars?: Record<string, unknown>): Promise<string> {
+    const url = `/api/admin/email/preview/${template}`;
+    const token = localStorage.getItem("mana_token") || "";
+    let res;
+    if (customVars) {
+      res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(customVars)
+      });
+    } else {
+      res = await fetch(url, {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+    }
     if (!res.ok) throw new Error(`Preview failed: ${res.status}`);
     return res.text();
   },
@@ -61,9 +75,9 @@ export const emailAdminService = {
     return apiClient.post(`/admin/email/test?${params}`, customVars || {});
   },
 
-  async sendAllTests(to?: string): Promise<TestAllResult> {
+  async sendAllTests(to?: string, customVars?: Record<string, unknown>): Promise<TestAllResult> {
     const params = new URLSearchParams();
     if (to) params.set("to", to);
-    return apiClient.post(`/admin/email/test-all?${params}`);
+    return apiClient.post(`/admin/email/test-all?${params}`, customVars || {});
   },
 };
