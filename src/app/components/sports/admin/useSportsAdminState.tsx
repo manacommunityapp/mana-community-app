@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { LayoutDashboard, CalendarIcon, MapPin, Users, Trophy, Settings, Target, Activity } from "lucide-react";
+import { LayoutDashboard, CalendarIcon, MapPin, Users, Trophy, Settings, Target, Activity, Mail, BarChart3 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showWarning, showError, showInfo } from "../../../../utils/ToastUtils";
 import { confirmAction } from "../../../../utils/AlertUtils";
@@ -63,7 +63,7 @@ export const RECIPIENT_OPTIONS = [
   "Referees"
 ] as const;
 
-export type TabId = "sports-event" | "teams" | "schedule" | "create-venue" | "player-category" | "results" | "settings" | "sports-meta" | "create-tournament" | "dashboard";
+export type TabId = "sports-event" | "teams" | "schedule" | "create-venue" | "player-category" | "results" | "settings" | "sports-meta" | "create-tournament" | "dashboard" | "email-preview" | "notification-analytics";
 
 export interface SportEventState {
   id: string;
@@ -2203,6 +2203,8 @@ export function useSportsAdminState() {
     { id: "player-category", label: "Player Category", icon: <Users className="w-4 h-4" /> },
     { id: "results", label: "Results", icon: <Trophy className="w-4 h-4" /> },
     { id: "settings", label: "Settings", icon: <Settings className="w-4 h-4" /> },
+    { id: "email-preview", label: "Email Templates", icon: <Mail className="w-4 h-4" /> },
+    { id: "notification-analytics", label: "Notifications", icon: <BarChart3 className="w-4 h-4" /> },
   ];
   if (isAdmin) {
     menuItems.push({ id: "sports-meta", label: "Sports Meta", icon: <Trophy className="w-4 h-4" /> });
