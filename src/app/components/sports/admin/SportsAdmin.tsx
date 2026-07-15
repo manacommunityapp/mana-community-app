@@ -1,7 +1,11 @@
 import { useSportsAdminState } from "./useSportsAdminState";
 import { DashboardTab } from "./DashboardTab";
 import { TeamsTab } from "./TeamsTab";
-import { ScheduleTab, ResultsTab, SettingsTab } from "./PlaceholderTabs";
+import { SettingsTab } from "./PlaceholderTabs";
+import { ScheduleAdminTab } from "./ScheduleAdminTab";
+import { ResultsAdminTab } from "./ResultsAdminTab";
+import { EmailPreviewTab } from "./EmailPreviewTab";
+import { NotificationAnalyticsTab } from "./NotificationAnalyticsTab";
 import { CreateTournamentTab } from "./CreateTournamentTab";
 import { SportsEventTab } from "./SportsEventTab";
 import { NotificationSetupModal } from "./NotificationSetupModal";
@@ -193,9 +197,11 @@ export function SportsAdmin() {
             />
           )}
 
-          {s.activeTab === "schedule" && <ScheduleTab />}
-          {s.activeTab === "results" && <ResultsTab />}
+          {s.activeTab === "schedule" && <ScheduleAdminTab />}
+          {s.activeTab === "results" && <ResultsAdminTab />}
           {s.activeTab === "settings" && <SettingsTab />}
+          {s.activeTab === "email-preview" && <EmailPreviewTab />}
+          {s.activeTab === "notification-analytics" && <NotificationAnalyticsTab />}
 
           {s.activeTab === "create-venue" && (
             <VenueCreationSection
