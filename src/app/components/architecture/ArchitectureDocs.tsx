@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Database, Server, Globe, Code, Layers, GitBranch, Shield,
-  Activity, Box, ArrowRight, ChevronDown, ChevronRight, Loader2, AlertTriangle, Gauge,
+  Activity, Box, ArrowRight, ChevronDown, ChevronRight, Loader2, AlertTriangle, Gauge, Mail,
 } from "lucide-react";
 import { schemaService, type DbTableSchema } from "../../../services/schemaService";
 import { apiCatalogService, type ApiGroup } from "../../../services/apiCatalogService";
 import { buildInfo, formatBuildTime } from "../../../utils/buildInfo";
+import { EmailPreviewTab } from "../sports/admin/EmailPreviewTab";
 
-export type ArchTab = "overview" | "database" | "apis" | "websocket" | "folders" | "security" | "monitoring";
+export type ArchTab = "overview" | "database" | "apis" | "websocket" | "folders" | "security" | "monitoring" | "email";
 
 const FALLBACK_TABLES: DbTableSchema[] = [
   { name: "community",                     columns: ["id","name","type","invite_code","city","state","area","subtype","created_at"] },
@@ -396,6 +397,7 @@ const tabDefs: { id: ArchTab; label: string; icon: React.ElementType }[] = [
   { id: "folders",    label: "Folder Structure", icon: GitBranch },
   { id: "security",   label: "Security",      icon: Shield },
   { id: "monitoring", label: "System Logs & Monitoring", icon: Gauge },
+  { id: "email",      label: "Email Templates", icon: Mail },
 ];
 
 function ArchitectureContent({ tab }: { tab: ArchTab }) {
@@ -565,6 +567,7 @@ Every log line: [cid=<correlationId> uid=<userId>]
           </div>
         </div>
       )}
+      {tab === "email" && <EmailPreviewTab />}
     </div>
   );
 }
@@ -572,17 +575,17 @@ Every log line: [cid=<correlationId> uid=<userId>]
 export function ArchitectureDocs() {
   const [tab, setTab] = useState<ArchTab>("overview");
   return (
-    <div className="p-1">
-      <div className="mb-5">
-        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-          <Layers className="w-5 h-5 text-blue-600" />
+    <div className="p-1 -mt-4">
+      <div className="mb-3">
+        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-1.5">
+          <Layers className="w-4.5 h-4.5 text-blue-600" />
           Architecture Docs
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">
+        </h2>
+        <p className="text-xs text-gray-500 mt-0.5">
           System design reference — data model, REST APIs, real-time layer and security.
         </p>
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs">
           <span className="font-semibold text-indigo-700">Deployment</span>
           <span className="text-gray-600">
             Version <span className="font-mono font-semibold text-gray-900">{buildInfo.version}</span>
@@ -598,12 +601,12 @@ export function ArchitectureDocs() {
         </div>
       </div>
 
-      <div className="flex gap-0.5 mb-5 border-b border-gray-200 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+      <div className="flex gap-0.5 mb-3 border-b border-gray-200 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
         {tabDefs.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap -mb-px transition-all ${tab === t.id ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
+            className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 whitespace-nowrap -mb-px transition-all ${tab === t.id ? "border-blue-600 text-blue-600" : "border-transparent text-gray-500 hover:text-gray-700"}`}
           >
             <t.icon className="w-3.5 h-3.5" />{t.label}
           </button>

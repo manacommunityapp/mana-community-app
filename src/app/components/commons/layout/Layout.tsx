@@ -62,7 +62,7 @@ export function Layout() {
 
   const adminLinks = [
     ...(isAdmin ? [{ to: "/admin", icon: ShieldCheck, label: "Admin Hub" }] : []),
-    ...(isSuperAdmin ? [{ to: "/architecture", icon: Layers, label: "Architecture Docs" }] : []),
+    { to: "/architecture", icon: Layers, label: "Architecture Docs" },
   ];
 
   const filteredNavLinks = navLinks.filter((link) => {

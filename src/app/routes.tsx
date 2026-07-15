@@ -273,7 +273,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "architecture",
-        element: <PermissionGuard superAdminOnly><ArchitectureDocs /></PermissionGuard>,
+        element: <PermissionGuard permission={VIEW_ADMIN}><ArchitectureDocs /></PermissionGuard>,
       },
       {
         path: "architecture/logs",
