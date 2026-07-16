@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sportsService";
+import { confirmAction } from "../../../utils/AlertUtils";
 import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sportsDashboardService";
 import { auctionService } from "../../../services/auctionService";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -743,7 +744,7 @@ export function SportsDashboard() {
                               onView={() => navigate("/sports/auction")}
                               onWithdraw={async (regItem) => {
                                 if (!regItem.registrationId) return;
-                                if (!window.confirm(`Are you sure you want to withdraw your registration for ${regItem.name}?`)) return;
+                                if (!(await confirmAction("Withdraw Registration", `Are you sure you want to withdraw your registration for ${regItem.name}?`))) return;
                                 try {
                                   await sportsService.withdraw(regItem.registrationId);
                                   toast.success(`Successfully withdrawn from ${regItem.name}`);
@@ -784,7 +785,7 @@ export function SportsDashboard() {
                      onView={() => navigate("/sports/auction")}
                      onWithdraw={async (regItem) => {
                        if (!regItem.registrationId) return;
-                       if (!window.confirm(`Are you sure you want to withdraw your registration for ${regItem.name}?`)) return;
+                       if (!(await confirmAction("Withdraw Registration", `Are you sure you want to withdraw your registration for ${regItem.name}?`))) return;
                        try {
                          await sportsService.withdraw(regItem.registrationId);
                          toast.success(`Successfully withdrawn from ${regItem.name}`);

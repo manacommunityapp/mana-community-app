@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { safeStorage } from "../../../utils/storage";
 import { useParams, Link } from "react-router";
-import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, Target, Activity, CalendarIcon, Plus, Edit2, Trash2, X, Search, Trophy, Play, Check } from "lucide-react";
+import { Loader2, MapPin, Clock, Filter, ChevronRight, ShieldAlert, CalendarIcon, Plus, Edit2, Trash2, X, Search, Trophy, Play, Check } from "lucide-react";
+import { BasketballIcon, getSportIcon, getSportColor } from "./utils/sportsConstants";
 import { format, parseISO } from "date-fns";
 import { sportsService } from "../../../services/sportsService";
 import { sportsScheduleService, type EventListItem } from "../../../services/sportsScheduleService";
@@ -34,57 +35,7 @@ const TABS = ["Overview", "My Matches", "All Events", "Leaderboard", "Brackets",
 type Tab = typeof TABS[number];
 
 
-const BasketballIcon = ({ size = 24, className, ...props }: React.ComponentPropsWithoutRef<"svg"> & { size?: number | string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    {...props}
-  >
-    <circle cx="12" cy="12" r="10" />
-    <path d="M12 2v20" />
-    <path d="M2 12h20" />
-    <path d="M4.93 4.93a10 10 0 0 1 0 14.14" />
-    <path d="M19.07 4.93a10 10 0 0 0 0 14.14" />
-  </svg>
-);
 
-const sportIcons: Record<string, React.ElementType> = { 
-  Basketball: BasketballIcon, basketball: BasketballIcon,
-  Soccer: Target, soccer: Target, Football: Target, football: Target,
-  Volleyball: Activity, volleyball: Activity,
-  Cricket: Target, cricket: Target,
-  Badminton: Activity, badminton: Activity
-};
-const sportColors: Record<string, { color: string; bg: string }> = {
-  Basketball: { color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-  basketball: { color: "#f59e0b", bg: "rgba(245,158,11,0.1)" },
-  Soccer: { color: "#10b981", bg: "rgba(16,185,129,0.1)" },
-  soccer: { color: "#10b981", bg: "rgba(16,185,129,0.1)" },
-  Football: { color: "#10b981", bg: "rgba(16,185,129,0.1)" },
-  football: { color: "#10b981", bg: "rgba(16,185,129,0.1)" },
-  Volleyball: { color: "#6366f1", bg: "rgba(99,102,241,0.1)" },
-  volleyball: { color: "#6366f1", bg: "rgba(99,102,241,0.1)" },
-  Cricket: { color: "#06b6d4", bg: "rgba(6,182,212,0.1)" },
-  cricket: { color: "#06b6d4", bg: "rgba(6,182,212,0.1)" },
-  Badminton: { color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
-  badminton: { color: "#ec4899", bg: "rgba(236,72,153,0.1)" },
-};
-
-const getSportIcon = (sportName: string) => {
-  return sportIcons[sportName] || Activity;
-};
-
-const getSportColors = (sportName: string) => {
-  return sportColors[sportName] || { color: "#6366f1", bg: "rgba(99,102,241,0.1)" };
-};
 
 const safeFormatDate = (dateStr: string, formatStr: string) => {
   try {
@@ -848,7 +799,7 @@ export function SportsSchedule() {
                   ) : (
                     fixturesList.filter(f => f.status === "LIVE").map((fixture) => {
                       const IconComponent = getSportIcon(fixture.sport);
-                      const colors = getSportColors(fixture.sport);
+                      const colors = getSportColor(fixture.sport);
                       return (
                         <div key={fixture.id} className="p-2 sm:p-4 bg-slate-50 border border-slate-100 rounded-lg sm:rounded-xl flex items-center justify-between active:scale-[0.98] transition-all duration-150">
                           <div className="flex items-center gap-2 sm:gap-3">
@@ -929,7 +880,7 @@ export function SportsSchedule() {
                   ) : (
                     fixturesList.filter(f => f.status === "COMPLETED").slice(0, 4).map((fixture) => {
                       const IconComponent = getSportIcon(fixture.sport);
-                      const colors = getSportColors(fixture.sport);
+                      const colors = getSportColor(fixture.sport);
                       const score1 = Number(fixture.score1 || 0);
                       const score2 = Number(fixture.score2 || 0);
                       return (
@@ -1241,7 +1192,7 @@ export function SportsSchedule() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
             {sortedFixtures.map((fixture) => {
               const IconComponent = getSportIcon(fixture.sport);
-              const sportStyle = getSportColors(fixture.sport);
+              const sportStyle = getSportColor(fixture.sport);
               const isLive = fixture.status === "LIVE";
               const isCompleted = fixture.status === "COMPLETED";
 

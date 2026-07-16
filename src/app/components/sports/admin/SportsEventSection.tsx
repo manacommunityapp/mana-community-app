@@ -7,57 +7,7 @@ import { Calendar } from "../../ui/calendar";
 import { format } from "date-fns";
 import { cn } from "../../ui/utils";
 import type { SportMeta, PlayerCategory, Venue, SportFormEntry } from "../../../../types/api";
-
-const PREDEFINED_SPORTS: { name: string; icon: string }[] = [
-  { name: "Badminton", icon: "🏸" },
-  { name: "Basketball", icon: "🏀" },
-  { name: "Beach Volleyball", icon: "🏐" },
-  { name: "Beach Tennis", icon: "🎾" },
-  { name: "Billiards", icon: "🎱" },
-  { name: "Bowling", icon: "🎳" },
-  { name: "Carrom", icon: "🎯" },
-  { name: "Chess", icon: "♟️" },
-  { name: "Cricket (Tennis Ball)", icon: "🏏" },
-  { name: "Cycling", icon: "🚴" },
-  { name: "Dart", icon: "🎯" },
-  { name: "Foosball", icon: "⚽" },
-  { name: "Grass Volleyball", icon: "🏐" },
-  { name: "Kabaddi", icon: "🤼" },
-  { name: "Pickleball", icon: "🏓" },
-  { name: "Pool", icon: "🎱" },
-  { name: "Running (100M)", icon: "🏃" },
-  { name: "Running (1500M)", icon: "🏃" },
-  { name: "Running (200M)", icon: "🏃" },
-  { name: "Running (400M)", icon: "🏃" },
-  { name: "Running (800M)", icon: "🏃" },
-  { name: "Running (Others)", icon: "🏃" },
-  { name: "Snooker", icon: "🎱" },
-  { name: "Soccer", icon: "⚽" },
-  { name: "Squash", icon: "🎾" },
-  { name: "Swimming Race", icon: "🏊" },
-  { name: "Table Tennis", icon: "🏓" },
-  { name: "Tennis", icon: "🎾" },
-  { name: "Throwball", icon: "🤾" },
-  { name: "Tug of War", icon: "🪢" },
-  { name: "Volleyball", icon: "🏐" },
-];
-
-const isTeamSport = (sportName: string): boolean => {
-  const name = sportName.toLowerCase();
-  return (
-    name.includes("cricket") ||
-    name.includes("football") ||
-    name.includes("soccer") ||
-    name.includes("basketball") ||
-    name.includes("volleyball") ||
-    name.includes("kabaddi") ||
-    name.includes("tug of war") ||
-    name.includes("throwball") ||
-    name.includes("hockey") ||
-    name.includes("baseball") ||
-    name.includes("rugby")
-  );
-};
+import { PREDEFINED_SPORTS, isTeamSport } from "../utils/sportsConstants";
 
 interface SportsEventSectionProps {
   user: any;

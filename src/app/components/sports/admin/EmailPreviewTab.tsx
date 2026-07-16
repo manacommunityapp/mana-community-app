@@ -159,10 +159,10 @@ export function EmailPreviewTab() {
       } else {
         showWarning("Mail disabled — email rendered but not sent via SMTP");
       }
-    } catch (e: any) {
-      showError(e?.message || "Failed to send test");
+    } catch {
+      showError("Failed to send test");
     } finally {
-      setSendingTemplate(null as any);
+      setSendingTemplate(false);
     }
   };
 
@@ -181,8 +181,8 @@ export function EmailPreviewTab() {
       } else {
         showSuccess(`All ${result.sent} templates sent successfully to ${result.to}`);
       }
-    } catch (e: any) {
-      showError(e?.message || "Failed to send all tests");
+    } catch {
+      showError("Failed to send all tests");
     } finally {
       setSendingAll(false);
     }

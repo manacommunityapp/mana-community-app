@@ -2,16 +2,7 @@ import { useState } from "react";
 import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
-
-const TEAM_SPORT_KEYWORDS = [
-  "cricket", "football", "volleyball", "basketball",
-  "kabaddi", "hockey", "soccer", "throwball", "rugby",
-];
-
-function isTeamSport(sportName: string): boolean {
-  const name = sportName.toLowerCase();
-  return TEAM_SPORT_KEYWORDS.some(k => name.includes(k));
-}
+import { isTeamSport } from "../utils/sportsConstants";
 
 interface TournamentSectionProps {
   title: string;

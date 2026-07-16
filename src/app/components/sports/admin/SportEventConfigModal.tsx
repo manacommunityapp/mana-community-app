@@ -7,6 +7,7 @@ import { Calendar } from "../../ui/calendar";
 import { format } from "date-fns";
 import type { PlayerCategory } from "../../../../types/api";
 import type { SelectedSportWithEvents } from "../types";
+import { isTeamSport } from "../utils/sportsConstants";
 
 interface SportEventConfigModalProps {
   isOpen: boolean;
@@ -18,21 +19,6 @@ interface SportEventConfigModalProps {
   updateEventField: (sportId: number, eventId: string, field: any, value: any) => void;
   playerCategories: PlayerCategory[];
 }
-
-const isTeamSport = (sportName: string): boolean => {
-  const name = sportName.toLowerCase();
-  return (
-    name.includes("cricket") ||
-    name.includes("football") ||
-    name.includes("volleyball") ||
-    name.includes("basketball") ||
-    name.includes("kabaddi") ||
-    name.includes("hockey") ||
-    name.includes("soccer") ||
-    name.includes("throwball") ||
-    name.includes("rugby")
-  );
-};
 
 export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
   isOpen,
