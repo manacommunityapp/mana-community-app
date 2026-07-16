@@ -21,6 +21,7 @@ import type { Venue, SportMeta, PlayerCategory, CommunityResponse, AuctionTeam, 
 import { ClipboardList } from "lucide-react";
 import { isTeamSport, getDefaultMinPlayers, PREDEFINED_SPORTS, BasketballIcon, SPORT_ICONS, SPORT_COLORS, DEFAULT_AVATAR_URL } from "../utils/sportsConstants";
 import type { RegistrationNotifConfig } from "./RegistrationOpenModal";
+import type { AnnouncementConfig } from "./TournamentAnnouncementModal";
 
 const toast = {
   success: (msg: string) => showSuccess(msg),
@@ -187,6 +188,7 @@ export function useSportsAdminState() {
   const [activeEvents, setActiveEvents] = useState<any[]>([]);
   const [activeTournaments, setActiveTournaments] = useState<any[]>([]);
   const [activatingTournament, setActivatingTournament] = useState<{ id: number; name: string } | null>(null);
+  const [announcingTournament, setAnnouncingTournament] = useState<{ id: number; name: string } | null>(null);
   const [activeTournamentId, setActiveTournamentId] = useState<number | null>(null);
   const [activeTournamentName, setActiveTournamentName] = useState<string>("");
 
@@ -1312,6 +1314,7 @@ export function useSportsAdminState() {
         };
         const created = await sportsService.createTournament(payload as any);
         toast.success("Tournament created! Now add sports events to it.");
+        setAnnouncingTournament({ id: created.id, name: eventName });
         resetForm();
         setActiveTournamentId(created.id);
         setActiveTournamentName(eventName);
@@ -1516,6 +1519,25 @@ export function useSportsAdminState() {
       toast.success("Tournament opened for registration! Notifications sent to community.");
     } catch {
       toast.warning("Tournament opened for registration. Notifications could not be sent.");
+    }
+  };
+
+  const handleSendAnnouncement = async (config: AnnouncementConfig) => {
+    if (!announcingTournament) return;
+    try {
+      await notificationService.sendTournamentAnnouncement(announcingTournament.id, {
+        template: config.template,
+        subject: config.subject,
+        message: config.message,
+        sendEmail: config.sendEmail,
+        sendPush: config.sendPush,
+        customHtml: config.customHtml ?? undefined,
+      });
+      toast.success("Announcement sent to community!");
+    } catch {
+      toast.error("Failed to send announcement.");
+    } finally {
+      setAnnouncingTournament(null);
     }
   };
 
@@ -2208,6 +2230,7 @@ export function useSportsAdminState() {
     draftEvents, liveEvents, completedEvents,
     handleEdit, handleDelete, handleActivate,
     activatingTournament, handleConfirmActivate, setActivatingTournament,
+    announcingTournament, handleSendAnnouncement, setAnnouncingTournament,
 
     // Dashboard
     teamsList, pendingList, approveTeam, rejectTeam,

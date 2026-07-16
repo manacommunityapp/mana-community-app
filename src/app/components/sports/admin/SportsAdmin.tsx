@@ -16,6 +16,7 @@ import { VenueCreationSection } from "./VenueCreationSection";
 import { PlayerCategorySection } from "./PlayerCategorySection";
 import { SportsMetaSection } from "./SportsMetaSection";
 import { RegistrationOpenModal } from "./RegistrationOpenModal";
+import { TournamentAnnouncementModal } from "./TournamentAnnouncementModal";
 import "../SportsAuction.css";
 
 export function SportsAdmin() {
@@ -82,6 +83,7 @@ export function SportsAdmin() {
               handleEdit={s.handleEdit}
               handleDelete={s.handleDelete}
               handleActivate={s.handleActivate}
+              handleAnnounce={(id: number, name: string) => s.setAnnouncingTournament({ id, name })}
               handleViewPlayers={s.handleViewPlayers}
               handleViewCaptains={s.handleViewCaptains}
               viewingEventId={s.viewingEventId}
@@ -400,6 +402,14 @@ export function SportsAdmin() {
           tournament={s.activatingTournament}
           onConfirm={s.handleConfirmActivate}
           onClose={() => s.setActivatingTournament(null)}
+        />
+      )}
+
+      {s.announcingTournament && (
+        <TournamentAnnouncementModal
+          tournament={s.announcingTournament}
+          onConfirm={s.handleSendAnnouncement}
+          onClose={() => s.setAnnouncingTournament(null)}
         />
       )}
     </div>

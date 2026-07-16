@@ -17,6 +17,7 @@ interface SportsEventTabProps {
   handleEdit: (e: SportsEvent) => void;
   handleDelete: (id: number) => void;
   handleActivate: (id: number) => void;
+  handleAnnounce: (id: number, name: string) => void;
   handleViewPlayers: (id: number) => void;
   handleViewCaptains: (id: number) => void;
   viewingEventId: number | null;
@@ -85,6 +86,7 @@ export function SportsEventTab({
   handleEdit,
   handleDelete,
   handleActivate,
+  handleAnnounce,
   handleViewPlayers,
   handleViewCaptains,
   viewingEventId,
@@ -214,6 +216,7 @@ export function SportsEventTab({
           handleEdit={handleEdit}
           handleDelete={handleDelete}
           handleActivate={handleActivate}
+          handleAnnounce={handleAnnounce}
           handleViewPlayers={handleViewPlayers}
           handleViewCaptains={handleViewCaptains}
           viewingEventId={viewingEventId}

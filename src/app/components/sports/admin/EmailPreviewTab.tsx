@@ -14,6 +14,8 @@ const TEMPLATE_COLORS: Record<string, { bg: string; border: string; icon: string
   TOURNAMENT_COMPLETION:  { bg: "bg-indigo-50/70",   border: "border-indigo-200",   icon: "text-indigo-500",   badge: "bg-indigo-100 text-indigo-700", gradient: "from-indigo-600 to-violet-700" },
   PRIZE_DISTRIBUTION:     { bg: "bg-pink-50/70",     border: "border-pink-200",     icon: "text-pink-500",     badge: "bg-pink-100 text-pink-700", gradient: "from-pink-600 to-rose-600" },
   EMAIL_OTP:              { bg: "bg-cyan-50/70",     border: "border-cyan-200",     icon: "text-cyan-500",     badge: "bg-cyan-100 text-cyan-700", gradient: "from-cyan-600 to-blue-600" },
+  TOURNAMENT_OPEN:        { bg: "bg-emerald-50/70",  border: "border-emerald-300",  icon: "text-emerald-600",  badge: "bg-emerald-100 text-emerald-800", gradient: "from-emerald-600 to-green-700" },
+  TOURNAMENT_ANNOUNCEMENT:{ bg: "bg-purple-50/70",   border: "border-purple-200",   icon: "text-purple-500",   badge: "bg-purple-100 text-purple-700", gradient: "from-purple-600 to-fuchsia-600" },
   REGISTRATION_OPEN:      { bg: "bg-purple-50/70",   border: "border-purple-200",   icon: "text-purple-500",   badge: "bg-purple-100 text-purple-700", gradient: "from-purple-600 to-fuchsia-600" },
 };
 
@@ -30,16 +32,18 @@ const TEMPLATE_EMOJIS: Record<string, string> = {
   TOURNAMENT_COMPLETION:  "🏆",
   PRIZE_DISTRIBUTION:     "🎁",
   EMAIL_OTP:              "🔐",
+  TOURNAMENT_OPEN:        "🏆",
+  TOURNAMENT_ANNOUNCEMENT:"📢",
   REGISTRATION_OPEN:      "📢",
 };
 
 const TEMPLATE_ORDER = [
-  "REGISTRATION_OPEN",
+  "TOURNAMENT_OPEN",
+  "TOURNAMENT_ANNOUNCEMENT",
   "REGISTRATION_RECEIVED",
   "REGISTRATION_CONFIRMED",
   "REGISTRATION_REJECTED",
   "SCHEDULE_PUBLISHED",
-  "TOURNAMENT_START",
   "MATCH_REMINDER",
   "WINNER_NOTIFICATION",
   "TOURNAMENT_COMPLETION",

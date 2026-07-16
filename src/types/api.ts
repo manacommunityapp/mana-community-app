@@ -559,6 +559,15 @@ export interface RegistrationOpenNotificationRequest {
   message?: string;
 }
 
+export interface TournamentAnnouncementRequest {
+  template: string;
+  subject: string;
+  message: string;
+  sendEmail: boolean;
+  sendPush: boolean;
+  customHtml?: string | null;
+}
+
 // ─── User Profile ────────────────────────────────────────────────────────────
 
 export interface UserStats {
