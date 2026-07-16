@@ -361,8 +361,8 @@ export function SportsDashboard() {
           date: fmtRange(e.eventDateStart, e.eventDateEnd),
           category: `${e.sportName ?? "Sport"} · ${e.categoryName ?? "Open"} · ${e.venueName ?? "TBD"}`,
           spots: e.maxParticipants ? `${e.maxParticipants} max spots` : "Unlimited spots",
-          progress: 30,
-          progressColor: "#3b82f6",
+          progress: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? 100 : 50) : 10,
+          progressColor: e.myRegistrationId ? (e.myRegistrationStatus === "CONFIRMED" ? "#10b981" : "#f97316") : "#3b82f6",
           dotColor: "#10b981",
           action: actionVal,
           status: e.registrationStatus ?? "REGISTRATION_OPEN",
@@ -1057,20 +1057,37 @@ export function SportsDashboard() {
           {/* Timer */}
           <NextMatchTimer nextMatch={nextMatch} />
 
-          {/* Trophy card */}
+          {/* Season Stats */}
           <div className="rounded-2xl p-5 bg-white border border-[#6366f1]/12 shadow-[0_4px_20px_rgba(99,102,241,0.05)]">
             <div className="flex items-center gap-2 mb-3">
               <Trophy className="w-4 h-4 text-[#f97316]" />
               <div className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#6b7094" }}>Season Stats</div>
             </div>
-            <div className="space-y-2">
-              {[["Matches Played", "18"], ["Win Rate", "67%"], ["Rank", "#4 / 48"]].map(([k, v]) => (
-                <div key={k} className="flex justify-between items-center text-xs">
-                  <span style={{ color: "#6b7094" }}>{k}</span>
-                  <span className="font-semibold text-slate-800">{v}</span>
-                </div>
-              ))}
-            </div>
+            {loading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 text-[#f97316] animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {(() => {
+                  const total = myRegistrations.length;
+                  const confirmed = confirmedMyRegistrations.length;
+                  const teamRegs = confirmedTeamRegistrations.length;
+                  const seasonData: [string, string][] = [
+                    ["Total Registrations", String(total)],
+                    ["Confirmed", `${confirmed} / ${total}`],
+                    ["Team Events", String(teamRegs)],
+                    ["Upcoming", String(liveEvents.length)],
+                  ];
+                  return seasonData.map(([k, v]) => (
+                    <div key={k} className="flex justify-between items-center text-xs">
+                      <span style={{ color: "#6b7094" }}>{k}</span>
+                      <span className="font-semibold text-slate-800">{v}</span>
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
           </div>
         </div>
         {/* Captain Nomination Modal */}

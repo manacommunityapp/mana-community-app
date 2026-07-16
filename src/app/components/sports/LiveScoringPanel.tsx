@@ -1,10 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, Undo2, ChevronDown, ChevronUp, Wifi, WifiOff } from "lucide-react";
+import { X, Loader2, Undo2, ChevronDown, ChevronUp, Wifi, WifiOff, AlertTriangle } from "lucide-react";
 import { tournamentService, type LiveMatchStateData, type BallEventRequestData } from "../../../services/tournamentService";
 import { stompClient } from "../../../services/stompClient";
+import { ballColor } from "./utils/cricketUtils";
+import { toast } from "sonner";
 
 interface LiveScoringPanelProps {
   matchId: number;
+  configId?: number;
   onClose: () => void;
 }
 
@@ -14,9 +17,10 @@ interface PlayerOption {
   teamId?: number;
 }
 
-export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
+export function LiveScoringPanel({ matchId, configId, onClose }: LiveScoringPanelProps) {
   const [state, setState] = useState<LiveMatchStateData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [players, setPlayers] = useState<PlayerOption[]>([]);
 
   const [inningsNumber, setInningsNumber] = useState(1);
@@ -28,8 +32,12 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
   const [dismissalType, setDismissalType] = useState("BOWLED");
   const [dismissedPlayerId, setDismissedPlayerId] = useState<number>(0);
   const [fielderId, setFielderId] = useState<number>(0);
+  const [wicketRuns, setWicketRuns] = useState<number>(0);
   const [showExtras, setShowExtras] = useState(false);
+  const [extrasRuns, setExtrasRuns] = useState<number>(1);
   const [wsConnected, setWsConnected] = useState(false);
+  const [showNewBatsman, setShowNewBatsman] = useState(false);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
   useEffect(() => {
     tournamentService.getLiveMatchState(matchId)
@@ -40,7 +48,7 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
         if (s.batsmanNonStrikeId) setNonStrikerId(s.batsmanNonStrikeId);
         if (s.currentBowlerId) setBowlerId(s.currentBowlerId);
       })
-      .catch(() => {})
+      .catch(() => setError("Failed to load match state"))
       .finally(() => setLoading(false));
 
     const unsub = stompClient.subscribe(`/topic/match/${matchId}/state`, (body) => {
@@ -61,6 +69,19 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
 
   const loadPlayers = async () => {
     try {
+      if (configId) {
+        const teams = await tournamentService.getConfigTeams(configId);
+        const playerList: PlayerOption[] = [];
+        for (const team of teams) {
+          if (team.players) {
+            for (const p of team.players) {
+              playerList.push({ id: p.id, name: p.playerName, teamId: team.id });
+            }
+          }
+        }
+        setPlayers(playerList);
+        return;
+      }
       const configs = await tournamentService.getConfigs();
       for (const cfg of configs) {
         const matches = await tournamentService.getMatchesByConfigId(cfg.id);
@@ -80,7 +101,7 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
         }
       }
     } catch {
-      // fallback: no players loaded
+      toast.error("Failed to load players");
     }
   };
 
@@ -94,7 +115,10 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
     dismissedPlayerId?: number;
     fielderId?: number;
   }) => {
-    if (!batsmanId || !bowlerId) return;
+    if (!batsmanId || !bowlerId) {
+      toast.error("Select both batsman and bowler first");
+      return;
+    }
     setSaving(true);
     try {
       const req: BallEventRequestData = {
@@ -128,10 +152,17 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
         setNonStrikerId(temp);
       }
 
+      if (opts?.isWicket) {
+        setShowNewBatsman(true);
+        setDismissedPlayerId(0);
+        setFielderId(0);
+        setWicketRuns(0);
+      }
+
       setShowWicketPanel(false);
       setShowExtras(false);
-    } catch (err) {
-      console.error("Failed to record ball", err);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to record ball");
     } finally {
       setSaving(false);
     }
@@ -147,17 +178,37 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
         const s = await tournamentService.getLiveMatchState(matchId);
         setState(s);
       }
-    } catch (err) {
-      console.error("Failed to undo", err);
+      toast.success("Last ball undone");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to undo");
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleClose = () => {
+    if (saving) return;
+    setShowCloseConfirm(true);
   };
 
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center">
         <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm text-center" onClick={e => e.stopPropagation()}>
+          <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+          <p className="text-sm text-slate-700 font-semibold">{error}</p>
+          <button onClick={onClose} className="mt-4 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold hover:bg-slate-200 transition">
+            Close
+          </button>
+        </div>
       </div>
     );
   }
@@ -174,8 +225,14 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
     return p.teamId === bowlingTeamId;
   });
 
+  const availableBatsmen = battingTeamPlayers.filter(p => {
+    if (!inn) return true;
+    const dismissed = inn.batters.filter(b => b.isOut).map(b => b.playerId);
+    return !dismissed.includes(p.id) && p.id !== batsmanId;
+  });
+
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-2 sm:p-4" onClick={handleClose}>
       <div
         className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
@@ -190,7 +247,7 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
             </div>
             {wsConnected ? <Wifi className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-300" /> : <WifiOff className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-300" />}
           </div>
-          <button onClick={onClose} className="p-1 sm:p-1.5 hover:bg-white/10 rounded-lg transition">
+          <button onClick={handleClose} className="p-1 sm:p-1.5 hover:bg-white/10 rounded-lg transition">
             <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </button>
         </div>
@@ -227,6 +284,14 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
         )}
 
         <div className="p-2.5 sm:p-5 space-y-2.5 sm:space-y-4">
+          {/* WS Disconnected Banner */}
+          {!wsConnected && (
+            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <WifiOff className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span className="text-[10px] sm:text-xs text-amber-700 font-medium">WebSocket disconnected — scoring via REST fallback</span>
+            </div>
+          )}
+
           {/* Innings Selector */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             <span className="text-[10px] sm:text-xs text-slate-500 font-semibold">Innings:</span>
@@ -305,35 +370,35 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
               Extras {showExtras ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
             {showExtras && (
-              <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
-                <button
-                  onClick={() => recordBall(0, { extrasType: "WIDE", extrasRuns: 1 })}
-                  disabled={saving || !batsmanId || !bowlerId}
-                  className="py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition active:scale-95 disabled:opacity-40"
-                >
-                  Wide
-                </button>
-                <button
-                  onClick={() => recordBall(0, { extrasType: "NO_BALL", extrasRuns: 1 })}
-                  disabled={saving || !batsmanId || !bowlerId}
-                  className="py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition active:scale-95 disabled:opacity-40"
-                >
-                  No Ball
-                </button>
-                <button
-                  onClick={() => recordBall(0, { extrasType: "BYE", extrasRuns: 1 })}
-                  disabled={saving || !batsmanId || !bowlerId}
-                  className="py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition active:scale-95 disabled:opacity-40"
-                >
-                  Bye
-                </button>
-                <button
-                  onClick={() => recordBall(0, { extrasType: "LEG_BYE", extrasRuns: 1 })}
-                  disabled={saving || !batsmanId || !bowlerId}
-                  className="py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition active:scale-95 disabled:opacity-40"
-                >
-                  Leg Bye
-                </button>
+              <div className="mt-1.5 sm:mt-2 space-y-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-[9px] sm:text-[10px] text-slate-400 font-semibold uppercase shrink-0">Extra Runs:</label>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setExtrasRuns(r)}
+                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-[10px] sm:text-xs font-bold transition ${
+                          extrasRuns === r ? "bg-amber-500 text-white" : "bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
+                  {([["WIDE", "Wide"], ["NO_BALL", "No Ball"], ["BYE", "Bye"], ["LEG_BYE", "Leg Bye"]] as const).map(([type, label]) => (
+                    <button
+                      key={type}
+                      onClick={() => recordBall(0, { extrasType: type, extrasRuns })}
+                      disabled={saving || !batsmanId || !bowlerId}
+                      className="py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold bg-amber-100 text-amber-700 hover:bg-amber-200 transition active:scale-95 disabled:opacity-40"
+                    >
+                      {label} +{extrasRuns}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -360,6 +425,22 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
                   </select>
                 </div>
                 <div>
+                  <label className="text-[9px] sm:text-[10px] text-red-400 font-semibold uppercase">Runs scored on this ball</label>
+                  <div className="flex items-center gap-1 mt-1">
+                    {[0, 1, 2, 3].map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setWicketRuns(r)}
+                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg text-[10px] sm:text-xs font-bold transition ${
+                          wicketRuns === r ? "bg-red-600 text-white" : "bg-white text-red-700 border border-red-200 hover:bg-red-100"
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
                   <label className="text-[9px] sm:text-[10px] text-red-400 font-semibold uppercase">Dismissed Player</label>
                   <select value={dismissedPlayerId} onChange={(e) => setDismissedPlayerId(Number(e.target.value))}
                     className="w-full border border-red-200 rounded-lg px-2 py-1.5 text-[10px] sm:text-xs mt-1 outline-none focus:border-red-400">
@@ -378,7 +459,7 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
                   </div>
                 )}
                 <button
-                  onClick={() => recordBall(0, {
+                  onClick={() => recordBall(wicketRuns, {
                     isWicket: true,
                     dismissalType,
                     dismissedPlayerId: dismissedPlayerId || batsmanId,
@@ -387,13 +468,13 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
                   disabled={saving || !batsmanId || !bowlerId}
                   className="w-full py-2 sm:py-2.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition active:scale-[0.98] disabled:opacity-40"
                 >
-                  {saving ? "Recording..." : "Confirm Wicket"}
+                  {saving ? "Recording..." : `Confirm Wicket${wicketRuns > 0 ? ` (+${wicketRuns} runs)` : ""}`}
                 </button>
               </div>
             )}
           </div>
 
-          {/* Undo */}
+          {/* Undo + Swap */}
           <div className="flex items-center gap-2 sm:gap-3 pt-2 border-t border-slate-100">
             <button
               onClick={handleUndo}
@@ -415,16 +496,64 @@ export function LiveScoringPanel({ matchId, onClose }: LiveScoringPanelProps) {
             </button>
           </div>
         </div>
+
+        {/* New Batsman Prompt */}
+        {showNewBatsman && (
+          <div className="border-t border-slate-200 bg-emerald-50 px-3 py-3 sm:px-5 sm:py-4 rounded-b-xl sm:rounded-b-2xl">
+            <div className="text-[10px] sm:text-xs font-semibold text-emerald-800 mb-2">Select new batsman:</div>
+            <select
+              autoFocus
+              value={0}
+              onChange={(e) => {
+                const newId = Number(e.target.value);
+                if (newId) {
+                  const dismissed = dismissedPlayerId || batsmanId;
+                  if (dismissed === batsmanId) {
+                    setBatsmanId(newId);
+                  } else {
+                    setNonStrikerId(newId);
+                  }
+                  setShowNewBatsman(false);
+                }
+              }}
+              className="w-full border border-emerald-200 rounded-lg px-2 py-1.5 text-[10px] sm:text-xs outline-none focus:border-emerald-400"
+            >
+              <option value={0}>Select incoming batter...</option>
+              {availableBatsmen.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+            <button
+              onClick={() => setShowNewBatsman(false)}
+              className="mt-2 text-[9px] sm:text-[10px] text-slate-500 hover:text-slate-700 transition"
+            >
+              Skip for now
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Close Confirmation */}
+      {showCloseConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50" onClick={() => setShowCloseConfirm(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-5 max-w-xs w-full" onClick={e => e.stopPropagation()}>
+            <h4 className="text-sm font-bold text-slate-800">Close Live Scorer?</h4>
+            <p className="text-[10px] sm:text-xs text-slate-500 mt-1">The match will continue in the background. You can reopen it any time.</p>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => setShowCloseConfirm(false)}
+                className="flex-1 px-3 py-2 text-xs font-semibold text-slate-600 bg-slate-100 rounded-xl hover:bg-slate-200 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowCloseConfirm(false); onClose(); }}
+                className="flex-1 px-3 py-2 text-xs font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 transition"
+              >
+                Close Scorer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
-
-function ballColor(ball: string): string {
-  if (ball === "W") return "bg-red-100 text-red-700";
-  if (ball === "4") return "bg-emerald-100 text-emerald-700";
-  if (ball === "6") return "bg-purple-100 text-purple-700";
-  if (ball.includes("wd") || ball.includes("nb")) return "bg-amber-100 text-amber-700";
-  if (ball === "0") return "bg-slate-100 text-slate-400";
-  return "bg-blue-100 text-blue-700";
 }

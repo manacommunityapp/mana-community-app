@@ -633,6 +633,17 @@ export function useSportsAdminState() {
     }
   };
 
+  const rejectTeam = async (id: number) => {
+    if (!window.confirm("Are you sure you want to reject this registration?")) return;
+    try {
+      await sportsService.rejectRegistration(id);
+      toast.success("Registration rejected");
+      refreshDashboardOverview();
+    } catch {
+      toast.error("Failed to reject registration");
+    }
+  };
+
   const hydratedTabs = useRef(new Set<TabId>());
   const tournamentsFetchedRef = useRef(false);
   const eventsFetchedRef = useRef(false);
@@ -2278,7 +2289,7 @@ export function useSportsAdminState() {
     activatingTournament, handleConfirmActivate, setActivatingTournament,
 
     // Dashboard
-    teamsList, pendingList, approveTeam,
+    teamsList, pendingList, approveTeam, rejectTeam,
 
     // Registration
     viewingEventId, viewMode,

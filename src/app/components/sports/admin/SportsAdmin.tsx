@@ -63,6 +63,7 @@ export function SportsAdmin() {
               venues={s.venues}
               activeEvents={s.activeEvents}
               approveTeam={s.approveTeam}
+              rejectTeam={s.rejectTeam}
               setActiveTab={s.setActiveTab}
             />
           )}
