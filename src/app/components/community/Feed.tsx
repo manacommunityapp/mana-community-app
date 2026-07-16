@@ -15,6 +15,7 @@ import { feedService } from "../../../services/feedService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { PostResponse, CommentResponse } from "../../../types/api";
 import { toast } from "sonner";
+import { CommunityDirectory } from "./CommunityDirectory";
 
 export function Feed() {
   const { user, isAdmin } = useAuth();
@@ -262,6 +263,9 @@ export function Feed() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      {/* Community Directory */}
+      <CommunityDirectory />
+
       {/* Create Post */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md">
         <div className="flex gap-4">

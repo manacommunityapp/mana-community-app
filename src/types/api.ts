@@ -704,6 +704,31 @@ export interface LikeToggleResponse {
   liked: boolean;
 }
 
+// ─── Community Directory ─────────────────────────────────────────────────────
+
+export interface CommunityLeaderResponse {
+  id: number;
+  userId: number;
+  fullName: string;
+  profilePicUrl?: string;
+  designation: string;
+  committee?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  flatNo?: string;
+  block?: string;
+  displayOrder: number;
+}
+
+export interface CommunityLeaderRequest {
+  userId: number;
+  designation: string;
+  committee?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  displayOrder?: number;
+}
+
 // ─── Chat (backend DTOs) ───────────────────────────────────────────────────────
 
 export interface ChatContactDto {
