@@ -1282,11 +1282,138 @@ const FLOW_DATA: Record<string, { title: string; steps: { step: number; name: st
 
 };
 
+// ─── Keyword → flow matching for freeform questions ─────────────────────────
+
+const KEYWORD_FLOW_MAP: { keywords: string[]; module: string; flow: string }[] = [
+  { keywords: ["login", "log in", "sign in", "signin"], module: "auth", flow: "login" },
+  { keywords: ["sign up", "signup", "create account", "register account", "new account"], module: "auth", flow: "signup" },
+  { keywords: ["forgot password", "reset password", "lost password", "change password"], module: "auth", flow: "forgot_password" },
+  { keywords: ["otp", "verification code", "code not received"], module: "auth", flow: "otp_trouble" },
+  { keywords: ["kyc", "identity", "id verification", "aadhaar"], module: "auth", flow: "kyc" },
+  { keywords: ["session", "timeout", "logged out", "expired"], module: "auth", flow: "session_timeout" },
+  { keywords: ["create post", "write post", "new post", "share update"], module: "feed", flow: "create_post" },
+  { keywords: ["comment", "reply to post"], module: "feed", flow: "comment_post" },
+  { keywords: ["delete post", "remove post"], module: "feed", flow: "delete_post" },
+  { keywords: ["community guidelines", "rules", "posting rules"], module: "feed", flow: "community_guidelines" },
+  { keywords: ["direct message", "dm", "send message", "private message", "start chat"], module: "chat", flow: "start_dm" },
+  { keywords: ["group chat", "group message"], module: "chat", flow: "group_chat" },
+  { keywords: ["notification type", "what notifications", "alert type"], module: "notifications", flow: "notif_types" },
+  { keywords: ["mark read", "dismiss notification", "clear notification"], module: "notifications", flow: "mark_read" },
+  { keywords: ["edit profile", "update profile", "change name", "my profile"], module: "profile", flow: "edit_profile" },
+  { keywords: ["profile picture", "avatar", "photo", "profile photo"], module: "profile", flow: "profile_picture" },
+  { keywords: ["register event", "sign up event", "join event", "register sport", "participate"], module: "registration", flow: "self_register" },
+  { keywords: ["registration status", "pending", "confirmed", "rejected", "approved"], module: "registration", flow: "reg_statuses" },
+  { keywords: ["withdraw", "cancel registration", "unregister"], module: "registration", flow: "withdraw_reg" },
+  { keywords: ["captain", "nominate captain", "team captain"], module: "registration", flow: "captain_nominate" },
+  { keywords: ["approve registration", "reject registration", "admin approve"], module: "registration", flow: "admin_approve" },
+  { keywords: ["bulk import", "csv import", "upload csv", "import players"], module: "registration", flow: "bulk_import" },
+  { keywords: ["create event", "new event", "organize event", "add event"], module: "events", flow: "create_event" },
+  { keywords: ["event status", "event lifecycle", "draft", "live", "completed"], module: "events", flow: "event_lifecycle" },
+  { keywords: ["share event", "event link", "uuid link", "share link"], module: "events", flow: "share_event" },
+  { keywords: ["sponsor", "add sponsor", "event sponsor"], module: "events", flow: "event_sponsors" },
+  { keywords: ["venue", "add venue", "create venue", "new venue"], module: "venues", flow: "add_venue" },
+  { keywords: ["court", "manage court", "add court"], module: "venues", flow: "manage_courts" },
+  { keywords: ["map link", "google maps", "directions"], module: "venues", flow: "venue_map" },
+  { keywords: ["auction setup", "auction config", "create auction", "configure auction", "set up auction"], module: "auction", flow: "auction_config" },
+  { keywords: ["start auction", "go live", "live auction", "begin auction"], module: "auction", flow: "start_auction" },
+  { keywords: ["bid", "bidding", "how to bid", "place bid"], module: "auction", flow: "bidding_flow" },
+  { keywords: ["sold", "pass", "unsold", "queue"], module: "auction", flow: "sold_pass_queue" },
+  { keywords: ["rtm", "right to match"], module: "auction", flow: "rtm_guide" },
+  { keywords: ["auction result", "auction outcome", "who got sold"], module: "auction", flow: "auction_results" },
+  { keywords: ["team setup", "create team", "team budget"], module: "auction", flow: "team_setup" },
+  { keywords: ["player pool", "manage player", "player list"], module: "auction", flow: "player_pool" },
+  { keywords: ["schedule match", "generate schedule", "create schedule"], module: "scheduler", flow: "match_schedule" },
+  { keywords: ["group", "group assign", "group stage", "pool"], module: "scheduler", flow: "group_assign" },
+  { keywords: ["playoff", "bracket", "knockout", "semi final", "final"], module: "scheduler", flow: "playoff_bracket" },
+  { keywords: ["match result", "update score", "match status"], module: "scheduler", flow: "match_status" },
+  { keywords: ["my team", "find team", "which team", "team roster"], module: "sports_dashboard", flow: "find_my_team" },
+  { keywords: ["my registration", "check registration", "registration history"], module: "sports_dashboard", flow: "my_registrations" },
+  { keywords: ["what's happening", "live now", "today match", "today's match"], module: "sports_dashboard", flow: "whats_happening" },
+  { keywords: ["event badge", "status badge", "green badge", "red badge"], module: "sports_dashboard", flow: "event_status_badges" },
+  { keywords: ["quick register", "fast register"], module: "sports_dashboard", flow: "quick_register" },
+  { keywords: ["role", "permission", "access", "what role"], module: "roles", flow: "role_overview" },
+  { keywords: ["create role", "custom role", "new role"], module: "roles", flow: "create_role" },
+  { keywords: ["assign role", "change role", "user role"], module: "roles", flow: "assign_role" },
+  { keywords: ["permission matrix", "permission table"], module: "roles", flow: "permission_matrix" },
+  { keywords: ["create user", "add user", "new member"], module: "admin", flow: "create_user" },
+  { keywords: ["bulk upload", "upload users", "csv users"], module: "admin", flow: "bulk_upload" },
+  { keywords: ["audit log", "audit trail", "activity log", "who changed"], module: "admin", flow: "audit_logs" },
+  { keywords: ["create community", "new community", "add community"], module: "admin", flow: "community_create" },
+  { keywords: ["admin dashboard", "admin overview", "admin panel"], module: "admin", flow: "admin_overview" },
+  { keywords: ["expense", "create expense", "add expense", "submit expense"], module: "finance", flow: "create_expense" },
+  { keywords: ["invoice", "my invoice", "bill", "my bill", "payment"], module: "finance", flow: "invoice_management" },
+  { keywords: ["gst", "tax", "cgst", "sgst"], module: "finance", flow: "gst_breakdown" },
+  { keywords: ["budget", "budget plan", "spending limit"], module: "finance", flow: "budget_planning" },
+  { keywords: ["financial report", "finance report", "expense report"], module: "finance", flow: "financial_reports" },
+  { keywords: ["approve expense", "reject expense"], module: "finance", flow: "approve_expense" },
+  { keywords: ["inventory", "stock", "supplies"], module: "inventory", flow: "inventory_dashboard" },
+  { keywords: ["add item", "add inventory", "new item"], module: "inventory", flow: "add_inventory" },
+  { keywords: ["stock level", "stock tracking", "low stock", "restock"], module: "inventory", flow: "stock_tracking" },
+  { keywords: ["listing", "sell item", "sell something", "create listing", "marketplace"], module: "marketplace", flow: "create_listing" },
+  { keywords: ["contact seller", "buy item", "purchase"], module: "marketplace", flow: "contact_seller" },
+  { keywords: ["post job", "job opening", "hiring", "create job"], module: "jobs", flow: "post_job" },
+  { keywords: ["apply job", "apply for job", "job application"], module: "jobs", flow: "apply_job" },
+  { keywords: ["referral", "refer someone"], module: "jobs", flow: "referral_program" },
+  { keywords: ["maintenance", "maintenance ticket", "repair", "fix issue", "broken"], module: "community_ops", flow: "raise_maintenance" },
+  { keywords: ["procurement", "purchase request", "buy supplies"], module: "community_ops", flow: "raise_procurement" },
+  { keywords: ["asset audit", "verify assets", "asset check"], module: "community_ops", flow: "asset_audit" },
+  { keywords: ["checkout asset", "borrow equipment", "asset checkout"], module: "assets", flow: "asset_checkout" },
+  { keywords: ["receipt", "upload receipt", "expense receipt"], module: "assets", flow: "expense_upload" },
+  { keywords: ["analytics", "sports analytics", "participation trend", "stats"], module: "sports_analytics", flow: "analytics_dashboard" },
+  { keywords: ["export", "download report", "export data"], module: "sports_analytics", flow: "export_analytics" },
+];
+
+function findMatchingFlow(query: string): { module: string; flow: string } | null {
+  const q = query.toLowerCase().replace(/[?!.,]/g, "");
+  let bestMatch: { module: string; flow: string; score: number } | null = null;
+  for (const entry of KEYWORD_FLOW_MAP) {
+    for (const keyword of entry.keywords) {
+      if (q.includes(keyword)) {
+        const score = keyword.length;
+        if (!bestMatch || score > bestMatch.score) {
+          bestMatch = { module: entry.module, flow: entry.flow, score };
+        }
+      }
+    }
+  }
+  return bestMatch ? { module: bestMatch.module, flow: bestMatch.flow } : null;
+}
+
+function findMatchingModule(query: string): string | null {
+  const q = query.toLowerCase();
+  const moduleKeywords: Record<string, string[]> = {
+    auth: ["login", "sign in", "sign up", "password", "otp", "kyc", "account"],
+    feed: ["feed", "post", "community feed", "news"],
+    chat: ["chat", "message", "dm", "conversation"],
+    notifications: ["notification", "alert", "bell"],
+    profile: ["profile", "avatar", "photo", "settings"],
+    sports_dashboard: ["sport", "dashboard", "match", "game", "tournament", "team"],
+    events: ["event", "tournament", "organize"],
+    registration: ["register", "registration", "sign up for", "participate"],
+    auction: ["auction", "bid", "player auction", "sold", "rtm"],
+    scheduler: ["schedule", "fixture", "bracket", "playoff", "group stage"],
+    admin: ["admin", "user management", "audit", "system"],
+    venues: ["venue", "court", "ground", "stadium"],
+    roles: ["role", "permission", "access control"],
+    finance: ["finance", "expense", "invoice", "bill", "gst", "payment", "budget"],
+    inventory: ["inventory", "stock", "supplies", "equipment"],
+    marketplace: ["marketplace", "buy", "sell", "listing"],
+    jobs: ["job", "referral", "hiring", "career", "vacancy"],
+    community_ops: ["maintenance", "procurement", "community ops", "repair"],
+    assets: ["asset", "checkout", "receipt"],
+    sports_analytics: ["analytics", "report", "trend", "insight"],
+  };
+  for (const [mod, keywords] of Object.entries(moduleKeywords)) {
+    if (keywords.some(k => q.includes(k))) return mod;
+  }
+  return null;
+}
+
 // ─── Quick Replies (context-aware) ────────────────────────────────────────────
 
 const QUICK_REPLIES_DEFAULT = [
+  "About Mana Community",
   "How do I get started?",
-  "What can I do here?",
   "I need help with sports",
   "Show all modules",
 ];
@@ -1501,7 +1628,7 @@ export default function AppFlowChatbot({ isFloating }: { isFloating?: boolean })
   useEffect(() => {
     setMessages([{
       id: Date.now(), role: "bot", type: "text",
-      content: "Welcome to **Mana Community Help**! 👋\n\nI can guide you through every feature of the app — from registering for sports events to managing your community.\n\nPick a module below or just ask me anything!",
+      content: "Welcome to **Mana Community**! 👋\n\n**Mana** is your all-in-one community management platform — organize sports tournaments with live auctions and match scheduling, manage community finances with GST-compliant billing, handle maintenance requests, track inventory, and connect with your neighbors through feeds, chat, marketplace, and job boards.\n\nAsk me anything about the app or pick a module below to explore step-by-step guides!",
     }]);
   }, []);
 
@@ -1585,16 +1712,23 @@ export default function AppFlowChatbot({ isFloating }: { isFloating?: boolean })
       return;
     }
 
+    if (reply === "About Mana Community") {
+      await addBotMessage(
+        "**Mana Community** is a comprehensive platform for residential communities, sports clubs, and neighborhood associations.\n\n**What it does:**\n\n🏆 **Sports Management** — Create tournaments, run live player auctions with real-time bidding, auto-generate match schedules (round robin, knockout, playoffs), and track scores with live leaderboards.\n\n💰 **Finance & Billing** — Manage community expenses with approval workflows, generate per-resident invoices with GST breakdown (CGST + SGST), plan budgets, and run financial reports.\n\n🏘️ **Community Operations** — Raise maintenance tickets, submit procurement requests, track inventory and assets, and run asset audits.\n\n📰 **Social & Communication** — Community feed for posts and announcements, real-time chat (direct and group), and in-app notifications.\n\n🛒 **Marketplace & Jobs** — Buy/sell items within your community, post job openings, and run referral programs.\n\n🛡️ **Admin Tools** — User management with role-based permissions, bulk CSV uploads, KYC verification, audit logs, and session monitoring.\n\nAsk me about any feature for a detailed step-by-step guide!"
+      );
+      return;
+    }
+
     if (reply === "How do I get started?") {
       await addBotMessage(
-        "Here's how to get started:\n\n1. **Sign up** — Create an account with your community code\n2. **Complete KYC** — Submit your ID for verification\n3. **Explore the Feed** — See what's happening in your community\n4. **Register for Sports** — Join upcoming events\n5. **Chat** — Connect with community members\n6. **Check Finance** — View your invoices and payments\n7. **Browse Marketplace** — Buy/sell within your community\n8. **Report Issues** — Raise maintenance tickets\n\nTap any module above for detailed guides!"
+        "Getting started with Mana Community is easy! Here's your setup checklist:\n\n**1. Create Your Account**\nSign up with your email and phone number. You'll need a community invite code if your community requires one.\n\n**2. Verify Your Identity**\nComplete KYC by submitting a government ID (Aadhaar, Voter ID, or Driving Licence). Your admin will approve it.\n\n**3. Explore Your Community**\nOnce verified, you can:\n• 📰 Browse the **Community Feed** for updates\n• 🏆 Check **Sports** for upcoming events and register\n• 💬 Start **Chatting** with neighbors\n• 💰 View your **Invoices** under Finance\n• 🛒 Browse the **Marketplace**\n• 💼 Check **Jobs & Referrals**\n• 🔧 Raise **Maintenance Tickets** if something needs fixing\n\n**4. Customize Notifications**\nGo to Profile → Settings to choose what alerts you receive.\n\nTap any module above for detailed step-by-step walkthroughs!"
       );
       return;
     }
 
     if (reply === "What can I do here?") {
       await addBotMessage(
-        "Mana Community is your all-in-one community platform:\n\n📰 **Community Feed** — Share updates and announcements\n🏆 **Sports** — Events, registrations, auctions, and schedules\n💬 **Chat** — Direct and group messaging\n💰 **Finance** — Expenses, invoices with GST, budgets, and reports\n📦 **Inventory** — Track community supplies and equipment\n🏘️ **Community Ops** — Procurement, maintenance tickets, and asset audits\n🏷️ **Assets** — Checkout equipment, upload receipts\n🛒 **Marketplace** — Buy and sell within your community\n💼 **Jobs** — Post and find job opportunities\n🛡️ **Admin** — Manage users, roles, and community settings\n📊 **Analytics** — Sports participation trends and event reports\n\nPick a module to explore any of these!"
+        "This chatbot is your guide to **every feature** in the Mana Community app. Here's how I can help:\n\n**Browse by Module** — Use the category tabs (Core, Sports, Admin, Finance, Community) to find the feature you need.\n\n**Step-by-Step Guides** — Each feature has a detailed walkthrough with numbered steps and tips.\n\n**Ask Me Anything** — Type your question in natural language. For example:\n• \"How do I register for a cricket tournament?\"\n• \"How does the auction bidding work?\"\n• \"What's the difference between PENDING and CONFIRMED?\"\n• \"How do I create an expense with GST?\"\n• \"How to raise a maintenance ticket?\"\n\n**Quick Actions** — Use the suggestion buttons below the chat for common questions.\n\nI cover **20+ modules** with **120+ detailed guides** — just ask!"
       );
       return;
     }
@@ -1602,7 +1736,7 @@ export default function AppFlowChatbot({ isFloating }: { isFloating?: boolean })
     if (reply === "I need help with sports") {
       setActiveCategory("sports");
       await addBotMessage(
-        "Sports is the biggest module! Here's what you can do:\n\n📅 **Events** — Create and manage tournaments\n✍️ **Registration** — Sign up players, approve entries\n🔨 **Auction** — Run player auctions with live bidding\n📋 **Scheduler** — Generate match schedules and playoffs\n📊 **Analytics** — View participation trends\n\nSelect a sports module above to get step-by-step guides."
+        "Sports is the most feature-rich module! Here's everything you can do:\n\n🏆 **Sports Dashboard** — Overview of all events, your registrations, live matches, and season stats.\n\n📅 **Events** — Create tournaments, set venues, configure player categories, add sponsors, and manage the full event lifecycle (Draft → Open → Live → Completed).\n\n✍️ **Registration** — Register for events, get admin approval, nominate yourself as captain, and import players via CSV.\n\n🔨 **Auction** — Set up team budgets, configure bid rules, manage player pools, and run live auctions with real-time bidding and RTM (Right to Match).\n\n📋 **Scheduler** — Assign groups, auto-generate match schedules, set venue timings, and generate playoff brackets.\n\n📊 **Analytics** — View participation trends, event reports, and export data.\n\nSelect a sports module above to get detailed step-by-step guides, or ask me a specific question!"
       );
       return;
     }
@@ -1662,52 +1796,43 @@ export default function AppFlowChatbot({ isFloating }: { isFloating?: boolean })
       return;
     }
 
-    // AI fallback for freeform questions
-    setApiLoading(true);
-    try {
-      const context = selectedFlow ? FLOW_DATA[selectedFlow] : null;
-      const modContext = selectedModule ? MODULES[selectedModule] : null;
-      const allModules = Object.entries(MODULES).map(([k, v]) => `${k}: ${v.label} (${v.flows.map(f => f.label).join(", ")})`).join("; ");
-
-      const systemPrompt = `You are the Mana Community app support assistant. You help users navigate a community management platform with these features:
-- Community Feed (posts, comments)
-- Sports (events, player registration, player auction with live bidding, tournament scheduling with group/knockout/playoff formats, match scheduling, analytics)
-- Chat (direct messages, group chat, admin chat)
-- Notifications (event updates, admin alerts)
-- User Profile (edit details, KYC verification, settings)
-- Admin Dashboard (user management, role/permission management, community creation, venues, audit logs)
-- Finance & Billing (expenses with approval workflow, invoices with GST breakdown - 9% CGST + 9% SGST, budget planning, financial reports, ledger)
-- Inventory (community supplies tracking, stock levels, reorder alerts)
-- Assets (checkout equipment, expense receipt uploads, treasurer approval queue)
-- Community Operations (procurement requests, maintenance tickets, asset audits)
-- Marketplace (buy/sell within community, contact sellers, listing guidelines)
-- Jobs & Referrals (job postings, applications, search & filter)
-
-Available modules and flows: ${allModules}
-
-${modContext ? `User is viewing: ${modContext.label} module.` : "No module selected."}
-${context ? `Current guide: ${context.title}. Steps: ${JSON.stringify(context.steps)}` : "No specific guide selected."}
-
-Give practical, specific help for Mana Community features. Be concise (3-5 sentences). Reference actual app features and navigation paths. If the user's question matches a specific guide, mention which module/flow they should check.`;
-
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 1000,
-          system: systemPrompt,
-          messages: [{ role: "user", content: reply }],
-        }),
-      });
-      const data = await response.json();
-      const text = data.content?.map((b: any) => b.text || "").join("") || "I can help with that! Select a module above for detailed guides, or try asking in a different way.";
-      await addBotMessage(text);
-    } catch {
-      await addBotMessage("I can help with that! Select a module above for step-by-step guides, or try rephrasing your question.");
-    } finally {
-      setApiLoading(false);
+    // Smart keyword matching for freeform questions
+    const flowMatch = findMatchingFlow(reply);
+    if (flowMatch) {
+      const flow = FLOW_DATA[flowMatch.flow];
+      const mod = MODULES[flowMatch.module];
+      if (flow && mod) {
+        setSelectedModule(flowMatch.module);
+        setSelectedFlow(flowMatch.flow);
+        setCurrentStep(0);
+        const cat = MODULE_CATEGORIES.find(c => c.modules.includes(flowMatch.module));
+        if (cat) setActiveCategory(cat.id);
+        await addBotMessage(`Great question! Here's the guide for **${flow.title}** (under ${mod.icon} ${mod.label}):\n\n${flow.steps.length} steps to follow:`);
+        await addBotMessage(flow.steps, "steps");
+        return;
+      }
     }
+
+    const moduleMatch = findMatchingModule(reply);
+    if (moduleMatch) {
+      const mod = MODULES[moduleMatch];
+      if (mod) {
+        setSelectedModule(moduleMatch);
+        setSelectedFlow(null);
+        setCurrentStep(0);
+        const cat = MODULE_CATEGORIES.find(c => c.modules.includes(moduleMatch));
+        if (cat) setActiveCategory(cat.id);
+        const welcomeMsg = MODULE_WELCOME[moduleMatch]
+          || `Here are the guides for **${mod.label}**. Tap any topic to get a step-by-step walkthrough:`;
+        await addBotMessage(`I can help with **${mod.label}**! ${welcomeMsg}\n\nSelect a topic above or ask a more specific question.`);
+        return;
+      }
+    }
+
+    // Fallback — no keyword match found
+    await addBotMessage(
+      `I didn't find an exact match for that, but I can still help! Here are some things you can try:\n\n**Ask about a specific feature:**\n• "How do I register for an event?"\n• "How does the auction work?"\n• "How to create an expense?"\n• "How to raise a maintenance ticket?"\n\n**Browse by category:**\nUse the tabs above (Core, Sports, Admin, Finance, Community) to explore all available modules.\n\n**Quick actions:**\nTap any suggestion button below the chat.\n\nI have **120+ step-by-step guides** covering every feature — try rephrasing your question with a specific feature name!`
+    );
   }, [selectedModule, selectedFlow, currentStep, addBotMessage]);
 
   const handleSend = useCallback(async () => {
@@ -1774,8 +1899,8 @@ Give practical, specific help for Mana Community features. Be concise (3-5 sente
             🏠
           </div>
           <div style={{ textAlign: "left" }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>Mana Community Help</div>
-            <div style={{ fontSize: 11, opacity: 0.85 }}>Step-by-step guides for every feature</div>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>Mana Community</div>
+            <div style={{ fontSize: 11, opacity: 0.85 }}>Your community management assistant</div>
           </div>
         </div>
       </div>
@@ -1884,7 +2009,7 @@ Give practical, specific help for Mana Community features. Be concise (3-5 sente
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-          placeholder="Ask about any feature..."
+          placeholder="Ask anything — e.g. 'How do I register for a tournament?'"
           disabled={typing || apiLoading}
           style={{
             flex: 1, padding: "10px 14px", borderRadius: 20,

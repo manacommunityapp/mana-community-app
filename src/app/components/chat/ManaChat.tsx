@@ -29,7 +29,7 @@ const SUGGESTED_PROMPTS = [
   { icon: "🏏", text: "Show available bowlers", full: "Show me all available bowlers in the current auction" },
   { icon: "💰", text: "Check my budget", full: "What's my team's remaining budget?" },
   { icon: "📊", text: "Compare players", full: "Compare the top 3 all-rounders by stats" },
-  { icon: "📋", text: "Auction status", full: "What's the current auction status and progress?" },
+  { icon: "🏆", text: "Tournament overview", full: "Give me an overview of the current tournament — events, teams, and match schedule" },
 ];
 
 /**
@@ -266,9 +266,9 @@ export default function ManaChat({ onClose, auctionConfigId = 1 }: ManaChatProps
         <div className="mana-body">
           {messages.length === 0 ? (
             <div className="mana-welcome">
-              <div className="mana-welcome-icon">🏏</div>
-              <h4>Mana Auction Assistant</h4>
-              <p>I can help you search players, check budgets, compare stats, and more. What would you like to know?</p>
+              <div className="mana-welcome-icon">🏆</div>
+              <h4>Mana AI Assistant</h4>
+              <p>I can help you with player searches, team budgets, stats comparisons, tournament overviews, and more. Ask me anything!</p>
               <div className="mana-prompts">
                 {SUGGESTED_PROMPTS.map((p, i) => (
                   <button key={i} className="mana-prompt-btn" onClick={() => sendMessage(p.full)}>
@@ -305,7 +305,7 @@ export default function ManaChat({ onClose, auctionConfigId = 1 }: ManaChatProps
             <input
               ref={inputRef}
               type="text"
-              placeholder="Ask about players, budgets, auctions..."
+              placeholder="Ask about players, budgets, tournaments..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(input); } }}
@@ -315,7 +315,7 @@ export default function ManaChat({ onClose, auctionConfigId = 1 }: ManaChatProps
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 2L11 13" /><path d="M22 2L15 22L11 13L2 9L22 2Z" /></svg>
             </button>
           </div>
-          <div className="mana-disclaimer">AI may make mistakes. Verify important auction data.</div>
+          <div className="mana-disclaimer">AI-powered assistant. Verify important data before acting.</div>
         </div>
       </div>
     </>
