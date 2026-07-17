@@ -1,7 +1,7 @@
 import { useSportsAdminState } from "./useSportsAdminState";
 import { DashboardTab } from "./DashboardTab";
 import { TeamsTab } from "./TeamsTab";
-import { SettingsTab } from "./PlaceholderTabs";
+import { SettingsTab } from "./SettingsTab";
 import { ScheduleAdminTab } from "./ScheduleAdminTab";
 import { ResultsAdminTab } from "./ResultsAdminTab";
 import { NotificationAnalyticsTab } from "./NotificationAnalyticsTab";
@@ -16,6 +16,7 @@ import { VenueCreationSection } from "./VenueCreationSection";
 import { PlayerCategorySection } from "./PlayerCategorySection";
 import { SportsMetaSection } from "./SportsMetaSection";
 import { RegistrationOpenModal } from "./RegistrationOpenModal";
+import { TournamentAnnouncementModal } from "./TournamentAnnouncementModal";
 import "../SportsAuction.css";
 
 export function SportsAdmin() {
@@ -63,6 +64,7 @@ export function SportsAdmin() {
               venues={s.venues}
               activeEvents={s.activeEvents}
               approveTeam={s.approveTeam}
+              rejectTeam={s.rejectTeam}
               setActiveTab={s.setActiveTab}
             />
           )}
@@ -81,6 +83,7 @@ export function SportsAdmin() {
               handleEdit={s.handleEdit}
               handleDelete={s.handleDelete}
               handleActivate={s.handleActivate}
+              handleAnnounce={(id: number, name: string) => s.setAnnouncingTournament({ id, name })}
               handleViewPlayers={s.handleViewPlayers}
               handleViewCaptains={s.handleViewCaptains}
               viewingEventId={s.viewingEventId}
@@ -206,7 +209,7 @@ export function SportsAdmin() {
 
           {s.activeTab === "schedule" && <ScheduleAdminTab />}
           {s.activeTab === "results" && <ResultsAdminTab />}
-          {s.activeTab === "settings" && <SettingsTab />}
+          {s.activeTab === "settings" && <SettingsTab setActiveTab={s.setActiveTab} />}
           {s.activeTab === "notification-analytics" && <NotificationAnalyticsTab />}
 
           {s.activeTab === "create-venue" && (
@@ -399,6 +402,14 @@ export function SportsAdmin() {
           tournament={s.activatingTournament}
           onConfirm={s.handleConfirmActivate}
           onClose={() => s.setActivatingTournament(null)}
+        />
+      )}
+
+      {s.announcingTournament && (
+        <TournamentAnnouncementModal
+          tournament={s.announcingTournament}
+          onConfirm={s.handleSendAnnouncement}
+          onClose={() => s.setAnnouncingTournament(null)}
         />
       )}
     </div>

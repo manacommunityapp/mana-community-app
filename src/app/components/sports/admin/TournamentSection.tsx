@@ -1,17 +1,8 @@
 import { useState } from "react";
-import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, Plus, ClipboardList, Users, Edit2, Trash2, CalendarIcon, CheckCircle2, XCircle, Megaphone } from "lucide-react";
 import { format } from "date-fns";
 import type { TournamentRegistration, AuctionTeam } from "../../../../types/api";
-
-const TEAM_SPORT_KEYWORDS = [
-  "cricket", "football", "volleyball", "basketball",
-  "kabaddi", "hockey", "soccer", "throwball", "rugby",
-];
-
-function isTeamSport(sportName: string): boolean {
-  const name = sportName.toLowerCase();
-  return TEAM_SPORT_KEYWORDS.some(k => name.includes(k));
-}
+import { isTeamSport } from "../utils/sportsConstants";
 
 interface TournamentSectionProps {
   title: string;
@@ -23,6 +14,7 @@ interface TournamentSectionProps {
   onDelete: (id: number) => void;
   onActivate?: (id: number) => void;
   showActivate?: boolean;
+  onAnnounce?: (id: number, name: string) => void;
   onViewPlayers?: (eventId: number) => void;
   onViewCaptains?: (eventId: number) => void;
   viewMode?: "players" | "captains";
@@ -39,7 +31,7 @@ interface TournamentSectionProps {
 
 export function TournamentSection({
   title, badge, badgeColor, emptyText, events,
-  onEdit, onDelete, onActivate, showActivate,
+  onEdit, onDelete, onActivate, showActivate, onAnnounce,
   onViewPlayers, onViewCaptains, viewMode = "players",
   viewingEventId, registrations, nominatedCaptains,
   loadingRegs, onConfirmRegistration, onRejectRegistration, onConfirmCaptain,
@@ -293,6 +285,11 @@ export function TournamentSection({
                         Open for Registration
                       </button>
                     )}
+                    {onAnnounce && (
+                      <button onClick={() => onAnnounce(item.id, item.name)} className="text-[10px] px-2.5 py-1.5 bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1">
+                        <Megaphone className="w-3 h-3" /> Announce
+                      </button>
+                    )}
                     <button
                       onClick={() => toggleEvents(item.id)}
                       className={`text-[10px] px-2 py-1.5 border rounded-lg transition-colors cursor-pointer ${
@@ -397,6 +394,11 @@ export function TournamentSection({
                   {showActivate && onActivate && (
                     <button onClick={() => onActivate(targetId)} className="text-[10px] px-2.5 py-1.5 bg-green-500/10 text-[#10b981] border border-green-500/20 rounded-lg hover:bg-green-500/20 transition-colors font-medium cursor-pointer">
                       Open for Registration
+                    </button>
+                  )}
+                  {onAnnounce && (
+                    <button onClick={() => onAnnounce(targetId, ev.name)} className="text-[10px] px-2.5 py-1.5 bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 rounded-lg hover:bg-indigo-500/20 transition-colors font-medium cursor-pointer flex items-center gap-1">
+                      <Megaphone className="w-3 h-3" /> Announce
                     </button>
                   )}
                   <button onClick={() => onEdit(item)} className="text-[10px] px-2 py-1.5 border border-slate-200 text-slate-500 rounded-lg hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer">

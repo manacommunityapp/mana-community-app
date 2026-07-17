@@ -1,4 +1,5 @@
-import { Trophy, Users, MapPin, ClipboardList, ShieldCheck, CalendarCheck } from "lucide-react";
+import { useState } from "react";
+import { Trophy, Users, MapPin, ClipboardList, ShieldCheck, CalendarCheck, XCircle } from "lucide-react";
 
 interface PendingReg {
   id: number;
@@ -28,6 +29,7 @@ interface DashboardTabProps {
   venues: any[];
   activeEvents: any[];
   approveTeam: (id: number) => void;
+  rejectTeam?: (id: number) => void;
   setActiveTab: (tab: any) => void;
 }
 
@@ -38,8 +40,13 @@ export function DashboardTab({
   venues,
   activeEvents,
   approveTeam,
+  rejectTeam,
   setActiveTab,
 }: DashboardTabProps) {
+  const [showAllPending, setShowAllPending] = useState(false);
+  const [showAllTournaments, setShowAllTournaments] = useState(false);
+  const visiblePending = showAllPending ? pendingList : pendingList.slice(0, 5);
+  const visibleTournaments = showAllTournaments ? activeTournaments : activeTournaments.slice(0, 6);
   return (
     <div className="space-y-6 animate-fade-in-up text-left">
       {/* Hero Welcome Banner */}
@@ -164,24 +171,43 @@ export function DashboardTab({
                   All team registrations have been processed.
                 </div>
               ) : (
-                pendingList.slice(0, 3).map((reg) => (
-                  <div key={reg.id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
-                    <div className="text-left">
-                      <h4 className="text-sm font-bold text-slate-800">{reg.teamName}</h4>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        Captain: {reg.captain} · Email: {reg.email}
-                      </p>
+                <>
+                  {visiblePending.map((reg) => (
+                    <div key={reg.id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-between">
+                      <div className="text-left">
+                        <h4 className="text-sm font-bold text-slate-800">{reg.teamName}</h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Captain: {reg.captain} · Email: {reg.email}
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        {rejectTeam && (
+                          <button
+                            onClick={() => rejectTeam(reg.id)}
+                            className="px-3 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-lg border border-red-200 transition flex items-center gap-1"
+                          >
+                            <XCircle className="w-3 h-3" />
+                            Reject
+                          </button>
+                        )}
+                        <button
+                          onClick={() => approveTeam(reg.id)}
+                          className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition"
+                        >
+                          Approve
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => approveTeam(reg.id)}
-                        className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition"
-                      >
-                        Approve
-                      </button>
-                    </div>
-                  </div>
-                ))
+                  ))}
+                  {pendingList.length > 5 && (
+                    <button
+                      onClick={() => setShowAllPending(!showAllPending)}
+                      className="w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-800 py-2 transition"
+                    >
+                      {showAllPending ? "Show less" : `Show all ${pendingList.length} pending`}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -240,27 +266,37 @@ export function DashboardTab({
                   No tournaments created yet.
                 </div>
               ) : (
-                activeTournaments.slice(0, 4).map((t) => {
-                  const isLive = t.registrationStatus === "LIVE";
-                  const isDone = t.registrationStatus === "COMPLETED";
-                  return (
-                    <div key={t.id} className="text-left space-y-1 pb-3.5 border-b border-slate-100 last:border-b-0 last:pb-0">
-                      <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-bold text-slate-800">{t.name}</h4>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
-                          isLive ? "bg-red-50 text-red-600 border border-red-100" :
-                          isDone ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
-                          "bg-slate-50 text-slate-400 border border-slate-100"
-                        }`}>
-                          {t.registrationStatus || "DRAFT"}
-                        </span>
+                <>
+                  {visibleTournaments.map((t) => {
+                    const isLive = t.registrationStatus === "LIVE";
+                    const isDone = t.registrationStatus === "COMPLETED";
+                    return (
+                      <div key={t.id} className="text-left space-y-1 pb-3.5 border-b border-slate-100 last:border-b-0 last:pb-0">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-xs font-bold text-slate-800">{t.name}</h4>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${
+                            isLive ? "bg-red-50 text-red-600 border border-red-100" :
+                            isDone ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                            "bg-slate-50 text-slate-400 border border-slate-100"
+                          }`}>
+                            {t.registrationStatus || "DRAFT"}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 leading-snug">
+                          Sport: {t.sport?.name || "General"} · Max Teams: {t.maxTeams || "N/A"}
+                        </p>
                       </div>
-                      <p className="text-[10px] text-slate-400 leading-snug">
-                        Sport: {t.sport?.name || "General"} · Max Teams: {t.maxTeams || "N/A"}
-                      </p>
-                    </div>
-                  );
-                })
+                    );
+                  })}
+                  {activeTournaments.length > 6 && (
+                    <button
+                      onClick={() => setShowAllTournaments(!showAllTournaments)}
+                      className="w-full text-center text-xs font-semibold text-indigo-600 hover:text-indigo-800 py-2 transition"
+                    >
+                      {showAllTournaments ? "Show less" : `View all ${activeTournaments.length} tournaments`}
+                    </button>
+                  )}
+                </>
               )}
             </div>
           </div>

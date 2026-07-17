@@ -10,6 +10,7 @@ interface TournamentsListTabProps {
   handleEdit: (e: SportsEvent) => void;
   handleDelete: (id: number) => void;
   handleActivate: (id: number) => void;
+  handleAnnounce: (id: number, name: string) => void;
   handleViewPlayers: (id: number) => void;
   handleViewCaptains: (id: number) => void;
   viewingEventId: number | null;
@@ -40,6 +41,7 @@ export function TournamentsListTab({
   handleEdit,
   handleDelete,
   handleActivate,
+  handleAnnounce,
   handleViewPlayers,
   handleViewCaptains,
   viewingEventId,
@@ -87,6 +89,7 @@ export function TournamentsListTab({
         onEdit={handleEdit}
         onDelete={handleDelete}
         onActivate={handleActivate}
+        onAnnounce={handleAnnounce}
         showActivate
       />
 
@@ -99,6 +102,7 @@ export function TournamentsListTab({
         events={liveEvents}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onAnnounce={handleAnnounce}
         onViewPlayers={handleViewPlayers}
         onViewCaptains={handleViewCaptains}
         viewingEventId={viewingEventId}

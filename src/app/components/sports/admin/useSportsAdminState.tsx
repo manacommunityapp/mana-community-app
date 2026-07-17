@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { LayoutDashboard, CalendarIcon, MapPin, Users, Trophy, Settings, Target, Activity, BarChart3 } from "lucide-react";
+import { LayoutDashboard, CalendarIcon, MapPin, Users, Trophy, Settings, BarChart3 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showWarning, showError, showInfo } from "../../../../utils/ToastUtils";
 import { confirmAction } from "../../../../utils/AlertUtils";
@@ -18,8 +18,10 @@ import {
   DELETE_SPORTS_MAIN,
 } from "../../../../constants/permissions";
 import type { Venue, SportMeta, PlayerCategory, CommunityResponse, AuctionTeam, Court, EventRegistration, MatchFormat, SportsEventRequest, SportFormEvent, SportFormEntry, EventContact } from "../../../../types/api";
-import { CheckCircle2, ClipboardList } from "lucide-react";
+import { ClipboardList } from "lucide-react";
+import { isTeamSport, getDefaultMinPlayers, PREDEFINED_SPORTS, BasketballIcon, SPORT_ICONS, SPORT_COLORS, DEFAULT_AVATAR_URL } from "../utils/sportsConstants";
 import type { RegistrationNotifConfig } from "./RegistrationOpenModal";
+import type { AnnouncementConfig } from "./TournamentAnnouncementModal";
 
 const toast = {
   success: (msg: string) => showSuccess(msg),
@@ -87,97 +89,7 @@ export interface SelectedSportWithEvents {
   events: SportEventState[];
 }
 
-export const isTeamSport = (sportName: string): boolean => {
-  const name = sportName.toLowerCase();
-  return (
-    name.includes("cricket") ||
-    name.includes("football") ||
-    name.includes("volleyball") ||
-    name.includes("basketball") ||
-    name.includes("kabaddi") ||
-    name.includes("hockey") ||
-    name.includes("soccer") ||
-    name.includes("throwball") ||
-    name.includes("rugby")
-  );
-};
-
-export const PREDEFINED_SPORTS: { name: string; icon: string }[] = [
-  { name: "Badminton", icon: "🏸" },
-  { name: "Basketball", icon: "🏀" },
-  { name: "Beach Volleyball", icon: "🏐" },
-  { name: "Billiards", icon: "🎱" },
-  { name: "Bowling", icon: "🎳" },
-  { name: "Carrom", icon: "🎯" },
-  { name: "Chess", icon: "♟️" },
-  { name: "Cricket (Tennis Ball)", icon: "🏏" },
-  { name: "Cycling", icon: "🚴" },
-  { name: "Dart", icon: "🎯" },
-  { name: "Foosball", icon: "⚽" },
-  { name: "Grass Volleyball", icon: "🏐" },
-  { name: "Kabaddi", icon: "🤼" },
-  { name: "Pickleball", icon: "🏓" },
-  { name: "Pool", icon: "🎱" },
-  { name: "Running (100M)", icon: "🏃" },
-  { name: "Running (1500M)", icon: "🏃" },
-  { name: "Running (200M)", icon: "🏃" },
-  { name: "Running (400M)", icon: "🏃" },
-  { name: "Running (800M)", icon: "🏃" },
-  { name: "Running (Others)", icon: "🏃" },
-  { name: "Snooker", icon: "🎱" },
-  { name: "Soccer", icon: "⚽" },
-  { name: "Squash", icon: "🎾" },
-  { name: "Swimming Race", icon: "🏊" },
-  { name: "Table Tennis", icon: "🏓" },
-  { name: "Tennis", icon: "🎾" },
-  { name: "Throwball", icon: "🤾" },
-  { name: "Tug of War", icon: "🪢" },
-  { name: "Volleyball", icon: "🏐" },
-];
-
-export const getDefaultMinPlayers = (sportName: string): number => {
-  const name = sportName.toLowerCase();
-  if (name.includes("cricket")) return 11;
-  if (name.includes("football")) return 11;
-  if (name.includes("basketball")) return 5;
-  if (name.includes("volleyball")) return 6;
-  if (name.includes("kabaddi")) return 7;
-  return 5;
-};
-
-const BasketballIcon = ({ size = 24, className, ...props }: React.ComponentPropsWithoutRef<"svg"> & { size?: number | string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-    {...props}
-  >
-    <circle cx="12" cy="12" r="10" />
-    <path d="M12 2v20" />
-    <path d="M2 12h20" />
-    <path d="M4.93 4.93a10 10 0 0 1 0 14.14" />
-    <path d="M19.07 4.93a10 10 0 0 0 0 14.14" />
-  </svg>
-);
-
-export const sportIconMap: Record<string, React.ElementType> = {
-  Basketball: BasketballIcon,
-  Soccer: Target,
-  Volleyball: Activity,
-};
-
-export const sportColorMap: Record<string, string> = {
-  Basketball: "#f59e0b",
-  Soccer: "#10b981",
-  Volleyball: "#6366f1",
-};
+export { isTeamSport, getDefaultMinPlayers, PREDEFINED_SPORTS, BasketballIcon, SPORT_ICONS as sportIconMap, SPORT_COLORS as sportColorMap } from "../utils/sportsConstants";
 
 const DEFAULT_TRIGGER_STATES = {
   "7d": {
@@ -222,7 +134,7 @@ const createDefaultPlayerForm = (categoryId?: string) => ({
   playerName: "",
   playerEmail: "",
   categoryId: categoryId || "",
-  avatarUrl: "https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media",
+  avatarUrl: DEFAULT_AVATAR_URL,
   matchType: "SINGLES",
   age: 25,
   flatNumber: "",
@@ -276,6 +188,7 @@ export function useSportsAdminState() {
   const [activeEvents, setActiveEvents] = useState<any[]>([]);
   const [activeTournaments, setActiveTournaments] = useState<any[]>([]);
   const [activatingTournament, setActivatingTournament] = useState<{ id: number; name: string } | null>(null);
+  const [announcingTournament, setAnnouncingTournament] = useState<{ id: number; name: string } | null>(null);
   const [activeTournamentId, setActiveTournamentId] = useState<number | null>(null);
   const [activeTournamentName, setActiveTournamentName] = useState<string>("");
 
@@ -633,6 +546,18 @@ export function useSportsAdminState() {
     }
   };
 
+  const rejectTeam = async (id: number) => {
+    const ok = await confirmAction("Reject Registration", "Are you sure you want to reject this registration?");
+    if (!ok) return;
+    try {
+      await sportsService.rejectRegistration(id);
+      toast.success("Registration rejected");
+      refreshDashboardOverview();
+    } catch {
+      toast.error("Failed to reject registration");
+    }
+  };
+
   const hydratedTabs = useRef(new Set<TabId>());
   const tournamentsFetchedRef = useRef(false);
   const eventsFetchedRef = useRef(false);
@@ -762,7 +687,7 @@ export function useSportsAdminState() {
     if (fetchId !== undefined) {
       if (force !== true && lastFetchedVenueCommIdRef.current === fetchId) return;
       lastFetchedVenueCommIdRef.current = fetchId;
-      venueService.getVenues(fetchId).then(setVenues).catch(() => { });
+      venueService.getVenues(fetchId).then(setVenues).catch(() => { /* data fetch fallback */ });
     }
   }, [selectedCommId, user?.communityId, user?.role, communities, (user as any)?.community]);
 
@@ -790,7 +715,7 @@ export function useSportsAdminState() {
         playerName: friend.fullName,
         playerEmail: friend.email || "",
         categoryId: playerCategories[0]?.id ? String(playerCategories[0].id) : "",
-        avatarUrl: friend.avatarUrl || "https://firebasestorage.googleapis.com/v0/b/playingaid.appspot.com/o/default%2Fplayer.png?alt=media",
+        avatarUrl: friend.avatarUrl || DEFAULT_AVATAR_URL,
         matchType: "SINGLES",
         age: friend.dateOfBirth ? new Date().getFullYear() - new Date(friend.dateOfBirth).getFullYear() : 25,
         flatNumber: friend.flatNo || "",
@@ -1004,9 +929,9 @@ export function useSportsAdminState() {
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
     const targetId = isSuperAdmin ? null : user?.communityId;
     if (isSuperAdmin) {
-      sportsService.getAllTournaments().then(setActiveTournaments).catch(() => { });
+      sportsService.getAllTournaments().then(setActiveTournaments).catch(() => { /* data fetch fallback */ });
     } else if (targetId) {
-      sportsService.getCommunityTournaments(targetId).then(setActiveTournaments).catch(() => { });
+      sportsService.getCommunityTournaments(targetId).then(setActiveTournaments).catch(() => { /* data fetch fallback */ });
     }
   }, [user?.role, user?.communityId]);
 
@@ -1014,14 +939,14 @@ export function useSportsAdminState() {
     const isSuperAdmin = user?.role === "SUPER_ADMIN";
     const targetId = isSuperAdmin ? null : user?.communityId;
     if (isSuperAdmin) {
-      sportsService.getAllEvents(true).then(setActiveEvents).catch(() => { });
+      sportsService.getAllEvents(true).then(setActiveEvents).catch(() => { /* data fetch fallback */ });
     } else if (targetId) {
-      sportsService.getCommunityEvents(targetId, true).then(setActiveEvents).catch(() => { });
+      sportsService.getCommunityEvents(targetId, true).then(setActiveEvents).catch(() => { /* data fetch fallback */ });
     }
   }, [user?.role, user?.communityId]);
 
   const refreshCategories = useCallback(() => {
-    sportsService.getCategories().then(setPlayerCategories).catch(() => { });
+    sportsService.getCategories().then(setPlayerCategories).catch(() => { /* data fetch fallback */ });
   }, []);
 
   const fetchTournamentsOnce = useCallback(() => {
@@ -1047,8 +972,8 @@ export function useSportsAdminState() {
   }, [refreshEvents, refreshTournaments]);
 
   const loadConfigureEventsData = useCallback(() => {
-    sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
-    sportsService.getCategories().then(setPlayerCategories).catch(() => {});
+    sportsService.getSportsMeta().then(setSportsMeta).catch(() => { /* data fetch fallback */ });
+    sportsService.getCategories().then(setPlayerCategories).catch(() => { /* data fetch fallback */ });
     refreshVenues();
   }, [refreshVenues]);
 
@@ -1073,7 +998,7 @@ export function useSportsAdminState() {
         fetchEventsOnce();
         break;
       case "create-venue":
-        communityService.getCommunities().then(setCommunities).catch(() => {});
+        communityService.getCommunities().then(setCommunities).catch(() => { /* data fetch fallback */ });
         refreshVenues();
         break;
       case "player-category":
@@ -1086,12 +1011,12 @@ export function useSportsAdminState() {
       case "settings":
         break;
       case "sports-meta":
-        sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
+        sportsService.getSportsMeta().then(setSportsMeta).catch(() => { /* data fetch fallback */ });
         break;
       case "create-tournament":
-        sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
-        sportsService.getCategories().then(setPlayerCategories).catch(() => {});
-        communityService.getCommunities().then(setCommunities).catch(() => {});
+        sportsService.getSportsMeta().then(setSportsMeta).catch(() => { /* data fetch fallback */ });
+        sportsService.getCategories().then(setPlayerCategories).catch(() => { /* data fetch fallback */ });
+        communityService.getCommunities().then(setCommunities).catch(() => { /* data fetch fallback */ });
         break;
       default:
         break;
@@ -1389,6 +1314,7 @@ export function useSportsAdminState() {
         };
         const created = await sportsService.createTournament(payload as any);
         toast.success("Tournament created! Now add sports events to it.");
+        setAnnouncingTournament({ id: created.id, name: eventName });
         resetForm();
         setActiveTournamentId(created.id);
         setActiveTournamentName(eventName);
@@ -1596,6 +1522,25 @@ export function useSportsAdminState() {
     }
   };
 
+  const handleSendAnnouncement = async (config: AnnouncementConfig) => {
+    if (!announcingTournament) return;
+    try {
+      await notificationService.sendTournamentAnnouncement(announcingTournament.id, {
+        template: config.template,
+        subject: config.subject,
+        message: config.message,
+        sendEmail: config.sendEmail,
+        sendPush: config.sendPush,
+        customHtml: config.customHtml ?? undefined,
+      });
+      toast.success("Announcement sent to community!");
+    } catch {
+      toast.error("Failed to send announcement.");
+    } finally {
+      setAnnouncingTournament(null);
+    }
+  };
+
   const handleDelete = async (id: number) => {
     const confirmed = await confirmAction(
       "Delete Tournament",
@@ -1665,7 +1610,16 @@ export function useSportsAdminState() {
   };
 
   const handleRejectRegistration = async (regId: number) => {
-    const reason = window.prompt("Reason for rejection (optional):") ?? undefined;
+    const { isConfirmed, value: reason } = await (await import("sweetalert2")).default.fire({
+      title: "Reject Registration",
+      input: "text",
+      inputLabel: "Reason for rejection (optional)",
+      showCancelButton: true,
+      confirmButtonColor: "#2563EB",
+      cancelButtonColor: "#EF4444",
+      confirmButtonText: "Reject",
+    });
+    if (!isConfirmed) return;
     try {
       await sportsService.rejectRegistration(regId, reason || undefined);
       toast.success("Registration rejected");
@@ -1948,7 +1902,7 @@ export function useSportsAdminState() {
           active: true
         } as any);
         toast.success(`Global Sport Meta "${trimmedName}" created!`);
-        sportsService.getSportsMeta().then(setSportsMeta).catch(() => {});
+        sportsService.getSportsMeta().then(setSportsMeta).catch(() => { /* data fetch fallback */ });
       }
       const existsInForms = sportForms.some(f => f.sportId === dbSport.id);
       if (existsInForms) {
@@ -2276,9 +2230,10 @@ export function useSportsAdminState() {
     draftEvents, liveEvents, completedEvents,
     handleEdit, handleDelete, handleActivate,
     activatingTournament, handleConfirmActivate, setActivatingTournament,
+    announcingTournament, handleSendAnnouncement, setAnnouncingTournament,
 
     // Dashboard
-    teamsList, pendingList, approveTeam,
+    teamsList, pendingList, approveTeam, rejectTeam,
 
     // Registration
     viewingEventId, viewMode,

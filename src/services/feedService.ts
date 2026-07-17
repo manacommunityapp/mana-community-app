@@ -3,13 +3,31 @@ import type { PostResponse, CommentResponse, LikeToggleResponse, PaginatedRespon
 
 export const feedService = {
   /** GET /api/posts */
-  async getFeed(page = 0, size = 10): Promise<PaginatedResponse<PostResponse>> {
-    return apiClient.get<PaginatedResponse<PostResponse>>(`/posts?page=${page}&size=${size}`);
+  async getFeed(page = 0, size = 10, type?: string): Promise<PaginatedResponse<PostResponse>> {
+    let url = `/posts?page=${page}&size=${size}`;
+    if (type) url += `&type=${type}`;
+    return apiClient.get<PaginatedResponse<PostResponse>>(url);
   },
 
   /** POST /api/posts */
-  async createPost(content: string, imageUrl?: string): Promise<PostResponse> {
-    return apiClient.post<PostResponse>("/posts", { content, imageUrl });
+  async createPost(
+    content: string,
+    imageUrl?: string,
+    type?: string,
+    price?: number,
+    location?: string,
+    pollQuestion?: string,
+    pollOptions?: string
+  ): Promise<PostResponse> {
+    return apiClient.post<PostResponse>("/posts", {
+      content,
+      imageUrl,
+      type,
+      price,
+      location,
+      pollQuestion,
+      pollOptions
+    });
   },
 
   /** DELETE /api/posts/:id */
@@ -35,5 +53,10 @@ export const feedService = {
   /** DELETE /api/posts/comments/:commentId */
   async deleteComment(commentId: number): Promise<void> {
     return apiClient.delete<void>(`/posts/comments/${commentId}`);
+  },
+
+  /** POST /api/posts/:id/vote */
+  async voteOnPoll(postId: number, option: string): Promise<PostResponse> {
+    return apiClient.post<PostResponse>(`/posts/${postId}/vote?option=${encodeURIComponent(option)}`);
   },
 };

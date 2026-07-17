@@ -31,6 +31,7 @@ class StompClientWrapper {
   private client: Client | null = null;
   private tracked = new Map<number, Tracked>();
   private connectHandlers = new Set<() => void>();
+  private disconnectHandlers = new Set<() => void>();
   private nextId = 1;
 
   /** True while the underlying socket is connected (used to gate fallback polling). */
@@ -42,6 +43,12 @@ class StompClientWrapper {
   onConnect(cb: () => void): () => void {
     this.connectHandlers.add(cb);
     return () => this.connectHandlers.delete(cb);
+  }
+
+  /** Register a callback fired on disconnect. */
+  onDisconnect(cb: () => void): () => void {
+    this.disconnectHandlers.add(cb);
+    return () => this.disconnectHandlers.delete(cb);
   }
 
   private ensureClient(): Client {
@@ -67,6 +74,7 @@ class StompClientWrapper {
       },
       onDisconnect: () => {
         log.info("Disconnected");
+        this.disconnectHandlers.forEach((h) => h());
       },
     });
     this.client.activate();
@@ -117,6 +125,7 @@ class StompClientWrapper {
     this.tracked.forEach((t) => t.sub?.unsubscribe());
     this.tracked.clear();
     this.connectHandlers.clear();
+    this.disconnectHandlers.clear();
     this.client?.deactivate();
     this.client = null;
   }

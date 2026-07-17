@@ -3,6 +3,7 @@ import { Loader2, Edit2, Trash2, ArrowLeft, Plus, X, Search, CheckCircle, HelpCi
 import { useNavigate } from "react-router";
 import { toast, Toaster } from "sonner";
 import { sportsService } from "../../../services/sportsService";
+import { confirmAction } from "../../../utils/AlertUtils";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { SportMeta, MatchFormat } from "../../../types/api";
 import { cn } from "../ui/utils";
@@ -68,7 +69,7 @@ export function AdminSportsMeta({ isTab = false }: AdminSportsMetaProps) {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to deactivate this sport meta?")) return;
+    if (!(await confirmAction("Deactivate Sport", "Are you sure you want to deactivate this sport meta?"))) return;
     try {
       await sportsService.deleteSport(id);
       toast.success("Sport deactivated successfully");

@@ -559,6 +559,15 @@ export interface RegistrationOpenNotificationRequest {
   message?: string;
 }
 
+export interface TournamentAnnouncementRequest {
+  template: string;
+  subject: string;
+  message: string;
+  sendEmail: boolean;
+  sendPush: boolean;
+  customHtml?: string | null;
+}
+
 // ─── User Profile ────────────────────────────────────────────────────────────
 
 export interface UserStats {
@@ -686,6 +695,13 @@ export interface PostResponse {
   authorAvatar: string;
   authorRole: string;
   createdAt: string;
+  postType?: "GENERAL" | "CLASSIFIED" | "POLL" | "LOST_FOUND";
+  price?: number;
+  location?: string;
+  pollQuestion?: string;
+  pollOptionsList?: string[];
+  pollVotes?: Record<string, number>;
+  userVotedOption?: string;
 }
 
 export interface CommentResponse {
@@ -702,6 +718,31 @@ export interface CommentResponse {
 export interface LikeToggleResponse {
   likesCount: number;
   liked: boolean;
+}
+
+// ─── Community Directory ─────────────────────────────────────────────────────
+
+export interface CommunityLeaderResponse {
+  id: number;
+  userId: number;
+  fullName: string;
+  profilePicUrl?: string;
+  designation: string;
+  committee?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  flatNo?: string;
+  block?: string;
+  displayOrder: number;
+}
+
+export interface CommunityLeaderRequest {
+  userId: number;
+  designation: string;
+  committee?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  displayOrder?: number;
 }
 
 // ─── Chat (backend DTOs) ───────────────────────────────────────────────────────

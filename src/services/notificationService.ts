@@ -1,5 +1,5 @@
 import { apiClient } from "./apiClient";
-import type { RegistrationOpenNotificationRequest } from "../types/api";
+import type { RegistrationOpenNotificationRequest, TournamentAnnouncementRequest } from "../types/api";
 
 export interface NotificationItem {
   id: number;
@@ -39,6 +39,13 @@ export const notificationService = {
     config: RegistrationOpenNotificationRequest
   ): Promise<void> {
     return apiClient.post<void>(`/notifications/tournament/${tournamentId}/open`, config);
+  },
+
+  async sendTournamentAnnouncement(
+    tournamentId: number,
+    config: TournamentAnnouncementRequest
+  ): Promise<{ sent: number }> {
+    return apiClient.post<{ sent: number }>(`/tournaments/${tournamentId}/announce`, config);
   },
 
   async getNotifications(page = 0, size = 20): Promise<NotificationPage> {
