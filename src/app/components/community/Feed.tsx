@@ -8,7 +8,8 @@ import {
   Send,
   Loader2,
   X,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Megaphone
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { feedService } from "../../../services/feedService";
@@ -16,6 +17,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import type { PostResponse, CommentResponse } from "../../../types/api";
 import { toast } from "sonner";
 import { CommunityDirectory } from "./CommunityDirectory";
+import { AlertTicker } from "./AlertTicker";
 
 export function Feed() {
   const { user, isAdmin } = useAuth();
@@ -331,9 +333,17 @@ export function Feed() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      {/* Community Directory */}
-      <CommunityDirectory />
+    <div className="w-full">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        {/* Main Feed Content (Left side, spanning 3 columns on lg) */}
+        <div className="lg:col-span-3 space-y-6">
+          {/* Mobile-only Community Directory (hidden on lg, visible on smaller screens) */}
+          <div className="lg:hidden">
+            <CommunityDirectory />
+          </div>
+
+          {/* Alert Ticker Notice Board */}
+          <AlertTicker />
 
       {/* Category Tabs Filter */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-100 hide-scrollbar">
@@ -921,6 +931,82 @@ export function Feed() {
         )}
       </div>
     </div>
+
+    {/* Sidebar content (Right side, visible on lg, spanning 1 column) */}
+    <div className="hidden lg:block sticky top-20 space-y-4">
+      <CommunityDirectory />
+      <SidebarAnnouncements posts={posts} />
+      <QuickLinksCard />
+    </div>
+  </div>
+</div>
+);
+}
+
+function SidebarAnnouncements({ posts }: { posts: PostResponse[] }) {
+  const announcements = posts.filter((p) => p.official).slice(0, 3);
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+        <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg">
+          <Megaphone className="w-4 h-4" />
+        </div>
+        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+          Official Notices
+        </h4>
+      </div>
+
+      {announcements.length === 0 ? (
+        <p className="text-[11px] text-slate-400 text-center py-2">
+          No official announcements yet.
+        </p>
+      ) : (
+        <div className="space-y-2.5">
+          {announcements.map((p) => (
+            <div key={p.id} className="text-left text-xs space-y-1">
+              <p className="font-semibold text-slate-700 hover:text-indigo-600 cursor-pointer line-clamp-2">
+                {p.content}
+              </p>
+              <p className="text-[10px] text-slate-400">
+                {new Date(p.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
+
+function QuickLinksCard() {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
+      <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+        <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+          <LinkIcon className="w-4 h-4" />
+        </div>
+        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+          Quick Links
+        </h4>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <a href="/profile" className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 transition-all font-semibold border border-slate-100 text-slate-700">
+          👤 Profile
+        </a>
+        <a href="/finance/ledger" className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 transition-all font-semibold border border-slate-100 text-slate-700">
+          💸 Payments
+        </a>
+        <a href="/helpdesk" className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 transition-all font-semibold border border-slate-100 text-slate-700">
+          🔧 Helpdesk
+        </a>
+        <a href="/community/inventory" className="flex items-center gap-1.5 p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 hover:text-indigo-600 transition-all font-semibold border border-slate-100 text-slate-700">
+          📦 Inventory
+        </a>
+      </div>
+    </div>
+  );
+}
+
 

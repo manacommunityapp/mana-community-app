@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router";
 import {
   Phone, Mail, ChevronDown, ChevronUp, Users, Shield, Loader2,
   HelpCircle, Wrench, Banknote, Megaphone, HeartHandshake,
-  AlertTriangle, Trophy, Building2, Baby, Landmark
+  AlertTriangle, Trophy, Building2, Baby, Landmark, MessageSquare
 } from "lucide-react";
 import { communityDirectoryService } from "../../../services/communityDirectoryService";
 import type { CommunityLeaderResponse } from "../../../types/api";
@@ -127,51 +128,57 @@ type DirectoryTab = "leadership" | "committees" | "contact";
 function ExecutiveCard({ leader }: { leader: CommunityLeaderResponse }) {
   const style = getRoleStyle(leader.designation);
   return (
-    <div className={`relative p-4 rounded-xl border ${style.border} ${style.bg} transition-all hover:shadow-md group`}>
-      <div className="flex items-center gap-3.5">
+    <div className="relative p-3 rounded-xl border border-slate-100 bg-white hover:border-slate-200 transition-all hover:shadow-sm flex items-center justify-between gap-3 text-left">
+      <div className="flex items-center gap-3 min-w-0">
         {leader.profilePicUrl ? (
           <img
             src={leader.profilePicUrl}
             alt={leader.fullName}
-            className={`h-14 w-14 rounded-full object-cover ring-2 ${style.avatarRing} shadow-sm flex-shrink-0`}
+            className={`h-11 w-11 rounded-full object-cover ring-2 ${style.avatarRing} shadow-sm flex-shrink-0`}
           />
         ) : (
-          <div className={`h-14 w-14 rounded-full flex items-center justify-center font-bold text-lg ring-2 ${style.avatarRing} shadow-sm flex-shrink-0 bg-white/80 ${style.color}`}>
+          <div className={`h-11 w-11 rounded-full flex items-center justify-center font-bold text-sm ring-2 ${style.avatarRing} shadow-sm flex-shrink-0 ${style.bg} ${style.color}`}>
             {getInitials(leader.fullName)}
           </div>
         )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-bold text-sm text-slate-900">{leader.fullName}</span>
-          </div>
-          <div className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mt-1 ${style.bg} ${style.color} border ${style.border}`}>
+        <div className="min-w-0">
+          <div className="font-semibold text-xs text-slate-800 truncate">{leader.fullName}</div>
+          <div className={`inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mt-1.5 ${style.bg} ${style.color} border ${style.border}`}>
             <span>{style.icon}</span>
             <span>{leader.designation}</span>
           </div>
           {(leader.flatNo || leader.block) && (
-            <p className="text-[10px] text-slate-500 mt-1">
+            <p className="text-[9px] text-slate-400 mt-1">
               {[leader.flatNo && `Flat ${leader.flatNo}`, leader.block && `Block ${leader.block}`].filter(Boolean).join(" · ")}
             </p>
           )}
         </div>
       </div>
-      <div className="flex items-center gap-3 mt-3 pt-3 border-t border-dashed border-slate-200/60 flex-wrap">
+      
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        <button
+          onClick={() => navigate(`/chat?userId=${leader.userId}`)}
+          className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-200/60 transition-colors cursor-pointer"
+          title={`Chat with ${leader.fullName}`}
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+        </button>
         {leader.contactPhone && (
           <a
             href={`tel:${leader.contactPhone}`}
-            className="flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-indigo-600 transition-colors bg-white/80 px-2.5 py-1 rounded-lg border border-slate-200/60"
+            className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-200/60 transition-colors"
+            title={`Call ${leader.fullName} (${leader.contactPhone})`}
           >
             <Phone className="w-3.5 h-3.5" />
-            <span>{leader.contactPhone}</span>
           </a>
         )}
         {leader.contactEmail && (
           <a
             href={`mailto:${leader.contactEmail}`}
-            className="flex items-center gap-1.5 text-[11px] text-slate-600 hover:text-indigo-600 transition-colors bg-white/80 px-2.5 py-1 rounded-lg border border-slate-200/60 truncate max-w-[200px]"
+            className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-200/60 transition-colors"
+            title={`Email ${leader.fullName} (${leader.contactEmail})`}
           >
-            <Mail className="w-3.5 h-3.5 flex-shrink-0" />
-            <span className="truncate">{leader.contactEmail}</span>
+            <Mail className="w-3.5 h-3.5" />
           </a>
         )}
       </div>
@@ -182,37 +189,54 @@ function ExecutiveCard({ leader }: { leader: CommunityLeaderResponse }) {
 function CompactCard({ leader }: { leader: CommunityLeaderResponse }) {
   const style = getRoleStyle(leader.designation);
   return (
-    <div className="flex items-center gap-3 p-2.5 rounded-lg bg-white border border-slate-100 hover:border-slate-200 transition-all hover:shadow-sm">
-      {leader.profilePicUrl ? (
-        <img
-          src={leader.profilePicUrl}
-          alt={leader.fullName}
-          className={`h-9 w-9 rounded-full object-cover ring-1 ${style.avatarRing} flex-shrink-0`}
-        />
-      ) : (
-        <div className={`h-9 w-9 rounded-full flex items-center justify-center font-semibold text-xs ring-1 ${style.avatarRing} flex-shrink-0 ${style.bg} ${style.color}`}>
-          {getInitials(leader.fullName)}
+    <div className="flex items-center justify-between gap-3.5 p-2.5 rounded-xl bg-white border border-slate-100 hover:border-slate-200 transition-all hover:shadow-sm text-left">
+      <div className="flex items-center gap-2.5 min-w-0">
+        {leader.profilePicUrl ? (
+          <img
+            src={leader.profilePicUrl}
+            alt={leader.fullName}
+            className={`h-8 w-8 rounded-full object-cover ring-1 ${style.avatarRing} flex-shrink-0`}
+          />
+        ) : (
+          <div className={`h-8 w-8 rounded-full flex items-center justify-center font-bold text-[10px] ring-1 ${style.avatarRing} flex-shrink-0 ${style.bg} ${style.color}`}>
+            {getInitials(leader.fullName)}
+          </div>
+        )}
+        <div className="min-w-0">
+          <div className="font-semibold text-xs text-slate-800 truncate">{leader.fullName}</div>
+          <div className={`inline-flex items-center gap-0.5 text-[8px] font-bold uppercase tracking-wide px-1 py-0.2 rounded mt-0.5 ${style.bg} ${style.color}`}>
+            <span>{style.icon}</span>
+            <span>{leader.designation}</span>
+          </div>
         </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="font-semibold text-xs text-slate-800 truncate">{leader.fullName}</span>
-          <span className={`text-[9px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${style.bg} ${style.color}`}>
-            {style.icon} {leader.designation}
-          </span>
-        </div>
-        <div className="flex items-center gap-2.5 mt-0.5 flex-wrap">
-          {leader.contactPhone && (
-            <a href={`tel:${leader.contactPhone}`} className="text-[10px] text-slate-500 hover:text-indigo-600 flex items-center gap-0.5">
-              <Phone className="w-2.5 h-2.5" /> {leader.contactPhone}
-            </a>
-          )}
-          {leader.contactEmail && (
-            <a href={`mailto:${leader.contactEmail}`} className="text-[10px] text-slate-500 hover:text-indigo-600 flex items-center gap-0.5 truncate max-w-[160px]">
-              <Mail className="w-2.5 h-2.5 flex-shrink-0" /> <span className="truncate">{leader.contactEmail}</span>
-            </a>
-          )}
-        </div>
+      </div>
+
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <button
+          onClick={() => navigate(`/chat?userId=${leader.userId}`)}
+          className="p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 border border-slate-100 transition-colors cursor-pointer"
+          title={`Chat with ${leader.fullName}`}
+        >
+          <MessageSquare className="w-3 h-3" />
+        </button>
+        {leader.contactPhone && (
+          <a
+            href={`tel:${leader.contactPhone}`}
+            className="p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 border border-slate-100 transition-colors"
+            title={`Call ${leader.fullName} (${leader.contactPhone})`}
+          >
+            <Phone className="w-3.5 h-3" />
+          </a>
+        )}
+        {leader.contactEmail && (
+          <a
+            href={`mailto:${leader.contactEmail}`}
+            className="p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 border border-slate-100 transition-colors"
+            title={`Email ${leader.fullName} (${leader.contactEmail})`}
+          >
+            <Mail className="w-3 h-3" />
+          </a>
+        )}
       </div>
     </div>
   );
@@ -234,7 +258,7 @@ export function CommunityDirectory() {
   const [leaders, setLeaders] = useState<CommunityLeaderResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<DirectoryTab>("leadership");
   const [expandedCommittees, setExpandedCommittees] = useState<Record<string, boolean>>({});
 
@@ -329,13 +353,14 @@ export function CommunityDirectory() {
             </div>
           )}
 
-          {/* ── Leadership Tab ──────────────────────────────────── */}
+          <div className="max-h-[350px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent space-y-1">
+            {/* ── Leadership Tab ──────────────────────────────────── */}
           {tab === "leadership" && (
             <div className="space-y-3">
               {executives.length > 0 ? (
                 <>
                   <SectionDivider label="Executive Committee" />
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-3">
                     {executives.map((l) => (
                       <ExecutiveCard key={l.id} leader={l} />
                     ))}
@@ -441,6 +466,13 @@ export function CommunityDirectory() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <button
+                        onClick={() => navigate(`/chat?userId=${leader.userId}`)}
+                        className="p-1.5 rounded-lg bg-white/80 hover:bg-white text-slate-500 hover:text-indigo-600 transition-colors border border-slate-200/60 cursor-pointer"
+                        title={`Chat with ${leader.fullName}`}
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                      </button>
                       {leader.contactPhone && (
                         <a
                           href={`tel:${leader.contactPhone}`}
@@ -471,6 +503,7 @@ export function CommunityDirectory() {
               )}
             </div>
           )}
+          </div>
         </div>
       )}
     </div>
