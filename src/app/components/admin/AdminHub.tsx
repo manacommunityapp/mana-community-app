@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Users,
   Package,
+  Shield,
   ShieldCheck,
   Building2,
   FileSpreadsheet,
@@ -47,6 +48,7 @@ import { AdminCreateUser } from "./AdminCreateUser";
 import { AdminBulkUpload } from "./AdminBulkUpload";
 import { AdminVenues } from "./AdminVenues";
 import { AdminCommunity } from "./AdminCommunity";
+import { AdminDirectory } from "./AdminDirectory";
 import { AdminRoleManagement } from "./AdminRoleManagement";
 import { LogsDashboard } from "./LogsDashboard";
 import { AuditTrail } from "./AuditTrail";
@@ -82,6 +84,7 @@ const TAB_ITEMS = [
   { id: "bulk",       label: "Bulk Upload",   icon: FileSpreadsheet },
   { id: "community",  label: "Community",     icon: Building2 },
   { id: "announcements", label: "Announcements", icon: Megaphone },
+  { id: "directory",  label: "Directory",     icon: Shield },
 ] as const;
 
 type TabId = (typeof TAB_ITEMS)[number]["id"];
@@ -874,6 +877,7 @@ export function AdminHub() {
         {activeTab === "bulk" && <AdminBulkUpload />}
         {activeTab === "community" && <AdminCommunity />}
         {activeTab === "announcements" && <AnnouncementsPlanner />}
+        {activeTab === "directory" && <AdminDirectory />}
       </div>
     </div>
   );
