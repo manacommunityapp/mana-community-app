@@ -695,6 +695,13 @@ export interface PostResponse {
   authorAvatar: string;
   authorRole: string;
   createdAt: string;
+  postType?: "GENERAL" | "CLASSIFIED" | "POLL" | "LOST_FOUND";
+  price?: number;
+  location?: string;
+  pollQuestion?: string;
+  pollOptionsList?: string[];
+  pollVotes?: Record<string, number>;
+  userVotedOption?: string;
 }
 
 export interface CommentResponse {

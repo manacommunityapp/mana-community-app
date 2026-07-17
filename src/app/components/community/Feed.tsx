@@ -30,6 +30,18 @@ export function Feed() {
   const [showImageUrlInput, setShowImageUrlInput] = useState(false);
   const [isPosting, setIsPosting] = useState(false);
 
+  // Advanced Composer State
+  const [composerType, setComposerType] = useState<"GENERAL" | "CLASSIFIED" | "POLL" | "LOST_FOUND">("GENERAL");
+  const [classifiedPrice, setClassifiedPrice] = useState("");
+  const [classifiedLocation, setClassifiedLocation] = useState("");
+  const [pollQuestion, setPollQuestion] = useState("");
+  const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
+  const [lostFoundType, setLostFoundType] = useState<"LOST" | "FOUND">("LOST");
+  const [lostFoundLocation, setLostFoundLocation] = useState("");
+
+  // Feed Filter Tab State
+  const [activeFilter, setActiveFilter] = useState("ALL");
+
   // Comments State
   const [commentsOpen, setCommentsOpen] = useState<Record<number, boolean>>({});
   const [comments, setComments] = useState<Record<number, CommentResponse[]>>({});
@@ -46,7 +58,7 @@ export function Feed() {
       }
       try {
         setLoading(true);
-        const res = await feedService.getFeed(0, 10);
+        const res = await feedService.getFeed(0, 10, activeFilter !== "ALL" ? activeFilter : undefined);
         setPosts(res.content);
         setHasMore(!res.last);
         setPage(0);
@@ -57,7 +69,7 @@ export function Feed() {
       }
     }
     loadInitialFeed();
-  }, [user?.communityId]);
+  }, [user?.communityId, activeFilter]);
 
   // Load more posts (Pagination)
   const handleLoadMore = async () => {
@@ -65,7 +77,7 @@ export function Feed() {
     try {
       setLoading(true);
       const nextPage = page + 1;
-      const res = await feedService.getFeed(nextPage, 10);
+      const res = await feedService.getFeed(nextPage, 10, activeFilter !== "ALL" ? activeFilter : undefined);
       setPosts((prev) => [...prev, ...res.content]);
       setHasMore(!res.last);
       setPage(nextPage);
@@ -82,16 +94,64 @@ export function Feed() {
       toast.error("Post content cannot be empty.");
       return;
     }
+
+    let price: number | undefined = undefined;
+    let location: string | undefined = undefined;
+    let pollQuest: string | undefined = undefined;
+    let pollOptsCombined: string | undefined = undefined;
+
+    if (composerType === "CLASSIFIED") {
+      const parsed = parseFloat(classifiedPrice);
+      if (isNaN(parsed) || parsed <= 0) {
+        toast.error("Please enter a valid price.");
+        return;
+      }
+      price = parsed;
+      location = classifiedLocation.trim() || undefined;
+    } else if (composerType === "POLL") {
+      if (!pollQuestion.trim()) {
+        toast.error("Please enter a poll question.");
+        return;
+      }
+      const opts = pollOptions.map(o => o.trim()).filter(Boolean);
+      if (opts.length < 2) {
+        toast.error("Please provide at least two choices.");
+        return;
+      }
+      pollQuest = pollQuestion.trim();
+      pollOptsCombined = opts.join(",");
+    } else if (composerType === "LOST_FOUND") {
+      if (!lostFoundLocation.trim()) {
+        toast.error("Please enter a location.");
+        return;
+      }
+      location = `${lostFoundType}: ${lostFoundLocation.trim()}`;
+    }
+
     setIsPosting(true);
     try {
       const newPost = await feedService.createPost(
         newPostContent,
-        newPostImageUrl.trim() || undefined
+        newPostImageUrl.trim() || undefined,
+        composerType,
+        price,
+        location,
+        pollQuest,
+        pollOptsCombined
       );
       setPosts((prev) => [newPost, ...prev]);
       setNewPostContent("");
       setNewPostImageUrl("");
       setShowImageUrlInput(false);
+      
+      // Reset composer inputs
+      setComposerType("GENERAL");
+      setClassifiedPrice("");
+      setClassifiedLocation("");
+      setPollQuestion("");
+      setPollOptions(["", ""]);
+      setLostFoundLocation("");
+      
       toast.success("Post published successfully!");
     } catch (error: any) {
       toast.error("Failed to publish post: " + error.message);
@@ -154,7 +214,16 @@ export function Feed() {
     }
   };
 
-  // Toggle and load comments
+  // Vote on poll
+  const handleVote = async (postId: number, option: string) => {
+    try {
+      const updatedPost = await feedService.voteOnPoll(postId, option);
+      setPosts((prev) => prev.map((p) => (p.id === postId ? updatedPost : p)));
+      toast.success("Vote recorded!");
+    } catch (error: any) {
+      toast.error("Failed to vote: " + error.message);
+    }
+  };
   const handleToggleComments = async (postId: number) => {
     const isOpen = !commentsOpen[postId];
     setCommentsOpen((prev) => ({ ...prev, [postId]: isOpen }));
@@ -266,6 +335,32 @@ export function Feed() {
       {/* Community Directory */}
       <CommunityDirectory />
 
+      {/* Category Tabs Filter */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-100 hide-scrollbar">
+        {[
+          { id: "ALL", label: "All Updates", color: "bg-indigo-600 text-white" },
+          { id: "OFFICIAL", label: "Official Notices", color: "bg-amber-600 text-white" },
+          { id: "POLL", label: "Interactive Polls", color: "bg-violet-600 text-white" },
+          { id: "CLASSIFIED", label: "Classifieds", color: "bg-emerald-600 text-white" },
+          { id: "LOST_FOUND", label: "Lost & Found", color: "bg-rose-600 text-white" }
+        ].map((tab) => {
+          const isActive = activeFilter === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveFilter(tab.id)}
+              className={`px-4 py-2 rounded-full text-[10px] font-bold whitespace-nowrap transition-all cursor-pointer border ${
+                isActive
+                  ? `${tab.color} border-transparent shadow-sm`
+                  : "bg-white text-slate-500 border-slate-200 hover:text-slate-800 hover:bg-slate-50"
+              }`}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Create Post */}
       <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md">
         <div className="flex gap-4">
@@ -273,14 +368,145 @@ export function Feed() {
             {getInitials(user.fullName)}
           </div>
           <div className="flex-1 space-y-3">
+            {/* Post Type Selector */}
+            <div className="flex gap-2 pb-1 border-b border-slate-100 overflow-x-auto hide-scrollbar">
+              {[
+                { id: "GENERAL", label: "General Post" },
+                { id: "POLL", label: "Create Poll" },
+                { id: "CLASSIFIED", label: "Classifieds" },
+                { id: "LOST_FOUND", label: "Lost & Found" }
+              ].map((type) => (
+                <button
+                  key={type.id}
+                  type="button"
+                  onClick={() => setComposerType(type.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                    composerType === type.id
+                      ? "bg-indigo-50 text-indigo-700 font-extrabold"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {type.label}
+                </button>
+              ))}
+            </div>
+
             <textarea
               className="w-full bg-slate-50 border border-slate-100 rounded-lg p-3 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none transition-all"
-              placeholder="Share an update, announce an event, or ask a question..."
+              placeholder={
+                composerType === "POLL" ? "Provide context or details about this poll..."
+                : composerType === "CLASSIFIED" ? "Describe the item you are listing..."
+                : composerType === "LOST_FOUND" ? "Describe the lost or found item..."
+                : "Share an update, announce an event, or ask a question..."
+              }
               rows={2}
               value={newPostContent}
               onChange={(e) => setNewPostContent(e.target.value)}
               disabled={isPosting}
             ></textarea>
+
+            {/* Conditional Post Type Inputs */}
+            {composerType === "CLASSIFIED" && (
+              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-left">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Price (INR)</label>
+                  <input
+                    type="number"
+                    placeholder="Enter price..."
+                    className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    value={classifiedPrice}
+                    onChange={(e) => setClassifiedPrice(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Item Location</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Block A Lobby..."
+                    className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    value={classifiedLocation}
+                    onChange={(e) => setClassifiedLocation(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {composerType === "POLL" && (
+              <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-2 text-left">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Poll Question</label>
+                  <input
+                    type="text"
+                    placeholder="Enter your poll question..."
+                    className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    value={pollQuestion}
+                    onChange={(e) => setPollQuestion(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center justify-between">
+                    Choices
+                    <button
+                      type="button"
+                      onClick={() => setPollOptions((prev) => [...prev, ""])}
+                      className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800"
+                    >
+                      + Add Option
+                    </button>
+                  </label>
+                  {pollOptions.map((opt, idx) => (
+                    <div key={idx} className="flex gap-1.5 items-center">
+                      <input
+                        type="text"
+                        placeholder={`Option ${idx + 1}...`}
+                        className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                        value={opt}
+                        onChange={(e) => {
+                          const updated = [...pollOptions];
+                          updated[idx] = e.target.value;
+                          setPollOptions(updated);
+                        }}
+                      />
+                      {pollOptions.length > 2 && (
+                        <button
+                          type="button"
+                          onClick={() => setPollOptions((prev) => prev.filter((_, i) => i !== idx))}
+                          className="text-slate-400 hover:text-red-500 text-xs px-1"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {composerType === "LOST_FOUND" && (
+              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-100 text-left">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Status</label>
+                  <select
+                    className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    value={lostFoundType}
+                    onChange={(e) => setLostFoundType(e.target.value as any)}
+                  >
+                    <option value="LOST">Lost Item</option>
+                    <option value="FOUND">Found Item</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">Location Lost/Found</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Garden Park..."
+                    className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    value={lostFoundLocation}
+                    onChange={(e) => setLostFoundLocation(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Optional Image URL Input */}
             {showImageUrlInput && (
@@ -365,7 +591,11 @@ export function Feed() {
           posts.map((post) => (
             <div
               key={post.id}
-              className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 transition-all duration-300 hover:shadow-md"
+              className={`bg-white rounded-xl shadow-sm border p-5 transition-all duration-300 hover:shadow-md ${
+                post.official 
+                  ? "border-amber-200 bg-amber-50/10 shadow-[0_4px_15px_-3px_rgba(217,119,6,0.04)]" 
+                  : "border-slate-200"
+              }`}
             >
               {/* Post Header */}
               <div className="flex justify-between items-start mb-4">
@@ -406,10 +636,103 @@ export function Feed() {
                 )}
               </div>
 
+              {/* Official Announcement Banner */}
+              {post.official && (
+                <div className="flex items-center gap-1 text-[10px] text-amber-700 bg-amber-100/50 border border-amber-200/50 px-2 py-0.5 rounded-md font-bold mb-3 w-fit">
+                  📢 Official Announcement
+                </div>
+              )}
+
               {/* Content text */}
-              <p className="text-slate-800 text-sm mb-4 whitespace-pre-line leading-relaxed">
+              <p className="text-slate-800 text-sm mb-4 whitespace-pre-line leading-relaxed text-left">
                 {post.content}
               </p>
+
+              {/* Custom Post Content Type (Poll, Classified, Lost & Found) */}
+              {post.postType === "CLASSIFIED" && (
+                <div className="flex flex-wrap gap-2 mb-4 text-left">
+                  <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg px-3 py-1.5 text-xs font-black flex items-center gap-1 shadow-sm">
+                    Price: ₹{post.price?.toLocaleString("en-IN")}
+                  </span>
+                  {post.location && (
+                    <span className="bg-slate-50 text-slate-600 border border-slate-100 rounded-lg px-3 py-1.5 text-xs font-bold flex items-center gap-1 shadow-sm">
+                      📍 Location: {post.location}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {post.postType === "LOST_FOUND" && post.location && (() => {
+                const isLost = post.location.startsWith("LOST:");
+                const cleanLoc = post.location.replace(/^(LOST|FOUND):\s*/, "");
+                return (
+                  <div className="flex flex-wrap gap-2 mb-4 text-left">
+                    <span className={`border rounded-lg px-3 py-1.5 text-xs font-black flex items-center gap-1.5 shadow-sm ${
+                      isLost 
+                        ? "bg-rose-50 text-rose-700 border-rose-100" 
+                        : "bg-teal-50 text-teal-700 border-teal-100"
+                    }`}>
+                      {isLost ? "⚠️ Lost Item" : "✅ Found Item"}
+                    </span>
+                    <span className="bg-slate-50 text-slate-600 border border-slate-100 rounded-lg px-3 py-1.5 text-xs font-bold flex items-center gap-1 shadow-sm">
+                      📍 Area: {cleanLoc}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              {post.postType === "POLL" && post.pollQuestion && (
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-4 text-left space-y-3">
+                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    📊 Poll: {post.pollQuestion}
+                  </h4>
+                  <div className="space-y-2">
+                    {post.pollOptionsList?.map((option) => {
+                      const votes = post.pollVotes?.[option] || 0;
+                      const totalVotes = Object.values(post.pollVotes || {}).reduce((a, b) => a + b, 0);
+                      const percent = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
+                      const hasVoted = !!post.userVotedOption;
+                      const isUserChoice = post.userVotedOption === option;
+
+                      return (
+                        <div key={option} className="relative">
+                          {hasVoted ? (
+                            <div className={`w-full border rounded-lg p-2.5 text-xs font-bold flex justify-between items-center relative overflow-hidden transition-all bg-white ${
+                              isUserChoice ? "border-indigo-300 text-indigo-800" : "border-slate-200 text-slate-700"
+                            }`}>
+                              {/* Percentage filled bar background */}
+                              <div 
+                                className={`absolute left-0 top-0 bottom-0 transition-all ${
+                                  isUserChoice ? "bg-indigo-100/50" : "bg-slate-100/60"
+                                }`}
+                                style={{ width: `${percent}%`, zIndex: 0 }}
+                              />
+                              <span className="relative z-10 flex items-center gap-1.5">
+                                {option}
+                                {isUserChoice && <span className="text-[10px] text-indigo-500 font-extrabold">(My Choice)</span>}
+                              </span>
+                              <span className="relative z-10 text-[10px] text-slate-500">
+                                {votes} votes ({percent}%)
+                              </span>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleVote(post.id, option)}
+                              className="w-full text-left border border-slate-200 bg-white hover:bg-indigo-50/30 hover:border-indigo-200 rounded-lg p-2.5 text-xs font-semibold text-slate-700 transition-all cursor-pointer"
+                            >
+                              {option}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="text-[10px] text-slate-400 font-medium pt-1">
+                    Total: {Object.values(post.pollVotes || {}).reduce((a, b) => a + b, 0)} votes
+                  </div>
+                </div>
+              )}
 
               {/* Attached Image */}
               {post.imageUrl && (

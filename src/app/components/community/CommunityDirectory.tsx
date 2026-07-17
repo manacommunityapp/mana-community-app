@@ -103,11 +103,11 @@ function resolveContacts(
   suggestions: ContactSuggestion[]
 ): { issue: string; icon: React.ReactNode; color: string; leader: CommunityLeaderResponse | null }[] {
   return suggestions.map((s) => {
-    let match = leaders.find((l) => {
+    let match: CommunityLeaderResponse | null = leaders.find((l) => {
       const d = l.designation.toLowerCase();
       const c = (l.committee || "").toLowerCase();
       return s.keywords.some((kw) => d.includes(kw) || c.includes(kw));
-    });
+    }) || null;
     if (!match) {
       match = leaders.find((l) => {
         const d = l.designation.toLowerCase();

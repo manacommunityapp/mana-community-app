@@ -30,6 +30,7 @@ import {
   AlertTriangle,
   UploadCloud,
   ToggleLeft,
+  Megaphone,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigate } from "react-router";
@@ -50,6 +51,7 @@ import { AdminRoleManagement } from "./AdminRoleManagement";
 import { LogsDashboard } from "./LogsDashboard";
 import { AuditTrail } from "./AuditTrail";
 import { AdminSportsMeta } from "./AdminSportsMeta";
+import { AnnouncementsPlanner } from "../architecture/AnnouncementsPlanner";
 import { ExpenseUpload } from "../assets/ExpenseUpload";
 import { TreasurerQueue } from "../assets/TreasurerQueue";
 import { assetService } from "../../../services/assetService";
@@ -79,6 +81,7 @@ const TAB_ITEMS = [
   { id: "modules",    label: "Modules",       icon: ToggleLeft },
   { id: "bulk",       label: "Bulk Upload",   icon: FileSpreadsheet },
   { id: "community",  label: "Community",     icon: Building2 },
+  { id: "announcements", label: "Announcements", icon: Megaphone },
 ] as const;
 
 type TabId = (typeof TAB_ITEMS)[number]["id"];
@@ -870,6 +873,7 @@ export function AdminHub() {
         {activeTab === "modules" && <ModulesTab />}
         {activeTab === "bulk" && <AdminBulkUpload />}
         {activeTab === "community" && <AdminCommunity />}
+        {activeTab === "announcements" && <AnnouncementsPlanner />}
       </div>
     </div>
   );

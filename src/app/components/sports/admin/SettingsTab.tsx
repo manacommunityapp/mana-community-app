@@ -3,9 +3,10 @@ import { Loader2, Settings, CalendarIcon, Users, Trophy, ExternalLink, ChevronDo
 import { showError } from "../../../../utils/ToastUtils";
 import { sportsAdminService, type AdminTournamentRow } from "../../../../services/sportsAdminService";
 import { format, parseISO } from "date-fns";
+import type { TabId } from "./useSportsAdminState";
 
 interface SettingsTabProps {
-  setActiveTab?: (tab: string) => void;
+  setActiveTab?: (tab: TabId) => void;
 }
 
 export function SettingsTab({ setActiveTab }: SettingsTabProps) {
