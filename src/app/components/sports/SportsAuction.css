@@ -555,9 +555,13 @@
 
 @media (max-width: 480px) {
   .auction-hub-wrapper .page { padding: 12px; }
-  .auction-hub-wrapper .page-title { font-size: 21px; }
-  .auction-hub-wrapper .stat-val { font-size: 26px; }
+  .auction-hub-wrapper .page-title { font-size: 20px; }
+  .auction-hub-wrapper .page-sub { font-size: 11px; }
+  .auction-hub-wrapper .stat-val { font-size: 24px; }
   .auction-hub-wrapper .stat-grid,
   .auction-hub-wrapper .grid4 { gap: 10px; }
   .auction-hub-wrapper .bid-amount { font-size: 32px; }
+  /* Tighter collapsed tab strip */
+  .auction-hub-wrapper .nav-section { padding: 6px 8px; gap: 4px; }
+  .auction-hub-wrapper .nav-item { padding: 7px 12px; font-size: 12px; }
 }

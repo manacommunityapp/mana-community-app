@@ -28,6 +28,12 @@
   @media (max-width: 1024px) {
     font-size: 16px;
   }
+  /* Phones: smaller, tighter, easier-to-scan type. */
+  @media (max-width: 640px) {
+    font-size: 15px;
+    line-height: 150%;
+    letter-spacing: 0.1px;
+  }
 }
 
 @media (prefers-color-scheme: dark) {
@@ -79,6 +85,11 @@ h1 {
     font-size: 36px;
     margin: 20px 0;
   }
+  @media (max-width: 640px) {
+    font-size: 26px;
+    letter-spacing: -0.8px;
+    margin: 14px 0;
+  }
 }
 h2 {
   font-size: 24px;
@@ -87,6 +98,9 @@ h2 {
   margin: 0 0 8px;
   @media (max-width: 1024px) {
     font-size: 20px;
+  }
+  @media (max-width: 640px) {
+    font-size: 17px;
   }
 }
 p {

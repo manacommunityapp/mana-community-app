@@ -70,7 +70,7 @@ export function FloatingChatBot() {
       <button
         id="floating-chatbot-toggle"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="h-14 w-14 rounded-full overflow-hidden shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer border-2 border-indigo-500/20 bg-white"
+        className="h-12 w-12 sm:h-14 sm:w-14 rounded-full overflow-hidden shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer border-2 border-indigo-500/20 bg-white"
         style={{
           boxShadow: "0 6px 20px rgba(99,102,241,0.25)",
         }}

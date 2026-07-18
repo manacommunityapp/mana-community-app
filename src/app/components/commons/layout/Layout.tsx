@@ -462,12 +462,12 @@ export function Layout() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-card border-b border-border h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 sticky top-0 z-30 shadow-sm">
+        <header className="bg-card border-b border-border h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 lg:px-8 sticky top-0 z-30 shadow-sm">
           <div className="flex items-center">
-            <button onClick={toggleSidebar} className="p-2 -ml-2 mr-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-xl transition-all">
+            <button onClick={toggleSidebar} className="p-2 -ml-2 mr-1.5 sm:mr-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-xl transition-all">
               <Menu className="h-5 w-5" />
             </button>
-            <span className="font-extrabold text-base text-foreground lg:hidden tracking-tight">Mana Community</span>
+            <span className="font-extrabold text-sm sm:text-base text-foreground lg:hidden tracking-tight">Mana Community</span>
           </div>
 
           {/* Search bar - desktop */}
@@ -484,7 +484,7 @@ export function Layout() {
 
           <div className="flex-1 hidden lg:block" />
 
-          <div className="flex items-center gap-3 ml-auto">
+          <div className="flex items-center gap-1.5 sm:gap-3 ml-auto">
             <NotificationBell />
 
             {/* Profile badge */}
@@ -511,7 +511,7 @@ export function Layout() {
           </div>
         </header>
 
-        <main className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-6 lg:p-8">
           <div className="w-full h-full">
             <Outlet />
           </div>

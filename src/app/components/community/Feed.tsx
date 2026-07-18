@@ -18,6 +18,7 @@ import type { PostResponse, CommentResponse } from "../../../types/api";
 import { toast } from "sonner";
 import { CommunityDirectory } from "./CommunityDirectory";
 import { AlertTicker } from "./AlertTicker";
+import { SportsNotificationCard } from "./SportsNotificationCard";
 
 export function Feed() {
   const { user, isAdmin } = useAuth();
@@ -334,9 +335,9 @@ export function Feed() {
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 items-start">
         {/* Main Feed Content (Left side, spanning 3 columns on lg) */}
-        <div className="lg:col-span-3 space-y-6">
+        <div className="lg:col-span-3 space-y-4 sm:space-y-6">
           {/* Mobile-only Community Directory (hidden on lg, visible on smaller screens) */}
           <div className="lg:hidden">
             <CommunityDirectory />
@@ -346,35 +347,36 @@ export function Feed() {
           <AlertTicker />
 
       {/* Category Tabs Filter */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-100 hide-scrollbar">
+      <div className="flex items-center gap-1 sm:gap-2 pb-2 border-b border-slate-100/80 overflow-hidden flex-nowrap justify-between w-full">
         {[
-          { id: "ALL", label: "All Updates", color: "bg-indigo-600 text-white" },
-          { id: "OFFICIAL", label: "Official Notices", color: "bg-amber-600 text-white" },
-          { id: "POLL", label: "Interactive Polls", color: "bg-violet-600 text-white" },
-          { id: "CLASSIFIED", label: "Classifieds", color: "bg-emerald-600 text-white" },
-          { id: "LOST_FOUND", label: "Lost & Found", color: "bg-rose-600 text-white" }
+          { id: "ALL", label: "All Updates", shortLabel: "All", color: "bg-gradient-to-r from-indigo-500 to-violet-600 text-white" },
+          { id: "OFFICIAL", label: "Official Notices", shortLabel: "Notices", color: "bg-gradient-to-r from-amber-500 to-orange-600 text-white" },
+          { id: "POLL", label: "Interactive Polls", shortLabel: "Polls", color: "bg-gradient-to-r from-violet-500 to-purple-600 text-white" },
+          { id: "CLASSIFIED", label: "Classifieds", shortLabel: "Classifieds", color: "bg-gradient-to-r from-emerald-500 to-teal-600 text-white" },
+          { id: "LOST_FOUND", label: "Lost & Found", shortLabel: "Lost/Found", color: "bg-gradient-to-r from-rose-500 to-red-600 text-white" }
         ].map((tab) => {
           const isActive = activeFilter === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveFilter(tab.id)}
-              className={`px-4 py-2 rounded-full text-[10px] font-bold whitespace-nowrap transition-all cursor-pointer border ${
+              className={`flex-1 text-center px-1.5 sm:px-3.5 py-1.5 rounded-full text-[9px] sm:text-[10px] font-bold whitespace-nowrap transition-all active:scale-95 cursor-pointer border ${
                 isActive
-                  ? `${tab.color} border-transparent shadow-sm`
-                  : "bg-white text-slate-500 border-slate-200 hover:text-slate-800 hover:bg-slate-50"
+                  ? `${tab.color} border-transparent shadow-sm shadow-indigo-500/10`
+                  : "bg-slate-50 text-slate-500 border-slate-200/60 hover:text-slate-800 hover:bg-slate-100/80"
               }`}
             >
-              {tab.label}
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="inline sm:hidden">{tab.shortLabel}</span>
             </button>
           );
         })}
       </div>
 
       {/* Create Post */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md">
-        <div className="flex gap-4">
-          <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 text-indigo-700 font-semibold shadow-inner">
+      <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200 transition-all duration-300 hover:shadow-md">
+        <div className="flex gap-3 sm:gap-4">
+          <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 text-indigo-700 font-semibold shadow-inner">
             {getInitials(user.fullName)}
           </div>
           <div className="flex-1 space-y-3">
@@ -601,16 +603,16 @@ export function Feed() {
           posts.map((post) => (
             <div
               key={post.id}
-              className={`bg-white rounded-xl shadow-sm border p-5 transition-all duration-300 hover:shadow-md ${
+              className={`bg-white rounded-xl shadow-sm border p-4 sm:p-5 transition-all duration-300 hover:shadow-md ${
                 post.official 
                   ? "border-amber-200 bg-amber-50/10 shadow-[0_4px_15px_-3px_rgba(217,119,6,0.04)]" 
                   : "border-slate-200"
               }`}
             >
               {/* Post Header */}
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-bold border border-slate-200 shadow-inner">
+              <div className="flex justify-between items-start mb-3 sm:mb-4">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-bold border border-slate-200 shadow-inner">
                     {post.authorAvatar}
                   </div>
                   <div>
@@ -746,7 +748,7 @@ export function Feed() {
 
               {/* Attached Image */}
               {post.imageUrl && (
-                <div className="mb-4 overflow-hidden rounded-xl border border-slate-100 max-h-96 bg-slate-50 flex items-center justify-center">
+                <div className="mb-4 overflow-hidden rounded-xl border border-slate-100 max-h-64 sm:max-h-96 bg-slate-50 flex items-center justify-center">
                   <img
                     src={post.imageUrl}
                     alt="Post attachment"
@@ -759,7 +761,7 @@ export function Feed() {
               )}
 
               {/* Feed Actions */}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-slate-500 text-sm">
+              <div className="pt-3 sm:pt-4 border-t border-slate-100 flex items-center justify-between text-slate-500 text-sm">
                 <button
                   onClick={() => handleLike(post.id)}
                   className={`flex items-center gap-1.5 transition-colors font-medium ${
@@ -935,6 +937,7 @@ export function Feed() {
     {/* Sidebar content (Right side, visible on lg, spanning 1 column) */}
     <div className="hidden lg:block sticky top-20 space-y-4">
       <CommunityDirectory />
+      <SportsNotificationCard />
       <SidebarAnnouncements posts={posts} />
       <QuickLinksCard />
     </div>
