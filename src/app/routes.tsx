@@ -2,6 +2,13 @@ import { createBrowserRouter } from "react-router";
 import { Layout } from "./components/commons/layout/Layout";
 import { Feed } from "./components/community/Feed";
 import { Marketplace } from "./components/marketplace/Marketplace";
+import { MarketplaceLayout } from "./components/marketplace/MarketplaceLayout";
+import { ProductDetail } from "./components/marketplace/ProductDetail";
+import { MyListings } from "./components/marketplace/MyListings";
+import { WishlistPage } from "./components/marketplace/WishlistPage";
+import { OrdersPage } from "./components/marketplace/OrdersPage";
+import { DonationsPage } from "./components/marketplace/DonationsPage";
+import { LostAndFoundPage } from "./components/marketplace/LostAndFoundPage";
 import { Jobs } from "./components/jobs/Jobs";
 import { Events } from "./components/events/Events";
 import { Login } from "./components/commons/login/Login";
@@ -64,7 +71,7 @@ import {
   VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD,
   VIEW_PLAYER_POOL, VIEW_AUCTION_RESULTS,
   CREATE_EDIT_SPORTS_MAIN, VIEW_ADMIN, BULK_UPLOAD, MANAGE_COMMUNITIES,
-  MANAGE_ROLES, VIEW_MARKETPLACE, VIEW_JOBS, VIEW_EVENTS, VIEW_VISITORS,
+  MANAGE_ROLES, VIEW_MARKETPLACE, CREATE_LISTING, VIEW_JOBS, VIEW_EVENTS, VIEW_VISITORS,
   VIEW_NOTICES, VIEW_AMENITIES, VIEW_TICKETS, VIEW_POLLS,
 } from "../constants/permissions";
 
@@ -179,7 +186,19 @@ export const router = createBrowserRouter([
       },
       {
         path: "marketplace",
-        element: <PermissionGuard permission={VIEW_MARKETPLACE} requiredModule="MARKETPLACE"><Marketplace /></PermissionGuard>
+        element: <PermissionGuard permission={VIEW_MARKETPLACE} requiredModule="MARKETPLACE"><MarketplaceLayout /></PermissionGuard>,
+        children: [
+          { index: true, Component: Marketplace },
+          { path: ":id", Component: ProductDetail },
+          {
+            path: "my-listings",
+            element: <PermissionGuard permission={CREATE_LISTING} requiredModule="MARKETPLACE"><MyListings /></PermissionGuard>,
+          },
+          { path: "wishlist", Component: WishlistPage },
+          { path: "orders", Component: OrdersPage },
+          { path: "donations", Component: DonationsPage },
+          { path: "lost-found", Component: LostAndFoundPage },
+        ],
       },
       {
         path: "visitors",
