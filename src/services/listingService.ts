@@ -1,4 +1,5 @@
 import { apiClient } from "./apiClient";
+import type { PaginatedResponse } from "../types/api";
 
 export interface ListingResponse {
   id: number;
@@ -31,12 +32,13 @@ export interface ListingRequest {
 }
 
 export const listingService = {
-  async getListings(category?: string, search?: string): Promise<ListingResponse[]> {
+  async getListings(category?: string, search?: string, page = 0, size = 12): Promise<PaginatedResponse<ListingResponse>> {
     const params = new URLSearchParams();
     if (category && category !== "All") params.set("category", category);
     if (search) params.set("search", search);
-    const qs = params.toString();
-    return apiClient.get<ListingResponse[]>(`/marketplace/listings${qs ? `?${qs}` : ""}`);
+    params.set("page", String(page));
+    params.set("size", String(size));
+    return apiClient.get<PaginatedResponse<ListingResponse>>(`/marketplace/listings?${params.toString()}`);
   },
 
   async getMyListings(): Promise<ListingResponse[]> {
