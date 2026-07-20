@@ -1,5 +1,6 @@
 import { Search, Tag, MapPin, CheckCircle, Plus, X, Loader2, ImagePlus, ShoppingBag, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { listingService, type ListingResponse, type ListingRequest } from "../../../services/listingService";
@@ -73,21 +74,17 @@ export function Marketplace() {
   };
 
   return (
-    <div className="min-h-screen text-[#0d0d2b] p-6 font-sans">
+    <div className="text-[#0d0d2b] font-sans">
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <span className="text-xs text-indigo-600 font-bold uppercase tracking-wider">Resident Portal</span>
-          <h1 className="text-3xl font-black text-[#0d0d2b] mt-1">Community Marketplace</h1>
-          <p className="text-[#6b7094] text-sm mt-1">Buy and sell trusted items with verified neighbors.</p>
-        </div>
+      {/* Search, Filters, and Post button */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-black text-[#0d0d2b]">Browse Listings</h2>
         {canCreate && (
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:opacity-95 shadow-md shadow-indigo-500/20 text-white text-sm font-bold rounded-full transition-all cursor-pointer self-start md:self-auto"
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:opacity-95 shadow-md shadow-indigo-500/20 text-white text-sm font-bold rounded-full transition-all cursor-pointer"
           >
-            <Plus className="w-4.5 h-4.5" />
+            <Plus className="w-4 h-4" />
             Post Advertisement
           </button>
         )}
@@ -179,13 +176,14 @@ export function Marketplace() {
 function ListingCard({ item }: { item: ListingResponse }) {
   const imageUrl = item.imageUrls?.[0];
   const { startConversation } = useChat();
+  const navigate = useNavigate();
 
   const handleContact = () => {
     startConversation(String(item.seller.id));
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-[#6366f1]/12 overflow-hidden flex flex-col hover:border-indigo-500/20 hover:shadow-md transition-all duration-300 shadow-[0_4px_20px_rgba(99,102,241,0.03)] group">
+    <div className="bg-white rounded-2xl border border-[#6366f1]/12 overflow-hidden flex flex-col hover:border-indigo-500/20 hover:shadow-md transition-all duration-300 shadow-[0_4px_20px_rgba(99,102,241,0.03)] group cursor-pointer" onClick={() => navigate(`/marketplace/${item.id}`)}>
       <div className="h-48 relative overflow-hidden bg-slate-50">
         {imageUrl ? (
           <img src={imageUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300" />
@@ -230,7 +228,7 @@ function ListingCard({ item }: { item: ListingResponse }) {
             </div>
           </div>
           <button
-            onClick={handleContact}
+            onClick={(e) => { e.stopPropagation(); handleContact(); }}
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-lg transition-all cursor-pointer"
           >
             <MessageCircle className="w-3.5 h-3.5" />
