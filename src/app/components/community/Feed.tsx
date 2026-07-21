@@ -338,9 +338,10 @@ export function Feed() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 items-start">
         {/* Main Feed Content (Left side, spanning 3 columns on lg) */}
         <div className="lg:col-span-3 space-y-4 sm:space-y-6">
-          {/* Mobile-only Community Directory (hidden on lg, visible on smaller screens) */}
-          <div className="lg:hidden">
+          {/* Mobile-only Community Directory & Sports Notifications (hidden on lg, visible on smaller screens) */}
+          <div className="lg:hidden space-y-4">
             <CommunityDirectory />
+            <SportsNotificationCard />
           </div>
 
           {/* Alert Ticker Notice Board */}

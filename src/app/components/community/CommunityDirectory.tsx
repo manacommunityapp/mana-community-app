@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
+import Swal from "sweetalert2";
 import {
   Phone, Mail, ChevronDown, ChevronUp, Users, Shield, Loader2,
   HelpCircle, Wrench, Banknote, Megaphone, HeartHandshake,
@@ -7,6 +8,7 @@ import {
 } from "lucide-react";
 import { communityDirectoryService } from "../../../services/communityDirectoryService";
 import type { CommunityLeaderResponse } from "../../../types/api";
+import { useChat } from "../../../contexts/ChatContext";
 
 // ── Role styling ────────────────────────────────────────────────────────────
 
@@ -45,6 +47,61 @@ function getInitials(name: string) {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 }
 
+const handlePhoneClick = (fullName: string, phone: string) => {
+  Swal.fire({
+    title: "",
+    html: `
+      <div class="font-sans px-1 text-center space-y-5">
+        <!-- Header Profile icon -->
+        <div class="flex flex-col items-center gap-3.5 pt-2">
+          <div class="w-14 h-14 rounded-full bg-gradient-to-tr from-indigo-50 to-indigo-100 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-inner">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-800 tracking-wide">${fullName}</h3>
+            <p class="text-[10px] text-slate-400 font-semibold mt-0.5 uppercase tracking-wider">Community Directory Member</p>
+          </div>
+        </div>
+
+        <!-- Phone Card Display -->
+        <div class="bg-indigo-50/50 border border-indigo-100/60 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 shadow-inner">
+          <span class="text-[9px] uppercase font-bold tracking-widest text-indigo-500">Mobile Number</span>
+          <span class="text-lg font-mono font-extrabold text-indigo-700 select-all tracking-wide">${phone}</span>
+        </div>
+
+        <p class="text-[10px] text-slate-450 leading-relaxed font-semibold">Select the number text to highlight &amp; copy, or select an option below</p>
+      </div>
+    `,
+    showCancelButton: true,
+    showDenyButton: true,
+    buttonsStyling: false,
+    confirmButtonText: "Call Now",
+    denyButtonText: "Copy Number",
+    cancelButtonText: "Close",
+    customClass: {
+      popup: "rounded-3xl border border-slate-200/50 shadow-2xl bg-white p-6 max-w-[340px] w-full",
+      actions: "flex items-center justify-center gap-2.5 mt-5 w-full",
+      confirmButton: "flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-white text-[11px] font-bold shadow-md shadow-indigo-500/10 hover:shadow-lg transition-all active:scale-95 cursor-pointer bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-650 hover:to-violet-750",
+      denyButton: "flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-slate-700 text-[11px] font-bold border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-all active:scale-95 cursor-pointer",
+      cancelButton: "flex-1 inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-slate-500 text-[11px] font-bold border border-slate-200 bg-white hover:bg-slate-50 transition-all active:scale-95 cursor-pointer",
+    }
+  }).then((result) => {
+    if (result.isConfirmed) {
+      window.location.href = `tel:${phone}`;
+    } else if (result.isDenied) {
+      navigator.clipboard.writeText(phone);
+      Swal.fire({
+        toast: true,
+        position: "top-end",
+        icon: "success",
+        title: "Copied to clipboard",
+        showConfirmButton: false,
+        timer: 1500
+      });
+    }
+  });
+};
+
 // ── Grouping ────────────────────────────────────────────────────────────────
 
 interface GroupedLeaders {
@@ -65,13 +122,20 @@ function groupLeaders(leaders: CommunityLeaderResponse[]): GroupedLeaders {
 
   for (const l of leaders) {
     const d = l.designation.toLowerCase();
+    let isExec = false;
+    
     if (EXECUTIVE_KEYWORDS.some((kw) => d.includes(kw))) {
       executives.push(l);
-    } else if (l.committee) {
+      isExec = true;
+    }
+    
+    if (l.committee) {
       const c = l.committee;
       if (!committees[c]) committees[c] = [];
-      committees[c].push(l);
-    } else {
+      if (!committees[c].some(x => x.userId === l.userId)) {
+        committees[c].push(l);
+      }
+    } else if (!isExec) {
       other.push(l);
     }
   }
@@ -127,55 +191,58 @@ type DirectoryTab = "leadership" | "committees" | "contact";
 
 function ExecutiveCard({ leader }: { leader: CommunityLeaderResponse }) {
   const style = getRoleStyle(leader.designation);
+  const { openFloatingChatWithUser } = useChat();
   return (
-    <div className="relative p-3 rounded-xl border border-slate-100 bg-white hover:border-slate-200 transition-all hover:shadow-sm flex items-center justify-between gap-3 text-left">
-      <div className="flex items-center gap-3 min-w-0">
+    <div className="relative p-2.5 rounded-xl border border-slate-100 bg-white hover:border-slate-200 transition-all hover:shadow-sm flex items-center justify-between gap-3 text-left">
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
         {leader.profilePicUrl ? (
           <img
             src={leader.profilePicUrl}
             alt={leader.fullName}
-            className={`h-11 w-11 rounded-full object-cover ring-2 ${style.avatarRing} shadow-sm flex-shrink-0`}
+            className={`h-10 w-10 rounded-full object-cover ring-2 ${style.avatarRing} shadow-sm flex-shrink-0`}
           />
         ) : (
-          <div className={`h-11 w-11 rounded-full flex items-center justify-center font-bold text-sm ring-2 ${style.avatarRing} shadow-sm flex-shrink-0 ${style.bg} ${style.color}`}>
+          <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-xs ring-2 ${style.avatarRing} shadow-sm flex-shrink-0 ${style.bg} ${style.color}`}>
             {getInitials(leader.fullName)}
           </div>
         )}
-        <div className="min-w-0">
-          <div className="font-semibold text-xs text-slate-800 truncate">{leader.fullName}</div>
-          <div className={`inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mt-1.5 ${style.bg} ${style.color} border ${style.border}`}>
-            <span>{style.icon}</span>
-            <span>{leader.designation}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+            <span className="font-semibold text-xs text-slate-800 truncate">{leader.fullName}</span>
+            <span className={`inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${style.bg} ${style.color} border ${style.border} shrink-0`}>
+              <span>{style.icon}</span>
+              <span>{leader.designation}</span>
+            </span>
+            {(leader.flatNo || leader.block) && (
+              <span className="text-[9px] text-slate-400 font-medium shrink-0">
+                {[leader.flatNo && `Flat ${leader.flatNo}`, leader.block && `Block ${leader.block}`].filter(Boolean).join(" · ")}
+              </span>
+            )}
           </div>
-          {(leader.flatNo || leader.block) && (
-            <p className="text-[9px] text-slate-400 mt-1">
-              {[leader.flatNo && `Flat ${leader.flatNo}`, leader.block && `Block ${leader.block}`].filter(Boolean).join(" · ")}
-            </p>
-          )}
         </div>
       </div>
       
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <button
-          onClick={() => navigate(`/chat?userId=${leader.userId}`)}
-          className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-200/60 transition-colors cursor-pointer"
+          onClick={() => openFloatingChatWithUser(String(leader.userId))}
+          className="p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-200/60 transition-colors cursor-pointer"
           title={`Chat with ${leader.fullName}`}
         >
           <MessageSquare className="w-3.5 h-3.5" />
         </button>
         {leader.contactPhone && (
-          <a
-            href={`tel:${leader.contactPhone}`}
-            className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-200/60 transition-colors"
-            title={`Call ${leader.fullName} (${leader.contactPhone})`}
+          <button
+            onClick={() => handlePhoneClick(leader.fullName, leader.contactPhone!)}
+            className="p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-200/60 transition-colors cursor-pointer"
+            title={`View contact number for ${leader.fullName}`}
           >
             <Phone className="w-3.5 h-3.5" />
-          </a>
+          </button>
         )}
         {leader.contactEmail && (
           <a
             href={`mailto:${leader.contactEmail}`}
-            className="p-2 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-200/60 transition-colors"
+            className="p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border border-slate-200/60 transition-colors"
             title={`Email ${leader.fullName} (${leader.contactEmail})`}
           >
             <Mail className="w-3.5 h-3.5" />
@@ -188,9 +255,10 @@ function ExecutiveCard({ leader }: { leader: CommunityLeaderResponse }) {
 
 function CompactCard({ leader }: { leader: CommunityLeaderResponse }) {
   const style = getRoleStyle(leader.designation);
+  const { openFloatingChatWithUser } = useChat();
   return (
-    <div className="flex items-center justify-between gap-3.5 p-2.5 rounded-xl bg-white border border-slate-100 hover:border-slate-200 transition-all hover:shadow-sm text-left">
-      <div className="flex items-center gap-2.5 min-w-0">
+    <div className="flex items-center justify-between gap-2.5 p-2 rounded-xl bg-white border border-slate-100 hover:border-slate-200 transition-all hover:shadow-sm text-left">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
         {leader.profilePicUrl ? (
           <img
             src={leader.profilePicUrl}
@@ -202,36 +270,43 @@ function CompactCard({ leader }: { leader: CommunityLeaderResponse }) {
             {getInitials(leader.fullName)}
           </div>
         )}
-        <div className="min-w-0">
-          <div className="font-semibold text-xs text-slate-800 truncate">{leader.fullName}</div>
-          <div className={`inline-flex items-center gap-0.5 text-[8px] font-bold uppercase tracking-wide px-1 py-0.2 rounded mt-0.5 ${style.bg} ${style.color}`}>
-            <span>{style.icon}</span>
-            <span>{leader.designation}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+            <span className="font-semibold text-xs text-slate-800 truncate">{leader.fullName}</span>
+            <span className={`inline-flex items-center gap-0.5 text-[8px] font-bold uppercase tracking-wide px-1 py-0.2 rounded ${style.bg} ${style.color} shrink-0`}>
+              <span>{style.icon}</span>
+              <span>{leader.designation}</span>
+            </span>
+            {(leader.flatNo || leader.block) && (
+              <span className="text-[9px] text-slate-400 font-medium shrink-0">
+                {[leader.flatNo && `Flat ${leader.flatNo}`, leader.block && `Block ${leader.block}`].filter(Boolean).join(" · ")}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
       <div className="flex items-center gap-1 flex-shrink-0">
         <button
-          onClick={() => navigate(`/chat?userId=${leader.userId}`)}
-          className="p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 border border-slate-100 transition-colors cursor-pointer"
+          onClick={() => openFloatingChatWithUser(String(leader.userId))}
+          className="p-1 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 border border-slate-100 transition-colors cursor-pointer"
           title={`Chat with ${leader.fullName}`}
         >
           <MessageSquare className="w-3 h-3" />
         </button>
         {leader.contactPhone && (
-          <a
-            href={`tel:${leader.contactPhone}`}
-            className="p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 border border-slate-100 transition-colors"
-            title={`Call ${leader.fullName} (${leader.contactPhone})`}
+          <button
+            onClick={() => handlePhoneClick(leader.fullName, leader.contactPhone!)}
+            className="p-1 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 border border-slate-100 transition-colors cursor-pointer"
+            title={`View contact number for ${leader.fullName}`}
           >
-            <Phone className="w-3.5 h-3" />
-          </a>
+            <Phone className="w-3 h-3" />
+          </button>
         )}
         {leader.contactEmail && (
           <a
             href={`mailto:${leader.contactEmail}`}
-            className="p-1.5 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 border border-slate-100 transition-colors"
+            className="p-1 rounded-lg bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 border border-slate-100 transition-colors"
             title={`Email ${leader.fullName} (${leader.contactEmail})`}
           >
             <Mail className="w-3 h-3" />
@@ -255,6 +330,8 @@ function SectionDivider({ label }: { label: string }) {
 // ── Main component ──────────────────────────────────────────────────────────
 
 export function CommunityDirectory() {
+  const navigate = useNavigate();
+  const { openFloatingChatWithUser } = useChat();
   const [leaders, setLeaders] = useState<CommunityLeaderResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -327,31 +404,31 @@ export function CommunityDirectory() {
       {expanded && (
         <div className="px-5 pb-5">
           {/* Tab Navigation */}
-          {tabs.length > 1 && (
-            <div className="flex gap-1 mb-4 bg-slate-100/80 p-1 rounded-lg">
-              {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-semibold transition-all ${
-                    tab === t.id
-                      ? "bg-white text-indigo-700 shadow-sm"
-                      : "text-slate-500 hover:text-slate-700"
-                  }`}
-                >
-                  {t.icon}
-                  <span>{t.label}</span>
-                  {t.count !== undefined && (
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
-                      tab === t.id ? "bg-indigo-100 text-indigo-600" : "bg-slate-200/80 text-slate-500"
-                    }`}>
-                      {t.count}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
+           {tabs.length > 1 && (
+             <div className="flex gap-0.5 mb-4 bg-slate-100/80 p-0.5 rounded-lg flex-nowrap">
+               {tabs.map((t) => (
+                 <button
+                   key={t.id}
+                   onClick={() => setTab(t.id)}
+                   className={`flex-1 flex items-center justify-center gap-1 px-1 sm:px-3 py-1.5 sm:py-2 rounded-md text-[10px] sm:text-xs font-semibold transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                     tab === t.id
+                       ? "bg-white text-indigo-700 shadow-sm"
+                       : "text-slate-500 hover:text-slate-700"
+                   }`}
+                 >
+                   {t.icon}
+                   <span>{t.label}</span>
+                   {t.count !== undefined && (
+                     <span className={`text-[8px] px-1 py-0.2 rounded-full ${
+                       tab === t.id ? "bg-indigo-100 text-indigo-600" : "bg-slate-200/80 text-slate-500"
+                     }`}>
+                       {t.count}
+                     </span>
+                   )}
+                 </button>
+               ))}
+             </div>
+           )}
 
           <div className="max-h-[350px] overflow-y-auto pr-1.5 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent space-y-1">
             {/* ── Leadership Tab ──────────────────────────────────── */}
@@ -467,20 +544,20 @@ export function CommunityDirectory() {
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       <button
-                        onClick={() => navigate(`/chat?userId=${leader.userId}`)}
+                        onClick={() => openFloatingChatWithUser(String(leader.userId))}
                         className="p-1.5 rounded-lg bg-white/80 hover:bg-white text-slate-500 hover:text-indigo-600 transition-colors border border-slate-200/60 cursor-pointer"
                         title={`Chat with ${leader.fullName}`}
                       >
                         <MessageSquare className="w-3.5 h-3.5" />
                       </button>
                       {leader.contactPhone && (
-                        <a
-                          href={`tel:${leader.contactPhone}`}
-                          className="p-1.5 rounded-lg bg-white/80 hover:bg-white text-slate-500 hover:text-indigo-600 transition-colors border border-slate-200/60"
-                          title={`Call ${leader.fullName}`}
+                        <button
+                          onClick={() => handlePhoneClick(leader.fullName, leader.contactPhone!)}
+                          className="p-1.5 rounded-lg bg-white/80 hover:bg-white text-slate-500 hover:text-indigo-600 transition-colors border border-slate-200/60 cursor-pointer"
+                          title={`View contact number for ${leader.fullName}`}
                         >
                           <Phone className="w-3.5 h-3.5" />
-                        </a>
+                        </button>
                       )}
                       {leader.contactEmail && (
                         <a

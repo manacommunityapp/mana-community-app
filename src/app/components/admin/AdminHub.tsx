@@ -77,9 +77,8 @@ interface AdminOverviewData {
 // ── Tab config ────────────────────────────────────────────────────────────────
 const TAB_ITEMS = [
   { id: "overview",   label: "Overview",      icon: LayoutDashboard },
-  { id: "users",      label: "Users",         icon: Users },
+  { id: "users-roles", label: "Users & Roles", icon: Users },
   { id: "kyc",        label: "KYC Review",    icon: ShieldCheck },
-  { id: "roles",      label: "Roles",         icon: Crown },
   { id: "modules",    label: "Modules",       icon: ToggleLeft },
   { id: "bulk",       label: "Bulk Upload",   icon: FileSpreadsheet },
   { id: "community",  label: "Community",     icon: Building2 },
@@ -364,10 +363,10 @@ function OverviewTab({
           Quick Actions
         </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <QuickAction icon={UserPlus} label="Create User" desc="Add a new community member" color="#818cf8" bg="rgba(129,140,248,0.12)" onClick={() => onNavigate("users")} />
+          <QuickAction icon={UserPlus} label="Create User" desc="Add a new community member" color="#818cf8" bg="rgba(129,140,248,0.12)" onClick={() => onNavigate("users-roles")} />
           <QuickAction icon={FileSpreadsheet} label="Bulk Upload" desc="Import users via CSV/Excel" color="#a78bfa" bg="rgba(167,139,250,0.12)" onClick={() => onNavigate("bulk")} />
           <QuickAction icon={Building2} label="Community" desc="Manage community settings" color="#34d399" bg="rgba(52,211,153,0.12)" onClick={() => onNavigate("community")} />
-          <QuickAction icon={Crown} label="Roles & Permissions" desc="Configure access control" color="#fbbf24" bg="rgba(251,191,36,0.12)" onClick={() => onNavigate("roles")} />
+          <QuickAction icon={Crown} label="Roles & Permissions" desc="Configure access control" color="#fbbf24" bg="rgba(251,191,36,0.12)" onClick={() => onNavigate("users-roles")} />
           <QuickAction icon={UploadCloud} label="OCR Invoice Upload" desc="Volunteers: 1-click snap & upload receipt" color="#f472b6" bg="rgba(244,114,182,0.12)" onClick={() => navigate("/inventory?tab=upload")} />
           <QuickAction icon={ClipboardList} label="Approval Queue" desc="Treasurers: Audit & Quick-settle invoices" color="#38bdf8" bg="rgba(56,189,248,0.12)" onClick={() => navigate("/inventory?tab=approve")} />
         </div>
@@ -755,8 +754,8 @@ export function AdminHub() {
       hydratedRef.current.add("overview");
       fetchOverview();
     }
-    if (activeTab === "users" && !hydratedRef.current.has("users") && !hydratedRef.current.has("overview")) {
-      hydratedRef.current.add("users");
+    if (activeTab === "users-roles" && !hydratedRef.current.has("users-roles") && !hydratedRef.current.has("overview")) {
+      hydratedRef.current.add("users-roles");
       setUsersLoading(true);
       userService.getAllUsers()
         .then(allUsers => {
@@ -787,7 +786,7 @@ export function AdminHub() {
     if (t.id === "kyc") return isSuperAdmin || isAdmin;
     if (t.id === "modules") return isSuperAdmin;
     if (t.id === "community") return canManageCommunities;
-    if (t.id === "roles") return isSuperAdmin || hasPermission("Manage Roles");
+    if (t.id === "users-roles") return isSuperAdmin || isAdmin || hasPermission("Manage Roles");
     return true;
   });
 
@@ -868,11 +867,8 @@ export function AdminHub() {
             onNavigate={setActiveTab}
           />
         )}
-        {activeTab === "users" && (
-          <UsersTab users={users} loading={usersLoading} />
-        )}
+        {activeTab === "users-roles" && <AdminRoleManagement />}
         {activeTab === "kyc" && <AdminDashboard />}
-        {activeTab === "roles" && <AdminRoleManagement />}
         {activeTab === "modules" && <ModulesTab />}
         {activeTab === "bulk" && <AdminBulkUpload />}
         {activeTab === "community" && <AdminCommunity />}

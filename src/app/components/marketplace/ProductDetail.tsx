@@ -4,7 +4,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
   ArrowLeft, Heart, MessageCircle, Star, MapPin, CheckCircle, Clock,
-  Tag, ShoppingCart, ImagePlus, Send, Loader2, Package
+  Tag, ShoppingCart, ImagePlus, Send, Loader2, Package, ShieldCheck
 } from "lucide-react";
 import {
   listingService, reviewService, wishlistService,
@@ -12,7 +12,6 @@ import {
 } from "../../../services/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useChat } from "../../../contexts/ChatContext";
-import type { PaginatedResponse } from "../../../types/api";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
@@ -108,7 +107,7 @@ export function ProductDetail() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-32">
-        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
       </div>
     );
   }
@@ -116,8 +115,8 @@ export function ProductDetail() {
   if (!listing) {
     return (
       <div className="text-center py-32">
-        <p className="text-[#6b7094]">Listing not found</p>
-        <button onClick={() => navigate("/marketplace")} className="mt-4 text-indigo-600 font-semibold text-sm cursor-pointer">
+        <p className="text-slate-500 dark:text-slate-400">Listing not found</p>
+        <button onClick={() => navigate("/marketplace")} className="mt-4 text-indigo-600 font-bold text-xs cursor-pointer hover:underline">
           Back to Marketplace
         </button>
       </div>
@@ -127,17 +126,17 @@ export function ProductDetail() {
   const isOwner = user?.userId && Number(user.userId) === listing.seller.id;
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl mx-auto space-y-6 text-slate-900 dark:text-white">
       {/* Back button */}
-      <button onClick={() => navigate("/marketplace")} className="flex items-center gap-2 text-sm text-[#6b7094] hover:text-[#0d0d2b] mb-6 transition-colors cursor-pointer">
+      <button onClick={() => navigate("/marketplace")} className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer">
         <ArrowLeft className="w-4 h-4" /> Back to listings
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-        {/* Images */}
+        {/* Images Preview */}
         <div className="lg:col-span-3">
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-            <div className="h-80 sm:h-96 bg-slate-50 flex items-center justify-center">
+          <div className="bg-white dark:bg-[#1E1E36] rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-xs">
+            <div className="h-80 sm:h-96 bg-slate-50 dark:bg-[#262644] flex items-center justify-center">
               {listing.imageUrls.length > 0 ? (
                 <img src={listing.imageUrls[selectedImage]} alt={listing.title} className="w-full h-full object-contain" />
               ) : (
@@ -145,14 +144,14 @@ export function ProductDetail() {
               )}
             </div>
             {listing.imageUrls.length > 1 && (
-              <div className="flex gap-2 p-3 overflow-x-auto">
+              <div className="flex gap-2 p-3 overflow-x-auto border-t border-slate-100 dark:border-slate-800">
                 {listing.imageUrls.map((url, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedImage(i)}
                     className={cn(
-                      "w-16 h-16 rounded-lg overflow-hidden border-2 flex-shrink-0 cursor-pointer",
-                      selectedImage === i ? "border-indigo-500" : "border-transparent"
+                      "w-16 h-16 rounded-xl overflow-hidden border-2 flex-shrink-0 cursor-pointer transition-all",
+                      selectedImage === i ? "border-indigo-600" : "border-transparent opacity-60 hover:opacity-100"
                     )}
                   >
                     <img src={url} alt="" className="w-full h-full object-cover" />
@@ -163,41 +162,41 @@ export function ProductDetail() {
           </div>
         </div>
 
-        {/* Info */}
+        {/* Product Info Sidebar */}
         <div className="lg:col-span-2 space-y-5">
-          <div className="bg-white rounded-2xl border border-slate-200 p-6">
-            <div className="flex items-center gap-1.5 text-[10px] text-indigo-600 font-bold uppercase tracking-wider mb-2">
-              <Tag className="w-3 h-3" /> {listing.category}
+          <div className="bg-white dark:bg-[#1E1E36] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs">
+            <div className="flex items-center gap-1.5 text-[10px] text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider mb-2">
+              <Tag className="w-3.5 h-3.5" /> {listing.category}
             </div>
-            <h2 className="text-2xl font-black text-[#0d0d2b] leading-tight">{listing.title}</h2>
-            <p className="text-3xl font-black text-indigo-600 mt-3">{formatPrice(listing.price, listing.priceUnit)}</p>
+            <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">{listing.title}</h2>
+            <p className="text-2xl font-black text-indigo-600 dark:text-indigo-400 mt-2">{formatPrice(listing.price, listing.priceUnit)}</p>
 
             {listing.location && (
-              <div className="flex items-center gap-1.5 text-sm text-[#6b7094] mt-3">
-                <MapPin className="w-4 h-4" /> {listing.location}
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mt-3">
+                <MapPin className="w-4 h-4 text-indigo-500" /> {listing.location}
               </div>
             )}
-            <div className="flex items-center gap-1.5 text-sm text-[#6b7094] mt-1">
-              <Clock className="w-4 h-4" /> Listed {timeAgo(listing.createdAt)}
+            <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1">
+              <Clock className="w-3.5 h-3.5" /> Listed {timeAgo(listing.createdAt)}
             </div>
 
-            {/* Rating summary */}
+            {/* Rating Summary */}
             {stats.totalReviews > 0 && (
-              <div className="flex items-center gap-2 mt-3">
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5].map((s) => (
                     <Star key={s} className={cn("w-4 h-4", s <= Math.round(stats.averageRating) ? "text-amber-400 fill-amber-400" : "text-slate-300")} />
                   ))}
                 </div>
-                <span className="text-sm font-semibold text-[#0d0d2b]">{stats.averageRating.toFixed(1)}</span>
-                <span className="text-xs text-[#6b7094]">({stats.totalReviews} reviews)</span>
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{stats.averageRating.toFixed(1)}</span>
+                <span className="text-xs text-slate-400">({stats.totalReviews} reviews)</span>
               </div>
             )}
 
             {/* Actions */}
             <div className="flex gap-3 mt-6">
               {!isOwner && (
-                <button onClick={handleContact} className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-sm font-bold rounded-xl hover:opacity-95 transition-all cursor-pointer">
+                <button onClick={handleContact} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-md shadow-indigo-500/20">
                   <MessageCircle className="w-4 h-4" /> Contact Seller
                 </button>
               )}
@@ -205,30 +204,31 @@ export function ProductDetail() {
                 onClick={toggleWishlist}
                 disabled={wishlistLoading}
                 className={cn(
-                  "px-4 py-3 rounded-xl text-sm font-bold border transition-all cursor-pointer",
+                  "px-4 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center justify-center gap-1.5",
                   wishlisted
-                    ? "bg-rose-50 border-rose-200 text-rose-600"
-                    : "bg-white border-slate-200 text-[#6b7094] hover:border-indigo-300"
+                    ? "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800 text-rose-600"
+                    : "bg-slate-50 dark:bg-[#262644] border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100"
                 )}
               >
                 <Heart className={cn("w-4 h-4", wishlisted && "fill-rose-500")} />
+                {wishlisted ? "Saved" : "Save"}
               </button>
             </div>
           </div>
 
           {/* Seller Card */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5">
-            <h3 className="text-xs font-bold text-[#6b7094] uppercase tracking-wider mb-3">Seller</h3>
+          <div className="bg-white dark:bg-[#1E1E36] rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Seller Details</h3>
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-indigo-50 to-violet-50 border border-indigo-100 flex items-center justify-center text-lg font-black text-indigo-600">
+              <div className="w-10 h-10 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 text-indigo-600 font-bold text-sm flex items-center justify-center">
                 {listing.seller.fullName?.charAt(0) ?? "?"}
               </div>
               <div>
-                <div className="text-sm font-bold text-[#0d0d2b] flex items-center gap-1">
+                <div className="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1">
                   {listing.seller.fullName}
-                  {listing.seller.verified && <CheckCircle className="w-4 h-4 text-emerald-500 fill-emerald-50" />}
+                  {listing.seller.verified && <ShieldCheck className="w-4 h-4 text-emerald-500" />}
                 </div>
-                <p className="text-xs text-[#6b7094]">Community Member</p>
+                <p className="text-[10px] text-slate-400">Verified Neighbor</p>
               </div>
             </div>
           </div>
@@ -237,18 +237,18 @@ export function ProductDetail() {
 
       {/* Description */}
       {listing.description && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 mt-8">
-          <h3 className="text-sm font-bold text-[#0d0d2b] mb-3">Description</h3>
-          <p className="text-sm text-[#6b7094] leading-relaxed whitespace-pre-line">{listing.description}</p>
+        <div className="bg-white dark:bg-[#1E1E36] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Description</h3>
+          <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-line">{listing.description}</p>
         </div>
       )}
 
       {/* Reviews Section */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 mt-8">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-sm font-bold text-[#0d0d2b]">Reviews ({stats.totalReviews})</h3>
+      <div className="bg-white dark:bg-[#1E1E36] rounded-3xl border border-slate-200 dark:border-slate-800 p-6 shadow-xs">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Reviews ({stats.totalReviews})</h3>
           {!isOwner && !showReviewForm && (
-            <button onClick={() => setShowReviewForm(true)} className="text-sm font-semibold text-indigo-600 hover:underline cursor-pointer">
+            <button onClick={() => setShowReviewForm(true)} className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
               Write a Review
             </button>
           )}
@@ -256,26 +256,26 @@ export function ProductDetail() {
 
         {/* Review Form */}
         {showReviewForm && (
-          <div className="bg-slate-50 rounded-xl p-4 mb-5">
+          <div className="bg-slate-50 dark:bg-[#262644] rounded-2xl p-4 mb-4 border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-1 mb-3">
               {[1, 2, 3, 4, 5].map((s) => (
                 <button key={s} onClick={() => setReviewRating(s)} className="cursor-pointer">
-                  <Star className={cn("w-6 h-6 transition-colors", s <= reviewRating ? "text-amber-400 fill-amber-400" : "text-slate-300 hover:text-amber-200")} />
+                  <Star className={cn("w-5 h-5 transition-colors", s <= reviewRating ? "text-amber-400 fill-amber-400" : "text-slate-300")} />
                 </button>
               ))}
             </div>
             <textarea
               value={reviewComment}
               onChange={(e) => setReviewComment(e.target.value)}
-              placeholder="Share your experience..."
+              placeholder="Share your experience with this listing..."
               rows={3}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-indigo-500 resize-none"
+              className="w-full px-3 py-2 bg-white dark:bg-[#1E1E36] border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:border-indigo-600 text-slate-900 dark:text-white resize-none"
             />
             <div className="flex justify-end gap-2 mt-3">
-              <button onClick={() => setShowReviewForm(false)} className="px-3 py-1.5 text-sm text-[#6b7094] cursor-pointer">Cancel</button>
-              <button onClick={submitReview} disabled={submittingReview} className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white text-sm font-semibold rounded-lg disabled:opacity-50 cursor-pointer">
+              <button onClick={() => setShowReviewForm(false)} className="px-3 py-1.5 text-xs font-bold text-slate-400 hover:text-slate-600 cursor-pointer">Cancel</button>
+              <button onClick={submitReview} disabled={submittingReview} className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-xl disabled:opacity-50 cursor-pointer">
                 {submittingReview ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-                Submit
+                Submit Review
               </button>
             </div>
           </div>
@@ -283,35 +283,29 @@ export function ProductDetail() {
 
         {/* Review List */}
         {reviews.length === 0 ? (
-          <p className="text-sm text-[#6b7094]">No reviews yet. Be the first to review!</p>
+          <p className="text-xs text-slate-400">No reviews yet. Be the first neighbor to leave feedback!</p>
         ) : (
           <div className="space-y-4">
             {reviews.map((r) => (
-              <div key={r.id} className="border-b border-slate-100 pb-4 last:border-0">
+              <div key={r.id} className="border-b border-slate-100 dark:border-slate-800 pb-4 last:border-0">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-xs font-bold text-indigo-600">
+                    <div className="w-7 h-7 rounded-full bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-xs font-bold text-indigo-600">
                       {r.reviewer.fullName?.charAt(0)}
                     </div>
                     <div>
-                      <span className="text-sm font-semibold text-[#0d0d2b]">{r.reviewer.fullName}</span>
-                      {r.reviewer.verified && <CheckCircle className="inline w-3.5 h-3.5 text-emerald-500 ml-1" />}
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{r.reviewer.fullName}</span>
+                      {r.reviewer.verified && <CheckCircle className="inline w-3 h-3 text-emerald-500 ml-1" />}
                     </div>
                   </div>
-                  <span className="text-xs text-[#6b7094]">{timeAgo(r.createdAt)}</span>
+                  <span className="text-[10px] text-slate-400">{timeAgo(r.createdAt)}</span>
                 </div>
-                <div className="flex items-center gap-0.5 mt-1.5 ml-10">
+                <div className="flex items-center gap-0.5 mt-1.5 ml-9">
                   {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} className={cn("w-3.5 h-3.5", s <= r.rating ? "text-amber-400 fill-amber-400" : "text-slate-300")} />
+                    <Star key={s} className={cn("w-3 h-3", s <= r.rating ? "text-amber-400 fill-amber-400" : "text-slate-300")} />
                   ))}
                 </div>
-                {r.comment && <p className="text-sm text-[#6b7094] mt-2 ml-10">{r.comment}</p>}
-                {r.sellerReply && (
-                  <div className="ml-10 mt-2 pl-3 border-l-2 border-indigo-100">
-                    <p className="text-xs font-semibold text-indigo-600">Seller Reply</p>
-                    <p className="text-sm text-[#6b7094]">{r.sellerReply}</p>
-                  </div>
-                )}
+                {r.comment && <p className="text-xs text-slate-600 dark:text-slate-400 mt-1.5 ml-9">{r.comment}</p>}
               </div>
             ))}
           </div>

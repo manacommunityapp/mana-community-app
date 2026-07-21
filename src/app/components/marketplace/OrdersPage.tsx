@@ -3,12 +3,11 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
   Package, ShoppingBag, Truck, CheckCircle, XCircle, Clock,
-  Loader2, ChevronLeft, ChevronRight, ArrowRightLeft
+  Loader2, ChevronLeft, ChevronRight, ArrowRightLeft, ShieldCheck
 } from "lucide-react";
 import { orderService, type OrderResponse } from "../../../services/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { CREATE_LISTING } from "../../../constants/permissions";
-import type { PaginatedResponse } from "../../../types/api";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
@@ -27,15 +26,15 @@ function timeAgo(dateStr: string): string {
 }
 
 const statusConfig: Record<string, { icon: typeof Clock; color: string; bg: string }> = {
-  PENDING: { icon: Clock, color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
-  CONFIRMED: { icon: Package, color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
-  DELIVERED: { icon: Truck, color: "text-violet-600", bg: "bg-violet-50 border-violet-200" },
-  COMPLETED: { icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
-  CANCELLED: { icon: XCircle, color: "text-red-600", bg: "bg-red-50 border-red-200" },
+  PENDING: { icon: Clock, color: "text-amber-600", bg: "bg-amber-50 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800" },
+  CONFIRMED: { icon: Package, color: "text-blue-600", bg: "bg-blue-50 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800" },
+  DELIVERED: { icon: Truck, color: "text-violet-600", bg: "bg-violet-50 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400 dark:border-violet-800" },
+  COMPLETED: { icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800" },
+  CANCELLED: { icon: XCircle, color: "text-rose-600", bg: "bg-rose-50 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400 dark:border-rose-800" },
 };
 
 export function OrdersPage() {
-  const { hasPermission, user } = useAuth();
+  const { hasPermission } = useAuth();
   const isSeller = hasPermission(CREATE_LISTING);
   const [tab, setTab] = useState<"buying" | "selling">("buying");
   const [orders, setOrders] = useState<OrderResponse[]>([]);
@@ -71,22 +70,24 @@ export function OrdersPage() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-black text-[#0d0d2b]">Orders</h2>
+    <div className="space-y-4 text-slate-900 dark:text-white">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+          <ShoppingBag className="w-5 h-5 text-indigo-600" /> Orders History
+        </h2>
         {isSeller && (
-          <div className="flex bg-slate-100 rounded-lg p-0.5">
+          <div className="flex bg-slate-100 dark:bg-[#262644] rounded-xl p-1 border border-slate-200 dark:border-slate-700">
             <button
               onClick={() => { setTab("buying"); setPage(0); }}
-              className={cn("px-4 py-1.5 text-sm font-semibold rounded-md transition-all cursor-pointer", tab === "buying" ? "bg-white text-[#0d0d2b] shadow-sm" : "text-[#6b7094]")}
+              className={cn("px-4 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer", tab === "buying" ? "bg-white dark:bg-[#1E1E36] text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500")}
             >
-              Buying
+              My Purchases
             </button>
             <button
               onClick={() => { setTab("selling"); setPage(0); }}
-              className={cn("px-4 py-1.5 text-sm font-semibold rounded-md transition-all cursor-pointer", tab === "selling" ? "bg-white text-[#0d0d2b] shadow-sm" : "text-[#6b7094]")}
+              className={cn("px-4 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer", tab === "selling" ? "bg-white dark:bg-[#1E1E36] text-indigo-600 dark:text-indigo-400 shadow-sm" : "text-slate-500")}
             >
-              Selling
+              Sales Orders
             </button>
           </div>
         )}
@@ -94,110 +95,96 @@ export function OrdersPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+          <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
         </div>
       ) : orders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#1E1E36] rounded-3xl border border-slate-200 dark:border-slate-800 text-center p-6">
           <Package className="w-12 h-12 text-slate-300 mb-3" />
-          <p className="text-[#6b7094] text-sm font-medium">No orders yet</p>
+          <p className="text-slate-700 dark:text-slate-300 font-bold text-sm">No orders found</p>
+          <p className="text-slate-400 text-xs mt-1">Orders placed or received will appear here with live tracking.</p>
         </div>
       ) : (
-        <>
-          <div className="space-y-4">
-            {orders.map((order) => {
-              const sc = statusConfig[order.status] || statusConfig.PENDING;
-              const StatusIcon = sc.icon;
-              const isBuyer = user?.userId && Number(user.userId) === order.buyer.id;
-              return (
-                <div key={order.id} className="bg-white rounded-2xl border border-slate-200 p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs font-mono text-[#6b7094]">#{order.orderNumber}</span>
-                      <span className={cn("flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border", sc.bg)}>
-                        <StatusIcon className={cn("w-3 h-3", sc.color)} />
-                        {order.status}
-                      </span>
-                    </div>
-                    <span className="text-xs text-[#6b7094]">{timeAgo(order.createdAt)}</span>
+        <div className="space-y-4">
+          {orders.map((order) => {
+            const statusInfo = statusConfig[order.status] || statusConfig.PENDING;
+            const StatusIcon = statusInfo.icon;
+            const firstItem = order.items?.[0];
+
+            return (
+              <div key={order.id} className="bg-white dark:bg-[#1E1E36] rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-xs space-y-4">
+                {/* Header */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                  <div>
+                    <span className="text-xs font-black text-slate-900 dark:text-white">Order #{order.orderNumber || order.id}</span>
+                    <span className="text-[10px] text-slate-400 ml-2">Placed {timeAgo(order.createdAt)}</span>
                   </div>
+                  <div className={cn("inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold w-fit", statusInfo.bg, statusInfo.color)}>
+                    <StatusIcon className="w-3.5 h-3.5" />
+                    {order.status}
+                  </div>
+                </div>
 
-                  {/* Items */}
-                  {order.items.map((item) => (
-                    <div key={item.id} className="flex items-center gap-3 py-2">
-                      <div className="w-14 h-14 rounded-lg bg-slate-50 overflow-hidden flex-shrink-0">
-                        {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.listingTitle} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <ShoppingBag className="w-5 h-5 text-slate-300" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-[#0d0d2b] truncate">{item.listingTitle}</p>
-                        <p className="text-xs text-[#6b7094]">Qty: {item.quantity} × {formatPrice(item.unitPrice)}</p>
-                      </div>
+                {/* Timeline Step-by-Step Step Tracker */}
+                <div className="py-2">
+                  <div className="grid grid-cols-4 gap-2 text-center relative">
+                    <div className={cn("flex flex-col items-center space-y-1 z-10", ["PENDING", "CONFIRMED", "DELIVERED", "COMPLETED"].includes(order.status) ? "text-indigo-600 dark:text-indigo-400" : "text-slate-300")}>
+                      <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-950/60 border-2 border-indigo-600 flex items-center justify-center font-bold text-[10px]">1</div>
+                      <span className="text-[10px] font-bold">Placed</span>
                     </div>
-                  ))}
-
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
-                    <div className="text-sm">
-                      <span className="text-[#6b7094]">{isBuyer ? "Seller" : "Buyer"}: </span>
-                      <span className="font-semibold text-[#0d0d2b]">{isBuyer ? order.seller.fullName : order.buyer.fullName}</span>
+                    <div className={cn("flex flex-col items-center space-y-1 z-10", ["CONFIRMED", "DELIVERED", "COMPLETED"].includes(order.status) ? "text-indigo-600 dark:text-indigo-400" : "text-slate-300")}>
+                      <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-950/60 border-2 border-indigo-600 flex items-center justify-center font-bold text-[10px]">2</div>
+                      <span className="text-[10px] font-bold">Confirmed</span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg font-black text-[#0d0d2b]">{formatPrice(order.totalAmount)}</span>
-                      {/* Status actions */}
-                      {tab === "selling" && order.status === "PENDING" && (
-                        <button onClick={() => handleStatusUpdate(order.id, "CONFIRMED")} className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-bold rounded-lg cursor-pointer">
-                          Confirm
-                        </button>
-                      )}
-                      {tab === "selling" && order.status === "CONFIRMED" && (
-                        <button onClick={() => handleStatusUpdate(order.id, "DELIVERED")} className="px-3 py-1.5 bg-violet-600 text-white text-xs font-bold rounded-lg cursor-pointer">
-                          Mark Delivered
-                        </button>
-                      )}
-                      {tab === "buying" && order.status === "DELIVERED" && (
-                        <button onClick={() => handleStatusUpdate(order.id, "COMPLETED")} className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg cursor-pointer">
-                          Complete
-                        </button>
-                      )}
-                      {(order.status === "PENDING" || order.status === "CONFIRMED") && (
-                        <button onClick={() => handleCancel(order.id)} className="px-3 py-1.5 text-red-600 bg-red-50 text-xs font-bold rounded-lg cursor-pointer">
-                          Cancel
-                        </button>
-                      )}
+                    <div className={cn("flex flex-col items-center space-y-1 z-10", ["DELIVERED", "COMPLETED"].includes(order.status) ? "text-indigo-600 dark:text-indigo-400" : "text-slate-300")}>
+                      <div className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-950/60 border-2 border-indigo-600 flex items-center justify-center font-bold text-[10px]">3</div>
+                      <span className="text-[10px] font-bold">In Transit</span>
+                    </div>
+                    <div className={cn("flex flex-col items-center space-y-1 z-10", order.status === "COMPLETED" ? "text-emerald-600" : "text-slate-300")}>
+                      <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950/60 border-2 border-emerald-600 flex items-center justify-center font-bold text-[10px]">4</div>
+                      <span className="text-[10px] font-bold">Delivered</span>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-3 mt-8">
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#6b7094] bg-white border border-slate-200 rounded-lg disabled:opacity-40 cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" /> Previous
-              </button>
-              <span className="text-sm text-[#6b7094]">
-                Page <span className="font-bold text-[#0d0d2b]">{page + 1}</span> of <span className="font-bold text-[#0d0d2b]">{totalPages}</span>
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-                className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#6b7094] bg-white border border-slate-200 rounded-lg disabled:opacity-40 cursor-pointer"
-              >
-                Next <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-        </>
+                {/* Details */}
+                <div className="flex items-center justify-between bg-slate-50 dark:bg-[#262644] p-3 rounded-2xl">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">{firstItem?.listingTitle || "Marketplace Product"}</h4>
+                    <p className="text-[10px] text-slate-400">Qty: {firstItem?.quantity || 1}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-indigo-600 dark:text-indigo-400">{formatPrice(order.totalAmount)}</p>
+                    <p className="text-[10px] text-slate-400">{tab === "buying" ? `Seller: ${order.seller?.fullName || "Neighbor"}` : `Buyer: ${order.buyer?.fullName || "Neighbor"}`}</p>
+                  </div>
+                </div>
+
+                {/* Seller Status Controllers */}
+                {tab === "selling" && order.status !== "COMPLETED" && order.status !== "CANCELLED" && (
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    {order.status === "PENDING" && (
+                      <button onClick={() => handleStatusUpdate(order.id, "CONFIRMED")} className="px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-xl cursor-pointer">
+                        Confirm Order
+                      </button>
+                    )}
+                    {order.status === "CONFIRMED" && (
+                      <button onClick={() => handleStatusUpdate(order.id, "DELIVERED")} className="px-3 py-1.5 bg-violet-600 text-white text-xs font-bold rounded-xl cursor-pointer">
+                        Mark Dispatched
+                      </button>
+                    )}
+                    {order.status === "DELIVERED" && (
+                      <button onClick={() => handleStatusUpdate(order.id, "COMPLETED")} className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-xl cursor-pointer">
+                        Complete Order
+                      </button>
+                    )}
+                    <button onClick={() => handleCancel(order.id)} className="px-3 py-1.5 bg-rose-50 text-rose-600 text-xs font-bold rounded-xl cursor-pointer">
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

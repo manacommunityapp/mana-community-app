@@ -33,33 +33,40 @@ export function WishlistPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+        <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div>
-      <h2 className="text-xl font-black text-[#0d0d2b] mb-6">
-        <Heart className="inline w-5 h-5 text-rose-500 mr-2" />
-        My Wishlist ({items.length})
-      </h2>
+    <div className="space-y-4 text-slate-900 dark:text-white">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+          <Heart className="w-5 h-5 text-rose-500 fill-rose-500" /> My Saved Wishlist ({items.length})
+        </h2>
+      </div>
 
       {items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#1E1E36] rounded-3xl border border-slate-200 dark:border-slate-800 text-center p-6">
           <Heart className="w-12 h-12 text-slate-300 mb-3" />
-          <p className="text-[#6b7094] text-sm font-medium">Your wishlist is empty</p>
-          <p className="text-slate-400 text-xs mt-1">Save items you like to find them later!</p>
+          <p className="text-slate-700 dark:text-slate-300 font-bold text-sm">Your wishlist is empty</p>
+          <p className="text-slate-400 text-xs mt-1">Save products while browsing to compare and contact sellers later!</p>
+          <button
+            onClick={() => navigate("/marketplace")}
+            className="mt-4 px-5 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/20"
+          >
+            Explore Marketplace
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {items.map((item) => (
             <div
               key={item.id}
-              className="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-indigo-200 transition-all group"
+              className="bg-white dark:bg-[#1E1E36] rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col hover:border-indigo-300 dark:hover:border-indigo-800 transition-all shadow-xs group"
             >
               <div
-                className="h-40 bg-slate-50 relative cursor-pointer"
+                className="h-44 bg-slate-100 dark:bg-[#262644] relative cursor-pointer overflow-hidden"
                 onClick={() => navigate(`/marketplace/${item.listingId}`)}
               >
                 {item.listingImageUrl ? (
@@ -70,35 +77,38 @@ export function WishlistPage() {
                   </div>
                 )}
                 {item.listingStatus !== "ACTIVE" && (
-                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full">
+                  <div className="absolute top-2 left-2 px-2.5 py-0.5 bg-amber-500 text-white text-[10px] font-black rounded-full uppercase tracking-wider">
                     {item.listingStatus}
                   </div>
                 )}
               </div>
 
-              <div className="p-4">
-                <div className="flex items-center gap-1 text-[10px] text-indigo-600 font-bold uppercase tracking-wider mb-1">
-                  <Tag className="w-3 h-3" /> {item.listingCategory}
+              <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                <div>
+                  <div className="flex items-center gap-1 text-[10px] text-indigo-600 dark:text-indigo-400 font-extrabold uppercase tracking-wider mb-1">
+                    <Tag className="w-3 h-3" /> {item.listingCategory}
+                  </div>
+                  <h3
+                    className="text-sm font-extrabold text-slate-900 dark:text-white truncate cursor-pointer hover:text-indigo-600 transition-colors"
+                    onClick={() => navigate(`/marketplace/${item.listingId}`)}
+                  >
+                    {item.listingTitle}
+                  </h3>
+                  <p className="text-base font-black text-indigo-600 dark:text-indigo-400 mt-1">{formatPrice(item.listingPrice)}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">Seller: {item.sellerName}</p>
                 </div>
-                <h3
-                  className="text-sm font-bold text-[#0d0d2b] truncate cursor-pointer hover:text-indigo-600"
-                  onClick={() => navigate(`/marketplace/${item.listingId}`)}
-                >
-                  {item.listingTitle}
-                </h3>
-                <p className="text-lg font-black text-indigo-600 mt-1">{formatPrice(item.listingPrice)}</p>
-                <p className="text-xs text-[#6b7094] mt-1">by {item.sellerName}</p>
 
-                <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
                   <button
                     onClick={() => navigate(`/marketplace/${item.listingId}`)}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 hover:underline cursor-pointer"
+                    className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
                   >
-                    <ShoppingBag className="w-3.5 h-3.5" /> View Listing
+                    <ShoppingBag className="w-3.5 h-3.5" /> View Product
                   </button>
                   <button
                     onClick={() => handleRemove(item.listingId)}
-                    className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                    className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                    title="Remove from Wishlist"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

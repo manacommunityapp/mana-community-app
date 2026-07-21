@@ -1,18 +1,23 @@
-﻿import { useEffect, useRef, useState } from "react";
-import { Megaphone, AlertTriangle, Info, Wrench, Shield, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Megaphone, AlertTriangle, Info, Wrench, Shield, X, Trophy, RefreshCw } from "lucide-react";
+import { notificationService } from "../../../services/notificationService";
+import type { NotificationItem } from "../../../services/notificationService";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
 export interface AlertTickerItem {
   id: number;
-  category: "EMERGENCY" | "MAINTENANCE" | "NOTICE" | "SECURITY" | "EVENT";
+  category: "EMERGENCY" | "MAINTENANCE" | "NOTICE" | "SECURITY" | "EVENT" | "SPORTS";
   message: string;
 }
 
+// ── Static config per category ────────────────────────────────────────────────
 const CATEGORY_CONFIG = {
   EMERGENCY:   { label: "Emergency",   bg: "bg-red-600",    text: "text-white",     dot: "bg-red-300",     border: "border-red-700"    },
   MAINTENANCE: { label: "Maintenance", bg: "bg-amber-500",  text: "text-white",     dot: "bg-amber-200",   border: "border-amber-600"  },
   NOTICE:      { label: "Notice",      bg: "bg-indigo-600", text: "text-white",     dot: "bg-indigo-300",  border: "border-indigo-700" },
   SECURITY:    { label: "Security",    bg: "bg-slate-700",  text: "text-slate-100", dot: "bg-slate-400",   border: "border-slate-800"  },
   EVENT:       { label: "Event",       bg: "bg-emerald-600",text: "text-white",     dot: "bg-emerald-300", border: "border-emerald-700"},
+  SPORTS:      { label: "Sports",      bg: "bg-sky-600",    text: "text-white",     dot: "bg-sky-300",     border: "border-sky-700"    },
 } as const;
 
 const CSS_COLORS: Record<string, string> = {
@@ -21,6 +26,7 @@ const CSS_COLORS: Record<string, string> = {
   "bg-indigo-600": "#4f46e5",
   "bg-slate-700":  "#334155",
   "bg-emerald-600":"#059669",
+  "bg-sky-600":    "#0284c7",
 };
 
 const ICONS: Record<string, React.FC<{ className?: string }>> = {
@@ -29,31 +35,76 @@ const ICONS: Record<string, React.FC<{ className?: string }>> = {
   NOTICE:      Megaphone,
   SECURITY:    Shield,
   EVENT:       Info,
+  SPORTS:      Trophy,
 };
 
-export const DEMO_ALERTS: AlertTickerItem[] = [
+const DEFAULT_ALERTS: AlertTickerItem[] = [
   { id: 1, category: "NOTICE",      message: "Annual General Meeting scheduled for Sunday, 20 Jul at 10:00 AM in Club House." },
   { id: 2, category: "MAINTENANCE", message: "Water supply interrupted on Blocks B & C from 9 AM to 1 PM on Saturday. Plan accordingly." },
   { id: 3, category: "SECURITY",    message: "Visitor gate hours updated: Entry allowed 6 AM to 10 PM only. Please inform your guests." },
-  { id: 4, category: "EVENT",       message: "Badminton tournament registrations open! Sign up at the Sports Desk by 18 Jul." },
-  { id: 5, category: "NOTICE",      message: "Maintenance fee for Q3 is now due. Please pay before 31 Jul to avoid late charges." },
-  { id: 6, category: "MAINTENANCE", message: "Lift #2 (Block A) under repair from Mon to Wed. Please use the alternate lift during this period." },
+  { id: 4, category: "SPORTS",      message: "Badminton tournament registrations now open! Register at the Sports Desk before 18 Jul." },
+  { id: 5, category: "SPORTS",      message: "Cricket matches scheduled for this Saturday at the main ground. All players report by 7 AM." },
+  { id: 6, category: "NOTICE",      message: "Maintenance fee for Q3 is now due. Please pay before 31 Jul to avoid late charges." },
+  { id: 7, category: "MAINTENANCE", message: "Lift #2 (Block A) under repair from Mon to Wed. Please use the alternate lift during this period." },
+  { id: 8, category: "SPORTS",      message: "Swimming pool timings updated: Morning 6-9 AM, Evening 5-8 PM. Weekends open all day." },
 ];
 
+function mapNotificationToAlert(n: NotificationItem, idx: number): AlertTickerItem {
+  const cat = (n.category || "").toUpperCase();
+  const type = (n.type || "").toUpperCase();
+  let category: AlertTickerItem["category"] = "NOTICE";
+
+  const isSports = 
+    cat === "SPORTS" || 
+    cat === "AUCTION" ||
+    type === "SPORTS_EVENT" ||
+    type.startsWith("TOURNAMENT") ||
+    type.startsWith("MATCH") ||
+    type.startsWith("SCHEDULE") ||
+    type.startsWith("AUCTION") ||
+    type.startsWith("PLAYER") ||
+    type.startsWith("BID") ||
+    type.startsWith("TEAM") ||
+    type.startsWith("CAPTAIN");
+
+  if (isSports) category = "SPORTS";
+  else if (cat === "SECURITY") category = "SECURITY";
+  else if (cat === "MAINTENANCE") category = "MAINTENANCE";
+  else if (cat === "EMERGENCY") category = "EMERGENCY";
+  else if (cat === "EVENT") category = "EVENT";
+  return {
+    id: n.id ?? idx,
+    category,
+    message: n.body ?? n.title,
+  };
+}
+
 interface Props {
-  alerts?: AlertTickerItem[];
   speedPxPerSec?: number;
 }
 
-export function AlertTicker({ alerts = DEMO_ALERTS, speedPxPerSec = 55 }: Props) {
+export function AlertTicker({ speedPxPerSec = 55 }: Props) {
   const trackRef    = useRef<HTMLDivElement>(null);
   const rafRef      = useRef<number>(0);
   const offsetRef   = useRef<number>(0);
   const pausedRef   = useRef<boolean>(false);
   const lastTsRef   = useRef<number | null>(null);
 
-  const [dismissed,   setDismissed]   = useState(false);
+  const [alerts, setAlerts] = useState<AlertTickerItem[]>(DEFAULT_ALERTS);
+  const [dismissed, setDismissed]     = useState(false);
   const [activeAlert, setActiveAlert] = useState<AlertTickerItem | null>(null);
+
+  // Fetch live notifications from the backend
+  useEffect(() => {
+    notificationService.getNotifications(0, 15)
+      .then(page => {
+        if (page.content.length > 0) {
+          const live = page.content.map(mapNotificationToAlert);
+          setAlerts(live);
+        }
+      })
+      .catch(() => {/* keep defaults */});
+  }, []);
 
   const dominantCat = alerts.find(a => a.category === "EMERGENCY")?.category
                    ?? alerts.find(a => a.category === "SECURITY")?.category
