@@ -7,6 +7,7 @@ import { listingService, type ListingResponse, type ListingRequest } from "../..
 import { useAuth } from "../../../contexts/AuthContext";
 import { useChat } from "../../../contexts/ChatContext";
 import { CREATE_LISTING } from "../../../constants/permissions";
+import { USE_MOCK_DATA, MOCK_LISTINGS, paginate } from "./mockData";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -40,15 +41,28 @@ export function Marketplace() {
   const fetchListings = useCallback(async (pageNum: number) => {
     setLoading(true);
     try {
-      const data = await listingService.getListings(
-        activeCategory !== "All" ? activeCategory : undefined,
-        searchQuery || undefined,
-        pageNum,
-        12
-      );
-      setListings(data.content);
-      setTotalPages(data.totalPages);
-      setTotalElements(data.totalElements);
+      if (USE_MOCK_DATA) {
+        let filtered = MOCK_LISTINGS;
+        if (activeCategory !== "All") filtered = filtered.filter((l) => l.category === activeCategory);
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          filtered = filtered.filter((l) => l.title.toLowerCase().includes(q) || l.description.toLowerCase().includes(q));
+        }
+        const data = paginate(filtered, pageNum, 12);
+        setListings(data.content);
+        setTotalPages(data.totalPages);
+        setTotalElements(data.totalElements);
+      } else {
+        const data = await listingService.getListings(
+          activeCategory !== "All" ? activeCategory : undefined,
+          searchQuery || undefined,
+          pageNum,
+          12
+        );
+        setListings(data.content);
+        setTotalPages(data.totalPages);
+        setTotalElements(data.totalElements);
+      }
     } catch {
       setListings([]);
       setTotalPages(0);

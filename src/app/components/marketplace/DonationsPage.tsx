@@ -10,6 +10,7 @@ import {
 } from "../../../services/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { PaginatedResponse } from "../../../types/api";
+import { USE_MOCK_DATA, MOCK_DONATIONS, paginate } from "./mockData";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
@@ -33,9 +34,15 @@ export function DonationsPage() {
   const fetchDonations = useCallback(async (p: number) => {
     setLoading(true);
     try {
-      const data = await donationService.getCommunityDonations(p);
-      setDonations(data.content);
-      setTotalPages(data.totalPages);
+      if (USE_MOCK_DATA) {
+        const data = paginate(MOCK_DONATIONS, p, 12);
+        setDonations(data.content);
+        setTotalPages(data.totalPages);
+      } else {
+        const data = await donationService.getCommunityDonations(p);
+        setDonations(data.content);
+        setTotalPages(data.totalPages);
+      }
     } catch {
       setDonations([]);
     } finally {

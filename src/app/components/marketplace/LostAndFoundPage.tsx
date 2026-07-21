@@ -9,6 +9,7 @@ import {
   lostAndFoundService, type LostAndFoundResponse, type LostAndFoundRequest
 } from "../../../services/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
+import { USE_MOCK_DATA, MOCK_LOST_AND_FOUND, paginate } from "./mockData";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
@@ -35,9 +36,16 @@ export function LostAndFoundPage() {
   const fetchPosts = useCallback(async (p: number) => {
     setLoading(true);
     try {
-      const data = await lostAndFoundService.getPosts(tab === "all" ? undefined : tab, p);
-      setPosts(data.content);
-      setTotalPages(data.totalPages);
+      if (USE_MOCK_DATA) {
+        const filtered = tab === "all" ? MOCK_LOST_AND_FOUND : MOCK_LOST_AND_FOUND.filter((i) => i.type === tab);
+        const data = paginate(filtered, p, 12);
+        setPosts(data.content);
+        setTotalPages(data.totalPages);
+      } else {
+        const data = await lostAndFoundService.getPosts(tab === "all" ? undefined : tab, p);
+        setPosts(data.content);
+        setTotalPages(data.totalPages);
+      }
     } catch {
       setPosts([]);
     } finally {

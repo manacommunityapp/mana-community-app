@@ -9,6 +9,7 @@ import { orderService, type OrderResponse } from "../../../services/listingServi
 import { useAuth } from "../../../contexts/AuthContext";
 import { CREATE_LISTING } from "../../../constants/permissions";
 import type { PaginatedResponse } from "../../../types/api";
+import { USE_MOCK_DATA, MOCK_ORDERS, paginate } from "./mockData";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
@@ -45,14 +46,24 @@ export function OrdersPage() {
 
   useEffect(() => {
     setLoading(true);
-    const fetch = tab === "buying" ? orderService.getMyOrders(page) : orderService.getSellerOrders(page);
-    fetch
-      .then((data) => {
-        setOrders(data.content);
-        setTotalPages(data.totalPages);
-      })
-      .catch(() => { setOrders([]); setTotalPages(0); })
-      .finally(() => setLoading(false));
+    if (USE_MOCK_DATA) {
+      const filtered = tab === "buying"
+        ? MOCK_ORDERS.filter((o) => o.buyer.fullName === "Demo User")
+        : MOCK_ORDERS.filter((o) => o.seller.fullName === "Demo User");
+      const data = paginate(filtered, page, 10);
+      setOrders(data.content);
+      setTotalPages(data.totalPages);
+      setLoading(false);
+    } else {
+      const fetch = tab === "buying" ? orderService.getMyOrders(page) : orderService.getSellerOrders(page);
+      fetch
+        .then((data) => {
+          setOrders(data.content);
+          setTotalPages(data.totalPages);
+        })
+        .catch(() => { setOrders([]); setTotalPages(0); })
+        .finally(() => setLoading(false));
+    }
   }, [tab, page]);
 
   const handleStatusUpdate = async (orderId: number, status: string) => {

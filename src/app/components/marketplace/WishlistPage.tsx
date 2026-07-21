@@ -4,6 +4,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { Heart, Trash2, Loader2, ImagePlus, Tag, ShoppingBag } from "lucide-react";
 import { wishlistService, type WishlistResponse } from "../../../services/listingService";
+import { USE_MOCK_DATA, MOCK_WISHLIST } from "./mockData";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
@@ -17,10 +18,15 @@ export function WishlistPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    wishlistService.getMyWishlist()
-      .then(setItems)
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
+    if (USE_MOCK_DATA) {
+      setItems(MOCK_WISHLIST);
+      setLoading(false);
+    } else {
+      wishlistService.getMyWishlist()
+        .then(setItems)
+        .catch(() => setItems([]))
+        .finally(() => setLoading(false));
+    }
   }, []);
 
   const handleRemove = async (listingId: number) => {
