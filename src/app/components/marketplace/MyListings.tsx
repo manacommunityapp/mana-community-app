@@ -7,6 +7,7 @@ import {
   ImagePlus, Tag, MoreVertical
 } from "lucide-react";
 import { listingService, type ListingResponse } from "../../../services/listingService";
+import { USE_MOCK_DATA, MOCK_MY_LISTINGS } from "./mockData";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
@@ -29,10 +30,15 @@ export function MyListings() {
   const [actionMenu, setActionMenu] = useState<number | null>(null);
 
   useEffect(() => {
-    listingService.getMyListings()
-      .then(setListings)
-      .catch(() => setListings([]))
-      .finally(() => setLoading(false));
+    if (USE_MOCK_DATA) {
+      setListings(MOCK_MY_LISTINGS);
+      setLoading(false);
+    } else {
+      listingService.getMyListings()
+        .then(setListings)
+        .catch(() => setListings([]))
+        .finally(() => setLoading(false));
+    }
   }, []);
 
   const handleStatusChange = async (id: number, status: string) => {

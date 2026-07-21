@@ -12,6 +12,8 @@ import {
 } from "../../../services/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useChat } from "../../../contexts/ChatContext";
+import type { PaginatedResponse } from "../../../types/api";
+import { USE_MOCK_DATA, MOCK_LISTINGS, MOCK_REVIEWS, MOCK_REVIEW_STATS, paginate } from "./mockData";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
@@ -55,17 +57,26 @@ export function ProductDetail() {
     if (!id) return;
     const lid = Number(id);
     setLoading(true);
-    Promise.all([
-      listingService.getById(lid),
-      reviewService.getListingStats(lid),
-      reviewService.getListingReviews(lid, 0, 20),
-      wishlistService.check(lid),
-    ]).then(([l, s, r, w]) => {
-      setListing(l);
-      setStats(s);
-      setReviews(r.content);
-      setWishlisted(w.wishlisted);
-    }).catch(() => {}).finally(() => setLoading(false));
+    if (USE_MOCK_DATA) {
+      const found = MOCK_LISTINGS.find((l) => l.id === lid) || MOCK_LISTINGS[0];
+      setListing(found);
+      setStats(MOCK_REVIEW_STATS);
+      setReviews(MOCK_REVIEWS.filter((r) => r.listingId === lid || lid === 1));
+      setWishlisted(false);
+      setLoading(false);
+    } else {
+      Promise.all([
+        listingService.getById(lid),
+        reviewService.getListingStats(lid),
+        reviewService.getListingReviews(lid, 0, 20),
+        wishlistService.check(lid),
+      ]).then(([l, s, r, w]) => {
+        setListing(l);
+        setStats(s);
+        setReviews(r.content);
+        setWishlisted(w.wishlisted);
+      }).catch(() => {}).finally(() => setLoading(false));
+    }
   }, [id]);
 
   const toggleWishlist = async () => {
