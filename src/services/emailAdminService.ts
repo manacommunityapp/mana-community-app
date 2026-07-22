@@ -4,6 +4,7 @@ export interface EmailTemplateInfo {
   key: string;
   subject: string;
   templateFile: string;
+  category: string;
 }
 
 export interface EmailHealthInfo {
@@ -36,6 +37,25 @@ export interface TestAllResult {
   recipientMode: string;
   results: { template: string; subject: string; status: string; error?: string }[];
   note: string;
+}
+
+/**
+ * apiClient surfaces non-2xx responses as `Error(rawBodyText)`. Our email admin
+ * endpoints return JSON bodies like `{ "error": "..." }` for validation and
+ * rate-limit failures — this pulls that message out so the UI can show the
+ * actual reason instead of a generic fallback.
+ */
+export function extractApiErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) {
+    try {
+      const parsed = JSON.parse(err.message);
+      if (parsed && typeof parsed.error === "string") return parsed.error;
+    } catch {
+      // Not JSON — fall through to the raw message or fallback below.
+    }
+    if (!err.message.trim().startsWith("{")) return err.message;
+  }
+  return fallback;
 }
 
 export const emailAdminService = {
