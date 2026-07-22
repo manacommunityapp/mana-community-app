@@ -1,66 +1,35 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Mail, Send, RefreshCw, CheckCircle2, Eye, X, AlertTriangle, Zap, Inbox, Upload, Image as ImageIcon, Sparkles, AlertCircle } from "lucide-react";
-import { emailAdminService, type EmailTemplateInfo, type EmailHealthInfo } from "../../../../services/emailAdminService";
-import { showError, showSuccess, showWarning } from "../../../../utils/ToastUtils";
+import { Send, RefreshCw, CheckCircle2, Eye, X, AlertTriangle, Zap, Inbox, Upload, Image as ImageIcon, Sparkles, AlertCircle, XCircle, MapPin } from "lucide-react";
+import { emailAdminService, extractApiErrorMessage, type EmailTemplateInfo, type EmailHealthInfo, type TestAllResult } from "../../../services/emailAdminService";
+import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 
-const TEMPLATE_COLORS: Record<string, { bg: string; border: string; icon: string; badge: string; gradient: string }> = {
-  REGISTRATION_RECEIVED:  { bg: "bg-blue-50/70",    border: "border-blue-200",    icon: "text-blue-500",    badge: "bg-blue-100 text-blue-700", gradient: "from-blue-600 to-indigo-600" },
-  REGISTRATION_CONFIRMED: { bg: "bg-emerald-50/70", border: "border-emerald-200", icon: "text-emerald-500",  badge: "bg-emerald-100 text-emerald-700", gradient: "from-emerald-600 to-teal-600" },
-  REGISTRATION_REJECTED:  { bg: "bg-slate-50/70",    border: "border-slate-200",    icon: "text-slate-500",    badge: "bg-slate-100 text-slate-700", gradient: "from-slate-600 to-slate-700" },
-  SCHEDULE_PUBLISHED:     { bg: "bg-violet-50/70",   border: "border-violet-200",   icon: "text-violet-500",   badge: "bg-violet-100 text-violet-700", gradient: "from-violet-600 to-purple-600" },
-  TOURNAMENT_START:       { bg: "bg-indigo-50/70",   border: "border-indigo-300",  icon: "text-indigo-600",   badge: "bg-indigo-100 text-indigo-800", gradient: "from-indigo-600 to-blue-700" },
-  MATCH_REMINDER:         { bg: "bg-orange-50/70",   border: "border-orange-200",   icon: "text-orange-500",   badge: "bg-orange-100 text-orange-700", gradient: "from-orange-500 to-amber-600" },
-  WINNER_NOTIFICATION:    { bg: "bg-yellow-50/70",   border: "border-yellow-200",   icon: "text-yellow-600",   badge: "bg-yellow-100 text-yellow-700", gradient: "from-yellow-500 to-amber-500" },
-  TOURNAMENT_COMPLETION:  { bg: "bg-indigo-50/70",   border: "border-indigo-200",   icon: "text-indigo-500",   badge: "bg-indigo-100 text-indigo-700", gradient: "from-indigo-600 to-violet-700" },
-  PRIZE_DISTRIBUTION:     { bg: "bg-pink-50/70",     border: "border-pink-200",     icon: "text-pink-500",     badge: "bg-pink-100 text-pink-700", gradient: "from-pink-600 to-rose-600" },
-  EMAIL_OTP:              { bg: "bg-cyan-50/70",     border: "border-cyan-200",     icon: "text-cyan-500",     badge: "bg-cyan-100 text-cyan-700", gradient: "from-cyan-600 to-blue-600" },
-  TOURNAMENT_OPEN:        { bg: "bg-emerald-50/70",  border: "border-emerald-300",  icon: "text-emerald-600",  badge: "bg-emerald-100 text-emerald-800", gradient: "from-emerald-600 to-green-700" },
-  TOURNAMENT_ANNOUNCEMENT:{ bg: "bg-purple-50/70",   border: "border-purple-200",   icon: "text-purple-500",   badge: "bg-purple-100 text-purple-700", gradient: "from-purple-600 to-fuchsia-600" },
-  REGISTRATION_OPEN:      { bg: "bg-purple-50/70",   border: "border-purple-200",   icon: "text-purple-500",   badge: "bg-purple-100 text-purple-700", gradient: "from-purple-600 to-fuchsia-600" },
+// Styled by the backend's broad `category` grouping rather than a per-template
+// lookup table — a new template just needs to fall into one of these six
+// buckets to get sensible styling; it never requires a frontend code change.
+const CATEGORY_STYLES: Record<string, { bg: string; border: string; icon: string; badge: string; gradient: string; emoji: string }> = {
+  REGISTRATION:  { bg: "bg-blue-50/70",    border: "border-blue-200",    icon: "text-blue-500",    badge: "bg-blue-100 text-blue-700",    gradient: "from-blue-600 to-indigo-600",   emoji: "📥" },
+  TOURNAMENT:    { bg: "bg-violet-50/70",  border: "border-violet-200",  icon: "text-violet-500",  badge: "bg-violet-100 text-violet-700", gradient: "from-violet-600 to-purple-600", emoji: "🏆" },
+  MATCH:         { bg: "bg-orange-50/70",  border: "border-orange-200",  icon: "text-orange-500",  badge: "bg-orange-100 text-orange-700", gradient: "from-orange-500 to-amber-600",  emoji: "⏰" },
+  PRIZE:         { bg: "bg-pink-50/70",    border: "border-pink-200",    icon: "text-pink-500",    badge: "bg-pink-100 text-pink-700",     gradient: "from-pink-600 to-rose-600",     emoji: "🎁" },
+  ANNOUNCEMENT:  { bg: "bg-purple-50/70",  border: "border-purple-200",  icon: "text-purple-500",  badge: "bg-purple-100 text-purple-700", gradient: "from-purple-600 to-fuchsia-600",emoji: "📢" },
+  AUTH:          { bg: "bg-cyan-50/70",    border: "border-cyan-200",    icon: "text-cyan-500",    badge: "bg-cyan-100 text-cyan-700",     gradient: "from-cyan-600 to-blue-600",     emoji: "🔐" },
 };
 
-const DEFAULT_COLOR = { bg: "bg-gray-50", border: "border-gray-200", icon: "text-gray-500", badge: "bg-gray-100 text-gray-700", gradient: "from-slate-600 to-slate-800" };
+const DEFAULT_STYLE = { bg: "bg-gray-50", border: "border-gray-200", icon: "text-gray-500", badge: "bg-gray-100 text-gray-700", gradient: "from-slate-600 to-slate-800", emoji: "📧" };
 
-const TEMPLATE_EMOJIS: Record<string, string> = {
-  REGISTRATION_RECEIVED:  "📥",
-  REGISTRATION_CONFIRMED: "✅",
-  REGISTRATION_REJECTED:  "❌",
-  SCHEDULE_PUBLISHED:     "📅",
-  TOURNAMENT_START:       "🏁",
-  MATCH_REMINDER:         "⏰",
-  WINNER_NOTIFICATION:    "🏅",
-  TOURNAMENT_COMPLETION:  "🏆",
-  PRIZE_DISTRIBUTION:     "🎁",
-  EMAIL_OTP:              "🔐",
-  TOURNAMENT_OPEN:        "🏆",
-  TOURNAMENT_ANNOUNCEMENT:"📢",
-  REGISTRATION_OPEN:      "📢",
-};
+function styleFor(category: string) {
+  return CATEGORY_STYLES[category] || DEFAULT_STYLE;
+}
 
-const TEMPLATE_ORDER = [
-  "TOURNAMENT_ANNOUNCEMENT",
-  "TOURNAMENT_OPEN",
-  "REGISTRATION_OPEN",
-  "REGISTRATION_RECEIVED",
-  "REGISTRATION_CONFIRMED",
-  "REGISTRATION_REJECTED",
-  "SCHEDULE_PUBLISHED",
-  "TOURNAMENT_START",
-  "MATCH_REMINDER",
-  "WINNER_NOTIFICATION",
-  "TOURNAMENT_COMPLETION",
-  "PRIZE_DISTRIBUTION",
-  "EMAIL_OTP"
-];
-
-export function EmailPreviewTab() {
+export function EmailTemplatesTab() {
   const [templates, setTemplates] = useState<EmailTemplateInfo[]>([]);
   const [health, setHealth] = useState<EmailHealthInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [toEmail, setToEmail] = useState("");
   const [fromEmail, setFromEmail] = useState("");
   const [fromName, setFromName] = useState("");
-  
+  const [subjectOverride, setSubjectOverride] = useState("");
+
   // Custom Banner & Sponsor Image States
   const [bannerUrl, setBannerUrl] = useState<string>("");
   const [sponsorUrl, setSponsorUrl] = useState<string>("");
@@ -71,9 +40,11 @@ export function EmailPreviewTab() {
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [sendingTemplate, setSendingTemplate] = useState(false);
   const [sendingAll, setSendingAll] = useState(false);
+  const [lastAllResult, setLastAllResult] = useState<TestAllResult | null>(null);
 
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
   const sponsorFileInputRef = useRef<HTMLInputElement>(null);
+  const previewRequestId = useRef(0);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -82,14 +53,10 @@ export function EmailPreviewTab() {
         emailAdminService.getTemplates(),
         emailAdminService.getHealth(),
       ]);
-      
-      const sorted = [...tpl.templates].sort((a, b) => {
-        const idxA = TEMPLATE_ORDER.indexOf(a.key);
-        const idxB = TEMPLATE_ORDER.indexOf(b.key);
-        return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
-      });
-      
-      setTemplates(sorted);
+      // Display order follows the backend's declaration order (already a
+      // deliberately curated sequence) — no frontend-side sort table to
+      // keep in sync whenever a template is added or removed.
+      setTemplates(tpl.templates);
       setHealth(h);
     } catch {
       showError("Failed to load email data");
@@ -106,19 +73,23 @@ export function EmailPreviewTab() {
   useEffect(() => {
     if (!activeTemplate) return;
 
+    const requestId = ++previewRequestId.current;
+    setLoadingPreview(true);
+
     const fetchPreview = async () => {
-      setLoadingPreview(true);
       try {
         const payload = {
           bannerUrl: bannerUrl || undefined,
           sponsorImageUrl: sponsorUrl || undefined,
         };
         const html = await emailAdminService.getPreviewHtml(activeTemplate.key, payload);
-        setPreviewHtml(html);
-      } catch {
-        showError("Failed to load template preview");
+        if (requestId === previewRequestId.current) setPreviewHtml(html);
+      } catch (err) {
+        if (requestId === previewRequestId.current) {
+          showError(extractApiErrorMessage(err, "Failed to load template preview"));
+        }
       } finally {
-        setLoadingPreview(false);
+        if (requestId === previewRequestId.current) setLoadingPreview(false);
       }
     };
 
@@ -143,7 +114,7 @@ export function EmailPreviewTab() {
         } else {
           setSponsorUrl(reader.result);
         }
-        showSuccess(`${type === "banner" ? "Banner" : "Sponsor"} image loaded successfully.`);
+        showSuccess(`${type === "banner" ? "Banner" : "Sponsor"} image loaded successfully. Note: some email clients (e.g. Outlook) may not render embedded images reliably — prefer a hosted image URL for real sends.`);
       }
     };
     reader.readAsDataURL(file);
@@ -158,6 +129,7 @@ export function EmailPreviewTab() {
         sponsorImageUrl: sponsorUrl || undefined,
         fromEmail: fromEmail || undefined,
         fromName: fromName || undefined,
+        subject: subjectOverride || undefined,
       };
       const result = await emailAdminService.sendTest(activeTemplate.key, toEmail || undefined, customVars);
       if (result.mailEnabled) {
@@ -165,30 +137,41 @@ export function EmailPreviewTab() {
       } else {
         showWarning("Mail disabled — email rendered but not sent via SMTP");
       }
-    } catch {
-      showError("Failed to send test");
+    } catch (err) {
+      showError(extractApiErrorMessage(err, "Failed to send test"));
     } finally {
       setSendingTemplate(false);
     }
   };
 
   const handleSendAll = async () => {
+    const target = toEmail || health?.defaultRecipient;
+    const confirmed = confirm(
+      `This will send ${templates.length} test emails${target ? ` to ${target}` : ""}${
+        health?.mailEnabled ? " via live SMTP" : " (SMTP is disabled, so nothing will actually be delivered)"
+      }. Continue?`
+    );
+    if (!confirmed) return;
+
     setSendingAll(true);
+    setLastAllResult(null);
     try {
       const customVars = {
         bannerUrl: bannerUrl || undefined,
         sponsorImageUrl: sponsorUrl || undefined,
         fromEmail: fromEmail || undefined,
         fromName: fromName || undefined,
+        subject: subjectOverride || undefined,
       };
       const result = await emailAdminService.sendAllTests(toEmail || undefined, customVars);
+      setLastAllResult(result);
       if (result.failed > 0) {
-        showWarning(`${result.sent} sent, ${result.failed} failed`);
+        showWarning(`${result.sent} sent, ${result.failed} failed — see breakdown below`);
       } else {
         showSuccess(`All ${result.sent} templates sent successfully to ${result.to}`);
       }
-    } catch {
-      showError("Failed to send all tests");
+    } catch (err) {
+      showError(extractApiErrorMessage(err, "Failed to send all tests"));
     } finally {
       setSendingAll(false);
     }
@@ -274,10 +257,21 @@ export function EmailPreviewTab() {
                 className="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
               />
             </div>
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block mb-1">Test Subject Override</label>
+              <input
+                type="text"
+                value={subjectOverride}
+                onChange={e => setSubjectOverride(e.target.value)}
+                placeholder="Leave blank to use the default subject"
+                className="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
+              />
+            </div>
           </div>
           <button
             onClick={handleSendAll}
             disabled={sendingAll}
+            aria-label="Send all email templates as test emails"
             className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow transition-all cursor-pointer disabled:opacity-50"
           >
             <Zap className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
@@ -285,6 +279,53 @@ export function EmailPreviewTab() {
           </button>
         </div>
       </div>
+
+      {/* ── Last "Send All" Result Breakdown ──────────────────────── */}
+      {lastAllResult && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3">
+          <div className="flex items-center justify-between border-b pb-3 border-slate-100">
+            <div className="flex items-center gap-2">
+              <Inbox className="w-4.5 h-4.5 text-indigo-500" />
+              <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                Last Test-All Result — {lastAllResult.to}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{lastAllResult.sent} sent</span>
+              {lastAllResult.failed > 0 && (
+                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-red-100 text-red-800">{lastAllResult.failed} failed</span>
+              )}
+              <button
+                onClick={() => setLastAllResult(null)}
+                aria-label="Dismiss result breakdown"
+                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {lastAllResult.results.map(r => (
+              <div
+                key={r.template}
+                className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs ${
+                  r.status === "SENT" ? "bg-emerald-50/50 border-emerald-100" : "bg-red-50/50 border-red-100"
+                }`}
+              >
+                {r.status === "SENT" ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                ) : (
+                  <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
+                )}
+                <div className="min-w-0">
+                  <p className="font-bold text-slate-700 truncate">{r.template.replace(/_/g, " ")}</p>
+                  {r.error && <p className="text-[10px] text-red-500 mt-0.5 break-words">{r.error}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Banner and Sponsor Configuration Panel ──────────────────────── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
@@ -329,6 +370,7 @@ export function EmailPreviewTab() {
                 <span className="text-[10px] text-slate-400 font-mono truncate flex-1">{bannerUrl}</span>
                 <button
                   onClick={() => setBannerUrl("")}
+                  aria-label="Clear banner image"
                   className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -372,6 +414,7 @@ export function EmailPreviewTab() {
                 <span className="text-[10px] text-slate-400 font-mono truncate flex-1">{sponsorUrl}</span>
                 <button
                   onClick={() => setSponsorUrl("")}
+                  aria-label="Clear sponsor image"
                   className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -380,6 +423,15 @@ export function EmailPreviewTab() {
             )}
           </div>
         </div>
+        {(bannerUrl.startsWith("data:") || sponsorUrl.startsWith("data:")) && (
+          <div className="flex items-start gap-2 p-3 bg-amber-50/70 rounded-xl border border-amber-100">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-[10px] text-amber-800 leading-tight">
+              An uploaded image is embedded as base64. This previews correctly here, but many email clients
+              (notably Outlook) don't render embedded/base64 images reliably. For real sends, prefer a hosted image URL.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ── Templates Card List ─────────────────────────────────── */}
@@ -392,18 +444,17 @@ export function EmailPreviewTab() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {templates.map(tpl => {
-            const colors = TEMPLATE_COLORS[tpl.key] || DEFAULT_COLOR;
-            const emoji = TEMPLATE_EMOJIS[tpl.key] || "📧";
+            const style = styleFor(tpl.category);
             const templateLabel = tpl.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
             return (
               <div
                 key={tpl.key}
                 onClick={() => setActiveTemplate(tpl)}
-                className={`group rounded-2xl border bg-white overflow-hidden transition-all duration-200 hover:scale-[1.01] hover:shadow-md cursor-pointer ${colors.border}`}
+                className={`group rounded-2xl border bg-white overflow-hidden transition-all duration-200 hover:scale-[1.01] hover:shadow-md cursor-pointer ${style.border}`}
               >
-                <div className={`flex items-center gap-3 p-4 ${colors.bg}`}>
-                  <div className="text-xl flex-shrink-0">{emoji}</div>
+                <div className={`flex items-center gap-3 p-4 ${style.bg}`}>
+                  <div className="text-xl flex-shrink-0">{style.emoji}</div>
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors">{templateLabel}</div>
                     <div className="text-[10px] text-slate-400 truncate mt-0.5">{tpl.subject}</div>
@@ -411,6 +462,19 @@ export function EmailPreviewTab() {
                   <div className="flex-shrink-0 text-slate-300 group-hover:text-indigo-400 transition-colors">
                     <Eye className="w-4.5 h-4.5" />
                   </div>
+                </div>
+                <div className="px-4 py-2 border-t border-slate-100 bg-white">
+                  {tpl.triggerWired && tpl.triggerMenuPath ? (
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 truncate">
+                      <MapPin className="w-3 h-3 shrink-0 text-slate-400" />
+                      <span className="truncate">{tpl.triggerMenuPath}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-[10px] text-amber-600">
+                      <AlertTriangle className="w-3 h-3 shrink-0" />
+                      Not wired to a live trigger yet
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -422,11 +486,11 @@ export function EmailPreviewTab() {
       {activeTemplate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200">
-            
+
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200">
               <div className="flex items-center gap-2.5">
-                <span className="text-2xl">{TEMPLATE_EMOJIS[activeTemplate.key] || "📧"}</span>
+                <span className="text-2xl">{styleFor(activeTemplate.category).emoji}</span>
                 <div>
                   <h3 className="text-sm font-black text-slate-800">
                     {activeTemplate.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
@@ -436,6 +500,7 @@ export function EmailPreviewTab() {
               </div>
               <button
                 onClick={() => setActiveTemplate(null)}
+                aria-label="Close preview"
                 className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -444,15 +509,31 @@ export function EmailPreviewTab() {
 
             {/* Modal Content Pane */}
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-              
+
               {/* Left Settings Sidebar */}
               <div className="w-full md:w-80 bg-white border-r border-slate-200 p-5 overflow-y-auto space-y-5 flex flex-col justify-between">
                 <div className="space-y-4">
-                  {/* Scope info */}
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-150 text-[11px] text-slate-500 leading-relaxed">
-                    <span className="font-bold text-slate-700 block mb-1">🛠 Template Scope</span>
-                    Verify design rendering live before distributing to tournament players or residents.
-                  </div>
+                  {/* Where this fires */}
+                  {activeTemplate.triggerWired ? (
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-150 text-[11px] leading-relaxed">
+                      <span className="font-bold text-slate-700 flex items-center gap-1.5 mb-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+                        Where this fires
+                      </span>
+                      {activeTemplate.triggerMenuPath && (
+                        <p className="text-indigo-700 font-semibold mb-1">{activeTemplate.triggerMenuPath}</p>
+                      )}
+                      <p className="text-slate-500">{activeTemplate.triggerDescription}</p>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50/70 p-3 rounded-xl border border-amber-100 text-[11px] leading-relaxed">
+                      <span className="font-bold text-amber-800 flex items-center gap-1.5 mb-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        Not wired to a live trigger
+                      </span>
+                      <p className="text-amber-800">{activeTemplate.triggerDescription}</p>
+                    </div>
+                  )}
 
                   {/* Recipient & Sender Overrides */}
                   <div className="space-y-3">
@@ -486,6 +567,16 @@ export function EmailPreviewTab() {
                         className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
                       />
                     </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 uppercase font-black tracking-wider block mb-1">Subject Override</label>
+                      <input
+                        type="text"
+                        value={subjectOverride}
+                        onChange={e => setSubjectOverride(e.target.value)}
+                        placeholder={activeTemplate.subject}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
+                      />
+                    </div>
                   </div>
 
                   {/* Quick toggle indicator */}
@@ -503,7 +594,7 @@ export function EmailPreviewTab() {
                 <button
                   onClick={handleSendTest}
                   disabled={sendingTemplate}
-                  className={`w-full py-3 px-4 rounded-xl text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r ${TEMPLATE_COLORS[activeTemplate.key]?.gradient || DEFAULT_COLOR.gradient}`}
+                  className={`w-full py-3 px-4 rounded-xl text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r ${styleFor(activeTemplate.category).gradient}`}
                 >
                   {sendingTemplate ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />

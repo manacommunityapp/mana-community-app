@@ -78,9 +78,10 @@ export const SPORTS_PERMISSION_MATRIX: SportsPermissionRow[] = [
 ];
 
 // ──── MARKETPLACE ────
-export const VIEW_MARKETPLACE = "View Marketplace";
-export const CREATE_LISTING   = "Create Listing";
-export const DELETE_LISTING   = "Delete Listing";
+export const VIEW_MARKETPLACE   = "View Marketplace";
+export const CREATE_LISTING     = "Create Listing";
+export const DELETE_LISTING     = "Delete Listing";
+export const MANAGE_MARKETPLACE = "Manage Marketplace";
 
 // ──── VISITOR / GATE PASS ────
 export const VIEW_VISITORS       = "View Visitors";
@@ -161,7 +162,7 @@ export const PERMISSION_CATEGORIES = [
   {
     id: "marketplace",
     title: "MARKETPLACE Permission",
-    permissions: [VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING],
+    permissions: [VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING, MANAGE_MARKETPLACE],
   },
   {
     id: "visitors",

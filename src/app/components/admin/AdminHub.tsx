@@ -32,6 +32,7 @@ import {
   UploadCloud,
   ToggleLeft,
   Megaphone,
+  Mail,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigate } from "react-router";
@@ -53,6 +54,7 @@ import { AdminRoleManagement } from "./AdminRoleManagement";
 import { LogsDashboard } from "./LogsDashboard";
 import { AuditTrail } from "./AuditTrail";
 import { AdminSportsMeta } from "./AdminSportsMeta";
+import { EmailTemplatesTab } from "./EmailTemplatesTab";
 import { AnnouncementsPlanner } from "../architecture/AnnouncementsPlanner";
 import { ExpenseUpload } from "../assets/ExpenseUpload";
 import { TreasurerQueue } from "../assets/TreasurerQueue";
@@ -84,6 +86,7 @@ const TAB_ITEMS = [
   { id: "bulk",       label: "Bulk Upload",   icon: FileSpreadsheet },
   { id: "community",  label: "Community",     icon: Building2 },
   { id: "announcements", label: "Announcements", icon: Megaphone },
+  { id: "email",      label: "Email Templates", icon: Mail },
   { id: "directory",  label: "Directory",     icon: Shield },
 ] as const;
 
@@ -877,6 +880,7 @@ export function AdminHub() {
         {activeTab === "bulk" && <AdminBulkUpload />}
         {activeTab === "community" && <AdminCommunity />}
         {activeTab === "announcements" && <AnnouncementsPlanner />}
+        {activeTab === "email" && <EmailTemplatesTab />}
         {activeTab === "directory" && <AdminDirectory />}
       </div>
     </div>

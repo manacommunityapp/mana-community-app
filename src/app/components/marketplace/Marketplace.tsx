@@ -1,8 +1,13 @@
-import { Search, Tag, MapPin, CheckCircle, Plus, X, Loader2, ImagePlus, ShoppingBag } from "lucide-react";
+import { Search, Tag, MapPin, CheckCircle, Plus, X, Loader2, ImagePlus, ShoppingBag, MessageCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { listingService, type ListingResponse, type ListingRequest } from "../../../services/listingService";
+import { useAuth } from "../../../contexts/AuthContext";
+import { useChat } from "../../../contexts/ChatContext";
+import { CREATE_LISTING } from "../../../constants/permissions";
+import { USE_MOCK_DATA, MOCK_LISTINGS, paginate } from "./mockData";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -26,49 +31,77 @@ export function Marketplace() {
   const [listings, setListings] = useState<ListingResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
 
-  const fetchListings = useCallback(async () => {
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission(CREATE_LISTING);
+
+  const fetchListings = useCallback(async (pageNum: number) => {
     setLoading(true);
     try {
-      const data = await listingService.getListings(
-        activeCategory !== "All" ? activeCategory : undefined,
-        searchQuery || undefined
-      );
-      setListings(data);
+      if (USE_MOCK_DATA) {
+        let filtered = MOCK_LISTINGS;
+        if (activeCategory !== "All") filtered = filtered.filter((l) => l.category === activeCategory);
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          filtered = filtered.filter((l) => l.title.toLowerCase().includes(q) || l.description.toLowerCase().includes(q));
+        }
+        const data = paginate(filtered, pageNum, 12);
+        setListings(data.content);
+        setTotalPages(data.totalPages);
+        setTotalElements(data.totalElements);
+      } else {
+        const data = await listingService.getListings(
+          activeCategory !== "All" ? activeCategory : undefined,
+          searchQuery || undefined,
+          pageNum,
+          12
+        );
+        setListings(data.content);
+        setTotalPages(data.totalPages);
+        setTotalElements(data.totalElements);
+      }
     } catch {
       setListings([]);
+      setTotalPages(0);
+      setTotalElements(0);
     } finally {
       setLoading(false);
     }
   }, [activeCategory, searchQuery]);
 
   useEffect(() => {
-    const timer = setTimeout(fetchListings, searchQuery ? 400 : 0);
+    setPage(0);
+  }, [activeCategory, searchQuery]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => fetchListings(page), searchQuery ? 400 : 0);
     return () => clearTimeout(timer);
-  }, [fetchListings, searchQuery]);
+  }, [fetchListings, page, searchQuery]);
 
   const handleCreated = () => {
     setShowCreate(false);
-    fetchListings();
+    setPage(0);
+    fetchListings(0);
   };
 
   return (
-    <div className="min-h-screen text-[#0d0d2b] p-6 font-sans">
+    <div className="text-[#0d0d2b] font-sans">
 
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div>
-          <span className="text-xs text-indigo-600 font-bold uppercase tracking-wider">Resident Portal</span>
-          <h1 className="text-3xl font-black text-[#0d0d2b] mt-1">Community Marketplace</h1>
-          <p className="text-[#6b7094] text-sm mt-1">Buy and sell trusted items with verified neighbors.</p>
-        </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:opacity-95 shadow-md shadow-indigo-500/20 text-white text-sm font-bold rounded-full transition-all cursor-pointer self-start md:self-auto"
-        >
-          <Plus className="w-4.5 h-4.5" />
-          Post Advertisement
-        </button>
+      {/* Search, Filters, and Post button */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-black text-[#0d0d2b]">Browse Listings</h2>
+        {canCreate && (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:opacity-95 shadow-md shadow-indigo-500/20 text-white text-sm font-bold rounded-full transition-all cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            Post Advertisement
+          </button>
+        )}
       </div>
 
       {/* Search and Filters */}
@@ -113,11 +146,40 @@ export function Marketplace() {
           <p className="text-slate-400 text-xs mt-1">Be the first to post an advertisement!</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
-          {listings.map((item) => (
-            <ListingCard key={item.id} item={item} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+            {listings.map((item) => (
+              <ListingCard key={item.id} item={item} />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 mt-10">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#6b7094] bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </button>
+              <span className="text-sm text-[#6b7094]">
+                Page <span className="font-bold text-[#0d0d2b]">{page + 1}</span> of{" "}
+                <span className="font-bold text-[#0d0d2b]">{totalPages}</span>
+                <span className="hidden sm:inline text-slate-400 ml-2">({totalElements} listings)</span>
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+                className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-[#6b7094] bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {showCreate && <CreateListingModal onClose={() => setShowCreate(false)} onCreated={handleCreated} />}
@@ -127,9 +189,15 @@ export function Marketplace() {
 
 function ListingCard({ item }: { item: ListingResponse }) {
   const imageUrl = item.imageUrls?.[0];
+  const { startConversation } = useChat();
+  const navigate = useNavigate();
+
+  const handleContact = () => {
+    startConversation(String(item.seller.id));
+  };
 
   return (
-    <div className="bg-white rounded-2xl border border-[#6366f1]/12 overflow-hidden flex flex-col hover:border-indigo-500/20 hover:shadow-md transition-all duration-300 shadow-[0_4px_20px_rgba(99,102,241,0.03)] group">
+    <div className="bg-white rounded-2xl border border-[#6366f1]/12 overflow-hidden flex flex-col hover:border-indigo-500/20 hover:shadow-md transition-all duration-300 shadow-[0_4px_20px_rgba(99,102,241,0.03)] group cursor-pointer" onClick={() => navigate(`/marketplace/${item.id}`)}>
       <div className="h-48 relative overflow-hidden bg-slate-50">
         {imageUrl ? (
           <img src={imageUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-300" />
@@ -173,7 +241,11 @@ function ListingCard({ item }: { item: ListingResponse }) {
               )}
             </div>
           </div>
-          <button className="px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-lg transition-all cursor-pointer">
+          <button
+            onClick={(e) => { e.stopPropagation(); handleContact(); }}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-lg transition-all cursor-pointer"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
             Contact
           </button>
         </div>

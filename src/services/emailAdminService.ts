@@ -4,6 +4,13 @@ export interface EmailTemplateInfo {
   key: string;
   subject: string;
   templateFile: string;
+  category: string;
+  /** Human-readable module/menu/submenu path where this email fires, or null if not wired to a live trigger yet. */
+  triggerMenuPath: string | null;
+  /** False when nothing in the app currently sends this template automatically or via a UI action. */
+  triggerWired: boolean;
+  /** What specifically causes the send. */
+  triggerDescription: string;
 }
 
 export interface EmailHealthInfo {
@@ -38,31 +45,32 @@ export interface TestAllResult {
   note: string;
 }
 
+/**
+ * apiClient surfaces non-2xx responses as `Error(rawBodyText)`. Our email admin
+ * endpoints return JSON bodies like `{ "error": "..." }` for validation and
+ * rate-limit failures — this pulls that message out so the UI can show the
+ * actual reason instead of a generic fallback.
+ */
+export function extractApiErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) {
+    try {
+      const parsed = JSON.parse(err.message);
+      if (parsed && typeof parsed.error === "string") return parsed.error;
+    } catch {
+      // Not JSON — fall through to the raw message or fallback below.
+    }
+    if (!err.message.trim().startsWith("{")) return err.message;
+  }
+  return fallback;
+}
+
 export const emailAdminService = {
   async getTemplates(): Promise<{ count: number; templates: EmailTemplateInfo[] }> {
     return apiClient.get("/admin/email/templates");
   },
 
   async getPreviewHtml(template: string, customVars?: Record<string, unknown>): Promise<string> {
-    const url = `/api/admin/email/preview/${template}`;
-    const token = localStorage.getItem("mana_token") || "";
-    let res;
-    if (customVars) {
-      res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(customVars)
-      });
-    } else {
-      res = await fetch(url, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-    }
-    if (!res.ok) throw new Error(`Preview failed: ${res.status}`);
-    return res.text();
+    return apiClient.post<string>(`/admin/email/preview/${template}`, customVars ?? {});
   },
 
   async getHealth(): Promise<EmailHealthInfo> {
