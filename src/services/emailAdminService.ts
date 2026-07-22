@@ -44,25 +44,7 @@ export const emailAdminService = {
   },
 
   async getPreviewHtml(template: string, customVars?: Record<string, unknown>): Promise<string> {
-    const url = `/api/admin/email/preview/${template}`;
-    const token = localStorage.getItem("mana_token") || "";
-    let res;
-    if (customVars) {
-      res = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(customVars)
-      });
-    } else {
-      res = await fetch(url, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
-    }
-    if (!res.ok) throw new Error(`Preview failed: ${res.status}`);
-    return res.text();
+    return apiClient.post<string>(`/admin/email/preview/${template}`, customVars ?? {});
   },
 
   async getHealth(): Promise<EmailHealthInfo> {
