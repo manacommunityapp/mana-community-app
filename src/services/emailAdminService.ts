@@ -5,6 +5,12 @@ export interface EmailTemplateInfo {
   subject: string;
   templateFile: string;
   category: string;
+  /** Human-readable module/menu/submenu path where this email fires, or null if not wired to a live trigger yet. */
+  triggerMenuPath: string | null;
+  /** False when nothing in the app currently sends this template automatically or via a UI action. */
+  triggerWired: boolean;
+  /** What specifically causes the send. */
+  triggerDescription: string;
 }
 
 export interface EmailHealthInfo {
