@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
-  Search, MapPin, Plus, X, Loader2, ImagePlus, Calendar,
+  Search, MapPin, Plus, X, Loader2, Calendar,
   ChevronLeft, ChevronRight, AlertTriangle, Eye, CheckCircle
 } from "lucide-react";
 import {

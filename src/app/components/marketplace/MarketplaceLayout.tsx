@@ -1,8 +1,7 @@
 import { Outlet, useNavigate, useLocation } from "react-router";
-import { useState } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { Store, Heart, Package, Gift, Search as SearchIcon, ShoppingCart, User } from "lucide-react";
+import { Store, Heart, Package, Gift, Search as SearchIcon, User } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { CREATE_LISTING } from "../../../constants/permissions";
 

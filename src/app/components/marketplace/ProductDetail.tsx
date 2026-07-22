@@ -4,7 +4,7 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
   ArrowLeft, Heart, MessageCircle, Star, MapPin, CheckCircle, Clock,
-  Tag, ShoppingCart, ImagePlus, Send, Loader2, Package
+  Tag, ImagePlus, Send, Loader2
 } from "lucide-react";
 import {
   listingService, reviewService, wishlistService,
@@ -12,8 +12,7 @@ import {
 } from "../../../services/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useChat } from "../../../contexts/ChatContext";
-import type { PaginatedResponse } from "../../../types/api";
-import { USE_MOCK_DATA, MOCK_LISTINGS, MOCK_REVIEWS, MOCK_REVIEW_STATS, paginate } from "./mockData";
+import { USE_MOCK_DATA, MOCK_LISTINGS, MOCK_REVIEWS, MOCK_REVIEW_STATS } from "./mockData";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 

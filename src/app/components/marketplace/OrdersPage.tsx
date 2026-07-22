@@ -3,12 +3,11 @@ import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
   Package, ShoppingBag, Truck, CheckCircle, XCircle, Clock,
-  Loader2, ChevronLeft, ChevronRight, ArrowRightLeft
+  Loader2, ChevronLeft, ChevronRight
 } from "lucide-react";
 import { orderService, type OrderResponse } from "../../../services/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { CREATE_LISTING } from "../../../constants/permissions";
-import type { PaginatedResponse } from "../../../types/api";
 import { USE_MOCK_DATA, MOCK_ORDERS, paginate } from "./mockData";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
