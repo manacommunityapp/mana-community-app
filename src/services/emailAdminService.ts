@@ -44,8 +44,9 @@ export const emailAdminService = {
     return apiClient.get(url);
   },
 
-  async getPreviewHtml(template: string, communityId: number, customVars?: Record<string, unknown>): Promise<string> {
-    const url = `/api/admin/email/preview/${template}?communityId=${communityId}`;
+  async getPreviewHtml(template: string, communityId?: number, customVars?: Record<string, unknown>): Promise<string> {
+    const query = communityId != null ? `?communityId=${communityId}` : "";
+    const url = `/api/admin/email/preview/${template}${query}`;
     const token = localStorage.getItem("mana_token") || "";
     let res;
     if (customVars) {

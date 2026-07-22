@@ -7,7 +7,7 @@ import {
 import { schemaService, type DbTableSchema } from "../../../services/schemaService";
 import { apiCatalogService, type ApiGroup } from "../../../services/apiCatalogService";
 import { buildInfo, formatBuildTime } from "../../../utils/buildInfo";
-import { EmailPreviewTab } from "../sports/admin/EmailPreviewTab";
+import { EmailTemplatesTab } from "../admin/EmailTemplatesTab";
 
 export type ArchTab = "overview" | "database" | "apis" | "websocket" | "folders" | "security" | "monitoring" | "email";
 
@@ -567,7 +567,7 @@ Every log line: [cid=<correlationId> uid=<userId>]
           </div>
         </div>
       )}
-      {tab === "email" && <EmailPreviewTab />}
+      {tab === "email" && <EmailTemplatesTab />}
     </div>
   );
 }

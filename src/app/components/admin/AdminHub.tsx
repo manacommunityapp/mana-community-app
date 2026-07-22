@@ -54,6 +54,7 @@ import { AdminRoleManagement } from "./AdminRoleManagement";
 import { LogsDashboard } from "./LogsDashboard";
 import { AuditTrail } from "./AuditTrail";
 import { AdminSportsMeta } from "./AdminSportsMeta";
+import { EmailTemplatesTab } from "./EmailTemplatesTab";
 import { AnnouncementsPlanner } from "../architecture/AnnouncementsPlanner";
 import { EmailTemplateBuilder } from "./EmailTemplateBuilder";
 import { ExpenseUpload } from "../assets/ExpenseUpload";

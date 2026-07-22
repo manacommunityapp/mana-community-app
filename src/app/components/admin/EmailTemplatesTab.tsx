@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Mail, Send, RefreshCw, CheckCircle2, Eye, X, AlertTriangle, Zap, Inbox, Upload, Image as ImageIcon, Sparkles, AlertCircle } from "lucide-react";
-import { emailAdminService, type EmailTemplateInfo, type EmailHealthInfo } from "../../../../services/emailAdminService";
-import { communityService } from "../../../../services/communityService";
-import type { CommunityResponse } from "../../../../types/api";
-import { useAuth } from "../../../../contexts/AuthContext";
-import { showError, showSuccess, showWarning } from "../../../../utils/ToastUtils";
+import { Mail, Send, RefreshCw, CheckCircle2, Eye, X, AlertTriangle, Zap, Inbox, Upload, Image as ImageIcon, Sparkles, AlertCircle, XCircle } from "lucide-react";
+import { emailAdminService, type EmailTemplateInfo, type EmailHealthInfo, type TestAllResult } from "../../../services/emailAdminService";
+import { communityService } from "../../../services/communityService";
+import type { CommunityResponse } from "../../../types/api";
+import { useAuth } from "../../../contexts/AuthContext";
+import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 
 const TEMPLATE_COLORS: Record<string, { bg: string; border: string; icon: string; badge: string; gradient: string }> = {
   REGISTRATION_RECEIVED:  { bg: "bg-blue-50/70",    border: "border-blue-200",    icon: "text-blue-500",    badge: "bg-blue-100 text-blue-700", gradient: "from-blue-600 to-indigo-600" },
@@ -40,6 +40,8 @@ const TEMPLATE_EMOJIS: Record<string, string> = {
   REGISTRATION_OPEN:      "📢",
 };
 
+const DEFAULT_EMOJI = "📧";
+
 const TEMPLATE_ORDER = [
   "TOURNAMENT_ANNOUNCEMENT",
   "TOURNAMENT_OPEN",
@@ -56,7 +58,7 @@ const TEMPLATE_ORDER = [
   "EMAIL_OTP"
 ];
 
-export function EmailPreviewTab() {
+export function EmailTemplatesTab() {
   const { user } = useAuth();
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);
   const [communityId, setCommunityId] = useState<number | null>(user?.communityId ?? null);
@@ -66,7 +68,7 @@ export function EmailPreviewTab() {
   const [toEmail, setToEmail] = useState("");
   const [fromEmail, setFromEmail] = useState("");
   const [fromName, setFromName] = useState("");
-  
+
   // Custom Banner & Sponsor Image States
   const [bannerUrl, setBannerUrl] = useState<string>("");
   const [sponsorUrl, setSponsorUrl] = useState<string>("");
@@ -77,9 +79,11 @@ export function EmailPreviewTab() {
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [sendingTemplate, setSendingTemplate] = useState(false);
   const [sendingAll, setSendingAll] = useState(false);
+  const [lastAllResult, setLastAllResult] = useState<TestAllResult | null>(null);
 
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
   const sponsorFileInputRef = useRef<HTMLInputElement>(null);
+  const previewRequestId = useRef(0);
 
   // Communities are loaded once; the currently selected one scopes every
   // subsequent template/health/preview/test call (the backend requires it).
@@ -129,19 +133,21 @@ export function EmailPreviewTab() {
   useEffect(() => {
     if (!activeTemplate || communityId == null) return;
 
+    const requestId = ++previewRequestId.current;
+    setLoadingPreview(true);
+
     const fetchPreview = async () => {
-      setLoadingPreview(true);
       try {
         const payload = {
           bannerUrl: bannerUrl || undefined,
           sponsorImageUrl: sponsorUrl || undefined,
         };
-        const html = await emailAdminService.getPreviewHtml(activeTemplate.key, communityId, payload);
-        setPreviewHtml(html);
+        const html = await emailAdminService.getPreviewHtml(activeTemplate.key, communityId ?? undefined, payload);
+        if (requestId === previewRequestId.current) setPreviewHtml(html);
       } catch {
-        showError("Failed to load template preview");
+        if (requestId === previewRequestId.current) showError("Failed to load template preview");
       } finally {
-        setLoadingPreview(false);
+        if (requestId === previewRequestId.current) setLoadingPreview(false);
       }
     };
 
@@ -166,7 +172,7 @@ export function EmailPreviewTab() {
         } else {
           setSponsorUrl(reader.result);
         }
-        showSuccess(`${type === "banner" ? "Banner" : "Sponsor"} image loaded successfully.`);
+        showSuccess(`${type === "banner" ? "Banner" : "Sponsor"} image loaded successfully. Note: some email clients (e.g. Outlook) may not render embedded images reliably — prefer a hosted image URL for real sends.`);
       }
     };
     reader.readAsDataURL(file);
@@ -197,7 +203,15 @@ export function EmailPreviewTab() {
 
   const handleSendAll = async () => {
     if (communityId == null) return;
+    const target = toEmail || health?.defaultRecipient;
+    const confirmed = confirm(
+      `This will send ${templates.length} test emails${target ? ` to ${target}` : ""}${
+        health?.mailEnabled ? " via live SMTP" : " (SMTP is disabled, so nothing will actually be delivered)"
+      }. Continue?`
+    );
+    if (!confirmed) return;
     setSendingAll(true);
+    setLastAllResult(null);
     try {
       const customVars = {
         bannerUrl: bannerUrl || undefined,
@@ -206,8 +220,9 @@ export function EmailPreviewTab() {
         fromName: fromName || undefined,
       };
       const result = await emailAdminService.sendAllTests(communityId, toEmail || undefined, customVars);
+      setLastAllResult(result);
       if (result.failed > 0) {
-        showWarning(`${result.sent} sent, ${result.failed} failed`);
+        showWarning(`${result.sent} sent, ${result.failed} failed — see breakdown below`);
       } else {
         showSuccess(`All ${result.sent} templates sent successfully to ${result.to}`);
       }
@@ -334,6 +349,7 @@ export function EmailPreviewTab() {
           <button
             onClick={handleSendAll}
             disabled={sendingAll}
+            aria-label="Send all email templates as test emails"
             className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow transition-all cursor-pointer disabled:opacity-50"
           >
             <Zap className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
@@ -341,6 +357,53 @@ export function EmailPreviewTab() {
           </button>
         </div>
       </div>
+
+      {/* ── Last "Send All" Result Breakdown ──────────────────────── */}
+      {lastAllResult && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3">
+          <div className="flex items-center justify-between border-b pb-3 border-slate-100">
+            <div className="flex items-center gap-2">
+              <Inbox className="w-4.5 h-4.5 text-indigo-500" />
+              <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
+                Last Test-All Result — {lastAllResult.to}
+              </h3>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{lastAllResult.sent} sent</span>
+              {lastAllResult.failed > 0 && (
+                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-red-100 text-red-800">{lastAllResult.failed} failed</span>
+              )}
+              <button
+                onClick={() => setLastAllResult(null)}
+                aria-label="Dismiss result breakdown"
+                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {lastAllResult.results.map(r => (
+              <div
+                key={r.template}
+                className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs ${
+                  r.status === "SENT" ? "bg-emerald-50/50 border-emerald-100" : "bg-red-50/50 border-red-100"
+                }`}
+              >
+                {r.status === "SENT" ? (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                ) : (
+                  <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
+                )}
+                <div className="min-w-0">
+                  <p className="font-bold text-slate-700 truncate">{r.template.replace(/_/g, " ")}</p>
+                  {r.error && <p className="text-[10px] text-red-500 mt-0.5 break-words">{r.error}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Banner and Sponsor Configuration Panel ──────────────────────── */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
@@ -385,6 +448,7 @@ export function EmailPreviewTab() {
                 <span className="text-[10px] text-slate-400 font-mono truncate flex-1">{bannerUrl}</span>
                 <button
                   onClick={() => setBannerUrl("")}
+                  aria-label="Clear banner image"
                   className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -428,6 +492,7 @@ export function EmailPreviewTab() {
                 <span className="text-[10px] text-slate-400 font-mono truncate flex-1">{sponsorUrl}</span>
                 <button
                   onClick={() => setSponsorUrl("")}
+                  aria-label="Clear sponsor image"
                   className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -436,6 +501,15 @@ export function EmailPreviewTab() {
             )}
           </div>
         </div>
+        {(bannerUrl.startsWith("data:") || sponsorUrl.startsWith("data:")) && (
+          <div className="flex items-start gap-2 p-3 bg-amber-50/70 rounded-xl border border-amber-100">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+            <p className="text-[10px] text-amber-800 leading-tight">
+              An uploaded image is embedded as base64. This previews correctly here, but many email clients
+              (notably Outlook) don't render embedded/base64 images reliably. For real sends, prefer a hosted image URL.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ── Templates Card List ─────────────────────────────────── */}
@@ -449,7 +523,7 @@ export function EmailPreviewTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {templates.map(tpl => {
             const colors = TEMPLATE_COLORS[tpl.key] || DEFAULT_COLOR;
-            const emoji = TEMPLATE_EMOJIS[tpl.key] || "📧";
+            const emoji = TEMPLATE_EMOJIS[tpl.key] || DEFAULT_EMOJI;
             const templateLabel = tpl.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
             return (
@@ -478,11 +552,11 @@ export function EmailPreviewTab() {
       {activeTemplate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200">
-            
+
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200">
               <div className="flex items-center gap-2.5">
-                <span className="text-2xl">{TEMPLATE_EMOJIS[activeTemplate.key] || "📧"}</span>
+                <span className="text-2xl">{TEMPLATE_EMOJIS[activeTemplate.key] || DEFAULT_EMOJI}</span>
                 <div>
                   <h3 className="text-sm font-black text-slate-800">
                     {activeTemplate.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
@@ -492,6 +566,7 @@ export function EmailPreviewTab() {
               </div>
               <button
                 onClick={() => setActiveTemplate(null)}
+                aria-label="Close preview"
                 className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -500,7 +575,7 @@ export function EmailPreviewTab() {
 
             {/* Modal Content Pane */}
             <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-              
+
               {/* Left Settings Sidebar */}
               <div className="w-full md:w-80 bg-white border-r border-slate-200 p-5 overflow-y-auto space-y-5 flex flex-col justify-between">
                 <div className="space-y-4">
