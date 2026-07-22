@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Send, RefreshCw, CheckCircle2, Eye, X, AlertTriangle, Zap, Inbox, Upload, Image as ImageIcon, Sparkles, AlertCircle, XCircle } from "lucide-react";
+import { Send, RefreshCw, CheckCircle2, Eye, X, AlertTriangle, Zap, Inbox, Upload, Image as ImageIcon, Sparkles, AlertCircle, XCircle, MapPin } from "lucide-react";
 import { emailAdminService, extractApiErrorMessage, type EmailTemplateInfo, type EmailHealthInfo, type TestAllResult } from "../../../services/emailAdminService";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 
@@ -463,6 +463,19 @@ export function EmailTemplatesTab() {
                     <Eye className="w-4.5 h-4.5" />
                   </div>
                 </div>
+                <div className="px-4 py-2 border-t border-slate-100 bg-white">
+                  {tpl.triggerWired && tpl.triggerMenuPath ? (
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 truncate">
+                      <MapPin className="w-3 h-3 shrink-0 text-slate-400" />
+                      <span className="truncate">{tpl.triggerMenuPath}</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1.5 text-[10px] text-amber-600">
+                      <AlertTriangle className="w-3 h-3 shrink-0" />
+                      Not wired to a live trigger yet
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -500,11 +513,27 @@ export function EmailTemplatesTab() {
               {/* Left Settings Sidebar */}
               <div className="w-full md:w-80 bg-white border-r border-slate-200 p-5 overflow-y-auto space-y-5 flex flex-col justify-between">
                 <div className="space-y-4">
-                  {/* Scope info */}
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-150 text-[11px] text-slate-500 leading-relaxed">
-                    <span className="font-bold text-slate-700 block mb-1">🛠 Template Scope</span>
-                    Verify design rendering live before distributing to tournament players or residents.
-                  </div>
+                  {/* Where this fires */}
+                  {activeTemplate.triggerWired ? (
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-150 text-[11px] leading-relaxed">
+                      <span className="font-bold text-slate-700 flex items-center gap-1.5 mb-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-indigo-500" />
+                        Where this fires
+                      </span>
+                      {activeTemplate.triggerMenuPath && (
+                        <p className="text-indigo-700 font-semibold mb-1">{activeTemplate.triggerMenuPath}</p>
+                      )}
+                      <p className="text-slate-500">{activeTemplate.triggerDescription}</p>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-50/70 p-3 rounded-xl border border-amber-100 text-[11px] leading-relaxed">
+                      <span className="font-bold text-amber-800 flex items-center gap-1.5 mb-1.5">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        Not wired to a live trigger
+                      </span>
+                      <p className="text-amber-800">{activeTemplate.triggerDescription}</p>
+                    </div>
+                  )}
 
                   {/* Recipient & Sender Overrides */}
                   <div className="space-y-3">
