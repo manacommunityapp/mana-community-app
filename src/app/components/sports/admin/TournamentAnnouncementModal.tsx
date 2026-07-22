@@ -202,8 +202,10 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
             // fallback
           }
         }
+        const communityId = currentDetails?.communityId;
+        if (!communityId) throw new Error("Tournament has no community — cannot preview");
         const customVars = buildVars(currentDetails);
-        const html = await emailAdminService.getPreviewHtml(template, customVars);
+        const html = await emailAdminService.getPreviewHtml(template, communityId, customVars);
         setPreviewHtml(html);
       }
     } catch {

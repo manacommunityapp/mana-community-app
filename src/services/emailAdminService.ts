@@ -39,12 +39,13 @@ export interface TestAllResult {
 }
 
 export const emailAdminService = {
-  async getTemplates(): Promise<{ count: number; templates: EmailTemplateInfo[] }> {
-    return apiClient.get("/admin/email/templates");
+  async getTemplates(communityId?: number): Promise<{ count: number; templates: EmailTemplateInfo[] }> {
+    const url = communityId != null ? `/admin/email/templates?communityId=${communityId}` : "/admin/email/templates";
+    return apiClient.get(url);
   },
 
-  async getPreviewHtml(template: string, customVars?: Record<string, unknown>): Promise<string> {
-    const url = `/api/admin/email/preview/${template}`;
+  async getPreviewHtml(template: string, communityId: number, customVars?: Record<string, unknown>): Promise<string> {
+    const url = `/api/admin/email/preview/${template}?communityId=${communityId}`;
     const token = localStorage.getItem("mana_token") || "";
     let res;
     if (customVars) {
@@ -65,18 +66,19 @@ export const emailAdminService = {
     return res.text();
   },
 
-  async getHealth(): Promise<EmailHealthInfo> {
-    return apiClient.get("/admin/email/health");
+  async getHealth(communityId?: number): Promise<EmailHealthInfo> {
+    const url = communityId != null ? `/admin/email/health?communityId=${communityId}` : "/admin/email/health";
+    return apiClient.get(url);
   },
 
-  async sendTest(template: string, to?: string, customVars?: Record<string, unknown>): Promise<TestEmailResult> {
-    const params = new URLSearchParams({ template });
+  async sendTest(template: string, communityId: number, to?: string, customVars?: Record<string, unknown>): Promise<TestEmailResult> {
+    const params = new URLSearchParams({ template, communityId: String(communityId) });
     if (to) params.set("to", to);
     return apiClient.post(`/admin/email/test?${params}`, customVars || {});
   },
 
-  async sendAllTests(to?: string, customVars?: Record<string, unknown>): Promise<TestAllResult> {
-    const params = new URLSearchParams();
+  async sendAllTests(communityId: number, to?: string, customVars?: Record<string, unknown>): Promise<TestAllResult> {
+    const params = new URLSearchParams({ communityId: String(communityId) });
     if (to) params.set("to", to);
     return apiClient.post(`/admin/email/test-all?${params}`, customVars || {});
   },

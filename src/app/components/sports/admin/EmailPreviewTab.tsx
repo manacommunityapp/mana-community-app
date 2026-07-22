@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Mail, Send, RefreshCw, CheckCircle2, Eye, X, AlertTriangle, Zap, Inbox, Upload, Image as ImageIcon, Sparkles, AlertCircle } from "lucide-react";
 import { emailAdminService, type EmailTemplateInfo, type EmailHealthInfo } from "../../../../services/emailAdminService";
+import { communityService } from "../../../../services/communityService";
+import type { CommunityResponse } from "../../../../types/api";
+import { useAuth } from "../../../../contexts/AuthContext";
 import { showError, showSuccess, showWarning } from "../../../../utils/ToastUtils";
 
 const TEMPLATE_COLORS: Record<string, { bg: string; border: string; icon: string; badge: string; gradient: string }> = {
@@ -54,6 +57,9 @@ const TEMPLATE_ORDER = [
 ];
 
 export function EmailPreviewTab() {
+  const { user } = useAuth();
+  const [communities, setCommunities] = useState<CommunityResponse[]>([]);
+  const [communityId, setCommunityId] = useState<number | null>(user?.communityId ?? null);
   const [templates, setTemplates] = useState<EmailTemplateInfo[]>([]);
   const [health, setHealth] = useState<EmailHealthInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,20 +81,37 @@ export function EmailPreviewTab() {
   const bannerFileInputRef = useRef<HTMLInputElement>(null);
   const sponsorFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Communities are loaded once; the currently selected one scopes every
+  // subsequent template/health/preview/test call (the backend requires it).
+  useEffect(() => {
+    async function loadCommunities() {
+      try {
+        const list = await communityService.getCommunities();
+        setCommunities(list);
+        setCommunityId(prev => prev ?? user?.communityId ?? list[0]?.id ?? null);
+      } catch {
+        showError("Failed to load communities");
+      }
+    }
+    loadCommunities();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const fetchData = useCallback(async () => {
+    if (communityId == null) return;
     setLoading(true);
     try {
       const [tpl, h] = await Promise.all([
-        emailAdminService.getTemplates(),
-        emailAdminService.getHealth(),
+        emailAdminService.getTemplates(communityId),
+        emailAdminService.getHealth(communityId),
       ]);
-      
+
       const sorted = [...tpl.templates].sort((a, b) => {
         const idxA = TEMPLATE_ORDER.indexOf(a.key);
         const idxB = TEMPLATE_ORDER.indexOf(b.key);
         return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
       });
-      
+
       setTemplates(sorted);
       setHealth(h);
     } catch {
@@ -96,7 +119,7 @@ export function EmailPreviewTab() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [communityId]);
 
   useEffect(() => {
     fetchData();
@@ -104,7 +127,7 @@ export function EmailPreviewTab() {
 
   // Load preview when activeTemplate, bannerUrl or sponsorUrl changes
   useEffect(() => {
-    if (!activeTemplate) return;
+    if (!activeTemplate || communityId == null) return;
 
     const fetchPreview = async () => {
       setLoadingPreview(true);
@@ -113,7 +136,7 @@ export function EmailPreviewTab() {
           bannerUrl: bannerUrl || undefined,
           sponsorImageUrl: sponsorUrl || undefined,
         };
-        const html = await emailAdminService.getPreviewHtml(activeTemplate.key, payload);
+        const html = await emailAdminService.getPreviewHtml(activeTemplate.key, communityId, payload);
         setPreviewHtml(html);
       } catch {
         showError("Failed to load template preview");
@@ -123,7 +146,7 @@ export function EmailPreviewTab() {
     };
 
     fetchPreview();
-  }, [activeTemplate, bannerUrl, sponsorUrl]);
+  }, [activeTemplate, communityId, bannerUrl, sponsorUrl]);
 
   // Handle File uploads converted to Base64
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "banner" | "sponsor") => {
@@ -150,7 +173,7 @@ export function EmailPreviewTab() {
   };
 
   const handleSendTest = async () => {
-    if (!activeTemplate) return;
+    if (!activeTemplate || communityId == null) return;
     setSendingTemplate(true);
     try {
       const customVars = {
@@ -159,7 +182,7 @@ export function EmailPreviewTab() {
         fromEmail: fromEmail || undefined,
         fromName: fromName || undefined,
       };
-      const result = await emailAdminService.sendTest(activeTemplate.key, toEmail || undefined, customVars);
+      const result = await emailAdminService.sendTest(activeTemplate.key, communityId, toEmail || undefined, customVars);
       if (result.mailEnabled) {
         showSuccess(`Test email sent to ${result.to}`);
       } else {
@@ -173,6 +196,7 @@ export function EmailPreviewTab() {
   };
 
   const handleSendAll = async () => {
+    if (communityId == null) return;
     setSendingAll(true);
     try {
       const customVars = {
@@ -181,7 +205,7 @@ export function EmailPreviewTab() {
         fromEmail: fromEmail || undefined,
         fromName: fromName || undefined,
       };
-      const result = await emailAdminService.sendAllTests(toEmail || undefined, customVars);
+      const result = await emailAdminService.sendAllTests(communityId, toEmail || undefined, customVars);
       if (result.failed > 0) {
         showWarning(`${result.sent} sent, ${result.failed} failed`);
       } else {
@@ -194,17 +218,49 @@ export function EmailPreviewTab() {
     }
   };
 
+  const communitySelector = (
+    <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Community</span>
+      <select
+        value={communityId ?? ""}
+        onChange={e => setCommunityId(e.target.value ? Number(e.target.value) : null)}
+        className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400"
+      >
+        {communities.length === 0 && <option value="">No communities</option>}
+        {communities.map(c => (
+          <option key={c.id} value={c.id}>{c.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+
+  if (communityId == null) {
+    return (
+      <div className="space-y-4">
+        {communitySelector}
+        <div className="flex items-center justify-center py-16 text-sm text-slate-400">
+          Select a community to manage its email templates.
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <RefreshCw className="w-5 h-5 animate-spin text-indigo-500" />
-        <span className="ml-2 text-sm text-slate-500">Loading email templates…</span>
+      <div className="space-y-4">
+        {communitySelector}
+        <div className="flex items-center justify-center py-20">
+          <RefreshCw className="w-5 h-5 animate-spin text-indigo-500" />
+          <span className="ml-2 text-sm text-slate-500">Loading email templates…</span>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+
+      {communitySelector}
 
       {/* ── Configuration & Global Status ──────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">

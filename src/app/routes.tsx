@@ -43,6 +43,7 @@ import { AdminCommunity } from "./components/admin/AdminCommunity";
 import { AdminRoleManagement } from "./components/admin/AdminRoleManagement";
 import { LogsDashboard } from "./components/admin/LogsDashboard";
 import { AuditTrail } from "./components/admin/AuditTrail";
+import { EmailTemplateBuilder } from "./components/admin/EmailTemplateBuilder";
 import { ProfileDashboard } from "./components/profile/ProfileDashboard";
 import { ArchitectureDocs } from "./components/architecture/ArchitectureDocs";
 import { RootErrorElement } from "./components/commons/error/RootErrorElement";
@@ -181,6 +182,10 @@ export const router = createBrowserRouter([
           {
             path: "expenses",
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><ExpensesDashboard /></PermissionGuard>
+          },
+          {
+            path: "email-templates",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><EmailTemplateBuilder /></PermissionGuard>
           },
         ]
       },
