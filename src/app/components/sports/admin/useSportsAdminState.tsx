@@ -1405,20 +1405,34 @@ export function useSportsAdminState() {
     setEditingLinkedEventIds(
       linkedEvents.map((e: any) => e?.id).filter((x: any) => x != null).map(Number)
     );
-    const ev = primaryEvent
-      ? {
-          ...primaryEvent,
-          id: primaryEvent.id,
-          name: tournamentOrEvent.name || primaryEvent.name,
-          tournamentId: tournamentOrEvent.id
-        }
-      : tournamentOrEvent;
-    setEventName(ev.name);
+    const ev = {
+      ...tournamentOrEvent,
+      ...(primaryEvent || {}),
+      id: primaryEvent?.id ?? tournamentOrEvent.id,
+      name: tournamentOrEvent.name || primaryEvent?.name || "",
+      registrationDateStart: tournamentOrEvent.registrationDateStart || primaryEvent?.registrationDateStart,
+      registrationDateEnd: tournamentOrEvent.registrationDateEnd || primaryEvent?.registrationDateEnd,
+      maxParticipants: tournamentOrEvent.maxParticipants ?? primaryEvent?.maxParticipants,
+      description: tournamentOrEvent.description || primaryEvent?.description,
+      eventDateStart: tournamentOrEvent.eventDateStart || primaryEvent?.eventDateStart,
+      eventDateEnd: tournamentOrEvent.eventDateEnd || primaryEvent?.eventDateEnd,
+      contactName: tournamentOrEvent.contactName || primaryEvent?.contactName,
+      contactNumber: tournamentOrEvent.contactNumber || primaryEvent?.contactNumber,
+      contactEmail: tournamentOrEvent.contactEmail || primaryEvent?.contactEmail,
+      bannerImage: tournamentOrEvent.bannerImage || primaryEvent?.bannerImage,
+      tournamentLevel: tournamentOrEvent.tournamentLevel || primaryEvent?.tournamentLevel,
+      startTime: tournamentOrEvent.startTime || primaryEvent?.startTime,
+      dueTime: tournamentOrEvent.dueTime || primaryEvent?.dueTime,
+      tournamentId: tournamentOrEvent.id,
+    };
+    setEventName(ev.name || "");
     setSelectedVenueId(ev.venue?.id ?? "");
-    setStartDate(new Date(ev.eventDateStart));
-    setEndDate(new Date(ev.eventDateEnd));
+    setStartDate(ev.eventDateStart ? new Date(ev.eventDateStart) : undefined);
+    setEndDate(ev.eventDateEnd ? new Date(ev.eventDateEnd) : undefined);
     setRegStartDate(ev.registrationDateStart ? new Date(ev.registrationDateStart) : undefined);
     setRegEndDate(ev.registrationDateEnd ? new Date(ev.registrationDateEnd) : undefined);
+    setMaxPax(ev.maxParticipants != null ? String(ev.maxParticipants) : "");
+    setDescription(ev.description || "");
     setSelectedSports([ev.sport?.id]);
     const isTeam = isTeamSport(ev.sport?.name || "");
     const existingEvent: SportEventState = {
@@ -1448,7 +1462,6 @@ export function useSportsAdminState() {
     setSponsors(ev.sponsors || []);
     setBannerImage(ev.bannerImage || "");
     setTournamentLevel(ev.tournamentLevel || "Standard");
-    setDescription(ev.description || "");
     setAllowAdminChat(ev.allowAdminChat || false);
     setStartTime(ev.startTime || "");
     setDueTime(ev.dueTime || "");
@@ -2093,6 +2106,43 @@ export function useSportsAdminState() {
       for (const ev of form.events) {
         if (!ev.eventName.trim()) { toast.error("Event Name is required"); return; }
         if (!ev.startDate || !ev.endDate) { toast.error("Start Date and End Date are required"); return; }
+
+        // Date logic validation
+        const eventStart = new Date(ev.startDate);
+        const eventEnd = new Date(ev.endDate);
+
+        if (eventEnd < eventStart) {
+          toast.error(`Event "${ev.eventName}": End Date cannot be before Start Date`);
+          return;
+        }
+
+        // Check against active tournament bounds if linked to a tournament
+        if (activeTournamentId) {
+          const currentTournament = activeTournaments.find((t) => t.id === activeTournamentId);
+          const tourneyObj = currentTournament?.event || currentTournament;
+          const tourneyStartStr = tourneyObj?.eventDateStart || tourneyObj?.startDate;
+          const tourneyEndStr = tourneyObj?.eventDateEnd || tourneyObj?.endDate;
+
+          if (tourneyStartStr && tourneyEndStr) {
+            const tourneyStart = new Date(tourneyStartStr);
+            const tourneyEnd = new Date(tourneyEndStr);
+
+            if (eventStart < tourneyStart || eventStart > tourneyEnd) {
+              toast.error(
+                `Event "${ev.eventName}": Start Date (${ev.startDate}) must fall within tournament dates (${tourneyStartStr} to ${tourneyEndStr})`
+              );
+              return;
+            }
+
+            if (eventEnd < tourneyStart || eventEnd > tourneyEnd) {
+              toast.error(
+                `Event "${ev.eventName}": End Date (${ev.endDate}) must fall within tournament dates (${tourneyStartStr} to ${tourneyEndStr})`
+              );
+              return;
+            }
+          }
+        }
+
         if (!ev.tournamentType) { toast.error("Tournament Format is required"); return; }
         if (!selectedTemplates[ev.id]) { toast.error("Player Category Template is required"); return; }
         if (isTeamSport(form.name)) {

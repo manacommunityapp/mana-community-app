@@ -265,7 +265,7 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
         <div className="overflow-y-auto flex-1 p-6 space-y-5">
           {/* Template Picker */}
           <div>
-            <label className="text-xs text-slate-500 uppercase tracking-widest font-bold block mb-2">
+            <label className="text-[11px] text-slate-500 uppercase tracking-widest font-bold block mb-1.5">
               Choose Template
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -275,18 +275,21 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
                 return (
                   <button
                     key={t.key}
+                    type="button"
                     onClick={() => handleTemplateChange(t.key)}
-                    className={`p-3 rounded-lg border-2 text-left transition-all ${
+                    className={`px-2.5 py-1.5 rounded-lg border text-left transition-all cursor-pointer ${
                       selected
-                        ? `${c.border} ${c.bg} ring-2 ${c.ring} ring-offset-1`
+                        ? `${c.border} ${c.bg} ring-1 ${c.ring}`
                         : "border-slate-200 hover:border-slate-300 bg-white"
                     }`}
                   >
-                    <div className="text-xl mb-1">{t.icon}</div>
-                    <div className={`text-sm font-semibold ${selected ? c.text : "text-slate-700"}`}>
-                      {t.label}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base leading-none">{t.icon}</span>
+                      <span className={`text-xs font-bold ${selected ? c.text : "text-slate-700"}`}>
+                        {t.label}
+                      </span>
                     </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{t.description}</div>
+                    <div className="text-[10px] text-slate-400 truncate mt-0.5">{t.description}</div>
                   </button>
                 );
               })}
