@@ -1,59 +1,25 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Send, RefreshCw, CheckCircle2, Eye, X, AlertTriangle, Zap, Inbox, Upload, Image as ImageIcon, Sparkles, AlertCircle, XCircle } from "lucide-react";
-import { emailAdminService, type EmailTemplateInfo, type EmailHealthInfo, type TestAllResult } from "../../../services/emailAdminService";
+import { emailAdminService, extractApiErrorMessage, type EmailTemplateInfo, type EmailHealthInfo, type TestAllResult } from "../../../services/emailAdminService";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 
-const TEMPLATE_COLORS: Record<string, { bg: string; border: string; icon: string; badge: string; gradient: string }> = {
-  REGISTRATION_RECEIVED:  { bg: "bg-blue-50/70",    border: "border-blue-200",    icon: "text-blue-500",    badge: "bg-blue-100 text-blue-700", gradient: "from-blue-600 to-indigo-600" },
-  REGISTRATION_CONFIRMED: { bg: "bg-emerald-50/70", border: "border-emerald-200", icon: "text-emerald-500",  badge: "bg-emerald-100 text-emerald-700", gradient: "from-emerald-600 to-teal-600" },
-  REGISTRATION_REJECTED:  { bg: "bg-slate-50/70",    border: "border-slate-200",    icon: "text-slate-500",    badge: "bg-slate-100 text-slate-700", gradient: "from-slate-600 to-slate-700" },
-  SCHEDULE_PUBLISHED:     { bg: "bg-violet-50/70",   border: "border-violet-200",   icon: "text-violet-500",   badge: "bg-violet-100 text-violet-700", gradient: "from-violet-600 to-purple-600" },
-  TOURNAMENT_START:       { bg: "bg-indigo-50/70",   border: "border-indigo-300",  icon: "text-indigo-600",   badge: "bg-indigo-100 text-indigo-800", gradient: "from-indigo-600 to-blue-700" },
-  MATCH_REMINDER:         { bg: "bg-orange-50/70",   border: "border-orange-200",   icon: "text-orange-500",   badge: "bg-orange-100 text-orange-700", gradient: "from-orange-500 to-amber-600" },
-  WINNER_NOTIFICATION:    { bg: "bg-yellow-50/70",   border: "border-yellow-200",   icon: "text-yellow-600",   badge: "bg-yellow-100 text-yellow-700", gradient: "from-yellow-500 to-amber-500" },
-  TOURNAMENT_COMPLETION:  { bg: "bg-indigo-50/70",   border: "border-indigo-200",   icon: "text-indigo-500",   badge: "bg-indigo-100 text-indigo-700", gradient: "from-indigo-600 to-violet-700" },
-  PRIZE_DISTRIBUTION:     { bg: "bg-pink-50/70",     border: "border-pink-200",     icon: "text-pink-500",     badge: "bg-pink-100 text-pink-700", gradient: "from-pink-600 to-rose-600" },
-  EMAIL_OTP:              { bg: "bg-cyan-50/70",     border: "border-cyan-200",     icon: "text-cyan-500",     badge: "bg-cyan-100 text-cyan-700", gradient: "from-cyan-600 to-blue-600" },
-  TOURNAMENT_OPEN:        { bg: "bg-emerald-50/70",  border: "border-emerald-300",  icon: "text-emerald-600",  badge: "bg-emerald-100 text-emerald-800", gradient: "from-emerald-600 to-green-700" },
-  TOURNAMENT_ANNOUNCEMENT:{ bg: "bg-purple-50/70",   border: "border-purple-200",   icon: "text-purple-500",   badge: "bg-purple-100 text-purple-700", gradient: "from-purple-600 to-fuchsia-600" },
-  REGISTRATION_OPEN:      { bg: "bg-purple-50/70",   border: "border-purple-200",   icon: "text-purple-500",   badge: "bg-purple-100 text-purple-700", gradient: "from-purple-600 to-fuchsia-600" },
+// Styled by the backend's broad `category` grouping rather than a per-template
+// lookup table — a new template just needs to fall into one of these six
+// buckets to get sensible styling; it never requires a frontend code change.
+const CATEGORY_STYLES: Record<string, { bg: string; border: string; icon: string; badge: string; gradient: string; emoji: string }> = {
+  REGISTRATION:  { bg: "bg-blue-50/70",    border: "border-blue-200",    icon: "text-blue-500",    badge: "bg-blue-100 text-blue-700",    gradient: "from-blue-600 to-indigo-600",   emoji: "📥" },
+  TOURNAMENT:    { bg: "bg-violet-50/70",  border: "border-violet-200",  icon: "text-violet-500",  badge: "bg-violet-100 text-violet-700", gradient: "from-violet-600 to-purple-600", emoji: "🏆" },
+  MATCH:         { bg: "bg-orange-50/70",  border: "border-orange-200",  icon: "text-orange-500",  badge: "bg-orange-100 text-orange-700", gradient: "from-orange-500 to-amber-600",  emoji: "⏰" },
+  PRIZE:         { bg: "bg-pink-50/70",    border: "border-pink-200",    icon: "text-pink-500",    badge: "bg-pink-100 text-pink-700",     gradient: "from-pink-600 to-rose-600",     emoji: "🎁" },
+  ANNOUNCEMENT:  { bg: "bg-purple-50/70",  border: "border-purple-200",  icon: "text-purple-500",  badge: "bg-purple-100 text-purple-700", gradient: "from-purple-600 to-fuchsia-600",emoji: "📢" },
+  AUTH:          { bg: "bg-cyan-50/70",    border: "border-cyan-200",    icon: "text-cyan-500",    badge: "bg-cyan-100 text-cyan-700",     gradient: "from-cyan-600 to-blue-600",     emoji: "🔐" },
 };
 
-const DEFAULT_COLOR = { bg: "bg-gray-50", border: "border-gray-200", icon: "text-gray-500", badge: "bg-gray-100 text-gray-700", gradient: "from-slate-600 to-slate-800" };
+const DEFAULT_STYLE = { bg: "bg-gray-50", border: "border-gray-200", icon: "text-gray-500", badge: "bg-gray-100 text-gray-700", gradient: "from-slate-600 to-slate-800", emoji: "📧" };
 
-const TEMPLATE_EMOJIS: Record<string, string> = {
-  REGISTRATION_RECEIVED:  "📥",
-  REGISTRATION_CONFIRMED: "✅",
-  REGISTRATION_REJECTED:  "❌",
-  SCHEDULE_PUBLISHED:     "📅",
-  TOURNAMENT_START:       "🏁",
-  MATCH_REMINDER:         "⏰",
-  WINNER_NOTIFICATION:    "🏅",
-  TOURNAMENT_COMPLETION:  "🏆",
-  PRIZE_DISTRIBUTION:     "🎁",
-  EMAIL_OTP:              "🔐",
-  TOURNAMENT_OPEN:        "🏆",
-  TOURNAMENT_ANNOUNCEMENT:"📢",
-  REGISTRATION_OPEN:      "📢",
-};
-
-const DEFAULT_EMOJI = "📧";
-
-const TEMPLATE_ORDER = [
-  "TOURNAMENT_ANNOUNCEMENT",
-  "TOURNAMENT_OPEN",
-  "REGISTRATION_OPEN",
-  "REGISTRATION_RECEIVED",
-  "REGISTRATION_CONFIRMED",
-  "REGISTRATION_REJECTED",
-  "SCHEDULE_PUBLISHED",
-  "TOURNAMENT_START",
-  "MATCH_REMINDER",
-  "WINNER_NOTIFICATION",
-  "TOURNAMENT_COMPLETION",
-  "PRIZE_DISTRIBUTION",
-  "EMAIL_OTP"
-];
+function styleFor(category: string) {
+  return CATEGORY_STYLES[category] || DEFAULT_STYLE;
+}
 
 export function EmailTemplatesTab() {
   const [templates, setTemplates] = useState<EmailTemplateInfo[]>([]);
@@ -62,6 +28,7 @@ export function EmailTemplatesTab() {
   const [toEmail, setToEmail] = useState("");
   const [fromEmail, setFromEmail] = useState("");
   const [fromName, setFromName] = useState("");
+  const [subjectOverride, setSubjectOverride] = useState("");
 
   // Custom Banner & Sponsor Image States
   const [bannerUrl, setBannerUrl] = useState<string>("");
@@ -86,14 +53,10 @@ export function EmailTemplatesTab() {
         emailAdminService.getTemplates(),
         emailAdminService.getHealth(),
       ]);
-
-      const sorted = [...tpl.templates].sort((a, b) => {
-        const idxA = TEMPLATE_ORDER.indexOf(a.key);
-        const idxB = TEMPLATE_ORDER.indexOf(b.key);
-        return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
-      });
-
-      setTemplates(sorted);
+      // Display order follows the backend's declaration order (already a
+      // deliberately curated sequence) — no frontend-side sort table to
+      // keep in sync whenever a template is added or removed.
+      setTemplates(tpl.templates);
       setHealth(h);
     } catch {
       showError("Failed to load email data");
@@ -121,8 +84,10 @@ export function EmailTemplatesTab() {
         };
         const html = await emailAdminService.getPreviewHtml(activeTemplate.key, payload);
         if (requestId === previewRequestId.current) setPreviewHtml(html);
-      } catch {
-        if (requestId === previewRequestId.current) showError("Failed to load template preview");
+      } catch (err) {
+        if (requestId === previewRequestId.current) {
+          showError(extractApiErrorMessage(err, "Failed to load template preview"));
+        }
       } finally {
         if (requestId === previewRequestId.current) setLoadingPreview(false);
       }
@@ -164,6 +129,7 @@ export function EmailTemplatesTab() {
         sponsorImageUrl: sponsorUrl || undefined,
         fromEmail: fromEmail || undefined,
         fromName: fromName || undefined,
+        subject: subjectOverride || undefined,
       };
       const result = await emailAdminService.sendTest(activeTemplate.key, toEmail || undefined, customVars);
       if (result.mailEnabled) {
@@ -171,8 +137,8 @@ export function EmailTemplatesTab() {
       } else {
         showWarning("Mail disabled — email rendered but not sent via SMTP");
       }
-    } catch {
-      showError("Failed to send test");
+    } catch (err) {
+      showError(extractApiErrorMessage(err, "Failed to send test"));
     } finally {
       setSendingTemplate(false);
     }
@@ -195,6 +161,7 @@ export function EmailTemplatesTab() {
         sponsorImageUrl: sponsorUrl || undefined,
         fromEmail: fromEmail || undefined,
         fromName: fromName || undefined,
+        subject: subjectOverride || undefined,
       };
       const result = await emailAdminService.sendAllTests(toEmail || undefined, customVars);
       setLastAllResult(result);
@@ -203,8 +170,8 @@ export function EmailTemplatesTab() {
       } else {
         showSuccess(`All ${result.sent} templates sent successfully to ${result.to}`);
       }
-    } catch {
-      showError("Failed to send all tests");
+    } catch (err) {
+      showError(extractApiErrorMessage(err, "Failed to send all tests"));
     } finally {
       setSendingAll(false);
     }
@@ -287,6 +254,16 @@ export function EmailTemplatesTab() {
                 value={fromName}
                 onChange={e => setFromName(e.target.value)}
                 placeholder="Mana Community"
+                className="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block mb-1">Test Subject Override</label>
+              <input
+                type="text"
+                value={subjectOverride}
+                onChange={e => setSubjectOverride(e.target.value)}
+                placeholder="Leave blank to use the default subject"
                 className="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
               />
             </div>
@@ -467,18 +444,17 @@ export function EmailTemplatesTab() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {templates.map(tpl => {
-            const colors = TEMPLATE_COLORS[tpl.key] || DEFAULT_COLOR;
-            const emoji = TEMPLATE_EMOJIS[tpl.key] || DEFAULT_EMOJI;
+            const style = styleFor(tpl.category);
             const templateLabel = tpl.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
             return (
               <div
                 key={tpl.key}
                 onClick={() => setActiveTemplate(tpl)}
-                className={`group rounded-2xl border bg-white overflow-hidden transition-all duration-200 hover:scale-[1.01] hover:shadow-md cursor-pointer ${colors.border}`}
+                className={`group rounded-2xl border bg-white overflow-hidden transition-all duration-200 hover:scale-[1.01] hover:shadow-md cursor-pointer ${style.border}`}
               >
-                <div className={`flex items-center gap-3 p-4 ${colors.bg}`}>
-                  <div className="text-xl flex-shrink-0">{emoji}</div>
+                <div className={`flex items-center gap-3 p-4 ${style.bg}`}>
+                  <div className="text-xl flex-shrink-0">{style.emoji}</div>
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors">{templateLabel}</div>
                     <div className="text-[10px] text-slate-400 truncate mt-0.5">{tpl.subject}</div>
@@ -501,7 +477,7 @@ export function EmailTemplatesTab() {
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200">
               <div className="flex items-center gap-2.5">
-                <span className="text-2xl">{TEMPLATE_EMOJIS[activeTemplate.key] || DEFAULT_EMOJI}</span>
+                <span className="text-2xl">{styleFor(activeTemplate.category).emoji}</span>
                 <div>
                   <h3 className="text-sm font-black text-slate-800">
                     {activeTemplate.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
@@ -562,6 +538,16 @@ export function EmailTemplatesTab() {
                         className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
                       />
                     </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 uppercase font-black tracking-wider block mb-1">Subject Override</label>
+                      <input
+                        type="text"
+                        value={subjectOverride}
+                        onChange={e => setSubjectOverride(e.target.value)}
+                        placeholder={activeTemplate.subject}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
+                      />
+                    </div>
                   </div>
 
                   {/* Quick toggle indicator */}
@@ -579,7 +565,7 @@ export function EmailTemplatesTab() {
                 <button
                   onClick={handleSendTest}
                   disabled={sendingTemplate}
-                  className={`w-full py-3 px-4 rounded-xl text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r ${TEMPLATE_COLORS[activeTemplate.key]?.gradient || DEFAULT_COLOR.gradient}`}
+                  className={`w-full py-3 px-4 rounded-xl text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r ${styleFor(activeTemplate.category).gradient}`}
                 >
                   {sendingTemplate ? (
                     <RefreshCw className="w-4 h-4 animate-spin" />
