@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import {
-  Package, Edit, Trash2, Eye, Pause, Play, CheckCircle2, Loader2,
+  Package, Trash2, Eye, Pause, Play, CheckCircle2, Loader2,
   ImagePlus, Tag, MoreVertical
 } from "lucide-react";
 import { listingService, type ListingResponse } from "../../../services/listingService";

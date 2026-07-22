@@ -12,8 +12,7 @@ import {
 } from "../../../services/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useChat } from "../../../contexts/ChatContext";
-import type { PaginatedResponse } from "../../../types/api";
-import { USE_MOCK_DATA, MOCK_LISTINGS, MOCK_REVIEWS, MOCK_REVIEW_STATS, paginate } from "./mockData";
+import { USE_MOCK_DATA, MOCK_LISTINGS, MOCK_REVIEWS, MOCK_REVIEW_STATS } from "./mockData";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 

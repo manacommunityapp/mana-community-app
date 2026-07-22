@@ -1,18 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
 import {
-  Gift, Heart, Plus, X, Loader2, ImagePlus, Tag,
+  Gift, Heart, Plus, X, Loader2, Tag,
   ChevronLeft, ChevronRight, HandHeart, Check
 } from "lucide-react";
 import {
   donationService, type DonationResponse, type DonationRequest
 } from "../../../services/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
-import type { PaginatedResponse } from "../../../types/api";
 import { USE_MOCK_DATA, MOCK_DONATIONS, paginate } from "./mockData";
-
-function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
 const conditionLabels: Record<string, string> = {
   NEW: "Brand New",

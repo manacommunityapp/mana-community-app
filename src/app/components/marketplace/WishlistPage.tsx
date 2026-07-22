@@ -1,12 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
 import { Heart, Trash2, Loader2, ImagePlus, Tag, ShoppingBag } from "lucide-react";
 import { wishlistService, type WishlistResponse } from "../../../services/listingService";
 import { USE_MOCK_DATA, MOCK_WISHLIST } from "./mockData";
-
-function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
 
 function formatPrice(price: number): string {
   return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(price);

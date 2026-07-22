@@ -9,7 +9,6 @@ import type {
 } from "../../../services/listingService";
 import type { PaginatedResponse } from "../../../types/api";
 
-const now = new Date().toISOString();
 const daysAgo = (d: number) => new Date(Date.now() - d * 86400000).toISOString();
 
 export const MOCK_LISTINGS: ListingResponse[] = [

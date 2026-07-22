@@ -8,7 +8,6 @@ import {
 import { orderService, type OrderResponse } from "../../../services/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { CREATE_LISTING } from "../../../constants/permissions";
-import type { PaginatedResponse } from "../../../types/api";
 import { USE_MOCK_DATA, MOCK_ORDERS, paginate } from "./mockData";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }
