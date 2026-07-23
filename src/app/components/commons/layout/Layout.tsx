@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote } from "lucide-react";
+import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server } from "lucide-react";
 import { useState } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -296,8 +296,8 @@ export function Layout() {
                       className={({ isActive }) =>
                         cn(
                           "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                          isActive 
-                            ? "text-white bg-primary border-primary/25 shadow-sm" 
+                          isActive
+                            ? "text-white bg-primary border-primary/25 shadow-sm"
                             : "text-white/50 hover:text-white/85 hover:bg-white/5"
                         )
                       }
@@ -306,6 +306,26 @@ export function Layout() {
                         <>
                           <ClipboardList className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
                           Asset Audit
+                        </>
+                      )}
+                    </NavLink>
+
+                    <NavLink
+                      to="/community/resource-booking"
+                      onClick={() => setIsSidebarOpen(false)}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                          isActive
+                            ? "text-white bg-primary border-primary/25 shadow-sm"
+                            : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                        )
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <Server className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                          Resource Booking
                         </>
                       )}
                     </NavLink>

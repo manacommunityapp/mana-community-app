@@ -118,6 +118,18 @@ export const VIEW_EVENTS    = "View Events";
 export const CREATE_EVENT   = "Create Event";
 export const REGISTER_EVENT = "Register Event";
 
+// ──── RESOURCE BOOKING ────
+export const VIEW_RESOURCE_BOOKING = "View Resource Booking";
+export const MANAGE_RESOURCES = "Manage Resources";
+export const MANAGE_RESOURCE_CATEGORIES = "Manage Resource Categories";
+export const MANAGE_BOOKING_RULES = "Manage Booking Rules";
+export const MANAGE_PRICING = "Manage Pricing";
+export const MANAGE_MAINTENANCE = "Manage Maintenance";
+export const APPROVE_BOOKINGS = "Approve Bookings";
+export const VIEW_BOOKING_ANALYTICS = "View Booking Analytics";
+export const MANAGE_COUPONS = "Manage Coupons";
+export const MANAGE_WORKFLOWS = "Manage Workflows";
+
 // ──── ADMIN DASHBOARD ────
 export const VIEW_ADMIN         = "View Admin";
 export const VERIFY_KYC         = "Verify KYC";
@@ -198,6 +210,15 @@ export const PERMISSION_CATEGORIES = [
     id: "events",
     title: "EVENTS Permission",
     permissions: [VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT],
+  },
+  {
+    id: "resource-booking",
+    title: "RESOURCE BOOKING Permission",
+    permissions: [
+      VIEW_RESOURCE_BOOKING, MANAGE_RESOURCES, MANAGE_RESOURCE_CATEGORIES,
+      MANAGE_BOOKING_RULES, MANAGE_PRICING, MANAGE_MAINTENANCE,
+      APPROVE_BOOKINGS, VIEW_BOOKING_ANALYTICS, MANAGE_COUPONS, MANAGE_WORKFLOWS,
+    ],
   },
   {
     id: "admin",
