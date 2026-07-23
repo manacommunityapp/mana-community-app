@@ -75,6 +75,7 @@ import { VendorCategories } from "./components/vendor/admin/VendorCategories";
 import { WorkOrdersManagement } from "./components/vendor/admin/WorkOrdersManagement";
 import { ContractsManagement } from "./components/vendor/admin/ContractsManagement";
 import { PaymentsManagement } from "./components/vendor/admin/PaymentsManagement";
+import { VendorAnalytics } from "./components/vendor/admin/VendorAnalytics";
 import { VendorPortalLayout } from "./components/vendor/portal/VendorPortalLayout";
 import { VendorPortalDashboard } from "./components/vendor/portal/VendorPortalDashboard";
 import { MyServices } from "./components/vendor/portal/MyServices";
@@ -316,6 +317,7 @@ export const router = createBrowserRouter([
           { path: "work-orders", element: <PermissionGuard permission={MANAGE_WORK_ORDERS}><WorkOrdersManagement /></PermissionGuard> },
           { path: "contracts", element: <PermissionGuard permission={MANAGE_CONTRACTS}><ContractsManagement /></PermissionGuard> },
           { path: "payments", element: <PermissionGuard permission={MANAGE_VENDOR_PAYMENTS}><PaymentsManagement /></PermissionGuard> },
+          { path: "analytics", element: <PermissionGuard permission={VIEW_VENDOR_ANALYTICS}><VendorAnalytics /></PermissionGuard> },
         ],
       },
       {
