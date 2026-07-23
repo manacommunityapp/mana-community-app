@@ -1,19 +1,16 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  CreditCard,
+  Search,
   Filter,
   Loader2,
-  Eye,
-  IndianRupee,
-  ArrowDownRight,
-  ArrowUpRight,
-  Clock,
-  CheckCircle2,
-  XCircle,
+  Calendar,
+  DollarSign,
+  CreditCard,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
+import { Card, CardContent } from "../../ui/card";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
+import { Input } from "../../ui/input";
 import {
   Table,
   TableBody,
@@ -29,16 +26,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../../ui/dialog";
 import { vendorPaymentService } from "../../../../services/vendorService";
 import { showError } from "../../../../utils/ToastUtils";
-import type { VendorPaymentResponse, PaginatedResponse } from "../../../../types/api";
+import type {
+  VendorPaymentResponse,
+  PaginatedResponse,
+} from "../../../../types/api";
 
 const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   PENDING: { label: "Pending", variant: "secondary" },
@@ -48,7 +41,7 @@ const STATUS_BADGE: Record<string, { label: string; variant: "default" | "second
   REFUNDED: { label: "Refunded", variant: "destructive" },
 };
 
-const METHOD_LABELS: Record<string, string> = {
+const METHOD_LABEL: Record<string, string> = {
   BANK_TRANSFER: "Bank Transfer",
   UPI: "UPI",
   CHEQUE: "Cheque",
@@ -62,51 +55,80 @@ export function PaymentsManagement() {
   const [totalPages, setTotalPages] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [methodFilter, setMethodFilter] = useState<string>("ALL");
 
-  // Detail dialog
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [selected, setSelected] = useState<VendorPaymentResponse | null>(null);
-
-  const loadData = useCallback(async () => {
+  const loadPayments = useCallback(async () => {
     setLoading(true);
     try {
-      const params: Record<string, unknown> = { page, size: 15 };
+      const params: Record<string, unknown> = { page, size: 10 };
       if (statusFilter !== "ALL") params.status = statusFilter;
+
       const result: PaginatedResponse<VendorPaymentResponse> =
         await vendorPaymentService.getPayments(params as any);
-      setPayments(result.content);
+      let filtered = result.content;
+
+      if (methodFilter !== "ALL") {
+        filtered = filtered.filter((p) => p.method === methodFilter);
+      }
+      if (search) {
+        filtered = filtered.filter(
+          (p) =>
+            p.paymentNumber.toLowerCase().includes(search.toLowerCase()) ||
+            p.vendor.businessName.toLowerCase().includes(search.toLowerCase()) ||
+            p.invoiceNumber.toLowerCase().includes(search.toLowerCase()),
+        );
+      }
+
+      setPayments(filtered);
       setTotalPages(result.totalPages);
     } catch {
       showError("Failed to load payments");
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter]);
+  }, [page, statusFilter, methodFilter, search]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadPayments();
+  }, [loadPayments]);
 
-  const formatCurrency = (n: number) =>
-    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(n);
+  function formatCurrency(value: number): string {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(value);
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Payments</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          View and track vendor payment records
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Payments</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Track vendor payment transactions
+          </p>
+        </div>
       </div>
 
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
           <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search payments..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+                className="pl-9"
+              />
+            </div>
             <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
-              <SelectTrigger className="w-full sm:w-44">
+              <SelectTrigger className="w-full sm:w-40">
                 <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -117,6 +139,21 @@ export function PaymentsManagement() {
                 <SelectItem value="COMPLETED">Completed</SelectItem>
                 <SelectItem value="FAILED">Failed</SelectItem>
                 <SelectItem value="REFUNDED">Refunded</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={methodFilter} onValueChange={(v) => { setMethodFilter(v); setPage(0); }}>
+              <SelectTrigger className="w-full sm:w-44">
+                <CreditCard className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Method" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Methods</SelectItem>
+                <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                <SelectItem value="UPI">UPI</SelectItem>
+                <SelectItem value="CHEQUE">Cheque</SelectItem>
+                <SelectItem value="CASH">Cash</SelectItem>
+                <SelectItem value="WALLET">Wallet</SelectItem>
+                <SelectItem value="CARD">Card</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -132,7 +169,6 @@ export function PaymentsManagement() {
             </div>
           ) : payments.length === 0 ? (
             <div className="text-center py-16">
-              <CreditCard className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">No payments found</p>
             </div>
           ) : (
@@ -143,10 +179,9 @@ export function PaymentsManagement() {
                     <TableHead>Payment</TableHead>
                     <TableHead className="hidden md:table-cell">Vendor</TableHead>
                     <TableHead>Amount</TableHead>
-                    <TableHead className="hidden md:table-cell">Method</TableHead>
+                    <TableHead className="hidden lg:table-cell">Method</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="hidden lg:table-cell">Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="hidden md:table-cell">Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -155,41 +190,42 @@ export function PaymentsManagement() {
                     return (
                       <TableRow key={p.id}>
                         <TableCell>
-                          <div>
-                            <p className="text-sm font-medium text-foreground">#{p.paymentNumber}</p>
-                            <p className="text-xs text-muted-foreground">Invoice #{p.invoiceNumber}</p>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground font-mono">
+                              {p.paymentNumber}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              Invoice: {p.invoiceNumber}
+                            </p>
                           </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          <span className="text-sm text-foreground">{p.vendor?.businessName || "--"}</span>
+                          <span className="text-sm text-foreground">{p.vendor.businessName}</span>
                         </TableCell>
                         <TableCell>
-                          <span className="text-sm font-semibold text-foreground">{formatCurrency(p.amount)}</span>
+                          <div className="flex items-center gap-1 text-sm font-medium text-foreground">
+                            <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                            {formatCurrency(p.amount)}
+                          </div>
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <span className="text-sm text-muted-foreground">
-                            {METHOD_LABELS[p.method] || p.method}
-                          </span>
+                        <TableCell className="hidden lg:table-cell">
+                          <Badge variant="outline">{METHOD_LABEL[p.method] ?? p.method}</Badge>
                         </TableCell>
                         <TableCell>
                           <Badge variant={badge.variant}>{badge.label}</Badge>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <span className="text-xs text-muted-foreground">
+                        <TableCell className="hidden md:table-cell">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
                             {p.paidAt
                               ? new Date(p.paidAt).toLocaleDateString()
                               : new Date(p.createdAt).toLocaleDateString()}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="View Details"
-                            onClick={() => { setSelected(p); setDetailOpen(true); }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          </div>
+                          {p.transactionId && (
+                            <p className="text-xs text-muted-foreground font-mono truncate max-w-[120px]">
+                              Txn: {p.transactionId}
+                            </p>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -204,83 +240,27 @@ export function PaymentsManagement() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === 0}
+            onClick={() => setPage((p) => p - 1)}
+          >
             Previous
           </Button>
-          <span className="text-sm text-muted-foreground">Page {page + 1} of {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            Page {page + 1} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page + 1 >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             Next
           </Button>
         </div>
       )}
-
-      {/* Detail dialog */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Payment Details</DialogTitle>
-          </DialogHeader>
-          {selected && (
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-muted-foreground">Payment Number</p>
-                  <p className="font-medium text-foreground">#{selected.paymentNumber}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Invoice</p>
-                  <p className="font-medium text-foreground">#{selected.invoiceNumber}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Vendor</p>
-                  <p className="font-medium text-foreground">{selected.vendor?.businessName || "--"}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Status</p>
-                  <Badge variant={STATUS_BADGE[selected.status]?.variant ?? "outline"}>
-                    {STATUS_BADGE[selected.status]?.label ?? selected.status}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Amount</p>
-                  <p className="font-bold text-foreground text-base">{formatCurrency(selected.amount)}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Method</p>
-                  <p className="font-medium text-foreground">{METHOD_LABELS[selected.method] || selected.method}</p>
-                </div>
-                {selected.transactionId && (
-                  <div className="col-span-2">
-                    <p className="text-muted-foreground">Transaction ID</p>
-                    <p className="font-mono text-foreground text-xs">{selected.transactionId}</p>
-                  </div>
-                )}
-                <div>
-                  <p className="text-muted-foreground">Paid At</p>
-                  <p className="font-medium text-foreground">
-                    {selected.paidAt ? new Date(selected.paidAt).toLocaleString() : "Pending"}
-                  </p>
-                </div>
-                {selected.processedBy && (
-                  <div>
-                    <p className="text-muted-foreground">Processed By</p>
-                    <p className="font-medium text-foreground">{selected.processedBy.fullName}</p>
-                  </div>
-                )}
-              </div>
-              {selected.remarks && (
-                <div>
-                  <p className="text-muted-foreground">Remarks</p>
-                  <p className="text-foreground">{selected.remarks}</p>
-                </div>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -1,20 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  FileText,
-  Plus,
+  Search,
   Filter,
   Loader2,
-  Eye,
-  RefreshCw,
-  XCircle,
+  Plus,
   Calendar,
-  IndianRupee,
+  Eye,
+  DollarSign,
 } from "lucide-react";
 import { Card, CardContent } from "../../ui/card";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
-import { Textarea } from "../../ui/textarea";
 import {
   Table,
   TableBody,
@@ -38,20 +35,26 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../ui/dialog";
+import { Label } from "../../ui/label";
+import { Textarea } from "../../ui/textarea";
 import { vendorContractService } from "../../../../services/vendorService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
-import type { ContractResponse, ContractRequest, PaginatedResponse } from "../../../../types/api";
+import type {
+  ContractResponse,
+  ContractRequest,
+  PaginatedResponse,
+} from "../../../../types/api";
 
 const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   DRAFT: { label: "Draft", variant: "outline" },
   ACTIVE: { label: "Active", variant: "default" },
-  EXPIRED: { label: "Expired", variant: "secondary" },
+  EXPIRED: { label: "Expired", variant: "destructive" },
   TERMINATED: { label: "Terminated", variant: "destructive" },
   RENEWED: { label: "Renewed", variant: "default" },
   PENDING_RENEWAL: { label: "Pending Renewal", variant: "secondary" },
 };
 
-const EMPTY_CONTRACT: ContractRequest = {
+const EMPTY_FORM: ContractRequest = {
   title: "",
   vendorId: 0,
   startDate: "",
@@ -59,8 +62,8 @@ const EMPTY_CONTRACT: ContractRequest = {
   value: 0,
   paymentTerms: "",
   scope: "",
+  termsAndConditions: "",
   autoRenew: false,
-  renewalPeriod: undefined,
 };
 
 export function ContractsManagement() {
@@ -68,104 +71,70 @@ export function ContractsManagement() {
   const [totalPages, setTotalPages] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   // Create dialog
-  const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState<ContractRequest>({ ...EMPTY_CONTRACT });
-  const [saving, setSaving] = useState(false);
+  const [createDialog, setCreateDialog] = useState(false);
+  const [formData, setFormData] = useState<ContractRequest>({ ...EMPTY_FORM });
+  const [formLoading, setFormLoading] = useState(false);
 
   // Detail dialog
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [selected, setSelected] = useState<ContractResponse | null>(null);
+  const [detailDialog, setDetailDialog] = useState<{
+    open: boolean;
+    contract: ContractResponse | null;
+  }>({ open: false, contract: null });
 
-  // Renew dialog
-  const [renewDialog, setRenewDialog] = useState<{ open: boolean; contract: ContractResponse | null }>({
-    open: false, contract: null,
-  });
-  const [renewDate, setRenewDate] = useState("");
-  const [renewing, setRenewing] = useState(false);
-
-  // Terminate dialog
-  const [terminateDialog, setTerminateDialog] = useState<{ open: boolean; contract: ContractResponse | null }>({
-    open: false, contract: null,
-  });
-  const [terminateReason, setTerminateReason] = useState("");
-  const [terminating, setTerminating] = useState(false);
-
-  const loadData = useCallback(async () => {
+  const loadContracts = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, unknown> = { page, size: 10 };
       if (statusFilter !== "ALL") params.status = statusFilter;
+
       const result: PaginatedResponse<ContractResponse> =
         await vendorContractService.getContracts(params as any);
-      setContracts(result.content);
+      const filtered = search
+        ? result.content.filter(
+            (c) =>
+              c.title.toLowerCase().includes(search.toLowerCase()) ||
+              c.contractNumber.toLowerCase().includes(search.toLowerCase()) ||
+              c.vendor.businessName.toLowerCase().includes(search.toLowerCase()),
+          )
+        : result.content;
+      setContracts(filtered);
       setTotalPages(result.totalPages);
     } catch {
       showError("Failed to load contracts");
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter]);
+  }, [page, statusFilter, search]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadContracts();
+  }, [loadContracts]);
 
   async function handleCreate() {
-    if (!form.title.trim() || !form.vendorId || !form.startDate || !form.endDate) return;
-    setSaving(true);
+    setFormLoading(true);
     try {
-      await vendorContractService.createContract(form);
+      await vendorContractService.createContract(formData);
       showSuccess("Contract created");
-      setCreateOpen(false);
-      setForm({ ...EMPTY_CONTRACT });
-      loadData();
+      setCreateDialog(false);
+      setFormData({ ...EMPTY_FORM });
+      loadContracts();
     } catch {
       showError("Failed to create contract");
     } finally {
-      setSaving(false);
+      setFormLoading(false);
     }
   }
 
-  async function handleRenew() {
-    if (!renewDialog.contract || !renewDate) return;
-    setRenewing(true);
-    try {
-      await vendorContractService.renewContract(renewDialog.contract.id, renewDate);
-      showSuccess("Contract renewed");
-      setRenewDialog({ open: false, contract: null });
-      setRenewDate("");
-      loadData();
-    } catch {
-      showError("Failed to renew contract");
-    } finally {
-      setRenewing(false);
-    }
-  }
-
-  async function handleTerminate() {
-    if (!terminateDialog.contract || !terminateReason.trim()) return;
-    setTerminating(true);
-    try {
-      await vendorContractService.terminateContract(terminateDialog.contract.id, terminateReason);
-      showSuccess("Contract terminated");
-      setTerminateDialog({ open: false, contract: null });
-      setTerminateReason("");
-      loadData();
-    } catch {
-      showError("Failed to terminate contract");
-    } finally {
-      setTerminating(false);
-    }
-  }
-
-  const formatCurrency = (n: number) =>
-    new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
-
-  function daysUntilEnd(endDate: string): number {
-    return Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  function formatCurrency(value: number): string {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(value);
   }
 
   return (
@@ -175,11 +144,12 @@ export function ContractsManagement() {
         <div>
           <h1 className="text-xl font-bold text-foreground">Contracts</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage vendor contracts, renewals, and terminations
+            Manage vendor contracts and agreements
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} size="sm">
-          <Plus className="h-4 w-4 mr-1" /> New Contract
+        <Button onClick={() => setCreateDialog(true)}>
+          <Plus className="h-4 w-4 mr-1" />
+          Create Contract
         </Button>
       </div>
 
@@ -187,6 +157,15 @@ export function ContractsManagement() {
       <Card>
         <CardContent className="pt-4">
           <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search contracts..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+                className="pl-9"
+              />
+            </div>
             <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
               <SelectTrigger className="w-full sm:w-44">
                 <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -198,6 +177,7 @@ export function ContractsManagement() {
                 <SelectItem value="ACTIVE">Active</SelectItem>
                 <SelectItem value="EXPIRED">Expired</SelectItem>
                 <SelectItem value="TERMINATED">Terminated</SelectItem>
+                <SelectItem value="RENEWED">Renewed</SelectItem>
                 <SelectItem value="PENDING_RENEWAL">Pending Renewal</SelectItem>
               </SelectContent>
             </Select>
@@ -214,7 +194,6 @@ export function ContractsManagement() {
             </div>
           ) : contracts.length === 0 ? (
             <div className="text-center py-16">
-              <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">No contracts found</p>
             </div>
           ) : (
@@ -225,55 +204,59 @@ export function ContractsManagement() {
                     <TableHead>Contract</TableHead>
                     <TableHead className="hidden md:table-cell">Vendor</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="hidden md:table-cell">Period</TableHead>
-                    <TableHead className="hidden lg:table-cell">Value</TableHead>
+                    <TableHead className="hidden lg:table-cell">Period</TableHead>
+                    <TableHead className="hidden md:table-cell">Value</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {contracts.map((c) => {
                     const badge = STATUS_BADGE[c.status] || { label: c.status, variant: "outline" as const };
-                    const remaining = daysUntilEnd(c.endDate);
                     return (
                       <TableRow key={c.id}>
                         <TableCell>
-                          <p className="text-sm font-medium text-foreground">{c.title}</p>
-                          <p className="text-xs text-muted-foreground">#{c.contractNumber}</p>
+                          <div className="min-w-0">
+                            <p className="text-xs text-muted-foreground font-mono">
+                              {c.contractNumber}
+                            </p>
+                            <p className="text-sm font-medium text-foreground truncate max-w-[200px]">
+                              {c.title}
+                            </p>
+                          </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          <span className="text-sm text-foreground">{c.vendor?.businessName || "--"}</span>
+                          <span className="text-sm text-foreground">{c.vendor.businessName}</span>
                         </TableCell>
                         <TableCell>
                           <Badge variant={badge.variant}>{badge.label}</Badge>
-                          {c.status === "ACTIVE" && remaining <= 30 && remaining > 0 && (
-                            <span className="block text-[10px] text-amber-600 mt-0.5">{remaining}d left</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(c.startDate).toLocaleDateString()} - {new Date(c.endDate).toLocaleDateString()}
-                          </div>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell">
-                          <span className="text-sm font-medium text-foreground">{formatCurrency(c.value)}</span>
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(c.startDate).toLocaleDateString()}
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(c.endDate).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <div className="flex items-center gap-1 text-sm font-medium text-foreground">
+                            <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                            {formatCurrency(c.value)}
+                          </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button variant="ghost" size="icon" title="View" onClick={() => { setSelected(c); setDetailOpen(true); }}>
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {(c.status === "ACTIVE" || c.status === "PENDING_RENEWAL") && (
-                              <Button variant="ghost" size="icon" title="Renew" onClick={() => setRenewDialog({ open: true, contract: c })}>
-                                <RefreshCw className="h-4 w-4 text-green-600" />
-                              </Button>
-                            )}
-                            {c.status === "ACTIVE" && (
-                              <Button variant="ghost" size="icon" title="Terminate" onClick={() => setTerminateDialog({ open: true, contract: c })}>
-                                <XCircle className="h-4 w-4 text-red-500" />
-                              </Button>
-                            )}
-                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="View details"
+                            onClick={() => setDetailDialog({ open: true, contract: c })}
+                          >
+                            <Eye className="h-4 w-4 text-muted-foreground" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -288,130 +271,199 @@ export function ContractsManagement() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Previous</Button>
-          <span className="text-sm text-muted-foreground">Page {page + 1} of {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>Next</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === 0}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Page {page + 1} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page + 1 >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next
+          </Button>
         </div>
       )}
 
-      {/* Create dialog */}
-      <Dialog open={createOpen} onOpenChange={(open) => { if (!open) { setCreateOpen(false); setForm({ ...EMPTY_CONTRACT }); } }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Create Contract</DialogTitle>
-            <DialogDescription>Set up a new vendor contract.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-foreground">Title *</label>
-              <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Contract title" />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">Vendor ID *</label>
-              <Input type="number" value={form.vendorId || ""} onChange={(e) => setForm({ ...form, vendorId: Number(e.target.value) })} placeholder="Vendor ID" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-foreground">Start Date *</label>
-                <Input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">End Date *</label>
-                <Input type="date" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-foreground">Value *</label>
-                <Input type="number" value={form.value || ""} onChange={(e) => setForm({ ...form, value: Number(e.target.value) })} placeholder="0" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">Payment Terms</label>
-                <Input value={form.paymentTerms || ""} onChange={(e) => setForm({ ...form, paymentTerms: e.target.value })} placeholder="e.g. NET 30" />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">Scope</label>
-              <Textarea value={form.scope || ""} onChange={(e) => setForm({ ...form, scope: e.target.value })} placeholder="Scope of work..." />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setCreateOpen(false); setForm({ ...EMPTY_CONTRACT }); }}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={saving || !form.title.trim() || !form.vendorId || !form.startDate || !form.endDate}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              Create
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Renew dialog */}
-      <Dialog open={renewDialog.open} onOpenChange={(open) => { if (!open) { setRenewDialog({ open: false, contract: null }); setRenewDate(""); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Renew Contract</DialogTitle>
-            <DialogDescription>Extend "{renewDialog.contract?.title}" with a new end date.</DialogDescription>
-          </DialogHeader>
-          <div>
-            <label className="text-sm font-medium text-foreground">New End Date</label>
-            <Input type="date" value={renewDate} onChange={(e) => setRenewDate(e.target.value)} />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setRenewDialog({ open: false, contract: null }); setRenewDate(""); }}>Cancel</Button>
-            <Button onClick={handleRenew} disabled={renewing || !renewDate}>
-              {renewing && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              Renew
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Terminate dialog */}
-      <Dialog open={terminateDialog.open} onOpenChange={(open) => { if (!open) { setTerminateDialog({ open: false, contract: null }); setTerminateReason(""); } }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Terminate Contract</DialogTitle>
-            <DialogDescription>Terminate "{terminateDialog.contract?.title}". This action cannot be undone.</DialogDescription>
-          </DialogHeader>
-          <Textarea placeholder="Reason for termination..." value={terminateReason} onChange={(e) => setTerminateReason(e.target.value)} />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setTerminateDialog({ open: false, contract: null }); setTerminateReason(""); }}>Cancel</Button>
-            <Button variant="destructive" onClick={handleTerminate} disabled={terminating || !terminateReason.trim()}>
-              {terminating && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              Terminate
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Detail dialog */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="sm:max-w-lg">
+      <Dialog
+        open={detailDialog.open}
+        onOpenChange={(open) => {
+          if (!open) setDetailDialog({ open: false, contract: null });
+        }}
+      >
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Contract Details</DialogTitle>
+            <DialogDescription>
+              {detailDialog.contract?.contractNumber}
+            </DialogDescription>
           </DialogHeader>
-          {selected && (
+          {detailDialog.contract && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
-                <div><p className="text-muted-foreground">Number</p><p className="font-medium text-foreground">#{selected.contractNumber}</p></div>
-                <div><p className="text-muted-foreground">Title</p><p className="font-medium text-foreground">{selected.title}</p></div>
-                <div><p className="text-muted-foreground">Vendor</p><p className="font-medium text-foreground">{selected.vendor?.businessName || "--"}</p></div>
-                <div><p className="text-muted-foreground">Status</p><Badge variant={STATUS_BADGE[selected.status]?.variant ?? "outline"}>{STATUS_BADGE[selected.status]?.label ?? selected.status}</Badge></div>
-                <div><p className="text-muted-foreground">Start</p><p className="font-medium text-foreground">{new Date(selected.startDate).toLocaleDateString()}</p></div>
-                <div><p className="text-muted-foreground">End</p><p className="font-medium text-foreground">{new Date(selected.endDate).toLocaleDateString()}</p></div>
-                <div><p className="text-muted-foreground">Value</p><p className="font-medium text-foreground">{formatCurrency(selected.value)}</p></div>
-                <div><p className="text-muted-foreground">Auto-Renew</p><p className="font-medium text-foreground">{selected.autoRenew ? "Yes" : "No"}</p></div>
+                <div>
+                  <p className="text-muted-foreground">Title</p>
+                  <p className="font-medium text-foreground">{detailDialog.contract.title}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Status</p>
+                  <Badge variant={STATUS_BADGE[detailDialog.contract.status]?.variant ?? "outline"}>
+                    {STATUS_BADGE[detailDialog.contract.status]?.label ?? detailDialog.contract.status}
+                  </Badge>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Vendor</p>
+                  <p className="font-medium text-foreground">{detailDialog.contract.vendor.businessName}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Value</p>
+                  <p className="font-medium text-foreground">{formatCurrency(detailDialog.contract.value)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Start Date</p>
+                  <p className="font-medium text-foreground">
+                    {new Date(detailDialog.contract.startDate).toLocaleDateString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">End Date</p>
+                  <p className="font-medium text-foreground">
+                    {new Date(detailDialog.contract.endDate).toLocaleDateString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Auto Renew</p>
+                  <p className="font-medium text-foreground">{detailDialog.contract.autoRenew ? "Yes" : "No"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Signed</p>
+                  <p className="font-medium text-foreground">
+                    Admin: {detailDialog.contract.signedByAdmin ? "Yes" : "No"} |
+                    Vendor: {detailDialog.contract.signedByVendor ? "Yes" : "No"}
+                  </p>
+                </div>
               </div>
-              {selected.scope && (
-                <div><p className="text-muted-foreground">Scope</p><p className="text-foreground whitespace-pre-wrap">{selected.scope}</p></div>
+              {detailDialog.contract.scope && (
+                <div>
+                  <p className="text-muted-foreground">Scope</p>
+                  <p className="font-medium text-foreground">{detailDialog.contract.scope}</p>
+                </div>
               )}
-              {selected.paymentTerms && (
-                <div><p className="text-muted-foreground">Payment Terms</p><p className="text-foreground">{selected.paymentTerms}</p></div>
+              {detailDialog.contract.paymentTerms && (
+                <div>
+                  <p className="text-muted-foreground">Payment Terms</p>
+                  <p className="font-medium text-foreground">{detailDialog.contract.paymentTerms}</p>
+                </div>
               )}
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailOpen(false)}>Close</Button>
+            <Button variant="outline" onClick={() => setDetailDialog({ open: false, contract: null })}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create contract dialog */}
+      <Dialog open={createDialog} onOpenChange={(open) => { if (!open) { setCreateDialog(false); setFormData({ ...EMPTY_FORM }); } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Create Contract</DialogTitle>
+            <DialogDescription>Create a new vendor contract.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="ct-title">Title</Label>
+              <Input
+                id="ct-title"
+                placeholder="Contract title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ct-vendor">Vendor ID</Label>
+              <Input
+                id="ct-vendor"
+                type="number"
+                placeholder="Vendor ID"
+                value={formData.vendorId || ""}
+                onChange={(e) => setFormData({ ...formData, vendorId: Number(e.target.value) })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="ct-start">Start Date</Label>
+                <Input
+                  id="ct-start"
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ct-end">End Date</Label>
+                <Input
+                  id="ct-end"
+                  type="date"
+                  value={formData.endDate}
+                  onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ct-value">Contract Value</Label>
+              <Input
+                id="ct-value"
+                type="number"
+                placeholder="0.00"
+                value={formData.value || ""}
+                onChange={(e) => setFormData({ ...formData, value: Number(e.target.value) })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ct-terms">Payment Terms</Label>
+              <Input
+                id="ct-terms"
+                placeholder="e.g. Net 30"
+                value={formData.paymentTerms ?? ""}
+                onChange={(e) => setFormData({ ...formData, paymentTerms: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ct-scope">Scope</Label>
+              <Textarea
+                id="ct-scope"
+                placeholder="Scope of work..."
+                value={formData.scope ?? ""}
+                onChange={(e) => setFormData({ ...formData, scope: e.target.value })}
+                className="min-h-[60px]"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setCreateDialog(false); setFormData({ ...EMPTY_FORM }); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={formLoading || !formData.title.trim() || !formData.vendorId || !formData.startDate || !formData.endDate}
+            >
+              {formLoading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Create
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
