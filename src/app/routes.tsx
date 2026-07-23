@@ -84,7 +84,12 @@ import { MyAvailability } from "./components/vendor/portal/MyAvailability";
 import { MyPayments } from "./components/vendor/portal/MyPayments";
 import { MyDocuments } from "./components/vendor/portal/MyDocuments";
 import { MyRatings } from "./components/vendor/portal/MyRatings";
+import { VendorProfile } from "./components/vendor/portal/VendorProfile";
 import { ServiceMarketplace } from "./components/vendor/marketplace/ServiceMarketplace";
+import { VendorProfilePublic } from "./components/vendor/marketplace/VendorProfilePublic";
+import { BookingFlow } from "./components/vendor/marketplace/BookingFlow";
+import { MyBookingsResident } from "./components/vendor/marketplace/MyBookingsResident";
+import { FavoriteVendors } from "./components/vendor/marketplace/FavoriteVendors";
 
 // Permission constants
 import {
@@ -331,11 +336,33 @@ export const router = createBrowserRouter([
           { path: "payments", Component: MyPayments },
           { path: "documents", Component: MyDocuments },
           { path: "ratings", Component: MyRatings },
+          { path: "profile", Component: VendorProfile },
         ],
       },
       {
         path: "vendor-marketplace",
-        element: <PermissionGuard permission={BOOK_VENDOR_SERVICE} requiredModule="VENDOR_MANAGEMENT"><ServiceMarketplace /></PermissionGuard>,
+        children: [
+          {
+            index: true,
+            element: <PermissionGuard permission={BOOK_VENDOR_SERVICE} requiredModule="VENDOR_MANAGEMENT"><ServiceMarketplace /></PermissionGuard>,
+          },
+          {
+            path: "vendor/:vendorId",
+            element: <PermissionGuard permission={BOOK_VENDOR_SERVICE} requiredModule="VENDOR_MANAGEMENT"><VendorProfilePublic /></PermissionGuard>,
+          },
+          {
+            path: "vendor/:vendorId/book/:serviceId",
+            element: <PermissionGuard permission={BOOK_VENDOR_SERVICE} requiredModule="VENDOR_MANAGEMENT"><BookingFlow /></PermissionGuard>,
+          },
+          {
+            path: "my-bookings",
+            element: <PermissionGuard permission={BOOK_VENDOR_SERVICE} requiredModule="VENDOR_MANAGEMENT"><MyBookingsResident /></PermissionGuard>,
+          },
+          {
+            path: "favorites",
+            element: <PermissionGuard permission={BOOK_VENDOR_SERVICE} requiredModule="VENDOR_MANAGEMENT"><FavoriteVendors /></PermissionGuard>,
+          },
+        ],
       },
       {
         path: "chat",
