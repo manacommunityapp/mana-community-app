@@ -62,7 +62,8 @@ import { SportsAnalytics }    from "./components/sports/SportsAnalytics";
 
 import { VisitorManagement } from "./components/visitors/VisitorManagement";
 import { NoticeBoard } from "./components/notices/NoticeBoard";
-import { AmenityBooking } from "./components/bookings/AmenityBooking";
+import { ResourceBookingDashboard } from "./components/bookings/ResourceBookingDashboard";
+import { ResourceAdmin } from "./components/bookings/admin/ResourceAdmin";
 import { Helpdesk } from "./components/helpdesk/Helpdesk";
 import { Polling } from "./components/polling/Polling";
 
@@ -74,6 +75,7 @@ import {
   CREATE_EDIT_SPORTS_MAIN, VIEW_ADMIN, BULK_UPLOAD, MANAGE_COMMUNITIES,
   MANAGE_ROLES, VIEW_MARKETPLACE, CREATE_LISTING, VIEW_JOBS, VIEW_EVENTS, VIEW_VISITORS,
   VIEW_NOTICES, VIEW_AMENITIES, VIEW_TICKETS, VIEW_POLLS,
+  VIEW_RESOURCE_BOOKING, MANAGE_RESOURCES,
 } from "../constants/permissions";
 
 export const router = createBrowserRouter([
@@ -215,7 +217,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "bookings",
-        element: <PermissionGuard permission={VIEW_AMENITIES} requiredModule="BOOKINGS"><AmenityBooking /></PermissionGuard>
+        element: <PermissionGuard permission={VIEW_RESOURCE_BOOKING} requiredModule="BOOKINGS"><ResourceBookingDashboard /></PermissionGuard>
       },
       {
         path: "helpdesk",
@@ -259,6 +261,10 @@ export const router = createBrowserRouter([
           {
             path: "audit",
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><AssetAuditDashboard /></PermissionGuard>
+          },
+          {
+            path: "resource-booking",
+            element: <PermissionGuard permission={MANAGE_RESOURCES} requiredModule="BOOKINGS"><ResourceAdmin /></PermissionGuard>
           }
         ]
       },
