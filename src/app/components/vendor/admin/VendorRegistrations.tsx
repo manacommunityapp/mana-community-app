@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Search,
+  Filter,
   Loader2,
   CheckCircle,
   XCircle,
-  Clock,
   Eye,
-  FileText,
+  Mail,
+  Phone,
+  Calendar,
+  User,
 } from "lucide-react";
 import { Card, CardContent } from "../../ui/card";
 import { Badge } from "../../ui/badge";
@@ -38,9 +41,12 @@ import {
 import { Textarea } from "../../ui/textarea";
 import { vendorRegistrationService } from "../../../../services/vendorService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
-import type { VendorRegistrationResponse, PaginatedResponse } from "../../../../types/api";
+import type {
+  VendorRegistrationResponse,
+  PaginatedResponse,
+} from "../../../../types/api";
 
-const REG_STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   PENDING: { label: "Pending", variant: "secondary" },
   UNDER_REVIEW: { label: "Under Review", variant: "outline" },
   APPROVED: { label: "Approved", variant: "default" },
@@ -53,61 +59,68 @@ export function VendorRegistrations() {
   const [totalPages, setTotalPages] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
-  // Detail dialog
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [selected, setSelected] = useState<VendorRegistrationResponse | null>(null);
-
   // Action dialog
-  const [rejectOpen, setRejectOpen] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
+  const [actionDialog, setActionDialog] = useState<{
+    open: boolean;
+    type: "approve" | "reject";
+    registration: VendorRegistrationResponse | null;
+  }>({ open: false, type: "approve", registration: null });
+  const [actionReason, setActionReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
-  const loadData = useCallback(async () => {
+  // Detail dialog
+  const [detailDialog, setDetailDialog] = useState<{
+    open: boolean;
+    registration: VendorRegistrationResponse | null;
+  }>({ open: false, registration: null });
+
+  const loadRegistrations = useCallback(async () => {
     setLoading(true);
     try {
-      const status = statusFilter === "ALL" ? undefined : statusFilter;
+      const status = statusFilter !== "ALL" ? statusFilter : undefined;
       const result: PaginatedResponse<VendorRegistrationResponse> =
         await vendorRegistrationService.getRegistrations(status, page, 10);
-      setRegistrations(result.content);
+      const filtered = search
+        ? result.content.filter(
+            (r) =>
+              r.businessName.toLowerCase().includes(search.toLowerCase()) ||
+              r.ownerName.toLowerCase().includes(search.toLowerCase()) ||
+              r.ownerEmail.toLowerCase().includes(search.toLowerCase()),
+          )
+        : result.content;
+      setRegistrations(filtered);
       setTotalPages(result.totalPages);
     } catch {
       showError("Failed to load registrations");
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter]);
+  }, [page, statusFilter, search]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadRegistrations();
+  }, [loadRegistrations]);
 
-  async function handleApprove(reg: VendorRegistrationResponse) {
+  async function handleAction() {
+    if (!actionDialog.registration) return;
     setActionLoading(true);
     try {
-      await vendorRegistrationService.approveRegistration(reg.id);
-      showSuccess(`Registration for "${reg.businessName}" approved`);
-      loadData();
+      const id = actionDialog.registration.id;
+      if (actionDialog.type === "approve") {
+        await vendorRegistrationService.approveRegistration(id, actionReason || undefined);
+        showSuccess("Registration approved");
+      } else {
+        await vendorRegistrationService.rejectRegistration(id, actionReason);
+        showSuccess("Registration rejected");
+      }
+      setActionDialog({ open: false, type: "approve", registration: null });
+      setActionReason("");
+      loadRegistrations();
     } catch {
-      showError("Failed to approve registration");
-    } finally {
-      setActionLoading(false);
-    }
-  }
-
-  async function handleReject() {
-    if (!selected) return;
-    setActionLoading(true);
-    try {
-      await vendorRegistrationService.rejectRegistration(selected.id, rejectReason);
-      showSuccess(`Registration for "${selected.businessName}" rejected`);
-      setRejectOpen(false);
-      setRejectReason("");
-      setSelected(null);
-      loadData();
-    } catch {
-      showError("Failed to reject registration");
+      showError(`Failed to ${actionDialog.type} registration`);
     } finally {
       setActionLoading(false);
     }
@@ -116,20 +129,32 @@ export function VendorRegistrations() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Vendor Registrations</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Review and process vendor registration requests
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Vendor Registrations</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Review and manage vendor registration applications
+          </p>
+        </div>
       </div>
 
       {/* Filters */}
       <Card>
         <CardContent className="pt-4">
           <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by business or owner..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+                className="pl-9"
+              />
+            </div>
             <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
               <SelectTrigger className="w-full sm:w-44">
-                <SelectValue placeholder="Filter by status" />
+                <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Statuses</SelectItem>
@@ -152,7 +177,6 @@ export function VendorRegistrations() {
             </div>
           ) : registrations.length === 0 ? (
             <div className="text-center py-16">
-              <Clock className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">No registrations found</p>
             </div>
           ) : (
@@ -162,56 +186,68 @@ export function VendorRegistrations() {
                   <TableRow>
                     <TableHead>Business</TableHead>
                     <TableHead className="hidden md:table-cell">Owner</TableHead>
-                    <TableHead className="hidden md:table-cell">Category</TableHead>
+                    <TableHead className="hidden lg:table-cell">Category</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="hidden lg:table-cell">Submitted</TableHead>
+                    <TableHead className="hidden md:table-cell">Submitted</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {registrations.map((reg) => {
-                    const badge = REG_STATUS_BADGE[reg.status] || { label: reg.status, variant: "outline" as const };
+                  {registrations.map((r) => {
+                    const badge = STATUS_BADGE[r.status] || { label: r.status, variant: "outline" as const };
                     return (
-                      <TableRow key={reg.id}>
+                      <TableRow key={r.id}>
                         <TableCell>
-                          <p className="text-sm font-medium text-foreground">{reg.businessName}</p>
-                          <p className="text-xs text-muted-foreground truncate max-w-[180px]">
-                            {reg.address || "--"}
-                          </p>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate max-w-[200px]">
+                              {r.businessName}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {r.ownerEmail}
+                            </p>
+                          </div>
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
-                          <p className="text-sm text-foreground">{reg.ownerName}</p>
-                          <p className="text-xs text-muted-foreground">{reg.ownerEmail}</p>
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1 text-sm text-foreground">
+                              <User className="h-3 w-3 text-muted-foreground" /> {r.ownerName}
+                            </div>
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Phone className="h-3 w-3" /> {r.ownerPhone || "--"}
+                            </div>
+                          </div>
                         </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <span className="text-sm text-foreground">{reg.categoryName || "--"}</span>
+                        <TableCell className="hidden lg:table-cell">
+                          <span className="text-sm text-foreground">{r.categoryName || "--"}</span>
                         </TableCell>
                         <TableCell>
                           <Badge variant={badge.variant}>{badge.label}</Badge>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(reg.submittedAt).toLocaleDateString()}
-                          </span>
+                        <TableCell className="hidden md:table-cell">
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {new Date(r.submittedAt).toLocaleDateString()}
+                          </div>
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
-                              title="View Details"
-                              onClick={() => { setSelected(reg); setDetailOpen(true); }}
+                              title="View details"
+                              onClick={() => setDetailDialog({ open: true, registration: r })}
                             >
-                              <Eye className="h-4 w-4" />
+                              <Eye className="h-4 w-4 text-muted-foreground" />
                             </Button>
-                            {(reg.status === "PENDING" || reg.status === "UNDER_REVIEW") && (
+                            {(r.status === "PENDING" || r.status === "UNDER_REVIEW") && (
                               <>
                                 <Button
                                   variant="ghost"
                                   size="icon"
                                   title="Approve"
-                                  disabled={actionLoading}
-                                  onClick={() => handleApprove(reg)}
+                                  onClick={() =>
+                                    setActionDialog({ open: true, type: "approve", registration: r })
+                                  }
                                 >
                                   <CheckCircle className="h-4 w-4 text-green-600" />
                                 </Button>
@@ -219,7 +255,9 @@ export function VendorRegistrations() {
                                   variant="ghost"
                                   size="icon"
                                   title="Reject"
-                                  onClick={() => { setSelected(reg); setRejectOpen(true); }}
+                                  onClick={() =>
+                                    setActionDialog({ open: true, type: "reject", registration: r })
+                                  }
                                 >
                                   <XCircle className="h-4 w-4 text-red-500" />
                                 </Button>
@@ -240,113 +278,153 @@ export function VendorRegistrations() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === 0}
+            onClick={() => setPage((p) => p - 1)}
+          >
             Previous
           </Button>
           <span className="text-sm text-muted-foreground">
             Page {page + 1} of {totalPages}
           </span>
-          <Button variant="outline" size="sm" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page + 1 >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             Next
           </Button>
         </div>
       )}
 
       {/* Detail dialog */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="sm:max-w-lg">
+      <Dialog
+        open={detailDialog.open}
+        onOpenChange={(open) => {
+          if (!open) setDetailDialog({ open: false, registration: null });
+        }}
+      >
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Registration Details</DialogTitle>
+            <DialogDescription>
+              {detailDialog.registration?.businessName}
+            </DialogDescription>
           </DialogHeader>
-          {selected && (
+          {detailDialog.registration && (
             <div className="space-y-3 text-sm">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="text-muted-foreground">Business Name</p>
-                  <p className="font-medium text-foreground">{selected.businessName}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Category</p>
-                  <p className="font-medium text-foreground">{selected.categoryName || "--"}</p>
-                </div>
-                <div>
                   <p className="text-muted-foreground">Owner</p>
-                  <p className="font-medium text-foreground">{selected.ownerName}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Email</p>
-                  <p className="font-medium text-foreground">{selected.ownerEmail}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Phone</p>
-                  <p className="font-medium text-foreground">{selected.ownerPhone}</p>
+                  <p className="font-medium text-foreground">{detailDialog.registration.ownerName}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Status</p>
-                  <Badge variant={REG_STATUS_BADGE[selected.status]?.variant ?? "outline"}>
-                    {REG_STATUS_BADGE[selected.status]?.label ?? selected.status}
+                  <Badge variant={STATUS_BADGE[detailDialog.registration.status]?.variant ?? "outline"}>
+                    {STATUS_BADGE[detailDialog.registration.status]?.label ?? detailDialog.registration.status}
                   </Badge>
                 </div>
+                <div>
+                  <p className="text-muted-foreground">Email</p>
+                  <div className="flex items-center gap-1">
+                    <Mail className="h-3 w-3 text-muted-foreground" />
+                    <p className="font-medium text-foreground">{detailDialog.registration.ownerEmail}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Phone</p>
+                  <div className="flex items-center gap-1">
+                    <Phone className="h-3 w-3 text-muted-foreground" />
+                    <p className="font-medium text-foreground">{detailDialog.registration.ownerPhone}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Category</p>
+                  <p className="font-medium text-foreground">{detailDialog.registration.categoryName}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Submitted</p>
+                  <p className="font-medium text-foreground">
+                    {new Date(detailDialog.registration.submittedAt).toLocaleDateString()}
+                  </p>
+                </div>
               </div>
-              {selected.description && (
+              {detailDialog.registration.description && (
                 <div>
                   <p className="text-muted-foreground">Description</p>
-                  <p className="text-foreground">{selected.description}</p>
+                  <p className="font-medium text-foreground">{detailDialog.registration.description}</p>
                 </div>
               )}
-              {selected.address && (
+              {detailDialog.registration.address && (
                 <div>
                   <p className="text-muted-foreground">Address</p>
-                  <p className="text-foreground">{selected.address}</p>
+                  <p className="font-medium text-foreground">{detailDialog.registration.address}</p>
                 </div>
               )}
-              {selected.rejectionReason && (
+              {detailDialog.registration.rejectionReason && (
                 <div>
                   <p className="text-muted-foreground">Rejection Reason</p>
-                  <p className="text-red-600">{selected.rejectionReason}</p>
+                  <p className="font-medium text-destructive">{detailDialog.registration.rejectionReason}</p>
                 </div>
               )}
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailOpen(false)}>
+            <Button variant="outline" onClick={() => setDetailDialog({ open: false, registration: null })}>
               Close
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Reject dialog */}
+      {/* Action dialog */}
       <Dialog
-        open={rejectOpen}
+        open={actionDialog.open}
         onOpenChange={(open) => {
-          if (!open) { setRejectOpen(false); setRejectReason(""); }
+          if (!open) {
+            setActionDialog({ open: false, type: "approve", registration: null });
+            setActionReason("");
+          }
         }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject Registration</DialogTitle>
+            <DialogTitle className="capitalize">{actionDialog.type} Registration</DialogTitle>
             <DialogDescription>
-              Reject the registration for "{selected?.businessName}". Please provide a reason.
+              {actionDialog.type === "approve" &&
+                `Approve "${actionDialog.registration?.businessName}" registration? You may add optional notes.`}
+              {actionDialog.type === "reject" &&
+                `Reject "${actionDialog.registration?.businessName}"? Please provide a reason.`}
             </DialogDescription>
           </DialogHeader>
+
           <Textarea
-            placeholder="Rejection reason..."
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
+            placeholder={actionDialog.type === "approve" ? "Notes (optional)..." : "Reason for rejection..."}
+            value={actionReason}
+            onChange={(e) => setActionReason(e.target.value)}
             className="min-h-[80px]"
           />
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setRejectOpen(false); setRejectReason(""); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setActionDialog({ open: false, type: "approve", registration: null });
+                setActionReason("");
+              }}
+            >
               Cancel
             </Button>
             <Button
-              variant="destructive"
-              disabled={actionLoading || !rejectReason.trim()}
-              onClick={handleReject}
+              onClick={handleAction}
+              disabled={actionLoading || (actionDialog.type === "reject" && !actionReason.trim())}
+              variant={actionDialog.type === "reject" ? "destructive" : "default"}
             >
               {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
-              Reject
+              Confirm
             </Button>
           </DialogFooter>
         </DialogContent>
