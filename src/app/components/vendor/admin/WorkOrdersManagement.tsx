@@ -1,20 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import {
-  Wrench,
-  Plus,
   Search,
   Filter,
   Loader2,
-  Eye,
-  Clock,
-  AlertTriangle,
-  CheckCircle2,
+  Plus,
+  Calendar,
+  MapPin,
+  ArrowUpDown,
 } from "lucide-react";
 import { Card, CardContent } from "../../ui/card";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
-import { Textarea } from "../../ui/textarea";
 import {
   Table,
   TableBody,
@@ -38,45 +35,44 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../ui/dialog";
+import { Textarea } from "../../ui/textarea";
+import { Label } from "../../ui/label";
 import { vendorWorkOrderService } from "../../../../services/vendorService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
-import type { WorkOrderResponse, WorkOrderRequest, PaginatedResponse } from "../../../../types/api";
+import type {
+  WorkOrderResponse,
+  WorkOrderRequest,
+  WorkOrderPriority,
+  PaginatedResponse,
+} from "../../../../types/api";
 
 const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   DRAFT: { label: "Draft", variant: "outline" },
   OPEN: { label: "Open", variant: "secondary" },
-  ASSIGNED: { label: "Assigned", variant: "default" },
+  ASSIGNED: { label: "Assigned", variant: "secondary" },
   IN_PROGRESS: { label: "In Progress", variant: "default" },
-  ON_HOLD: { label: "On Hold", variant: "secondary" },
-  COMPLETED: { label: "Completed", variant: "outline" },
+  ON_HOLD: { label: "On Hold", variant: "outline" },
+  COMPLETED: { label: "Completed", variant: "default" },
   CLOSED: { label: "Closed", variant: "outline" },
   CANCELLED: { label: "Cancelled", variant: "destructive" },
 };
 
-const PRIORITY_BADGE: Record<string, { label: string; className: string }> = {
-  LOW: { label: "Low", className: "bg-blue-50 text-blue-700 border-blue-200" },
-  MEDIUM: { label: "Medium", className: "bg-amber-50 text-amber-700 border-amber-200" },
-  HIGH: { label: "High", className: "bg-orange-50 text-orange-700 border-orange-200" },
-  URGENT: { label: "Urgent", className: "bg-red-50 text-red-700 border-red-200" },
-  CRITICAL: { label: "Critical", className: "bg-red-100 text-red-900 border-red-300" },
+const PRIORITY_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  LOW: { label: "Low", variant: "outline" },
+  MEDIUM: { label: "Medium", variant: "secondary" },
+  HIGH: { label: "High", variant: "default" },
+  URGENT: { label: "Urgent", variant: "destructive" },
+  CRITICAL: { label: "Critical", variant: "destructive" },
 };
 
-const STATUS_TRANSITIONS: Record<string, string[]> = {
-  DRAFT: ["OPEN", "CANCELLED"],
-  OPEN: ["ASSIGNED", "IN_PROGRESS", "CANCELLED"],
-  ASSIGNED: ["IN_PROGRESS", "ON_HOLD", "CANCELLED"],
-  IN_PROGRESS: ["ON_HOLD", "COMPLETED", "CANCELLED"],
-  ON_HOLD: ["IN_PROGRESS", "CANCELLED"],
-  COMPLETED: ["CLOSED"],
-};
-
-const EMPTY_WO: WorkOrderRequest = {
+const EMPTY_FORM: WorkOrderRequest = {
   title: "",
   description: "",
   priority: "MEDIUM",
   category: "",
   location: "",
   scheduledDate: "",
+  dueDate: "",
   estimatedCost: undefined,
 };
 
@@ -85,26 +81,25 @@ export function WorkOrdersManagement() {
   const [totalPages, setTotalPages] = useState(0);
   const [page, setPage] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [priorityFilter, setPriorityFilter] = useState<string>("ALL");
 
   // Create dialog
-  const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState<WorkOrderRequest>({ ...EMPTY_WO });
-  const [saving, setSaving] = useState(false);
+  const [createDialog, setCreateDialog] = useState(false);
+  const [formData, setFormData] = useState<WorkOrderRequest>({ ...EMPTY_FORM });
+  const [formLoading, setFormLoading] = useState(false);
 
-  // Detail dialog
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [selected, setSelected] = useState<WorkOrderResponse | null>(null);
-
-  // Status update
-  const [statusDialog, setStatusDialog] = useState<{ open: boolean; wo: WorkOrderResponse | null; newStatus: string }>({
-    open: false, wo: null, newStatus: "",
-  });
+  // Status update dialog
+  const [statusDialog, setStatusDialog] = useState<{
+    open: boolean;
+    workOrder: WorkOrderResponse | null;
+    newStatus: string;
+  }>({ open: false, workOrder: null, newStatus: "" });
   const [statusComment, setStatusComment] = useState("");
-  const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [statusLoading, setStatusLoading] = useState(false);
 
-  const loadData = useCallback(async () => {
+  const loadWorkOrders = useCallback(async () => {
     setLoading(true);
     try {
       const params: Record<string, unknown> = { page, size: 10 };
@@ -113,59 +108,60 @@ export function WorkOrdersManagement() {
 
       const result: PaginatedResponse<WorkOrderResponse> =
         await vendorWorkOrderService.getWorkOrders(params as any);
-      setWorkOrders(result.content);
+      const filtered = search
+        ? result.content.filter(
+            (w) =>
+              w.title.toLowerCase().includes(search.toLowerCase()) ||
+              w.workOrderNumber.toLowerCase().includes(search.toLowerCase()),
+          )
+        : result.content;
+      setWorkOrders(filtered);
       setTotalPages(result.totalPages);
     } catch {
       showError("Failed to load work orders");
     } finally {
       setLoading(false);
     }
-  }, [page, statusFilter, priorityFilter]);
+  }, [page, statusFilter, priorityFilter, search]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadWorkOrders();
+  }, [loadWorkOrders]);
 
   async function handleCreate() {
-    if (!form.title.trim()) return;
-    setSaving(true);
+    setFormLoading(true);
     try {
-      await vendorWorkOrderService.createWorkOrder(form);
+      await vendorWorkOrderService.createWorkOrder(formData);
       showSuccess("Work order created");
-      setCreateOpen(false);
-      setForm({ ...EMPTY_WO });
-      loadData();
+      setCreateDialog(false);
+      setFormData({ ...EMPTY_FORM });
+      loadWorkOrders();
     } catch {
       showError("Failed to create work order");
     } finally {
-      setSaving(false);
+      setFormLoading(false);
     }
   }
 
   async function handleStatusUpdate() {
-    if (!statusDialog.wo || !statusDialog.newStatus) return;
-    setUpdatingStatus(true);
+    if (!statusDialog.workOrder) return;
+    setStatusLoading(true);
     try {
       await vendorWorkOrderService.updateWorkOrderStatus(
-        statusDialog.wo.id,
+        statusDialog.workOrder.id,
         statusDialog.newStatus,
         statusComment || undefined,
       );
       showSuccess("Status updated");
-      setStatusDialog({ open: false, wo: null, newStatus: "" });
+      setStatusDialog({ open: false, workOrder: null, newStatus: "" });
       setStatusComment("");
-      loadData();
+      loadWorkOrders();
     } catch {
       showError("Failed to update status");
     } finally {
-      setUpdatingStatus(false);
+      setStatusLoading(false);
     }
   }
-
-  const formatCurrency = (n?: number) =>
-    n != null
-      ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n)
-      : "--";
 
   return (
     <div className="space-y-6">
@@ -174,11 +170,12 @@ export function WorkOrdersManagement() {
         <div>
           <h1 className="text-xl font-bold text-foreground">Work Orders</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Create and manage work orders for vendors
+            Track and manage maintenance work orders
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} size="sm">
-          <Plus className="h-4 w-4 mr-1" /> New Work Order
+        <Button onClick={() => setCreateDialog(true)}>
+          <Plus className="h-4 w-4 mr-1" />
+          Create Work Order
         </Button>
       </div>
 
@@ -186,6 +183,15 @@ export function WorkOrdersManagement() {
       <Card>
         <CardContent className="pt-4">
           <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search work orders..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+                className="pl-9"
+              />
+            </div>
             <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(0); }}>
               <SelectTrigger className="w-full sm:w-40">
                 <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -193,16 +199,19 @@ export function WorkOrdersManagement() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="DRAFT">Draft</SelectItem>
                 <SelectItem value="OPEN">Open</SelectItem>
                 <SelectItem value="ASSIGNED">Assigned</SelectItem>
                 <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
                 <SelectItem value="ON_HOLD">On Hold</SelectItem>
                 <SelectItem value="COMPLETED">Completed</SelectItem>
                 <SelectItem value="CLOSED">Closed</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
               </SelectContent>
             </Select>
             <Select value={priorityFilter} onValueChange={(v) => { setPriorityFilter(v); setPage(0); }}>
               <SelectTrigger className="w-full sm:w-40">
+                <ArrowUpDown className="h-4 w-4 mr-2 text-muted-foreground" />
                 <SelectValue placeholder="Priority" />
               </SelectTrigger>
               <SelectContent>
@@ -227,7 +236,6 @@ export function WorkOrdersManagement() {
             </div>
           ) : workOrders.length === 0 ? (
             <div className="text-center py-16">
-              <Wrench className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm text-muted-foreground">No work orders found</p>
             </div>
           ) : (
@@ -236,80 +244,71 @@ export function WorkOrdersManagement() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Work Order</TableHead>
-                    <TableHead className="hidden md:table-cell">Vendor</TableHead>
-                    <TableHead>Priority</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="hidden lg:table-cell">Due Date</TableHead>
-                    <TableHead className="hidden lg:table-cell">Cost</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead className="hidden md:table-cell">Vendor</TableHead>
+                    <TableHead className="hidden lg:table-cell">Dates</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {workOrders.map((wo) => {
-                    const sBadge = STATUS_BADGE[wo.status] || { label: wo.status, variant: "outline" as const };
-                    const pBadge = PRIORITY_BADGE[wo.priority] || { label: wo.priority, className: "" };
-                    const transitions = STATUS_TRANSITIONS[wo.status] || [];
+                  {workOrders.map((w) => {
+                    const sBadge = STATUS_BADGE[w.status] || { label: w.status, variant: "outline" as const };
+                    const pBadge = PRIORITY_BADGE[w.priority] || { label: w.priority, variant: "outline" as const };
                     return (
-                      <TableRow key={wo.id}>
+                      <TableRow key={w.id}>
                         <TableCell>
-                          <div>
-                            <p className="text-sm font-medium text-foreground">{wo.title}</p>
-                            <p className="text-xs text-muted-foreground">#{wo.workOrderNumber}</p>
+                          <div className="min-w-0">
+                            <p className="text-xs text-muted-foreground font-mono">
+                              {w.workOrderNumber}
+                            </p>
+                            <p className="text-sm font-medium text-foreground truncate max-w-[200px]">
+                              {w.title}
+                            </p>
+                            {w.location && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                <MapPin className="h-3 w-3" /> {w.location}
+                              </div>
+                            )}
                           </div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <span className="text-sm text-foreground">
-                            {wo.vendor?.businessName || "Unassigned"}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${pBadge.className}`}>
-                            {pBadge.label}
-                          </span>
                         </TableCell>
                         <TableCell>
                           <Badge variant={sBadge.variant}>{sBadge.label}</Badge>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell">
-                          <span className="text-xs text-muted-foreground">
-                            {wo.dueDate ? new Date(wo.dueDate).toLocaleDateString() : "--"}
-                          </span>
+                        <TableCell>
+                          <Badge variant={pBadge.variant}>{pBadge.label}</Badge>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell">
+                        <TableCell className="hidden md:table-cell">
                           <span className="text-sm text-foreground">
-                            {formatCurrency(wo.actualCost ?? wo.estimatedCost)}
+                            {w.vendor?.businessName ?? "--"}
                           </span>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="View Details"
-                              onClick={() => { setSelected(wo); setDetailOpen(true); }}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            {transitions.length > 0 && (
-                              <Select
-                                value=""
-                                onValueChange={(newStatus) => {
-                                  setStatusDialog({ open: true, wo, newStatus });
-                                }}
-                              >
-                                <SelectTrigger className="h-8 w-28 text-xs">
-                                  <SelectValue placeholder="Update" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {transitions.map((s) => (
-                                    <SelectItem key={s} value={s}>
-                                      {STATUS_BADGE[s]?.label ?? s}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                        <TableCell className="hidden lg:table-cell">
+                          <div className="space-y-0.5">
+                            {w.scheduledDate && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                Scheduled: {new Date(w.scheduledDate).toLocaleDateString()}
+                              </div>
+                            )}
+                            {w.dueDate && (
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                Due: {new Date(w.dueDate).toLocaleDateString()}
+                              </div>
                             )}
                           </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              setStatusDialog({ open: true, workOrder: w, newStatus: w.status })
+                            }
+                          >
+                            Update Status
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -324,46 +323,62 @@ export function WorkOrdersManagement() {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page === 0}
+            onClick={() => setPage((p) => p - 1)}
+          >
             Previous
           </Button>
-          <span className="text-sm text-muted-foreground">Page {page + 1} of {totalPages}</span>
-          <Button variant="outline" size="sm" disabled={page + 1 >= totalPages} onClick={() => setPage((p) => p + 1)}>
+          <span className="text-sm text-muted-foreground">
+            Page {page + 1} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page + 1 >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
             Next
           </Button>
         </div>
       )}
 
-      {/* Create dialog */}
-      <Dialog open={createOpen} onOpenChange={(open) => { if (!open) { setCreateOpen(false); setForm({ ...EMPTY_WO }); } }}>
-        <DialogContent className="sm:max-w-lg">
+      {/* Create work order dialog */}
+      <Dialog open={createDialog} onOpenChange={(open) => { if (!open) { setCreateDialog(false); setFormData({ ...EMPTY_FORM }); } }}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Create Work Order</DialogTitle>
-            <DialogDescription>Create a new work order for a vendor.</DialogDescription>
+            <DialogDescription>Create a new maintenance work order.</DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium text-foreground">Title *</label>
+            <div className="space-y-2">
+              <Label htmlFor="wo-title">Title</Label>
               <Input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="e.g. Fix leaking pipe in Block A"
+                id="wo-title"
+                placeholder="Work order title"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               />
             </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">Description *</label>
+            <div className="space-y-2">
+              <Label htmlFor="wo-desc">Description</Label>
               <Textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
+                id="wo-desc"
                 placeholder="Detailed description..."
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                className="min-h-[80px]"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-foreground">Priority</label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Priority</Label>
                 <Select
-                  value={form.priority}
-                  onValueChange={(v) => setForm({ ...form, priority: v as any })}
+                  value={formData.priority}
+                  onValueChange={(v) => setFormData({ ...formData, priority: v as WorkOrderPriority })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -377,49 +392,68 @@ export function WorkOrdersManagement() {
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">Category</label>
+              <div className="space-y-2">
+                <Label htmlFor="wo-category">Category</Label>
                 <Input
-                  value={form.category || ""}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  id="wo-category"
                   placeholder="e.g. Plumbing"
+                  value={formData.category ?? ""}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-foreground">Location</label>
-                <Input
-                  value={form.location || ""}
-                  onChange={(e) => setForm({ ...form, location: e.target.value })}
-                  placeholder="e.g. Block A, Floor 3"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">Due Date</label>
-                <Input
-                  type="date"
-                  value={form.dueDate || ""}
-                  onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-foreground">Estimated Cost</label>
+            <div className="space-y-2">
+              <Label htmlFor="wo-location">Location</Label>
               <Input
+                id="wo-location"
+                placeholder="Work location"
+                value={formData.location ?? ""}
+                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="wo-scheduled">Scheduled Date</Label>
+                <Input
+                  id="wo-scheduled"
+                  type="date"
+                  value={formData.scheduledDate ?? ""}
+                  onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="wo-due">Due Date</Label>
+                <Input
+                  id="wo-due"
+                  type="date"
+                  value={formData.dueDate ?? ""}
+                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wo-cost">Estimated Cost</Label>
+              <Input
+                id="wo-cost"
                 type="number"
-                value={form.estimatedCost ?? ""}
-                onChange={(e) => setForm({ ...form, estimatedCost: e.target.value ? Number(e.target.value) : undefined })}
-                placeholder="0"
+                placeholder="0.00"
+                value={formData.estimatedCost ?? ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, estimatedCost: e.target.value ? Number(e.target.value) : undefined })
+                }
               />
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setCreateOpen(false); setForm({ ...EMPTY_WO }); }}>
+            <Button variant="outline" onClick={() => { setCreateDialog(false); setFormData({ ...EMPTY_FORM }); }}>
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={saving || !form.title.trim()}>
-              {saving && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+            <Button
+              onClick={handleCreate}
+              disabled={formLoading || !formData.title.trim() || !formData.description.trim()}
+            >
+              {formLoading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
               Create
             </Button>
           </DialogFooter>
@@ -429,104 +463,66 @@ export function WorkOrdersManagement() {
       {/* Status update dialog */}
       <Dialog
         open={statusDialog.open}
-        onOpenChange={(open) => { if (!open) { setStatusDialog({ open: false, wo: null, newStatus: "" }); setStatusComment(""); } }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setStatusDialog({ open: false, workOrder: null, newStatus: "" });
+            setStatusComment("");
+          }
+        }}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Update Status</DialogTitle>
+            <DialogTitle>Update Work Order Status</DialogTitle>
             <DialogDescription>
-              Change "{statusDialog.wo?.title}" to {STATUS_BADGE[statusDialog.newStatus]?.label || statusDialog.newStatus}?
+              Change status for &quot;{statusDialog.workOrder?.title}&quot;
             </DialogDescription>
           </DialogHeader>
-          <Textarea
-            placeholder="Comment (optional)..."
-            value={statusComment}
-            onChange={(e) => setStatusComment(e.target.value)}
-          />
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>New Status</Label>
+              <Select value={statusDialog.newStatus} onValueChange={(v) => setStatusDialog({ ...statusDialog, newStatus: v })}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DRAFT">Draft</SelectItem>
+                  <SelectItem value="OPEN">Open</SelectItem>
+                  <SelectItem value="ASSIGNED">Assigned</SelectItem>
+                  <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
+                  <SelectItem value="ON_HOLD">On Hold</SelectItem>
+                  <SelectItem value="COMPLETED">Completed</SelectItem>
+                  <SelectItem value="CLOSED">Closed</SelectItem>
+                  <SelectItem value="CANCELLED">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="status-comment">Comment (optional)</Label>
+              <Textarea
+                id="status-comment"
+                placeholder="Add a comment..."
+                value={statusComment}
+                onChange={(e) => setStatusComment(e.target.value)}
+                className="min-h-[60px]"
+              />
+            </div>
+          </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setStatusDialog({ open: false, wo: null, newStatus: "" }); setStatusComment(""); }}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setStatusDialog({ open: false, workOrder: null, newStatus: "" });
+                setStatusComment("");
+              }}
+            >
               Cancel
             </Button>
-            <Button onClick={handleStatusUpdate} disabled={updatingStatus}>
-              {updatingStatus && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+            <Button onClick={handleStatusUpdate} disabled={statusLoading || !statusDialog.newStatus}>
+              {statusLoading && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
               Update
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Detail dialog */}
-      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Work Order Details</DialogTitle>
-          </DialogHeader>
-          {selected && (
-            <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-muted-foreground">Number</p>
-                  <p className="font-medium text-foreground">#{selected.workOrderNumber}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Title</p>
-                  <p className="font-medium text-foreground">{selected.title}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Status</p>
-                  <Badge variant={STATUS_BADGE[selected.status]?.variant ?? "outline"}>
-                    {STATUS_BADGE[selected.status]?.label ?? selected.status}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Priority</p>
-                  <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${PRIORITY_BADGE[selected.priority]?.className || ""}`}>
-                    {PRIORITY_BADGE[selected.priority]?.label ?? selected.priority}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Vendor</p>
-                  <p className="font-medium text-foreground">{selected.vendor?.businessName || "Unassigned"}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Location</p>
-                  <p className="font-medium text-foreground">{selected.location || "--"}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Estimated Cost</p>
-                  <p className="font-medium text-foreground">{formatCurrency(selected.estimatedCost)}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Actual Cost</p>
-                  <p className="font-medium text-foreground">{formatCurrency(selected.actualCost)}</p>
-                </div>
-              </div>
-              {selected.description && (
-                <div>
-                  <p className="text-muted-foreground">Description</p>
-                  <p className="text-foreground whitespace-pre-wrap">{selected.description}</p>
-                </div>
-              )}
-              {selected.timeline && selected.timeline.length > 0 && (
-                <div>
-                  <p className="text-muted-foreground mb-2">Timeline</p>
-                  <div className="space-y-2 border-l-2 border-border pl-3">
-                    {selected.timeline.map((entry) => (
-                      <div key={entry.id} className="text-xs">
-                        <p className="font-medium text-foreground">
-                          {STATUS_BADGE[entry.status]?.label ?? entry.status}
-                        </p>
-                        {entry.comment && <p className="text-muted-foreground">{entry.comment}</p>}
-                        <p className="text-muted-foreground">{new Date(entry.timestamp).toLocaleString()}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
