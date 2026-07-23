@@ -66,6 +66,25 @@ import { AmenityBooking } from "./components/bookings/AmenityBooking";
 import { Helpdesk } from "./components/helpdesk/Helpdesk";
 import { Polling } from "./components/polling/Polling";
 
+// Vendor Management System pages
+import { VendorAdminLayout } from "./components/vendor/admin/VendorAdminLayout";
+import { VendorDashboard as VendorAdminDashboard } from "./components/vendor/admin/VendorDashboard";
+import { VendorDirectory } from "./components/vendor/admin/VendorDirectory";
+import { VendorRegistrations } from "./components/vendor/admin/VendorRegistrations";
+import { VendorCategories } from "./components/vendor/admin/VendorCategories";
+import { WorkOrdersManagement } from "./components/vendor/admin/WorkOrdersManagement";
+import { ContractsManagement } from "./components/vendor/admin/ContractsManagement";
+import { PaymentsManagement } from "./components/vendor/admin/PaymentsManagement";
+import { VendorPortalLayout } from "./components/vendor/portal/VendorPortalLayout";
+import { VendorPortalDashboard } from "./components/vendor/portal/VendorPortalDashboard";
+import { MyServices } from "./components/vendor/portal/MyServices";
+import { MyBookings } from "./components/vendor/portal/MyBookings";
+import { MyAvailability } from "./components/vendor/portal/MyAvailability";
+import { MyPayments } from "./components/vendor/portal/MyPayments";
+import { MyDocuments } from "./components/vendor/portal/MyDocuments";
+import { MyRatings } from "./components/vendor/portal/MyRatings";
+import { ServiceMarketplace } from "./components/vendor/marketplace/ServiceMarketplace";
+
 // Permission constants
 import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_EVENT_REGISTRATIONS,
@@ -74,6 +93,9 @@ import {
   CREATE_EDIT_SPORTS_MAIN, VIEW_ADMIN, BULK_UPLOAD, MANAGE_COMMUNITIES,
   MANAGE_ROLES, VIEW_MARKETPLACE, CREATE_LISTING, VIEW_JOBS, VIEW_EVENTS, VIEW_VISITORS,
   VIEW_NOTICES, VIEW_AMENITIES, VIEW_TICKETS, VIEW_POLLS,
+  VIEW_VENDOR_MANAGEMENT, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
+  MANAGE_WORK_ORDERS, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
+  VIEW_VENDOR_ANALYTICS,
 } from "../constants/permissions";
 
 export const router = createBrowserRouter([
@@ -282,6 +304,36 @@ export const router = createBrowserRouter([
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><FinancialReports /></PermissionGuard>
           }
         ]
+      },
+      {
+        path: "vendor-admin",
+        element: <PermissionGuard permission={VIEW_VENDOR_MANAGEMENT} requiredModule="VENDOR_MANAGEMENT"><VendorAdminLayout /></PermissionGuard>,
+        children: [
+          { index: true, Component: VendorAdminDashboard },
+          { path: "vendors", Component: VendorDirectory },
+          { path: "registrations", element: <PermissionGuard permission={MANAGE_VENDORS}><VendorRegistrations /></PermissionGuard> },
+          { path: "categories", element: <PermissionGuard permission={MANAGE_VENDORS}><VendorCategories /></PermissionGuard> },
+          { path: "work-orders", element: <PermissionGuard permission={MANAGE_WORK_ORDERS}><WorkOrdersManagement /></PermissionGuard> },
+          { path: "contracts", element: <PermissionGuard permission={MANAGE_CONTRACTS}><ContractsManagement /></PermissionGuard> },
+          { path: "payments", element: <PermissionGuard permission={MANAGE_VENDOR_PAYMENTS}><PaymentsManagement /></PermissionGuard> },
+        ],
+      },
+      {
+        path: "vendor-portal",
+        element: <PermissionGuard permission={VIEW_VENDOR_MANAGEMENT}><VendorPortalLayout /></PermissionGuard>,
+        children: [
+          { index: true, Component: VendorPortalDashboard },
+          { path: "services", Component: MyServices },
+          { path: "bookings", Component: MyBookings },
+          { path: "availability", Component: MyAvailability },
+          { path: "payments", Component: MyPayments },
+          { path: "documents", Component: MyDocuments },
+          { path: "ratings", Component: MyRatings },
+        ],
+      },
+      {
+        path: "vendor-marketplace",
+        element: <PermissionGuard permission={BOOK_VENDOR_SERVICE} requiredModule="VENDOR_MANAGEMENT"><ServiceMarketplace /></PermissionGuard>,
       },
       {
         path: "chat",

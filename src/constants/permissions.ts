@@ -118,6 +118,18 @@ export const VIEW_EVENTS    = "View Events";
 export const CREATE_EVENT   = "Create Event";
 export const REGISTER_EVENT = "Register Event";
 
+// ──── VENDOR MANAGEMENT SYSTEM ────
+export const VIEW_VENDOR_MANAGEMENT  = "View Vendor Management";
+export const CREATE_VENDOR           = "Create Vendor";
+export const MANAGE_VENDORS          = "Manage Vendors";
+export const BOOK_VENDOR_SERVICE     = "Book Vendor Service";
+export const MANAGE_WORK_ORDERS      = "Manage Work Orders";
+export const MANAGE_PROCUREMENT      = "Manage Procurement";
+export const MANAGE_CONTRACTS        = "Manage Contracts";
+export const MANAGE_VENDOR_PAYMENTS  = "Manage Vendor Payments";
+export const RATE_VENDOR             = "Rate Vendor";
+export const VIEW_VENDOR_ANALYTICS   = "View Vendor Analytics";
+
 // ──── ADMIN DASHBOARD ────
 export const VIEW_ADMIN         = "View Admin";
 export const VERIFY_KYC         = "Verify KYC";
@@ -198,6 +210,13 @@ export const PERMISSION_CATEGORIES = [
     id: "events",
     title: "EVENTS Permission",
     permissions: [VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT],
+  },
+  {
+    id: "vendor_management",
+    title: "VENDOR MANAGEMENT Permission",
+    permissions: [VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
+      MANAGE_WORK_ORDERS, MANAGE_PROCUREMENT, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
+      RATE_VENDOR, VIEW_VENDOR_ANALYTICS],
   },
   {
     id: "admin",

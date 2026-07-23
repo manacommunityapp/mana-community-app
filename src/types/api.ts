@@ -798,3 +798,653 @@ export interface MenuRolePermissionResponse {
   canDelete: boolean;
 }
 
+// ─── Vendor Management System ───────────────────────────────────────────────
+
+export type VendorStatus = "PENDING" | "ACTIVE" | "INACTIVE" | "SUSPENDED" | "REJECTED" | "BLACKLISTED";
+export type VendorRegistrationStatus = "PENDING" | "UNDER_REVIEW" | "APPROVED" | "REJECTED" | "INCOMPLETE";
+export type BookingStatus = "PENDING" | "CONFIRMED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "NO_SHOW" | "RESCHEDULED";
+export type WorkOrderStatus = "DRAFT" | "OPEN" | "ASSIGNED" | "IN_PROGRESS" | "ON_HOLD" | "COMPLETED" | "CLOSED" | "CANCELLED";
+export type WorkOrderPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT" | "CRITICAL";
+export type ProcurementStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED" | "ORDERED" | "RECEIVED" | "CANCELLED";
+export type ContractStatus = "DRAFT" | "ACTIVE" | "EXPIRED" | "TERMINATED" | "RENEWED" | "PENDING_RENEWAL";
+export type InvoiceStatus = "DRAFT" | "SENT" | "PAID" | "PARTIALLY_PAID" | "OVERDUE" | "CANCELLED" | "DISPUTED";
+export type PaymentStatus = "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "REFUNDED";
+export type PaymentMethod = "BANK_TRANSFER" | "UPI" | "CHEQUE" | "CASH" | "WALLET" | "CARD";
+
+export interface VendorCategoryResponse {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  icon?: string;
+  parentId: number | null;
+  parentName: string | null;
+  sortOrder: number;
+  active: boolean;
+  vendorCount?: number;
+  children?: VendorCategoryResponse[];
+}
+
+export interface VendorCategoryRequest {
+  name: string;
+  description?: string;
+  icon?: string;
+  parentId?: number | null;
+  sortOrder?: number;
+}
+
+export interface VendorOwner {
+  id: number;
+  fullName: string;
+  email: string;
+  phone: string;
+  profilePicUrl?: string;
+}
+
+export interface VendorDocument {
+  id: number;
+  vendorId: number;
+  documentType: string;
+  documentName: string;
+  fileUrl: string;
+  fileSize?: number;
+  expiryDate?: string;
+  verified: boolean;
+  verifiedAt?: string;
+  verifiedBy?: string;
+  uploadedAt: string;
+  version: number;
+}
+
+export interface VendorResponse {
+  id: number;
+  businessName: string;
+  slug: string;
+  description?: string;
+  shortDescription?: string;
+  owner: VendorOwner;
+  category: VendorCategoryResponse;
+  status: VendorStatus;
+  email: string;
+  phone: string;
+  alternatePhone?: string;
+  website?: string;
+  address: string;
+  city?: string;
+  state?: string;
+  pinCode?: string;
+  latitude?: number;
+  longitude?: number;
+  logoUrl?: string;
+  bannerUrl?: string;
+  galleryUrls?: string[];
+  gstNumber?: string;
+  panNumber?: string;
+  licenseNumber?: string;
+  avgRating: number;
+  totalRatings: number;
+  totalBookings: number;
+  totalRevenue: number;
+  commissionRate?: number;
+  communityId: number;
+  documents?: VendorDocument[];
+  tags?: string[];
+  operatingHours?: VendorOperatingHours;
+  isFeatured: boolean;
+  isVerified: boolean;
+  joinedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VendorRequest {
+  businessName: string;
+  description?: string;
+  shortDescription?: string;
+  categoryId: number;
+  email: string;
+  phone: string;
+  alternatePhone?: string;
+  website?: string;
+  address: string;
+  city?: string;
+  state?: string;
+  pinCode?: string;
+  latitude?: number;
+  longitude?: number;
+  logoUrl?: string;
+  bannerUrl?: string;
+  galleryUrls?: string[];
+  gstNumber?: string;
+  panNumber?: string;
+  licenseNumber?: string;
+  commissionRate?: number;
+  tags?: string[];
+}
+
+export interface VendorRegistrationResponse {
+  id: number;
+  businessName: string;
+  ownerName: string;
+  ownerEmail: string;
+  ownerPhone: string;
+  categoryName: string;
+  categoryId: number;
+  status: VendorRegistrationStatus;
+  description?: string;
+  address?: string;
+  documents?: VendorDocument[];
+  submittedAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+  rejectionReason?: string;
+  notes?: string;
+}
+
+export interface VendorRegistrationRequest {
+  businessName: string;
+  ownerName: string;
+  ownerEmail: string;
+  ownerPhone: string;
+  categoryId: number;
+  description?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pinCode?: string;
+  gstNumber?: string;
+  panNumber?: string;
+}
+
+export interface VendorServiceResponse {
+  id: number;
+  vendorId: number;
+  vendorName?: string;
+  name: string;
+  description?: string;
+  shortDescription?: string;
+  categoryId?: number;
+  categoryName?: string;
+  price: number;
+  priceUnit: string;
+  discountPrice?: number;
+  duration?: number;
+  durationUnit?: string;
+  imageUrl?: string;
+  galleryUrls?: string[];
+  active: boolean;
+  featured: boolean;
+  avgRating: number;
+  totalBookings: number;
+  tags?: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VendorServiceRequest {
+  name: string;
+  description?: string;
+  shortDescription?: string;
+  categoryId?: number;
+  price: number;
+  priceUnit?: string;
+  discountPrice?: number;
+  duration?: number;
+  durationUnit?: string;
+  imageUrl?: string;
+  galleryUrls?: string[];
+  tags?: string[];
+}
+
+export interface VendorOperatingHours {
+  monday?: DaySchedule;
+  tuesday?: DaySchedule;
+  wednesday?: DaySchedule;
+  thursday?: DaySchedule;
+  friday?: DaySchedule;
+  saturday?: DaySchedule;
+  sunday?: DaySchedule;
+}
+
+export interface DaySchedule {
+  isOpen: boolean;
+  openTime?: string;
+  closeTime?: string;
+  breakStart?: string;
+  breakEnd?: string;
+}
+
+export interface VendorHoliday {
+  id: number;
+  vendorId: number;
+  date: string;
+  reason: string;
+  type: "HOLIDAY" | "LEAVE" | "VACATION";
+}
+
+export interface VendorAvailability {
+  operatingHours: VendorOperatingHours;
+  holidays: VendorHoliday[];
+  vacationMode: boolean;
+  vacationStart?: string;
+  vacationEnd?: string;
+}
+
+export interface VendorBookingResponse {
+  id: number;
+  bookingNumber: string;
+  vendor: { id: number; businessName: string; logoUrl?: string; phone: string };
+  customer: { id: number; fullName: string; email: string; phone: string; profilePicUrl?: string };
+  service: { id: number; name: string; price: number; duration?: number };
+  status: BookingStatus;
+  scheduledDate: string;
+  scheduledTime: string;
+  endTime?: string;
+  duration?: number;
+  totalAmount: number;
+  notes?: string;
+  address?: string;
+  cancellationReason?: string;
+  completedAt?: string;
+  rating?: number;
+  review?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VendorBookingRequest {
+  vendorId: number;
+  serviceId: number;
+  scheduledDate: string;
+  scheduledTime: string;
+  notes?: string;
+  address?: string;
+}
+
+export interface WorkOrderResponse {
+  id: number;
+  workOrderNumber: string;
+  title: string;
+  description: string;
+  status: WorkOrderStatus;
+  priority: WorkOrderPriority;
+  vendor?: { id: number; businessName: string; phone: string };
+  assignedTo?: { id: number; fullName: string };
+  category?: string;
+  location?: string;
+  scheduledDate?: string;
+  dueDate?: string;
+  completedDate?: string;
+  estimatedCost?: number;
+  actualCost?: number;
+  attachments?: string[];
+  timeline?: WorkOrderTimelineEntry[];
+  createdBy: { id: number; fullName: string };
+  communityId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkOrderRequest {
+  title: string;
+  description: string;
+  priority: WorkOrderPriority;
+  vendorId?: number;
+  category?: string;
+  location?: string;
+  scheduledDate?: string;
+  dueDate?: string;
+  estimatedCost?: number;
+  attachments?: string[];
+}
+
+export interface WorkOrderTimelineEntry {
+  id: number;
+  status: WorkOrderStatus;
+  comment?: string;
+  updatedBy: string;
+  timestamp: string;
+}
+
+export interface PurchaseRequestResponse {
+  id: number;
+  requestNumber: string;
+  title: string;
+  description: string;
+  status: ProcurementStatus;
+  priority: WorkOrderPriority;
+  requestedBy: { id: number; fullName: string };
+  approvedBy?: { id: number; fullName: string };
+  items: PurchaseRequestItem[];
+  totalEstimate: number;
+  department?: string;
+  justification?: string;
+  communityId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PurchaseRequestItem {
+  id: number;
+  itemName: string;
+  description?: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  unit?: string;
+}
+
+export interface PurchaseRequestRequest {
+  title: string;
+  description: string;
+  priority: WorkOrderPriority;
+  items: Omit<PurchaseRequestItem, "id" | "totalPrice">[];
+  department?: string;
+  justification?: string;
+}
+
+export interface QuotationResponse {
+  id: number;
+  quotationNumber: string;
+  purchaseRequestId: number;
+  vendor: { id: number; businessName: string; email: string; phone: string };
+  items: QuotationItem[];
+  totalAmount: number;
+  validUntil: string;
+  termsAndConditions?: string;
+  deliveryTimeline?: string;
+  status: "SUBMITTED" | "ACCEPTED" | "REJECTED" | "EXPIRED";
+  submittedAt: string;
+}
+
+export interface QuotationItem {
+  id: number;
+  itemName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  remarks?: string;
+}
+
+export interface PurchaseOrderResponse {
+  id: number;
+  poNumber: string;
+  vendor: { id: number; businessName: string; email: string; phone: string };
+  quotationId?: number;
+  purchaseRequestId?: number;
+  items: PurchaseOrderItem[];
+  totalAmount: number;
+  status: ProcurementStatus;
+  deliveryDate?: string;
+  deliveryAddress?: string;
+  termsAndConditions?: string;
+  approvedBy?: { id: number; fullName: string };
+  communityId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PurchaseOrderItem {
+  id: number;
+  itemName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  receivedQuantity?: number;
+}
+
+export interface GoodsReceiptResponse {
+  id: number;
+  grnNumber: string;
+  purchaseOrderId: number;
+  poNumber: string;
+  vendor: { id: number; businessName: string };
+  items: GoodsReceiptItem[];
+  receivedDate: string;
+  receivedBy: { id: number; fullName: string };
+  remarks?: string;
+  status: "PENDING" | "INSPECTED" | "ACCEPTED" | "REJECTED";
+  createdAt: string;
+}
+
+export interface GoodsReceiptItem {
+  id: number;
+  itemName: string;
+  orderedQuantity: number;
+  receivedQuantity: number;
+  acceptedQuantity: number;
+  rejectedQuantity: number;
+  remarks?: string;
+}
+
+export interface ContractResponse {
+  id: number;
+  contractNumber: string;
+  title: string;
+  vendor: { id: number; businessName: string; email: string; phone: string };
+  status: ContractStatus;
+  startDate: string;
+  endDate: string;
+  value: number;
+  paymentTerms?: string;
+  scope?: string;
+  termsAndConditions?: string;
+  autoRenew: boolean;
+  renewalPeriod?: number;
+  documentUrl?: string;
+  signedByVendor: boolean;
+  signedByAdmin: boolean;
+  communityId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractRequest {
+  title: string;
+  vendorId: number;
+  startDate: string;
+  endDate: string;
+  value: number;
+  paymentTerms?: string;
+  scope?: string;
+  termsAndConditions?: string;
+  autoRenew?: boolean;
+  renewalPeriod?: number;
+  documentUrl?: string;
+}
+
+export interface VendorInvoiceResponse {
+  id: number;
+  invoiceNumber: string;
+  vendor: { id: number; businessName: string; email: string };
+  booking?: { id: number; bookingNumber: string };
+  workOrder?: { id: number; workOrderNumber: string };
+  contract?: { id: number; contractNumber: string };
+  status: InvoiceStatus;
+  items: InvoiceItem[];
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  totalAmount: number;
+  paidAmount: number;
+  balanceAmount: number;
+  dueDate: string;
+  issueDate: string;
+  paidDate?: string;
+  notes?: string;
+  communityId: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InvoiceItem {
+  id: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  taxRate?: number;
+}
+
+export interface VendorInvoiceRequest {
+  vendorId: number;
+  bookingId?: number;
+  workOrderId?: number;
+  contractId?: number;
+  items: Omit<InvoiceItem, "id">[];
+  dueDate: string;
+  notes?: string;
+  taxAmount?: number;
+  discountAmount?: number;
+}
+
+export interface VendorPaymentResponse {
+  id: number;
+  paymentNumber: string;
+  invoiceId: number;
+  invoiceNumber: string;
+  vendor: { id: number; businessName: string };
+  amount: number;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  transactionId?: string;
+  paidAt?: string;
+  processedBy?: { id: number; fullName: string };
+  remarks?: string;
+  createdAt: string;
+}
+
+export interface VendorPaymentRequest {
+  invoiceId: number;
+  amount: number;
+  method: PaymentMethod;
+  transactionId?: string;
+  remarks?: string;
+}
+
+export interface VendorRatingResponse {
+  id: number;
+  vendorId: number;
+  vendorName: string;
+  bookingId?: number;
+  bookingNumber?: string;
+  customer: { id: number; fullName: string; profilePicUrl?: string };
+  rating: number;
+  title?: string;
+  comment?: string;
+  reply?: string;
+  repliedAt?: string;
+  images?: string[];
+  helpful: number;
+  reported: boolean;
+  moderated: boolean;
+  moderationStatus?: "PENDING" | "APPROVED" | "REJECTED" | "FLAGGED";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VendorRatingRequest {
+  vendorId: number;
+  bookingId?: number;
+  rating: number;
+  title?: string;
+  comment?: string;
+  images?: string[];
+}
+
+export interface VendorPerformanceResponse {
+  vendorId: number;
+  vendorName: string;
+  period: string;
+  totalBookings: number;
+  completedBookings: number;
+  cancelledBookings: number;
+  completionRate: number;
+  avgRating: number;
+  totalRevenue: number;
+  avgResponseTime: number;
+  onTimeRate: number;
+  repeatCustomerRate: number;
+  slaCompliance: number;
+  customerSatisfaction: number;
+  monthlyTrend: MonthlyMetric[];
+}
+
+export interface MonthlyMetric {
+  month: string;
+  bookings: number;
+  revenue: number;
+  rating: number;
+  completionRate: number;
+}
+
+export interface VendorDashboardStats {
+  totalVendors: number;
+  activeVendors: number;
+  pendingVendors: number;
+  suspendedVendors: number;
+  totalBookings: number;
+  activeBookings: number;
+  completedBookings: number;
+  cancelledBookings: number;
+  totalRevenue: number;
+  monthlyRevenue: number;
+  avgRating: number;
+  totalWorkOrders: number;
+  openWorkOrders: number;
+  overdueInvoices: number;
+  expiringContracts: number;
+  categoryDistribution: { category: string; count: number }[];
+  monthlyBookingTrend: { month: string; count: number }[];
+  monthlyRevenueTrend: { month: string; amount: number }[];
+  recentActivity: VendorActivityItem[];
+  topVendors: { vendorId: number; vendorName: string; rating: number; bookings: number; revenue: number }[];
+}
+
+export interface VendorActivityItem {
+  id: number;
+  type: "VENDOR_REGISTERED" | "BOOKING_CREATED" | "BOOKING_COMPLETED" | "PAYMENT_RECEIVED" | "REVIEW_ADDED" | "WORK_ORDER_CREATED" | "CONTRACT_SIGNED";
+  message: string;
+  timestamp: string;
+  vendorName?: string;
+  referenceId?: number;
+}
+
+export interface VendorFavoriteResponse {
+  id: number;
+  vendorId: number;
+  vendorName: string;
+  vendorLogo?: string;
+  vendorCategory: string;
+  vendorRating: number;
+  addedAt: string;
+}
+
+export interface VendorSearchParams {
+  search?: string;
+  categoryId?: number;
+  status?: VendorStatus;
+  minRating?: number;
+  maxRating?: number;
+  city?: string;
+  sortBy?: string;
+  sortDir?: "asc" | "desc";
+  page?: number;
+  size?: number;
+}
+
+export interface VendorPortalStats {
+  todayBookings: number;
+  pendingBookings: number;
+  completedBookings: number;
+  totalEarnings: number;
+  monthlyEarnings: number;
+  pendingPayments: number;
+  avgRating: number;
+  totalReviews: number;
+  openWorkOrders: number;
+  upcomingBookings: VendorBookingResponse[];
+  recentPayments: VendorPaymentResponse[];
+  ratingBreakdown: { stars: number; count: number }[];
+}
+
