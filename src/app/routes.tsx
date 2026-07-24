@@ -92,6 +92,24 @@ import { BookingFlow } from "./components/vendor/marketplace/BookingFlow";
 import { MyBookingsResident } from "./components/vendor/marketplace/MyBookingsResident";
 import { FavoriteVendors } from "./components/vendor/marketplace/FavoriteVendors";
 
+// CPOS (Community Property Operating System) modules
+import CPOSDashboardPage from "./components/cpos/dashboard/DashboardPage";
+import CPOSPropertyListPage from "./components/cpos/property/PropertyListPage";
+import CPOSPropertyDetailPage from "./components/cpos/property/PropertyDetailPage";
+import CPOSPropertyCreatePage from "./components/cpos/property/PropertyCreatePage";
+import CPOSOwnershipPage from "./components/cpos/ownership/OwnershipPage";
+import CPOSOccupancyPage from "./components/cpos/occupancy/OccupancyPage";
+import CPOSResidentsPage from "./components/cpos/occupancy/ResidentsPage";
+import CPOSFinanceDashboard from "./components/cpos/finance/FinanceDashboard";
+import CPOSAIAdvisorPage from "./components/cpos/ai/AIAdvisorPage";
+import CPOSAnalyticsDashboard from "./components/cpos/analytics/AnalyticsDashboard";
+import CPOSDocumentVault from "./components/cpos/documents/DocumentVault";
+import CPOSCRMPipelinePage from "./components/cpos/crm/CRMPipelinePage";
+
+// CPN (Community Professional Network) modules
+import CPNDashboardPage from "./components/cpn/dashboard/pages/DashboardPage";
+
+
 // Service Platform pages
 import { ServicesLayout } from "./components/services/ServicesLayout";
 import { ServiceBrowse } from "./components/services/ServiceBrowse";
@@ -252,9 +270,10 @@ export const router = createBrowserRouter([
           {
             path: "requests",
             element: <PermissionGuard permission={VIEW_SERVICE_REQUESTS} requiredModule="SERVICE_PLATFORM"><MyRequests /></PermissionGuard>,
-            children: [
-              { path: ":id", element: <PermissionGuard permission={VIEW_SERVICE_REQUESTS} requiredModule="SERVICE_PLATFORM"><MyRequests /></PermissionGuard> },
-            ],
+          },
+          {
+            path: "requests/:id",
+            element: <PermissionGuard permission={VIEW_SERVICE_REQUESTS} requiredModule="SERVICE_PLATFORM"><MyRequests /></PermissionGuard>,
           },
           { path: "provider", Component: ProviderDashboard },
           {
@@ -418,6 +437,21 @@ export const router = createBrowserRouter([
         path: "architecture/logs",
         element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><LogsDashboard /></PermissionGuard>
       },
+      // ── CPOS (Community Property Operating System) Routes ─────────
+      { path: "cpos", element: <CPOSDashboardPage /> },
+      { path: "cpos/properties", element: <CPOSPropertyListPage /> },
+      { path: "cpos/properties/new", element: <CPOSPropertyCreatePage /> },
+      { path: "cpos/properties/:propertyCode", element: <CPOSPropertyDetailPage /> },
+      { path: "cpos/ownership", element: <CPOSOwnershipPage /> },
+      { path: "cpos/occupancy", element: <CPOSOccupancyPage /> },
+      { path: "cpos/residents", element: <CPOSResidentsPage /> },
+      { path: "cpos/finance", element: <CPOSFinanceDashboard /> },
+      { path: "cpos/ai", element: <CPOSAIAdvisorPage /> },
+      { path: "cpos/analytics", element: <CPOSAnalyticsDashboard /> },
+      { path: "cpos/documents", element: <CPOSDocumentVault /> },
+      { path: "cpos/crm", element: <CPOSCRMPipelinePage /> },
+      // ── CPN (Community Professional Network) Routes ───────────────
+      { path: "cpn", element: <CPNDashboardPage /> },
     ],
   },
 ]);
