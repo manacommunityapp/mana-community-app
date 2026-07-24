@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { toast } from "sonner";
@@ -58,6 +58,13 @@ export function ServiceRequestDialog({
     setPreferredTimeSlot("");
     setAddress("");
   };
+
+  // Reset form when dialog closes
+  useEffect(() => {
+    if (!open) {
+      resetForm();
+    }
+  }, [open]);
 
   const handleSubmit = async () => {
     if (!title.trim()) {
