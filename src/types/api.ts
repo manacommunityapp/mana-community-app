@@ -1455,7 +1455,7 @@ export type VerificationStatus = "PENDING" | "VERIFIED" | "REJECTED" | "SUSPENDE
 export type PricingUnit = "FLAT" | "HOURLY" | "PER_UNIT" | "CUSTOM";
 export type ServiceUrgency = "NORMAL" | "URGENT" | "EMERGENCY";
 export type ServiceRequestStatus = "DRAFT" | "SUBMITTED" | "MATCHING" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "DISPUTED";
-export type WorkOrderStatus = "CREATED" | "SCHEDULED" | "EN_ROUTE" | "ARRIVED" | "IN_PROGRESS" | "PAUSED" | "COMPLETED" | "CANCELLED";
+export type CspWorkOrderStatus = "CREATED" | "SCHEDULED" | "EN_ROUTE" | "ARRIVED" | "IN_PROGRESS" | "PAUSED" | "COMPLETED" | "CANCELLED";
 
 export interface ServiceDomainResponse {
   id: number;
@@ -1553,17 +1553,17 @@ export interface ServiceRequestResponse {
   customFieldValues: string | null;
   attachments: string | null;
   cancellationReason: string | null;
-  workOrder: WorkOrderResponse | null;
+  workOrder: CspWorkOrderResponse | null;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface WorkOrderResponse {
+export interface CspWorkOrderResponse {
   id: number;
   serviceRequestId: number;
   providerId: number;
   providerName: string;
-  status: string;
+  status: CspWorkOrderStatus;
   scheduledStart: string | null;
   scheduledEnd: string | null;
   actualStart: string | null;

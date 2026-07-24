@@ -1,4 +1,4 @@
-import { apiClient } from "./apiClient";
+﻿import { apiClient } from "./apiClient";
 import type {
   PaginatedResponse,
   ServiceDomainResponse,
@@ -6,7 +6,7 @@ import type {
   ServiceProviderResponse,
   ServiceOfferingResponse,
   ServiceRequestResponse,
-  WorkOrderResponse,
+  CspWorkOrderResponse,
   ServiceSearchResult,
   CreateServiceDomainRequest,
   CreateServiceCategoryRequest,
@@ -119,11 +119,11 @@ export const serviceProviderService = {
   async declineRequest(id: number): Promise<ServiceRequestResponse> {
     return apiClient.patch<ServiceRequestResponse>(`${BASE}/providers/me/requests/${id}/decline`);
   },
-  async listMyWorkOrders(page = 0, size = 20): Promise<PaginatedResponse<WorkOrderResponse>> {
-    return apiClient.get<PaginatedResponse<WorkOrderResponse>>(`${BASE}/providers/me/work-orders?page=${page}&size=${size}`);
+  async listMyWorkOrders(page = 0, size = 20): Promise<PaginatedResponse<CspWorkOrderResponse>> {
+    return apiClient.get<PaginatedResponse<CspWorkOrderResponse>>(`${BASE}/providers/me/work-orders?page=${page}&size=${size}`);
   },
-  async updateWorkOrderStatus(id: number, data: UpdateWorkOrderStatusRequest): Promise<WorkOrderResponse> {
-    return apiClient.patch<WorkOrderResponse>(`${BASE}/providers/me/work-orders/${id}/status`, data);
+  async updateWorkOrderStatus(id: number, data: UpdateWorkOrderStatusRequest): Promise<CspWorkOrderResponse> {
+    return apiClient.patch<CspWorkOrderResponse>(`${BASE}/providers/me/work-orders/${id}/status`, data);
   },
 };
 
@@ -154,14 +154,14 @@ export const serviceAdminService = {
   },
   async listAllWorkOrders(
     params: { status?: string; page?: number; size?: number }
-  ): Promise<PaginatedResponse<WorkOrderResponse>> {
+  ): Promise<PaginatedResponse<CspWorkOrderResponse>> {
     const qs = new URLSearchParams();
     if (params.status) qs.set("status", params.status);
     qs.set("page", String(params.page ?? 0));
     qs.set("size", String(params.size ?? 20));
-    return apiClient.get<PaginatedResponse<WorkOrderResponse>>(`${BASE}/admin/work-orders?${qs}`);
+    return apiClient.get<PaginatedResponse<CspWorkOrderResponse>>(`${BASE}/admin/work-orders?${qs}`);
   },
-  async signoffWorkOrder(id: number): Promise<WorkOrderResponse> {
-    return apiClient.patch<WorkOrderResponse>(`${BASE}/work-orders/${id}/signoff`);
+  async signoffWorkOrder(id: number): Promise<CspWorkOrderResponse> {
+    return apiClient.patch<CspWorkOrderResponse>(`${BASE}/work-orders/${id}/signoff`);
   },
 };

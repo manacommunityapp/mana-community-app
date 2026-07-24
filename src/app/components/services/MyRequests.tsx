@@ -33,7 +33,7 @@ import { serviceRequestService, serviceAdminService } from "../../../services/se
 import type {
   ServiceRequestResponse,
   ServiceRequestStatus,
-  WorkOrderStatus,
+  CspWorkOrderStatus,
 } from "../../../types/api";
 
 function cn(...inputs: ClassValue[]) {
@@ -57,7 +57,7 @@ const URGENCY_STYLES: Record<string, string> = {
   EMERGENCY: "bg-red-100 text-red-700",
 };
 
-const WORK_ORDER_STEPS: WorkOrderStatus[] = [
+const WORK_ORDER_STEPS: CspWorkOrderStatus[] = [
   "CREATED",
   "SCHEDULED",
   "EN_ROUTE",
@@ -239,6 +239,20 @@ function RequestDetail({ id }: { id: number }) {
     }
   };
 
+  const handleSignoff = async () => {
+    if (!request?.workOrder) return;
+    setActionLoading(true);
+    try {
+      const workOrder = await serviceAdminService.signoffWorkOrder(request.workOrder.id);
+      setRequest({ ...request, workOrder });
+      toast.success("Work order signed off");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to sign off");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -334,6 +348,79 @@ function RequestDetail({ id }: { id: number }) {
           )}
         </div>
       </div>
+
+      {/* Work Order Progress */}
+      {request.workOrder && (
+        <div className="p-6 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1E1E36] space-y-4">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Work Order #{request.workOrder.id}</h3>
+
+          {/* Step indicator */}
+          <div className="flex items-center gap-1">
+            {WORK_ORDER_STEPS.map((step, i) => {
+              const currentIdx = WORK_ORDER_STEPS.indexOf(request.workOrder!.status as CspWorkOrderStatus);
+              const isDone = i <= currentIdx;
+              const isCurrent = i === currentIdx;
+              return (
+                <div key={step} className="flex items-center gap-1 flex-1">
+                  <div className={cn(
+                    "flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold shrink-0",
+                    isDone ? "bg-emerald-500 text-white" : "bg-slate-200 dark:bg-slate-700 text-slate-500",
+                    isCurrent && "ring-2 ring-emerald-400"
+                  )}>
+                    {isDone ? <CheckCircle2 className="w-4 h-4" /> : i + 1}
+                  </div>
+                  {i < WORK_ORDER_STEPS.length - 1 && (
+                    <div className={cn("h-0.5 flex-1", isDone ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-700")} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between text-[10px] text-slate-500">
+            {WORK_ORDER_STEPS.map((step) => (
+              <span key={step} className="text-center flex-1">{step.replace("_", " ")}</span>
+            ))}
+          </div>
+
+          {/* Work order details */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+            {request.workOrder.scheduledStart && (
+              <div>
+                <span className="text-xs text-slate-500">Scheduled Start</span>
+                <p className="font-semibold text-slate-900 dark:text-white">
+                  {new Date(request.workOrder.scheduledStart).toLocaleString()}
+                </p>
+              </div>
+            )}
+            {request.workOrder.actualEnd && (
+              <div>
+                <span className="text-xs text-slate-500">Completed</span>
+                <p className="font-semibold text-slate-900 dark:text-white">
+                  {new Date(request.workOrder.actualEnd).toLocaleString()}
+                </p>
+              </div>
+            )}
+            {request.workOrder.providerName && (
+              <div>
+                <span className="text-xs text-slate-500">Provider</span>
+                <p className="font-semibold text-slate-900 dark:text-white">{request.workOrder.providerName}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Sign Off */}
+          {request.workOrder.status === "COMPLETED" && !request.workOrder.residentSignoff && (
+            <Button onClick={handleSignoff} disabled={actionLoading} className="bg-emerald-600 hover:bg-emerald-700">
+              {actionLoading ? "Signing off..." : "Sign Off on Work"}
+            </Button>
+          )}
+          {request.workOrder.residentSignoff && (
+            <p className="text-sm text-emerald-600 font-semibold flex items-center gap-1">
+              <CheckCircle2 className="w-4 h-4" /> Signed off on {new Date(request.workOrder.residentSignoffAt!).toLocaleDateString()}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Cancel Dialog */}
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
