@@ -110,6 +110,30 @@ import { CateringPlatform } from "./components/food/CateringPlatform";
 import { FoodProfile } from "./components/food/FoodProfile";
 import { FoodAnalyticsDashboard } from "./components/food/FoodAnalyticsDashboard";
 
+// CPOS (Community Property Operating System) modules
+import CPOSDashboardPage from "./components/cpos/dashboard/DashboardPage";
+import CPOSPropertyListPage from "./components/cpos/property/PropertyListPage";
+import CPOSPropertyDetailPage from "./components/cpos/property/PropertyDetailPage";
+import CPOSPropertyCreatePage from "./components/cpos/property/PropertyCreatePage";
+import CPOSOwnershipPage from "./components/cpos/ownership/OwnershipPage";
+import CPOSOccupancyPage from "./components/cpos/occupancy/OccupancyPage";
+import CPOSResidentsPage from "./components/cpos/occupancy/ResidentsPage";
+import CPOSFinanceDashboard from "./components/cpos/finance/FinanceDashboard";
+import CPOSAIAdvisorPage from "./components/cpos/ai/AIAdvisorPage";
+import CPOSAnalyticsDashboard from "./components/cpos/analytics/AnalyticsDashboard";
+import CPOSDocumentVault from "./components/cpos/documents/DocumentVault";
+import CPOSCRMPipelinePage from "./components/cpos/crm/CRMPipelinePage";
+
+// CPN (Community Professional Network) modules
+import CPNDashboardPage from "./components/cpn/dashboard/pages/DashboardPage";
+
+// Service Platform pages
+import { ServicesLayout } from "./components/services/ServicesLayout";
+import { ServiceBrowse } from "./components/services/ServiceBrowse";
+import { MyRequests } from "./components/services/MyRequests";
+import { ProviderDashboard } from "./components/services/ProviderDashboard";
+import { AdminServices } from "./components/services/AdminServices";
+
 // Permission constants
 import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_EVENT_REGISTRATIONS,
@@ -127,6 +151,7 @@ import {
   VIEW_FOOD_DINING, VIEW_FOOD_EVENTS, VIEW_FOOD_PANTRY,
   VIEW_FOOD_CATERING, VIEW_FOOD_PROFILE, VIEW_FOOD_ANALYTICS,
   VIEW_FOOD_HOME_CHEFS,
+  VIEW_SERVICE_CATALOG, VIEW_SERVICE_REQUESTS, MANAGE_SERVICE_CATALOG,
 } from "../constants/permissions";
 
 export const router = createBrowserRouter([
@@ -256,6 +281,26 @@ export const router = createBrowserRouter([
           { path: "orders", Component: OrdersPage },
           { path: "donations", Component: DonationsPage },
           { path: "lost-found", Component: LostAndFoundPage },
+        ],
+      },
+      {
+        path: "services",
+        element: <PermissionGuard permission={VIEW_SERVICE_CATALOG} requiredModule="SERVICE_PLATFORM"><ServicesLayout /></PermissionGuard>,
+        children: [
+          { index: true, Component: ServiceBrowse },
+          {
+            path: "requests",
+            element: <PermissionGuard permission={VIEW_SERVICE_REQUESTS} requiredModule="SERVICE_PLATFORM"><MyRequests /></PermissionGuard>,
+          },
+          {
+            path: "requests/:id",
+            element: <PermissionGuard permission={VIEW_SERVICE_REQUESTS} requiredModule="SERVICE_PLATFORM"><MyRequests /></PermissionGuard>,
+          },
+          { path: "provider", Component: ProviderDashboard },
+          {
+            path: "admin",
+            element: <PermissionGuard permission={MANAGE_SERVICE_CATALOG} requiredModule="SERVICE_PLATFORM"><AdminServices /></PermissionGuard>,
+          },
         ],
       },
       {
@@ -434,6 +479,21 @@ export const router = createBrowserRouter([
         path: "architecture/logs",
         element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><LogsDashboard /></PermissionGuard>
       },
+      // ── CPOS (Community Property Operating System) Routes ─────────
+      { path: "cpos", element: <CPOSDashboardPage /> },
+      { path: "cpos/properties", element: <CPOSPropertyListPage /> },
+      { path: "cpos/properties/new", element: <CPOSPropertyCreatePage /> },
+      { path: "cpos/properties/:propertyCode", element: <CPOSPropertyDetailPage /> },
+      { path: "cpos/ownership", element: <CPOSOwnershipPage /> },
+      { path: "cpos/occupancy", element: <CPOSOccupancyPage /> },
+      { path: "cpos/residents", element: <CPOSResidentsPage /> },
+      { path: "cpos/finance", element: <CPOSFinanceDashboard /> },
+      { path: "cpos/ai", element: <CPOSAIAdvisorPage /> },
+      { path: "cpos/analytics", element: <CPOSAnalyticsDashboard /> },
+      { path: "cpos/documents", element: <CPOSDocumentVault /> },
+      { path: "cpos/crm", element: <CPOSCRMPipelinePage /> },
+      // ── CPN (Community Professional Network) Routes ───────────────
+      { path: "cpn", element: <CPNDashboardPage /> },
     ],
   },
 ]);

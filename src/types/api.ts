@@ -1565,3 +1565,228 @@ export interface VendorPortalStats {
   ratingBreakdown: { stars: number; count: number }[];
 }
 
+// ──── COMMUNITY SERVICES PLATFORM ────
+
+export type ProviderType = "INDIVIDUAL" | "COMPANY";
+export type VerificationStatus = "PENDING" | "VERIFIED" | "REJECTED" | "SUSPENDED";
+export type PricingUnit = "FLAT" | "HOURLY" | "PER_UNIT" | "CUSTOM";
+export type ServiceUrgency = "NORMAL" | "URGENT" | "EMERGENCY";
+export type ServiceRequestStatus = "DRAFT" | "SUBMITTED" | "MATCHING" | "ASSIGNED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "DISPUTED";
+export type CspWorkOrderStatus = "CREATED" | "SCHEDULED" | "EN_ROUTE" | "ARRIVED" | "IN_PROGRESS" | "PAUSED" | "COMPLETED" | "CANCELLED";
+
+export interface ServiceDomainResponse {
+  id: number;
+  name: string;
+  slug: string;
+  icon: string | null;
+  description: string;
+  displayOrder: number | null;
+  active: boolean;
+  metadata: string | null;
+  categoryCount: number;
+  categories: ServiceCategoryResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ServiceCategoryResponse {
+  id: number;
+  domainId: number;
+  domainName: string;
+  parentCategoryId: number | null;
+  parentCategoryName: string | null;
+  name: string;
+  slug: string;
+  icon: string | null;
+  description: string;
+  requiredCertifications: string | null;
+  customFields: string | null;
+  displayOrder: number | null;
+  active: boolean;
+  subCategories: ServiceCategoryResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ServiceProviderResponse {
+  id: number;
+  userId: number;
+  userName: string;
+  vendorId: number | null;
+  providerType: string;
+  businessName: string;
+  phone: string | null;
+  email: string | null;
+  bio: string | null;
+  profileImageUrl: string | null;
+  verificationStatus: string;
+  avgRating: number | null;
+  totalJobsCompleted: number | null;
+  serviceAreas: string | null;
+  certifications: string | null;
+  offerings: ServiceOfferingResponse[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ServiceOfferingResponse {
+  id: number;
+  providerId: number;
+  providerName: string;
+  categoryId: number;
+  categoryName: string;
+  title: string;
+  description: string;
+  basePrice: number;
+  pricingUnit: string;
+  estimatedDurationMinutes: number | null;
+  minOrderValue: number | null;
+  available: boolean;
+  customFieldValues: string | null;
+  tags: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ServiceRequestResponse {
+  id: number;
+  requesterId: number;
+  requesterName: string;
+  categoryId: number;
+  categoryName: string;
+  domainName: string;
+  title: string;
+  description: string;
+  preferredDate: string | null;
+  preferredTimeSlot: string | null;
+  address: string | null;
+  urgency: string;
+  status: string;
+  assignedProviderId: number | null;
+  assignedProviderName: string | null;
+  assignedOfferingId: number | null;
+  estimatedCost: number | null;
+  actualCost: number | null;
+  customFieldValues: string | null;
+  attachments: string | null;
+  cancellationReason: string | null;
+  workOrder: CspWorkOrderResponse | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CspWorkOrderResponse {
+  id: number;
+  serviceRequestId: number;
+  providerId: number;
+  providerName: string;
+  status: CspWorkOrderStatus;
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+  actualStart: string | null;
+  actualEnd: string | null;
+  notes: string | null;
+  checklistItems: string | null;
+  materialsUsed: string | null;
+  beforePhotos: string | null;
+  afterPhotos: string | null;
+  residentSignoff: boolean;
+  residentSignoffAt: string | null;
+  providerSignoff: boolean;
+  providerSignoffAt: string | null;
+  invoiceId: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ServiceSearchResult {
+  offeringId: number;
+  offeringTitle: string;
+  offeringDescription: string;
+  basePrice: number;
+  pricingUnit: string;
+  estimatedDurationMinutes: number | null;
+  providerId: number;
+  providerName: string;
+  providerType: string;
+  providerRating: number | null;
+  providerTotalJobs: number | null;
+  verificationStatus: string;
+  categoryId: number;
+  categoryName: string;
+  domainId: number;
+  domainName: string;
+}
+
+export interface CreateServiceDomainRequest {
+  name: string;
+  slug: string;
+  icon?: string;
+  description?: string;
+  displayOrder?: number;
+  metadata?: string;
+}
+
+export interface CreateServiceCategoryRequest {
+  domainId: number;
+  parentCategoryId?: number;
+  name: string;
+  slug: string;
+  icon?: string;
+  description?: string;
+  requiredCertifications?: string;
+  customFields?: string;
+  displayOrder?: number;
+}
+
+export interface RegisterProviderRequest {
+  providerType: string;
+  businessName?: string;
+  phone?: string;
+  email?: string;
+  bio?: string;
+  profileImageUrl?: string;
+  serviceAreas?: string;
+  certifications?: string;
+  vendorId?: number;
+}
+
+export interface CreateOfferingRequest {
+  categoryId: number;
+  title: string;
+  description?: string;
+  basePrice: number;
+  pricingUnit: string;
+  estimatedDurationMinutes?: number;
+  minOrderValue?: number;
+  customFieldValues?: string;
+  tags?: string;
+}
+
+export interface CreateServiceRequestDto {
+  categoryId: number;
+  title: string;
+  description?: string;
+  preferredDate?: string;
+  preferredTimeSlot?: string;
+  address?: string;
+  urgency?: string;
+  estimatedCost?: number;
+  customFieldValues?: string;
+  attachments?: string;
+  submitImmediately?: boolean;
+}
+
+export interface AssignProviderRequest {
+  providerId: number;
+  offeringId?: number;
+}
+
+export interface UpdateWorkOrderStatusRequest {
+  status: string;
+  notes?: string;
+  checklistItems?: string;
+  materialsUsed?: string;
+  beforePhotos?: string;
+  afterPhotos?: string;
+}

@@ -193,6 +193,16 @@ export const MANAGE_COMMUNITIES = "Manage Communities";
 export const MANAGE_ROLES       = "Manage Roles";
 export const EDIT_VENUE_TIMING  = "Edit Venue Timing";
 
+// ──── SERVICE PLATFORM ────
+export const VIEW_SERVICE_CATALOG     = "View Service Catalog";
+export const MANAGE_SERVICE_CATALOG   = "Manage Service Catalog";
+export const VIEW_SERVICE_PROVIDERS   = "View Service Providers";
+export const MANAGE_SERVICE_PROVIDERS = "Manage Service Providers";
+export const CREATE_SERVICE_REQUEST   = "Create Service Request";
+export const VIEW_SERVICE_REQUESTS    = "View Service Requests";
+export const MANAGE_SERVICE_REQUESTS  = "Manage Service Requests";
+export const VIEW_WORK_ORDERS         = "View Work Orders";
+export const MANAGE_WORK_ORDERS       = "Manage Work Orders";
 
 /**
  * Permission categories grouped for the Role Management UI.
@@ -312,5 +322,15 @@ export const PERMISSION_CATEGORIES = [
     id: "admin",
     title: "ADMIN DASHBOARD Permission",
     permissions: [VIEW_ADMIN, VERIFY_KYC, BULK_UPLOAD, MANAGE_COMMUNITIES, MANAGE_ROLES, EDIT_VENUE_TIMING],
+  },
+  {
+    id: "service-platform",
+    title: "SERVICE PLATFORM Permission",
+    permissions: [
+      VIEW_SERVICE_CATALOG, MANAGE_SERVICE_CATALOG,
+      VIEW_SERVICE_PROVIDERS, MANAGE_SERVICE_PROVIDERS,
+      CREATE_SERVICE_REQUEST, VIEW_SERVICE_REQUESTS, MANAGE_SERVICE_REQUESTS,
+      VIEW_WORK_ORDERS, MANAGE_WORK_ORDERS,
+    ],
   },
 ] as const;
