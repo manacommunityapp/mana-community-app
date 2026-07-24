@@ -144,6 +144,47 @@ export const MANAGE_COUPONS = "Manage Coupons";
 export const MANAGE_WORKFLOWS = "Manage Workflows";
 
 
+// ──── FOOD & LIFESTYLE OS ────
+export const VIEW_FOOD_PROFILE        = "View Food Profile";
+export const MANAGE_FOOD_PROFILE      = "Manage Food Profile";
+export const VIEW_FOOD_RESTAURANTS    = "View Food Restaurants";
+export const MANAGE_FOOD_RESTAURANTS  = "Manage Food Restaurants";
+export const VIEW_FOOD_MENU           = "View Food Menu";
+export const MANAGE_FOOD_MENU         = "Manage Food Menu";
+export const VIEW_FOOD_HOME_CHEFS     = "View Food Home Chefs";
+export const MANAGE_FOOD_HOME_CHEFS   = "Manage Food Home Chefs";
+export const VIEW_FOOD_ORDERS         = "View Food Orders";
+export const MANAGE_FOOD_ORDERS       = "Manage Food Orders";
+export const VIEW_FOOD_SUBSCRIPTIONS  = "View Food Subscriptions";
+export const MANAGE_FOOD_SUBSCRIPTIONS = "Manage Food Subscriptions";
+export const VIEW_FOOD_DINING         = "View Food Dining";
+export const MANAGE_FOOD_DINING       = "Manage Food Dining";
+export const VIEW_FOOD_GROCERY        = "View Food Grocery";
+export const MANAGE_FOOD_GROCERY      = "Manage Food Grocery";
+export const VIEW_FOOD_RECIPES        = "View Food Recipes";
+export const MANAGE_FOOD_RECIPES      = "Manage Food Recipes";
+export const VIEW_FOOD_NUTRITION      = "View Food Nutrition";
+export const MANAGE_FOOD_NUTRITION    = "Manage Food Nutrition";
+export const VIEW_FOOD_DELIVERY       = "View Food Delivery";
+export const MANAGE_FOOD_DELIVERY     = "Manage Food Delivery";
+export const VIEW_FOOD_COMMUNITY_KITCHEN = "View Food Community Kitchen";
+export const MANAGE_FOOD_COMMUNITY_KITCHEN = "Manage Food Community Kitchen";
+export const VIEW_FOOD_CATERING       = "View Food Catering";
+export const MANAGE_FOOD_CATERING     = "Manage Food Catering";
+export const VIEW_FOOD_CORPORATE      = "View Food Corporate";
+export const MANAGE_FOOD_CORPORATE    = "Manage Food Corporate";
+export const VIEW_FOOD_EVENTS         = "View Food Events";
+export const MANAGE_FOOD_EVENTS       = "Manage Food Events";
+export const VIEW_FOOD_PANTRY         = "View Food Pantry";
+export const MANAGE_FOOD_PANTRY       = "Manage Food Pantry";
+export const VIEW_FOOD_LOYALTY        = "View Food Loyalty";
+export const MANAGE_FOOD_LOYALTY      = "Manage Food Loyalty";
+export const VIEW_FOOD_ANALYTICS      = "View Food Analytics";
+export const VIEW_FOOD_PAYMENTS       = "View Food Payments";
+export const MANAGE_FOOD_PAYMENTS     = "Manage Food Payments";
+export const VIEW_FOOD_CLOUD_KITCHENS = "View Food Cloud Kitchens";
+export const MANAGE_FOOD_CLOUD_KITCHENS = "Manage Food Cloud Kitchens";
+
 // ──── ADMIN DASHBOARD ────
 export const VIEW_ADMIN         = "View Admin";
 export const VERIFY_KYC         = "Verify KYC";
@@ -226,13 +267,13 @@ export const PERMISSION_CATEGORIES = [
     permissions: [VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT],
   },
   {
-
     id: "vendor_management",
     title: "VENDOR MANAGEMENT Permission",
     permissions: [VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
       MANAGE_WORK_ORDERS, MANAGE_PROCUREMENT, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
       RATE_VENDOR, VIEW_VENDOR_ANALYTICS],
-
+  },
+  {
     id: "resource-booking",
     title: "RESOURCE BOOKING Permission",
     permissions: [
@@ -240,7 +281,32 @@ export const PERMISSION_CATEGORIES = [
       MANAGE_BOOKING_RULES, MANAGE_PRICING, MANAGE_MAINTENANCE,
       APPROVE_BOOKINGS, VIEW_BOOKING_ANALYTICS, MANAGE_COUPONS, MANAGE_WORKFLOWS,
     ],
-
+  },
+  {
+    id: "food_os",
+    title: "FOOD & LIFESTYLE Permission",
+    permissions: [
+      VIEW_FOOD_PROFILE, MANAGE_FOOD_PROFILE,
+      VIEW_FOOD_RESTAURANTS, MANAGE_FOOD_RESTAURANTS,
+      VIEW_FOOD_MENU, MANAGE_FOOD_MENU,
+      VIEW_FOOD_HOME_CHEFS, MANAGE_FOOD_HOME_CHEFS,
+      VIEW_FOOD_ORDERS, MANAGE_FOOD_ORDERS,
+      VIEW_FOOD_SUBSCRIPTIONS, MANAGE_FOOD_SUBSCRIPTIONS,
+      VIEW_FOOD_DINING, MANAGE_FOOD_DINING,
+      VIEW_FOOD_GROCERY, MANAGE_FOOD_GROCERY,
+      VIEW_FOOD_RECIPES, MANAGE_FOOD_RECIPES,
+      VIEW_FOOD_NUTRITION, MANAGE_FOOD_NUTRITION,
+      VIEW_FOOD_DELIVERY, MANAGE_FOOD_DELIVERY,
+      VIEW_FOOD_COMMUNITY_KITCHEN, MANAGE_FOOD_COMMUNITY_KITCHEN,
+      VIEW_FOOD_CATERING, MANAGE_FOOD_CATERING,
+      VIEW_FOOD_CORPORATE, MANAGE_FOOD_CORPORATE,
+      VIEW_FOOD_EVENTS, MANAGE_FOOD_EVENTS,
+      VIEW_FOOD_PANTRY, MANAGE_FOOD_PANTRY,
+      VIEW_FOOD_LOYALTY, MANAGE_FOOD_LOYALTY,
+      VIEW_FOOD_ANALYTICS,
+      VIEW_FOOD_PAYMENTS, MANAGE_FOOD_PAYMENTS,
+      VIEW_FOOD_CLOUD_KITCHENS, MANAGE_FOOD_CLOUD_KITCHENS,
+    ],
   },
   {
     id: "admin",

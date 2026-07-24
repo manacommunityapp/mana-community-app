@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server } from "lucide-react";
+import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, UtensilsCrossed } from "lucide-react";
 import { useState } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -7,7 +7,7 @@ import { useAuth } from "../../../../contexts/AuthContext";
 import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_MARKETPLACE,
   VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN, VIEW_VISITORS, VIEW_NOTICES, VIEW_AMENITIES,
-  VIEW_TICKETS, VIEW_POLLS,
+  VIEW_TICKETS, VIEW_POLLS, VIEW_FOOD_RESTAURANTS,
 } from "../../../../constants/permissions";
 import { FloatingChat } from "../../chat/FloatingChat";
 import { FloatingChatBot } from "../../chat/FloatingChatBot";
@@ -41,6 +41,7 @@ export function Layout() {
     "Polls": "POLLS",
     "Jobs & Referrals": "JOBS",
     "Events": "EVENTS",
+    "Food & Lifestyle": "FOOD_OS",
   };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
@@ -56,6 +57,7 @@ export function Layout() {
     { to: "/polls", icon: Vote, label: "Polls" },
     { to: "/jobs", icon: Briefcase, label: "Jobs & Referrals" },
     { to: "/events", icon: CalendarDays, label: "Events" },
+    { to: "/food", icon: UtensilsCrossed, label: "Food & Lifestyle" },
   ];
 
   const isSuperAdmin = user?.role === "SUPER_ADMIN";
@@ -82,6 +84,7 @@ export function Layout() {
     if (link.label === "Polls") return permissions.includes(VIEW_POLLS);
     if (link.label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
     if (link.label === "Events") return permissions.includes(VIEW_EVENTS);
+    if (link.label === "Food & Lifestyle") return permissions.includes(VIEW_FOOD_RESTAURANTS);
     return true;
   });
 

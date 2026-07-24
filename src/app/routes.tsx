@@ -92,6 +92,24 @@ import { BookingFlow } from "./components/vendor/marketplace/BookingFlow";
 import { MyBookingsResident } from "./components/vendor/marketplace/MyBookingsResident";
 import { FavoriteVendors } from "./components/vendor/marketplace/FavoriteVendors";
 
+// Food & Lifestyle OS pages
+import { FoodLayout } from "./components/food/FoodLayout";
+import { FoodDashboard } from "./components/food/FoodDashboard";
+import { RestaurantBrowse } from "./components/food/RestaurantBrowse";
+import { RestaurantDetail } from "./components/food/RestaurantDetail";
+import { HomeChefMarketplace } from "./components/food/HomeChefMarketplace";
+import { FoodOrders } from "./components/food/FoodOrders";
+import { MealSubscriptions } from "./components/food/MealSubscriptions";
+import { GroceryMarketplace } from "./components/food/GroceryMarketplace";
+import { RecipePlatform } from "./components/food/RecipePlatform";
+import { NutritionTracker } from "./components/food/NutritionTracker";
+import { DiningReservations } from "./components/food/DiningReservations";
+import { FoodEvents } from "./components/food/FoodEvents";
+import { SmartPantry } from "./components/food/SmartPantry";
+import { CateringPlatform } from "./components/food/CateringPlatform";
+import { FoodProfile } from "./components/food/FoodProfile";
+import { FoodAnalyticsDashboard } from "./components/food/FoodAnalyticsDashboard";
+
 // Permission constants
 import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_EVENT_REGISTRATIONS,
@@ -104,7 +122,11 @@ import {
   MANAGE_WORK_ORDERS, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
   VIEW_VENDOR_ANALYTICS,
   VIEW_RESOURCE_BOOKING, MANAGE_RESOURCES,
-
+  VIEW_FOOD_RESTAURANTS, VIEW_FOOD_ORDERS, VIEW_FOOD_SUBSCRIPTIONS,
+  VIEW_FOOD_GROCERY, VIEW_FOOD_RECIPES, VIEW_FOOD_NUTRITION,
+  VIEW_FOOD_DINING, VIEW_FOOD_EVENTS, VIEW_FOOD_PANTRY,
+  VIEW_FOOD_CATERING, VIEW_FOOD_PROFILE, VIEW_FOOD_ANALYTICS,
+  VIEW_FOOD_HOME_CHEFS,
 } from "../constants/permissions";
 
 export const router = createBrowserRouter([
@@ -369,6 +391,27 @@ export const router = createBrowserRouter([
             path: "favorites",
             element: <PermissionGuard permission={BOOK_VENDOR_SERVICE} requiredModule="VENDOR_MANAGEMENT"><FavoriteVendors /></PermissionGuard>,
           },
+        ],
+      },
+      {
+        path: "food",
+        element: <PermissionGuard permission={VIEW_FOOD_RESTAURANTS} requiredModule="FOOD_OS"><FoodLayout /></PermissionGuard>,
+        children: [
+          { index: true, Component: FoodDashboard },
+          { path: "restaurants", Component: RestaurantBrowse },
+          { path: "restaurants/:restaurantId", Component: RestaurantDetail },
+          { path: "home-chefs", element: <PermissionGuard permission={VIEW_FOOD_HOME_CHEFS}><HomeChefMarketplace /></PermissionGuard> },
+          { path: "orders", element: <PermissionGuard permission={VIEW_FOOD_ORDERS}><FoodOrders /></PermissionGuard> },
+          { path: "subscriptions", element: <PermissionGuard permission={VIEW_FOOD_SUBSCRIPTIONS}><MealSubscriptions /></PermissionGuard> },
+          { path: "grocery", element: <PermissionGuard permission={VIEW_FOOD_GROCERY}><GroceryMarketplace /></PermissionGuard> },
+          { path: "recipes", element: <PermissionGuard permission={VIEW_FOOD_RECIPES}><RecipePlatform /></PermissionGuard> },
+          { path: "nutrition", element: <PermissionGuard permission={VIEW_FOOD_NUTRITION}><NutritionTracker /></PermissionGuard> },
+          { path: "dining", element: <PermissionGuard permission={VIEW_FOOD_DINING}><DiningReservations /></PermissionGuard> },
+          { path: "events", element: <PermissionGuard permission={VIEW_FOOD_EVENTS}><FoodEvents /></PermissionGuard> },
+          { path: "pantry", element: <PermissionGuard permission={VIEW_FOOD_PANTRY}><SmartPantry /></PermissionGuard> },
+          { path: "catering", element: <PermissionGuard permission={VIEW_FOOD_CATERING}><CateringPlatform /></PermissionGuard> },
+          { path: "profile", element: <PermissionGuard permission={VIEW_FOOD_PROFILE}><FoodProfile /></PermissionGuard> },
+          { path: "analytics", element: <PermissionGuard permission={VIEW_FOOD_ANALYTICS}><FoodAnalyticsDashboard /></PermissionGuard> },
         ],
       },
       {
