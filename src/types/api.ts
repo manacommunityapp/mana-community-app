@@ -682,26 +682,73 @@ export interface PaginatedResponse<T> {
 
 // ─── Community Feed ──────────────────────────────────────────────────────────
 
+export type PostTypeEnum = "GENERAL" | "CLASSIFIED" | "POLL" | "LOST_FOUND" | "ANNOUNCEMENT" | "QUESTION" | "SUGGESTION" | "APPRECIATION" | "COMPLAINT" | "ARTICLE" | "EVENT" | "JOB" | "MARKETPLACE" | "HEALTHCARE" | "SPORTS" | "FOOD" | "VENDOR_PROMOTION" | "PROPERTY" | "EMERGENCY" | "ACHIEVEMENT" | "BIRTHDAY" | "COMMUNITY_NEWS" | "MAINTENANCE" | "COMMITTEE_NOTICE" | "MEETING";
+export type ReactionTypeEnum = "LIKE" | "LOVE" | "CELEBRATE" | "HELPFUL" | "INTERESTING" | "SUPPORT" | "THANKS";
+export type PostVisibility = "PUBLIC" | "COMMUNITY" | "GROUP" | "PRIVATE";
+export type PostPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT" | "EMERGENCY";
+
+export interface PostMediaResponse {
+  id: number;
+  mediaUrl: string;
+  mediaType: string;
+  thumbnailUrl?: string;
+  altText?: string;
+  sortOrder: number;
+}
+
+export interface PostGroupSummary {
+  id: number;
+  name: string;
+  slug: string;
+  iconUrl?: string;
+  groupType: string;
+}
+
 export interface PostResponse {
   id: number;
   content: string;
+  title?: string;
   imageUrl?: string;
   official: boolean;
+  pinned: boolean;
   likesCount: number;
   commentsCount: number;
+  sharesCount: number;
+  bookmarksCount: number;
+  viewsCount: number;
   likedByCurrentUser: boolean;
+  bookmarkedByCurrentUser: boolean;
+  currentUserReaction?: ReactionTypeEnum;
+  reactionCounts?: Record<string, number>;
   authorId: number;
   authorName: string;
   authorAvatar: string;
   authorRole: string;
+  authorProfilePic?: string;
   createdAt: string;
-  postType?: "GENERAL" | "CLASSIFIED" | "POLL" | "LOST_FOUND";
+  postType?: PostTypeEnum;
+  visibility?: PostVisibility;
+  priority?: PostPriority;
   price?: number;
   location?: string;
   pollQuestion?: string;
   pollOptionsList?: string[];
   pollVotes?: Record<string, number>;
   userVotedOption?: string;
+  pollEndDate?: string;
+  pollAnonymous?: boolean;
+  hashtags?: string;
+  mentions?: string;
+  linkUrl?: string;
+  linkTitle?: string;
+  linkDescription?: string;
+  linkImage?: string;
+  eventDate?: string;
+  eventEndDate?: string;
+  eventVenue?: string;
+  media?: PostMediaResponse[];
+  group?: PostGroupSummary;
+  moderationStatus?: string;
 }
 
 export interface CommentResponse {
@@ -712,12 +759,82 @@ export interface CommentResponse {
   authorName: string;
   authorAvatar: string;
   authorRole: string;
+  authorProfilePic?: string;
   createdAt: string;
+  parentId?: number;
+  likesCount: number;
+  repliesCount: number;
+  pinned: boolean;
+  acceptedAnswer: boolean;
+  replies?: CommentResponse[];
 }
 
 export interface LikeToggleResponse {
   likesCount: number;
   liked: boolean;
+}
+
+export interface ReactionResponse {
+  totalReactions: number;
+  reactionCounts: Record<string, number>;
+  currentUserReaction?: ReactionTypeEnum;
+}
+
+export interface GroupResponse {
+  id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  coverImageUrl?: string;
+  iconUrl?: string;
+  groupType: string;
+  category?: string;
+  memberCount: number;
+  postCount: number;
+  requiresApproval: boolean;
+  allowMemberPosts: boolean;
+  rules?: string;
+  tags?: string;
+  createdById: number;
+  createdByName: string;
+  isMember: boolean;
+  memberRole?: string;
+  createdAt: string;
+}
+
+export interface TrendingResponse {
+  id: number;
+  topic: string;
+  topicType: string;
+  postCount: number;
+  engagementCount: number;
+  score: number;
+}
+
+export interface EngagementBadge {
+  id: number;
+  badgeType: string;
+  title: string;
+  description?: string;
+  icon?: string;
+  pointsValue: number;
+  earnedAt?: string;
+}
+
+export interface EngagementScoreResponse {
+  userId: number;
+  userName: string;
+  profilePicUrl?: string;
+  totalPoints: number;
+  level: number;
+  currentStreak: number;
+  postsCount: number;
+  commentsCount: number;
+  reactionsReceived: number;
+  helpfulCount: number;
+  volunteerPoints: number;
+  rankPosition?: number;
+  badges: EngagementBadge[];
 }
 
 // ─── Community Directory ─────────────────────────────────────────────────────
