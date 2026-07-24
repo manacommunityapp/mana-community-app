@@ -70,8 +70,12 @@ export const serviceRequestService = {
   async create(data: CreateServiceRequestDto): Promise<ServiceRequestResponse> {
     return apiClient.post<ServiceRequestResponse>(`${BASE}/requests`, data);
   },
-  async listMine(page = 0, size = 20): Promise<PaginatedResponse<ServiceRequestResponse>> {
-    return apiClient.get<PaginatedResponse<ServiceRequestResponse>>(`${BASE}/requests/my?page=${page}&size=${size}`);
+  async listMine(page = 0, size = 20, status?: string): Promise<PaginatedResponse<ServiceRequestResponse>> {
+    const qs = new URLSearchParams();
+    qs.set("page", String(page));
+    qs.set("size", String(size));
+    if (status) qs.set("status", status);
+    return apiClient.get<PaginatedResponse<ServiceRequestResponse>>(`${BASE}/requests/my?${qs}`);
   },
   async getById(id: number): Promise<ServiceRequestResponse> {
     return apiClient.get<ServiceRequestResponse>(`${BASE}/requests/${id}`);
@@ -125,6 +129,9 @@ export const serviceProviderService = {
   async updateWorkOrderStatus(id: number, data: UpdateWorkOrderStatusRequest): Promise<CspWorkOrderResponse> {
     return apiClient.patch<CspWorkOrderResponse>(`${BASE}/providers/me/work-orders/${id}/status`, data);
   },
+  async signoffWorkOrder(id: number): Promise<CspWorkOrderResponse> {
+    return apiClient.patch<CspWorkOrderResponse>(`${BASE}/work-orders/${id}/signoff`);
+  },
 };
 
 export const serviceAdminService = {
@@ -160,8 +167,5 @@ export const serviceAdminService = {
     qs.set("page", String(params.page ?? 0));
     qs.set("size", String(params.size ?? 20));
     return apiClient.get<PaginatedResponse<CspWorkOrderResponse>>(`${BASE}/admin/work-orders?${qs}`);
-  },
-  async signoffWorkOrder(id: number): Promise<CspWorkOrderResponse> {
-    return apiClient.patch<CspWorkOrderResponse>(`${BASE}/work-orders/${id}/signoff`);
   },
 };

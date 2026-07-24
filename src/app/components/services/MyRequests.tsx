@@ -29,7 +29,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog";
-import { serviceRequestService, serviceAdminService } from "../../../services/servicePlatformService";
+import { serviceRequestService, serviceProviderService } from "../../../services/servicePlatformService";
 import type {
   ServiceRequestResponse,
   ServiceRequestStatus,
@@ -87,7 +87,11 @@ function RequestList() {
   const load = useCallback(async (p = 0) => {
     setLoading(true);
     try {
-      const result = await serviceRequestService.listMine(p, 20);
+      const result = await serviceRequestService.listMine(
+        p,
+        20,
+        statusFilter === "ALL" ? undefined : statusFilter
+      );
       setRequests(result.content);
       setTotalPages(result.totalPages);
       setPage(p);
@@ -96,14 +100,13 @@ function RequestList() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [statusFilter]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const filtered =
-    statusFilter === "ALL" ? requests : requests.filter((r) => r.status === statusFilter);
+  const filtered = requests;
 
   return (
     <div className="space-y-4">
@@ -243,7 +246,7 @@ function RequestDetail({ id }: { id: number }) {
     if (!request?.workOrder) return;
     setActionLoading(true);
     try {
-      const workOrder = await serviceAdminService.signoffWorkOrder(request.workOrder.id);
+      const workOrder = await serviceProviderService.signoffWorkOrder(request.workOrder.id);
       setRequest({ ...request, workOrder });
       toast.success("Work order signed off");
     } catch (err) {
