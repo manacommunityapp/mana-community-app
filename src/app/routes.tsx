@@ -92,6 +92,13 @@ import { BookingFlow } from "./components/vendor/marketplace/BookingFlow";
 import { MyBookingsResident } from "./components/vendor/marketplace/MyBookingsResident";
 import { FavoriteVendors } from "./components/vendor/marketplace/FavoriteVendors";
 
+// Service Platform pages
+import { ServicesLayout } from "./components/services/ServicesLayout";
+import { ServiceBrowse } from "./components/services/ServiceBrowse";
+import { MyRequests } from "./components/services/MyRequests";
+import { ProviderDashboard } from "./components/services/ProviderDashboard";
+import { AdminServices } from "./components/services/AdminServices";
+
 // Permission constants
 import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_EVENT_REGISTRATIONS,
@@ -104,6 +111,7 @@ import {
   MANAGE_WORK_ORDERS, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
   VIEW_VENDOR_ANALYTICS,
   VIEW_RESOURCE_BOOKING, MANAGE_RESOURCES,
+  VIEW_SERVICE_CATALOG, VIEW_SERVICE_REQUESTS, MANAGE_SERVICE_CATALOG,
 
 } from "../constants/permissions";
 
@@ -234,6 +242,25 @@ export const router = createBrowserRouter([
           { path: "orders", Component: OrdersPage },
           { path: "donations", Component: DonationsPage },
           { path: "lost-found", Component: LostAndFoundPage },
+        ],
+      },
+      {
+        path: "services",
+        element: <PermissionGuard permission={VIEW_SERVICE_CATALOG} requiredModule="SERVICE_PLATFORM"><ServicesLayout /></PermissionGuard>,
+        children: [
+          { index: true, Component: ServiceBrowse },
+          {
+            path: "requests",
+            element: <PermissionGuard permission={VIEW_SERVICE_REQUESTS} requiredModule="SERVICE_PLATFORM"><MyRequests /></PermissionGuard>,
+            children: [
+              { path: ":id", element: <PermissionGuard permission={VIEW_SERVICE_REQUESTS} requiredModule="SERVICE_PLATFORM"><MyRequests /></PermissionGuard> },
+            ],
+          },
+          { path: "provider", Component: ProviderDashboard },
+          {
+            path: "admin",
+            element: <PermissionGuard permission={MANAGE_SERVICE_CATALOG} requiredModule="SERVICE_PLATFORM"><AdminServices /></PermissionGuard>,
+          },
         ],
       },
       {
