@@ -250,7 +250,7 @@ function ProfileTab({
   onUpdated: (p: ServiceProviderResponse) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<RegisterProviderRequest>({
+  const [form, setForm] = useState<RegisterProviderRequest & { profileImageUrl?: string }>({
     providerType: provider.providerType,
     businessName: provider.businessName,
     phone: provider.phone ?? undefined,
@@ -258,13 +258,24 @@ function ProfileTab({
     bio: provider.bio ?? undefined,
     serviceAreas: provider.serviceAreas ?? undefined,
     certifications: provider.certifications ?? undefined,
+    profileImageUrl: provider.profileImageUrl ?? undefined,
   });
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const updated = await serviceProviderService.updateMyProfile(form);
+      const updateData: RegisterProviderRequest & { profileImageUrl?: string } = {
+        providerType: form.providerType,
+        businessName: form.businessName,
+        phone: form.phone,
+        email: form.email,
+        bio: form.bio,
+        serviceAreas: form.serviceAreas,
+        certifications: form.certifications,
+        profileImageUrl: form.profileImageUrl,
+      };
+      const updated = await serviceProviderService.updateMyProfile(updateData);
       onUpdated(updated);
       setEditing(false);
       toast.success("Profile updated");
@@ -391,6 +402,8 @@ function OfferingsTab() {
     description: "",
     basePrice: 0,
     pricingUnit: "FLAT",
+    tags: "",
+    customFieldValues: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -430,7 +443,7 @@ function OfferingsTab() {
 
   const openCreate = async () => {
     setEditingOffering(null);
-    setForm({ categoryId: 0, title: "", description: "", basePrice: 0, pricingUnit: "FLAT" });
+    setForm({ categoryId: 0, title: "", description: "", basePrice: 0, pricingUnit: "FLAT", tags: "", customFieldValues: "" });
     setSelectedDomainId(null);
     setCategories([]);
     await loadDomains();
@@ -445,7 +458,8 @@ function OfferingsTab() {
       description: o.description ?? "",
       basePrice: o.basePrice,
       pricingUnit: o.pricingUnit,
-      customFieldValues: o.customFieldValues ?? undefined,
+      tags: o.tags ?? "",
+      customFieldValues: o.customFieldValues ?? "",
     });
     await loadDomains();
     setDialogOpen(true);
@@ -589,6 +603,14 @@ function OfferingsTab() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+            <div className="space-y-1">
+              <Label>Tags (comma-separated, optional)</Label>
+              <Textarea rows={2} value={form.tags ?? ""} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
+            </div>
+            <div className="space-y-1">
+              <Label>Custom Field Values (JSON, optional)</Label>
+              <Textarea rows={2} value={form.customFieldValues ?? ""} onChange={(e) => setForm({ ...form, customFieldValues: e.target.value })} />
             </div>
           </div>
           <DialogFooter>
