@@ -29,11 +29,13 @@ import {
   Trash2,
   Upload,
   Workflow,
+  X,
 } from "lucide-react";
 import type { Editor } from "grapesjs";
 import { useAuth } from "../../../contexts/AuthContext";
 import { communityService } from "../../../services/communityService";
 import { emailTemplateService, type EmailTemplateRecord, type EmailTemplateStatus } from "../../../services/emailTemplateService";
+import { emailAdminService, type DefaultTemplateDetails } from "../../../services/emailAdminService";
 import type { CommunityResponse } from "../../../types/api";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { BuilderCanvas } from "./emailbuilder/BuilderCanvas";
@@ -51,6 +53,7 @@ import {
   communityThemeDefaults,
   conditionalRules,
   dynamicFieldGroups,
+  emailApplicabilityOptions,
   emailBlocks,
   emailClients,
   emailTemplateCategories,
@@ -77,6 +80,14 @@ interface WorkingTemplate {
   status: EmailTemplateStatus;
   category?: string;
   tags?: string[];
+  moduleKey?: string;
+  menuKey?: string;
+  menuLabel?: string;
+  subMenuKey?: string;
+  subMenuLabel?: string;
+  useCase?: string;
+  triggerKey?: string;
+  templateKey?: string;
   themeName?: string;
   themeJson?: string;
   generatedCss?: string;
@@ -108,26 +119,60 @@ function toWorkingTemplate(template: EmailTemplateRecord, communityId: number): 
     status: template.status,
     category: template.category ?? "Community",
     tags: template.tags ?? [],
+    moduleKey: template.moduleKey,
+    menuKey: template.menuKey,
+    menuLabel: template.menuLabel,
+    subMenuKey: template.subMenuKey,
+    subMenuLabel: template.subMenuLabel,
+    useCase: template.useCase,
+    triggerKey: template.triggerKey,
+    templateKey: template.templateKey,
     themeName: template.themeName,
     themeJson: template.themeJson,
     generatedCss: template.generatedCss,
   };
 }
 
-function createBlankTemplate(communityId: number, name = "Tournament Announcement", category = "Tournament"): WorkingTemplate {
+type TemplateStarter = (typeof templateStarters)[number];
+
+function createBlankTemplate(communityId: number, starter: string | TemplateStarter = templateStarters[0], category = "Tournament"): WorkingTemplate {
+  const isStarter = typeof starter !== "string";
+  const selectedStarter = isStarter ? starter : undefined;
+  const name = isStarter ? starter.name : starter;
+  const selectedCategory = selectedStarter ? selectedStarter.category : category;
+  const fallbackApplicability = emailApplicabilityOptions.find((option) => option.category === selectedCategory) ?? emailApplicabilityOptions[0];
+
   return {
     communityId,
     templateName: name,
-    subject: `${name} - {{communityName}}`,
+    subject: selectedStarter?.subject ?? `${name} - {{communityName}}`,
     html: starterTemplateHtml,
     css: starterTemplateCss,
     jsonLayout: {},
     status: "DRAFT",
-    category,
-    tags: [category.toLowerCase()],
+    category: selectedCategory,
+    tags: selectedStarter?.tags ?? [selectedCategory.toLowerCase()],
+    moduleKey: selectedStarter?.moduleKey ?? fallbackApplicability.moduleKey,
+    menuKey: selectedStarter?.menuKey ?? fallbackApplicability.menuKey,
+    menuLabel: selectedStarter?.menuLabel ?? fallbackApplicability.menuLabel,
+    subMenuKey: selectedStarter?.subMenuKey ?? fallbackApplicability.subMenuKey,
+    subMenuLabel: selectedStarter?.subMenuLabel ?? fallbackApplicability.subMenuLabel,
+    useCase: selectedStarter?.useCase ?? fallbackApplicability.useCase,
+    triggerKey: selectedStarter?.triggerKey ?? fallbackApplicability.triggerKey,
+    templateKey: selectedStarter?.templateKey ?? fallbackApplicability.templateKey,
     themeName: DEFAULT_THEME.themeName,
     themeJson: JSON.stringify(DEFAULT_THEME),
     generatedCss: generateCss(DEFAULT_THEME),
+  };
+}
+
+function createClonedTemplate(template: EmailTemplateRecord, communityId: number): WorkingTemplate {
+  const working = toWorkingTemplate(template, communityId);
+  return {
+    ...working,
+    id: undefined,
+    templateName: `${template.name} Copy`,
+    status: "DRAFT",
   };
 }
 
@@ -245,6 +290,23 @@ function themedPreviewDocument(html: string, css: string, settings: ThemeSetting
       <body>${themedHtml}</body>
     </html>
   `;
+}
+
+function buildStoredThemedHtmlDocument(html: string, css: string, settings: ThemeSettings) {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${settings.themeName} Email Template</title>
+  <style>
+${buildTemplateCss(settings, css)}
+  </style>
+</head>
+<body>
+${normalizeTemplateHtmlForTheme(html || starterTemplateHtml, settings)}
+</body>
+</html>`;
 }
 
 function exportJson(template: WorkingTemplate | EmailTemplateRecord) {
@@ -430,6 +492,26 @@ export function EmailTemplateBuilder() {
   const [activeThemeSettings, setActiveThemeSettings] = useState<ThemeSettings>(DEFAULT_THEME);
   const [themePreviewTemplate, setThemePreviewTemplate] = useState<EmailTemplateRecord | null>(null);
 
+  // Default Template View Modal State
+  const [defaultModalOpen, setDefaultModalOpen] = useState(false);
+  const [defaultTemplateDetails, setDefaultTemplateDetails] = useState<DefaultTemplateDetails | null>(null);
+  const [loadingDefaultTemplate, setLoadingDefaultTemplate] = useState(false);
+  const [defaultModalViewMode, setDefaultModalViewMode] = useState<"rendered" | "source">("rendered");
+
+  const openDefaultTemplateViewModal = async (targetKey?: string) => {
+    const keyToFetch = targetKey || workingTemplate?.templateKey || "registration-confirmed";
+    setDefaultModalOpen(true);
+    setLoadingDefaultTemplate(true);
+    try {
+      const data = await emailAdminService.getDefaultTemplate(keyToFetch);
+      setDefaultTemplateDetails(data);
+    } catch {
+      showError("Failed to load default template HTML");
+    } finally {
+      setLoadingDefaultTemplate(false);
+    }
+  };
+
   useEffect(() => {
     async function loadCommunities() {
       try {
@@ -492,7 +574,22 @@ export function EmailTemplateBuilder() {
     const term = search.trim().toLowerCase();
     return templates.filter((template) => {
       const categoryMatch = selectedCategory === "All" || template.category === selectedCategory;
-      const termMatch = !term || `${template.name} ${template.subject} ${template.status} ${template.category ?? ""} ${(template.tags ?? []).join(" ")}`.toLowerCase().includes(term);
+      const searchableText = [
+        template.name,
+        template.subject,
+        template.status,
+        template.category,
+        template.moduleKey,
+        template.menuKey,
+        template.menuLabel,
+        template.subMenuKey,
+        template.subMenuLabel,
+        template.useCase,
+        template.triggerKey,
+        template.templateKey,
+        ...(template.tags ?? []),
+      ].filter(Boolean).join(" ");
+      const termMatch = !term || searchableText.toLowerCase().includes(term);
       return categoryMatch && termMatch;
     });
   }, [templates, search, selectedCategory]);
@@ -655,6 +752,82 @@ export function EmailTemplateBuilder() {
           </div>
         </div>
 
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div className="mb-3 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Workflow className="h-4 w-4 text-primary" />
+              <h3 className="text-sm font-bold text-foreground">Template Applicability</h3>
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-black text-primary">
+                {workingTemplate.moduleKey ?? "UNMAPPED"}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => void openDefaultTemplateViewModal()}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-bold text-primary hover:bg-primary/20 transition-colors cursor-pointer"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              Default Template View
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,2fr)_repeat(2,minmax(0,1fr))]">
+            <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+              Apply In
+              <select
+                value={workingTemplate.templateKey ?? ""}
+                onChange={(event) => {
+                  const selected = emailApplicabilityOptions.find((option) => option.templateKey === event.target.value);
+                  if (!selected) return;
+                  setWorkingTemplate((current) => current ? {
+                    ...current,
+                    templateName: selected.defaultName,
+                    subject: selected.defaultSubject,
+                    category: selected.category,
+                    tags: selected.tags,
+                    moduleKey: selected.moduleKey,
+                    menuKey: selected.menuKey,
+                    menuLabel: selected.menuLabel,
+                    subMenuKey: selected.subMenuKey,
+                    subMenuLabel: selected.subMenuLabel,
+                    useCase: selected.useCase,
+                    triggerKey: selected.triggerKey,
+                    templateKey: selected.templateKey,
+                  } : current);
+                }}
+                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground outline-none focus:border-primary/50"
+              >
+                {emailApplicabilityOptions.map((option) => (
+                  <option key={option.templateKey} value={option.templateKey}>
+                    {option.moduleLabel} / {option.menuLabel} / {option.subMenuLabel} - {option.useCase}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+              Trigger Key
+              <input
+                value={workingTemplate.triggerKey ?? ""}
+                onChange={(event) => setWorkingTemplate((current) => current ? { ...current, triggerKey: event.target.value } : current)}
+                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground outline-none focus:border-primary/50"
+              />
+            </label>
+            <label className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+              Template Key
+              <input
+                value={workingTemplate.templateKey ?? ""}
+                onChange={(event) => setWorkingTemplate((current) => current ? { ...current, templateKey: event.target.value } : current)}
+                className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-xs font-semibold text-foreground outline-none focus:border-primary/50"
+              />
+            </label>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] text-muted-foreground md:grid-cols-4">
+            <div className="rounded-xl border border-border bg-background px-3 py-2"><span className="font-bold text-foreground">Module:</span> {workingTemplate.moduleKey ?? "-"}</div>
+            <div className="rounded-xl border border-border bg-background px-3 py-2"><span className="font-bold text-foreground">Menu:</span> {workingTemplate.menuLabel ?? workingTemplate.menuKey ?? "-"}</div>
+            <div className="rounded-xl border border-border bg-background px-3 py-2"><span className="font-bold text-foreground">Submenu:</span> {workingTemplate.subMenuLabel ?? workingTemplate.subMenuKey ?? "-"}</div>
+            <div className="rounded-xl border border-border bg-background px-3 py-2"><span className="font-bold text-foreground">Use Case:</span> {workingTemplate.useCase ?? "-"}</div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[16rem_minmax(0,1fr)_20rem]">
           <ComponentPalette blocks={emailBlocks} onInsertBlock={insertBlock} />
           <BuilderCanvas
@@ -694,6 +867,116 @@ export function EmailTemplateBuilder() {
           onThemeChange={setPreviewTheme}
           onClose={() => setPreviewOpen(false)}
         />
+
+        {defaultModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 text-left">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 flex-shrink-0 flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                  <Eye className="w-5 h-5 text-indigo-600" />
+                  <div>
+                    <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                      Default Built-in Template: <span className="text-indigo-600 font-extrabold">{defaultTemplateDetails?.templateFile || "Thymeleaf HTML"}</span>
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5 font-mono">
+                      Key: {defaultTemplateDetails?.key || workingTemplate.templateKey || "REGISTRATION_CONFIRMED"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <select
+                    value={defaultTemplateDetails?.templateName || workingTemplate.templateKey || "registration-confirmed"}
+                    onChange={(e) => void openDefaultTemplateViewModal(e.target.value)}
+                    className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-700 outline-none"
+                  >
+                    {emailApplicabilityOptions.map((opt) => (
+                      <option key={opt.templateKey} value={opt.templateKey}>
+                        {opt.templateKey} ({opt.defaultName})
+                      </option>
+                    ))}
+                  </select>
+
+                  <div className="flex items-center bg-slate-200 p-0.5 rounded-lg text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setDefaultModalViewMode("rendered")}
+                      className={`px-3 py-1 rounded-md transition-all cursor-pointer border-none ${defaultModalViewMode === "rendered" ? "bg-white text-indigo-600 shadow-sm" : "bg-transparent text-slate-600 hover:text-slate-900"}`}
+                    >
+                      Rendered View
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDefaultModalViewMode("source")}
+                      className={`px-3 py-1 rounded-md transition-all cursor-pointer border-none ${defaultModalViewMode === "source" ? "bg-white text-indigo-600 shadow-sm" : "bg-transparent text-slate-600 hover:text-slate-900"}`}
+                    >
+                      HTML Source
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const contentToCopy = defaultModalViewMode === "source" ? defaultTemplateDetails?.rawHtml : defaultTemplateDetails?.renderedHtml;
+                      if (contentToCopy) {
+                        navigator.clipboard.writeText(contentToCopy);
+                        showSuccess("Template HTML copied to clipboard!");
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-bold rounded-lg shadow-sm cursor-pointer transition-colors"
+                  >
+                    Copy HTML
+                  </button>
+
+                  {defaultTemplateDetails?.rawHtml && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWorkingTemplate((curr) => curr ? { ...curr, html: defaultTemplateDetails.rawHtml } : curr);
+                        editor?.setComponents(defaultTemplateDetails.rawHtml);
+                        showSuccess("Loaded default HTML template into editor!");
+                        setDefaultModalOpen(false);
+                      }}
+                      className="px-3 py-1.5 bg-indigo-600 text-white hover:bg-indigo-700 text-xs font-bold rounded-lg shadow-sm cursor-pointer transition-colors border-none"
+                    >
+                      Load into Builder
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => setDefaultModalOpen(false)}
+                    className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Body */}
+              <div className="flex-1 p-6 overflow-y-auto bg-slate-100 min-h-[420px]">
+                {loadingDefaultTemplate ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-2">
+                    <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
+                    <span className="text-xs text-slate-500 font-semibold">Loading default template HTML...</span>
+                  </div>
+                ) : defaultModalViewMode === "rendered" ? (
+                  <iframe
+                    srcDoc={defaultTemplateDetails?.renderedHtml || ""}
+                    className="w-full h-[55vh] border border-slate-200 rounded-xl bg-white shadow-md"
+                    title="Default Template Rendered Preview"
+                    sandbox="allow-same-origin"
+                  />
+                ) : (
+                  <pre className="w-full h-[55vh] overflow-auto bg-slate-900 text-emerald-400 p-4 text-xs font-mono rounded-xl leading-relaxed whitespace-pre-wrap">
+                    {defaultTemplateDetails?.rawHtml || defaultTemplateDetails?.renderedHtml || "<!-- No content available -->"}
+                  </pre>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -806,7 +1089,7 @@ export function EmailTemplateBuilder() {
                     sampleValues={selectedSample.values}
                     onEdit={() => openBuilder(toWorkingTemplate(template, communityId))}
                     onPreview={() => setSavedPreviewTemplate(template)}
-                    onClone={() => openBuilder(createBlankTemplate(communityId, `${template.name} Copy`, template.category ?? "Community"))}
+                    onClone={() => openBuilder(createClonedTemplate(template, communityId))}
                     onExport={() => exportJson(template)}
                     onDelete={() => void deleteTemplate(template)}
                   />
@@ -829,9 +1112,9 @@ export function EmailTemplateBuilder() {
             <Panel title="Quick Starters" icon={FolderOpen}>
               <div className="space-y-2">
                 {templateStarters.map((starter) => (
-                  <button key={starter.name} type="button" onClick={() => openBuilder(createBlankTemplate(communityId, starter.name, starter.category))} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-left text-xs font-semibold text-foreground hover:border-primary/35 hover:bg-primary/5 cursor-pointer">
+                  <button key={starter.templateKey ?? starter.name} type="button" onClick={() => openBuilder(createBlankTemplate(communityId, starter))} className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-left text-xs font-semibold text-foreground hover:border-primary/35 hover:bg-primary/5 cursor-pointer">
                     <span className="block">{starter.name}</span>
-                    <span className="mt-0.5 block text-[10px] text-muted-foreground">{starter.category} · {starter.tags.join(", ")}</span>
+                    <span className="mt-0.5 block text-[10px] text-muted-foreground">{starter.moduleLabel ?? starter.category} / {starter.subMenuLabel ?? starter.category} - {starter.triggerKey ?? starter.tags.join(", ")}</span>
                   </button>
                 ))}
               </div>
@@ -879,6 +1162,9 @@ export function EmailTemplateBuilder() {
                 onThemeSaved={(settings) => {
                   setActiveThemeSettings(settings);
                   void loadSavedThemes();
+                  if (templates.length > 0) {
+                    void applyThemeToTemplates(settings, templates);
+                  }
                 }}
                 onThemeSelected={setActiveThemeSettings}
               />
@@ -1087,8 +1373,15 @@ function TemplateCard({
   const statusIcon = template.status === "PUBLISHED" || template.status === "ACTIVE" ? CheckCircle2 : template.status === "ARCHIVED" ? Archive : Clock3;
   const StatusIcon = statusIcon;
   const templateThemeSettings = parseThemeJson(template.themeJson) ?? themeSettings;
-  const previewDoc = themedPreviewDocument(template.html, template.css ?? "", templateThemeSettings, sampleValues);
+  const templateCss = buildTemplateCss(templateThemeSettings, template.css ?? "");
+  const finalHtmlDocument = buildStoredThemedHtmlDocument(template.html, template.css ?? "", templateThemeSettings);
+  const previewDoc = themedPreviewDocument(template.html, templateCss, templateThemeSettings, sampleValues);
   const displayedThemeName = template.themeName ?? templateThemeSettings.themeName;
+  const appliedPath = [
+    template.moduleKey,
+    template.menuLabel ?? template.menuKey,
+    template.subMenuLabel ?? template.subMenuKey,
+  ].filter(Boolean).join(" / ");
 
   return (
     <div className="group rounded-2xl border border-border bg-card p-4 shadow-sm transition-all hover:border-primary/35 hover:shadow-md">
@@ -1124,10 +1417,21 @@ function TemplateCard({
       <div className="mt-3 flex flex-wrap gap-1.5">
         <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">{template.category ?? "Community"}</span>
         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">{displayedThemeName}</span>
+        {template.templateKey && (
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">{template.templateKey}</span>
+        )}
         {(template.tags ?? []).slice(0, 3).map((tag) => (
           <span key={tag} className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">{tag}</span>
         ))}
       </div>
+
+      <div className="mt-3 rounded-xl border border-border bg-background px-3 py-2 text-[11px] text-muted-foreground">
+        <div className="font-bold text-foreground">Applies To</div>
+        <div className="mt-1">{appliedPath || "Not mapped yet"}</div>
+        <div className="mt-1 text-[10px] font-bold uppercase tracking-wider text-primary">{template.triggerKey ?? template.useCase ?? "No trigger configured"}</div>
+      </div>
+
+
 
 
       <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3">

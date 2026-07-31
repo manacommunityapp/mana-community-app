@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server } from "lucide-react";
+import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -41,12 +41,14 @@ export function Layout() {
     "Polls": "POLLS",
     "Jobs & Referrals": "JOBS",
     "Events": "EVENTS",
+    "Professional Network": "JOBS",
   };
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   const navLinks = [
     { to: "/", icon: Users, label: "Community Feed" },
+    { to: "/cpn", icon: Sparkles, label: "Professional Network" },
     { to: "/sports", icon: Trophy, label: "Sports" },
     { to: "/marketplace", icon: Store, label: "Marketplace" },
     { to: "/visitors", icon: Shield, label: "Visitors" },
@@ -81,6 +83,7 @@ export function Layout() {
     if (link.label === "Helpdesk") return permissions.includes(VIEW_TICKETS);
     if (link.label === "Polls") return permissions.includes(VIEW_POLLS);
     if (link.label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
+    if (link.label === "Professional Network") return permissions.includes(VIEW_JOBS);
     if (link.label === "Events") return permissions.includes(VIEW_EVENTS);
     return true;
   });

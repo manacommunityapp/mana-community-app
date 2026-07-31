@@ -71,6 +71,8 @@ interface SportsEventTabProps {
   activeTournamentName?: string;
   clearTournamentContext?: () => void;
   setTournamentContext?: (id: number, name: string) => void;
+  tournamentStartDate?: Date;
+  tournamentEndDate?: Date;
 }
 
 export function SportsEventTab({
@@ -137,6 +139,8 @@ export function SportsEventTab({
   activeTournamentName,
   clearTournamentContext,
   setTournamentContext,
+  tournamentStartDate,
+  tournamentEndDate,
 }: SportsEventTabProps) {
   const [sportsEventSubTab, setSportsEventSubTab] = useState<"list" | "config">(
     activeTournamentId ? "config" : "list"
@@ -274,6 +278,8 @@ export function SportsEventTab({
           isSuperAdmin={isSuperAdmin}
           isAdmin={isAdmin}
           onLoadCategories={onLoadCategories}
+          tournamentStartDate={tournamentStartDate}
+          tournamentEndDate={tournamentEndDate}
         />
       )}
     </div>

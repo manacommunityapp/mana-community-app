@@ -66,6 +66,11 @@ export interface ResourceResponse {
   totalBookings: number;
   activeBookings: number;
   communityId: number;
+  pricePerSlot?: number | null;
+  rules?: string | null;
+  allowGuests?: boolean;
+  active?: boolean;
+  category?: string | null;
 }
 
 export interface ResourceBookingResponse {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Mail, Send, RefreshCw, CheckCircle2, Eye, X, AlertTriangle, Zap, Inbox, Upload, Image as ImageIcon, Sparkles, AlertCircle, XCircle, MapPin } from "lucide-react";
+import { Mail, Send, RefreshCw, CheckCircle2, Eye, X, AlertTriangle, Zap, Inbox, Upload, Image as ImageIcon, Sparkles, AlertCircle, XCircle, MapPin, FileCheck } from "lucide-react";
 import { emailAdminService, extractApiErrorMessage, type EmailTemplateInfo, type EmailHealthInfo, type TestAllResult } from "../../../services/emailAdminService";
 import { communityService } from "../../../services/communityService";
 import type { CommunityResponse } from "../../../types/api";
@@ -44,6 +44,14 @@ export function EmailTemplatesTab() {
   const [activeTemplate, setActiveTemplate] = useState<EmailTemplateInfo | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [loadingPreview, setLoadingPreview] = useState(false);
+
+  // Default Template View Modal State
+  const [viewingDefaultTemplate, setViewingDefaultTemplate] = useState<EmailTemplateInfo | null>(null);
+  const [defaultPreviewHtml, setDefaultPreviewHtml] = useState<string>("");
+  const [defaultRawHtml, setDefaultRawHtml] = useState<string>("");
+  const [loadingDefaultPreview, setLoadingDefaultPreview] = useState(false);
+  const [defaultViewMode, setDefaultViewMode] = useState<"rendered" | "source">("rendered");
+
   const [sendingTemplate, setSendingTemplate] = useState(false);
   const [sendingAll, setSendingAll] = useState(false);
   const [lastAllResult, setLastAllResult] = useState<TestAllResult | null>(null);
@@ -141,6 +149,20 @@ export function EmailTemplatesTab() {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const openDefaultTemplateView = async (tpl: EmailTemplateInfo) => {
+    setViewingDefaultTemplate(tpl);
+    setLoadingDefaultPreview(true);
+    try {
+      const res = await emailAdminService.getDefaultTemplate(tpl.key);
+      setDefaultPreviewHtml(res.renderedHtml || "");
+      setDefaultRawHtml(res.rawHtml || "");
+    } catch (err) {
+      showError(extractApiErrorMessage(err, "Failed to load default template HTML"));
+    } finally {
+      setLoadingDefaultPreview(false);
+    }
   };
 
   const handleSendTest = async () => {
@@ -489,6 +511,73 @@ export function EmailTemplatesTab() {
         )}
       </div>
 
+      {/* ── Template Applicability ──────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-100">
+          <FileCheck className="w-4.5 h-4.5 text-indigo-500" />
+          <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Template Applicability</h3>
+          <span className="text-[10px] font-semibold text-slate-400 ml-1">
+            Default HTML file used vs. a community custom template, per email
+          </span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                <th className="text-left px-5 py-2.5">Template</th>
+                <th className="text-left px-5 py-2.5">Default HTML</th>
+                <th className="text-left px-5 py-2.5">Custom Template</th>
+                <th className="text-left px-5 py-2.5">In Use</th>
+                <th className="text-right px-5 py-2.5">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {templates.map(tpl => (
+                <tr key={tpl.key} className="hover:bg-slate-50/60">
+                  <td className="px-5 py-2.5 font-bold text-slate-700 whitespace-nowrap">
+                    {tpl.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                  </td>
+                  <td className="px-5 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{tpl.templateFile}</td>
+                  <td className="px-5 py-2.5 text-slate-600">
+                    {tpl.customTemplateExists ? (
+                      <span className="inline-flex items-center gap-1">
+                        {tpl.customTemplateName}
+                        <span className="text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                          {tpl.customTemplateStatus}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-slate-300">— none drafted —</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-2.5">
+                    {tpl.appliedSource === "CUSTOM" ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                        Custom
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                        Default
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-5 py-2.5 text-right">
+                    <button
+                      type="button"
+                      onClick={() => openDefaultTemplateView(tpl)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 shadow-sm transition-all cursor-pointer"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      Default Template View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* ── Templates Card List ─────────────────────────────────── */}
       <div>
         <div className="flex items-center gap-2 mb-3">
@@ -683,6 +772,82 @@ export function EmailTemplatesTab() {
                 </div>
               </div>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Default Template View Modal ───────────────────────── */}
+      {viewingDefaultTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 text-left">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 flex-shrink-0">
+              <div>
+                <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  Default Template View: <span className="text-indigo-600 font-extrabold">{viewingDefaultTemplate.key}</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5 font-mono">
+                  Default File: {viewingDefaultTemplate.templateFile}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-slate-200 p-0.5 rounded-lg text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setDefaultViewMode("rendered")}
+                    className={`px-3 py-1 rounded-md transition-all cursor-pointer border-none ${defaultViewMode === "rendered" ? "bg-white text-indigo-600 shadow-sm" : "bg-transparent text-slate-600 hover:text-slate-900"}`}
+                  >
+                    Rendered View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDefaultViewMode("source")}
+                    className={`px-3 py-1 rounded-md transition-all cursor-pointer border-none ${defaultViewMode === "source" ? "bg-white text-indigo-600 shadow-sm" : "bg-transparent text-slate-600 hover:text-slate-900"}`}
+                  >
+                    HTML Source
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const contentToCopy = defaultViewMode === "source" ? defaultRawHtml : defaultPreviewHtml;
+                    navigator.clipboard.writeText(contentToCopy);
+                    showSuccess(`${defaultViewMode === "source" ? "Raw HTML File" : "Rendered HTML"} copied to clipboard!`);
+                  }}
+                  className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-bold rounded-lg shadow-sm cursor-pointer transition-colors"
+                >
+                  Copy HTML
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewingDefaultTemplate(null)}
+                  className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 p-6 overflow-y-auto bg-slate-100 min-h-[400px]">
+              {loadingDefaultPreview ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-2">
+                  <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
+                  <span className="text-xs text-slate-500 font-semibold">Loading default template HTML...</span>
+                </div>
+              ) : defaultViewMode === "rendered" ? (
+                <iframe
+                  srcDoc={defaultPreviewHtml}
+                  className="w-full h-[55vh] border border-slate-200 rounded-xl bg-white shadow-md"
+                  title={`Default Template Preview: ${viewingDefaultTemplate.key}`}
+                  sandbox="allow-same-origin"
+                />
+              ) : (
+                <pre className="w-full h-[55vh] overflow-auto bg-slate-900 text-emerald-400 p-4 text-xs font-mono rounded-xl leading-relaxed whitespace-pre-wrap">
+                  {defaultRawHtml || defaultPreviewHtml}
+                </pre>
+              )}
             </div>
           </div>
         </div>

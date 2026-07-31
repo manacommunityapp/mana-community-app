@@ -115,5 +115,6 @@ const MODULE_LABELS: Record<string, string> = {
   COMMUNITY_MGMT: "Community Management",
   FINANCE_MGMT: "Finance Management",
   ADMIN_HUB: "Admin Hub",
+  SERVICE_PLATFORM: "Service Platform",
 };
 
