@@ -19,7 +19,7 @@ const OccupancyPage: React.FC = () => (
         { label: 'Vacant', val: '322 (11.3%)', color: '#F59E0B' },
         { label: 'Reserved / Inventory', val: '105 (3.7%)', color: '#8B5CF6' },
       ].map((s, i) => (
-        <Grid item xs={12} sm={6} md={2.4} key={i}>
+        <Grid size={{ xs: 12, sm: 6, md: 2.4 }} key={i}>
           <Paper sx={{ p: 2.5, borderRadius: '16px', borderTop: `4px solid ${s.color}` }}>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>{s.label}</Typography>
             <Typography variant="h6" sx={{ color: '#fff', fontWeight: 800, mt: 0.5 }}>{s.val}</Typography>

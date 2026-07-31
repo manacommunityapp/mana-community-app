@@ -73,7 +73,7 @@ const AIAdvisorPage: React.FC = () => {
           { label: 'AI Valuations Generated', value: '1,240', icon: <AssessmentIcon />, color: '#10B981' },
           { label: 'Avg Prediction Accuracy', value: '94.2%', icon: <TrendingUpIcon />, color: '#F59E0B' },
         ].map((m, i) => (
-          <Grid item xs={12} md={4} key={i}>
+          <Grid size={{ xs: 12, md: 4 }} key={i}>
             <Paper sx={{ p: 3, borderRadius: '20px', display: 'flex', alignItems: 'center', gap: 2 }}>
               <Avatar sx={{ bgcolor: `${m.color}20`, width: 52, height: 52 }}><Box sx={{ color: m.color }}>{m.icon}</Box></Avatar>
               <Box>

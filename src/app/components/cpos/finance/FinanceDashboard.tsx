@@ -33,7 +33,7 @@ const FinanceDashboard: React.FC = () => (
         { label: 'Outstanding Loans', value: '₹680 Cr', sub: 'Across 480 properties', color: '#F59E0B', icon: <AccountBalanceIcon /> },
         { label: 'Security Deposits Held', value: '₹5.2 Cr', sub: '1,180 active leases', color: '#8B5CF6', icon: <ReceiptIcon /> },
       ].map((s, i) => (
-        <Grid item xs={12} sm={6} md={3} key={i}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }} key={i}>
           <Paper sx={{ p: 3, borderRadius: '20px' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1.5 }}>
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</Typography>
@@ -48,7 +48,7 @@ const FinanceDashboard: React.FC = () => (
 
     {/* Cash Flow Chart + Loan Summary */}
     <Grid container spacing={2.5}>
-      <Grid item xs={12} md={7}>
+      <Grid size={{ xs: 12, md: 7 }}>
         <Paper sx={{ p: 3, borderRadius: '20px' }}>
           <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 700, mb: 3 }}>Monthly Cash Flow — ₹ Lakhs</Typography>
           <ResponsiveContainer width="100%" height={220}>
@@ -72,7 +72,7 @@ const FinanceDashboard: React.FC = () => (
           </ResponsiveContainer>
         </Paper>
       </Grid>
-      <Grid item xs={12} md={5}>
+      <Grid size={{ xs: 12, md: 5 }}>
         <Paper sx={{ p: 3, borderRadius: '20px' }}>
           <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 700, mb: 2.5 }}>ROI by Property Type</Typography>
           {[
@@ -122,4 +122,5 @@ const FinanceDashboard: React.FC = () => (
     </Paper>
   </Box>
 );
+
 export default FinanceDashboard;

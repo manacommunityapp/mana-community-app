@@ -23,27 +23,27 @@ const yieldData = [
 const typeDistribution = [
   { name: 'Apartment', value: 1840, color: '#4F6AF5' },
   { name: 'Villa', value: 420, color: '#10B981' },
-  { name: 'Commercial', value: 380, color: '#F59E0B' },
-  { name: 'Parking', value: 207, color: '#8B5CF6' },
+  { name: 'Penthouse', value: 180, color: '#8B5CF6' },
+  { name: 'Commercial', value: 220, color: '#F59E0B' },
+  { name: 'Retail', value: 187, color: '#06B6D4' },
 ];
 
 const AnalyticsDashboard: React.FC = () => (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    {/* Header */}
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <Box>
         <Typography variant="h5" sx={{ color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <BarChartIcon sx={{ color: '#4F6AF5' }} /> Property Analytics Dashboard
+          <BarChartIcon sx={{ color: '#4F6AF5' }} /> CPOS Advanced Analytics Engine
         </Typography>
-        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-          Real-time insights across your entire property portfolio
-        </Typography>
+        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>Real-time occupancy rates, predictive pricing yield models, and community portfolio value</Typography>
       </Box>
       <Chip label="Live Data" sx={{ bgcolor: 'rgba(16,185,129,0.15)', color: '#10B981', fontWeight: 700 }} />
     </Box>
 
     {/* Charts Row 1 */}
     <Grid container spacing={2.5}>
-      <Grid item xs={12} md={8}>
+      <Grid size={{ xs: 12, md: 8 }}>
         <Paper sx={{ p: 3, borderRadius: '20px' }}>
           <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 700, mb: 3 }}>Occupancy Trend — 6 Months</Typography>
           <ResponsiveContainer width="100%" height={220}>
@@ -57,7 +57,7 @@ const AnalyticsDashboard: React.FC = () => (
           </ResponsiveContainer>
         </Paper>
       </Grid>
-      <Grid item xs={12} md={4}>
+      <Grid size={{ xs: 12, md: 4 }}>
         <Paper sx={{ p: 3, borderRadius: '20px', height: '100%' }}>
           <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 700, mb: 3 }}>Property Type Distribution</Typography>
           <ResponsiveContainer width="100%" height={160}>
@@ -85,7 +85,7 @@ const AnalyticsDashboard: React.FC = () => (
 
     {/* Charts Row 2 */}
     <Grid container spacing={2.5}>
-      <Grid item xs={12} md={6}>
+      <Grid size={{ xs: 12, md: 6 }}>
         <Paper sx={{ p: 3, borderRadius: '20px' }}>
           <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 700, mb: 3 }}>Rental Yield Trend</Typography>
           <ResponsiveContainer width="100%" height={180}>
@@ -104,7 +104,7 @@ const AnalyticsDashboard: React.FC = () => (
           </ResponsiveContainer>
         </Paper>
       </Grid>
-      <Grid item xs={12} md={6}>
+      <Grid size={{ xs: 12, md: 6 }}>
         <Paper sx={{ p: 3, borderRadius: '20px' }}>
           <Typography variant="subtitle1" sx={{ color: '#fff', fontWeight: 700, mb: 2.5 }}>Portfolio Value — ₹ Crore</Typography>
           <ResponsiveContainer width="100%" height={180}>

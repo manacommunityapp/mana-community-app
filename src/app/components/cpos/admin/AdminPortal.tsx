@@ -20,7 +20,7 @@ const AdminPortal: React.FC = () => (
         { label: 'Platform ARR', val: '₹14.8 Cr', color: '#F59E0B' },
         { label: 'API Health & Uptime', val: '99.98%', color: '#06B6D4' },
       ].map((s, i) => (
-        <Grid item xs={12} sm={6} md={3} key={i}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }} key={i}>
           <Paper sx={{ p: 2.5, borderRadius: '16px', borderTop: `4px solid ${s.color}` }}>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>{s.label}</Typography>
             <Typography variant="h6" sx={{ color: '#fff', fontWeight: 800, mt: 0.5 }}>{s.val}</Typography>

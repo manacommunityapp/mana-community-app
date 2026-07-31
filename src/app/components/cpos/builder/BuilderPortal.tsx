@@ -4,6 +4,7 @@ import BusinessIcon from '@mui/icons-material/Business';
 
 const BuilderPortal: React.FC = () => (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+    {/* Header */}
     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <Box>
         <Typography variant="h5" sx={{ color: '#fff', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -19,7 +20,7 @@ const BuilderPortal: React.FC = () => (
         { name: 'Prestige Palm Meadows Phase 2', towers: '4 Towers (480 units)', progress: '78% Complete', rera: 'PRM/KA/RERA/1251', status: 'IN_PROGRESS' },
         { name: 'Embassy Springs Commercial Hub', towers: '2 Blocks (180 units)', progress: '92% Complete', rera: 'PRM/KA/RERA/9921', status: 'NEAR_COMPLETION' },
       ].map((p, i) => (
-        <Grid item xs={12} md={6} key={i}>
+        <Grid size={{ xs: 12, md: 6 }} key={i}>
           <Paper sx={{ p: 3, borderRadius: '20px' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography variant="h6" sx={{ color: '#fff', fontWeight: 800 }}>{p.name}</Typography>

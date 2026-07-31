@@ -42,7 +42,7 @@ const DocumentVault: React.FC = () => {
           { label: 'Expired', value: '12', color: '#EF4444' },
           { label: 'Pending Verification', value: '24', color: '#8B5CF6' },
         ].map((s, i) => (
-          <Grid item xs={6} md={3} key={i}>
+          <Grid size={{ xs: 6, md: 3 }} key={i}>
             <Paper sx={{ p: 2.5, borderRadius: '16px', borderLeft: `4px solid ${s.color}` }}>
               <Typography variant="h5" sx={{ color: s.color, fontWeight: 800 }}>{s.value}</Typography>
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>{s.label}</Typography>
