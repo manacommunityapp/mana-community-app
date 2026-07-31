@@ -69,73 +69,82 @@ export function SportsAdmin() {
             />
           )}
 
-          {s.activeTab === "sports-event" && (
-            <SportsEventTab
-              user={s.user}
-              isAdmin={s.isAdmin}
-              isSuperAdmin={s.isSuperAdmin}
-              activeCommId={s.activeCommId}
-              activeTab={s.activeTab}
-              setActiveTab={s.setActiveTab}
-              draftEvents={s.draftEvents}
-              liveEvents={s.liveEvents}
-              completedEvents={s.completedEvents}
-              handleEdit={s.handleEdit}
-              handleDelete={s.handleDelete}
-              handleActivate={s.handleActivate}
-              handleAnnounce={(id: number, name: string) => s.setAnnouncingTournament({ id, name })}
-              handleViewPlayers={s.handleViewPlayers}
-              handleViewCaptains={s.handleViewCaptains}
-              viewingEventId={s.viewingEventId}
-              viewMode={s.viewMode}
-              registrations={s.registrations}
-              nominatedCaptains={s.nominatedCaptains}
-              loadingRegs={s.loadingRegs}
-              handleConfirmRegistration={s.handleConfirmRegistration}
-              handleRejectRegistration={s.handleRejectRegistration}
-              handleConfirmCaptain={s.handleConfirmCaptain}
-              setSelectedEventIdForAdd={s.setSelectedEventIdForAdd}
-              setShowAddPlayerModal={s.setShowAddPlayerModal}
-              setSelectedEventIdForImport={s.setSelectedEventIdForImport}
-              setShowImportModal={s.setShowImportModal}
-              setImportStep={s.setImportStep}
-              showSportForm={s.showSportForm}
-              setShowSportForm={s.setShowSportForm}
-              showSportPicker={s.showSportPicker}
-              setShowSportPicker={s.setShowSportPicker}
-              sportPickerSearch={s.sportPickerSearch}
-              setSportPickerSearch={s.setSportPickerSearch}
-              sportSubmitting={s.sportSubmitting}
-              sportForms={s.sportForms}
-              sportsMeta={s.sportsMeta}
-              playerCategories={s.playerCategories}
-              venues={s.venues}
-              activeEvents={s.activeEvents}
-              handleSportPickerSelect={s.handleSportPickerSelect}
-              handleCreateCustomSport={s.handleCreateCustomSport}
-              removeSportForm={s.removeSportForm}
-              addEventToSportForm={s.addEventToSportForm}
-              removeEventFromSportForm={s.removeEventFromSportForm}
-              updateSportFormEvent={s.updateSportFormEvent}
-              handleSportSave={s.handleSportSave}
-              handleSportEdit={s.handleSportEdit}
-              handleSportDelete={s.handleSportDelete}
-              resetSportForm={s.resetSportForm}
-              selectedTemplates={s.selectedTemplates}
-              setSelectedTemplates={s.setSelectedTemplates}
-              openDropdownEventId={s.openDropdownEventId}
-              setOpenDropdownEventId={s.setOpenDropdownEventId}
-              searchQueries={s.searchQueries}
-              setSearchQueries={s.setSearchQueries}
-              onLoadList={s.loadTournamentsListData}
-              onLoadConfig={s.loadConfigureEventsData}
-              onLoadCategories={s.refreshCategories}
-              activeTournamentId={s.activeTournamentId}
-              activeTournamentName={s.activeTournamentName}
-              clearTournamentContext={s.clearTournamentContext}
-              setTournamentContext={s.setTournamentContext}
-            />
-          )}
+          {s.activeTab === "sports-event" && (() => {
+            const activeT = s.activeTournaments.find((t: any) => t.id === s.activeTournamentId);
+            const tObj = activeT?.event || activeT;
+            const tourneyStart: Date | undefined = s.startDate || (tObj?.eventDateStart || tObj?.startDate ? new Date(tObj.eventDateStart || tObj.startDate) : undefined);
+            const tourneyEnd: Date | undefined = s.endDate || (tObj?.eventDateEnd || tObj?.endDate ? new Date(tObj.eventDateEnd || tObj.endDate) : undefined);
+
+            return (
+              <SportsEventTab
+                user={s.user}
+                isAdmin={s.isAdmin}
+                isSuperAdmin={s.isSuperAdmin}
+                activeCommId={s.activeCommId}
+                activeTab={s.activeTab}
+                setActiveTab={s.setActiveTab}
+                draftEvents={s.draftEvents}
+                liveEvents={s.liveEvents}
+                completedEvents={s.completedEvents}
+                handleEdit={s.handleEdit}
+                handleDelete={s.handleDelete}
+                handleActivate={s.handleActivate}
+                handleAnnounce={(id: number, name: string) => s.setAnnouncingTournament({ id, name })}
+                handleViewPlayers={s.handleViewPlayers}
+                handleViewCaptains={s.handleViewCaptains}
+                viewingEventId={s.viewingEventId}
+                viewMode={s.viewMode}
+                registrations={s.registrations}
+                nominatedCaptains={s.nominatedCaptains}
+                loadingRegs={s.loadingRegs}
+                handleConfirmRegistration={s.handleConfirmRegistration}
+                handleRejectRegistration={s.handleRejectRegistration}
+                handleConfirmCaptain={s.handleConfirmCaptain}
+                setSelectedEventIdForAdd={s.setSelectedEventIdForAdd}
+                setShowAddPlayerModal={s.setShowAddPlayerModal}
+                setSelectedEventIdForImport={s.setSelectedEventIdForImport}
+                setShowImportModal={s.setShowImportModal}
+                setImportStep={s.setImportStep}
+                showSportForm={s.showSportForm}
+                setShowSportForm={s.setShowSportForm}
+                showSportPicker={s.showSportPicker}
+                setShowSportPicker={s.setShowSportPicker}
+                sportPickerSearch={s.sportPickerSearch}
+                setSportPickerSearch={s.setSportPickerSearch}
+                sportSubmitting={s.sportSubmitting}
+                sportForms={s.sportForms}
+                sportsMeta={s.sportsMeta}
+                playerCategories={s.playerCategories}
+                venues={s.venues}
+                activeEvents={s.activeEvents}
+                handleSportPickerSelect={s.handleSportPickerSelect}
+                handleCreateCustomSport={s.handleCreateCustomSport}
+                removeSportForm={s.removeSportForm}
+                addEventToSportForm={s.addEventToSportForm}
+                removeEventFromSportForm={s.removeEventFromSportForm}
+                updateSportFormEvent={s.updateSportFormEvent}
+                handleSportSave={s.handleSportSave}
+                handleSportEdit={s.handleSportEdit}
+                handleSportDelete={s.handleSportDelete}
+                resetSportForm={s.resetSportForm}
+                selectedTemplates={s.selectedTemplates}
+                setSelectedTemplates={s.setSelectedTemplates}
+                openDropdownEventId={s.openDropdownEventId}
+                setOpenDropdownEventId={s.setOpenDropdownEventId}
+                searchQueries={s.searchQueries}
+                setSearchQueries={s.setSearchQueries}
+                onLoadList={s.loadTournamentsListData}
+                onLoadConfig={s.loadConfigureEventsData}
+                onLoadCategories={s.refreshCategories}
+                activeTournamentId={s.activeTournamentId}
+                activeTournamentName={s.activeTournamentName}
+                clearTournamentContext={s.clearTournamentContext}
+                setTournamentContext={s.setTournamentContext}
+                tournamentStartDate={tourneyStart}
+                tournamentEndDate={tourneyEnd}
+              />
+            );
+          })()}
 
           {s.activeTab === "create-tournament" && (
             <CreateTournamentTab

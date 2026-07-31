@@ -101,7 +101,7 @@ function getWeekStart(dateStr: string): string {
   return d.toISOString().split("T")[0];
 }
 
-function getCategoryGradient(category?: string, color?: string): string {
+function getCategoryGradient(category?: string | null, color?: string | null): string {
   if (color) return color;
   return CATEGORY_FALLBACK_COLORS[category ?? ""] ?? "from-slate-50 to-gray-50 border-slate-200";
 }

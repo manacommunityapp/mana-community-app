@@ -13,6 +13,14 @@ export interface EmailTemplateRecord {
   status: EmailTemplateStatus;
   category?: string;
   tags?: string[];
+  moduleKey?: string;
+  menuKey?: string;
+  menuLabel?: string;
+  subMenuKey?: string;
+  subMenuLabel?: string;
+  useCase?: string;
+  triggerKey?: string;
+  templateKey?: string;
   themeName?: string;
   themeJson?: string;
   generatedCss?: string;
@@ -32,6 +40,14 @@ export interface EmailTemplatePayload {
   status?: EmailTemplateStatus;
   category?: string;
   tags?: string[];
+  moduleKey?: string;
+  menuKey?: string;
+  menuLabel?: string;
+  subMenuKey?: string;
+  subMenuLabel?: string;
+  useCase?: string;
+  triggerKey?: string;
+  templateKey?: string;
   themeName?: string;
   themeJson?: string;
   generatedCss?: string;
@@ -54,6 +70,14 @@ function normalizeTemplate(raw: any): EmailTemplateRecord {
     status: raw.status ?? "DRAFT",
     category: raw.category,
     tags: raw.tags ?? [],
+    moduleKey: raw.moduleKey ?? raw.module_key,
+    menuKey: raw.menuKey ?? raw.menu_key,
+    menuLabel: raw.menuLabel ?? raw.menu_label,
+    subMenuKey: raw.subMenuKey ?? raw.sub_menu_key,
+    subMenuLabel: raw.subMenuLabel ?? raw.sub_menu_label,
+    useCase: raw.useCase ?? raw.use_case,
+    triggerKey: raw.triggerKey ?? raw.trigger_key,
+    templateKey: raw.templateKey ?? raw.template_key ?? raw.key,
     themeName: raw.themeName ?? raw.theme_name,
     themeJson: raw.themeJson ?? raw.theme_json,
     generatedCss: raw.generatedCss ?? raw.generated_css,
@@ -83,6 +107,14 @@ export const emailTemplateService = {
       status: payload.status ?? "DRAFT",
       category: payload.category,
       tags: payload.tags ?? [],
+      moduleKey: payload.moduleKey,
+      menuKey: payload.menuKey,
+      menuLabel: payload.menuLabel,
+      subMenuKey: payload.subMenuKey,
+      subMenuLabel: payload.subMenuLabel,
+      useCase: payload.useCase,
+      triggerKey: payload.triggerKey,
+      templateKey: payload.templateKey,
       themeName: payload.themeName,
       themeJson: payload.themeJson,
       generatedCss: payload.generatedCss,

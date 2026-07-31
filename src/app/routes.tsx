@@ -49,6 +49,18 @@ import { ArchitectureDocs } from "./components/architecture/ArchitectureDocs";
 import { RootErrorElement } from "./components/commons/error/RootErrorElement";
 import { PermissionGuard } from "./components/commons/guards/PermissionGuard";
 
+// CPN (Community Professional Network) pages
+import { CPNHub } from "./components/cpn/CPNHub";
+import { CPNFeed } from "./components/cpn/CPNFeed";
+import { CPNJobs } from "./components/cpn/CPNJobs";
+import { CPNMentorship } from "./components/cpn/CPNMentorship";
+import { CPNAIAssistant } from "./components/cpn/CPNAIAssistant";
+import {
+  CPNReferrals, CPNFreelance, CPNLearning, CPNCompanies,
+  CPNBusiness, CPNStartups, CPNCollaborate, CPNResume,
+  CPNGamification, CPNAnalytics, CPNNetwork
+} from "./components/cpn/CPNSubViews";
+
 // Sports pages
 import { SportsLayout }       from "./components/sports/SportsLayout";
 import { SportsDashboard }    from "./components/sports/SportsDashboard";
@@ -125,7 +137,7 @@ import CPOSDocumentVault from "./components/cpos/documents/DocumentVault";
 import CPOSCRMPipelinePage from "./components/cpos/crm/CRMPipelinePage";
 
 // CPN (Community Professional Network) modules
-import CPNDashboardPage from "./components/cpn/dashboard/pages/DashboardPage";
+
 
 // Service Platform pages
 import { ServicesLayout } from "./components/services/ServicesLayout";
@@ -472,6 +484,31 @@ export const router = createBrowserRouter([
         Component: ProfileDashboard
       },
       {
+        path: "cpn",
+        element: <PermissionGuard permission={VIEW_JOBS} requiredModule="JOBS"><CPNHub /></PermissionGuard>,
+        children: [
+          { index: true, element: <CPNFeed /> },
+          { path: "feed", element: <CPNFeed /> },
+          { path: "profile", element: <ProfileDashboard /> },
+          { path: "network", element: <CPNNetwork /> },
+          { path: "jobs", element: <CPNJobs /> },
+          { path: "referrals", element: <CPNReferrals /> },
+          { path: "freelance", element: <CPNFreelance /> },
+          { path: "mentorship", element: <CPNMentorship /> },
+          { path: "learning", element: <CPNLearning /> },
+          { path: "companies", element: <CPNCompanies /> },
+          { path: "business", element: <CPNBusiness /> },
+          { path: "startups", element: <CPNStartups /> },
+          { path: "events", element: <Events /> },
+          { path: "collaborate", element: <CPNCollaborate /> },
+          { path: "resume", element: <CPNResume /> },
+          { path: "ai-assistant", element: <CPNAIAssistant /> },
+          { path: "messages", element: <Chat /> },
+          { path: "gamification", element: <CPNGamification /> },
+          { path: "analytics", element: <CPNAnalytics /> },
+        ]
+      },
+      {
         path: "architecture",
         element: <PermissionGuard permission={VIEW_ADMIN}><ArchitectureDocs /></PermissionGuard>,
       },
@@ -492,8 +529,6 @@ export const router = createBrowserRouter([
       { path: "cpos/analytics", element: <CPOSAnalyticsDashboard /> },
       { path: "cpos/documents", element: <CPOSDocumentVault /> },
       { path: "cpos/crm", element: <CPOSCRMPipelinePage /> },
-      // ── CPN (Community Professional Network) Routes ───────────────
-      { path: "cpn", element: <CPNDashboardPage /> },
     ],
   },
 ]);

@@ -11,6 +11,18 @@ export interface EmailTemplateInfo {
   triggerWired: boolean;
   /** What specifically causes the send. */
   triggerDescription: string;
+  /**
+   * Applicability — reporting only. True when this community has drafted a
+   * custom template (in the template builder) with a matching key. Does NOT
+   * mean it's actually what gets sent today; `appliedSource` below reflects
+   * only what an ACTIVE custom template would imply if wired up.
+   */
+  customTemplateExists: boolean;
+  customTemplateId: number | null;
+  customTemplateName: string | null;
+  customTemplateStatus: string | null;
+  /** "CUSTOM" only when a custom template exists AND is ACTIVE; "DEFAULT" otherwise. */
+  appliedSource: "DEFAULT" | "CUSTOM";
 }
 
 export interface EmailHealthInfo {
@@ -64,6 +76,16 @@ export function extractApiErrorMessage(err: unknown, fallback: string): string {
   return fallback;
 }
 
+export interface DefaultTemplateDetails {
+  key: string;
+  templateName: string;
+  templateFile: string;
+  subject: string;
+  category: string;
+  rawHtml: string;
+  renderedHtml: string;
+}
+
 export const emailAdminService = {
   async getTemplates(communityId?: number): Promise<{ count: number; templates: EmailTemplateInfo[] }> {
     const url = communityId != null ? `/admin/email/templates?communityId=${communityId}` : "/admin/email/templates";
@@ -91,6 +113,10 @@ export const emailAdminService = {
     }
     if (!res.ok) throw new Error(`Preview failed: ${res.status}`);
     return res.text();
+  },
+
+  async getDefaultTemplate(template: string): Promise<DefaultTemplateDetails> {
+    return apiClient.get(`/admin/email/default-template/${template}`);
   },
 
   async getHealth(communityId?: number): Promise<EmailHealthInfo> {

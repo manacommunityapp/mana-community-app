@@ -44,6 +44,8 @@ interface SportsEventSectionProps {
   activeCommId: number | undefined;
   isSuperAdmin: boolean;
   isAdmin: boolean;
+  tournamentStartDate?: Date;
+  tournamentEndDate?: Date;
   /** Loads player categories (GET /api/player-categories) — called when the add/update form opens. */
   onLoadCategories?: () => void;
 }
@@ -83,9 +85,26 @@ export function SportsEventSection({
   activeCommId,
   isSuperAdmin,
   isAdmin,
+  tournamentStartDate,
+  tournamentEndDate,
   onLoadCategories,
 }: SportsEventSectionProps) {
   const [openDatePickerKey, setOpenDatePickerKey] = React.useState<string | null>(null);
+
+  const isDateDisabled = React.useCallback((date: Date) => {
+    if (tournamentStartDate) {
+      const minDate = new Date(tournamentStartDate);
+      minDate.setHours(0, 0, 0, 0);
+      if (date < minDate) return true;
+    }
+    if (tournamentEndDate) {
+      const maxDate = new Date(tournamentEndDate);
+      maxDate.setHours(23, 59, 59, 999);
+      if (date > maxDate) return true;
+    }
+    return false;
+  }, [tournamentStartDate, tournamentEndDate]);
+
   // Reload player categories whenever the add/update sports event form is opened,
   // so the Player Category Template dropdown reflects the latest data.
   React.useEffect(() => {
@@ -341,6 +360,7 @@ export function SportsEventSection({
                                   updateSportFormEvent(form.id, ev.id, "startDate", date ? format(date, "yyyy-MM-dd") : "");
                                   setOpenDatePickerKey(null);
                                 }}
+                                disabled={isDateDisabled}
                                 initialFocus
                               />
                             </PopoverContent>
@@ -366,6 +386,7 @@ export function SportsEventSection({
                                   updateSportFormEvent(form.id, ev.id, "endDate", date ? format(date, "yyyy-MM-dd") : "");
                                   setOpenDatePickerKey(null);
                                 }}
+                                disabled={isDateDisabled}
                                 initialFocus
                               />
                             </PopoverContent>

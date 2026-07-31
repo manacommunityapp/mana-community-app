@@ -207,10 +207,10 @@ export function CreateTournamentTab({
           {/* Date Pickers */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left">
             {([
-              { label: "Tournament Start Date", value: startDate, setter: setStartDate, key: "startDate" },
-              { label: "Tournament End Date", value: endDate, setter: setEndDate, key: "endDate" },
               { label: "Reg Start Date", value: regStartDate, setter: setRegStartDate, key: "regStartDate" },
               { label: "Reg End Date", value: regEndDate, setter: setRegEndDate, key: "regEndDate" },
+              { label: "Tournament Start Date", value: startDate, setter: setStartDate, key: "startDate" },
+              { label: "Tournament End Date", value: endDate, setter: setEndDate, key: "endDate" },
             ] as const).map(({ label, value, setter, key }) => (
               <div key={label} className="flex flex-col gap-1.5">
                 <label className="text-xs text-slate-500 font-semibold">{label}</label>

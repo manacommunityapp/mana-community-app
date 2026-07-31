@@ -202,7 +202,7 @@ export const CREATE_SERVICE_REQUEST   = "Create Service Request";
 export const VIEW_SERVICE_REQUESTS    = "View Service Requests";
 export const MANAGE_SERVICE_REQUESTS  = "Manage Service Requests";
 export const VIEW_WORK_ORDERS         = "View Work Orders";
-export const MANAGE_WORK_ORDERS       = "Manage Work Orders";
+export const MANAGE_SERVICE_WORK_ORDERS       = "Manage Work Orders";
 
 /**
  * Permission categories grouped for the Role Management UI.

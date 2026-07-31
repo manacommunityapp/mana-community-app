@@ -37,6 +37,8 @@ interface ConfigureEventsTabProps {
   searchQueries: Record<string, string>;
   setSearchQueries: any;
   onLoadCategories?: () => void;
+  tournamentStartDate?: Date;
+  tournamentEndDate?: Date;
 }
 
 /** "Configure Events" sub-tab of the Sports Event screen. */
@@ -78,6 +80,8 @@ export function ConfigureEventsTab(props: ConfigureEventsTabProps) {
       isSuperAdmin={props.isSuperAdmin}
       isAdmin={props.isAdmin}
       onLoadCategories={props.onLoadCategories}
+      tournamentStartDate={props.tournamentStartDate}
+      tournamentEndDate={props.tournamentEndDate}
     />
   );
 }
