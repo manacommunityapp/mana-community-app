@@ -496,6 +496,11 @@ export function useSportsAdminState() {
 
   const [submitting, setSubmitting] = useState(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  // The Tournament record's own id (used for the update URL) and the ids of the
+  // sports events currently linked to it (preserved on update so editing the
+  // tournament doesn't unlink its events).
+  const [editingTournamentId, setEditingTournamentId] = useState<number | null>(null);
+  const [editingLinkedEventIds, setEditingLinkedEventIds] = useState<number[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [teamsList, setTeamsList] = useState<any[]>([]);
   const [pendingList, setPendingList] = useState<any[]>([]);
@@ -1261,7 +1266,10 @@ export function useSportsAdminState() {
         const singleSport = selectedSportsWithEvents[0];
         const singleEvent = singleSport?.events[0];
         if (!singleEvent) { toast.error("No event configuration found to save"); setSubmitting(false); return; }
-        const targetEventIds = selectedSportsWithEvents.flatMap(s => s.events.map(e => e.eventId).filter(id => id != null).map(Number));
+        // Preserve the tournament's existing event links captured at edit time; fall
+        // back to the form's configured events only if none were captured.
+        const formEventIds = selectedSportsWithEvents.flatMap(s => s.events.map(e => e.eventId).filter(id => id != null).map(Number));
+        const targetEventIds = editingLinkedEventIds.length ? editingLinkedEventIds : formEventIds;
         const payload = {
           name: singleEvent.name,
           communityId: Number(finalCommId),
@@ -1285,8 +1293,16 @@ export function useSportsAdminState() {
           notifications: getNotificationPayloads(singleEvent.name),
           sportsEventIds: targetEventIds,
         };
-        await sportsService.updateTournament(editingEventId, payload as any);
+        // Target the Tournament record by its own id (falls back to the event id for
+        // safety); the backend updates it in place instead of inserting a duplicate.
+        await sportsService.updateTournament(editingTournamentId ?? editingEventId, payload as any);
         toast.success("Tournament updated successfully!");
+        // Offer the notifications-to-send step on update too (same as create), so
+        // admins can announce the updated tournament details to members.
+        const announceId = editingTournamentId ?? editingEventId;
+        if (announceId) {
+          setAnnouncingTournament({ id: announceId, name: singleEvent.name || eventName });
+        }
       } else {
         const targetEventIds = selectedSportsWithEvents.flatMap(s => s.events.map(e => e.eventId).filter(id => id != null).map(Number));
         const payload = {
@@ -1356,6 +1372,8 @@ export function useSportsAdminState() {
     setStartTime("");
     setDueTime("");
     setEditingEventId(null);
+    setEditingTournamentId(null);
+    setEditingLinkedEventIds([]);
     setSelectedEventIds([]);
     setGlobalChannels(["push", "email"]);
     setPreviewTrigger("2h");
@@ -1375,20 +1393,46 @@ export function useSportsAdminState() {
   };
 
   const handleEdit = (tournamentOrEvent: any) => {
-    const ev = tournamentOrEvent.event
-      ? {
-          ...tournamentOrEvent.event,
-          id: tournamentOrEvent.event.id,
-          name: tournamentOrEvent.name || tournamentOrEvent.event.name,
-          tournamentId: tournamentOrEvent.id
-        }
-      : tournamentOrEvent;
-    setEventName(ev.name);
+    // Tournaments-List items are Tournament records: their own `id` is the tournament
+    // id and their linked sports events live on `sportsEvents` (the API never sets a
+    // singular `event`). Resolve the primary linked event so the form shows the sport,
+    // and capture the tournament id + linked event ids so the update targets the right
+    // record and preserves its event links (previously it duplicated the tournament).
+    const linkedEvents: any[] = tournamentOrEvent.sportsEvents
+      ?? (tournamentOrEvent.event ? [tournamentOrEvent.event] : []);
+    const primaryEvent = linkedEvents[0] ?? tournamentOrEvent.event ?? null;
+    setEditingTournamentId(tournamentOrEvent.id ?? null);
+    setEditingLinkedEventIds(
+      linkedEvents.map((e: any) => e?.id).filter((x: any) => x != null).map(Number)
+    );
+    const ev = {
+      ...tournamentOrEvent,
+      ...(primaryEvent || {}),
+      id: primaryEvent?.id ?? tournamentOrEvent.id,
+      name: tournamentOrEvent.name || primaryEvent?.name || "",
+      registrationDateStart: tournamentOrEvent.registrationDateStart || primaryEvent?.registrationDateStart,
+      registrationDateEnd: tournamentOrEvent.registrationDateEnd || primaryEvent?.registrationDateEnd,
+      maxParticipants: tournamentOrEvent.maxParticipants ?? primaryEvent?.maxParticipants,
+      description: tournamentOrEvent.description || primaryEvent?.description,
+      eventDateStart: tournamentOrEvent.eventDateStart || primaryEvent?.eventDateStart,
+      eventDateEnd: tournamentOrEvent.eventDateEnd || primaryEvent?.eventDateEnd,
+      contactName: tournamentOrEvent.contactName || primaryEvent?.contactName,
+      contactNumber: tournamentOrEvent.contactNumber || primaryEvent?.contactNumber,
+      contactEmail: tournamentOrEvent.contactEmail || primaryEvent?.contactEmail,
+      bannerImage: tournamentOrEvent.bannerImage || primaryEvent?.bannerImage,
+      tournamentLevel: tournamentOrEvent.tournamentLevel || primaryEvent?.tournamentLevel,
+      startTime: tournamentOrEvent.startTime || primaryEvent?.startTime,
+      dueTime: tournamentOrEvent.dueTime || primaryEvent?.dueTime,
+      tournamentId: tournamentOrEvent.id,
+    };
+    setEventName(ev.name || "");
     setSelectedVenueId(ev.venue?.id ?? "");
-    setStartDate(new Date(ev.eventDateStart));
-    setEndDate(new Date(ev.eventDateEnd));
+    setStartDate(ev.eventDateStart ? new Date(ev.eventDateStart) : undefined);
+    setEndDate(ev.eventDateEnd ? new Date(ev.eventDateEnd) : undefined);
     setRegStartDate(ev.registrationDateStart ? new Date(ev.registrationDateStart) : undefined);
     setRegEndDate(ev.registrationDateEnd ? new Date(ev.registrationDateEnd) : undefined);
+    setMaxPax(ev.maxParticipants != null ? String(ev.maxParticipants) : "");
+    setDescription(ev.description || "");
     setSelectedSports([ev.sport?.id]);
     const isTeam = isTeamSport(ev.sport?.name || "");
     const existingEvent: SportEventState = {
@@ -1418,7 +1462,6 @@ export function useSportsAdminState() {
     setSponsors(ev.sponsors || []);
     setBannerImage(ev.bannerImage || "");
     setTournamentLevel(ev.tournamentLevel || "Standard");
-    setDescription(ev.description || "");
     setAllowAdminChat(ev.allowAdminChat || false);
     setStartTime(ev.startTime || "");
     setDueTime(ev.dueTime || "");
@@ -2063,6 +2106,43 @@ export function useSportsAdminState() {
       for (const ev of form.events) {
         if (!ev.eventName.trim()) { toast.error("Event Name is required"); return; }
         if (!ev.startDate || !ev.endDate) { toast.error("Start Date and End Date are required"); return; }
+
+        // Date logic validation
+        const eventStart = new Date(ev.startDate);
+        const eventEnd = new Date(ev.endDate);
+
+        if (eventEnd < eventStart) {
+          toast.error(`Event "${ev.eventName}": End Date cannot be before Start Date`);
+          return;
+        }
+
+        // Check against active tournament bounds if linked to a tournament
+        if (activeTournamentId) {
+          const currentTournament = activeTournaments.find((t) => t.id === activeTournamentId);
+          const tourneyObj = currentTournament?.event || currentTournament;
+          const tourneyStartStr = tourneyObj?.eventDateStart || tourneyObj?.startDate;
+          const tourneyEndStr = tourneyObj?.eventDateEnd || tourneyObj?.endDate;
+
+          if (tourneyStartStr && tourneyEndStr) {
+            const tourneyStart = new Date(tourneyStartStr);
+            const tourneyEnd = new Date(tourneyEndStr);
+
+            if (eventStart < tourneyStart || eventStart > tourneyEnd) {
+              toast.error(
+                `Event "${ev.eventName}": Start Date (${ev.startDate}) must fall within tournament dates (${tourneyStartStr} to ${tourneyEndStr})`
+              );
+              return;
+            }
+
+            if (eventEnd < tourneyStart || eventEnd > tourneyEnd) {
+              toast.error(
+                `Event "${ev.eventName}": End Date (${ev.endDate}) must fall within tournament dates (${tourneyStartStr} to ${tourneyEndStr})`
+              );
+              return;
+            }
+          }
+        }
+
         if (!ev.tournamentType) { toast.error("Tournament Format is required"); return; }
         if (!selectedTemplates[ev.id]) { toast.error("Player Category Template is required"); return; }
         if (isTeamSport(form.name)) {

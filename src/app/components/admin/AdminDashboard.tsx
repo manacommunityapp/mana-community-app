@@ -15,6 +15,7 @@ import {
   FileSpreadsheet,
   Building2,
   Trophy,
+  Loader2,
 } from "lucide-react";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
 const toast = {
@@ -212,27 +213,6 @@ export function AdminDashboard() {
           <p className="text-slate-500 text-sm mt-1">Review and approve user applications</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => navigate("/admin/create-user")}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm"
-          >
-            <UserPlus className="w-4 h-4" />
-            Create User
-          </button>
-          <button
-            onClick={() => navigate("/admin/bulk-upload")}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            Bulk Upload
-          </button>
-          <button
-            onClick={() => navigate("/admin/roles")}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm"
-          >
-            <ShieldCheck className="w-4 h-4" />
-            Roles & Permissions
-          </button>
           <button className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition-colors flex items-center gap-2">
             <Download className="w-4 h-4" />
             Export Report
@@ -241,68 +221,68 @@ export function AdminDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-slate-600">Total Applications</span>
-            <div className="p-2 bg-slate-100 rounded-lg">
-              <UserCheck className="w-5 h-5 text-slate-600" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-white p-3.5 sm:p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-semibold text-slate-500">Total Apps</span>
+            <div className="p-1.5 sm:p-2 bg-slate-100 rounded-lg shrink-0">
+              <UserCheck className="w-4 h-4 sm:w-5 h-5 text-slate-600" />
             </div>
           </div>
-          <div className="text-3xl font-bold text-slate-900">{stats.total}</div>
+          <div className="text-xl sm:text-3xl font-extrabold text-slate-900 mt-1">{stats.total}</div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-yellow-200 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-yellow-700">Pending Review</span>
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <Clock className="w-5 h-5 text-yellow-600" />
+        <div className="bg-white p-3.5 sm:p-5 rounded-xl border border-yellow-250/60 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-semibold text-yellow-700">Pending</span>
+            <div className="p-1.5 sm:p-2 bg-yellow-100 rounded-lg shrink-0">
+              <Clock className="w-4 h-4 sm:w-5 h-5 text-yellow-600" />
             </div>
           </div>
-          <div className="text-3xl font-bold text-yellow-700">{stats.pending}</div>
+          <div className="text-xl sm:text-3xl font-extrabold text-yellow-750 mt-1">{stats.pending}</div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-green-200 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-green-700">Approved</span>
-            <div className="p-2 bg-green-100 rounded-lg">
-              <CheckCircle className="w-5 h-5 text-green-600" />
+        <div className="bg-white p-3.5 sm:p-5 rounded-xl border border-green-250/60 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-semibold text-green-700">Approved</span>
+            <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg shrink-0">
+              <CheckCircle className="w-4 h-4 sm:w-5 h-5 text-green-600" />
             </div>
           </div>
-          <div className="text-3xl font-bold text-green-700">{stats.approved}</div>
+          <div className="text-xl sm:text-3xl font-extrabold text-green-700 mt-1">{stats.approved}</div>
         </div>
 
-        <div className="bg-white p-5 rounded-xl border border-red-200 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-red-700">Rejected</span>
-            <div className="p-2 bg-red-100 rounded-lg">
-              <XCircle className="w-5 h-5 text-red-600" />
+        <div className="bg-white p-3.5 sm:p-5 rounded-xl border border-red-250/60 shadow-sm flex flex-col justify-between">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-semibold text-red-700">Rejected</span>
+            <div className="p-1.5 sm:p-2 bg-red-100 rounded-lg shrink-0">
+              <XCircle className="w-4 h-4 sm:w-5 h-5 text-red-600" />
             </div>
           </div>
-          <div className="text-3xl font-bold text-red-700">{stats.rejected}</div>
+          <div className="text-xl sm:text-3xl font-extrabold text-red-700 mt-1">{stats.rejected}</div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
           <input
             type="text"
             placeholder="Search by name or email..."
-            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+            className="w-full pl-10 pr-4 py-2 bg-white border border-slate-350/60 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none text-xs sm:text-sm"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-slate-400" />
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex-nowrap w-full sm:w-auto">
+          <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0 hidden sm:inline" />
           {(["all", "pending", "approved", "rejected"] as const).map((status) => (
             <button
               key={status}
               onClick={() => setFilterStatus(status)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all shrink-0 cursor-pointer border ${
                 filterStatus === status
-                  ? "bg-indigo-600 text-white"
-                  : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                  ? "bg-indigo-600 text-white border-transparent shadow-sm"
+                  : "bg-white text-slate-500 border-slate-200 hover:text-slate-800 hover:bg-slate-50"
               }`}
             >
               {status.charAt(0).toUpperCase() + status.slice(1)}
@@ -312,93 +292,82 @@ export function AdminDashboard() {
       </div>
 
       {/* Applications List */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200/60 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-200">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500 text-[10px] sm:text-xs font-bold uppercase tracking-wider">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Applicant
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Community
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Type
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Submitted
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <th className="px-4 sm:px-6 py-3.5">Applicant</th>
+                <th className="px-4 sm:px-6 py-3.5">Community</th>
+                <th className="px-4 sm:px-6 py-3.5">Type</th>
+                <th className="px-4 sm:px-6 py-3.5">Submitted</th>
+                <th className="px-4 sm:px-6 py-3.5">Status</th>
+                <th className="px-4 sm:px-6 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 text-slate-700">
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-500 font-medium">
+                    <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-indigo-600" />
                     Loading applications from database...
                   </td>
                 </tr>
               ) : filteredApplications.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500 font-medium">
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium">
                     No applications found matching the criteria.
                   </td>
                 </tr>
               ) : (
                 filteredApplications.map((app) => (
-                  <tr key={app.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                  <tr key={app.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="h-10 w-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm">
-                          {app.fullName.charAt(0)}
+                        <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs shrink-0 shadow-inner">
+                          {app.fullName.charAt(0).toUpperCase()}
                         </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-slate-900">{app.fullName}</div>
-                          <div className="text-xs text-slate-500">{app.email}</div>
+                        <div className="ml-3">
+                          <div className="text-xs sm:text-sm font-semibold text-slate-800">{app.fullName}</div>
+                          <div className="text-[10px] text-slate-450 mt-0.5">{app.email}</div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-slate-900">{app.communityCode}</div>
-                      <div className="text-xs text-slate-500 capitalize">{app.communityType}</div>
+                    <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
+                      <div className="text-xs sm:text-sm font-semibold text-slate-800">{app.communityCode}</div>
+                      <div className="text-[10px] text-slate-450 capitalize mt-0.5">{app.communityType}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full capitalize">
+                    <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
+                      <span className="px-2 py-0.5 text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-100 rounded-full capitalize">
                         {app.userType}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                    <td className="px-4 sm:px-6 py-3 whitespace-nowrap text-xs text-slate-500 font-medium">
                       {new Date(app.submittedAt).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-4 sm:px-6 py-3 whitespace-nowrap">
                       {app.status === "pending" && (
-                        <span className="px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-700 rounded-full">
+                        <span className="px-2.5 py-0.5 text-[10px] font-bold bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-full">
                           Pending
                         </span>
                       )}
                       {app.status === "approved" && (
-                        <span className="px-2 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+                        <span className="px-2.5 py-0.5 text-[10px] font-bold bg-green-50 text-green-700 border border-green-200 rounded-full">
                           Approved
                         </span>
                       )}
                       {app.status === "rejected" && (
-                        <span className="px-2 py-1 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+                        <span className="px-2.5 py-0.5 text-[10px] font-bold bg-red-50 text-red-700 border border-red-200 rounded-full">
                           Rejected
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-4 sm:px-6 py-3 whitespace-nowrap text-right text-xs font-semibold">
                       <button
                         onClick={() => setSelectedApp(app)}
-                        className="text-indigo-600 hover:text-indigo-900 flex items-center gap-1 ml-auto"
+                        className="text-indigo-600 hover:text-indigo-900 inline-flex items-center gap-1.5 ml-auto cursor-pointer p-1.5 hover:bg-indigo-50/50 rounded-lg transition-colors"
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3.5 h-3.5" />
                         Review
                       </button>
                     </td>

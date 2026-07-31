@@ -4,6 +4,13 @@ export interface EmailTemplateInfo {
   key: string;
   subject: string;
   templateFile: string;
+  category: string;
+  /** Human-readable module/menu/submenu path where this email fires, or null if not wired to a live trigger yet. */
+  triggerMenuPath: string | null;
+  /** False when nothing in the app currently sends this template automatically or via a UI action. */
+  triggerWired: boolean;
+  /** What specifically causes the send. */
+  triggerDescription: string;
 }
 
 export interface EmailHealthInfo {
@@ -38,13 +45,34 @@ export interface TestAllResult {
   note: string;
 }
 
+/**
+ * apiClient surfaces non-2xx responses as `Error(rawBodyText)`. Our email admin
+ * endpoints return JSON bodies like `{ "error": "..." }` for validation and
+ * rate-limit failures — this pulls that message out so the UI can show the
+ * actual reason instead of a generic fallback.
+ */
+export function extractApiErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof Error && err.message) {
+    try {
+      const parsed = JSON.parse(err.message);
+      if (parsed && typeof parsed.error === "string") return parsed.error;
+    } catch {
+      // Not JSON — fall through to the raw message or fallback below.
+    }
+    if (!err.message.trim().startsWith("{")) return err.message;
+  }
+  return fallback;
+}
+
 export const emailAdminService = {
-  async getTemplates(): Promise<{ count: number; templates: EmailTemplateInfo[] }> {
-    return apiClient.get("/admin/email/templates");
+  async getTemplates(communityId?: number): Promise<{ count: number; templates: EmailTemplateInfo[] }> {
+    const url = communityId != null ? `/admin/email/templates?communityId=${communityId}` : "/admin/email/templates";
+    return apiClient.get(url);
   },
 
-  async getPreviewHtml(template: string, customVars?: Record<string, unknown>): Promise<string> {
-    const url = `/api/admin/email/preview/${template}`;
+  async getPreviewHtml(template: string, communityId?: number, customVars?: Record<string, unknown>): Promise<string> {
+    const query = communityId != null ? `?communityId=${communityId}` : "";
+    const url = `/api/admin/email/preview/${template}${query}`;
     const token = localStorage.getItem("mana_token") || "";
     let res;
     if (customVars) {
@@ -65,18 +93,19 @@ export const emailAdminService = {
     return res.text();
   },
 
-  async getHealth(): Promise<EmailHealthInfo> {
-    return apiClient.get("/admin/email/health");
+  async getHealth(communityId?: number): Promise<EmailHealthInfo> {
+    const url = communityId != null ? `/admin/email/health?communityId=${communityId}` : "/admin/email/health";
+    return apiClient.get(url);
   },
 
-  async sendTest(template: string, to?: string, customVars?: Record<string, unknown>): Promise<TestEmailResult> {
-    const params = new URLSearchParams({ template });
+  async sendTest(template: string, communityId: number, to?: string, customVars?: Record<string, unknown>): Promise<TestEmailResult> {
+    const params = new URLSearchParams({ template, communityId: String(communityId) });
     if (to) params.set("to", to);
     return apiClient.post(`/admin/email/test?${params}`, customVars || {});
   },
 
-  async sendAllTests(to?: string, customVars?: Record<string, unknown>): Promise<TestAllResult> {
-    const params = new URLSearchParams();
+  async sendAllTests(communityId: number, to?: string, customVars?: Record<string, unknown>): Promise<TestAllResult> {
+    const params = new URLSearchParams({ communityId: String(communityId) });
     if (to) params.set("to", to);
     return apiClient.post(`/admin/email/test-all?${params}`, customVars || {});
   },

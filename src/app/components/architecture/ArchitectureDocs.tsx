@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Database, Server, Globe, Code, Layers, GitBranch, Shield,
-  Activity, Box, ArrowRight, ChevronDown, ChevronRight, Loader2, AlertTriangle, Gauge, Mail, Megaphone,
+  Activity, Box, ArrowRight, ChevronDown, ChevronRight, Loader2, AlertTriangle, Gauge, Mail,
 } from "lucide-react";
 import { schemaService, type DbTableSchema } from "../../../services/schemaService";
 import { apiCatalogService, type ApiGroup } from "../../../services/apiCatalogService";
 import { buildInfo, formatBuildTime } from "../../../utils/buildInfo";
-import { EmailPreviewTab } from "../sports/admin/EmailPreviewTab";
+import { EmailTemplatesTab } from "../admin/EmailTemplatesTab";
 
 export type ArchTab = "overview" | "database" | "apis" | "websocket" | "folders" | "security" | "monitoring" | "email";
 
@@ -567,7 +567,7 @@ Every log line: [cid=<correlationId> uid=<userId>]
           </div>
         </div>
       )}
-      {tab === "email" && <EmailPreviewTab />}
+      {tab === "email" && <EmailTemplatesTab />}
     </div>
   );
 }

@@ -78,9 +78,10 @@ export const SPORTS_PERMISSION_MATRIX: SportsPermissionRow[] = [
 ];
 
 // ──── MARKETPLACE ────
-export const VIEW_MARKETPLACE = "View Marketplace";
-export const CREATE_LISTING   = "Create Listing";
-export const DELETE_LISTING   = "Delete Listing";
+export const VIEW_MARKETPLACE   = "View Marketplace";
+export const CREATE_LISTING     = "Create Listing";
+export const DELETE_LISTING     = "Delete Listing";
+export const MANAGE_MARKETPLACE = "Manage Marketplace";
 
 // ──── VISITOR / GATE PASS ────
 export const VIEW_VISITORS       = "View Visitors";
@@ -116,6 +117,32 @@ export const APPLY_JOB  = "Apply Job";
 export const VIEW_EVENTS    = "View Events";
 export const CREATE_EVENT   = "Create Event";
 export const REGISTER_EVENT = "Register Event";
+
+
+// ──── VENDOR MANAGEMENT SYSTEM ────
+export const VIEW_VENDOR_MANAGEMENT  = "View Vendor Management";
+export const CREATE_VENDOR           = "Create Vendor";
+export const MANAGE_VENDORS          = "Manage Vendors";
+export const BOOK_VENDOR_SERVICE     = "Book Vendor Service";
+export const MANAGE_WORK_ORDERS      = "Manage Work Orders";
+export const MANAGE_PROCUREMENT      = "Manage Procurement";
+export const MANAGE_CONTRACTS        = "Manage Contracts";
+export const MANAGE_VENDOR_PAYMENTS  = "Manage Vendor Payments";
+export const RATE_VENDOR             = "Rate Vendor";
+export const VIEW_VENDOR_ANALYTICS   = "View Vendor Analytics";
+
+// ──── RESOURCE BOOKING ────
+export const VIEW_RESOURCE_BOOKING = "View Resource Booking";
+export const MANAGE_RESOURCES = "Manage Resources";
+export const MANAGE_RESOURCE_CATEGORIES = "Manage Resource Categories";
+export const MANAGE_BOOKING_RULES = "Manage Booking Rules";
+export const MANAGE_PRICING = "Manage Pricing";
+export const MANAGE_MAINTENANCE = "Manage Maintenance";
+export const APPROVE_BOOKINGS = "Approve Bookings";
+export const VIEW_BOOKING_ANALYTICS = "View Booking Analytics";
+export const MANAGE_COUPONS = "Manage Coupons";
+export const MANAGE_WORKFLOWS = "Manage Workflows";
+
 
 // ──── ADMIN DASHBOARD ────
 export const VIEW_ADMIN         = "View Admin";
@@ -161,7 +188,7 @@ export const PERMISSION_CATEGORIES = [
   {
     id: "marketplace",
     title: "MARKETPLACE Permission",
-    permissions: [VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING],
+    permissions: [VIEW_MARKETPLACE, CREATE_LISTING, DELETE_LISTING, MANAGE_MARKETPLACE],
   },
   {
     id: "visitors",
@@ -197,6 +224,23 @@ export const PERMISSION_CATEGORIES = [
     id: "events",
     title: "EVENTS Permission",
     permissions: [VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT],
+  },
+  {
+
+    id: "vendor_management",
+    title: "VENDOR MANAGEMENT Permission",
+    permissions: [VIEW_VENDOR_MANAGEMENT, CREATE_VENDOR, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
+      MANAGE_WORK_ORDERS, MANAGE_PROCUREMENT, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
+      RATE_VENDOR, VIEW_VENDOR_ANALYTICS],
+
+    id: "resource-booking",
+    title: "RESOURCE BOOKING Permission",
+    permissions: [
+      VIEW_RESOURCE_BOOKING, MANAGE_RESOURCES, MANAGE_RESOURCE_CATEGORIES,
+      MANAGE_BOOKING_RULES, MANAGE_PRICING, MANAGE_MAINTENANCE,
+      APPROVE_BOOKINGS, VIEW_BOOKING_ANALYTICS, MANAGE_COUPONS, MANAGE_WORKFLOWS,
+    ],
+
   },
   {
     id: "admin",

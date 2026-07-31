@@ -2,6 +2,13 @@ import { createBrowserRouter } from "react-router";
 import { Layout } from "./components/commons/layout/Layout";
 import { Feed } from "./components/community/Feed";
 import { Marketplace } from "./components/marketplace/Marketplace";
+import { MarketplaceLayout } from "./components/marketplace/MarketplaceLayout";
+import { ProductDetail } from "./components/marketplace/ProductDetail";
+import { MyListings } from "./components/marketplace/MyListings";
+import { WishlistPage } from "./components/marketplace/WishlistPage";
+import { OrdersPage } from "./components/marketplace/OrdersPage";
+import { DonationsPage } from "./components/marketplace/DonationsPage";
+import { LostAndFoundPage } from "./components/marketplace/LostAndFoundPage";
 import { Jobs } from "./components/jobs/Jobs";
 import { Events } from "./components/events/Events";
 import { Login } from "./components/commons/login/Login";
@@ -36,6 +43,7 @@ import { AdminCommunity } from "./components/admin/AdminCommunity";
 import { AdminRoleManagement } from "./components/admin/AdminRoleManagement";
 import { LogsDashboard } from "./components/admin/LogsDashboard";
 import { AuditTrail } from "./components/admin/AuditTrail";
+import { EmailTemplateBuilder } from "./components/admin/EmailTemplateBuilder";
 import { ProfileDashboard } from "./components/profile/ProfileDashboard";
 import { ArchitectureDocs } from "./components/architecture/ArchitectureDocs";
 import { RootErrorElement } from "./components/commons/error/RootErrorElement";
@@ -54,9 +62,35 @@ import { SportsAnalytics }    from "./components/sports/SportsAnalytics";
 
 import { VisitorManagement } from "./components/visitors/VisitorManagement";
 import { NoticeBoard } from "./components/notices/NoticeBoard";
-import { AmenityBooking } from "./components/bookings/AmenityBooking";
+import { ResourceBookingDashboard } from "./components/bookings/ResourceBookingDashboard";
+import { ResourceAdmin } from "./components/bookings/admin/ResourceAdmin";
 import { Helpdesk } from "./components/helpdesk/Helpdesk";
 import { Polling } from "./components/polling/Polling";
+
+// Vendor Management System pages
+import { VendorAdminLayout } from "./components/vendor/admin/VendorAdminLayout";
+import { VendorDashboard as VendorAdminDashboard } from "./components/vendor/admin/VendorDashboard";
+import { VendorDirectory } from "./components/vendor/admin/VendorDirectory";
+import { VendorRegistrations } from "./components/vendor/admin/VendorRegistrations";
+import { VendorCategories } from "./components/vendor/admin/VendorCategories";
+import { WorkOrdersManagement } from "./components/vendor/admin/WorkOrdersManagement";
+import { ContractsManagement } from "./components/vendor/admin/ContractsManagement";
+import { PaymentsManagement } from "./components/vendor/admin/PaymentsManagement";
+import { VendorAnalytics } from "./components/vendor/admin/VendorAnalytics";
+import { VendorPortalLayout } from "./components/vendor/portal/VendorPortalLayout";
+import { VendorPortalDashboard } from "./components/vendor/portal/VendorPortalDashboard";
+import { MyServices } from "./components/vendor/portal/MyServices";
+import { MyBookings } from "./components/vendor/portal/MyBookings";
+import { MyAvailability } from "./components/vendor/portal/MyAvailability";
+import { MyPayments } from "./components/vendor/portal/MyPayments";
+import { MyDocuments } from "./components/vendor/portal/MyDocuments";
+import { MyRatings } from "./components/vendor/portal/MyRatings";
+import { VendorProfile } from "./components/vendor/portal/VendorProfile";
+import { ServiceMarketplace } from "./components/vendor/marketplace/ServiceMarketplace";
+import { VendorProfilePublic } from "./components/vendor/marketplace/VendorProfilePublic";
+import { BookingFlow } from "./components/vendor/marketplace/BookingFlow";
+import { MyBookingsResident } from "./components/vendor/marketplace/MyBookingsResident";
+import { FavoriteVendors } from "./components/vendor/marketplace/FavoriteVendors";
 
 // Permission constants
 import {
@@ -64,8 +98,13 @@ import {
   VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD,
   VIEW_PLAYER_POOL, VIEW_AUCTION_RESULTS,
   CREATE_EDIT_SPORTS_MAIN, VIEW_ADMIN, BULK_UPLOAD, MANAGE_COMMUNITIES,
-  MANAGE_ROLES, VIEW_MARKETPLACE, VIEW_JOBS, VIEW_EVENTS, VIEW_VISITORS,
+  MANAGE_ROLES, VIEW_MARKETPLACE, CREATE_LISTING, VIEW_JOBS, VIEW_EVENTS, VIEW_VISITORS,
   VIEW_NOTICES, VIEW_AMENITIES, VIEW_TICKETS, VIEW_POLLS,
+  VIEW_VENDOR_MANAGEMENT, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
+  MANAGE_WORK_ORDERS, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
+  VIEW_VENDOR_ANALYTICS,
+  VIEW_RESOURCE_BOOKING, MANAGE_RESOURCES,
+
 } from "../constants/permissions";
 
 export const router = createBrowserRouter([
@@ -175,11 +214,27 @@ export const router = createBrowserRouter([
             path: "expenses",
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><ExpensesDashboard /></PermissionGuard>
           },
+          {
+            path: "email-templates",
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><EmailTemplateBuilder /></PermissionGuard>
+          },
         ]
       },
       {
         path: "marketplace",
-        element: <PermissionGuard permission={VIEW_MARKETPLACE} requiredModule="MARKETPLACE"><Marketplace /></PermissionGuard>
+        element: <PermissionGuard permission={VIEW_MARKETPLACE} requiredModule="MARKETPLACE"><MarketplaceLayout /></PermissionGuard>,
+        children: [
+          { index: true, Component: Marketplace },
+          { path: ":id", Component: ProductDetail },
+          {
+            path: "my-listings",
+            element: <PermissionGuard permission={CREATE_LISTING} requiredModule="MARKETPLACE"><MyListings /></PermissionGuard>,
+          },
+          { path: "wishlist", Component: WishlistPage },
+          { path: "orders", Component: OrdersPage },
+          { path: "donations", Component: DonationsPage },
+          { path: "lost-found", Component: LostAndFoundPage },
+        ],
       },
       {
         path: "visitors",
@@ -191,7 +246,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "bookings",
-        element: <PermissionGuard permission={VIEW_AMENITIES} requiredModule="BOOKINGS"><AmenityBooking /></PermissionGuard>
+        element: <PermissionGuard permission={VIEW_RESOURCE_BOOKING} requiredModule="BOOKINGS"><ResourceBookingDashboard /></PermissionGuard>
       },
       {
         path: "helpdesk",
@@ -235,6 +290,10 @@ export const router = createBrowserRouter([
           {
             path: "audit",
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="COMMUNITY_MGMT"><AssetAuditDashboard /></PermissionGuard>
+          },
+          {
+            path: "resource-booking",
+            element: <PermissionGuard permission={MANAGE_RESOURCES} requiredModule="BOOKINGS"><ResourceAdmin /></PermissionGuard>
           }
         ]
       },
@@ -258,6 +317,59 @@ export const router = createBrowserRouter([
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="FINANCE_MGMT"><FinancialReports /></PermissionGuard>
           }
         ]
+      },
+      {
+        path: "vendor-admin",
+        element: <PermissionGuard permission={VIEW_VENDOR_MANAGEMENT} requiredModule="VENDOR_MANAGEMENT"><VendorAdminLayout /></PermissionGuard>,
+        children: [
+          { index: true, Component: VendorAdminDashboard },
+          { path: "vendors", Component: VendorDirectory },
+          { path: "registrations", element: <PermissionGuard permission={MANAGE_VENDORS}><VendorRegistrations /></PermissionGuard> },
+          { path: "categories", element: <PermissionGuard permission={MANAGE_VENDORS}><VendorCategories /></PermissionGuard> },
+          { path: "work-orders", element: <PermissionGuard permission={MANAGE_WORK_ORDERS}><WorkOrdersManagement /></PermissionGuard> },
+          { path: "contracts", element: <PermissionGuard permission={MANAGE_CONTRACTS}><ContractsManagement /></PermissionGuard> },
+          { path: "payments", element: <PermissionGuard permission={MANAGE_VENDOR_PAYMENTS}><PaymentsManagement /></PermissionGuard> },
+          { path: "analytics", element: <PermissionGuard permission={VIEW_VENDOR_ANALYTICS}><VendorAnalytics /></PermissionGuard> },
+        ],
+      },
+      {
+        path: "vendor-portal",
+        element: <PermissionGuard permission={VIEW_VENDOR_MANAGEMENT}><VendorPortalLayout /></PermissionGuard>,
+        children: [
+          { index: true, Component: VendorPortalDashboard },
+          { path: "services", Component: MyServices },
+          { path: "bookings", Component: MyBookings },
+          { path: "availability", Component: MyAvailability },
+          { path: "payments", Component: MyPayments },
+          { path: "documents", Component: MyDocuments },
+          { path: "ratings", Component: MyRatings },
+          { path: "profile", Component: VendorProfile },
+        ],
+      },
+      {
+        path: "vendor-marketplace",
+        children: [
+          {
+            index: true,
+            element: <PermissionGuard permission={BOOK_VENDOR_SERVICE} requiredModule="VENDOR_MANAGEMENT"><ServiceMarketplace /></PermissionGuard>,
+          },
+          {
+            path: "vendor/:vendorId",
+            element: <PermissionGuard permission={BOOK_VENDOR_SERVICE} requiredModule="VENDOR_MANAGEMENT"><VendorProfilePublic /></PermissionGuard>,
+          },
+          {
+            path: "vendor/:vendorId/book/:serviceId",
+            element: <PermissionGuard permission={BOOK_VENDOR_SERVICE} requiredModule="VENDOR_MANAGEMENT"><BookingFlow /></PermissionGuard>,
+          },
+          {
+            path: "my-bookings",
+            element: <PermissionGuard permission={BOOK_VENDOR_SERVICE} requiredModule="VENDOR_MANAGEMENT"><MyBookingsResident /></PermissionGuard>,
+          },
+          {
+            path: "favorites",
+            element: <PermissionGuard permission={BOOK_VENDOR_SERVICE} requiredModule="VENDOR_MANAGEMENT"><FavoriteVendors /></PermissionGuard>,
+          },
+        ],
       },
       {
         path: "chat",

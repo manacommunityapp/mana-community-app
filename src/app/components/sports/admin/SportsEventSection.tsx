@@ -345,6 +345,9 @@ export function SportsEventSection({
                               />
                             </PopoverContent>
                           </Popover>
+                          {!ev.startDate && (
+                            <span className="text-[10px] text-red-500 font-medium">Start Date is required</span>
+                          )}
                         </div>
                         <div className="flex flex-col gap-1">
                           <label className="text-xs text-slate-500 font-semibold">End Date *</label>
@@ -367,6 +370,12 @@ export function SportsEventSection({
                               />
                             </PopoverContent>
                           </Popover>
+                          {!ev.endDate && (
+                            <span className="text-[10px] text-red-500 font-medium">End Date is required</span>
+                          )}
+                          {Boolean(ev.endDate && ev.startDate && new Date(ev.endDate) < new Date(ev.startDate)) && (
+                            <span className="text-[10px] text-red-500 font-medium">End Date cannot be before Start Date</span>
+                          )}
                         </div>
                       </div>
 

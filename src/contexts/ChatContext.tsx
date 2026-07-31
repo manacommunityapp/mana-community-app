@@ -38,6 +38,11 @@ interface ChatContextType {
   clearUnread: (id: string) => void;
   /** contactId is the backend user id (as a string). */
   startConversation: (contactId: string) => void;
+  isFloatingOpen: boolean;
+  setFloatingOpen: (open: boolean) => void;
+  showFloatingConvList: boolean;
+  setShowFloatingConvList: (show: boolean) => void;
+  openFloatingChatWithUser: (userId: string) => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -132,6 +137,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [availableContacts, setAvailableContacts] = useState<Contact[]>([]);
   // No eager mount fetch — everything hydrates when the chat is opened (see initialize()).
   const [loading, setLoading] = useState(false);
+  const [isFloatingOpen, setFloatingOpen] = useState(false);
+  const [showFloatingConvList, setShowFloatingConvList] = useState(true);
 
   const currentUserId = getStoredUser()?.userId ?? null;
   // Track the active conversation inside callbacks/intervals without re-binding.
@@ -348,6 +355,16 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     [currentUserId, appendMessage]
   );
 
+  const openFloatingChatWithUser = useCallback(
+    async (userId: string) => {
+      initialize();
+      setFloatingOpen(true);
+      setShowFloatingConvList(false);
+      await startConversation(userId);
+    },
+    [initialize, startConversation]
+  );
+
   return (
     <ChatContext.Provider
       value={{
@@ -362,6 +379,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         sendMessage,
         clearUnread,
         startConversation,
+        isFloatingOpen,
+        setFloatingOpen,
+        showFloatingConvList,
+        setShowFloatingConvList,
+        openFloatingChatWithUser,
       }}
     >
       {children}

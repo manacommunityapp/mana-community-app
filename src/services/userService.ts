@@ -1,6 +1,32 @@
 import { apiClient } from "./apiClient";
 import type { UserResponse, RolePermissionsMap, RoleResponse } from "../types/api";
 
+/** Payload for the admin create-user page (POST /api/users). */
+export interface AdminCreateUserPayload {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string;      // yyyy-MM-dd
+  gender: string;           // Male / Female / Other / Prefer not to say
+  profilePic?: string;      // URL or base64 data-URI
+  employeeId?: string;
+  isActive?: boolean;
+  communityId?: number;
+  inviteCode?: string;
+  block?: string;
+  tower?: string;
+  flatNo?: string;
+  residentType?: string;
+  occupancyStatus?: string;
+  password?: string;
+  role?: string;            // admin/committee/resident/security/vendor/staff
+  prefEmail?: boolean;
+  prefSms?: boolean;
+  prefWhatsapp?: boolean;
+  prefPush?: boolean;
+}
+
 export const userService = {
   /** GET /api/users/search?communityId={id}&query={q} */
   async searchUsers(communityId: number, query: string): Promise<UserResponse[]> {
@@ -33,6 +59,11 @@ export const userService = {
   /** PUT /api/users/{id}/role */
   async updateUserRole(userId: number, role: string): Promise<void> {
     return apiClient.put<void>(`/users/${userId}/role`, { role });
+  },
+
+  /** POST /api/users — admin create-user; maps the create-user form fields. */
+  async createUser(payload: AdminCreateUserPayload): Promise<UserResponse> {
+    return apiClient.post<UserResponse>("/users", payload);
   },
 
   /** GET /api/roles/permissions */

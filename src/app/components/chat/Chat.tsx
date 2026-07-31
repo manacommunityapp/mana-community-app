@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import { ConversationsList } from "./ConversationsList";
 import { ChatWindow } from "./ChatWindow";
 import { ContactDetails } from "./ContactDetails";
@@ -22,6 +23,9 @@ export function Chat() {
     initialize,
   } = useChat();
 
+  const [searchParams] = useSearchParams();
+  const directUserId = searchParams.get("userId");
+
   const [showDetails, setShowDetails] = useState(false);
   const [showConvList, setShowConvList] = useState(true); // mobile toggle
 
@@ -30,12 +34,19 @@ export function Chat() {
     initialize();
   }, [initialize]);
 
+  // If there is a directUserId in search params, initiate the conversation
+  useEffect(() => {
+    if (directUserId) {
+      startConversation(directUserId);
+    }
+  }, [directUserId, startConversation]);
+
   // Automatically select the first conversation if none is active on mount
   useEffect(() => {
-    if (!activeConvId && conversations.length > 0) {
+    if (!activeConvId && conversations.length > 0 && !directUserId) {
       selectConversation(conversations[0].id);
     }
-  }, [activeConvId, conversations, selectConversation]);
+  }, [activeConvId, conversations, selectConversation, directUserId]);
 
   const activeConversation =
     conversations.find((c) => c.id === activeConvId) ?? null;

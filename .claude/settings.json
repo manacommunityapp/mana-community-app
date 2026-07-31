@@ -9,7 +9,11 @@
       "Read(//c/Program Files \\(x86\\)/Google/Chrome/Application/**)",
       "Bash(node scratch/dupe_check.cjs)",
       "PowerShell(Get-Process -Name chrome,node -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -eq '' } | Stop-Process -Force -ErrorAction SilentlyContinue; Get-NetTCPConnection -LocalPort 4173 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; \"done\")",
-      "Bash(node scratch/dupe_check2.cjs)"
+      "Bash(node scratch/dupe_check2.cjs)",
+      "Bash(powershell -NoProfile -Command 'Get-Process | Where-Object {$_.ProcessName -match '\\\\''java'\\\\''}')",
+      "Bash(powershell -NoProfile -Command \"Get-Process -Id 10112,22832 | Select-Object Id,ProcessName,Path,StartTime\")",
+      "Bash(powershell -NoProfile -Command 'Get-NetTCPConnection -State Listen | Where-Object {$_.OwningProcess -eq 10112 -or $_.OwningProcess -eq 22832} | Select-Object LocalAddress,LocalPort,OwningProcess')",
+      "Bash(powershell -NoProfile -Command \"Get-NetTCPConnection -LocalPort 5432 -State Listen -ErrorAction SilentlyContinue\")"
     ]
   }
 }

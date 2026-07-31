@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { MessageCircle, X, Sparkles } from "lucide-react";
 import { ConversationsList } from "./ConversationsList";
 import { ChatWindow } from "./ChatWindow";
@@ -6,9 +6,6 @@ import { useChat } from "../../../contexts/ChatContext";
 import { useAuth } from "../../../contexts/AuthContext";
 
 export function FloatingChat() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [showConvList, setShowConvList] = useState(true);
-
   const {
     conversations,
     messages,
@@ -18,6 +15,10 @@ export function FloatingChat() {
     selectConversation,
     sendMessage,
     startConversation,
+    isFloatingOpen: isOpen,
+    setFloatingOpen: setIsOpen,
+    showFloatingConvList: showConvList,
+    setShowFloatingConvList: setShowConvList,
   } = useChat();
 
   const { user } = useAuth();
@@ -47,13 +48,12 @@ export function FloatingChat() {
   }, [conversations]);
 
   const toggleOpen = () => {
-    setIsOpen((prev) => {
-      const next = !prev;
-      // On open, hydrate conversations + contacts (/api/chat/contacts) and start real-time listeners.
-      if (next) initialize();
-      setShowConvList(!(next && activeConvId));
-      return next;
-    });
+    const next = !isOpen;
+    setIsOpen(next);
+    if (next) {
+      initialize();
+      setShowConvList(!activeConvId);
+    }
   };
 
   return (
@@ -149,7 +149,7 @@ export function FloatingChat() {
       )}
 
       {/* ── Launcher ── */}
-      <div className={`fixed bottom-6 right-6 z-50 font-sans ${isOpen ? "hidden sm:block" : "block"}`}>
+      <div className={`fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 font-sans ${isOpen ? "hidden sm:block" : "block"}`}>
         <div className="group relative flex items-center justify-end">
           {/* hover label (desktop) */}
           {!isOpen && (
@@ -165,7 +165,7 @@ export function FloatingChat() {
           <button
             onClick={toggleOpen}
             aria-label={isOpen ? "Close chat" : "Open community chat"}
-            className="relative h-14 w-14 sm:h-16 sm:w-16 rounded-full flex items-center justify-center text-white
+            className="relative h-12 w-12 sm:h-14 sm:w-14 rounded-full flex items-center justify-center text-white
                        shadow-xl hover:scale-105 active:scale-95 transition-transform cursor-pointer"
             style={{
               background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 55%, #a855f7 100%)",
@@ -178,7 +178,7 @@ export function FloatingChat() {
             )}
 
             <span className="relative transition-transform duration-300" style={{ transform: isOpen ? "rotate(90deg) scale(0.9)" : "none" }}>
-              {isOpen ? <X className="h-7 w-7" /> : <MessageCircle className="h-7 w-7" />}
+              {isOpen ? <X className="h-6 w-6 sm:h-7 sm:w-7" /> : <MessageCircle className="h-6 w-6 sm:h-7 sm:w-7" />}
             </span>
 
             {/* online presence dot */}

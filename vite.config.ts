@@ -26,7 +26,7 @@ const buildTime: string = new Date().toISOString()
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:8082';
+  const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:8081';
 
   return {
     define: {

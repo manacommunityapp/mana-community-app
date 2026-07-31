@@ -340,7 +340,7 @@ export function AdminRoleManagement() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-12">
+    <div className="space-y-6 w-full pb-12">
       <Toaster position="top-center" richColors />
 
       {/* HEADER */}
@@ -389,29 +389,27 @@ export function AdminRoleManagement() {
                 ))}
               </select>
             )}
-            <button
-              onClick={() => setIsCreateRoleOpen(true)}
-              className="px-4 py-2 bg-emerald-650 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
-            >
-              <Shield className="w-4 h-4" />
-              Create Role
-            </button>
-            <button
-              onClick={() => navigate("/admin/create-user")}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
-            >
-              <UserPlus className="w-4 h-4" />
-              Create User
-            </button>
-            {canManageCommunities && (
-              <button
-                onClick={() => navigate("/admin/create-community")}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 active:scale-95 cursor-pointer"
-              >
-                <Building className="w-4 h-4" />
-                Create Community
-              </button>
-            )}
+             <button
+               onClick={() => setIsCreateRoleOpen(true)}
+               className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-sm font-semibold rounded-lg transition-all flex items-center gap-2 shadow-md shadow-emerald-500/10 hover:shadow-lg active:scale-95 cursor-pointer"
+             >
+               <Shield className="w-4 h-4" />
+               Create Role
+             </button>
+             <button
+               onClick={() => navigate("/admin/create-user")}
+               className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
+             >
+               <UserPlus className="w-4 h-4" />
+               Create User
+             </button>
+             <button
+               onClick={() => navigate("/admin/bulk-upload")}
+               className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer"
+             >
+               <FileText className="w-4 h-4" />
+               Bulk Upload
+             </button>
           </div>
         )}
       </div>
