@@ -7,7 +7,6 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import HomeWorkIcon from '@mui/icons-material/HomeWork';
 import BuildIcon from '@mui/icons-material/Build';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
-import { motion } from 'framer-motion';
 
 const stats = [
   { label: 'Total Properties', value: '2,847', icon: <ApartmentIcon />, color: '#4F6AF5', trend: '+12 this week', pct: 78 },
@@ -45,29 +44,27 @@ const DashboardPage: React.FC = () => (
     {/* Stats */}
     <Grid container spacing={2.5}>
       {stats.map((s, i) => (
-        <Grid item xs={12} sm={6} md={4} key={i}>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}>
-            <Paper sx={{ p: 3, borderRadius: '20px' }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                <Box>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</Typography>
-                  <Typography variant="h4" sx={{ color: '#fff', fontWeight: 800, mt: 0.5 }}>{s.value}</Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: `${s.color}20`, width: 48, height: 48 }}>
-                  <Box sx={{ color: s.color }}>{s.icon}</Box>
-                </Avatar>
+        <Grid size={{ xs: 12, sm: 6, md: 4 }} key={i}>
+          <Paper sx={{ p: 3, borderRadius: '20px' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+              <Box>
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{s.label}</Typography>
+                <Typography variant="h4" sx={{ color: '#fff', fontWeight: 800, mt: 0.5 }}>{s.value}</Typography>
               </Box>
-              <LinearProgress variant="determinate" value={s.pct} sx={{ mb: 1, '& .MuiLinearProgress-bar': { bgcolor: s.color } }} />
-              <Typography variant="caption" sx={{ color: s.color, fontWeight: 700 }}>{s.trend}</Typography>
-            </Paper>
-          </motion.div>
+              <Avatar sx={{ bgcolor: `${s.color}20`, width: 48, height: 48 }}>
+                <Box sx={{ color: s.color }}>{s.icon}</Box>
+              </Avatar>
+            </Box>
+            <LinearProgress variant="determinate" value={s.pct} sx={{ mb: 1, '& .MuiLinearProgress-bar': { bgcolor: s.color } }} />
+            <Typography variant="caption" sx={{ color: s.color, fontWeight: 700 }}>{s.trend}</Typography>
+          </Paper>
         </Grid>
       ))}
     </Grid>
 
     {/* Activity + AI Insights */}
     <Grid container spacing={2.5}>
-      <Grid item xs={12} md={7}>
+      <Grid size={{ xs: 12, md: 7 }}>
         <Paper sx={{ p: 3, borderRadius: '20px' }}>
           <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2.5 }}>Recent Property Lifecycle Events</Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -85,7 +82,7 @@ const DashboardPage: React.FC = () => (
         </Paper>
       </Grid>
 
-      <Grid item xs={12} md={5}>
+      <Grid size={{ xs: 12, md: 5 }}>
         <Paper sx={{ p: 3, borderRadius: '20px', height: '100%', background: 'linear-gradient(135deg, rgba(79,106,245,0.08) 0%, rgba(16,185,129,0.04) 100%)' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
             <SmartToyIcon sx={{ color: '#4F6AF5' }} />

@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "../../ui/utils";
 
-const NAV_ITEMS = [
+const NAV_ITEMS: { to: string; icon: any; label: string; end?: boolean }[] = [
   { to: "/vendor-admin",              icon: LayoutDashboard, label: "Dashboard",      end: true },
   { to: "/vendor-admin/vendors",      icon: Store,           label: "Vendor Directory" },
   { to: "/vendor-admin/registrations",icon: ClipboardList,   label: "Registrations" },
@@ -24,7 +24,7 @@ const NAV_ITEMS = [
   { to: "/vendor-admin/contracts",    icon: FileText,        label: "Contracts" },
   { to: "/vendor-admin/payments",     icon: CreditCard,      label: "Payments" },
   { to: "/vendor-admin/analytics",    icon: BarChart3,       label: "Analytics" },
-] as const;
+];
 
 export function VendorAdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);

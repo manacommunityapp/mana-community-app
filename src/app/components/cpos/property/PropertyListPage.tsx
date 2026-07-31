@@ -53,7 +53,7 @@ const PropertyListPage: React.FC = () => {
           value={search}
           onChange={e => setSearch(e.target.value)}
           sx={{ flex: 1, minWidth: 250 }}
-          InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'rgba(255,255,255,0.4)' }} /></InputAdornment> }}
+          slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'rgba(255,255,255,0.4)' }} /></InputAdornment> } }}
         />
         <Box sx={{ display: 'flex', gap: 1 }}>
           {['ALL', 'APARTMENT', 'VILLA', 'RETAIL_SHOP', 'COMMERCIAL_OFFICE', 'PENTHOUSE'].map(t => (
@@ -63,9 +63,9 @@ const PropertyListPage: React.FC = () => {
               onClick={() => setFilter(t)}
               sx={{
                 bgcolor: filter === t ? '#4F6AF5' : 'rgba(255,255,255,0.05)',
-                color: filter === t ? '#fff' : 'rgba(255,255,255,0.6)',
-                fontWeight: 700,
-                cursor: 'pointer',
+                color: '#fff',
+                fontWeight: 750,
+                '&:hover': { bgcolor: filter === t ? '#435FD5' : 'rgba(255,255,255,0.08)' },
               }}
             />
           ))}
@@ -77,7 +77,7 @@ const PropertyListPage: React.FC = () => {
         {filtered.map(p => {
           const s = statusColors[p.status] || { bg: 'rgba(255,255,255,0.1)', color: '#fff', label: p.status };
           return (
-            <Grid item xs={12} sm={6} md={3} key={p.code}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={p.code}>
               <Paper sx={{ overflow: 'hidden', borderRadius: '20px', border: '1px solid rgba(255,255,255,0.08)', transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-4px)' } }}>
                 <Box sx={{ height: 160, width: '100%', position: 'relative', overflow: 'hidden' }}>
                   <Box component="img" src={p.image} alt={p.unit} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />

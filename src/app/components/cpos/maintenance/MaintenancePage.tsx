@@ -20,7 +20,7 @@ const MaintenancePage: React.FC = () => (
         { title: 'AC Compressor Noise', unit: 'Villa-04', priority: 'MEDIUM', status: 'OPEN', vendor: 'Cooling Solutions Ltd' },
         { title: 'Electrical Switchboard Sparking', unit: 'Unit C-302', priority: 'CRITICAL', status: 'ASSIGNED', vendor: 'Spark Electricians' },
       ].map((m, i) => (
-        <Grid item xs={12} md={4} key={i}>
+        <Grid size={{ xs: 12, md: 4 }} key={i}>
           <Paper sx={{ p: 3, borderRadius: '20px' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Chip label={m.priority} size="small" sx={{ bgcolor: m.priority === 'CRITICAL' ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)', color: m.priority === 'CRITICAL' ? '#EF4444' : '#F59E0B', fontWeight: 800 }} />

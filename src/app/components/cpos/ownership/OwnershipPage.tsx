@@ -17,7 +17,7 @@ const OwnershipPage: React.FC = () => (
     </Box>
 
     <Grid container spacing={3}>
-      <Grid item xs={12} md={7}>
+      <Grid size={{ xs: 12, md: 7 }}>
         <Paper sx={{ p: 3, borderRadius: '20px' }}>
           <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2 }}>Current Active Owners</Typography>
           {[
@@ -45,7 +45,7 @@ const OwnershipPage: React.FC = () => (
         </Paper>
       </Grid>
 
-      <Grid item xs={12} md={5}>
+      <Grid size={{ xs: 12, md: 5 }}>
         <Paper sx={{ p: 3, borderRadius: '20px' }}>
           <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
             <HistoryIcon sx={{ color: '#10B981' }} /> Recent Transfer Deed Log

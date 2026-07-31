@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router';
 import { Box, Paper, Typography, Grid, TextField, MenuItem, Button, Divider } from '@mui/material';
-import ApartmentIcon from '@mui/icons-material/Apartment';
 
 const PropertyCreatePage: React.FC = () => {
   const navigate = useNavigate();
@@ -21,7 +20,7 @@ const PropertyCreatePage: React.FC = () => {
       <Paper component="form" onSubmit={handleSubmit} sx={{ p: 4, borderRadius: '24px' }}>
         <Typography variant="h6" sx={{ color: '#4F6AF5', fontWeight: 800, mb: 2 }}>1. Basic Identity & Location</Typography>
         <Grid container spacing={2.5}>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField select fullWidth label="Property Type" defaultValue="APARTMENT">
               <MenuItem value="APARTMENT">Apartment</MenuItem>
               <MenuItem value="VILLA">Villa</MenuItem>
@@ -30,16 +29,16 @@ const PropertyCreatePage: React.FC = () => {
               <MenuItem value="PARKING">Parking Slot</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField fullWidth label="Unit / Flat Number" placeholder="e.g. A-101" required />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField fullWidth label="Tower / Building Name" placeholder="e.g. North Tower" />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField fullWidth label="Floor Number" type="number" defaultValue="1" />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField select fullWidth label="Facing Direction" defaultValue="NORTH_EAST">
               <MenuItem value="NORTH">North</MenuItem>
               <MenuItem value="SOUTH">South</MenuItem>
@@ -48,7 +47,7 @@ const PropertyCreatePage: React.FC = () => {
               <MenuItem value="NORTH_EAST">North-East</MenuItem>
             </TextField>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField fullWidth label="Survey / Khata Number" placeholder="e.g. KH-99210" />
           </Grid>
         </Grid>
@@ -57,22 +56,22 @@ const PropertyCreatePage: React.FC = () => {
 
         <Typography variant="h6" sx={{ color: '#10B981', fontWeight: 800, mb: 2 }}>2. Area Measurements & Configuration</Typography>
         <Grid container spacing={2.5}>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField fullWidth label="Carpet Area (sq ft)" type="number" placeholder="e.g. 1450" required />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField fullWidth label="Built-up Area (sq ft)" type="number" placeholder="e.g. 1650" />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField fullWidth label="Super Built-up Area (sq ft)" type="number" placeholder="e.g. 1950" />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField fullWidth label="Bedrooms" type="number" defaultValue="3" />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField fullWidth label="Bathrooms" type="number" defaultValue="3" />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField fullWidth label="Covered Parking Slots" type="number" defaultValue="1" />
           </Grid>
         </Grid>
@@ -81,10 +80,10 @@ const PropertyCreatePage: React.FC = () => {
 
         <Typography variant="h6" sx={{ color: '#F59E0B', fontWeight: 800, mb: 2 }}>3. Financial & Initial Status</Typography>
         <Grid container spacing={2.5}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField fullWidth label="Estimated Market Value (₹)" placeholder="e.g. 14500000" />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField fullWidth label="Monthly Maintenance Charge (₹)" placeholder="e.g. 4500" />
           </Grid>
         </Grid>

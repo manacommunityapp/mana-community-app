@@ -700,8 +700,8 @@ export function Feed() {
                   onToggleComments={handleToggleComments}
                   onAddComment={handleAddComment}
                   onDeleteComment={handleDeleteComment}
-                  onSetCommentText={(text) => setNewCommentText((prev) => ({ ...prev, [post.id]: text }))}
-                  onSetReplyingTo={(id) => setReplyingTo((prev) => ({ ...prev, [post.id]: id }))}
+                  onSetCommentText={(text: string) => setNewCommentText((prev) => ({ ...prev, [post.id]: text }))}
+                  onSetReplyingTo={(id: number | null) => setReplyingTo((prev) => ({ ...prev, [post.id]: id }))}
                   onShowReactionPicker={() => setShowReactionPicker(showReactionPicker === post.id ? null : post.id)}
                   getInitials={getInitials}
                   formatTimeAgo={formatTimeAgo}
@@ -885,14 +885,13 @@ function PostCard({
         );
       })()}
 
-      {/* Poll */}
       {post.postType === "POLL" && post.pollQuestion && (
         <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 mb-3 text-left space-y-2.5">
           <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">{post.pollQuestion}</h4>
           <div className="space-y-1.5">
             {post.pollOptionsList?.map((option: string) => {
               const votes = post.pollVotes?.[option] || 0;
-              const totalVotes = Object.values(post.pollVotes || {}).reduce((a: number, b: number) => a + b, 0);
+              const totalVotes = (Object.values(post.pollVotes || {}) as number[]).reduce((a: number, b: number) => a + b, 0);
               const percent = totalVotes > 0 ? Math.round((votes / totalVotes) * 100) : 0;
               const hasVoted = !!post.userVotedOption;
               const isUserChoice = post.userVotedOption === option;
@@ -914,7 +913,7 @@ function PostCard({
             })}
           </div>
           <div className="text-[10px] text-slate-400 font-medium">
-            {Object.values(post.pollVotes || {}).reduce((a: number, b: number) => a + b, 0)} votes
+            {(Object.values(post.pollVotes || {}) as number[]).reduce((a: number, b: number) => a + b, 0)} votes
             {post.pollEndDate && ` · Ends ${new Date(post.pollEndDate).toLocaleDateString()}`}
           </div>
         </div>

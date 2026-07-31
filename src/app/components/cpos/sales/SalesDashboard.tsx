@@ -23,7 +23,7 @@ const SalesDashboard: React.FC = () => (
         { label: 'Offers Under Negotiation', val: '9', color: '#8B5CF6' },
         { label: 'Deals Closed This Month', val: '7 (₹14.2 Cr)', color: '#06B6D4' },
       ].map((s, i) => (
-        <Grid item xs={12} sm={6} md={2.4} key={i}>
+        <Grid size={{ xs: 12, sm: 6, md: 2.4 }} key={i}>
           <Paper sx={{ p: 2.5, borderRadius: '16px', borderTop: `4px solid ${s.color}` }}>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>{s.label}</Typography>
             <Typography variant="h6" sx={{ color: '#fff', fontWeight: 800, mt: 0.5 }}>{s.val}</Typography>

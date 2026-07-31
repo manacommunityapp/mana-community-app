@@ -22,7 +22,7 @@ const ResidentsPage: React.FC = () => (
     </Box>
 
     <Paper sx={{ p: 2, borderRadius: '16px' }}>
-      <TextField placeholder="Search by name, flat number, phone, or RFID..." fullWidth InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'rgba(255,255,255,0.4)' }} /></InputAdornment> }} />
+      <TextField placeholder="Search by name, flat number, phone, or RFID..." fullWidth slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: 'rgba(255,255,255,0.4)' }} /></InputAdornment> } }} />
     </Paper>
 
     <Paper sx={{ borderRadius: '20px', overflow: 'hidden' }}>

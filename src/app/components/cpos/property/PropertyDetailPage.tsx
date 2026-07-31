@@ -52,7 +52,7 @@ const PropertyDetailPage: React.FC = () => {
       {tab === 0 && (
         <Grid container spacing={3}>
           {/* Main Details */}
-          <Grid item xs={12} md={8}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <Grid container spacing={2}>
               {[
                 { label: 'Carpet Area', val: '1,650 sq.ft' },
@@ -64,7 +64,7 @@ const PropertyDetailPage: React.FC = () => {
                 { label: 'Property Tax PID', val: 'PID-99201482' },
                 { label: 'Current Valuation', val: '₹1.45 Cr' },
               ].map((item, i) => (
-                <Grid item xs={6} sm={3} key={i}>
+                <Grid size={{ xs: 6, sm: 3 }} key={i}>
                   <Paper sx={{ p: 2, borderRadius: '16px', bgcolor: '#0D1526' }}>
                     <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.4)', display: 'block' }}>{item.label}</Typography>
                     <Typography variant="body2" sx={{ color: '#fff', fontWeight: 700, mt: 0.5 }}>{item.val}</Typography>
@@ -99,7 +99,7 @@ const PropertyDetailPage: React.FC = () => {
           </Grid>
 
           {/* AI Health Score & Quick Info */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Paper sx={{ p: 3, borderRadius: '20px', background: 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(79,106,245,0.05) 100%)', mb: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <SmartToyIcon sx={{ color: '#10B981' }} />

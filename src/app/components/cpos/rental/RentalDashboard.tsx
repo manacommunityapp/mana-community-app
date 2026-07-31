@@ -21,7 +21,7 @@ const RentalDashboard: React.FC = () => (
         { label: 'Collection Rate', val: '96.2%', color: '#06B6D4' },
         { label: 'Leases Expiring (30 days)', val: '18', color: '#F59E0B' },
       ].map((s, i) => (
-        <Grid item xs={12} sm={6} md={3} key={i}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }} key={i}>
           <Paper sx={{ p: 2.5, borderRadius: '16px', borderTop: `4px solid ${s.color}` }}>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>{s.label}</Typography>
             <Typography variant="h6" sx={{ color: '#fff', fontWeight: 800, mt: 0.5 }}>{s.val}</Typography>
