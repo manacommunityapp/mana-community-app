@@ -23,6 +23,8 @@ import { EventsVenue } from "./components/events/EventsVenue";
 import { EventsSponsors } from "./components/events/EventsSponsors";
 import { EventsDonations } from "./components/events/EventsDonations";
 import { EventsAuction } from "./components/events/EventsAuction";
+import { EventsFood } from "./components/events/EventsFood";
+import { EventsFinance } from "./components/events/EventsFinance";
 import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/commons/login/Signup";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
@@ -366,6 +368,8 @@ export const router = createBrowserRouter([
           { path: "sponsors", element: <EventsSponsors /> },
           { path: "donations", element: <EventsDonations /> },
           { path: "auction", element: <EventsAuction /> },
+          { path: "food", element: <EventsFood /> },
+          { path: "finance", element: <EventsFinance /> },
         ],
       },
       { 
