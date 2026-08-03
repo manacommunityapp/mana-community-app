@@ -6,7 +6,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/app/components/ui/table";
+} from "../ui/table";
 
 // TODO: wire to eventService
 const departments = [

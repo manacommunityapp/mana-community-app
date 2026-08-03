@@ -1,5 +1,5 @@
 import { IndianRupee, Package, Plus, Download } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 
 // TODO: wire to eventService
 const donationTypes = [

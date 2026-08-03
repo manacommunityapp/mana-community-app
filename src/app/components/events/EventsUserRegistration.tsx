@@ -5,12 +5,12 @@ import {
   Banknote, QrCode, Download, Share2, Star, Users, Shield,
   ArrowRight, Sparkles,
 } from "lucide-react";
-import { Input } from "@/app/components/ui/input";
-import { Button } from "@/app/components/ui/button";
-import { Label } from "@/app/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/components/ui/select";
-import { Badge } from "@/app/components/ui/badge";
-import { cn } from "@/app/components/ui/utils";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
+import { Label } from "../ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Badge } from "../ui/badge";
+import { cn } from "../ui/utils";
 
 /* ─── Mock event data ─── */
 // TODO: wire to eventService

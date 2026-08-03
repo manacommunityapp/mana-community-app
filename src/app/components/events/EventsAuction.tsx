@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Gavel, Zap } from "lucide-react";
-import { Input } from "@/app/components/ui/input";
+import { Input } from "../ui/input";
 
 // TODO: wire to eventService
 const auctionItems = [

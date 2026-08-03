@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Search, Download, QrCode, Filter, CheckCircle2, Clock, XCircle, Plus } from "lucide-react";
-import { Input } from "@/app/components/ui/input";
-import { Button } from "@/app/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/app/components/ui/table";
-import { cn } from "@/app/components/ui/utils";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { cn } from "../ui/utils";
 
 const categories = ["All", "Family", "Individual", "VIP", "Volunteer", "Committee", "Sponsor", "Media"];
 
