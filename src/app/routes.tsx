@@ -14,6 +14,8 @@ import { Events } from "./components/events/Events.legacy";
 import { EventsLayout } from "./components/events/EventsLayout";
 import { EventsDashboard } from "./components/events/EventsDashboard";
 import { EventsCreate } from "./components/events/EventsCreate";
+import { EventsPlanning } from "./components/events/EventsPlanning";
+import { EventsPrograms } from "./components/events/EventsPrograms";
 import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/commons/login/Signup";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
@@ -348,6 +350,8 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <EventsDashboard /> },
           { path: "create", element: <PermissionGuard permission={CREATE_EVENT}><EventsCreate /></PermissionGuard> },
+          { path: "planning", element: <EventsPlanning /> },
+          { path: "programs", element: <EventsPrograms /> },
         ],
       },
       { 
