@@ -164,7 +164,7 @@ export function EventsAuction() {
               {leaderboard.map((l) => (
                 <div key={l.rank} className="flex items-center gap-3 px-5 py-3">
                   <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0
-                    ${l.rank === 1 ? "bg-amber-400 text-white" : l.rank === 2 ? "bg-slate-300 text-slate-700" : l.rank === 3 ? "bg-orange-300 text-white" : "bg-slate-100 text-slate-500"}`}>
+                    ${l.rank === 1 ? "bg-amber-400 text-white" : l.rank === 2 ? "bg-slate-300 text-slate-700" : l.rank === 3 ? "bg-indigo-300 text-white" : "bg-slate-100 text-slate-500"}`}>
                     {l.rank}
                   </span>
                   <p className="flex-1 text-sm font-semibold text-slate-700">{l.name}</p>

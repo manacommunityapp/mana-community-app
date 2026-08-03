@@ -5,7 +5,7 @@ const packages = [
   { name: "Platinum",  price: "₹5,00,000", perks: ["Logo on main stage", "VIP 20 passes", "Full page ad", "Social media feature", "Brand in all materials"], color: "#6366f1", bg: "#eef2ff", count: 1 },
   { name: "Gold",      price: "₹2,00,000", perks: ["Logo on backdrop", "VIP 10 passes", "Half page ad", "Social media mention"], color: "#d97706", bg: "#fffbeb", count: 2 },
   { name: "Silver",    price: "₹75,000",   perks: ["Logo on flex banners", "5 VIP passes", "Quarter page ad"], color: "#64748b", bg: "#f8fafc", count: 4 },
-  { name: "Bronze",    price: "₹25,000",   perks: ["Name in brochure", "2 passes", "Social mention"], color: "#b45309", bg: "#fef9ee", count: 8 },
+  { name: "Bronze",    price: "₹25,000",   perks: ["Name in brochure", "2 passes", "Social mention"], color: "#4338ca", bg: "#eef2ff", count: 8 },
 ];
 
 // TODO: wire to eventService
@@ -29,7 +29,7 @@ const pkgColor: Record<string, { bg: string; text: string }> = {
   Platinum: { bg: "bg-indigo-50", text: "text-indigo-700" },
   Gold:     { bg: "bg-amber-50",  text: "text-amber-700"  },
   Silver:   { bg: "bg-slate-100", text: "text-slate-600"  },
-  Bronze:   { bg: "bg-orange-50", text: "text-orange-700" },
+  Bronze:   { bg: "bg-indigo-50", text: "text-indigo-700" },
 };
 
 export function EventsSponsors() {

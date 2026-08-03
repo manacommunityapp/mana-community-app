@@ -26,7 +26,7 @@ const typeColors: Record<string, { bg: string; text: string }> = {
   UPI:        { bg: "bg-indigo-50",  text: "text-indigo-700"  },
   Cheque:     { bg: "bg-cyan-50",    text: "text-cyan-700"    },
   Gold:       { bg: "bg-amber-50",   text: "text-amber-700"   },
-  Rice:       { bg: "bg-orange-50",  text: "text-orange-700"  },
+  Rice:       { bg: "bg-indigo-50",  text: "text-indigo-700"  },
   Milk:       { bg: "bg-sky-50",     text: "text-sky-700"     },
   Vegetables: { bg: "bg-lime-50",    text: "text-lime-700"    },
 };
