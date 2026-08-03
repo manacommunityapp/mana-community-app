@@ -18,6 +18,8 @@ import { EventsPlanning } from "./components/events/EventsPlanning";
 import { EventsPrograms } from "./components/events/EventsPrograms";
 import { EventsRegistration } from "./components/events/EventsRegistration";
 import { EventsUserRegistration } from "./components/events/EventsUserRegistration";
+import { EventsVolunteers } from "./components/events/EventsVolunteers";
+import { EventsVenue } from "./components/events/EventsVenue";
 import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/commons/login/Signup";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
@@ -356,6 +358,8 @@ export const router = createBrowserRouter([
           { path: "programs", element: <EventsPrograms /> },
           { path: "registration", element: <EventsRegistration /> },
           { path: "register", element: <EventsUserRegistration /> },
+          { path: "volunteers", element: <EventsVolunteers /> },
+          { path: "venue", element: <EventsVenue /> },
         ],
       },
       { 
