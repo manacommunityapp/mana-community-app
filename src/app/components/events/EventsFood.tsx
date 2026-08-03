@@ -1,4 +1,4 @@
-import { UtensilsCrossed, ShoppingBasket, Users, TrendingDown, Plus } from "lucide-react";
+import { TrendingDown, Plus } from "lucide-react";
 
 // TODO: wire to eventService
 const menuItems = [
@@ -79,7 +79,7 @@ export function EventsFood() {
                     <div
                       style={{ width: `${pct}%` }}
                       className={`h-full rounded-full transition-[width] duration-700 ease-out ${
-                        pct === 100 ? "bg-emerald-500" : pct > 60 ? "bg-indigo-500" : "bg-amber-400"
+                        pct === 100 ? "bg-emerald-500" : pct > 60 ? "bg-orange-500" : "bg-amber-400"
                       }`} />
                   </div>
                 </div>
