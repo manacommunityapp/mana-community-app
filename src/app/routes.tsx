@@ -10,9 +10,11 @@ import { OrdersPage } from "./components/marketplace/OrdersPage";
 import { DonationsPage } from "./components/marketplace/DonationsPage";
 import { LostAndFoundPage } from "./components/marketplace/LostAndFoundPage";
 import { Jobs } from "./components/jobs/Jobs";
-import { Events } from "./components/events/Events";
+import { Events } from "./components/events/Events.legacy";
+import { EventsLayout } from "./components/events/EventsLayout";
+import { EventsDashboard } from "./components/events/EventsDashboard";
 import { Login } from "./components/commons/login/Login";
-import { Signup } from "./components/Signup";
+import { Signup } from "./components/commons/login/Signup";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { AdminHub } from "./components/admin/AdminHub";
@@ -339,9 +341,12 @@ export const router = createBrowserRouter([
         path: "jobs", 
         element: <PermissionGuard permission={VIEW_JOBS} requiredModule="JOBS"><Jobs /></PermissionGuard> 
       },
-      { 
-        path: "events", 
-        element: <PermissionGuard permission={VIEW_EVENTS} requiredModule="EVENTS"><Events /></PermissionGuard> 
+      {
+        path: "events",
+        element: <PermissionGuard permission={VIEW_EVENTS} requiredModule="EVENTS"><EventsLayout /></PermissionGuard>,
+        children: [
+          { index: true, element: <EventsDashboard /> },
+        ],
       },
       { 
         path: "inventory", 

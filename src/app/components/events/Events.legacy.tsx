@@ -6,7 +6,7 @@ import {
 import { useState, useEffect, useCallback } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { eventService, type EventResponse, type EventRequest } from "../../../services/eventService";
+import { eventService, type EventResponse, type EventRequest } from "../../../services/events/eventService";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
