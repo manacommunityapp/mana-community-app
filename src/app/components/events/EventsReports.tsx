@@ -46,7 +46,7 @@ export function EventsReports() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {reportCards.map((r, i) => (
           <div key={r.title}
-            className={`animate-fade-in-up stagger-${Math.min(i, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.05)] hover:shadow-lg transition-shadow group`}>
+            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.05)] hover:shadow-lg transition-shadow group`}>
             <div className="flex items-start justify-between mb-4">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: r.bg }}>
                 <r.icon className="w-5 h-5" style={{ color: r.color }} />

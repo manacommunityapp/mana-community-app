@@ -43,7 +43,7 @@ export function EventsFood() {
         ].map((s, i) => (
           <div
             key={s.label}
-            className={`animate-fade-in-up stagger-${Math.min(i, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center`}
+            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center`}
           >
             <p className="text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">{s.label}</p>
@@ -65,7 +65,7 @@ export function EventsFood() {
               const ss = statusStyle[item.status];
               const pct = Math.round((item.prepared / item.qty) * 100);
               return (
-                <div key={item.name} className={`animate-fade-in-up stagger-${Math.min(i, 8)}`}>
+                <div key={item.name} className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)}`}>
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold text-slate-800">{item.name}</span>
@@ -100,7 +100,7 @@ export function EventsFood() {
             {ingredients.map((ing, i) => (
               <div
                 key={ing.item}
-                className={`animate-fade-in-up stagger-${Math.min(i, 8)} flex items-center justify-between px-6 py-4`}
+                className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} flex items-center justify-between px-6 py-4`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${ing.status === "ok" ? "bg-emerald-400" : "bg-amber-400"}`} />

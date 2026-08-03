@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Gavel, Zap } from "lucide-react";
+import { Input } from "@/app/components/ui/input";
 
 // TODO: wire to eventService
 const auctionItems = [
@@ -115,8 +116,8 @@ export function EventsAuction() {
                     <div className="flex gap-2">
                       <div className="flex-1 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-indigo-200 bg-white">
                         <span className="text-slate-400 font-bold">₹</span>
-                        <input type="number" defaultValue={item.currentBid + 500}
-                          className="flex-1 outline-none text-slate-800 font-bold bg-transparent" />
+                        <Input type="number" defaultValue={item.currentBid + 500}
+                          className="flex-1 border-0 outline-none text-slate-800 font-bold bg-transparent shadow-none focus-visible:ring-0 p-0" />
                       </div>
                       <button className="px-5 py-2.5 bg-indigo-500 text-white rounded-xl font-bold text-sm hover:bg-indigo-600 transition-all shadow-sm flex items-center gap-1.5">
                         <Zap className="w-4 h-4" /> Place Bid

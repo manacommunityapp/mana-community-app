@@ -49,7 +49,7 @@ export function EventsFinance() {
         {summary.map((s, i) => (
           <div
             key={s.label}
-            className={`animate-fade-in-up stagger-${Math.min(i, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)]`}
+            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)]`}
           >
             <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: s.bg }}>
               <s.icon className="w-4 h-4" style={{ color: s.color }} />
@@ -117,7 +117,7 @@ export function EventsFinance() {
           {ledger.map((txn, i) => (
             <div
               key={txn.id}
-              className={`animate-fade-in-up stagger-${Math.min(i, 8)} flex items-center gap-4 px-6 py-4 hover:bg-slate-50/60 transition-colors`}
+              className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} flex items-center gap-4 px-6 py-4 hover:bg-slate-50/60 transition-colors`}
             >
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${txn.type === "income" ? "bg-emerald-50" : "bg-rose-50"}`}>
                 {txn.type === "income"

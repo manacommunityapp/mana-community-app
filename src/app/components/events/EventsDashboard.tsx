@@ -78,7 +78,7 @@ export function EventsDashboard() {
         {kpis.map((kpi, i) => (
           <div
             key={kpi.label}
-            className={`animate-fade-in-up stagger-${Math.min(i, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] transition-shadow`}
+            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] transition-shadow`}
           >
             <div className="flex items-start justify-between mb-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"

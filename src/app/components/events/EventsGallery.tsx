@@ -67,7 +67,7 @@ export function EventsGallery() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {albums.map((album, i) => (
             <div key={album.id}
-              className={`animate-fade-in-up stagger-${Math.min(i, 8)} bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:shadow-lg transition-shadow group cursor-pointer`}>
+              className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:shadow-lg transition-shadow group cursor-pointer`}>
               <div className="relative h-44 overflow-hidden">
                 <GalleryImage src={album.cover} alt={album.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
@@ -95,7 +95,7 @@ export function EventsGallery() {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {photos.map((photo, i) => (
             <div key={photo.id}
-              className={`animate-fade-in-up stagger-${Math.min(i, 8)} relative rounded-xl overflow-hidden group cursor-pointer bg-slate-100 aspect-square`}>
+              className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} relative rounded-xl overflow-hidden group cursor-pointer bg-slate-100 aspect-square`}>
               <GalleryImage src={photo.url} alt={photo.album} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-all" />
               {photo.type === "video" && (
