@@ -3,7 +3,7 @@ import { useState } from "react";
 import {
   CalendarDays, MapPin, Users, DollarSign, Image, Settings,
   CheckCircle2, ChevronRight, ChevronLeft, Sparkles, Clock,
-  Globe, Lock, Building2, Trophy, Heart, Music, Utensils,
+  Globe, Lock, Building2, Heart, Music, Utensils,
   Briefcase, GraduationCap, Tent, Plus, X, Upload, Info,
   Tag, AlertCircle, Check,
 } from "lucide-react";
@@ -30,6 +30,7 @@ interface FormData {
   startTime: string;
   endTime: string;
   multiDay: boolean;
+  daySchedules: DaySchedule[];
   venueName: string;
   venueAddress: string;
   city: string;
@@ -62,10 +63,22 @@ interface BudgetItem {
   amount: string;
 }
 
+interface ScheduleActivity {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  description: string;
+}
+
+interface DaySchedule {
+  date: string;
+  activities: ScheduleActivity[];
+}
+
 /* ─── Constants ─── */
 const EVENT_TYPES = [
   { value: "festival",    label: "Festival",       icon: Sparkles,      color: "#7c3aed" },
-  { value: "sports",      label: "Sports",         icon: Trophy,        color: "#6366f1" },
   { value: "cultural",    label: "Cultural",       icon: Music,         color: "#8b5cf6" },
   { value: "health",      label: "Health Camp",    icon: Heart,         color: "#be185d" },
   { value: "community",   label: "Community",      icon: Users,         color: "#0891b2" },
@@ -183,21 +196,97 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
   );
 }
 
+function getDaysBetween(start: string, end: string): string[] {
+  if (!start || !end) return [];
+  const days: string[] = [];
+  const d = new Date(start);
+  const last = new Date(end);
+  while (d <= last && days.length < 30) {
+    days.push(d.toISOString().slice(0, 10));
+    d.setDate(d.getDate() + 1);
+  }
+  return days;
+}
+
+function formatDayLabel(dateStr: string, index: number): string {
+  const d = new Date(dateStr + "T00:00:00");
+  return `Day ${index + 1} — ${d.toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" })}`;
+}
+
 function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   const inputCls = "w-full px-4 py-3 h-auto rounded-xl border border-slate-200 bg-white text-sm text-slate-800 placeholder-slate-400 outline-none focus-visible:border-indigo-400 focus-visible:ring-4 focus-visible:ring-indigo-50 transition-all";
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+
+  const syncDaySchedules = (start: string, end: string) => {
+    const days = getDaysBetween(start, end);
+    const existing = new Map(data.daySchedules.map(ds => [ds.date, ds]));
+    const synced = days.map(date => existing.get(date) ?? {
+      date,
+      activities: [{ id: `a${Date.now()}-${date}`, name: "", startTime: "09:00", endTime: "10:00", description: "" }],
+    });
+    update("daySchedules", synced);
+    if (synced.length > 0 && !expandedDay) setExpandedDay(synced[0].date);
+  };
+
+  const handleStartDate = (val: string) => {
+    update("startDate", val);
+    if (data.multiDay && data.endDate) syncDaySchedules(val, data.endDate);
+  };
+
+  const handleEndDate = (val: string) => {
+    update("endDate", val);
+    if (data.multiDay && data.startDate) syncDaySchedules(data.startDate, val);
+  };
+
+  const handleMultiDayToggle = (v: boolean) => {
+    update("multiDay", v);
+    if (v && data.startDate && data.endDate) {
+      syncDaySchedules(data.startDate, data.endDate);
+    } else if (!v) {
+      update("daySchedules", []);
+    }
+  };
+
+  const addActivity = (date: string) => {
+    const updated = data.daySchedules.map(ds =>
+      ds.date === date
+        ? { ...ds, activities: [...ds.activities, { id: `a${Date.now()}`, name: "", startTime: "", endTime: "", description: "" }] }
+        : ds
+    );
+    update("daySchedules", updated);
+  };
+
+  const removeActivity = (date: string, actId: string) => {
+    const updated = data.daySchedules.map(ds =>
+      ds.date === date
+        ? { ...ds, activities: ds.activities.filter(a => a.id !== actId) }
+        : ds
+    );
+    update("daySchedules", updated);
+  };
+
+  const updateActivity = (date: string, actId: string, field: keyof ScheduleActivity, value: string) => {
+    const updated = data.daySchedules.map(ds =>
+      ds.date === date
+        ? { ...ds, activities: ds.activities.map(a => a.id === actId ? { ...a, [field]: value } : a) }
+        : ds
+    );
+    update("daySchedules", updated);
+  };
+
   return (
     <div className="space-y-6">
-      <ToggleRow checked={data.multiDay} onChange={v => update("multiDay", v)} label="Multi-day event" />
+      <ToggleRow checked={data.multiDay} onChange={handleMultiDayToggle} label="Multi-day event" />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
           <FieldLabel required>Start Date</FieldLabel>
-          <Input type="date" value={data.startDate} onChange={e => update("startDate", e.target.value)} className={inputCls} />
+          <Input type="date" value={data.startDate} onChange={e => handleStartDate(e.target.value)} className={inputCls} />
         </div>
         {data.multiDay && (
           <div>
             <FieldLabel required>End Date</FieldLabel>
-            <Input type="date" value={data.endDate} onChange={e => update("endDate", e.target.value)} className={inputCls} />
+            <Input type="date" value={data.endDate} onChange={e => handleEndDate(e.target.value)} className={inputCls} />
           </div>
         )}
         <div>
@@ -209,6 +298,87 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
           <Input type="time" value={data.endTime} onChange={e => update("endTime", e.target.value)} className={inputCls} />
         </div>
       </div>
+
+      {/* Day-wise schedule builder */}
+      {data.multiDay && data.daySchedules.length > 0 && (
+        <div className="border-t border-slate-100 pt-6 animate-fade-in-up">
+          <p className="text-sm font-bold text-slate-700 mb-1 flex items-center gap-2">
+            <CalendarDays className="w-4 h-4 text-indigo-500" /> Day-wise Schedule
+          </p>
+          <p className="text-xs text-slate-400 mb-4">Add activities and timings for each day of the event.</p>
+
+          <div className="space-y-3">
+            {data.daySchedules.map((day, dayIdx) => {
+              const isExpanded = expandedDay === day.date;
+              const actCount = day.activities.length;
+              return (
+                <div key={day.date} className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden">
+                  <button
+                    onClick={() => setExpandedDay(isExpanded ? null : day.date)}
+                    className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-100 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black text-white"
+                        style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
+                        {dayIdx + 1}
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-bold text-slate-700">{formatDayLabel(day.date, dayIdx)}</p>
+                        <p className="text-[10px] text-slate-400">{actCount} {actCount === 1 ? "activity" : "activities"}</p>
+                      </div>
+                    </div>
+                    <ChevronRight className={cn("w-4 h-4 text-slate-400 transition-transform", isExpanded && "rotate-90")} />
+                  </button>
+
+                  {isExpanded && (
+                    <div className="px-5 pb-4 space-y-3 animate-fade-in-up">
+                      {day.activities.map((act, actIdx) => (
+                        <div key={act.id} className="p-4 bg-white rounded-xl border border-slate-100 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Activity {actIdx + 1}</span>
+                            {day.activities.length > 1 && (
+                              <button onClick={() => removeActivity(day.date, act.id)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                          <div>
+                            <FieldLabel required>Activity Name</FieldLabel>
+                            <Input value={act.name} onChange={e => updateActivity(day.date, act.id, "name", e.target.value)}
+                              placeholder="e.g. Opening Ceremony, Lunch Break, Cultural Program"
+                              className={inputCls} />
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <FieldLabel required>From</FieldLabel>
+                              <Input type="time" value={act.startTime} onChange={e => updateActivity(day.date, act.id, "startTime", e.target.value)}
+                                className={inputCls} />
+                            </div>
+                            <div>
+                              <FieldLabel required>To</FieldLabel>
+                              <Input type="time" value={act.endTime} onChange={e => updateActivity(day.date, act.id, "endTime", e.target.value)}
+                                className={inputCls} />
+                            </div>
+                          </div>
+                          <div>
+                            <FieldLabel>Description</FieldLabel>
+                            <Input value={act.description} onChange={e => updateActivity(day.date, act.id, "description", e.target.value)}
+                              placeholder="Optional details about this activity"
+                              className={inputCls} />
+                          </div>
+                        </div>
+                      ))}
+                      <button onClick={() => addActivity(day.date)}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all">
+                        <Plus className="w-3.5 h-3.5" /> Add Activity
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div className="border-t border-slate-100 pt-6">
         <p className="text-sm font-bold text-slate-700 mb-4 flex items-center gap-2">
@@ -459,6 +629,13 @@ function Step6Review({ data }: { data: FormData }) {
         { label: "Capacity", value: data.capacity || "—"                   },
       ],
     },
+    ...(data.multiDay && data.daySchedules.length > 0 ? [{
+      title: "Day-wise Schedule",
+      items: data.daySchedules.map((ds, i) => ({
+        label: `Day ${i + 1} (${ds.date})`,
+        value: ds.activities.filter(a => a.name).map(a => `${a.startTime}–${a.endTime} ${a.name}`).join(" | ") || "No activities",
+      })),
+    }] : []),
     {
       title: "Registration",
       items: [
@@ -542,7 +719,7 @@ export function EventsCreate() {
     title: "", eventType: "", category: "", description: "",
     visibility: "community",
     startDate: "", endDate: "", startTime: "", endTime: "",
-    multiDay: false, venueName: "", venueAddress: "", city: "", capacity: "",
+    multiDay: false, daySchedules: [], venueName: "", venueAddress: "", city: "", capacity: "",
     registrationEnabled: true, registrationDeadline: "",
     ticketTypes: DEFAULT_TICKET_TYPES,
     requireApproval: false, allowWaitlist: true,
