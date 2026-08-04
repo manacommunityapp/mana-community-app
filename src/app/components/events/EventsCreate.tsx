@@ -1,12 +1,12 @@
 // TODO: wire to eventService
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   CalendarDays, MapPin, Users, DollarSign, Image,
   CheckCircle2, ChevronRight, ChevronLeft, Sparkles, Clock,
   Globe, Lock, Building2, Heart, Music, Utensils,
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
-  Zap, Star, ArrowRight, Trash2, PlusCircle,
+  Zap, Star, ArrowRight, Trash2, PlusCircle, Link2,
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
@@ -691,6 +691,36 @@ function Step4Budget({ data, update }: { data: FormData; update: (k: keyof FormD
 /* ─── Step 5: Media ─── */
 function Step5Media({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   const [tagInput, setTagInput] = useState("");
+  const [imageMode, setImageMode] = useState<"upload" | "url">(data.coverImageUrl && !data.coverImageUrl.startsWith("data:") ? "url" : "upload");
+  const [dragOver, setDragOver] = useState(false);
+  const [fileName, setFileName] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (file: File) => {
+    if (!file.type.startsWith("image/")) return;
+    setFileName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        update("coverImageUrl", reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile(file);
+  };
+
+  const clearImage = () => {
+    update("coverImageUrl", "");
+    setFileName("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const addTag = () => {
     const t = tagInput.trim().toLowerCase();
     if (t && !data.tags.includes(t)) {
@@ -705,22 +735,86 @@ function Step5Media({ data, update }: { data: FormData; update: (k: keyof FormDa
       <SectionHeader icon={Image} title="Cover Image & Tags" subtitle="Add visual identity and discoverability to your event" />
 
       <div>
-        <FieldLabel>Cover Image URL</FieldLabel>
-        <Input value={data.coverImageUrl} onChange={e => update("coverImageUrl", e.target.value)}
-          placeholder="https://images.unsplash.com/…" className={INPUT_CLS} />
+        <FieldLabel>Cover Image</FieldLabel>
+
+        {/* Upload / URL tabs */}
+        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit mb-4">
+          <button onClick={() => setImageMode("upload")}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all",
+              imageMode === "upload"
+                ? "bg-white text-indigo-700 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            )}>
+            <Upload className="w-3.5 h-3.5" /> Upload File
+          </button>
+          <button onClick={() => setImageMode("url")}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all",
+              imageMode === "url"
+                ? "bg-white text-indigo-700 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            )}>
+            <Link2 className="w-3.5 h-3.5" /> Paste URL
+          </button>
+        </div>
+
+        {imageMode === "url" ? (
+          <Input value={data.coverImageUrl.startsWith("data:") ? "" : data.coverImageUrl}
+            onChange={e => { update("coverImageUrl", e.target.value); setFileName(""); }}
+            placeholder="https://images.unsplash.com/…" className={INPUT_CLS} />
+        ) : (
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+        )}
+
+        {/* Preview / drop zone */}
         {data.coverImageUrl ? (
           <div className="mt-3 h-52 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 shadow-inner relative group">
             <img src={data.coverImageUrl} alt="Cover preview" className="w-full h-full object-cover" onError={() => {}} />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4">
+              {fileName && (
+                <span className="text-xs text-white/80 font-medium truncate max-w-[60%]">{fileName}</span>
+              )}
+              <button onClick={clearImage}
+                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/20 backdrop-blur-sm text-white text-xs font-bold hover:bg-white/30 transition-all">
+                <Trash2 className="w-3 h-3" /> Remove
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="mt-3 h-52 rounded-2xl border-2 border-dashed border-slate-200 bg-gradient-to-b from-slate-50 to-white flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50/20 transition-all group">
-            <div className="w-14 h-14 rounded-2xl bg-slate-100 group-hover:bg-indigo-100 flex items-center justify-center transition-colors">
-              <Upload className="w-6 h-6 text-slate-300 group-hover:text-indigo-400 transition-colors" />
+          <div
+            onClick={() => imageMode === "upload" && fileInputRef.current?.click()}
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={handleDrop}
+            className={cn(
+              "mt-3 h-52 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-all",
+              imageMode === "upload" ? "cursor-pointer" : "cursor-default",
+              dragOver
+                ? "border-indigo-400 bg-indigo-50/40 scale-[1.01]"
+                : "border-slate-200 bg-gradient-to-b from-slate-50 to-white hover:border-indigo-300 hover:bg-indigo-50/20"
+            )}>
+            <div className={cn(
+              "w-14 h-14 rounded-2xl flex items-center justify-center transition-colors",
+              dragOver ? "bg-indigo-100" : "bg-slate-100"
+            )}>
+              <Upload className={cn("w-6 h-6 transition-colors", dragOver ? "text-indigo-500" : "text-slate-300")} />
             </div>
             <div className="text-center">
-              <p className="text-sm text-slate-400 font-medium">Paste an image URL above</p>
-              <p className="text-[10px] text-slate-300 mt-0.5">The preview will appear here</p>
+              {imageMode === "upload" ? (
+                <>
+                  <p className="text-sm text-slate-500 font-medium">
+                    <span className="text-indigo-600 font-bold">Click to upload</span> or drag & drop
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-1">PNG, JPG, WEBP up to 5MB</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-slate-400 font-medium">Paste an image URL above</p>
+                  <p className="text-[10px] text-slate-300 mt-0.5">The preview will appear here</p>
+                </>
+              )}
             </div>
           </div>
         )}
