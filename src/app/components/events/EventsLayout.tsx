@@ -1,28 +1,19 @@
 import { NavLink, Outlet, useLocation } from "react-router";
 import {
-  LayoutDashboard, CalendarDays, ClipboardList, Users, Ticket,
-  Mic2, HandHeart, Gem, Gavel, UtensilsCrossed, Landmark,
-  MapPin, ImageIcon, BarChart3, ChevronRight, PlusCircle, UserCheck,
+  LayoutDashboard, CalendarDays, Ticket, Users,
+  HandHeart, UtensilsCrossed, ImageIcon, ChevronRight,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
-import { VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT } from "../../../constants/permissions";
+import { VIEW_EVENTS, REGISTER_EVENT } from "../../../constants/permissions";
 
 const navItems = [
-  { to: "/events",              label: "Dashboard",    icon: LayoutDashboard, end: true  },
-  { to: "/events/create",      label: "Create Event", icon: PlusCircle       },
-  { to: "/events/planning",    label: "Planning",     icon: ClipboardList    },
-  { to: "/events/registration",label: "Registration", icon: Ticket           },
-  { to: "/events/register",    label: "Public Reg.",  icon: UserCheck        },
-  { to: "/events/programs",    label: "Programs",     icon: Mic2             },
-  { to: "/events/volunteers",  label: "Volunteers",   icon: Users            },
-  { to: "/events/sponsors",    label: "Sponsors",     icon: Gem              },
-  { to: "/events/donations",   label: "Donations",    icon: HandHeart        },
-  { to: "/events/auction",     label: "Auction",      icon: Gavel            },
-  { to: "/events/food",        label: "Food",         icon: UtensilsCrossed  },
-  { to: "/events/finance",     label: "Finance",      icon: Landmark         },
-  { to: "/events/venue",       label: "Venue",        icon: MapPin           },
-  { to: "/events/gallery",     label: "Gallery",      icon: ImageIcon        },
-  { to: "/events/reports",     label: "Reports",      icon: BarChart3        },
+  { to: "/events",              label: "Dashboard",       icon: LayoutDashboard, end: true  },
+  { to: "/events/schedule",     label: "Schedule",         icon: CalendarDays     },
+  { to: "/events/registration", label: "Registration",     icon: Ticket           },
+  { to: "/events/people",       label: "People",           icon: Users            },
+  { to: "/events/fundraising",  label: "Fundraising",      icon: HandHeart        },
+  { to: "/events/operations",   label: "Operations",       icon: UtensilsCrossed  },
+  { to: "/events/media",        label: "Media & Reports",  icon: ImageIcon        },
 ];
 
 export function EventsLayout() {
@@ -34,8 +25,7 @@ export function EventsLayout() {
   );
 
   const visibleNav = navItems.filter((nav) => {
-    if (nav.label === "Create Event") return hasPermission(CREATE_EVENT);
-    if (nav.label === "Public Reg.") return hasPermission(REGISTER_EVENT);
+    if (nav.label === "Registration") return hasPermission(VIEW_EVENTS) || hasPermission(REGISTER_EVENT);
     return hasPermission(VIEW_EVENTS);
   });
 
@@ -70,7 +60,7 @@ export function EventsLayout() {
       </div>
 
       <div
-        className="rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto shrink-0"
+        className="rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto shrink-0 hide-scrollbar"
         style={{
           background: "white",
           border: "1px solid rgba(99, 102, 241, 0.12)",

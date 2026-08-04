@@ -13,20 +13,12 @@ import { Jobs } from "./components/jobs/Jobs";
 import { Events } from "./components/events/Events.legacy";
 import { EventsLayout } from "./components/events/EventsLayout";
 import { EventsDashboard } from "./components/events/EventsDashboard";
-import { EventsCreate } from "./components/events/EventsCreate";
-import { EventsPlanning } from "./components/events/EventsPlanning";
-import { EventsPrograms } from "./components/events/EventsPrograms";
-import { EventsRegistration } from "./components/events/EventsRegistration";
-import { EventsUserRegistration } from "./components/events/EventsUserRegistration";
-import { EventsVolunteers } from "./components/events/EventsVolunteers";
-import { EventsVenue } from "./components/events/EventsVenue";
-import { EventsSponsors } from "./components/events/EventsSponsors";
-import { EventsDonations } from "./components/events/EventsDonations";
-import { EventsAuction } from "./components/events/EventsAuction";
-import { EventsFood } from "./components/events/EventsFood";
-import { EventsFinance } from "./components/events/EventsFinance";
-import { EventsGallery } from "./components/events/EventsGallery";
-import { EventsReports } from "./components/events/EventsReports";
+import { EventsSchedule } from "./components/events/EventsSchedule";
+import { EventsRegistrationHub } from "./components/events/EventsRegistrationHub";
+import { EventsPeople } from "./components/events/EventsPeople";
+import { EventsFundraising } from "./components/events/EventsFundraising";
+import { EventsOperations } from "./components/events/EventsOperations";
+import { EventsMediaReports } from "./components/events/EventsMediaReports";
 import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/commons/login/Signup";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
@@ -168,7 +160,7 @@ import {
   VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD,
   VIEW_PLAYER_POOL, VIEW_AUCTION_RESULTS,
   CREATE_EDIT_SPORTS_MAIN, VIEW_ADMIN, BULK_UPLOAD, MANAGE_COMMUNITIES,
-  MANAGE_ROLES, VIEW_MARKETPLACE, CREATE_LISTING, VIEW_JOBS, VIEW_EVENTS, CREATE_EVENT, VIEW_VISITORS,
+  MANAGE_ROLES, VIEW_MARKETPLACE, CREATE_LISTING, VIEW_JOBS, VIEW_EVENTS, VIEW_VISITORS,
   VIEW_NOTICES, VIEW_AMENITIES, VIEW_TICKETS, VIEW_POLLS,
   VIEW_VENDOR_MANAGEMENT, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
   MANAGE_WORK_ORDERS, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
@@ -360,20 +352,12 @@ export const router = createBrowserRouter([
         element: <PermissionGuard permission={VIEW_EVENTS} requiredModule="EVENTS"><EventsLayout /></PermissionGuard>,
         children: [
           { index: true, element: <EventsDashboard /> },
-          { path: "create", element: <PermissionGuard permission={CREATE_EVENT}><EventsCreate /></PermissionGuard> },
-          { path: "planning", element: <EventsPlanning /> },
-          { path: "programs", element: <EventsPrograms /> },
-          { path: "registration", element: <EventsRegistration /> },
-          { path: "register", element: <EventsUserRegistration /> },
-          { path: "volunteers", element: <EventsVolunteers /> },
-          { path: "venue", element: <EventsVenue /> },
-          { path: "sponsors", element: <EventsSponsors /> },
-          { path: "donations", element: <EventsDonations /> },
-          { path: "auction", element: <EventsAuction /> },
-          { path: "food", element: <EventsFood /> },
-          { path: "finance", element: <EventsFinance /> },
-          { path: "gallery", element: <EventsGallery /> },
-          { path: "reports", element: <EventsReports /> },
+          { path: "schedule", element: <EventsSchedule /> },
+          { path: "registration", element: <EventsRegistrationHub /> },
+          { path: "people", element: <EventsPeople /> },
+          { path: "fundraising", element: <EventsFundraising /> },
+          { path: "operations", element: <EventsOperations /> },
+          { path: "media", element: <EventsMediaReports /> },
         ],
       },
       { 
