@@ -960,7 +960,7 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
       </div>
 
       {/* Scrollable form content */}
-      <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-8">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-6 sm:px-8 py-8">
         <div key={step} className="animate-fade-in-up max-w-3xl mx-auto">
           {stepComponents[step]}
         </div>
@@ -1007,9 +1007,10 @@ export function CreateEventDialog({ open, onOpenChange }: { open: boolean; onOpe
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogOverlay className="bg-black/40 backdrop-blur-sm" />
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 pointer-events-none">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-[min(92vh,900px)] flex flex-col overflow-hidden animate-fade-in-up
-            border border-slate-200/60 ring-1 ring-black/5">
+            border border-slate-200/60 ring-1 ring-black/5 pointer-events-auto"
+            onWheel={e => e.stopPropagation()}>
             <EventCreateWizard
               onClose={() => onOpenChange(false)}
               onCreated={() => {}}
