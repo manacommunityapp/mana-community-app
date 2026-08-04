@@ -487,12 +487,44 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
               <Input type="date" value={data.registrationDeadline} onChange={e => update("registrationDeadline", e.target.value)} className={INPUT_CLS} />
             </div>
             <div className="flex items-end pb-1">
-              {totalSeats > 0 && (
-                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 border border-indigo-100">
-                  <Users className="w-4 h-4 text-indigo-500" />
-                  <span className="text-sm font-bold text-indigo-700">{totalSeats} total seats</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 border border-indigo-100">
+                <Users className="w-4 h-4 text-indigo-500" />
+                <input
+                  type="number"
+                  value={totalSeats || ""}
+                  onChange={e => {
+                    const newTotal = parseInt(e.target.value) || 0;
+                    if (newTotal < 0) return;
+                    const tickets = data.ticketTypes;
+                    if (tickets.length === 0) return;
+                    const oldTotal = totalSeats;
+                    if (oldTotal === 0) {
+                      const perTicket = Math.floor(newTotal / tickets.length);
+                      const remainder = newTotal % tickets.length;
+                      update("ticketTypes", tickets.map((t, i) => ({
+                        ...t,
+                        qty: String(perTicket + (i < remainder ? 1 : 0)),
+                      })));
+                    } else {
+                      const ratio = newTotal / oldTotal;
+                      let distributed = 0;
+                      const updated = tickets.map((t, i) => {
+                        const oldQty = parseInt(t.qty) || 0;
+                        const isLast = i === tickets.length - 1;
+                        const newQty = isLast
+                          ? newTotal - distributed
+                          : Math.round(oldQty * ratio);
+                        distributed += isLast ? 0 : newQty;
+                        return { ...t, qty: String(Math.max(0, newQty)) };
+                      });
+                      update("ticketTypes", updated);
+                    }
+                  }}
+                  placeholder="0"
+                  className="w-16 bg-transparent text-sm font-bold text-indigo-700 outline-none text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+                <span className="text-sm font-bold text-indigo-700">total seats</span>
+              </div>
             </div>
           </div>
 
