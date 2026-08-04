@@ -614,7 +614,7 @@ function Step4Budget({ data, update }: { data: FormData; update: (k: keyof FormD
       <SectionHeader icon={DollarSign} title="Budget Planning" subtitle="Set a budget and allocate across categories" />
 
       <div>
-        <FieldLabel required>Total Event Budget</FieldLabel>
+        <FieldLabel>Total Event Budget</FieldLabel>
         <div className="relative sm:w-64">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">₹</span>
           <Input type="number" value={data.totalBudget} onChange={e => update("totalBudget", e.target.value)}
