@@ -7,6 +7,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from "recharts";
+import { CreateEventButton } from "./EventsCreate";
 
 // TODO: wire to eventService
 const kpis = [
@@ -72,6 +73,15 @@ const priorityStyle: Record<string, { bg: string; text: string; dot: string }> =
 export function EventsDashboard() {
   return (
     <div className="space-y-6">
+
+      {/* Header with Create Event button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900">Events Dashboard</h1>
+          <p className="text-sm text-slate-400 mt-0.5">Overview of all community events</p>
+        </div>
+        <CreateEventButton />
+      </div>
 
       {/* KPI grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
