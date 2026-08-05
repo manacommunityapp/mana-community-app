@@ -1050,7 +1050,7 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
     );
   }
 
-  const stepComponents: Record<number, JSX.Element> = {
+  const stepComponents: Record<number, React.ReactNode> = {
     1: <Step1Basics data={formData} update={update} />,
     2: <Step2Schedule data={formData} update={update} />,
     3: <Step3Registration data={formData} update={update} />,

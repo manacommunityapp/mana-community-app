@@ -207,9 +207,9 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
     throw new Error("Session expired — please log in again.");
   }
 
-  if (res.status === 401 || res.status === 403) {
+  if (res.status === 401) {
     forceLogout();
-    throw new Error(res.status === 401 ? "Unauthorized" : "Forbidden — please log in again");
+    throw new Error("Unauthorized — please log in again.");
   }
 
   return handleResponse<T>(res);
