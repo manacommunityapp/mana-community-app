@@ -3,8 +3,8 @@ import {
   Plus, Search, Tags, Calendar, FileText, AlertTriangle, 
   Trash2, Filter, PackageOpen, ChevronRight, X
 } from "lucide-react";
-import { stockService } from "../../../services/stockService";
-import type { Product, Lot } from "../../../services/stockService";
+import { stockService } from "../../../services/inventory/stockService";
+import type { Product, Lot } from "../../../services/inventory/stockService";
 import { toast } from "sonner";
 
 interface LotsManagementProps {

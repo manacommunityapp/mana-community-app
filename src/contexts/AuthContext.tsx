@@ -6,9 +6,9 @@ import {
   getStoredUser,
   storeUser,
   type StoredUser,
-} from "../services/apiClient";
-import { authService } from "../services/authService";
-import { userService } from "../services/userService";
+} from "../services/common/apiClient";
+import { authService } from "../services/common/authService";
+import { userService } from "../services/common/userService";
 import { safeStorage } from "../utils/storage";
 import type { LoginRequest, RegisterRequest } from "../types/api";
 

@@ -34,8 +34,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
-import { communityService } from "../../../services/communityService";
-import { userService } from "../../../services/userService";
+import { communityService } from "../../../services/community/communityService";
+import { userService } from "../../../services/common/userService";
 import type { CommunityResponse } from "../../../types/api";
 
 type UserRole = "admin" | "committee" | "resident" | "security" | "vendor" | "staff";

@@ -5,7 +5,7 @@ import {
 import { useState, useEffect, useCallback } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { pollService, type PollResponse, type PollRequest } from "../../../services/pollService";
+import { pollService, type PollResponse, type PollRequest } from "../../../services/polls/pollService";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

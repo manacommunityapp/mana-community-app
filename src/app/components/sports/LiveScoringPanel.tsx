@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Loader2, Undo2, ChevronDown, ChevronUp, Wifi, WifiOff, AlertTriangle } from "lucide-react";
-import { tournamentService, type LiveMatchStateData, type BallEventRequestData } from "../../../services/tournamentService";
-import { stompClient } from "../../../services/stompClient";
+import { tournamentService, type LiveMatchStateData, type BallEventRequestData } from "../../../services/sports/tournamentService";
+import { stompClient } from "../../../services/chat/stompClient";
 import { ballColor } from "./utils/cricketUtils";
 import { toast } from "sonner";
 

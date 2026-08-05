@@ -4,8 +4,8 @@ import {
   Users, Calendar, RefreshCw, AlertCircle, Shield, Star,
   Hash, Wallet, CheckCircle2, XCircle, Loader2, X
 } from "lucide-react";
-import { sportsService } from "../../../../services/sportsService";
-import { auctionService } from "../../../../services/auctionService";
+import { sportsService } from "../../../../services/sports/sportsService";
+import { auctionService } from "../../../../services/sports/auctionService";
 import { showSuccess, showError, showInfo } from "../../../../utils/ToastUtils";
 import type { SportsTournament, AuctionTeam, EventRegistration, SportsEvent } from "../../../../types/api";
 

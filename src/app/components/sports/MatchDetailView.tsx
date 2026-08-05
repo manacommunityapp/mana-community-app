@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Loader2, Trophy, ChevronDown, ChevronUp } from "lucide-react";
-import { tournamentService, type MatchDetailData, type InningsDetailData } from "../../../services/tournamentService";
+import { tournamentService, type MatchDetailData, type InningsDetailData } from "../../../services/sports/tournamentService";
 
 interface MatchDetailViewProps {
   matchId: number;

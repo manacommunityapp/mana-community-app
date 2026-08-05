@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Megaphone, AlertTriangle, Info, Wrench, Shield, X, Trophy, RefreshCw } from "lucide-react";
-import { notificationService } from "../../../services/notificationService";
-import type { NotificationItem } from "../../../services/notificationService";
+import { notificationService } from "../../../services/notices/notificationService";
+import type { NotificationItem } from "../../../services/notices/notificationService";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export interface AlertTickerItem {

@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { ClipboardList, Check, X, Plus, Search, Sparkles, IndianRupee, AlertCircle, Calendar, TrendingDown, Activity, User, ShieldAlert, Heart } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
-import { assetAuditService, type AssetAuditLog } from "../../../services/assetAuditService";
-import { assetService, type Asset } from "../../../services/assetService";
+import { assetAuditService, type AssetAuditLog } from "../../../services/inventory/assetAuditService";
+import { assetService, type Asset } from "../../../services/inventory/assetService";
 
 export function AssetAuditDashboard() {
   const { user } = useAuth();

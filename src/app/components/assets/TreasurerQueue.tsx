@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { ChevronLeft, Clipboard, Check, X, ShieldAlert, Award, FileText, ArrowUpRight, IndianRupee, Calendar, User, Search, CheckCircle2, ChevronRight, AlertCircle, Copy } from "lucide-react";
-import { assetService } from "../../../services/assetService";
-import type { Expense, Asset } from "../../../services/assetService";
+import { assetService } from "../../../services/inventory/assetService";
+import type { Expense, Asset } from "../../../services/inventory/assetService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { toast, Toaster } from "sonner";
 

@@ -4,7 +4,7 @@ import {
   CreditCard, Eye, X, IndianRupee, Download, Receipt, TrendingUp, Plus
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { billingService, type BillingInvoice } from "../../../services/billingService";
+import { billingService, type BillingInvoice } from "../../../services/finance/billingService";
 import { cn } from "../ui/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────

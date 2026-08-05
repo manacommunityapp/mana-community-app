@@ -4,7 +4,7 @@ import {
   Plus, Pencil, Trash2, X, Search, Inbox,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { communityService } from "../../../services/communityService";
+import { communityService } from "../../../services/community/communityService";
 import { confirmAction } from "../../../utils/AlertUtils";
 import type { CommunityResponse } from "../../../types/api";
 

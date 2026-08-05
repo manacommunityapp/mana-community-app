@@ -3,7 +3,7 @@ import { format, parseISO } from "date-fns";
 import { MapPin, Filter, ChevronRight, ShieldAlert, Volleyball, Goal, Loader2, AlertTriangle } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { sportsService } from "../../../services/sportsService";
+import { sportsService } from "../../../services/sports/sportsService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { SportsEvent, SportMeta } from "../../../types/api";
 

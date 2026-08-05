@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useIdleTimeout } from "../../../hooks/useIdleTimeout";
-import { userService } from "../../../services/userService";
+import { userService } from "../../../services/common/userService";
 
 // Policy: warn at 25 min idle, auto-logout at 30 min idle.
 const WARN_AFTER_MS = 25 * 60 * 1000;

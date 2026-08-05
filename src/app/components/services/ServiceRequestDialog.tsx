@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { serviceRequestService } from "../../../services/servicePlatformService";
+import { serviceRequestService } from "../../../services/vendor/servicePlatformService";
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }

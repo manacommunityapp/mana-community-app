@@ -4,7 +4,7 @@ import {
   Mail, Phone, Globe, MapPin, Camera,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { vendorService, vendorCategoryService } from "../../../../services/vendorService";
+import { vendorService, vendorCategoryService } from "../../../../services/vendor/vendorService";
 import type { VendorResponse, VendorRequest, VendorCategoryResponse } from "../../../../types/api";
 
 export function VendorProfile() {

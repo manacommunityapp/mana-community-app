@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Heart, Trash2, Loader2, ImagePlus, Tag, ShoppingBag } from "lucide-react";
-import { wishlistService, type WishlistResponse } from "../../../services/listingService";
+import { wishlistService, type WishlistResponse } from "../../../services/marketplace/listingService";
 import { USE_MOCK_DATA, MOCK_WISHLIST } from "./mockData";
 
 function formatPrice(price: number): string {

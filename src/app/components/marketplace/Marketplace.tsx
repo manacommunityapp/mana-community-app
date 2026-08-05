@@ -8,7 +8,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { listingService, wishlistService, type ListingResponse, type ListingRequest } from "../../../services/listingService";
+import { listingService, wishlistService, type ListingResponse, type ListingRequest } from "../../../services/marketplace/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useChat } from "../../../contexts/ChatContext";
 import { CREATE_LISTING } from "../../../constants/permissions";

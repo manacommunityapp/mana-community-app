@@ -7,9 +7,9 @@ import {
   useRef,
   type ReactNode,
 } from "react";
-import { chatService } from "../services/chatService";
-import { stompClient } from "../services/stompClient";
-import { getStoredUser } from "../services/apiClient";
+import { chatService } from "../services/chat/chatService";
+import { stompClient } from "../services/chat/stompClient";
+import { getStoredUser } from "../services/common/apiClient";
 import {
   type Conversation,
   type Message,

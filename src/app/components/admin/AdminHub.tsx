@@ -41,9 +41,9 @@ const toast = {
   success: (msg: string) => showSuccess(msg),
   error: (msg: string) => showError(msg),
 };
-import { userService } from "../../../services/userService";
-import { venueService } from "../../../services/venueService";
-import { sportsService } from "../../../services/sportsService";
+import { userService } from "../../../services/common/userService";
+import { venueService } from "../../../services/bookings/venueService";
+import { sportsService } from "../../../services/sports/sportsService";
 import { AdminDashboard } from "./AdminDashboard";
 import { AdminCreateUser } from "./AdminCreateUser";
 import { AdminBulkUpload } from "./AdminBulkUpload";
@@ -57,11 +57,12 @@ import { AdminSportsMeta } from "./AdminSportsMeta";
 import { EmailTemplatesTab } from "./EmailTemplatesTab";
 import { AnnouncementsPlanner } from "../architecture/AnnouncementsPlanner";
 import { EmailTemplateBuilder } from "./EmailTemplateBuilder";
+import { EmailDeliveryLogTab } from "./EmailDeliveryLogTab";
 import { ExpenseUpload } from "../assets/ExpenseUpload";
 import { TreasurerQueue } from "../assets/TreasurerQueue";
-import { assetService } from "../../../services/assetService";
-import { communityService } from "../../../services/communityService";
-import type { Asset } from "../../../services/assetService";
+import { assetService } from "../../../services/inventory/assetService";
+import { communityService } from "../../../services/community/communityService";
+import type { Asset } from "../../../services/inventory/assetService";
 import type { UserResponse, CommunityResponse } from "../../../types/api";
 import type { Venue } from "../../../types/api";
 
@@ -86,7 +87,8 @@ const TAB_ITEMS = [
   { id: "bulk",       label: "Bulk Upload",   icon: FileSpreadsheet },
   { id: "community",  label: "Community",     icon: Building2 },
   { id: "announcements", label: "Announcements", icon: Megaphone },
-  { id: "email-templates", label: "Email Templates", icon: Mail },
+  { id: "email-templates", label: "Email Builder", icon: Mail },
+  { id: "email-logs", label: "Email Delivery Logs", icon: Clock },
   { id: "directory",  label: "Directory",     icon: Shield },
 ] as const;
 
@@ -878,6 +880,7 @@ export function AdminHub() {
         {activeTab === "community" && <AdminCommunity />}
         {activeTab === "announcements" && <AnnouncementsPlanner />}
         {activeTab === "email-templates" && <EmailTemplateBuilder />}
+        {activeTab === "email-logs" && <EmailDeliveryLogTab />}
         {activeTab === "directory" && <AdminDirectory />}
       </div>
     </div>

@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { Loader2, AlertTriangle, Bell, Trophy, Users, Zap, CalendarDays, ArrowUpRight, ChevronDown, ChevronRight, X } from "lucide-react";
 import { toast } from "sonner";
-import { sportsService } from "../../../services/sportsService";
+import { sportsService } from "../../../services/sports/sportsService";
 import { confirmAction } from "../../../utils/AlertUtils";
-import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sportsDashboardService";
-import { auctionService } from "../../../services/auctionService";
+import { sportsDashboardService, type DashboardTournamentCard } from "../../../services/sports/sportsDashboardService";
+import { auctionService } from "../../../services/sports/auctionService";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   VIEW_SPORTS_MAIN,

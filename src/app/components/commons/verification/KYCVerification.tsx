@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { ShieldCheck, Upload, FileText, CheckCircle, AlertCircle, Camera, User, Loader2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { authService } from "../../../../services/authService";
-import { getToken, getStoredUser } from "../../../../services/apiClient";
+import { authService } from "../../../../services/common/authService";
+import { getToken, getStoredUser } from "../../../../services/common/apiClient";
 import type { GovtIdType } from "../../../../types/api";
 
 type KYCFormValues = {

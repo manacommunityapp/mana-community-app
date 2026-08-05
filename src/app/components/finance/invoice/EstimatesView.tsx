@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
-import { ledgerFinanceService } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService } from "../../../../services/finance/ledgerFinanceService";
 
 export function EstimatesView({ onNewEstimate, canAdd = true }: { onNewEstimate: () => void; canAdd?: boolean }) {
   const [statusFilter, setStatusFilter] = useState("");

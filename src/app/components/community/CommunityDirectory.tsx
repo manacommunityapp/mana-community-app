@@ -6,7 +6,7 @@ import {
   HelpCircle, Wrench, Banknote, Megaphone, HeartHandshake,
   AlertTriangle, Trophy, Building2, Baby, Landmark, MessageSquare
 } from "lucide-react";
-import { communityDirectoryService } from "../../../services/communityDirectoryService";
+import { communityDirectoryService } from "../../../services/community/communityDirectoryService";
 import type { CommunityLeaderResponse } from "../../../types/api";
 import { useChat } from "../../../contexts/ChatContext";
 

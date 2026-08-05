@@ -3,8 +3,8 @@ import {
   Shield, Plus, Pencil, Trash2, X, Search, Inbox, Loader2,
   Phone, Mail, ArrowUpDown, GripVertical, Users, UserCheck, ChevronDown,
 } from "lucide-react";
-import { communityDirectoryService } from "../../../services/communityDirectoryService";
-import { userService } from "../../../services/userService";
+import { communityDirectoryService } from "../../../services/community/communityDirectoryService";
+import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { confirmAction } from "../../../utils/AlertUtils";
 import { showSuccess, showError } from "../../../utils/ToastUtils";

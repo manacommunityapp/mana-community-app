@@ -33,9 +33,9 @@ import {
 } from "lucide-react";
 import type { Editor } from "grapesjs";
 import { useAuth } from "../../../contexts/AuthContext";
-import { communityService } from "../../../services/communityService";
-import { emailTemplateService, type EmailTemplateRecord, type EmailTemplateStatus } from "../../../services/emailTemplateService";
-import { emailAdminService, type DefaultTemplateDetails } from "../../../services/emailAdminService";
+import { communityService } from "../../../services/community/communityService";
+import { emailTemplateService, type EmailTemplateRecord, type EmailTemplateStatus } from "../../../services/admin/emailTemplateService";
+import { emailAdminService, type DefaultTemplateDetails } from "../../../services/admin/emailAdminService";
 import type { CommunityResponse } from "../../../types/api";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { BuilderCanvas } from "./emailbuilder/BuilderCanvas";

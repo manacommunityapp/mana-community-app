@@ -27,9 +27,9 @@ import {
   Save,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { userService } from "../../../services/userService";
+import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
-import { communityService } from "../../../services/communityService";
+import { communityService } from "../../../services/community/communityService";
 import { PERMISSION_CATEGORIES, SPORTS_PERMISSION_MATRIX, MANAGE_COMMUNITIES as PERM_MANAGE_COMMUNITIES } from "../../../constants/permissions";
 import type { SportsPermissionRow } from "../../../constants/permissions";
 import type { CommunityResponse, UserResponse } from "../../../types/api";

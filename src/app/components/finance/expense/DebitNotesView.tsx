@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ledgerFinanceService } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService } from "../../../../services/finance/ledgerFinanceService";
 
 /* Debit Notes — list page (Expenses group). Converted from GST_Debit_Notes.html
    into the shared .ledger-app theme; loads DEBIT_NOTE documents. */

@@ -21,7 +21,7 @@ import {
   vendorService,
   vendorAvailabilityService,
   vendorBookingService,
-} from "../../../../services/vendorService";
+} from "../../../../services/vendor/vendorService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import type {
   VendorServiceResponse,

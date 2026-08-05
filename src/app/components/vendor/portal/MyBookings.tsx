@@ -4,7 +4,7 @@ import {
   CheckCircle2, XCircle, Clock, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { vendorBookingService } from "../../../../services/vendorService";
+import { vendorBookingService } from "../../../../services/vendor/vendorService";
 import type { VendorBookingResponse } from "../../../../types/api";
 
 const STATUS_OPTIONS = [

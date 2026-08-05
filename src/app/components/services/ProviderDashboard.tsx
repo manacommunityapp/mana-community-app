@@ -37,7 +37,7 @@ import {
 import {
   serviceProviderService,
   serviceCatalogService,
-} from "../../../services/servicePlatformService";
+} from "../../../services/vendor/servicePlatformService";
 import type {
   ServiceProviderResponse,
   ServiceOfferingResponse,

@@ -30,7 +30,7 @@ import { VendorPaymentsView } from "./expense/VendorPaymentsView";
 import { NewVendorPaymentView } from "./expense/NewVendorPaymentView";
 import { NewPurchaseOrderView } from "./expense/NewPurchaseOrderView";
 import { useAuth } from "../../../contexts/AuthContext";
-import { menuPermissionService } from "../../../services/menuPermissionService";
+import { menuPermissionService } from "../../../services/common/menuPermissionService";
 import type { MenuRolePermissionResponse } from "../../../types/api";
 
 type View = "dashboard" | "invoices" | "receipts" | "new-invoice" | "import-invoice" | "new-receipt" | "new-advance-receipt" | "new-other-income" | "estimates" | "new-estimate" | "sales-orders" | "new-sales-order" | "credit-notes" | "new-credit-note" | "customers" | "import-customers" | "business-expenses" | "new-expense" | "stock-purchases" | "new-purchase" | "purchase-orders" | "new-purchase-order" | "debit-notes" | "vendors" | "new-vendor" | "vendor-payments" | "new-vendor-payment" | "new-advance-payment" | "new-other-payment" | "placeholder";

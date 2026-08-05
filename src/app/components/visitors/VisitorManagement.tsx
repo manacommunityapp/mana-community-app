@@ -6,8 +6,8 @@ import {
 import { useState, useEffect, useCallback, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { visitorService, type VisitorPassResponse, type VisitorPassRequest, type VisitorAuditLog, type VisitorAnalytics } from "../../../services/visitorService";
-import { userService } from "../../../services/userService";
+import { visitorService, type VisitorPassResponse, type VisitorPassRequest, type VisitorAuditLog, type VisitorAnalytics } from "../../../services/visitors/visitorService";
+import { userService } from "../../../services/common/userService";
 import type { UserResponse } from "../../../types/api";
 
 function cn(...inputs: ClassValue[]) {

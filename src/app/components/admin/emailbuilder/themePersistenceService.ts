@@ -1,5 +1,5 @@
 // themePersistenceService.ts — CRUD for /api/email/themes
-import { apiClient } from "../../../../services/apiClient";
+import { apiClient } from "../../../../services/common/apiClient";
 import type { ThemeSettings } from "./themeEngine";
 
 export interface EmailThemeRecord {

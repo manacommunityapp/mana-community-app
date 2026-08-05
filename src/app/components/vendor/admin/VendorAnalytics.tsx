@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table";
-import { vendorAnalyticsService } from "../../../../services/vendorService";
+import { vendorAnalyticsService } from "../../../../services/vendor/vendorService";
 import { showError } from "../../../../utils/ToastUtils";
 import type { VendorDashboardStats } from "../../../../types/api";
 

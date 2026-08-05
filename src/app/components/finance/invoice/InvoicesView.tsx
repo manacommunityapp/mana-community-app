@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { StatCard } from "../ledgerShared";
-import { ledgerFinanceService } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService } from "../../../../services/finance/ledgerFinanceService";
 
 export function InvoicesView({ tab, setTab, onNewInvoice, onImportClick, canAdd = true }: { tab: "invoices" | "refunds"; setTab: (t: "invoices" | "refunds") => void; onNewInvoice: (type: "credit" | "cash") => void; onImportClick: () => void; canAdd?: boolean }) {
   const isInvoices = tab === "invoices";

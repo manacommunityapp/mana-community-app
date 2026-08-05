@@ -19,7 +19,7 @@ import { Input } from "../../ui/input";
 import {
   vendorBookingService,
   vendorRatingService,
-} from "../../../../services/vendorService";
+} from "../../../../services/vendor/vendorService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import type {
   VendorBookingResponse,

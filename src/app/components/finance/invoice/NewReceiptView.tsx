@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Field } from "../ledgerShared";
-import { ledgerFinanceService, type FinanceReceipt } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService, type FinanceReceipt } from "../../../../services/finance/ledgerFinanceService";
 
 export function NewReceiptView({ onCancel, onSave, onNavigateAdvance, onNavigateOther }: { onCancel: () => void; onSave: () => void; onNavigateAdvance: () => void; onNavigateOther: () => void }) {
   const [receivedFrom, setReceivedFrom] = useState("8138389"); // Sales Account - default income

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { X, Loader2, Wifi, WifiOff, AlertTriangle } from "lucide-react";
-import { tournamentService, type LiveMatchStateData } from "../../../services/tournamentService";
-import { stompClient } from "../../../services/stompClient";
+import { tournamentService, type LiveMatchStateData } from "../../../services/sports/tournamentService";
+import { stompClient } from "../../../services/chat/stompClient";
 import { ballColor, remainingBalls, requiredRunRate } from "./utils/cricketUtils";
 
 interface LiveMatchViewProps {

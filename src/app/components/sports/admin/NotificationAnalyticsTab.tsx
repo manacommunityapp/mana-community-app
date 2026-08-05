@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { BarChart3, Bell, RefreshCw, TrendingUp, Eye, ChevronDown, Mail } from "lucide-react";
-import { notificationAnalyticsService, type NotificationAnalytics } from "../../../../services/notificationAnalyticsService";
+import { notificationAnalyticsService, type NotificationAnalytics } from "../../../../services/notices/notificationAnalyticsService";
 import { showError } from "../../../../utils/ToastUtils";
 
 const CATEGORY_COLORS: Record<string, string> = {

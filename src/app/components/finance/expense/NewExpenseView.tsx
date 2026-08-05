@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ledgerFinanceService, type FinanceDocument } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService, type FinanceDocument } from "../../../../services/finance/ledgerFinanceService";
 
 /* New Expense — create form (Expenses group). Converted from new-expense.html:
    paid/unpaid toggle, expense line items with GST/IGST tax breakdown, notes,

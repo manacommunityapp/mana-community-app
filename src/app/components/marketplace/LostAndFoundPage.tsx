@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import {
   lostAndFoundService, type LostAndFoundResponse, type LostAndFoundRequest
-} from "../../../services/listingService";
+} from "../../../services/marketplace/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { USE_MOCK_DATA, MOCK_LOST_AND_FOUND, paginate } from "./mockData";
 

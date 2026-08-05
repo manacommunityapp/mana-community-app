@@ -7,12 +7,12 @@ import {
   type AuditLogDto,
   type AuditPageResponse,
   type AuditStatsResponse,
-} from "../../../services/auditLogService";
+} from "../../../services/admin/auditLogService";
 import {
   sessionMonitorService,
   type SessionDto,
   type SessionStatsResponse,
-} from "../../../services/sessionMonitorService";
+} from "../../../services/common/sessionMonitorService";
 
 const PAGE_SIZE = 50;
 

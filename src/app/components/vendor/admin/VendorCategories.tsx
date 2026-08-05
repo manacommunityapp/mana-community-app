@@ -27,7 +27,7 @@ import {
   DialogTitle,
 } from "../../ui/dialog";
 import { Label } from "../../ui/label";
-import { vendorCategoryService } from "../../../../services/vendorService";
+import { vendorCategoryService } from "../../../../services/vendor/vendorService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import type { VendorCategoryResponse, VendorCategoryRequest } from "../../../../types/api";
 

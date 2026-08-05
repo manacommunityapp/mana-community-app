@@ -29,7 +29,7 @@ import {
   type RetailOrderLine,
   type RetailOrderType,
   type RetailOrderStatus,
-} from "../../../services/retailInventoryService";
+} from "../../../services/inventory/retailInventoryService";
 
 export function InventoryManagement() {
   /* ============================= DATA STATE ============================= */

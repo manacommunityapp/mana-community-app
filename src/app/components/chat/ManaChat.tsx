@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { getToken } from "../../../services/apiClient";
+import { getToken } from "../../../services/common/apiClient";
 
 // ─── TYPES ──────────────────────────────────────────────────────────
 interface ChatMessage {

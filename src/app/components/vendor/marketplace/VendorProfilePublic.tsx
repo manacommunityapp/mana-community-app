@@ -22,7 +22,7 @@ import {
   vendorServiceCatalog,
   vendorRatingService,
   vendorFavoriteService,
-} from "../../../../services/vendorService";
+} from "../../../../services/vendor/vendorService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import type {
   VendorResponse,

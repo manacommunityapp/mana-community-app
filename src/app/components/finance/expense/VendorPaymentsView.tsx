@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ledgerFinanceService, type VendorPayment } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService, type VendorPayment } from "../../../../services/finance/ledgerFinanceService";
 
 /* Payment Vouchers — list page (Expenses group → Vendor Payments). Converted from
    payment_vouchers.html into the shared .ledger-app theme; loads vendor payments

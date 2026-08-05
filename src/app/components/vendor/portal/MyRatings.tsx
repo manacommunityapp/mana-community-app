@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, User,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { vendorRatingService } from "../../../../services/vendorService";
+import { vendorRatingService } from "../../../../services/vendor/vendorService";
 import type { VendorRatingResponse } from "../../../../types/api";
 
 const STAR_LABELS = ["", "Poor", "Fair", "Good", "Very Good", "Excellent"];

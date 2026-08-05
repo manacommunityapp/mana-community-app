@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Loader2, Edit2, Trash2, ArrowLeft, Plus, X, Search, CheckCircle, HelpCircle } from "lucide-react";
 import { useNavigate } from "react-router";
 import { toast, Toaster } from "sonner";
-import { sportsService } from "../../../services/sportsService";
+import { sportsService } from "../../../services/sports/sportsService";
 import { confirmAction } from "../../../utils/AlertUtils";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { SportMeta, MatchFormat } from "../../../types/api";

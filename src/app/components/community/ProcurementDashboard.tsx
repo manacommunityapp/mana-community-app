@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Truck, Plus, Check, X, ShieldAlert, Award, FileText, IndianRupee, Calendar, User, Search, CheckCircle2, ChevronRight, AlertCircle, Sparkles } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
-import { procurementService, type PurchaseRequest, type Vendor } from "../../../services/procurementService";
+import { procurementService, type PurchaseRequest, type Vendor } from "../../../services/inventory/procurementService";
 
 const CATEGORIES = [
   { value: "CapEx_Asset", label: "CapEx (Capital Asset Purchase)" },

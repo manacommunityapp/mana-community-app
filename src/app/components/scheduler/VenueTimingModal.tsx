@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Clock, Loader2, RefreshCw } from "lucide-react";
 import { TIME_OPTIONS } from "../../../constants/timeOptions";
-import { venueService } from "../../../services/venueService";
+import { venueService } from "../../../services/bookings/venueService";
 import type { Venue, Court } from "../../../types/api";
 
 interface VenueTimingModalProps {

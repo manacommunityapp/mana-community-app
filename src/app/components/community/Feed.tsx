@@ -40,8 +40,8 @@ import {
   Flame,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { feedService, type CreatePostRequest } from "../../../services/feedService";
-import { engagementService, groupService } from "../../../services/engagementService";
+import { feedService, type CreatePostRequest } from "../../../services/community/feedService";
+import { engagementService, groupService } from "../../../services/community/engagementService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type {
   PostResponse,

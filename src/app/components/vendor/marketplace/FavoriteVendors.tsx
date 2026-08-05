@@ -11,7 +11,7 @@ import {
 import { Card, CardContent } from "../../ui/card";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
-import { vendorFavoriteService } from "../../../../services/vendorService";
+import { vendorFavoriteService } from "../../../../services/vendor/vendorService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import type { VendorFavoriteResponse } from "../../../../types/api";
 import { useNavigate } from "react-router";

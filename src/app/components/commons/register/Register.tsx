@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast, Toaster } from "sonner";
 import { ShieldCheck, Info, Loader2, AlertTriangle } from "lucide-react";
-import { sportsService } from "../../../../services/sportsService";
+import { sportsService } from "../../../../services/sports/sportsService";
 import { useAuth } from "../../../../contexts/AuthContext";
 import type { SportMeta } from "../../../../types/api";
 

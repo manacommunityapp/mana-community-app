@@ -6,7 +6,7 @@ import {
   Package, Trash2, Eye, Pause, Play, CheckCircle2, Loader2,
   ImagePlus, Tag, MoreVertical
 } from "lucide-react";
-import { listingService, type ListingResponse } from "../../../services/listingService";
+import { listingService, type ListingResponse } from "../../../services/marketplace/listingService";
 import { USE_MOCK_DATA, MOCK_MY_LISTINGS } from "./mockData";
 
 function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)); }

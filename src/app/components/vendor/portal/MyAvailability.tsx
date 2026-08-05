@@ -4,7 +4,7 @@ import {
   CalendarOff, Save,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { vendorAvailabilityService } from "../../../../services/vendorService";
+import { vendorAvailabilityService } from "../../../../services/vendor/vendorService";
 import type { VendorAvailability, VendorOperatingHours, DaySchedule, VendorHoliday } from "../../../../types/api";
 
 const DAYS: { key: keyof VendorOperatingHours; label: string }[] = [
