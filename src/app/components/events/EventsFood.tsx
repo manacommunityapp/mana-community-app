@@ -1,6 +1,8 @@
-import { TrendingDown, Plus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { TrendingDown, Plus, Loader2, AlertCircle } from "lucide-react";
+import { useEventMock } from "./EventMockToggle";
+import { foodEventService } from "../../../services/food/foodEventService";
 
-// TODO: wire to eventService
 const menuItems = [
   { name: "Pulihora",         qty: 800,  unit: "plates", prepared: 650, status: "In Progress" },
   { name: "Curd Rice",        qty: 600,  unit: "plates", prepared: 600, status: "Ready"       },
@@ -11,7 +13,7 @@ const menuItems = [
   { name: "Coconut Water",    qty: 400,  unit: "pieces", prepared: 400, status: "Ready"       },
 ];
 
-// TODO: wire to eventService
+// Mock data — foodEventService used when toggle is "Live API"
 const ingredients = [
   { item: "Rice",       required: "250 kg", available: "260 kg", status: "ok"  },
   { item: "Ghee",       required: "30 L",   available: "28 L",   status: "low" },
@@ -28,19 +30,54 @@ const statusStyle: Record<string, { bg: string; text: string }> = {
 };
 
 export function EventsFood() {
+  let useMock = true;
+  try { useMock = useEventMock().useMock; } catch {}
+
+  const [liveEvents, setLiveEvents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (useMock) return;
+    setLoading(true);
+    foodEventService.getEvents()
+      .then(res => setLiveEvents(res.content ?? []))
+      .catch(e => setError(e.message ?? "Failed to load food events"))
+      .finally(() => setLoading(false));
+  }, [useMock]);
+
   const totalPlanned = menuItems.reduce((a, m) => a + m.qty, 0);
   const totalPrepared = menuItems.reduce((a, m) => a + m.prepared, 0);
 
+  const foodKpis = useMock
+    ? [
+        { label: "Total Planned",  value: `${totalPlanned.toLocaleString()}`,   color: "#4f46e5" },
+        { label: "Prepared",       value: `${totalPrepared.toLocaleString()}`,   color: "#10b981" },
+        { label: "Ready %",        value: `${Math.round(totalPrepared/totalPlanned*100)}%`, color: "#6366f1" },
+        { label: "Kitchen Teams",  value: "6",                                   color: "#7c3aed" },
+      ]
+    : [
+        { label: "Food Events",    value: String(liveEvents.length),              color: "#4f46e5" },
+        { label: "Total Planned",  value: `${totalPlanned.toLocaleString()}`,   color: "#10b981" },
+        { label: "Ready %",        value: `${Math.round(totalPrepared/totalPlanned*100)}%`, color: "#6366f1" },
+        { label: "Kitchen Teams",  value: "6",                                   color: "#7c3aed" },
+      ];
+
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+        </div>
+      )}
+      {loading && (
+        <div className="flex items-center justify-center py-8 text-slate-400">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading food events...
+        </div>
+      )}
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {[
-          { label: "Total Planned",  value: `${totalPlanned.toLocaleString()}`,   color: "#4f46e5" },
-          { label: "Prepared",       value: `${totalPrepared.toLocaleString()}`,   color: "#10b981" },
-          { label: "Ready %",        value: `${Math.round(totalPrepared/totalPlanned*100)}%`, color: "#6366f1" },
-          { label: "Kitchen Teams",  value: "6",                                   color: "#7c3aed" },
-        ].map((s, i) => (
+        {foodKpis.map((s, i) => (
           <div
             key={s.label}
             className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center`}

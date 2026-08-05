@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Gavel, Zap } from "lucide-react";
+import { NoBackendBanner } from "./EventMockToggle";
 import { Input } from "../ui/input";
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const auctionItems = [
   { id: 1, name: "Ganesh Laddu (21 kg)",      category: "Prasadam",  basePrice: 5000,  currentBid: 28000, bids: 12, leader: "Venkat R.",   status: "live",   image: "🪔" },
   { id: 2, name: "Pattu Vastram – Silk Dhoti", category: "Clothing",  basePrice: 3000,  currentBid: 11500, bids: 7,  leader: "Suresh K.",   status: "live",   image: "🥻" },
@@ -12,7 +13,7 @@ const auctionItems = [
   { id: 6, name: "Annadanam – Full Day",       category: "Seva",      basePrice: 25000, currentBid: 0,     bids: 0,  leader: "—",           status: "upcoming", image: "🍛" },
 ];
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const bidHistory = [
   { bidder: "Venkat R.",  amount: 28000, time: "2m ago",  item: "Laddu"  },
   { bidder: "Suresh K.",  amount: 11500, time: "5m ago",  item: "Vastram"},
@@ -22,7 +23,7 @@ const bidHistory = [
   { bidder: "Deepak S.",  amount: 10000, time: "18m ago", item: "Vastram"},
 ];
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const leaderboard = [
   { rank: 1, name: "Venkat R.",  total: "₹61,500", bids: 8 },
   { rank: 2, name: "Ramesh M.",  total: "₹48,000", bids: 5 },
@@ -44,6 +45,7 @@ export function EventsAuction() {
 
   return (
     <div className="space-y-6">
+      <NoBackendBanner feature="Auction" />
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[

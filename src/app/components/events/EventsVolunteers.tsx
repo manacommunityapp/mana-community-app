@@ -1,4 +1,5 @@
 import { Users, Clock, Plus } from "lucide-react";
+import { NoBackendBanner } from "./EventMockToggle";
 import {
   Table,
   TableBody,
@@ -8,7 +9,7 @@ import {
   TableRow,
 } from "../ui/table";
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const departments = [
   { name: "Registration",  head: "Priya S.",   total: 18, present: 16, color: "#6366f1" },
   { name: "Food & Kitchen",head: "Ravi M.",    total: 42, present: 38, color: "#4f46e5" },
@@ -42,6 +43,7 @@ export function EventsVolunteers() {
 
   return (
     <div className="space-y-6">
+      <NoBackendBanner feature="Volunteers" />
       {/* Summary bar */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[

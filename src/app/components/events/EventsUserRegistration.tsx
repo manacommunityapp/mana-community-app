@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   User, Mail, Phone, MapPin, Calendar, Clock, CheckCircle2,
   ChevronRight, ChevronLeft, Ticket, CreditCard, Smartphone,
   Banknote, QrCode, Download, Share2, Star, Users, Shield,
-  ArrowRight, Sparkles,
+  ArrowRight, Sparkles, Loader2, AlertCircle,
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -11,9 +11,11 @@ import { Label } from "../ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Badge } from "../ui/badge";
 import { cn } from "../ui/utils";
+import { useEventMock } from "./EventMockToggle";
+import { eventService, type EventResponse } from "../../../services/events/eventService";
 
 /* ─── Mock event data ─── */
-// TODO: wire to eventService
+// Mock event data — live API used when toggle is "Live API"
 const EVENT = {
   id: "EVT-2026-01",
   title: "Ganesh Chaturthi Grand Festival 2026",
@@ -489,6 +491,17 @@ function Step4Confirm({ form }: { form: RegForm }) {
 export function EventsUserRegistration() {
   const [step, setStep] = useState(1);
   const [isRegistered, setIsRegistered] = useState(false);
+  const [registering, setRegistering] = useState(false);
+  const [regError, setRegError] = useState("");
+
+  let useMock = true;
+  try { useMock = useEventMock().useMock; } catch {}
+
+  const [liveEvents, setLiveEvents] = useState<EventResponse[]>([]);
+  useEffect(() => {
+    if (useMock) return;
+    eventService.getUpcomingEvents().then(setLiveEvents).catch(() => {});
+  }, [useMock]);
 
   const [form, setForm] = useState<RegForm>({
     category: "", qty: 1,
@@ -509,7 +522,22 @@ export function EventsUserRegistration() {
     return true;
   };
 
-  const handleConfirm = () => setIsRegistered(true);
+  const handleConfirm = async () => {
+    if (!useMock && liveEvents.length > 0) {
+      setRegistering(true);
+      setRegError("");
+      try {
+        await eventService.register(liveEvents[0].id);
+        setIsRegistered(true);
+      } catch (e: any) {
+        setRegError(e.message ?? "Registration failed");
+      } finally {
+        setRegistering(false);
+      }
+    } else {
+      setIsRegistered(true);
+    }
+  };
 
   const stepContent = {
     1: <Step1Category form={form} update={update} />,
@@ -623,10 +651,13 @@ export function EventsUserRegistration() {
                 Next <ChevronRight className="w-4 h-4" />
               </Button>
             ) : (
-              <Button onClick={handleConfirm}
-                className="flex items-center gap-2 px-6 py-2.5 h-auto rounded-xl text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm hover:from-emerald-600 hover:to-teal-600 transition-all">
-                Confirm Registration <ArrowRight className="w-4 h-4" />
-              </Button>
+              <div className="flex items-center gap-3">
+                {regError && <span className="text-xs text-rose-600 font-medium">{regError}</span>}
+                <Button onClick={handleConfirm} disabled={registering}
+                  className="flex items-center gap-2 px-6 py-2.5 h-auto rounded-xl text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-60">
+                  {registering ? <><Loader2 className="w-4 h-4 animate-spin" /> Registering…</> : <>Confirm Registration <ArrowRight className="w-4 h-4" /></>}
+                </Button>
+              </div>
             )}
           </div>
         )}

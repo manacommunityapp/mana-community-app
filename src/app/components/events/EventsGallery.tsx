@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { ImageIcon, Play, Upload, Grid3X3, List, Star } from "lucide-react";
+import { NoBackendBanner } from "./EventMockToggle";
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const albums = [
   { id: 1, name: "Day 1 – Morning Puja",   count: 84,  cover: "https://images.unsplash.com/photo-1604328698692-f76ea9498e76?w=400&q=80", featured: true  },
   { id: 2, name: "Cultural Performances",  count: 136, cover: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&q=80", featured: false },
@@ -11,7 +12,7 @@ const albums = [
   { id: 6, name: "Food & Prasadam",        count: 55,  cover: "https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&q=80", featured: false },
 ];
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const photos = [
   { id: 1, url: "https://images.unsplash.com/photo-1604328698692-f76ea9498e76?w=300&q=70", album: "Puja", type: "photo" },
   { id: 2, url: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=300&q=70", album: "Cultural", type: "photo" },
@@ -40,6 +41,7 @@ export function EventsGallery() {
 
   return (
     <div className="space-y-6">
+      <NoBackendBanner feature="Gallery" />
       {/* Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>

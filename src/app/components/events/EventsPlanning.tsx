@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { CheckCircle2, Circle, Clock, AlertTriangle, Plus, ChevronDown, ChevronRight, CalendarDays, Flag } from "lucide-react";
+import { NoBackendBanner } from "./EventMockToggle";
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const milestones = [
   { id: 1, label: "Event Approved",        date: "Jul 1",  done: true  },
   { id: 2, label: "Budget Finalized",       date: "Jul 8",  done: true  },
@@ -15,7 +16,7 @@ const milestones = [
   { id: 10, label: "Post-Event Report",    date: "Sep 3",  done: false },
 ];
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const tasks = [
   { id: 1, title: "Confirm stage lighting vendor",        phase: "Logistics",     priority: "high",   assignee: "Ravi M.",  due: "Aug 12", done: false },
   { id: 2, title: "Publish final event schedule",         phase: "Communication", priority: "high",   assignee: "Priya S.", due: "Aug 14", done: false },
@@ -43,6 +44,7 @@ export function EventsPlanning() {
 
   return (
     <div className="space-y-6">
+      <NoBackendBanner feature="Planning & Tasks" />
 
       {/* Timeline milestones */}
       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">

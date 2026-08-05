@@ -1,6 +1,7 @@
 import { Gem, CheckCircle2, Plus, ExternalLink } from "lucide-react";
+import { NoBackendBanner } from "./EventMockToggle";
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const packages = [
   { name: "Platinum",  price: "₹5,00,000", perks: ["Logo on main stage", "VIP 20 passes", "Full page ad", "Social media feature", "Brand in all materials"], color: "#6366f1", bg: "#eef2ff", count: 1 },
   { name: "Gold",      price: "₹2,00,000", perks: ["Logo on backdrop", "VIP 10 passes", "Half page ad", "Social media mention"], color: "#d97706", bg: "#fffbeb", count: 2 },
@@ -8,7 +9,7 @@ const packages = [
   { name: "Bronze",    price: "₹25,000",   perks: ["Name in brochure", "2 passes", "Social mention"], color: "#4338ca", bg: "#eef2ff", count: 8 },
 ];
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const sponsors = [
   { name: "TechCorp India",    package: "Platinum", amount: "₹5,00,000", status: "Paid",    logo: "TC" },
   { name: "Sunrise Foods",     package: "Gold",     amount: "₹2,00,000", status: "Paid",    logo: "SF" },
@@ -39,6 +40,7 @@ export function EventsSponsors() {
 
   return (
     <div className="space-y-6">
+      <NoBackendBanner feature="Sponsors" />
       {/* Summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {[

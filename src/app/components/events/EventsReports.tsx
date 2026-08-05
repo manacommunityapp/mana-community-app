@@ -1,10 +1,11 @@
 import { BarChart3, Download, TrendingUp, Users, DollarSign, Package, FileText } from "lucide-react";
+import { NoBackendBanner } from "./EventMockToggle";
 import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, ResponsiveContainer,
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
 } from "recharts";
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const reportCards = [
   { title: "Registration Report",  desc: "1,842 registrants across 8 categories", icon: Users,      color: "#6366f1", bg: "#eef2ff", pages: 12 },
   { title: "Finance Summary",      desc: "Income ₹9.24L · Expenses ₹4.82L",       icon: DollarSign, color: "#10b981", bg: "#ecfdf5", pages: 8  },
@@ -14,7 +15,7 @@ const reportCards = [
   { title: "Auction Report",       desc: "6 items · ₹2.1L revenue",                 icon: BarChart3,  color: "#8b5cf6", bg: "#f5f3ff", pages: 4  },
 ];
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const attendanceTrend = [
   { day: "Day 1 AM", count: 820  },
   { day: "Day 1 PM", count: 1450 },
@@ -26,7 +27,7 @@ const attendanceTrend = [
   { day: "Day 3 PM", count: 1200 },
 ];
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const radarData = [
   { metric: "Registration", score: 88 },
   { metric: "Finance",      score: 75 },
@@ -41,7 +42,7 @@ const radarData = [
 export function EventsReports() {
   return (
     <div className="space-y-6">
-
+      <NoBackendBanner feature="Reports & Analytics" />
       {/* Report cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {reportCards.map((r, i) => (

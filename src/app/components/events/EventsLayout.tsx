@@ -2,9 +2,11 @@ import { NavLink, Outlet, useLocation } from "react-router";
 import {
   LayoutDashboard, CalendarDays, Ticket, Users,
   HandHeart, UtensilsCrossed, ImageIcon, ChevronRight,
+  Database, Wifi,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { VIEW_EVENTS, REGISTER_EVENT } from "../../../constants/permissions";
+import { EventMockProvider, useEventMock } from "./EventMockToggle";
 
 const navItems = [
   { to: "/events",              label: "Dashboard",       icon: LayoutDashboard, end: true  },
@@ -16,7 +18,23 @@ const navItems = [
   { to: "/events/media",        label: "Media & Reports",  icon: ImageIcon        },
 ];
 
-export function EventsLayout() {
+function DataModeToggle() {
+  const { useMock, toggle } = useEventMock();
+  return (
+    <button onClick={toggle}
+      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border"
+      style={{
+        background: useMock ? "#fef3c7" : "#ecfdf5",
+        color: useMock ? "#92400e" : "#065f46",
+        borderColor: useMock ? "#fcd34d" : "#6ee7b7",
+      }}>
+      {useMock ? <Database className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
+      {useMock ? "Mock Data" : "Live API"}
+    </button>
+  );
+}
+
+function EventsLayoutInner() {
   const { hasPermission } = useAuth();
   const location = useLocation();
 
@@ -44,6 +62,7 @@ export function EventsLayout() {
           )}
         </div>
         <div className="flex items-center gap-3 sm:text-right sm:justify-end">
+          <DataModeToggle />
           <div className="text-left sm:text-right">
             <h2 className="text-xl font-bold leading-tight" style={{ color: "#0d0d2b" }}>Event Management</h2>
             <p className="text-xs" style={{ color: "#6b7094" }}>
@@ -106,5 +125,13 @@ export function EventsLayout() {
         <Outlet />
       </div>
     </div>
+  );
+}
+
+export function EventsLayout() {
+  return (
+    <EventMockProvider>
+      <EventsLayoutInner />
+    </EventMockProvider>
   );
 }

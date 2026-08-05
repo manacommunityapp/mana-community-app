@@ -1,4 +1,3 @@
-// TODO: wire to eventService
 import { useState, useRef } from "react";
 import {
   CalendarDays, MapPin, Users, DollarSign, Image,
@@ -17,6 +16,8 @@ import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { Dialog, DialogOverlay, DialogPortal } from "../ui/dialog";
 import { cn } from "../ui/utils";
+import { useEventMock } from "./EventMockToggle";
+import { eventService, type EventRequest } from "../../../services/events/eventService";
 
 /* ─── Types ─── */
 interface FormData {
@@ -963,19 +964,58 @@ function Step6Review({ data }: { data: FormData }) {
   );
 }
 
+function toEventRequest(data: FormData): EventRequest {
+  return {
+    title: data.title,
+    description: data.description || undefined,
+    type: data.eventType || undefined,
+    startDate: data.startDate,
+    endDate: data.multiDay && data.endDate ? data.endDate : undefined,
+    startTime: data.startTime || undefined,
+    endTime: data.endTime || undefined,
+    locationType: data.visibility,
+    location: [data.venueName, data.venueAddress, data.city].filter(Boolean).join(", ") || undefined,
+    priceType: data.ticketTypes.some(t => parseFloat(t.price) > 0) ? "PAID" : "FREE",
+    price: data.ticketTypes.length > 0 ? parseFloat(data.ticketTypes[0].price) || undefined : undefined,
+    capacity: data.capacity ? parseInt(data.capacity) : undefined,
+    imageUrl: data.coverImageUrl && !data.coverImageUrl.startsWith("data:") ? data.coverImageUrl : undefined,
+    organizerName: undefined,
+    organizerContact: undefined,
+  };
+}
+
 /* ─── Wizard content (shared between page and dialog) ─── */
 function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCreated?: () => void }) {
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState("");
+
+  let useMock = true;
+  try { useMock = useEventMock().useMock; } catch {}
 
   const [formData, setFormData] = useState<FormData>({ ...INITIAL_FORM_DATA });
 
   const update = (key: keyof FormData, value: any) =>
     setFormData(prev => ({ ...prev, [key]: value }));
 
-  const handlePublish = () => {
-    setSubmitted(true);
-    onCreated?.();
+  const handlePublish = async () => {
+    if (!useMock) {
+      setPublishing(true);
+      setPublishError("");
+      try {
+        await eventService.create(toEventRequest(formData));
+        setSubmitted(true);
+        onCreated?.();
+      } catch (e: any) {
+        setPublishError(e.message ?? "Failed to create event");
+      } finally {
+        setPublishing(false);
+      }
+    } else {
+      setSubmitted(true);
+      onCreated?.();
+    }
   };
 
   if (submitted) {
@@ -1117,10 +1157,13 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
             Next <ArrowRight className="w-4 h-4" />
           </button>
         ) : (
-          <button onClick={handlePublish}
-            className="flex items-center gap-2 px-7 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all">
-            <Sparkles className="w-4 h-4" /> Publish Event
-          </button>
+          <div className="flex items-center gap-3">
+            {publishError && <span className="text-xs text-rose-600 font-medium max-w-[200px] truncate">{publishError}</span>}
+            <button onClick={handlePublish} disabled={publishing}
+              className="flex items-center gap-2 px-7 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-60">
+              <Sparkles className="w-4 h-4" /> {publishing ? "Publishing…" : "Publish Event"}
+            </button>
+          </div>
         )}
       </div>
     </div>

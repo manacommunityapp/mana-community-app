@@ -1,15 +1,18 @@
+import { useState, useEffect } from "react";
 import {
   CalendarDays, Users, Ticket, TrendingUp, DollarSign,
   Utensils, Gavel, ClipboardCheck, Star, ArrowUpRight,
-  Clock, MapPin, CheckCircle2, AlertCircle,
+  Clock, MapPin, CheckCircle2, AlertCircle, Loader2,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from "recharts";
 import { CreateEventButton } from "./EventsCreate";
+import { useEventMock } from "./EventMockToggle";
+import { eventService, type EventResponse } from "../../../services/events/eventService";
 
-// TODO: wire to eventService
+// Mock data — shown when toggle is "Mock Data"; live API used otherwise
 const kpis = [
   { label: "Total Events",      value: "24",    sub: "8 active",         icon: CalendarDays, color: "#4f46e5", bg: "#eef2ff", trend: "+3 this month" },
   { label: "Registrations",     value: "1,842", sub: "↑ 12% vs last",   icon: Ticket,       color: "#6366f1", bg: "#eef2ff", trend: "+204 this week" },
@@ -21,13 +24,13 @@ const kpis = [
   { label: "Auction Revenue",   value: "₹2.1L", sub: "14 items sold",    icon: Gavel,        color: "#0f766e", bg: "#f0fdfa", trend: "Live now" },
 ];
 
-// TODO: wire to eventService
+// Mock data — shown when toggle is "Mock Data"; live API used otherwise
 const registrationData = [
   { day: "Mon", count: 82 }, { day: "Tue", count: 145 }, { day: "Wed", count: 203 },
   { day: "Thu", count: 178 }, { day: "Fri", count: 267 }, { day: "Sat", count: 312 }, { day: "Sun", count: 225 },
 ];
 
-// TODO: wire to eventService
+// Mock data — shown when toggle is "Mock Data"; live API used otherwise
 const budgetData = [
   { cat: "Venue",     budget: 120, spent: 110 },
   { cat: "Food",      budget: 200, spent: 145 },
@@ -37,7 +40,7 @@ const budgetData = [
   { cat: "Marketing", budget: 30,  spent: 22  },
 ];
 
-// TODO: wire to eventService
+// Mock data — shown when toggle is "Mock Data"; live API used otherwise
 const categoryPie = [
   { name: "Family",    value: 520, color: "#6366f1" },
   { name: "Individual",value: 680, color: "#4f46e5" },
@@ -47,7 +50,7 @@ const categoryPie = [
   { name: "Others",    value: 140, color: "#64748b" },
 ];
 
-// TODO: wire to eventService
+// Mock data — shown when toggle is "Mock Data"; live API used otherwise
 const upcomingEvents = [
   { name: "Ganesh Chaturthi 2026",   date: "Aug 27",  type: "Festival",     status: "On Track",   color: "#4f46e5", attendees: 820 },
   { name: "Annual Sports Day",        date: "Sep 14",  type: "Sports",       status: "Planning",   color: "#6366f1", attendees: 412 },
@@ -55,7 +58,7 @@ const upcomingEvents = [
   { name: "Diwali Cultural Night",    date: "Oct 20",  type: "Cultural",     status: "Planning",   color: "#d97706", attendees: 650 },
 ];
 
-// TODO: wire to eventService
+// Mock data — shown when toggle is "Mock Data"; live API used otherwise
 const pendingTasks = [
   { task: "Confirm catering vendor for Ganesh Utsav", priority: "high",   due: "2 days" },
   { task: "Send registration reminder emails",         priority: "medium", due: "Today" },
@@ -70,7 +73,48 @@ const priorityStyle: Record<string, { bg: string; text: string; dot: string }> =
   low:    { bg: "bg-emerald-50",text: "text-emerald-600",dot: "bg-emerald-500" },
 };
 
+function mapEventsToUpcoming(events: EventResponse[]) {
+  const typeColors: Record<string, string> = {
+    festival: "#4f46e5", cultural: "#6366f1", health: "#be185d",
+    community: "#0891b2", corporate: "#374151", education: "#059669",
+    food: "#d97706", outdoor: "#065f46", other: "#64748b",
+  };
+  return events.slice(0, 4).map(ev => ({
+    name: ev.title,
+    date: new Date(ev.startDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
+    type: ev.type ? ev.type.charAt(0).toUpperCase() + ev.type.slice(1) : "Event",
+    status: new Date(ev.startDate) > new Date() ? "Upcoming" : "Past",
+    color: typeColors[ev.type?.toLowerCase() ?? ""] ?? "#4f46e5",
+    attendees: ev.attendees ?? 0,
+  }));
+}
+
 export function EventsDashboard() {
+  const { useMock } = useEventMock();
+  const [liveEvents, setLiveEvents] = useState<EventResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (useMock) return;
+    setLoading(true);
+    setError("");
+    eventService.getUpcomingEvents()
+      .then(setLiveEvents)
+      .catch(e => setError(e.message ?? "Failed to load events"))
+      .finally(() => setLoading(false));
+  }, [useMock]);
+
+  const displayEvents = useMock ? upcomingEvents : mapEventsToUpcoming(liveEvents);
+  const eventCount = useMock ? kpis[0].value : String(liveEvents.length);
+  const regCount = useMock ? kpis[1].value : String(liveEvents.reduce((s, e) => s + (e.attendees ?? 0), 0));
+
+  const displayKpis = useMock ? kpis : kpis.map((k, i) => {
+    if (i === 0) return { ...k, value: eventCount, sub: `${liveEvents.filter(e => new Date(e.startDate) > new Date()).length} upcoming` };
+    if (i === 1) return { ...k, value: regCount, sub: "total attendees" };
+    return k;
+  });
+
   return (
     <div className="space-y-6">
 
@@ -83,9 +127,21 @@ export function EventsDashboard() {
         <CreateEventButton />
       </div>
 
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-8 text-slate-400">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading events from API...
+        </div>
+      )}
+
       {/* KPI grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        {kpis.map((kpi, i) => (
+        {displayKpis.map((kpi, i) => (
           <div
             key={kpi.label}
             className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] transition-shadow`}
@@ -194,7 +250,7 @@ export function EventsDashboard() {
             <button className="text-indigo-600 text-xs font-semibold hover:underline">View all</button>
           </div>
           <div className="divide-y divide-slate-50">
-            {upcomingEvents.map((ev) => (
+            {displayEvents.map((ev) => (
               <div key={ev.name} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/60 transition-colors">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white text-xs font-black"
                   style={{ background: ev.color, boxShadow: `0 2px 8px ${ev.color}55` }}>

@@ -1,7 +1,8 @@
 import { IndianRupee, Package, Plus, Download } from "lucide-react";
+import { NoBackendBanner } from "./EventMockToggle";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const donationTypes = [
   { label: "Cash",              value: "₹2,40,000", icon: IndianRupee, color: "#10b981", bg: "#ecfdf5" },
   { label: "UPI / Online",      value: "₹1,85,000", icon: IndianRupee, color: "#6366f1", bg: "#eef2ff" },
@@ -9,7 +10,7 @@ const donationTypes = [
   { label: "Material Donations",value: "₹1,15,000", icon: Package,     color: "#d97706", bg: "#fffbeb" },
 ];
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const donations = [
   { id: "DON-001", donor: "Krishnamurthy S.", type: "Cash",       item: "₹25,000",         receipt: "RCP-001", date: "Aug 2" },
   { id: "DON-002", donor: "Lakshmi Devi",     type: "Gold",       item: "50g Gold coin",   receipt: "RCP-002", date: "Aug 2" },
@@ -34,6 +35,7 @@ const typeColors: Record<string, { bg: string; text: string }> = {
 export function EventsDonations() {
   return (
     <div className="space-y-6">
+      <NoBackendBanner feature="Donations" />
       {/* Type summary */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {donationTypes.map((d) => (

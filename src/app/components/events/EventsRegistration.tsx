@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Search, Download, QrCode, Filter, CheckCircle2, Clock, XCircle, Plus } from "lucide-react";
+import { NoBackendBanner } from "./EventMockToggle";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
@@ -7,7 +8,7 @@ import { cn } from "../ui/utils";
 
 const categories = ["All", "Family", "Individual", "VIP", "Volunteer", "Committee", "Sponsor", "Media"];
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const registrants = [
   { id: "REG-001", name: "Ramesh Sharma",   category: "VIP",        tickets: 2, amount: "₹2,000", status: "Confirmed", time: "2h ago"  },
   { id: "REG-002", name: "Priya Iyer",      category: "Family",     tickets: 4, amount: "₹1,600", status: "Confirmed", time: "3h ago"  },
@@ -47,7 +48,7 @@ export function EventsRegistration() {
 
   return (
     <div className="space-y-6">
-
+      <NoBackendBanner feature="Registration Management" />
       {/* Stats strip */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
         {catStats.map((s) => (

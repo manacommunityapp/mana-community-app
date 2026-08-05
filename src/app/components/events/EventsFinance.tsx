@@ -1,7 +1,8 @@
 import { Landmark, TrendingUp, TrendingDown, DollarSign, Plus, Download } from "lucide-react";
+import { NoBackendBanner } from "./EventMockToggle";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const summary = [
   { label: "Total Budget",  value: "₹7,10,000", icon: DollarSign,  color: "#6366f1", bg: "#eef2ff" },
   { label: "Total Income",  value: "₹9,24,000", icon: TrendingUp,  color: "#10b981", bg: "#ecfdf5" },
@@ -9,7 +10,7 @@ const summary = [
   { label: "Net Balance",   value: "₹4,42,000", icon: Landmark,    color: "#4f46e5", bg: "#eef2ff" },
 ];
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const incomeBreakdown = [
   { name: "Registrations", value: 184200, color: "#6366f1" },
   { name: "Sponsors",      value: 500000, color: "#4f46e5" },
@@ -18,7 +19,7 @@ const incomeBreakdown = [
   { name: "Food Coupons",  value: 55800,  color: "#8b5cf6" },
 ];
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const expenseData = [
   { cat: "Venue",     amount: 110000 },
   { cat: "Food",      amount: 145000 },
@@ -30,7 +31,7 @@ const expenseData = [
   { cat: "Others",    amount: 40000  },
 ];
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const ledger = [
   { id: "TXN-001", desc: "Stage Booking – Phoenix Events",    type: "expense", amount: -85000,  date: "Aug 2",  cat: "Venue"   },
   { id: "TXN-002", desc: "Sponsor Collection – TechCorp",     type: "income",  amount: 500000,  date: "Aug 1",  cat: "Sponsor" },
@@ -44,6 +45,7 @@ const ledger = [
 export function EventsFinance() {
   return (
     <div className="space-y-6">
+      <NoBackendBanner feature="Finance" />
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {summary.map((s, i) => (

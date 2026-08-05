@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Clock, MapPin, Mic2, Music, Trophy, Layers, Star, ChevronRight } from "lucide-react";
+import { NoBackendBanner } from "./EventMockToggle";
 
 const days = ["Day 1 – Aug 27", "Day 2 – Aug 28", "Day 3 – Aug 29"];
 
@@ -8,7 +9,7 @@ type ScheduleItem = {
   venue: string; performer?: string; judge?: string; icon: any; color: string;
 };
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const schedule: Record<string, ScheduleItem[]> = {
   "Day 1 – Aug 27": [
     { time: "8:00 AM",  duration: "45m", title: "Ganesh Puja & Aarti",           type: "Ritual",       venue: "Main Stage",       icon: Star,   color: "#7c3aed" },
@@ -55,6 +56,7 @@ export function EventsPrograms() {
 
   return (
     <div className="space-y-6">
+      <NoBackendBanner feature="Day Programs" />
       {/* Day tabs */}
       <div className="bg-white rounded-2xl p-1.5 flex gap-1 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
         {days.map(d => (

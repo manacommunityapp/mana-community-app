@@ -1,6 +1,7 @@
 import { Car, Shield, Stethoscope, Wifi, Zap, Wind } from "lucide-react";
+import { NoBackendBanner } from "./EventMockToggle";
 
-// TODO: wire to eventService
+// No backend endpoint yet — mock data only
 const zones = [
   { id: "A", name: "Main Stage",       capacity: 2000, occupied: 1650, type: "Stage",    color: "#6366f1" },
   { id: "B", name: "Dining Hall",      capacity: 500,  occupied: 320,  type: "Food",     color: "#10b981" },
@@ -30,6 +31,7 @@ const statusDot: Record<string, string> = {
 export function EventsVenue() {
   return (
     <div className="space-y-6">
+      <NoBackendBanner feature="Venue Management" />
       {/* Zone occupancy overview */}
       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
         <div className="flex items-center justify-between mb-6">
