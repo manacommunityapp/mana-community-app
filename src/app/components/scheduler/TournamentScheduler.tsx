@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Loader2, Plus, Calendar, Trophy, MapPin, X } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 
-import { tournamentService } from "../../../services/tournamentService";
-import type { TournamentTypeInfo, EventInfo, ConfigInfo } from "../../../services/tournamentService";
-import { venueService } from "../../../services/venueService";
+import { tournamentService } from "../../../services/sports/tournamentService";
+import type { TournamentTypeInfo, EventInfo, ConfigInfo } from "../../../services/sports/tournamentService";
+import { venueService } from "../../../services/bookings/venueService";
 import type { Venue } from "../../../types/api";
 
 export function TournamentScheduler() {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Bell, Check, CheckCheck, X, Trash2 } from "lucide-react";
-import { notificationService, type NotificationItem } from "../../../../services/notificationService";
+import { notificationService, type NotificationItem } from "../../../../services/notices/notificationService";
 
 const CATEGORY_COLORS: Record<string, string> = {
   SPORTS: "bg-emerald-500",

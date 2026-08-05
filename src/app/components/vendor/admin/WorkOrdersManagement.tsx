@@ -37,7 +37,7 @@ import {
 } from "../../ui/dialog";
 import { Textarea } from "../../ui/textarea";
 import { Label } from "../../ui/label";
-import { vendorWorkOrderService } from "../../../../services/vendorService";
+import { vendorWorkOrderService } from "../../../../services/vendor/vendorService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import type {
   WorkOrderResponse,

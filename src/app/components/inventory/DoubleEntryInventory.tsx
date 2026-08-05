@@ -5,11 +5,11 @@ import {
   DollarSign, ChevronRight, Play, Check, X, Clipboard,
   Grid, Settings, FolderTree, Activity, Archive, Tags
 } from "lucide-react";
-import { stockService } from "../../../services/stockService";
+import { stockService } from "../../../services/inventory/stockService";
 import type { 
   Product, Warehouse, Location, PickingTypeStats, Picking, 
   StockLevelReport, MoveHistoryReport 
-} from "../../../services/stockService";
+} from "../../../services/inventory/stockService";
 import { toast } from "sonner";
 import { InventoryOverviewDashboard } from "./InventoryOverviewDashboard";
 import { LotsManagement } from "./LotsManagement";

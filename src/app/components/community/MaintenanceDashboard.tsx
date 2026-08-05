@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { CalendarDays, Plus, Check, X, ShieldAlert, FileText, IndianRupee, Calendar, User, Search, CheckCircle2, ChevronRight, AlertCircle, Wrench, Clock, PenTool } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { maintenanceService, type MaintenanceRecord } from "../../../services/maintenanceService";
-import { assetService, type Asset } from "../../../services/assetService";
+import { maintenanceService, type MaintenanceRecord } from "../../../services/inventory/maintenanceService";
+import { assetService, type Asset } from "../../../services/inventory/assetService";
 
 const MAINTENANCE_TYPES = [
   { value: "PREVENTIVE", label: "Preventive Maintenance" },

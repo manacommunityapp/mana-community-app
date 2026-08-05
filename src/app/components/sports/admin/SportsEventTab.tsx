@@ -146,6 +146,11 @@ export function SportsEventTab({
     activeTournamentId ? "config" : "list"
   );
 
+  const onEditEventFromList = (ev: any) => {
+    handleSportEdit(ev);
+    setSportsEventSubTab("config");
+  };
+
   useEffect(() => {
     if (activeTournamentId) {
       setSportsEventSubTab("config");
@@ -240,6 +245,7 @@ export function SportsEventTab({
           setTournamentContext={setTournamentContext}
           clearTournamentContext={clearTournamentContext}
           onGoToConfigureEvents={() => setSportsEventSubTab("config")}
+          handleSportEdit={onEditEventFromList}
         />
       ) : (
         <ConfigureEventsTab

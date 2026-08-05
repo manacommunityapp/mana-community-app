@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Camera, UploadCloud, AlertCircle, Loader2, Sparkles, Building2, Calendar, FileText, IndianRupee, Link, ChevronLeft } from "lucide-react";
-import { assetService } from "../../../services/assetService";
-import type { Asset } from "../../../services/assetService";
+import { assetService } from "../../../services/inventory/assetService";
+import type { Asset } from "../../../services/inventory/assetService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { toast, Toaster } from "sonner";
 

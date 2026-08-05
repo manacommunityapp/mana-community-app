@@ -24,7 +24,7 @@ const toast = {
 };
 import { useNavigate } from "react-router";
 import { useAuth } from "../../../contexts/AuthContext";
-import { userService } from "../../../services/userService";
+import { userService } from "../../../services/common/userService";
 
 type VerificationStatus = "pending" | "approved" | "rejected";
 

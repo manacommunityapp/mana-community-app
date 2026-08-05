@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { type LineItem, Field } from "../ledgerShared";
-import { ledgerFinanceService, type FinanceReceipt } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService, type FinanceReceipt } from "../../../../services/finance/ledgerFinanceService";
 
 export function NewAdvanceReceiptView({ onCancel, onSave, onNavigateInvoice, onNavigateOther }: { onCancel: () => void; onSave: () => void; onNavigateInvoice: () => void; onNavigateOther: () => void }) {
   const [customerName, setCustomerName] = useState("");

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ledgerFinanceService, type Vendor, type VendorPayment, type FinanceDocument } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService, type Vendor, type VendorPayment, type FinanceDocument } from "../../../../services/finance/ledgerFinanceService";
 
 /* New Vendor Payment — create form (Expenses group → Vendor Payments). A
    voucher-type tab group switches between three flows via `kind`:

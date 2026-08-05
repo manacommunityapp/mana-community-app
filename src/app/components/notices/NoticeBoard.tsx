@@ -5,7 +5,7 @@ import {
 import { useState, useEffect, useCallback } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { noticeService, type NoticeResponse, type NoticeRequest } from "../../../services/noticeService";
+import { noticeService, type NoticeResponse, type NoticeRequest } from "../../../services/notices/noticeService";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { safeStorage } from "../../../utils/storage";
 import { CheckCircle, Loader2, Trophy, Users, Calendar, MapPin, Settings, ShieldCheck, Trash2, Building2 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { sportsService } from "../../../services/sportsService";
-import { auctionService } from "../../../services/auctionService";
-import { communityService } from "../../../services/communityService";
+import { sportsService } from "../../../services/sports/sportsService";
+import { auctionService } from "../../../services/sports/auctionService";
+import { communityService } from "../../../services/community/communityService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { SportMeta, PlayerCategory, EventRegistration, AuctionTeam, CommunityResponse } from "../../../types/api";
 

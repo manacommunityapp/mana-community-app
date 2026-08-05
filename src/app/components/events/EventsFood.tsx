@@ -40,11 +40,20 @@ export function EventsFood() {
   useEffect(() => {
     if (useMock) return;
     setLoading(true);
+    setError("");
     foodEventService.getEvents()
       .then(res => setLiveEvents(res.content ?? []))
-      .catch(e => setError(e.message ?? "Failed to load food events"))
+      .catch(e => {
+        // 403 = user lacks the "View Food Events" authority; fall back silently to mock view
+        if (e?.message?.toLowerCase().includes("403") || e?.status === 403 || String(e?.message ?? "").includes("Access Denied")) {
+          // No error banner — mock data will be displayed
+        } else {
+          setError(e.message ?? "Failed to load food events");
+        }
+      })
       .finally(() => setLoading(false));
   }, [useMock]);
+
 
   const totalPlanned = menuItems.reduce((a, m) => a + m.qty, 0);
   const totalPrepared = menuItems.reduce((a, m) => a + m.prepared, 0);

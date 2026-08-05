@@ -3,8 +3,8 @@ import {
   Loader2, Mail, Bell, X, Send, FileText,
   Megaphone, Eye, ChevronDown
 } from "lucide-react";
-import { emailAdminService } from "../../../../services/emailAdminService";
-import { sportsService } from "../../../../services/sportsService";
+import { emailAdminService } from "../../../../services/admin/emailAdminService";
+import { sportsService } from "../../../../services/sports/sportsService";
 
 export interface AnnouncementConfig {
   template: string;

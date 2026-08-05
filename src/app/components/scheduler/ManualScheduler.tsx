@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, GripVertical, Trophy, Save, Shield, Loader2 } from 'lucide-react';
-import { tournamentService } from '../../../services/tournamentService';
+import { tournamentService } from '../../../services/sports/tournamentService';
 
 interface ManualSchedulerProps {
   configId?: number;

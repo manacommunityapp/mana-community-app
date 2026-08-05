@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { PickingTypeStats, Location, Picking, Product } from "../../../services/stockService";
+import type { PickingTypeStats, Location, Picking, Product } from "../../../services/inventory/stockService";
 
 interface InventoryOverviewDashboardProps {
   stats: PickingTypeStats[];

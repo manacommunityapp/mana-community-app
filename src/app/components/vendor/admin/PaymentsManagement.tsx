@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../ui/select";
-import { vendorPaymentService } from "../../../../services/vendorService";
+import { vendorPaymentService } from "../../../../services/vendor/vendorService";
 import { showError } from "../../../../utils/ToastUtils";
 import type {
   VendorPaymentResponse,

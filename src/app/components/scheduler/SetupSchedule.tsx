@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Calendar, MapPin, Settings, Trophy, AlertTriangle, ChevronDown, ChevronUp, Pencil, Plus, X, Trash2, GripVertical, Users, CheckCircle2, Zap, Download } from 'lucide-react';
-import { tournamentService } from '../../../services/tournamentService';
-import { venueService } from '../../../services/venueService';
+import { tournamentService } from '../../../services/sports/tournamentService';
+import { venueService } from '../../../services/bookings/venueService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { VenueTimingModal } from './VenueTimingModal';
 import { showSuccess, showWarning, showError, showInfo } from '../../../utils/ToastUtils';
@@ -9,8 +9,8 @@ import { confirmAction } from '../../../utils/AlertUtils';
 
 
 
-import { sportsService } from '../../../services/sportsService';
-import type { TournamentTypeInfo, EventInfo, ConfigInfo } from '../../../services/tournamentService';
+import { sportsService } from '../../../services/sports/sportsService';
+import type { TournamentTypeInfo, EventInfo, ConfigInfo } from '../../../services/sports/tournamentService';
 import type { Venue, EventRegistration } from '../../../types/api';
 import { PlayoffBracketView } from './PlayoffBracketView';
 import { ScheduleSaveFooter } from './ScheduleSaveFooter';

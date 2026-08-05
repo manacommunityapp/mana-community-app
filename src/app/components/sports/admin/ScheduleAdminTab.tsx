@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { CalendarIcon, ChevronDown, ChevronRight, Clock, MapPin, RefreshCw, ExternalLink } from "lucide-react";
 import { Link } from "react-router";
-import { tournamentService, type ConfigInfo } from "../../../../services/tournamentService";
+import { tournamentService, type ConfigInfo } from "../../../../services/sports/tournamentService";
 import { showError } from "../../../../utils/ToastUtils";
 
 interface MatchRow {

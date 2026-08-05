@@ -39,7 +39,7 @@ import {
   DialogTitle,
 } from "../../ui/dialog";
 import { Textarea } from "../../ui/textarea";
-import { vendorRegistrationService } from "../../../../services/vendorService";
+import { vendorRegistrationService } from "../../../../services/vendor/vendorService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import type {
   VendorRegistrationResponse,

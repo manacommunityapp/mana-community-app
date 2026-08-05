@@ -14,7 +14,7 @@ import {
   Loader2
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { apiClient } from "../../../services/apiClient";
+import { apiClient } from "../../../services/common/apiClient";
 
 type VerificationStatus = "pending" | "approved" | "rejected";
 

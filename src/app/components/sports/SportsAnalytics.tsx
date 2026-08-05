@@ -16,8 +16,8 @@ import {
 import { Trophy, Users, TrendingUp, Target, Star, Activity, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../../contexts/AuthContext";
-import { analyticsService } from "../../../services/analyticsService";
-import type { AnalyticsData } from "../../../services/analyticsService";
+import { analyticsService } from "../../../services/admin/analyticsService";
+import type { AnalyticsData } from "../../../services/admin/analyticsService";
 
 // ── Tooltip styles (shared across all charts) ────────────────────────────────
 const TOOLTIP_STYLE = {

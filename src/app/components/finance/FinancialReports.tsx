@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { BarChart3, TrendingUp, DollarSign, Calendar, IndianRupee, PieChart, AlertCircle } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { billingService, type BillingExpense, type BillingInvoice } from "../../../services/billingService";
+import { billingService, type BillingExpense, type BillingInvoice } from "../../../services/finance/billingService";
 
 export function FinancialReports() {
   const [expenses, setExpenses] = useState<BillingExpense[]>([]);

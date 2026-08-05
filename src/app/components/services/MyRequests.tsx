@@ -29,7 +29,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "../ui/dialog";
-import { serviceRequestService, serviceProviderService } from "../../../services/servicePlatformService";
+import { serviceRequestService, serviceProviderService } from "../../../services/vendor/servicePlatformService";
 import type {
   ServiceRequestResponse,
   ServiceRequestStatus,

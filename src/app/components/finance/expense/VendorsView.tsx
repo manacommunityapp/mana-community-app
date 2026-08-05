@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ledgerFinanceService, type Vendor } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService, type Vendor } from "../../../../services/finance/ledgerFinanceService";
 
 /* Vendors — list page (Expenses group). Converted from vendor-react-pages/
    VendorList.jsx into the shared .ledger-app theme; loads vendors from the API. */

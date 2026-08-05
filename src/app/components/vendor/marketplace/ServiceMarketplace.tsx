@@ -16,7 +16,7 @@ import { Input } from "../../ui/input";
 import {
   vendorServiceCatalog,
   vendorCategoryService,
-} from "../../../../services/vendorService";
+} from "../../../../services/vendor/vendorService";
 import { showError } from "../../../../utils/ToastUtils";
 import type {
   VendorServiceResponse,

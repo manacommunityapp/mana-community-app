@@ -1,6 +1,8 @@
-import { useState } from "react";
-import { Clock, MapPin, Mic2, Music, Trophy, Layers, Star, ChevronRight } from "lucide-react";
-import { NoBackendBanner } from "./EventMockToggle";
+import { useState, useEffect } from "react";
+import { Clock, MapPin, Mic2, Music, Trophy, Layers, Star, ChevronRight, Loader2, AlertCircle } from "lucide-react";
+import { useEventMock } from "./EventMockToggle";
+import { eventProgramService, type EventProgramResponse } from "../../../services/events/eventProgramService";
+import { eventService, type EventResponse } from "../../../services/events/eventService";
 
 const days = ["Day 1 – Aug 27", "Day 2 – Aug 28", "Day 3 – Aug 29"];
 
@@ -9,7 +11,6 @@ type ScheduleItem = {
   venue: string; performer?: string; judge?: string; icon: any; color: string;
 };
 
-// No backend endpoint yet — mock data only
 const schedule: Record<string, ScheduleItem[]> = {
   "Day 1 – Aug 27": [
     { time: "8:00 AM",  duration: "45m", title: "Ganesh Puja & Aarti",           type: "Ritual",       venue: "Main Stage",       icon: Star,   color: "#7c3aed" },
@@ -50,20 +51,114 @@ const typeColors: Record<string, { bg: string; text: string }> = {
   Auction:     { bg: "bg-cyan-50",     text: "text-cyan-700"     },
 };
 
+const typeIconMap: Record<string, { icon: any; color: string }> = {
+  Ritual:      { icon: Star,   color: "#7c3aed" },
+  Cultural:    { icon: Music,  color: "#8b5cf6" },
+  Sports:      { icon: Trophy, color: "#6366f1" },
+  Competition: { icon: Mic2,   color: "#4f46e5" },
+  Workshop:    { icon: Layers, color: "#be185d" },
+  Food:        { icon: Layers, color: "#10b981" },
+  Ceremony:    { icon: Mic2,   color: "#d97706" },
+  Auction:     { icon: Layers, color: "#0891b2" },
+};
+
+function mapLivePrograms(programs: EventProgramResponse[]): ScheduleItem[] {
+  return programs.map(p => {
+    const typeInfo = typeIconMap[p.programType ?? ""] ?? { icon: Layers, color: "#6366f1" };
+    return {
+      time: p.startTime ?? "",
+      duration: p.duration ?? "",
+      title: p.title,
+      type: p.programType ?? "General",
+      venue: p.venue ?? "",
+      performer: p.performer ?? undefined,
+      judge: p.judge ?? undefined,
+      icon: typeInfo.icon,
+      color: typeInfo.color,
+    };
+  });
+}
+
 export function EventsPrograms() {
+  const { useMock } = useEventMock();
   const [activeDay, setActiveDay] = useState(days[0]);
-  const items = schedule[activeDay] || [];
+  const [events, setEvents] = useState<EventResponse[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [liveDays, setLiveDays] = useState<string[]>([]);
+  const [liveSchedule, setLiveSchedule] = useState<Record<string, ScheduleItem[]>>({});
+  const [activeLiveDay, setActiveLiveDay] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (useMock) return;
+    eventService.getUpcomingEvents()
+      .then(evts => {
+        setEvents(evts);
+        if (evts.length > 0) setSelectedEventId(evts[0].id);
+      })
+      .catch(() => {});
+  }, [useMock]);
+
+  useEffect(() => {
+    if (useMock || !selectedEventId) return;
+    setLoading(true);
+    setError("");
+    eventProgramService.getByEvent(selectedEventId)
+      .then(data => {
+        const byDay: Record<string, ScheduleItem[]> = {};
+        for (const p of data) {
+          const day = p.dayLabel ?? "Day 1";
+          if (!byDay[day]) byDay[day] = [];
+          byDay[day].push(...mapLivePrograms([p]));
+        }
+        const dayKeys = Object.keys(byDay).sort();
+        setLiveSchedule(byDay);
+        setLiveDays(dayKeys);
+        setActiveLiveDay(dayKeys[0] ?? "");
+      })
+      .catch(e => setError(e.message ?? "Failed to load programs"))
+      .finally(() => setLoading(false));
+  }, [useMock, selectedEventId]);
+
+  const currentDays = useMock ? days : liveDays;
+  const currentDay = useMock ? activeDay : activeLiveDay;
+  const setCurrentDay = useMock ? setActiveDay : setActiveLiveDay;
+  const items = useMock ? (schedule[activeDay] || []) : (liveSchedule[activeLiveDay] || []);
 
   return (
     <div className="space-y-6">
-      <NoBackendBanner feature="Day Programs" />
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-8 text-slate-400">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading programs...
+        </div>
+      )}
+
+      {!useMock && events.length > 1 && (
+        <select
+          value={selectedEventId ?? ""}
+          onChange={e => setSelectedEventId(Number(e.target.value))}
+          className="w-full max-w-xs px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white"
+        >
+          {events.map(ev => (
+            <option key={ev.id} value={ev.id}>{ev.title}</option>
+          ))}
+        </select>
+      )}
+
       {/* Day tabs */}
       <div className="bg-white rounded-2xl p-1.5 flex gap-1 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
-        {days.map(d => (
-          <button key={d} onClick={() => setActiveDay(d)}
+        {currentDays.map(d => (
+          <button key={d} onClick={() => setCurrentDay(d)}
             className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap
-              ${activeDay === d ? "text-white shadow-sm" : "text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"}`}
-            style={activeDay === d ? { background: "linear-gradient(135deg, #4f46e5, #7c3aed)" } : undefined}>
+              ${currentDay === d ? "text-white shadow-sm" : "text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"}`}
+            style={currentDay === d ? { background: "linear-gradient(135deg, #4f46e5, #7c3aed)" } : undefined}>
             {d}
           </button>
         ))}
@@ -73,7 +168,7 @@ export function EventsPrograms() {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
         <div className="px-6 py-5 border-b border-slate-50">
           <h2 className="font-bold text-slate-800">Program Schedule</h2>
-          <p className="text-xs text-slate-400 mt-0.5">{items.length} events · {activeDay}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{items.length} events · {currentDay}</p>
         </div>
 
         <div className="p-6 space-y-3">

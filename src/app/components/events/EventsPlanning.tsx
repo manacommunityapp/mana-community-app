@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { CheckCircle2, Circle, Clock, AlertTriangle, Plus, ChevronDown, ChevronRight, CalendarDays, Flag } from "lucide-react";
-import { NoBackendBanner } from "./EventMockToggle";
+import { useState, useEffect } from "react";
+import { CheckCircle2, Circle, Clock, AlertTriangle, Plus, ChevronDown, ChevronRight, CalendarDays, Flag, Loader2, AlertCircle } from "lucide-react";
+import { useEventMock } from "./EventMockToggle";
+import { eventTaskService, type EventTaskResponse } from "../../../services/events/eventTaskService";
 
-// No backend endpoint yet — mock data only
+// Mock data — shown when toggle is "Mock Data"; live API used otherwise
 const milestones = [
   { id: 1, label: "Event Approved",        date: "Jul 1",  done: true  },
   { id: 2, label: "Budget Finalized",       date: "Jul 8",  done: true  },
@@ -16,8 +17,8 @@ const milestones = [
   { id: 10, label: "Post-Event Report",    date: "Sep 3",  done: false },
 ];
 
-// No backend endpoint yet — mock data only
-const tasks = [
+// Mock data — shown when toggle is "Mock Data"; live API used otherwise
+const mockTasks = [
   { id: 1, title: "Confirm stage lighting vendor",        phase: "Logistics",     priority: "high",   assignee: "Ravi M.",  due: "Aug 12", done: false },
   { id: 2, title: "Publish final event schedule",         phase: "Communication", priority: "high",   assignee: "Priya S.", due: "Aug 14", done: false },
   { id: 3, title: "Order merchandise & goodie bags",      phase: "Logistics",     priority: "medium", assignee: "Karan T.", due: "Aug 16", done: false },
@@ -35,16 +36,65 @@ const priorityColor: Record<string, { bg: string; text: string }> = {
   low:    { bg: "bg-emerald-50", text: "text-emerald-600" },
 };
 
-export function EventsPlanning() {
-  const [filter, setFilter] = useState("All");
-  const [taskList, setTaskList] = useState(tasks);
+type TaskItem = { id: number; title: string; phase: string; priority: string; assignee: string; due: string; done: boolean };
 
+function mapLiveTasks(tasks: EventTaskResponse[]): TaskItem[] {
+  return tasks.map(t => ({
+    id: t.id,
+    title: t.title,
+    phase: t.phase ?? "General",
+    priority: (t.priority ?? "MEDIUM").toLowerCase(),
+    assignee: t.assigneeName ?? "Unassigned",
+    due: t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) : "",
+    done: t.done,
+  }));
+}
+
+export function EventsPlanning() {
+  const { useMock } = useEventMock();
+  const [filter, setFilter] = useState("All");
+  const [mockTaskList, setMockTaskList] = useState(mockTasks);
+  const [liveTasks, setLiveTasks] = useState<TaskItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (useMock) return;
+    setLoading(true);
+    setError("");
+    eventTaskService.getAll()
+      .then(data => setLiveTasks(mapLiveTasks(data)))
+      .catch(e => setError(e.message ?? "Failed to load tasks"))
+      .finally(() => setLoading(false));
+  }, [useMock]);
+
+  const taskList = useMock ? mockTaskList : liveTasks;
   const filtered = filter === "All" ? taskList : taskList.filter(t => t.phase === filter);
-  const toggle = (id: number) => setTaskList(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+
+  const toggle = (id: number) => {
+    if (useMock) {
+      setMockTaskList(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+    } else {
+      eventTaskService.toggleDone(id)
+        .then(updated => setLiveTasks(prev => prev.map(t => t.id === id ? { ...t, done: updated.done } : t)))
+        .catch(() => {});
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <NoBackendBanner feature="Planning & Tasks" />
+
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-8 text-slate-400">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading tasks...
+        </div>
+      )}
 
       {/* Timeline milestones */}
       <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
@@ -114,7 +164,7 @@ export function EventsPlanning() {
 
         <div className="divide-y divide-slate-50">
           {filtered.map((task, i) => {
-            const pc = priorityColor[task.priority];
+            const pc = priorityColor[task.priority] || priorityColor.medium;
             return (
               <div key={task.id}
                 className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/60 transition-colors animate-fade-in-up">

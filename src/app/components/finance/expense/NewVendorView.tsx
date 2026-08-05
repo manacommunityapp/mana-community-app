@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { ledgerFinanceService, type Vendor } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService, type Vendor } from "../../../../services/finance/ledgerFinanceService";
 
 /* New Vendor — create form (Expenses group). Converted from vendor-react-pages/
    NewVendor.jsx into the shared .ledger-app theme; persists via the vendor API. */

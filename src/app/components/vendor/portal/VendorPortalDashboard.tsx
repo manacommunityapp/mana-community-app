@@ -4,7 +4,7 @@ import {
   ChevronRight, AlertCircle, CheckCircle2, Loader2,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { vendorAnalyticsService, vendorBookingService } from "../../../../services/vendorService";
+import { vendorAnalyticsService, vendorBookingService } from "../../../../services/vendor/vendorService";
 import type { VendorPortalStats, VendorBookingResponse } from "../../../../types/api";
 
 const STATUS_BADGE: Record<string, string> = {

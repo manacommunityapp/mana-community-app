@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { StatCard } from "../ledgerShared";
-import { ledgerFinanceService, type FinanceReceipt } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService, type FinanceReceipt } from "../../../../services/finance/ledgerFinanceService";
 
 export function ReceiptsView({ onNewReceipt, canAdd = true }: { onNewReceipt: () => void; canAdd?: boolean }) {
   const [receiptsTab, setReceiptsTab] = useState<"invoice" | "advance" | "other">("invoice");

@@ -12,7 +12,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-const eventTypes = ["All", "GENERAL", "CONFERENCE", "WORKSHOP", "FUNDRAISER", "PARTY", "FESTIVAL", "SPORTS", "CULTURAL", "MEETING"];
+const eventTypes = ["All", "GENERAL", "CONFERENCE", "WORKSHOP", "FUNDRAISER", "PARTY", "FESTIVAL", "CULTURAL", "MEETING"];
 
 const typeConfig: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
   GENERAL: { label: "General", icon: <CalendarDays className="w-3.5 h-3.5" />, color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
@@ -21,7 +21,6 @@ const typeConfig: Record<string, { label: string; icon: React.ReactNode; color: 
   FUNDRAISER: { label: "Fundraiser", icon: <Heart className="w-3.5 h-3.5" />, color: "text-pink-600 bg-pink-50 border-pink-200" },
   PARTY: { label: "Party", icon: <GlassWater className="w-3.5 h-3.5" />, color: "text-amber-600 bg-amber-50 border-amber-200" },
   FESTIVAL: { label: "Festival", icon: <Music className="w-3.5 h-3.5" />, color: "text-orange-600 bg-orange-50 border-orange-200" },
-  SPORTS: { label: "Sports", icon: <Trophy className="w-3.5 h-3.5" />, color: "text-green-600 bg-green-50 border-green-200" },
   CULTURAL: { label: "Cultural", icon: <MessageSquare className="w-3.5 h-3.5" />, color: "text-teal-600 bg-teal-50 border-teal-200" },
   MEETING: { label: "Meeting", icon: <Users className="w-3.5 h-3.5" />, color: "text-slate-600 bg-slate-50 border-slate-200" },
 };

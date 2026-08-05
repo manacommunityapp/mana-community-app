@@ -5,7 +5,7 @@ import {
   ArrowDownCircle,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { vendorPaymentService } from "../../../../services/vendorService";
+import { vendorPaymentService } from "../../../../services/vendor/vendorService";
 import type { VendorPaymentResponse } from "../../../../types/api";
 
 const PAYMENT_STATUS_BADGE: Record<string, string> = {

@@ -4,7 +4,7 @@ import {
   type SystemStatsResponse,
   type SystemLogResponse,
   type LogType,
-} from "../../../services/systemLogService";
+} from "../../../services/admin/systemLogService";
 
 /* ────────────────────────────── helpers ────────────────────────────── */
 

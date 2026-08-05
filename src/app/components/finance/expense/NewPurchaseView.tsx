@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ledgerFinanceService, type FinanceDocument } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService, type FinanceDocument } from "../../../../services/finance/ledgerFinanceService";
 
 /* New Purchase — create form (Expenses group). Converted from new-purchase.html:
    vendor + meta, cash-purchase toggle, purchase line items with discount and

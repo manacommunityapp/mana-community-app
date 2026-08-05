@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Loader2, Settings, CalendarIcon, Users, Trophy, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
 import { showError } from "../../../../utils/ToastUtils";
-import { sportsAdminService, type AdminTournamentRow } from "../../../../services/sportsAdminService";
+import { sportsAdminService, type AdminTournamentRow } from "../../../../services/sports/sportsAdminService";
 import { format, parseISO } from "date-fns";
 import type { TabId } from "./useSportsAdminState";
 

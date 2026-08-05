@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ledgerFinanceService } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService } from "../../../../services/finance/ledgerFinanceService";
 
 interface PurchaseRow { id: string; date: string; vendor: string; due: string; amount: number; status: string }
 interface ReturnRow { id: string; ref: string; date: string; vendor: string; amount: number; status: string }

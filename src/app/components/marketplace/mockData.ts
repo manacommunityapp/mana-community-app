@@ -6,7 +6,7 @@ import type {
   LostAndFoundResponse,
   ReviewResponse,
   ReviewStats,
-} from "../../../services/listingService";
+} from "../../../services/marketplace/listingService";
 import type { PaginatedResponse } from "../../../types/api";
 
 const daysAgo = (d: number) => new Date(Date.now() - d * 86400000).toISOString();

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Trophy, RefreshCw, ChevronDown, Save, X, Eye } from "lucide-react";
-import { tournamentService, type ConfigInfo, type MatchResultRequestData, type MatchDetailData } from "../../../../services/tournamentService";
+import { tournamentService, type ConfigInfo, type MatchResultRequestData, type MatchDetailData } from "../../../../services/sports/tournamentService";
 import { showError, showSuccess } from "../../../../utils/ToastUtils";
 
 interface MatchRow {

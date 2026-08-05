@@ -37,7 +37,7 @@ import {
 } from "../../ui/dialog";
 import { Label } from "../../ui/label";
 import { Textarea } from "../../ui/textarea";
-import { vendorContractService } from "../../../../services/vendorService";
+import { vendorContractService } from "../../../../services/vendor/vendorService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import type {
   ContractResponse,

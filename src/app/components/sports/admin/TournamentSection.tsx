@@ -27,6 +27,7 @@ interface TournamentSectionProps {
   onConfirmCaptain?: (regId: number, confirm: boolean) => void;
   onAddParticipant?: (eventId: number) => void;
   onImportParticipants?: (eventId: number) => void;
+  onEditEvent?: (ev: any) => void;
 }
 
 export function TournamentSection({
@@ -35,7 +36,7 @@ export function TournamentSection({
   onViewPlayers, onViewCaptains, viewMode = "players",
   viewingEventId, registrations, nominatedCaptains,
   loadingRegs, onConfirmRegistration, onRejectRegistration, onConfirmCaptain,
-  onAddParticipant, onImportParticipants,
+  onAddParticipant, onImportParticipants, onEditEvent,
 }: TournamentSectionProps) {
   const [expandedTournamentIds, setExpandedTournamentIds] = useState<Record<number, boolean>>({});
 
@@ -336,6 +337,15 @@ export function TournamentSection({
                                 }`}>
                                   {registrationStatus}
                                 </span>
+                              )}
+                              {onEditEvent && (
+                                <button
+                                  onClick={() => onEditEvent(ev)}
+                                  className="text-[9px] px-2 py-1 border border-slate-200 text-slate-500 rounded hover:border-[#f97316] hover:text-[#f97316] transition-colors cursor-pointer flex items-center gap-1 font-medium bg-transparent"
+                                  title="Edit Event"
+                                >
+                                  <Edit2 className="w-2.5 h-2.5" /> Edit
+                                </button>
                               )}
                               {hasRegistrationButtons && (
                                 <>

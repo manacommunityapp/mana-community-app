@@ -3,8 +3,8 @@ import {
   Archive, AlertTriangle, Plus, Search, Calendar, 
   Trash2, User, Check, Play, FileText, Landmark
 } from "lucide-react";
-import { stockService } from "../../../services/stockService";
-import type { Product, Location, Lot, ScrapRecord } from "../../../services/stockService";
+import { stockService } from "../../../services/inventory/stockService";
+import type { Product, Location, Lot, ScrapRecord } from "../../../services/inventory/stockService";
 import { toast } from "sonner";
 
 interface ScrapManagementProps {

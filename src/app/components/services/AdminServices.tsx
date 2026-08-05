@@ -45,7 +45,7 @@ import {
 import {
   serviceCatalogService,
   serviceAdminService,
-} from "../../../services/servicePlatformService";
+} from "../../../services/vendor/servicePlatformService";
 import type {
   ServiceDomainResponse,
   ServiceCategoryResponse,

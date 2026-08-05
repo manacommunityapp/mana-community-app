@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { ImageIcon, Play, Upload, Grid3X3, List, Star } from "lucide-react";
-import { NoBackendBanner } from "./EventMockToggle";
+import { useState, useEffect } from "react";
+import { ImageIcon, Play, Upload, Grid3X3, List, Star, Loader2, AlertCircle } from "lucide-react";
+import { useEventMock } from "./EventMockToggle";
+import { eventGalleryService, type EventGalleryItemResponse } from "../../../services/events/eventGalleryService";
+import { eventService, type EventResponse } from "../../../services/events/eventService";
 
-// No backend endpoint yet — mock data only
-const albums = [
+const mockAlbums = [
   { id: 1, name: "Day 1 – Morning Puja",   count: 84,  cover: "https://images.unsplash.com/photo-1604328698692-f76ea9498e76?w=400&q=80", featured: true  },
   { id: 2, name: "Cultural Performances",  count: 136, cover: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=400&q=80", featured: false },
   { id: 3, name: "Sports & Competitions",  count: 72,  cover: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=400&q=80", featured: false },
@@ -12,8 +13,7 @@ const albums = [
   { id: 6, name: "Food & Prasadam",        count: 55,  cover: "https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400&q=80", featured: false },
 ];
 
-// No backend endpoint yet — mock data only
-const photos = [
+const mockPhotos = [
   { id: 1, url: "https://images.unsplash.com/photo-1604328698692-f76ea9498e76?w=300&q=70", album: "Puja", type: "photo" },
   { id: 2, url: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=300&q=70", album: "Cultural", type: "photo" },
   { id: 3, url: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=300&q=70", album: "Sports", type: "photo" },
@@ -23,6 +23,8 @@ const photos = [
   { id: 7, url: "https://images.unsplash.com/photo-1505236858219-8359eb29e329?w=300&q=70", album: "Puja", type: "photo" },
   { id: 8, url: "https://images.unsplash.com/photo-1468971050039-be99497410af?w=300&q=70", album: "Cultural", type: "video" },
 ];
+
+type PhotoItem = { id: number; url: string; album: string; type: string };
 
 function GalleryImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
   const [failed, setFailed] = useState(false);
@@ -36,17 +38,95 @@ function GalleryImage({ src, alt, className }: { src: string; alt: string; class
   return <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />;
 }
 
+function mapLivePhotos(data: EventGalleryItemResponse[]): PhotoItem[] {
+  return data.map(g => ({
+    id: g.id,
+    url: g.thumbnailUrl ?? g.url,
+    album: g.albumName ?? "Uncategorized",
+    type: (g.mediaType ?? "PHOTO").toLowerCase() === "video" ? "video" : "photo",
+  }));
+}
+
 export function EventsGallery() {
+  const { useMock } = useEventMock();
   const [view, setView] = useState<"albums" | "grid">("albums");
+  const [events, setEvents] = useState<EventResponse[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [livePhotos, setLivePhotos] = useState<PhotoItem[]>([]);
+  const [liveAlbumNames, setLiveAlbumNames] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (useMock) return;
+    eventService.getUpcomingEvents()
+      .then(evts => {
+        setEvents(evts);
+        if (evts.length > 0) setSelectedEventId(evts[0].id);
+      })
+      .catch(() => {});
+  }, [useMock]);
+
+  useEffect(() => {
+    if (useMock || !selectedEventId) return;
+    setLoading(true);
+    setError("");
+    Promise.all([
+      eventGalleryService.getByEvent(selectedEventId),
+      eventGalleryService.getAlbums(selectedEventId),
+    ])
+      .then(([items, albums]) => {
+        setLivePhotos(mapLivePhotos(items));
+        setLiveAlbumNames(albums);
+      })
+      .catch(e => setError(e.message ?? "Failed to load gallery"))
+      .finally(() => setLoading(false));
+  }, [useMock, selectedEventId]);
+
+  const photos = useMock ? mockPhotos : livePhotos;
+  const albums = useMock
+    ? mockAlbums
+    : liveAlbumNames.map((name, i) => ({
+        id: i + 1,
+        name,
+        count: livePhotos.filter(p => p.album === name).length,
+        cover: livePhotos.find(p => p.album === name)?.url ?? "",
+        featured: i === 0,
+      }));
+
+  const totalItems = albums.reduce((a, al) => a + al.count, 0);
 
   return (
     <div className="space-y-6">
-      <NoBackendBanner feature="Gallery" />
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-8 text-slate-400">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading gallery...
+        </div>
+      )}
+
+      {!useMock && events.length > 1 && (
+        <select
+          value={selectedEventId ?? ""}
+          onChange={e => setSelectedEventId(Number(e.target.value))}
+          className="w-full max-w-xs px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white"
+        >
+          {events.map(ev => (
+            <option key={ev.id} value={ev.id}>{ev.title}</option>
+          ))}
+        </select>
+      )}
+
       {/* Toolbar */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="font-bold text-slate-800">Event Gallery</h2>
-          <p className="text-xs text-slate-400 mt-0.5">{albums.reduce((a, al) => a + al.count, 0)} photos & videos across {albums.length} albums</p>
+          <p className="text-xs text-slate-400 mt-0.5">{totalItems} photos & videos across {albums.length} albums</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-xl border border-slate-200 overflow-hidden">
@@ -71,7 +151,13 @@ export function EventsGallery() {
             <div key={album.id}
               className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:shadow-lg transition-shadow group cursor-pointer`}>
               <div className="relative h-44 overflow-hidden">
-                <GalleryImage src={album.cover} alt={album.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                {album.cover ? (
+                  <GalleryImage src={album.cover} alt={album.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                ) : (
+                  <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+                    <ImageIcon className="w-8 h-8 text-slate-300" />
+                  </div>
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                 {album.featured && (
                   <div className="absolute top-3 left-3 flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400 text-amber-900 text-[10px] font-black">

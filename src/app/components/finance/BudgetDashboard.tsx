@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Landmark, Plus, Trash2, Calendar, AlertCircle, Sparkles, TrendingUp, HelpCircle } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { budgetService, type BudgetAllocation } from "../../../services/budgetService";
+import { budgetService, type BudgetAllocation } from "../../../services/finance/budgetService";
 
 const CATEGORIES = [
   { value: "CapEx_Asset", label: "CapEx (Capital Asset Purchase)" },

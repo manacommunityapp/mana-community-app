@@ -4,8 +4,8 @@ import {
   Database, Server, Globe, Code, Layers, GitBranch, Shield,
   Activity, Box, ArrowRight, ChevronDown, ChevronRight, Loader2, AlertTriangle, Gauge, Mail,
 } from "lucide-react";
-import { schemaService, type DbTableSchema } from "../../../services/schemaService";
-import { apiCatalogService, type ApiGroup } from "../../../services/apiCatalogService";
+import { schemaService, type DbTableSchema } from "../../../services/admin/schemaService";
+import { apiCatalogService, type ApiGroup } from "../../../services/admin/apiCatalogService";
 import { buildInfo, formatBuildTime } from "../../../utils/buildInfo";
 import { EmailTemplatesTab } from "../admin/EmailTemplatesTab";
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Mail, Send, RefreshCw, CheckCircle2, Eye, X, AlertTriangle, Zap, Inbox, Upload, Image as ImageIcon, Sparkles, AlertCircle, XCircle, MapPin, FileCheck } from "lucide-react";
-import { emailAdminService, extractApiErrorMessage, type EmailTemplateInfo, type EmailHealthInfo, type TestAllResult } from "../../../services/emailAdminService";
-import { communityService } from "../../../services/communityService";
+import { emailAdminService, extractApiErrorMessage, type EmailTemplateInfo, type EmailHealthInfo, type TestAllResult } from "../../../services/admin/emailAdminService";
+import { communityService } from "../../../services/community/communityService";
 import type { CommunityResponse } from "../../../types/api";
 import { useAuth } from "../../../contexts/AuthContext";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";

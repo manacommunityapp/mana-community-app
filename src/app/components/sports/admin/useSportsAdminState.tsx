@@ -3,13 +3,13 @@ import { LayoutDashboard, CalendarIcon, MapPin, Users, Trophy, Settings, BarChar
 import { format } from "date-fns";
 import { showSuccess, showWarning, showError, showInfo } from "../../../../utils/ToastUtils";
 import { confirmAction } from "../../../../utils/AlertUtils";
-import { sportsService } from "../../../../services/sportsService";
-import { sportsAdminService } from "../../../../services/sportsAdminService";
-import { venueService } from "../../../../services/venueService";
-import { communityService } from "../../../../services/communityService";
-import { auctionService } from "../../../../services/auctionService";
-import { userService } from "../../../../services/userService";
-import { notificationService } from "../../../../services/notificationService";
+import { sportsService } from "../../../../services/sports/sportsService";
+import { sportsAdminService } from "../../../../services/sports/sportsAdminService";
+import { venueService } from "../../../../services/bookings/venueService";
+import { communityService } from "../../../../services/community/communityService";
+import { auctionService } from "../../../../services/sports/auctionService";
+import { userService } from "../../../../services/common/userService";
+import { notificationService } from "../../../../services/notices/notificationService";
 import { useAuth } from "../../../../contexts/AuthContext";
 import {
   CREATE_EDIT_SPORTS_MAIN,
@@ -2040,6 +2040,10 @@ export function useSportsAdminState() {
   };
 
   const handleSportEdit = (e: any) => {
+    if (e.tournament) {
+      setActiveTournamentId(e.tournament.id);
+      setActiveTournamentName(e.tournament.name || "");
+    }
     const resolvedFormats = Array.isArray(e.format)
       ? e.format
       : (typeof e.format === "string" ? e.format.split(",") : ["SINGLES"]);
@@ -2117,29 +2121,45 @@ export function useSportsAdminState() {
         }
 
         // Check against active tournament bounds if linked to a tournament
+        let tourneyStartStr: string | undefined = undefined;
+        let tourneyEndStr: string | undefined = undefined;
+
         if (activeTournamentId) {
-          const currentTournament = activeTournaments.find((t) => t.id === activeTournamentId);
+          const currentTournament = activeTournaments.find((t: any) => t.id === activeTournamentId);
           const tourneyObj = currentTournament?.event || currentTournament;
-          const tourneyStartStr = tourneyObj?.eventDateStart || tourneyObj?.startDate;
-          const tourneyEndStr = tourneyObj?.eventDateEnd || tourneyObj?.endDate;
+          tourneyStartStr = tourneyObj?.eventDateStart || tourneyObj?.startDate;
+          tourneyEndStr = tourneyObj?.eventDateEnd || tourneyObj?.endDate;
+        } else if (form.editingSportId) {
+          const existingEvent = activeEvents.find(ae => ae.id === form.editingSportId);
+          if (existingEvent && existingEvent.tournament) {
+            tourneyStartStr = existingEvent.tournament.eventDateStart || (existingEvent.tournament as any).startDate;
+            tourneyEndStr = existingEvent.tournament.eventDateEnd || (existingEvent.tournament as any).endDate;
+          }
+        }
 
-          if (tourneyStartStr && tourneyEndStr) {
-            const tourneyStart = new Date(tourneyStartStr);
-            const tourneyEnd = new Date(tourneyEndStr);
+        if (tourneyStartStr && tourneyEndStr) {
+          const tStart = new Date(tourneyStartStr);
+          const tEnd = new Date(tourneyEndStr);
+          tStart.setHours(0, 0, 0, 0);
+          tEnd.setHours(0, 0, 0, 0);
 
-            if (eventStart < tourneyStart || eventStart > tourneyEnd) {
-              toast.error(
-                `Event "${ev.eventName}": Start Date (${ev.startDate}) must fall within tournament dates (${tourneyStartStr} to ${tourneyEndStr})`
-              );
-              return;
-            }
+          const evStart = new Date(ev.startDate);
+          const evEnd = new Date(ev.endDate);
+          evStart.setHours(0, 0, 0, 0);
+          evEnd.setHours(0, 0, 0, 0);
 
-            if (eventEnd < tourneyStart || eventEnd > tourneyEnd) {
-              toast.error(
-                `Event "${ev.eventName}": End Date (${ev.endDate}) must fall within tournament dates (${tourneyStartStr} to ${tourneyEndStr})`
-              );
-              return;
-            }
+          if (evStart < tStart || evStart > tEnd) {
+            toast.error(
+              `Event "${ev.eventName}": Start Date (${ev.startDate}) must fall within tournament dates (${tourneyStartStr} to ${tourneyEndStr})`
+            );
+            return;
+          }
+
+          if (evEnd < tStart || evEnd > tEnd) {
+            toast.error(
+              `Event "${ev.eventName}": End Date (${ev.endDate}) must fall within tournament dates (${tourneyStartStr} to ${tourneyEndStr})`
+            );
+            return;
           }
         }
 

@@ -5,8 +5,8 @@ import { VenueTimingModal } from "../scheduler/VenueTimingModal";
 
 import { Link } from "react-router";
 import { toast } from "sonner";
-import { venueService } from "../../../services/venueService";
-import { communityService } from "../../../services/communityService";
+import { venueService } from "../../../services/bookings/venueService";
+import { communityService } from "../../../services/community/communityService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { Venue, CommunityResponse } from "../../../types/api";
 

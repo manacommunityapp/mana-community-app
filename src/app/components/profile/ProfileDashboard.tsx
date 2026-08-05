@@ -38,7 +38,7 @@ import {
 import { toast, Toaster } from "sonner";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { profileService } from "../../../services/profileService";
+import { profileService } from "../../../services/common/profileService";
 import type { UserProfileResponse } from "../../../types/api";
 
 function cn(...inputs: ClassValue[]) {

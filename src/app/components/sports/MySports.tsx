@@ -23,10 +23,10 @@ import { Link, useLocation } from "react-router";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
 import "./SportsAuction.css";
-import { sportsService } from "../../../services/sportsService";
-import { sportsScheduleService, type EventListItem, type RegistrationListItem } from "../../../services/sportsScheduleService";
-import { auctionService } from "../../../services/auctionService";
-import { communityService } from "../../../services/communityService";
+import { sportsService } from "../../../services/sports/sportsService";
+import { sportsScheduleService, type EventListItem, type RegistrationListItem } from "../../../services/sports/sportsScheduleService";
+import { auctionService } from "../../../services/sports/auctionService";
+import { communityService } from "../../../services/community/communityService";
 import type { SportMeta, AuctionTeam, CommunityResponse } from "../../../types/api";
 
 const ALL_SPORTS = [

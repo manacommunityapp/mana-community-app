@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { useAuth } from "../../../contexts/AuthContext";
-import { assetService } from "../../../services/assetService";
-import type { Asset } from "../../../services/assetService";
+import { assetService } from "../../../services/inventory/assetService";
+import type { Asset } from "../../../services/inventory/assetService";
 import { CheckCircle2, AlertTriangle, ArrowLeft, Clock, Calendar, ShieldCheck, Dumbbell, Hammer } from "lucide-react";
 import { toast, Toaster } from "sonner";
 

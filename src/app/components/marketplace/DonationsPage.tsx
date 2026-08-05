@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import {
   donationService, type DonationResponse, type DonationRequest
-} from "../../../services/listingService";
+} from "../../../services/marketplace/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { USE_MOCK_DATA, MOCK_DONATIONS, paginate } from "./mockData";
 

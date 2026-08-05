@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { userService } from "../../../../services/userService";
+import { userService } from "../../../../services/common/userService";
 import { useAuth } from "../../../../contexts/AuthContext";
 import type { UserResponse } from "../../../../types/api";
 

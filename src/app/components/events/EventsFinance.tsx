@@ -1,16 +1,16 @@
-import { Landmark, TrendingUp, TrendingDown, DollarSign, Plus, Download } from "lucide-react";
-import { NoBackendBanner } from "./EventMockToggle";
+import { useState, useEffect } from "react";
+import { Landmark, TrendingUp, TrendingDown, DollarSign, Plus, Download, Loader2, AlertCircle } from "lucide-react";
+import { useEventMock } from "./EventMockToggle";
+import { eventExpenseService, type EventExpenseResponse } from "../../../services/events/eventExpenseService";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
-// No backend endpoint yet — mock data only
-const summary = [
+const mockSummary = [
   { label: "Total Budget",  value: "₹7,10,000", icon: DollarSign,  color: "#6366f1", bg: "#eef2ff" },
   { label: "Total Income",  value: "₹9,24,000", icon: TrendingUp,  color: "#10b981", bg: "#ecfdf5" },
   { label: "Total Expenses",value: "₹4,82,000", icon: TrendingDown,color: "#ef4444", bg: "#fff1f2" },
   { label: "Net Balance",   value: "₹4,42,000", icon: Landmark,    color: "#4f46e5", bg: "#eef2ff" },
 ];
 
-// No backend endpoint yet — mock data only
 const incomeBreakdown = [
   { name: "Registrations", value: 184200, color: "#6366f1" },
   { name: "Sponsors",      value: 500000, color: "#4f46e5" },
@@ -19,8 +19,7 @@ const incomeBreakdown = [
   { name: "Food Coupons",  value: 55800,  color: "#8b5cf6" },
 ];
 
-// No backend endpoint yet — mock data only
-const expenseData = [
+const mockExpenseData = [
   { cat: "Venue",     amount: 110000 },
   { cat: "Food",      amount: 145000 },
   { cat: "Decor",     amount: 62000  },
@@ -31,8 +30,7 @@ const expenseData = [
   { cat: "Others",    amount: 40000  },
 ];
 
-// No backend endpoint yet — mock data only
-const ledger = [
+const mockLedger = [
   { id: "TXN-001", desc: "Stage Booking – Phoenix Events",    type: "expense", amount: -85000,  date: "Aug 2",  cat: "Venue"   },
   { id: "TXN-002", desc: "Sponsor Collection – TechCorp",     type: "income",  amount: 500000,  date: "Aug 1",  cat: "Sponsor" },
   { id: "TXN-003", desc: "Catering Advance – Sai Foods",      type: "expense", amount: -60000,  date: "Jul 31", cat: "Food"    },
@@ -42,10 +40,78 @@ const ledger = [
   { id: "TXN-007", desc: "Flex & Banner Printing",            type: "expense", amount: -18000,  date: "Jul 25", cat: "Marketing" },
 ];
 
+type LedgerRow = { id: string; desc: string; type: string; amount: number; date: string; cat: string };
+
+function mapLiveExpenses(data: EventExpenseResponse[]): { ledger: LedgerRow[]; chartData: { cat: string; amount: number }[]; total: number } {
+  const ledger: LedgerRow[] = data.map(e => ({
+    id: `TXN-${String(e.id).padStart(3, "0")}`,
+    desc: e.description,
+    type: "expense",
+    amount: -e.amount,
+    date: e.expenseDate ? new Date(e.expenseDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) : new Date(e.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
+    cat: e.category ?? "Other",
+  }));
+
+  const byCategory: Record<string, number> = {};
+  for (const e of data) {
+    const cat = e.category ?? "Other";
+    byCategory[cat] = (byCategory[cat] ?? 0) + e.amount;
+  }
+  const chartData = Object.entries(byCategory).map(([cat, amount]) => ({ cat, amount }));
+  const total = data.reduce((a, e) => a + e.amount, 0);
+
+  return { ledger, chartData, total };
+}
+
 export function EventsFinance() {
+  const { useMock } = useEventMock();
+  const [liveLedger, setLiveLedger] = useState<LedgerRow[]>([]);
+  const [liveChartData, setLiveChartData] = useState<{ cat: string; amount: number }[]>([]);
+  const [liveTotal, setLiveTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (useMock) return;
+    setLoading(true);
+    setError("");
+    eventExpenseService.getAll()
+      .then(data => {
+        const { ledger, chartData, total } = mapLiveExpenses(data);
+        setLiveLedger(ledger);
+        setLiveChartData(chartData);
+        setLiveTotal(total);
+      })
+      .catch(e => setError(e.message ?? "Failed to load expenses"))
+      .finally(() => setLoading(false));
+  }, [useMock]);
+
+  const expenseData = useMock ? mockExpenseData : liveChartData;
+  const ledger = useMock ? mockLedger : liveLedger;
+
+  const summary = useMock
+    ? mockSummary
+    : [
+        { label: "Total Budget",  value: "—",                                            icon: DollarSign,  color: "#6366f1", bg: "#eef2ff" },
+        { label: "Total Income",  value: "—",                                            icon: TrendingUp,  color: "#10b981", bg: "#ecfdf5" },
+        { label: "Total Expenses",value: `₹${liveTotal.toLocaleString("en-IN")}`,        icon: TrendingDown,color: "#ef4444", bg: "#fff1f2" },
+        { label: "Net Balance",   value: "—",                                            icon: Landmark,    color: "#4f46e5", bg: "#eef2ff" },
+      ];
+
   return (
     <div className="space-y-6">
-      <NoBackendBanner feature="Finance" />
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex items-center justify-center py-8 text-slate-400">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading finance data...
+        </div>
+      )}
+
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {summary.map((s, i) => (
@@ -79,27 +145,29 @@ export function EventsFinance() {
           </ResponsiveContainer>
         </div>
 
-        {/* Income pie */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-          <h3 className="font-bold text-slate-800 mb-1">Income Sources</h3>
-          <p className="text-xs text-slate-400 mb-2">Total: ₹9,24,000</p>
-          <ResponsiveContainer width="100%" height={160}>
-            <PieChart>
-              <Pie data={incomeBreakdown} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={3}>
-                {incomeBreakdown.map((e, i) => <Cell key={i} fill={e.color} />)}
-              </Pie>
-              <Tooltip formatter={v => [`₹${Number(v).toLocaleString()}`]} contentStyle={{ borderRadius: 10, border: "none", fontSize: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-1">
-            {incomeBreakdown.map(c => (
-              <div key={c.name} className="flex items-center gap-1.5 text-xs text-slate-600">
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
-                {c.name}
-              </div>
-            ))}
+        {/* Income pie — mock only */}
+        {useMock && (
+          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+            <h3 className="font-bold text-slate-800 mb-1">Income Sources</h3>
+            <p className="text-xs text-slate-400 mb-2">Total: ₹9,24,000</p>
+            <ResponsiveContainer width="100%" height={160}>
+              <PieChart>
+                <Pie data={incomeBreakdown} cx="50%" cy="50%" innerRadius={45} outerRadius={70} dataKey="value" paddingAngle={3}>
+                  {incomeBreakdown.map((e, i) => <Cell key={i} fill={e.color} />)}
+                </Pie>
+                <Tooltip formatter={v => [`₹${Number(v).toLocaleString()}`]} contentStyle={{ borderRadius: 10, border: "none", fontSize: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }} />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-1">
+              {incomeBreakdown.map(c => (
+                <div key={c.name} className="flex items-center gap-1.5 text-xs text-slate-600">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                  {c.name}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Ledger */}

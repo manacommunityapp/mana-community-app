@@ -6,7 +6,7 @@ import {
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { resourceBookingService } from "../../../services/bookingService";
+import { resourceBookingService } from "../../../services/bookings/bookingService";
 import type {
   ResourceResponse as Resource,
   ResourceCategoryResponse as ResourceCategory,

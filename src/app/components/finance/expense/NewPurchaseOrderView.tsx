@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ledgerFinanceService, type FinanceDocument } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService, type FinanceDocument } from "../../../../services/finance/ledgerFinanceService";
 
 /* New Purchase Order — create form (Expenses group). Converted from
    new_purchase_order.html (+ new_vendor.html modal) into the .ledger-app theme.

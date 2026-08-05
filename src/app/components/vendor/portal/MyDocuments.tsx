@@ -4,7 +4,7 @@ import {
   CheckCircle2, Clock, File, Download, Eye,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { vendorDocumentService } from "../../../../services/vendorService";
+import { vendorDocumentService } from "../../../../services/vendor/vendorService";
 import type { VendorDocument } from "../../../../types/api";
 
 const DOC_TYPES = [

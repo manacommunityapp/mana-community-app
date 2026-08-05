@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { Trophy, Calendar, MapPin, Users, ChevronRight, Loader2, Bell, Award, Zap } from "lucide-react";
-import { sportsEventService } from "../../../services/sportsEventService";
-import { notificationService } from "../../../services/notificationService";
+import { sportsEventService } from "../../../services/sports/sportsEventService";
+import { notificationService } from "../../../services/notices/notificationService";
 import type { SportsEvent } from "../../../types/api";
-import type { NotificationItem } from "../../../services/notificationService";
+import type { NotificationItem } from "../../../services/notices/notificationService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigate } from "react-router";
 

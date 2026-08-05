@@ -8,7 +8,7 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { useAuth } from "../../../contexts/AuthContext";
 import { CREATE_SERVICE_REQUEST } from "../../../constants/permissions";
-import { serviceCatalogService, serviceSearchService } from "../../../services/servicePlatformService";
+import { serviceCatalogService, serviceSearchService } from "../../../services/vendor/servicePlatformService";
 import { ServiceRequestDialog } from "./ServiceRequestDialog";
 import type {
   ServiceDomainResponse,

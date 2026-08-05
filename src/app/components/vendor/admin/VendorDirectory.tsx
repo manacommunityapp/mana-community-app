@@ -42,7 +42,7 @@ import {
   DialogTitle,
 } from "../../ui/dialog";
 import { Textarea } from "../../ui/textarea";
-import { vendorService, vendorCategoryService } from "../../../../services/vendorService";
+import { vendorService, vendorCategoryService } from "../../../../services/vendor/vendorService";
 import { showSuccess, showError } from "../../../../utils/ToastUtils";
 import type {
   VendorResponse,

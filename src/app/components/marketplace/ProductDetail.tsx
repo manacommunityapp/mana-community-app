@@ -9,7 +9,7 @@ import {
 import {
   listingService, reviewService, wishlistService,
   type ListingResponse, type ReviewResponse, type ReviewStats
-} from "../../../services/listingService";
+} from "../../../services/marketplace/listingService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useChat } from "../../../contexts/ChatContext";
 import { USE_MOCK_DATA, MOCK_LISTINGS, MOCK_REVIEWS, MOCK_REVIEW_STATS } from "./mockData";

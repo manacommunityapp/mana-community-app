@@ -15,7 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
-import { vendorAnalyticsService } from "../../../../services/vendorService";
+import { vendorAnalyticsService } from "../../../../services/vendor/vendorService";
 import { showError } from "../../../../utils/ToastUtils";
 import type { VendorDashboardStats } from "../../../../types/api";
 import { useNavigate } from "react-router";

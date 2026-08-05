@@ -4,7 +4,7 @@ import {
   Briefcase, Loader2, AlertCircle, IndianRupee, Clock, Star,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
-import { vendorServiceCatalog, vendorCategoryService } from "../../../../services/vendorService";
+import { vendorServiceCatalog, vendorCategoryService } from "../../../../services/vendor/vendorService";
 import type { VendorServiceResponse, VendorServiceRequest, VendorCategoryResponse } from "../../../../types/api";
 
 export function MyServices() {

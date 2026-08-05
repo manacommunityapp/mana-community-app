@@ -30,6 +30,7 @@ interface TournamentsListTabProps {
   setTournamentContext?: (id: number, name: string) => void;
   clearTournamentContext?: () => void;
   onGoToConfigureEvents?: () => void;
+  handleSportEdit?: (ev: any) => void;
 }
 
 /** "Tournaments List" sub-tab of the Sports Event screen. */
@@ -61,8 +62,15 @@ export function TournamentsListTab({
   setTournamentContext,
   clearTournamentContext,
   onGoToConfigureEvents,
+  handleSportEdit,
 }: TournamentsListTabProps) {
   const allTournaments = [...draftEvents, ...liveEvents, ...completedEvents];
+  
+  const onEditEvent = handleSportEdit ? (ev: any) => {
+    handleSportEdit(ev);
+    setActiveTab("sports-event");
+  } : undefined;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -91,6 +99,7 @@ export function TournamentsListTab({
         onActivate={handleActivate}
         onAnnounce={handleAnnounce}
         showActivate
+        onEditEvent={onEditEvent}
       />
 
       {/* Active Tournaments */}
@@ -122,6 +131,7 @@ export function TournamentsListTab({
           setShowImportModal(true);
           setImportStep(1);
         }}
+        onEditEvent={onEditEvent}
       />
 
       {/* Completed Tournaments */}
@@ -133,6 +143,7 @@ export function TournamentsListTab({
         events={completedEvents}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onEditEvent={onEditEvent}
       />
     </div>
   );

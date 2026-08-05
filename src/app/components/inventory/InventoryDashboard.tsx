@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
 import { Package, QrCode, ClipboardCheck } from "lucide-react";
-import { assetService } from "../../../services/assetService";
-import type { Asset } from "../../../services/assetService";
+import { assetService } from "../../../services/inventory/assetService";
+import type { Asset } from "../../../services/inventory/assetService";
 import { ExpenseUpload } from "../assets/ExpenseUpload";
 import { TreasurerQueue } from "../assets/TreasurerQueue";
 import { DoubleEntryInventory } from "./DoubleEntryInventory";

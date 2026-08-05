@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
-import { ledgerFinanceService, type LedgerCustomer } from "../../../../services/ledgerFinanceService";
+import { ledgerFinanceService, type LedgerCustomer } from "../../../../services/finance/ledgerFinanceService";
 import { confirmAction } from "../../../../utils/AlertUtils";
 
 interface CustomerRow {

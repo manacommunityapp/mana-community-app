@@ -14,9 +14,9 @@ import {
   Search,
   FileText
 } from "lucide-react";
-import { auctionService } from "../../../services/auctionService";
-import { sportsService } from "../../../services/sportsService";
-import { userService } from "../../../services/userService";
+import { auctionService } from "../../../services/sports/auctionService";
+import { sportsService } from "../../../services/sports/sportsService";
+import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   VIEW_SPORTS_MENU, CREATE_EDIT_SPORTS_MENU,
@@ -194,9 +194,9 @@ export function SportsAuction() {
       if (stats) setAuctionStats(stats);
       if (p && p.length) setPlayers(p);
       if (t && t.length) {
-        const mappedTeams = t.map((summary, idx) => {
+        const mappedTeams = t.map((summary: any, idx: number) => {
           const teamObj = mapTeamData(summary, idx);
-          const teamPlayers = (p || []).filter(player => player.assignedTeam?.id === summary.id || (player as any).assignedTeamId === summary.id || (player.assignedTeam as any) === summary.id).map(pl => ({
+          const teamPlayers = (p || []).filter((player: any) => player.assignedTeam?.id === summary.id || (player as any).assignedTeamId === summary.id || (player.assignedTeam as any) === summary.id).map((pl: any) => ({
             name: pl.name || (pl as any).playerName || 'Player',
             soldPrice: pl.soldPrice || pl.basePrice || 0,
             category: pl.category || pl.role || 'Player'

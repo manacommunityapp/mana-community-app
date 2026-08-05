@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
-import { billingService, type BillingExpense, type BillingInvoice } from "../../../services/billingService";
+import { billingService, type BillingExpense, type BillingInvoice } from "../../../services/finance/billingService";
 import { cn } from "../ui/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────

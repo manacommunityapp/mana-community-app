@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Loader2, Trophy, X, ArrowUpDown, ChevronUp, ChevronDown } from "lucide-react";
-import { tournamentService, type PlayerStatsData, type ConfigInfo } from "../../../services/tournamentService";
+import { tournamentService, type PlayerStatsData, type ConfigInfo } from "../../../services/sports/tournamentService";
 import { toast } from "sonner";
 
 const LEADERBOARD_TABS = ["runs", "wickets", "mvp"] as const;

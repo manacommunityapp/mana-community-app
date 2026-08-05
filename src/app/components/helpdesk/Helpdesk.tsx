@@ -6,7 +6,7 @@ import {
 import { useState, useEffect, useCallback } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { ticketService, type TicketResponse, type TicketRequest } from "../../../services/ticketService";
+import { ticketService, type TicketResponse, type TicketRequest } from "../../../services/helpdesk/ticketService";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
