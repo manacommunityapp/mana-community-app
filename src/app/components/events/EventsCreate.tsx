@@ -104,14 +104,14 @@ const INPUT_CLS = "w-full px-4 py-3 h-auto rounded-xl border border-slate-200 bg
 /* ─── Shared sub-components ─── */
 function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementType; title: string; subtitle?: string }) {
   return (
-    <div className="flex items-center gap-3 mb-5">
-      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+    <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-5">
+      <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
-        <Icon className="w-4 h-4 text-white" />
+        <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
       </div>
       <div>
-        <h3 className="text-sm font-bold text-slate-800">{title}</h3>
-        {subtitle && <p className="text-[11px] text-slate-400">{subtitle}</p>}
+        <h3 className="text-xs sm:text-sm font-bold text-slate-800">{title}</h3>
+        {subtitle && <p className="text-[10px] sm:text-[11px] text-slate-400">{subtitle}</p>}
       </div>
     </div>
   );
@@ -131,11 +131,11 @@ function FieldLabel({ children, required, hint }: { children: React.ReactNode; r
 function ToggleRow({ checked, onChange, label, desc }: { checked: boolean; onChange: (v: boolean) => void; label: string; desc?: string }) {
   return (
     <div className={cn(
-      "flex items-center justify-between p-4 rounded-xl border transition-all",
+      "flex items-center justify-between p-3 sm:p-4 rounded-xl border transition-all",
       checked ? "bg-indigo-50/50 border-indigo-200" : "bg-slate-50 border-slate-100"
     )}>
       <div>
-        <span className="text-sm font-medium text-slate-700">{label}</span>
+        <span className="text-xs sm:text-sm font-medium text-slate-700">{label}</span>
         {desc && <p className="text-[10px] text-slate-400 mt-0.5">{desc}</p>}
       </div>
       <Switch checked={checked} onCheckedChange={onChange} />
@@ -146,7 +146,7 @@ function ToggleRow({ checked, onChange, label, desc }: { checked: boolean; onCha
 /* ─── Step 1: Basics ─── */
 function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   return (
-    <div className="space-y-7">
+    <div className="space-y-4 sm:space-y-7">
       <SectionHeader icon={FileText} title="Event Details" subtitle="Give your event a name and describe what it's about" />
 
       <div>
@@ -303,7 +303,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const dayCount = data.daySchedules.length;
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-4 sm:space-y-7">
       <SectionHeader icon={CalendarDays} title="Date & Time" subtitle="When is your event happening?" />
 
       <ToggleRow checked={data.multiDay} onChange={handleMultiDayToggle}
@@ -350,12 +350,12 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                   )}>
                   <button onClick={() => setExpandedDay(isExpanded ? null : day.date)}
                     className={cn(
-                      "w-full flex items-center justify-between px-5 py-4 transition-colors",
+                      "w-full flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 transition-colors",
                       isExpanded ? "bg-indigo-50/50" : "bg-white hover:bg-slate-50"
                     )}>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4">
                       <div className={cn(
-                        "w-11 h-11 rounded-xl flex flex-col items-center justify-center text-white font-black",
+                        "w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex flex-col items-center justify-center text-white font-black",
                         isExpanded ? "shadow-md" : ""
                       )} style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
                         <span className="text-[10px] leading-none opacity-70">DAY</span>
@@ -377,10 +377,10 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                   </button>
 
                   {isExpanded && (
-                    <div className="px-5 pb-5 pt-2 bg-white space-y-3 animate-fade-in-up">
+                    <div className="px-3 sm:px-5 pb-3 sm:pb-5 pt-2 bg-white space-y-3 animate-fade-in-up">
                       {day.activities.map((act, actIdx) => (
                         <div key={act.id}
-                          className="relative p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3 group">
+                          className="relative p-3 sm:p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3 group">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
@@ -476,7 +476,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
   const totalSeats = data.ticketTypes.reduce((s, t) => s + (parseInt(t.qty) || 0), 0);
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-4 sm:space-y-7">
       <SectionHeader icon={Ticket} title="Registration Settings" subtitle="Configure how attendees can register for your event" />
 
       <ToggleRow checked={data.registrationEnabled} onChange={v => update("registrationEnabled", v)}
@@ -552,7 +552,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
             <div className="space-y-3">
               {data.ticketTypes.map((ticket, i) => (
                 <div key={ticket.id}
-                  className="p-5 bg-white rounded-xl border border-slate-200 space-y-4 hover:border-slate-300 transition-colors group animate-fade-in-up">
+                  className="p-3 sm:p-5 bg-white rounded-xl border border-slate-200 space-y-3 sm:space-y-4 hover:border-slate-300 transition-colors group animate-fade-in-up">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center"
@@ -613,7 +613,7 @@ function Step4Budget({ data, update }: { data: FormData; update: (k: keyof FormD
   const remaining = totalBudgetNum - totalAllocated;
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-4 sm:space-y-7">
       <SectionHeader icon={DollarSign} title="Budget Planning" subtitle="Set a budget and allocate across categories" />
 
       <div>
@@ -626,7 +626,7 @@ function Step4Budget({ data, update }: { data: FormData; update: (k: keyof FormD
       </div>
 
       {totalBudgetNum > 0 && (
-        <div className="p-5 rounded-2xl border border-indigo-100 animate-fade-in-up"
+        <div className="p-3 sm:p-5 rounded-2xl border border-indigo-100 animate-fade-in-up"
           style={{ background: "linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%)" }}>
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -734,7 +734,7 @@ function Step5Media({ data, update }: { data: FormData; update: (k: keyof FormDa
   const removeTag = (t: string) => update("tags", data.tags.filter(x => x !== t));
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-4 sm:space-y-7">
       <SectionHeader icon={Image} title="Cover Image & Tags" subtitle="Add visual identity and discoverability to your event" />
 
       <div>
@@ -929,7 +929,7 @@ function Step6Review({ data }: { data: FormData }) {
 
       {reviewSections.map((sec, secIdx) => (
         <div key={sec.title} className={cn("rounded-2xl border border-slate-200 overflow-hidden animate-fade-in-up", `stagger-${Math.min(secIdx + 1, 8)}`)}>
-          <div className="px-5 py-3 flex items-center gap-3 border-b border-slate-100"
+          <div className="px-3 sm:px-5 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3 border-b border-slate-100"
             style={{ background: `${sec.color}08` }}>
             <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${sec.color}15` }}>
               <sec.icon className="w-3.5 h-3.5" style={{ color: sec.color }} />
@@ -938,7 +938,7 @@ function Step6Review({ data }: { data: FormData }) {
           </div>
           <div className="divide-y divide-slate-50 bg-white">
             {sec.rows.map(item => (
-              <div key={item.label} className="flex items-start justify-between gap-4 px-5 py-3">
+              <div key={item.label} className="flex items-start justify-between gap-3 sm:gap-4 px-3 sm:px-5 py-2 sm:py-3">
                 <span className="text-xs font-semibold text-slate-400 flex-shrink-0 w-28">{item.label}</span>
                 <span className="text-sm font-medium text-slate-800 text-right">{item.value}</span>
               </div>
@@ -1022,12 +1022,12 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
 
   if (submitted) {
     return (
-      <div className="max-w-lg mx-auto text-center py-16 animate-fade-in-up">
-        <div className="w-24 h-24 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center mx-auto mb-8
+      <div className="max-w-lg mx-auto text-center py-10 sm:py-16 animate-fade-in-up">
+        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center mx-auto mb-8
           shadow-[0_0_0_8px_rgba(16,185,129,0.08),0_0_0_16px_rgba(16,185,129,0.04)]">
-          <Check className="w-12 h-12 text-emerald-500" />
+          <Check className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-500" />
         </div>
-        <h2 className="text-3xl font-black text-slate-900 mb-3">Event Created!</h2>
+        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">Event Created!</h2>
         <p className="text-slate-500 mb-10 max-w-sm mx-auto">
           <span className="font-semibold text-slate-700">"{formData.title || "Your event"}"</span> has been created
           and is now {formData.visibility === "public" ? "publicly visible" : "live for your community"}.
@@ -1066,16 +1066,16 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
       {/* Sticky header with step progress */}
       <div className="flex-shrink-0 border-b border-slate-100">
         {/* Title bar */}
-        <div className="px-6 sm:px-8 pt-6 pb-4 flex items-center justify-between"
+        <div className="px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 flex items-center justify-between"
           style={{ background: "linear-gradient(135deg, #eef2ff 0%, #faf5ff 40%, #ffffff 100%)" }}>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md"
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md"
               style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
-              {(() => { const S = STEPS[step - 1]; return <S.icon className="w-6 h-6 text-white" />; })()}
+              {(() => { const S = STEPS[step - 1]; return <S.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />; })()}
             </div>
             <div>
               <div className="flex items-center gap-3">
-                <h2 className="text-lg font-black text-slate-900">Create New Event</h2>
+                <h2 className="text-sm sm:text-lg font-black text-slate-900">Create New Event</h2>
                 {formData.title && (
                   <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-xs font-medium text-indigo-600 max-w-[180px] truncate">
                     <Sparkles className="w-3 h-3 flex-shrink-0" /> {formData.title}
@@ -1096,7 +1096,7 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
         </div>
 
         {/* Step pills */}
-        <div className="px-6 sm:px-8 pb-4">
+        <div className="px-4 sm:px-8 pb-3 sm:pb-4">
           <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar">
             {STEPS.map((s, i) => {
               const done = step > s.id;
@@ -1128,17 +1128,17 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
       </div>
 
       {/* Scrollable form content */}
-      <div className="flex-1 overflow-y-auto overscroll-contain px-6 sm:px-8 py-8">
+      <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-8 py-4 sm:py-8">
         <div key={step} className="animate-fade-in-up max-w-3xl mx-auto">
           {stepComponents[step]}
         </div>
       </div>
 
       {/* Sticky footer navigation */}
-      <div className="flex-shrink-0 px-6 sm:px-8 py-4 border-t border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-sm">
+      <div className="flex-shrink-0 px-4 sm:px-8 py-3 sm:py-4 border-t border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-sm">
         <button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1}
           className={cn(
-            "flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all",
+            "flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all",
             step === 1 ? "text-slate-300 cursor-not-allowed" : "bg-white border border-slate-200 text-slate-600 hover:border-slate-300 hover:shadow-sm"
           )}>
           <ChevronLeft className="w-4 h-4" /> Back
@@ -1155,14 +1155,14 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
 
         {step < STEPS.length ? (
           <button onClick={() => setStep(s => Math.min(STEPS.length, s + 1))}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm hover:shadow-md hover:from-indigo-700 hover:to-violet-600 transition-all">
+            className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm hover:shadow-md hover:from-indigo-700 hover:to-violet-600 transition-all">
             Next <ArrowRight className="w-4 h-4" />
           </button>
         ) : (
           <div className="flex items-center gap-3">
             {publishError && <span className="text-xs text-rose-600 font-medium max-w-[200px] truncate">{publishError}</span>}
             <button onClick={handlePublish} disabled={publishing}
-              className="flex items-center gap-2 px-7 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-60">
+              className="flex items-center gap-2 px-5 sm:px-7 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-60">
               <Sparkles className="w-4 h-4" /> {publishing ? "Publishing…" : "Publish Event"}
             </button>
           </div>

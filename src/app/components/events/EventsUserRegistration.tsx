@@ -3,7 +3,8 @@ import {
   User, Mail, Phone, MapPin, Calendar, Clock, CheckCircle2,
   ChevronRight, ChevronLeft, Ticket, CreditCard, Smartphone,
   Banknote, QrCode, Download, Share2, Star, Users, Shield,
-  ArrowRight, Sparkles, Loader2, AlertCircle,
+  ArrowRight, Sparkles, Loader2, AlertCircle, UtensilsCrossed,
+  CalendarCheck,
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -74,7 +75,36 @@ const EVENT = {
   ],
 };
 
+/* ─── Mock event days & activities ─── */
+const EVENT_DAYS = [
+  { label: "Day 1", date: "2026-08-22" },
+  { label: "Day 2", date: "2026-08-23" },
+  { label: "Day 3", date: "2026-08-24" },
+  { label: "Day 4", date: "2026-08-25" },
+  { label: "Day 5", date: "2026-08-26" },
+];
+
+const ACTIVITIES = [
+  { id: 1, dayLabel: "Day 1", title: "Ganapati Pooja",     programType: "Ritual",      startTime: "09:00 AM", capacity: 50,  registered: 32, requiresReg: true  },
+  { id: 2, dayLabel: "Day 1", title: "Bhajan Sandhya",     programType: "Cultural",    startTime: "06:00 PM", capacity: 200, registered: 85, requiresReg: true  },
+  { id: 3, dayLabel: "Day 2", title: "Yoga Workshop",      programType: "Workshop",    startTime: "07:00 AM", capacity: 30,  registered: 28, requiresReg: true  },
+  { id: 4, dayLabel: "Day 2", title: "Rangoli Competition", programType: "Competition", startTime: "10:00 AM", capacity: 40,  registered: 22, requiresReg: true  },
+  { id: 5, dayLabel: "Day 3", title: "Maha Aarti",         programType: "Ritual",      startTime: "07:00 PM", capacity: 100, registered: 67, requiresReg: true  },
+  { id: 6, dayLabel: "Day 3", title: "Kids Dance Show",    programType: "Cultural",    startTime: "04:00 PM", capacity: null, registered: 0, requiresReg: false },
+  { id: 7, dayLabel: "Day 4", title: "Cooking Contest",    programType: "Competition", startTime: "11:00 AM", capacity: 25,  registered: 25, requiresReg: true  },
+  { id: 8, dayLabel: "Day 5", title: "Visarjan Procession", programType: "Ceremony",   startTime: "05:00 PM", capacity: null, registered: 0, requiresReg: false },
+];
+
+const DIETARY_OPTIONS = ["VEG", "VEGAN", "JAIN", "NONVEG"] as const;
+
 /* ─── Types ─── */
+interface MealDay {
+  date: string;
+  lunch: boolean;
+  dinner: boolean;
+  headCount: number;
+}
+
 interface RegForm {
   category: string;
   qty: number;
@@ -88,6 +118,10 @@ interface RegForm {
   volunteering: string;
   paymentMethod: string;
   upiId: string;
+  dietaryPref: string;
+  allergies: string;
+  meals: MealDay[];
+  selectedActivities: number[];
 }
 
 const STEPS = [
@@ -115,7 +149,7 @@ function Step1Category({ form, update }: { form: RegForm; update: (k: keyof RegF
             <button key={cat.id}
               onClick={() => update("category", cat.id)}
               className={cn(
-                "p-5 rounded-2xl border-2 text-left transition-all relative overflow-hidden hover:-translate-y-0.5 active:scale-[0.98]",
+                "p-3 sm:p-5 rounded-2xl border-2 text-left transition-all relative overflow-hidden hover:-translate-y-0.5 active:scale-[0.98]",
                 isSelected
                   ? "border-indigo-400 bg-indigo-50 shadow-[0_4px_20px_rgba(99,102,241,0.2)]"
                   : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/30"
@@ -163,7 +197,7 @@ function Step1Category({ form, update }: { form: RegForm; update: (k: keyof RegF
       </div>
 
       {selected && (
-        <div className="animate-fade-in-up bg-white rounded-2xl p-5 border border-indigo-200 shadow-sm">
+        <div className="animate-fade-in-up bg-white rounded-2xl p-3 sm:p-5 border border-indigo-200 shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <p className="font-bold text-slate-700">Quantity</p>
             <div className="flex items-center gap-3">
@@ -190,10 +224,42 @@ function Step1Category({ form, update }: { form: RegForm; update: (k: keyof RegF
   );
 }
 
-function Step2Details({ form, update }: { form: RegForm; update: (k: keyof RegForm, v: any) => void }) {
+function Step2Details({ form, update, setForm }: { form: RegForm; update: (k: keyof RegForm, v: any) => void; setForm: React.Dispatch<React.SetStateAction<RegForm>> }) {
   const isVolunteer = form.category === "volunteer";
+  const [activityDayTab, setActivityDayTab] = useState(EVENT_DAYS[0].label);
+
+  const toggleMeal = (idx: number, meal: "lunch" | "dinner") => {
+    setForm(prev => {
+      const meals = [...prev.meals];
+      meals[idx] = { ...meals[idx], [meal]: !meals[idx][meal] };
+      return { ...prev, meals };
+    });
+  };
+
+  const toggleActivity = (actId: number) => {
+    setForm(prev => {
+      const selected = prev.selectedActivities.includes(actId)
+        ? prev.selectedActivities.filter(id => id !== actId)
+        : [...prev.selectedActivities, actId];
+      return { ...prev, selectedActivities: selected };
+    });
+  };
+
+  const dayActivities = ACTIVITIES.filter(a => a.dayLabel === activityDayTab);
+  const hasMeals = form.meals.some(m => m.lunch || m.dinner);
+
+  const typeColors: Record<string, string> = {
+    Ritual: "bg-amber-100 text-amber-700",
+    Cultural: "bg-purple-100 text-purple-700",
+    Workshop: "bg-blue-100 text-blue-700",
+    Competition: "bg-rose-100 text-rose-700",
+    Ceremony: "bg-emerald-100 text-emerald-700",
+    Sports: "bg-orange-100 text-orange-700",
+  };
+
   return (
     <div className="space-y-5">
+      {/* ── Personal Details ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <Label className="block text-xs font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5">
@@ -276,6 +342,178 @@ function Step2Details({ form, update }: { form: RegForm; update: (k: keyof RegFo
           </div>
         </div>
       )}
+
+      {/* ── Meal Preferences ── */}
+      <div className="pt-3 border-t border-slate-100 space-y-3">
+        <p className="text-sm font-bold text-indigo-600 flex items-center gap-2">
+          <UtensilsCrossed className="w-4 h-4" /> Meal Preferences
+        </p>
+        <p className="text-[10px] text-slate-400">Select which days you'd like lunch and/or dinner</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <Label className="block text-xs font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5">Dietary Preference</Label>
+            <Select value={form.dietaryPref} onValueChange={v => update("dietaryPref", v)}>
+              <SelectTrigger className="w-full px-4 py-2.5 h-auto rounded-xl border-slate-200 bg-white text-sm text-slate-800">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DIETARY_OPTIONS.map(o => (
+                  <SelectItem key={o} value={o}>{o === "NONVEG" ? "Non-Veg" : o.charAt(0) + o.slice(1).toLowerCase()}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="block text-xs font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5">Allergies</Label>
+            <Input value={form.allergies} onChange={e => update("allergies", e.target.value)} placeholder="e.g. nuts, dairy"
+              className="w-full px-4 py-2.5 h-auto rounded-xl border-slate-200 bg-white text-sm text-slate-800 focus-visible:border-indigo-400 focus-visible:ring-indigo-50" />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 overflow-hidden">
+          <div className="grid grid-cols-[1fr_auto_auto] items-center px-3 py-2 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            <span>Day</span>
+            <span className="w-16 text-center">Lunch</span>
+            <span className="w-16 text-center">Dinner</span>
+          </div>
+          {EVENT_DAYS.map((day, idx) => (
+            <div key={day.date} className="grid grid-cols-[1fr_auto_auto] items-center px-3 py-2 border-t border-slate-100">
+              <div>
+                <p className="text-xs font-bold text-slate-700">{day.label}</p>
+                <p className="text-[10px] text-slate-400">{new Date(day.date + "T00:00").toLocaleDateString("en-IN", { month: "short", day: "numeric" })}</p>
+              </div>
+              <button
+                onClick={() => toggleMeal(idx, "lunch")}
+                className={cn(
+                  "w-16 flex justify-center",
+                )}>
+                <div className={cn(
+                  "w-9 h-5 rounded-full transition-all flex items-center px-0.5",
+                  form.meals[idx].lunch ? "bg-indigo-500 justify-end" : "bg-slate-200 justify-start"
+                )}>
+                  <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
+                </div>
+              </button>
+              <button
+                onClick={() => toggleMeal(idx, "dinner")}
+                className={cn(
+                  "w-16 flex justify-center",
+                )}>
+                <div className={cn(
+                  "w-9 h-5 rounded-full transition-all flex items-center px-0.5",
+                  form.meals[idx].dinner ? "bg-indigo-500 justify-end" : "bg-slate-200 justify-start"
+                )}>
+                  <div className="w-4 h-4 rounded-full bg-white shadow-sm" />
+                </div>
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {hasMeals && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 rounded-xl text-xs text-indigo-700">
+            <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+            {form.meals.filter(m => m.lunch).length} lunch, {form.meals.filter(m => m.dinner).length} dinner selected
+          </div>
+        )}
+      </div>
+
+      {/* ── Activity Registration ── */}
+      <div className="pt-3 border-t border-slate-100 space-y-3">
+        <p className="text-sm font-bold text-indigo-600 flex items-center gap-2">
+          <CalendarCheck className="w-4 h-4" /> Activity Registration
+        </p>
+        <p className="text-[10px] text-slate-400">Register for specific activities — limited seats, first come first served</p>
+
+        {/* Day tabs */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
+          {EVENT_DAYS.map(day => (
+            <button key={day.label} onClick={() => setActivityDayTab(day.label)}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all",
+                activityDayTab === day.label
+                  ? "bg-indigo-500 text-white shadow-sm"
+                  : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+              )}>
+              {day.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Activities for selected day */}
+        <div className="space-y-2">
+          {dayActivities.length === 0 && (
+            <p className="text-xs text-slate-400 py-4 text-center">No registerable activities on this day</p>
+          )}
+          {dayActivities.map(act => {
+            const isFull = act.capacity !== null && act.registered >= act.capacity;
+            const spotsLeft = act.capacity !== null ? act.capacity - act.registered : null;
+            const isJoined = form.selectedActivities.includes(act.id);
+            const pct = act.capacity ? Math.round((act.registered / act.capacity) * 100) : 0;
+
+            return (
+              <div key={act.id}
+                className={cn(
+                  "p-3 rounded-xl border transition-all",
+                  isJoined ? "border-indigo-300 bg-indigo-50/50" : "border-slate-200 bg-white"
+                )}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={cn("px-1.5 py-0.5 rounded text-[9px] font-bold", typeColors[act.programType] || "bg-slate-100 text-slate-600")}>
+                        {act.programType}
+                      </span>
+                      <span className="text-[10px] text-slate-400">{act.startTime}</span>
+                    </div>
+                    <p className="text-sm font-bold text-slate-800 truncate">{act.title}</p>
+                    {act.capacity !== null && (
+                      <div className="mt-1.5">
+                        <div className="flex justify-between text-[9px] font-semibold text-slate-400 mb-0.5">
+                          <span>{act.registered}/{act.capacity} joined</span>
+                          <span>{spotsLeft} left</span>
+                        </div>
+                        <div className="h-1 bg-slate-100 rounded-full overflow-hidden">
+                          <div className={cn("h-full rounded-full transition-all", isFull ? "bg-rose-400" : "bg-indigo-400")}
+                            style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {act.requiresReg && (
+                    <button
+                      onClick={() => !isFull || isJoined ? toggleActivity(act.id) : undefined}
+                      disabled={isFull && !isJoined}
+                      className={cn(
+                        "flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
+                        isJoined
+                          ? "bg-indigo-500 text-white hover:bg-indigo-600"
+                          : isFull
+                            ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                            : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
+                      )}>
+                      {isJoined ? "Joined ✓" : isFull ? "Full" : "Join"}
+                    </button>
+                  )}
+                  {!act.requiresReg && (
+                    <span className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-600">
+                      Open
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {form.selectedActivities.length > 0 && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-indigo-50 rounded-xl text-xs text-indigo-700">
+            <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
+            {form.selectedActivities.length} {form.selectedActivities.length === 1 ? "activity" : "activities"} registered
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -311,7 +549,7 @@ function Step3Payment({ form, update }: { form: RegForm; update: (k: keyof RegFo
   return (
     <div className="space-y-5">
       {/* Amount summary */}
-      <div className="p-5 rounded-2xl bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100">
+      <div className="p-3 sm:p-5 rounded-2xl bg-gradient-to-r from-indigo-50 to-violet-50 border border-indigo-100">
         <div className="flex justify-between items-center">
           <div>
             <p className="text-sm font-semibold text-slate-600">{selected?.name} × {form.qty}</p>
@@ -387,6 +625,8 @@ function Step4Confirm({ form }: { form: RegForm }) {
   const total = selected ? selected.price * form.qty : 0;
   const regId = `REG-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
   const name = `${form.firstName} ${form.lastName}`.trim() || "Attendee";
+  const mealDays = form.meals.filter(m => m.lunch || m.dinner);
+  const joinedActivities = ACTIVITIES.filter(a => form.selectedActivities.includes(a.id));
 
   return (
     <div className="space-y-5">
@@ -449,6 +689,52 @@ function Step4Confirm({ form }: { form: RegForm }) {
             </div>
           </div>
 
+          {/* Meal & Activity summary */}
+          {(mealDays.length > 0 || joinedActivities.length > 0) && (
+            <>
+              <div className="flex items-center gap-2 my-4">
+                <div className="flex-1 border-t border-dashed border-slate-200" />
+                <Ticket className="w-4 h-4 text-slate-300 rotate-90" />
+                <div className="flex-1 border-t border-dashed border-slate-200" />
+              </div>
+
+              {mealDays.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Meals</p>
+                  <div className="space-y-1">
+                    {mealDays.map(m => (
+                      <div key={m.date} className="flex items-center gap-2 text-xs text-slate-600">
+                        <span className="font-semibold w-16">
+                          {new Date(m.date + "T00:00").toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
+                        </span>
+                        <div className="flex gap-1.5">
+                          {m.lunch && <Badge className="px-1.5 py-0 text-[9px] bg-amber-100 text-amber-700 border-none">Lunch</Badge>}
+                          {m.dinner && <Badge className="px-1.5 py-0 text-[9px] bg-violet-100 text-violet-700 border-none">Dinner</Badge>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Diet: {form.dietaryPref}{form.allergies ? ` · Allergies: ${form.allergies}` : ""}</p>
+                </div>
+              )}
+
+              {joinedActivities.length > 0 && (
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Activities</p>
+                  <div className="space-y-1">
+                    {joinedActivities.map(act => (
+                      <div key={act.id} className="flex items-center gap-2 text-xs text-slate-600">
+                        <span className="font-semibold text-slate-500 w-12">{act.dayLabel}</span>
+                        <span>{act.title}</span>
+                        <span className="text-[10px] text-slate-400 ml-auto">{act.startTime}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
           {/* Dashed divider */}
           <div className="flex items-center gap-2 my-4">
             <div className="flex-1 border-t border-dashed border-slate-200" />
@@ -508,6 +794,9 @@ export function EventsUserRegistration() {
     firstName: "", lastName: "", email: "", phone: "", address: "", city: "",
     tshirtSize: "", volunteering: "",
     paymentMethod: "", upiId: "",
+    dietaryPref: "VEG", allergies: "",
+    meals: EVENT_DAYS.map(d => ({ date: d.date, lunch: false, dinner: false, headCount: 1 })),
+    selectedActivities: [],
   });
 
   const update = (key: keyof RegForm, value: any) =>
@@ -541,7 +830,7 @@ export function EventsUserRegistration() {
 
   const stepContent = {
     1: <Step1Category form={form} update={update} />,
-    2: <Step2Details form={form} update={update} />,
+    2: <Step2Details form={form} update={update} setForm={setForm} />,
     3: <Step3Payment form={form} update={update} />,
     4: <Step4Confirm form={form} />,
   };
@@ -551,7 +840,7 @@ export function EventsUserRegistration() {
 
       {/* Event hero */}
       <div className="rounded-2xl overflow-hidden mb-5 sm:mb-7 shadow-[0_4px_20px_rgba(99,102,241,0.2)]">
-        <div className="px-5 py-5 sm:px-8 sm:py-8 text-white relative overflow-hidden"
+        <div className="px-4 py-3 sm:px-8 sm:py-8 text-white relative overflow-hidden"
           style={{ background: EVENT.coverGradient }}>
           <div className="absolute inset-0">
             {[...Array(5)].map((_, i) => (
@@ -612,7 +901,7 @@ export function EventsUserRegistration() {
 
       {/* Form card */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_16px_rgba(0,0,0,0.06)] overflow-hidden">
-        <div className="px-7 py-6 border-b border-slate-50">
+        <div className="px-4 sm:px-7 py-4 sm:py-6 border-b border-slate-50">
           <h2 className="font-black text-slate-900">
             {isRegistered ? "Your Registration Pass" : STEPS[step - 1].label}
           </h2>

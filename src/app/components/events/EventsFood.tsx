@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { TrendingDown, Plus, Loader2, AlertCircle } from "lucide-react";
+import { TrendingDown, Plus, Loader2, AlertCircle, UtensilsCrossed } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { foodEventService } from "../../../services/food/foodEventService";
+import { eventProgramService, type MealSummaryResponse } from "../../../services/events/eventProgramService";
 
 const menuItems = [
   { name: "Pulihora",         qty: 800,  unit: "plates", prepared: 650, status: "In Progress" },
@@ -29,6 +30,17 @@ const statusStyle: Record<string, { bg: string; text: string }> = {
   Pending:     { bg: "bg-slate-100",  text: "text-slate-500"   },
 };
 
+const MOCK_MEAL_SUMMARY: MealSummaryResponse = {
+  eventId: 1,
+  days: [
+    { date: "2026-08-22", lunch: { totalHeads: 145, veg: 98, vegan: 12, jain: 15, nonveg: 20 }, dinner: { totalHeads: 120, veg: 82, vegan: 10, jain: 12, nonveg: 16 } },
+    { date: "2026-08-23", lunch: { totalHeads: 160, veg: 110, vegan: 14, jain: 16, nonveg: 20 }, dinner: { totalHeads: 130, veg: 90, vegan: 11, jain: 13, nonveg: 16 } },
+    { date: "2026-08-24", lunch: { totalHeads: 180, veg: 125, vegan: 15, jain: 18, nonveg: 22 }, dinner: { totalHeads: 155, veg: 108, vegan: 13, jain: 15, nonveg: 19 } },
+    { date: "2026-08-25", lunch: { totalHeads: 140, veg: 95, vegan: 12, jain: 14, nonveg: 19 }, dinner: { totalHeads: 110, veg: 75, vegan: 10, jain: 11, nonveg: 14 } },
+    { date: "2026-08-26", lunch: { totalHeads: 200, veg: 140, vegan: 16, jain: 20, nonveg: 24 }, dinner: { totalHeads: 190, veg: 132, vegan: 15, jain: 19, nonveg: 24 } },
+  ],
+};
+
 export function EventsFood() {
   let useMock = true;
   try { useMock = useEventMock().useMock; } catch {}
@@ -36,22 +48,28 @@ export function EventsFood() {
   const [liveEvents, setLiveEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [mealSummary, setMealSummary] = useState<MealSummaryResponse | null>(null);
 
   useEffect(() => {
-    if (useMock) return;
+    if (useMock) {
+      setMealSummary(MOCK_MEAL_SUMMARY);
+      return;
+    }
     setLoading(true);
     setError("");
     foodEventService.getEvents()
       .then(res => setLiveEvents(res.content ?? []))
       .catch(e => {
-        // 403 = user lacks the "View Food Events" authority; fall back silently to mock view
         if (e?.message?.toLowerCase().includes("403") || e?.status === 403 || String(e?.message ?? "").includes("Access Denied")) {
-          // No error banner — mock data will be displayed
         } else {
           setError(e.message ?? "Failed to load food events");
         }
       })
       .finally(() => setLoading(false));
+
+    eventProgramService.getMealSummary(1)
+      .then(setMealSummary)
+      .catch(() => {});
   }, [useMock]);
 
 
@@ -163,6 +181,65 @@ export function EventsFood() {
           </div>
         </div>
       </div>
+
+      {/* Meal Demand from Registrations */}
+      {mealSummary && mealSummary.days.length > 0 && (
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
+          <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50">
+            <h2 className="font-bold text-slate-800 flex items-center gap-2">
+              <UtensilsCrossed className="w-4 h-4 text-indigo-500" /> Meal Demand (Registrations)
+            </h2>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+              {mealSummary.days.reduce((a, d) => a + d.lunch.totalHeads + d.dinner.totalHeads, 0)} total meals
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs sm:text-sm">
+              <thead>
+                <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100">
+                  <th className="px-3 sm:px-6 py-2.5 text-left">Date</th>
+                  <th className="px-2 py-2.5 text-center" colSpan={2}>Lunch</th>
+                  <th className="px-2 py-2.5 text-center" colSpan={2}>Dinner</th>
+                </tr>
+                <tr className="text-[9px] font-bold text-slate-300 uppercase border-b border-slate-50">
+                  <th></th>
+                  <th className="px-2 py-1 text-center">Heads</th>
+                  <th className="px-2 py-1 text-center">Breakdown</th>
+                  <th className="px-2 py-1 text-center">Heads</th>
+                  <th className="px-2 py-1 text-center">Breakdown</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {mealSummary.days.map((day, i) => (
+                  <tr key={day.date} className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)}`}>
+                    <td className="px-3 sm:px-6 py-2.5 font-semibold text-slate-700 whitespace-nowrap">
+                      {new Date(day.date + "T00:00").toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" })}
+                    </td>
+                    <td className="px-2 py-2.5 text-center font-bold text-indigo-600">{day.lunch.totalHeads}</td>
+                    <td className="px-2 py-2.5">
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {day.lunch.veg > 0 && <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-bold">V {day.lunch.veg}</span>}
+                        {day.lunch.vegan > 0 && <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 text-[9px] font-bold">Vn {day.lunch.vegan}</span>}
+                        {day.lunch.jain > 0 && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[9px] font-bold">J {day.lunch.jain}</span>}
+                        {day.lunch.nonveg > 0 && <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 text-[9px] font-bold">NV {day.lunch.nonveg}</span>}
+                      </div>
+                    </td>
+                    <td className="px-2 py-2.5 text-center font-bold text-violet-600">{day.dinner.totalHeads}</td>
+                    <td className="px-2 py-2.5">
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {day.dinner.veg > 0 && <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[9px] font-bold">V {day.dinner.veg}</span>}
+                        {day.dinner.vegan > 0 && <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-700 text-[9px] font-bold">Vn {day.dinner.vegan}</span>}
+                        {day.dinner.jain > 0 && <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[9px] font-bold">J {day.dinner.jain}</span>}
+                        {day.dinner.nonveg > 0 && <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 text-[9px] font-bold">NV {day.dinner.nonveg}</span>}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
