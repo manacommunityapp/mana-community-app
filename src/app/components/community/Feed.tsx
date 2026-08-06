@@ -455,11 +455,6 @@ export function Feed() {
     <div className="w-full">
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 items-start">
         <div className="lg:col-span-3 space-y-4 sm:space-y-5">
-          <div className="lg:hidden space-y-4">
-            <CommunityDirectory />
-            <SportsNotificationCard />
-          </div>
-
           <AlertTicker />
 
           {/* Search Bar */}

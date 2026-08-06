@@ -73,7 +73,7 @@ export function EventsFood() {
       ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       {error && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
           <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
@@ -85,28 +85,28 @@ export function EventsFood() {
         </div>
       )}
       {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {foodKpis.map((s, i) => (
           <div
             key={s.label}
-            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center`}
+            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center`}
           >
-            <p className="text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">{s.label}</p>
+            <p className="text-lg sm:text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
+            <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5 sm:mt-1">{s.label}</p>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
         {/* Menu preparation status */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
-          <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-50">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
+          <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50">
             <h2 className="font-bold text-slate-800">Menu Preparation</h2>
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm">
+            <button className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm">
               <Plus className="w-3.5 h-3.5" /> Add Item
             </button>
           </div>
-          <div className="p-6 space-y-4">
+          <div className="p-3 sm:p-6 space-y-3 sm:space-y-4">
             {menuItems.map((item, i) => {
               const ss = statusStyle[item.status];
               const pct = Math.round((item.prepared / item.qty) * 100);
@@ -114,7 +114,7 @@ export function EventsFood() {
                 <div key={item.name} className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)}`}>
                   <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-slate-800">{item.name}</span>
+                      <span className="text-xs sm:text-sm font-semibold text-slate-800">{item.name}</span>
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${ss.bg} ${ss.text}`}>{item.status}</span>
                     </div>
                     <span className="text-xs text-slate-500 font-medium tabular-nums">
@@ -135,8 +135,8 @@ export function EventsFood() {
         </div>
 
         {/* Ingredient stock */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
-          <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-50">
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
+          <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50">
             <h2 className="font-bold text-slate-800">Ingredient Stock</h2>
             <span className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-600">
               <TrendingDown className="w-3.5 h-3.5" /> 3 items low
@@ -146,11 +146,11 @@ export function EventsFood() {
             {ingredients.map((ing, i) => (
               <div
                 key={ing.item}
-                className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} flex items-center justify-between px-6 py-4`}
+                className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-4`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${ing.status === "ok" ? "bg-emerald-400" : "bg-amber-400"}`} />
-                  <p className="font-semibold text-slate-800 text-sm">{ing.item}</p>
+                  <p className="font-semibold text-slate-800 text-xs sm:text-sm">{ing.item}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-bold text-slate-600">Need: {ing.required}</p>

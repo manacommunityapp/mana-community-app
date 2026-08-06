@@ -76,7 +76,7 @@ export function EventsVolunteers() {
   const totalPresent = useMock ? departments.reduce((a, d) => a + d.present, 0) : volunteers.filter(v => v.status === "Active").length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       {error && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
           <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
@@ -90,43 +90,43 @@ export function EventsVolunteers() {
       )}
 
       {/* Summary bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {[
           { label: "Total Volunteers", value: totalVols,                                              color: "#4f46e5" },
           { label: "Present Today",    value: totalPresent,                                           color: "#10b981" },
           { label: "Departments",      value: useMock ? departments.length : "—",                     color: "#6366f1" },
           { label: "Attendance Rate",  value: totalVols > 0 ? `${Math.round(totalPresent / totalVols * 100)}%` : "—", color: "#d97706" },
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
-            <p className="text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">{s.label}</p>
+          <div key={s.label} className="bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
+            <p className="text-lg sm:text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
+            <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5 sm:mt-1">{s.label}</p>
           </div>
         ))}
       </div>
 
       {/* Department grid — mock only */}
       {useMock && (
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="font-bold text-slate-800">Departments</h2>
+        <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+          <div className="flex items-center justify-between mb-3 sm:mb-5">
+            <h2 className="font-bold text-slate-800 text-xs sm:text-base">Departments</h2>
             <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm">
               <Plus className="w-3.5 h-3.5" /> Add Department
             </button>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
             {departments.map((dept) => {
               const pct = Math.round((dept.present / dept.total) * 100);
               return (
                 <div key={dept.name}
-                  className="animate-fade-in-up p-4 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-white hover:shadow-md transition-all cursor-pointer">
+                  className="animate-fade-in-up p-3 sm:p-4 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-white hover:shadow-md transition-all cursor-pointer">
                   <div className="flex items-center justify-between mb-3">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center"
                       style={{ background: `${dept.color}18` }}>
                       <Users className="w-4 h-4" style={{ color: dept.color }} />
                     </div>
                     <span className="text-xs font-black" style={{ color: dept.color }}>{pct}%</span>
                   </div>
-                  <p className="font-bold text-slate-800 text-sm">{dept.name}</p>
+                  <p className="font-bold text-slate-800 text-xs sm:text-sm">{dept.name}</p>
                   <p className="text-[10px] text-slate-400 mt-0.5">Head: {dept.head}</p>
                   <div className="mt-3 space-y-1.5">
                     <div className="flex justify-between text-[10px] font-semibold">
@@ -145,19 +145,21 @@ export function EventsVolunteers() {
       )}
 
       {/* Volunteer list */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-50">
-          <h2 className="font-bold text-slate-800">Volunteer Directory</h2>
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
+        <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50">
+          <h2 className="font-bold text-slate-800 text-xs sm:text-base">Volunteer Directory</h2>
           <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm">
             <Plus className="w-3.5 h-3.5" /> Assign Volunteer
           </button>
         </div>
         <div className="overflow-x-auto">
-          <Table className="text-sm">
+          <Table className="text-xs sm:text-sm min-w-[600px]">
             <TableHeader>
               <TableRow className="bg-slate-50/80 border-b border-slate-100 hover:bg-slate-50/80">
-                {["ID", "Name", "Department", "Shift", "Status", "Contact", "Actions"].map(h => (
-                  <TableHead key={h} className="px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap h-auto">{h}</TableHead>
+                {["ID", "Name", "Department", "Shift", "Status", "Contact", "Actions"].map((h, i) => (
+                  <TableHead key={h} className={`px-3 sm:px-6 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap h-auto ${
+                    (h === "ID" || h === "Contact") ? "hidden sm:table-cell" : ""
+                  }`}>{h}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
@@ -166,31 +168,31 @@ export function EventsVolunteers() {
                 const ss = statusStyle[v.status] ?? statusStyle.Active;
                 return (
                   <TableRow key={v.id} className="animate-fade-in-up hover:bg-slate-50/60 transition-colors">
-                    <TableCell className="px-6 py-3.5 font-mono text-xs text-slate-400">{v.id}</TableCell>
-                    <TableCell className="px-6 py-3.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-600 to-violet-500 flex items-center justify-center text-white text-xs font-black flex-shrink-0">
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 font-mono text-xs text-slate-400 hidden sm:table-cell">{v.id}</TableCell>
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
+                      <div className="flex items-center gap-2 sm:gap-2.5">
+                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-indigo-600 to-violet-500 flex items-center justify-center text-white text-[10px] sm:text-xs font-black flex-shrink-0">
                           {v.name ? v.name[0] : "V"}
                         </div>
-                        <span className="font-semibold text-slate-800">{v.name}</span>
+                        <span className="font-semibold text-slate-800 text-xs sm:text-sm">{v.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="px-6 py-3.5 text-slate-600 text-xs">{v.dept}</TableCell>
-                    <TableCell className="px-6 py-3.5">
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 text-slate-600 text-xs">{v.dept}</TableCell>
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
                       <span className="flex items-center gap-1 text-xs text-slate-500">
-                        <Clock className="w-3 h-3" /> {v.shift}
+                        <Clock className="w-3 h-3 flex-shrink-0" /> <span className="truncate max-w-[100px] sm:max-w-none">{v.shift}</span>
                       </span>
                     </TableCell>
-                    <TableCell className="px-6 py-3.5">
-                      <span className={`flex items-center gap-1.5 w-fit px-2.5 py-1 rounded-full text-[10px] font-bold ${ss.bg} ${ss.text}`}>
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
+                      <span className={`flex items-center gap-1.5 w-fit px-2 sm:px-2.5 py-1 rounded-full text-[10px] font-bold ${ss.bg} ${ss.text}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${ss.dot}`} /> {v.status}
                       </span>
                     </TableCell>
-                    <TableCell className="px-6 py-3.5 text-xs text-slate-500 font-mono">{v.contact || "—"}</TableCell>
-                    <TableCell className="px-6 py-3.5">
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 text-xs text-slate-500 font-mono hidden sm:table-cell">{v.contact || "—"}</TableCell>
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
                       <div className="flex gap-2">
                         <button className="text-xs font-semibold text-indigo-600 hover:underline">Edit</button>
-                        <button className="text-xs font-semibold text-indigo-600 hover:underline">Certificate</button>
+                        <button className="text-xs font-semibold text-indigo-600 hover:underline hidden sm:inline">Certificate</button>
                       </div>
                     </TableCell>
                   </TableRow>

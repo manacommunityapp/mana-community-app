@@ -99,7 +99,7 @@ export function EventsFinance() {
       ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       {error && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
           <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
@@ -113,28 +113,28 @@ export function EventsFinance() {
       )}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {summary.map((s, i) => (
           <div
             key={s.label}
-            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)]`}
+            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)]`}
           >
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-3" style={{ background: s.bg }}>
-              <s.icon className="w-4 h-4" style={{ color: s.color }} />
+            <div className="w-6 h-6 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-2 sm:mb-3" style={{ background: s.bg }}>
+              <s.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" style={{ color: s.color }} />
             </div>
-            <p className="text-xl font-black" style={{ color: s.color }}>{s.value}</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">{s.label}</p>
+            <p className="text-base sm:text-xl font-black" style={{ color: s.color }}>{s.value}</p>
+            <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5 sm:mt-1">{s.label}</p>
           </div>
         ))}
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
         {/* Expense bar */}
-        <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-          <h3 className="font-bold text-slate-800 mb-1">Expenses by Category</h3>
-          <p className="text-xs text-slate-400 mb-4">In ₹</p>
-          <ResponsiveContainer width="100%" height={200}>
+        <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+          <h3 className="font-bold text-slate-800 mb-1 text-xs sm:text-base">Expenses by Category</h3>
+          <p className="text-xs text-slate-400 mb-2.5 sm:mb-4">In ₹</p>
+          <ResponsiveContainer width="100%" height={160}>
             <BarChart data={expenseData} barSize={18}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
               <XAxis dataKey="cat" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
@@ -147,8 +147,8 @@ export function EventsFinance() {
 
         {/* Income pie — mock only */}
         {useMock && (
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-            <h3 className="font-bold text-slate-800 mb-1">Income Sources</h3>
+          <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+            <h3 className="font-bold text-slate-800 mb-1 text-xs sm:text-base">Income Sources</h3>
             <p className="text-xs text-slate-400 mb-2">Total: ₹9,24,000</p>
             <ResponsiveContainer width="100%" height={160}>
               <PieChart>
@@ -171,15 +171,15 @@ export function EventsFinance() {
       </div>
 
       {/* Ledger */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
-        <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-50">
-          <h2 className="font-bold text-slate-800">Transaction Ledger</h2>
-          <div className="flex gap-2">
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">
-              <Download className="w-3.5 h-3.5" /> Export
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
+        <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50 flex-wrap gap-2">
+          <h2 className="font-bold text-slate-800 text-sm sm:text-base">Transaction Ledger</h2>
+          <div className="flex gap-1.5 sm:gap-2">
+            <button className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">
+              <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Export</span>
             </button>
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm">
-              <Plus className="w-3.5 h-3.5" /> Add Entry
+            <button className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm">
+              <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Add
             </button>
           </div>
         </div>
@@ -187,19 +187,19 @@ export function EventsFinance() {
           {ledger.map((txn, i) => (
             <div
               key={txn.id}
-              className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} flex items-center gap-4 px-6 py-4 hover:bg-slate-50/60 transition-colors`}
+              className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} flex items-center gap-2 sm:gap-4 px-3 sm:px-6 py-2 sm:py-4 hover:bg-slate-50/60 transition-colors`}
             >
-              <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${txn.type === "income" ? "bg-emerald-50" : "bg-rose-50"}`}>
+              <div className={`w-6 h-6 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${txn.type === "income" ? "bg-emerald-50" : "bg-rose-50"}`}>
                 {txn.type === "income"
-                  ? <TrendingUp className="w-4 h-4 text-emerald-600" />
-                  : <TrendingDown className="w-4 h-4 text-rose-500" />
+                  ? <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+                  : <TrendingDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-rose-500" />
                 }
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-800 truncate">{txn.desc}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{txn.cat} · {txn.date}</p>
+                <p className="text-xs sm:text-sm font-semibold text-slate-800 truncate">{txn.desc}</p>
+                <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">{txn.cat} · {txn.date}</p>
               </div>
-              <p className={`font-black text-base tabular-nums ${txn.amount > 0 ? "text-emerald-600" : "text-rose-500"}`}>
+              <p className={`font-black text-xs sm:text-base tabular-nums flex-shrink-0 ${txn.amount > 0 ? "text-emerald-600" : "text-rose-500"}`}>
                 {txn.amount > 0 ? "+" : ""}₹{Math.abs(txn.amount).toLocaleString()}
               </p>
             </div>

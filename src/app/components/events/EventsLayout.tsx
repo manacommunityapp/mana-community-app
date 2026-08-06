@@ -7,6 +7,7 @@ import {
 import { useAuth } from "../../../contexts/AuthContext";
 import { VIEW_EVENTS, REGISTER_EVENT } from "../../../constants/permissions";
 import { EventMockProvider, useEventMock } from "./EventMockToggle";
+import { CreateEventButton } from "./EventsCreate";
 
 const navItems = [
   { to: "/events",              label: "Dashboard",       icon: LayoutDashboard, end: true  },
@@ -21,15 +22,18 @@ const navItems = [
 function DataModeToggle() {
   const { useMock, toggle } = useEventMock();
   return (
-    <button onClick={toggle}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all border"
+    <button
+      onClick={toggle}
+      title={useMock ? "Click to switch to Live API mode" : "Click to switch to Mock Data mode"}
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all border cursor-pointer select-none shadow-2xs hover:shadow-xs"
       style={{
         background: useMock ? "#fef3c7" : "#ecfdf5",
         color: useMock ? "#92400e" : "#065f46",
         borderColor: useMock ? "#fcd34d" : "#6ee7b7",
-      }}>
-      {useMock ? <Database className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5" />}
-      {useMock ? "Mock Data" : "Live API"}
+      }}
+    >
+      {useMock ? <Database className="w-3.5 h-3.5" /> : <Wifi className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />}
+      <span>{useMock ? "Mock Data" : "Live API"}</span>
     </button>
   );
 }
@@ -48,38 +52,39 @@ function EventsLayoutInner() {
   });
 
   return (
-    <div className="flex flex-col gap-4 h-full min-h-0">
-      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
-        <div className="flex items-center gap-2 text-xs" style={{ color: "#6b7094" }}>
+    <div className="flex flex-col gap-2 sm:gap-4 h-full min-h-0">
+      <div className="shrink-0 flex items-center justify-between gap-2 sm:gap-3 border-b border-slate-100 pb-2 sm:pb-3 min-w-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs shrink-0" style={{ color: "#6b7094" }}>
           <span>Home</span>
-          <ChevronRight className="h-3 w-3" />
+          <ChevronRight className="h-3 w-3 shrink-0" />
           <span style={{ color: "#4f46e5" }}>Events</span>
           {activeItem && activeItem.label !== "Dashboard" && (
             <>
-              <ChevronRight className="h-3 w-3" />
+              <ChevronRight className="h-3 w-3 shrink-0" />
               <span style={{ color: "#4f46e5" }}>{activeItem.label}</span>
             </>
           )}
         </div>
-        <div className="flex items-center gap-3 sm:text-right sm:justify-end">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 text-right justify-end shrink-0 ml-auto">
           <DataModeToggle />
-          <div className="text-left sm:text-right">
-            <h2 className="text-xl font-bold leading-tight" style={{ color: "#0d0d2b" }}>Event Management</h2>
-            <p className="text-xs" style={{ color: "#6b7094" }}>
+          <CreateEventButton />
+          <div className="text-right min-w-0 hidden xs:block sm:block">
+            <h2 className="text-xs sm:text-xl font-bold leading-tight truncate" style={{ color: "#0d0d2b" }}>Event Management</h2>
+            <p className="text-xs hidden sm:block" style={{ color: "#6b7094" }}>
               Planning, Registration, Finance & more
             </p>
           </div>
           <div
-            className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 order-first sm:order-last"
+            className="h-6 w-6 sm:h-9 sm:w-9 rounded-md sm:rounded-xl flex items-center justify-center flex-shrink-0 order-last"
             style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
           >
-            <CalendarDays className="h-4.5 w-4.5 text-white" />
+            <CalendarDays className="h-3 w-3 sm:h-4.5 sm:w-4.5 text-white" />
           </div>
         </div>
       </div>
 
       <div
-        className="rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto shrink-0 hide-scrollbar"
+        className="rounded-lg sm:rounded-xl p-0.5 sm:p-1.5 flex items-center gap-0.5 sm:gap-1 overflow-x-auto shrink-0 hide-scrollbar"
         style={{
           background: "white",
           border: "1px solid rgba(99, 102, 241, 0.12)",
@@ -90,7 +95,7 @@ function EventsLayoutInner() {
           <NavLink key={to} to={to} end={end} className="flex-shrink-0">
             {({ isActive }) => (
               <div
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer"
+                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[10px] sm:text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer"
                 style={
                   isActive
                     ? {
@@ -113,7 +118,7 @@ function EventsLayoutInner() {
                   }
                 }}
               >
-                <Icon className="w-4 h-4 flex-shrink-0" />
+                <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                 {label}
               </div>
             )}

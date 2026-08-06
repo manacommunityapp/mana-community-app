@@ -95,7 +95,7 @@ export function EventsReports() {
   const radarData = useMock ? mockRadarData : (report ? buildRadarData(report) : []);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       {error && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
           <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
@@ -121,19 +121,19 @@ export function EventsReports() {
       )}
 
       {/* Report cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {reportCards.map((r, i) => (
           <div key={r.title}
-            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.05)] hover:shadow-lg transition-shadow group`}>
+            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.05)] hover:shadow-lg transition-shadow group`}>
             <div className="flex items-start justify-between mb-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: r.bg }}>
-                <r.icon className="w-5 h-5" style={{ color: r.color }} />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center" style={{ background: r.bg }}>
+                <r.icon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: r.color }} />
               </div>
               {r.pages > 0 && <span className="text-[10px] font-bold text-slate-400">{r.pages} pages</span>}
             </div>
             <p className="font-bold text-slate-800">{r.title}</p>
             <p className="text-xs text-slate-500 mt-1 mb-4">{r.desc}</p>
-            <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 transition-all">
+            <button className="w-full flex items-center justify-center gap-2 py-2 sm:py-2.5 rounded-xl text-sm font-semibold border border-slate-200 text-slate-600 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600 transition-all">
               <Download className="w-3.5 h-3.5" /> Download PDF
             </button>
           </div>
@@ -141,12 +141,12 @@ export function EventsReports() {
       </div>
 
       {/* Analytics charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
 
         {/* Attendance trend — mock only */}
         {useMock && (
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-            <h3 className="font-bold text-slate-800 mb-1">Attendance Trend</h3>
+          <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+            <h3 className="font-bold text-slate-800 mb-1 text-xs sm:text-base">Attendance Trend</h3>
             <p className="text-xs text-slate-400 mb-5">Footfall across all 3 event days</p>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={attendanceTrend}>
@@ -168,8 +168,8 @@ export function EventsReports() {
 
         {/* Radar – overall event scorecard */}
         {radarData.length > 0 && (
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-            <h3 className="font-bold text-slate-800 mb-1">Event Scorecard</h3>
+          <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+            <h3 className="font-bold text-slate-800 mb-1 text-xs sm:text-base">Event Scorecard</h3>
             <p className="text-xs text-slate-400 mb-2">Overall performance across modules</p>
             <ResponsiveContainer width="100%" height={220}>
               <RadarChart data={radarData}>
@@ -184,18 +184,18 @@ export function EventsReports() {
       </div>
 
       {/* Quick export */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-        <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h3 className="font-bold text-slate-800">Generate Complete Event Report</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Export all modules into a single consolidated PDF report</p>
+            <h3 className="font-bold text-slate-800 text-sm sm:text-base">Generate Complete Event Report</h3>
+            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">Export all modules into a single consolidated PDF report</p>
           </div>
-          <div className="flex gap-3">
-            <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
-              <FileText className="w-4 h-4" /> Preview
+          <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
+            <button className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Preview
             </button>
-            <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 transition-all shadow-sm">
-              <Download className="w-4 h-4" /> Export Full Report
+            <button className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 transition-all shadow-sm">
+              <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Export
             </button>
           </div>
         </div>
