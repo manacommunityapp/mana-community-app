@@ -13,6 +13,7 @@ import { FloatingChat } from "../../chat/FloatingChat";
 import { FloatingChatBot } from "../../chat/FloatingChatBot";
 import { ChatProvider } from "../../../../contexts/ChatContext";
 import { NotificationBell } from "./NotificationBell";
+import { MobileHeaderActions } from "./MobileFloatingActions";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -508,6 +509,7 @@ export function Layout() {
           <div className="flex-1 hidden lg:block" />
 
           <div className="flex items-center gap-1.5 sm:gap-3 ml-auto">
+            <MobileHeaderActions />
             <NotificationBell />
 
             {/* Profile badge */}

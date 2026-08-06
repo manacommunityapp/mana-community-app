@@ -117,7 +117,7 @@ export function EventsRegistration() {
       ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       {error && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
           <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
@@ -143,10 +143,10 @@ export function EventsRegistration() {
       )}
 
       {/* Stats strip */}
-      <div className={`grid gap-3 sm:gap-4 ${useMock ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" : "grid-cols-2 sm:grid-cols-4"}`}>
+      <div className={`grid gap-2 sm:gap-4 ${useMock ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" : "grid-cols-2 sm:grid-cols-4"}`}>
         {catStats.map((s) => (
-          <div key={s.label} className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
-            <p className="text-xl sm:text-2xl font-black tabular-nums" style={{ color: s.color }}>{s.value.toLocaleString()}</p>
+          <div key={s.label} className="bg-white rounded-2xl p-2.5 sm:p-4 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
+            <p className="text-lg sm:text-2xl font-black tabular-nums" style={{ color: s.color }}>{s.value.toLocaleString()}</p>
             <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5">{s.label}</p>
           </div>
         ))}
@@ -155,7 +155,7 @@ export function EventsRegistration() {
       {/* Table card */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
         {/* Toolbar */}
-        <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-slate-50 space-y-3 sm:space-y-4">
+        <div className="px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50 space-y-3 sm:space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3">
             <h2 className="font-bold text-slate-800">Registrant List</h2>
             <div className="flex gap-1.5 sm:gap-2">
@@ -213,22 +213,22 @@ export function EventsRegistration() {
                 const ss = statusStyle[r.status] ?? statusStyle.Pending;
                 return (
                   <TableRow key={r.id} className="animate-fade-in-up hover:bg-slate-50/60 transition-colors">
-                    <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5 font-mono text-xs text-slate-400 hidden sm:table-cell">{r.id}</TableCell>
-                    <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5 font-semibold text-slate-800 text-xs sm:text-sm">{r.name}</TableCell>
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 font-mono text-xs text-slate-400 hidden sm:table-cell">{r.id}</TableCell>
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 font-semibold text-slate-800 text-xs sm:text-sm">{r.name}</TableCell>
                     {useMock && (
-                      <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5">
+                      <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
                         <span className="px-2 sm:px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600">{r.category}</span>
                       </TableCell>
                     )}
-                    {useMock && <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5 text-slate-600 font-medium tabular-nums hidden sm:table-cell">{r.tickets}</TableCell>}
-                    {useMock && <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5 font-bold text-slate-800 tabular-nums">{r.amount}</TableCell>}
-                    <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5">
+                    {useMock && <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 text-slate-600 font-medium tabular-nums hidden sm:table-cell">{r.tickets}</TableCell>}
+                    {useMock && <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 font-bold text-slate-800 tabular-nums">{r.amount}</TableCell>}
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
                       <span className={`flex items-center gap-1.5 w-fit px-2 sm:px-2.5 py-1 rounded-full text-[10px] font-bold ${ss.bg} ${ss.text}`}>
                         <ss.icon className="w-3 h-3" /> {r.status}
                       </span>
                     </TableCell>
-                    <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5 text-xs text-slate-400 hidden sm:table-cell">{r.time}</TableCell>
-                    <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5">
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 text-xs text-slate-400 hidden sm:table-cell">{r.time}</TableCell>
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
                       <div className="flex items-center gap-2">
                         <button className="text-xs font-semibold text-indigo-600 hover:underline">View</button>
                         {!useMock && r.status === "Pending" && (
@@ -246,7 +246,7 @@ export function EventsRegistration() {
             </TableBody>
           </Table>
         </div>
-        <div className="px-6 py-4 border-t border-slate-50 text-xs text-slate-400">
+        <div className="px-3 sm:px-6 py-3 sm:py-4 border-t border-slate-50 text-xs text-slate-400">
           Showing {filtered.length} of {registrants.length} registrants
         </div>
       </div>

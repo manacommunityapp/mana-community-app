@@ -82,7 +82,7 @@ export function EventsPlanning() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
 
       {error && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
@@ -97,8 +97,8 @@ export function EventsPlanning() {
       )}
 
       {/* Timeline milestones */}
-      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-        <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2">
+      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+        <div className="flex items-center justify-between mb-3 sm:mb-6 gap-2">
           <div>
             <h2 className="font-bold text-slate-800 text-sm sm:text-base">Event Timeline</h2>
             <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">Milestones for Ganesh Chaturthi 2026</p>
@@ -122,16 +122,16 @@ export function EventsPlanning() {
             <div key={m.id} className="flex flex-col items-center flex-shrink-0" style={{ minWidth: 80 }}>
               <div className="flex items-center w-full">
                 <div className="flex-1 h-0.5" style={{ background: i === 0 ? "transparent" : m.done ? "#4f46e5" : "#e2e8f0" }} />
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 z-10 flex-shrink-0
+                <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border-2 z-10 flex-shrink-0
                   ${m.done ? "bg-indigo-600 border-indigo-600" : "bg-white border-slate-200"}`}>
                   {m.done
-                    ? <CheckCircle2 className="w-4 h-4 text-white" />
-                    : <Circle className="w-4 h-4 text-slate-300" />
+                    ? <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                    : <Circle className="w-3 h-3 sm:w-4 sm:h-4 text-slate-300" />
                   }
                 </div>
                 <div className="flex-1 h-0.5" style={{ background: i === milestones.length - 1 ? "transparent" : m.done ? "#4f46e5" : "#e2e8f0" }} />
               </div>
-              <p className="text-[10px] font-semibold text-center mt-1.5 leading-tight px-1"
+              <p className="text-[8px] sm:text-[10px] font-semibold text-center mt-1.5 leading-tight px-1"
                 style={{ color: m.done ? "#4f46e5" : "#94a3b8" }}>
                 {m.label}
               </p>
@@ -142,8 +142,8 @@ export function EventsPlanning() {
       </div>
 
       {/* Task management */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
-        <div className="flex items-center justify-between px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-slate-50 flex-wrap gap-3">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
+        <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-6 pb-2.5 sm:pb-4 border-b border-slate-50 flex-wrap gap-1.5 sm:gap-3">
           <div>
             <h2 className="font-bold text-slate-800 text-sm sm:text-base">Task Board</h2>
             <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">{taskList.filter(t => !t.done).length} open · {taskList.filter(t => t.done).length} done</p>
@@ -151,12 +151,12 @@ export function EventsPlanning() {
           <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto hide-scrollbar flex-wrap">
             {phases.map(p => (
               <button key={p} onClick={() => setFilter(p)}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-[10px] sm:text-xs font-semibold transition-all whitespace-nowrap
+                className={`px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-semibold transition-all whitespace-nowrap
                   ${filter === p ? "bg-indigo-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"}`}>
                 {p}
               </button>
             ))}
-            <button className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[10px] sm:text-xs font-semibold bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 transition-all whitespace-nowrap">
+            <button className="flex items-center gap-1.5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-semibold bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 transition-all whitespace-nowrap">
               <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Add Task
             </button>
           </div>
@@ -167,11 +167,11 @@ export function EventsPlanning() {
             const pc = priorityColor[task.priority] || priorityColor.medium;
             return (
               <div key={task.id}
-                className="flex items-start sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 hover:bg-slate-50/60 transition-colors animate-fade-in-up">
+                className="flex items-start sm:items-center gap-2 sm:gap-4 px-3 sm:px-6 py-2 sm:py-4 hover:bg-slate-50/60 transition-colors animate-fade-in-up">
                 <button onClick={() => toggle(task.id)} className="flex-shrink-0 mt-0.5 sm:mt-0">
                   {task.done
-                    ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                    : <Circle className="w-5 h-5 text-slate-300 hover:text-indigo-400 transition-colors" />
+                    ? <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
+                    : <Circle className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 hover:text-indigo-400 transition-colors" />
                   }
                 </button>
                 <div className="flex-1 min-w-0">

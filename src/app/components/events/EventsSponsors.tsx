@@ -80,7 +80,7 @@ export function EventsSponsors() {
   const pct = Math.round(totalCollected / totalTarget * 100);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       {error && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
           <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
@@ -94,22 +94,22 @@ export function EventsSponsors() {
       )}
 
       {/* Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {[
           { label: "Total Sponsors",  value: sponsors.length,                                                   color: "#6366f1" },
           { label: "Amount Collected",value: useMock ? "₹12.4L" : formatAmount(totalCollected),                 color: "#10b981" },
           { label: "Pending",         value: useMock ? "₹2.75L" : `${sponsors.filter(s => s.status === "Pending").length}`,  color: "#f59e0b" },
           { label: "Target Met",      value: `${pct}%`,                                                        color: "#4f46e5" },
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-2xl p-3.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
-            <p className="text-xl sm:text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
+          <div key={s.label} className="bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
+            <p className="text-lg sm:text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
             <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5 sm:mt-1">{s.label}</p>
           </div>
         ))}
       </div>
 
       {/* Collection progress */}
-      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+      <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
         <div className="flex items-center justify-between mb-3 sm:mb-4 gap-2">
           <h2 className="font-bold text-slate-800 text-sm sm:text-base">Sponsorship Collection</h2>
           <span className="text-xs sm:text-sm font-black text-indigo-600 flex-shrink-0">{formatAmount(totalCollected)} / {formatAmount(totalTarget)}</span>
@@ -123,8 +123,8 @@ export function EventsSponsors() {
         {useMock && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-4">
             {packages.map((pkg) => (
-              <div key={pkg.name} className="text-center p-2.5 sm:p-3 rounded-xl" style={{ background: pkg.bg }}>
-                <p className="font-black text-base sm:text-lg" style={{ color: pkg.color }}>{pkg.count}</p>
+              <div key={pkg.name} className="text-center p-2 sm:p-3 rounded-xl" style={{ background: pkg.bg }}>
+                <p className="font-black text-sm sm:text-lg" style={{ color: pkg.color }}>{pkg.count}</p>
                 <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wide mt-0.5" style={{ color: pkg.color }}>{pkg.name}</p>
               </div>
             ))}
@@ -133,17 +133,17 @@ export function EventsSponsors() {
       </div>
 
       {/* Packages */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {packages.map((pkg) => (
           <div key={pkg.name}
-            className="animate-fade-in-up bg-white rounded-2xl p-5 border shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:shadow-lg transition-shadow"
+            className="animate-fade-in-up bg-white rounded-2xl p-3 sm:p-5 border shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:shadow-lg transition-shadow"
             style={{ borderColor: `${pkg.color}25` }}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: pkg.bg }}>
-              <Gem className="w-5 h-5" style={{ color: pkg.color }} />
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: pkg.bg }}>
+              <Gem className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: pkg.color }} />
             </div>
-            <p className="font-black text-slate-900 text-lg">{pkg.name}</p>
+            <p className="font-black text-slate-900 text-sm sm:text-lg">{pkg.name}</p>
             <p className="font-bold mt-0.5" style={{ color: pkg.color }}>{pkg.price}</p>
-            <ul className="mt-4 space-y-1.5">
+            <ul className="mt-2.5 sm:mt-4 space-y-1.5">
               {pkg.perks.map(perk => (
                 <li key={perk} className="flex items-start gap-2 text-xs text-slate-600">
                   <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: pkg.color }} />
@@ -157,7 +157,7 @@ export function EventsSponsors() {
 
       {/* Sponsors table */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
-        <div className="flex items-center justify-between px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-slate-50">
+        <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50">
           <h2 className="font-bold text-slate-800 text-sm sm:text-base">Sponsors</h2>
           <button className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 transition-all shadow-sm">
             <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Add Sponsor
@@ -169,8 +169,8 @@ export function EventsSponsors() {
             const pc = pkgColor[s.package] ?? pkgColor.Bronze;
             return (
               <div key={s.name}
-                className="animate-fade-in-up flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 hover:bg-slate-50/60 transition-colors">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-[10px] sm:text-xs font-black flex-shrink-0 shadow-sm">
+                className="animate-fade-in-up flex items-center gap-2 sm:gap-4 px-3 sm:px-6 py-2 sm:py-4 hover:bg-slate-50/60 transition-colors">
+                <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-white text-[10px] sm:text-xs font-black flex-shrink-0 shadow-sm">
                   {s.logo}
                 </div>
                 <div className="flex-1 min-w-0">

@@ -97,7 +97,7 @@ export function EventsGallery() {
   const totalItems = albums.reduce((a, al) => a + al.count, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       {error && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
           <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
@@ -146,11 +146,11 @@ export function EventsGallery() {
       </div>
 
       {view === "albums" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
           {albums.map((album, i) => (
             <div key={album.id}
               className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:shadow-lg transition-shadow group cursor-pointer`}>
-              <div className="relative h-44 overflow-hidden">
+              <div className="relative h-32 sm:h-44 overflow-hidden">
                 {album.cover ? (
                   <GalleryImage src={album.cover} alt={album.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                 ) : (
@@ -172,15 +172,15 @@ export function EventsGallery() {
             </div>
           ))}
           {/* Upload album card */}
-          <button className="min-h-[220px] border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group">
-            <div className="w-12 h-12 rounded-xl bg-slate-100 group-hover:bg-indigo-100 flex items-center justify-center transition-all">
+          <button className="min-h-[160px] sm:min-h-[220px] border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-3 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-slate-100 group-hover:bg-indigo-100 flex items-center justify-center transition-all">
               <ImageIcon className="w-6 h-6 text-slate-400 group-hover:text-indigo-500" />
             </div>
             <p className="text-sm font-bold text-slate-600 group-hover:text-indigo-600 transition-colors">New Album</p>
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
           {photos.map((photo, i) => (
             <div key={photo.id}
               className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} relative rounded-xl overflow-hidden group cursor-pointer bg-slate-100 aspect-square`}>

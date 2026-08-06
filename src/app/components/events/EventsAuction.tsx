@@ -44,18 +44,18 @@ export function EventsAuction() {
   const totalRevenue = liveItems.reduce((a, i) => a + i.currentBid, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       <NoBackendBanner feature="Auction" />
       {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {[
           { label: "Live Items",    value: liveItems.length,              color: "#ef4444" },
           { label: "Total Revenue", value: `₹${(totalRevenue/1000).toFixed(1)}K`, color: "#10b981" },
           { label: "Active Bidders",value: 28,                            color: "#6366f1" },
           { label: "Total Bids",    value: auctionItems.reduce((a,i) => a+i.bids, 0), color: "#4f46e5" },
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-2xl p-3.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
-            <p className="text-xl sm:text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
+          <div key={s.label} className="bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
+            <p className="text-lg sm:text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
             <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5 sm:mt-1">{s.label}</p>
           </div>
         ))}
@@ -71,8 +71,8 @@ export function EventsAuction() {
             return (
               <div key={item.id}
                 className="animate-fade-in-up bg-white rounded-2xl border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.05)] overflow-hidden">
-                <div className="flex items-start sm:items-center gap-3 sm:gap-4 p-4 sm:p-5">
-                  <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl bg-indigo-50 flex items-center justify-center text-xl sm:text-2xl flex-shrink-0">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4 p-3 sm:p-5">
+                  <div className="w-9 h-9 sm:w-14 sm:h-14 rounded-xl bg-indigo-50 flex items-center justify-center text-base sm:text-2xl flex-shrink-0">
                     {item.image}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -100,7 +100,7 @@ export function EventsAuction() {
                       </div>
                       {item.status === "live" && (
                         <button onClick={() => setBidItem(isOpen ? null : item.id)}
-                          className="ml-auto flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 transition-all shadow-sm">
+                          className="ml-auto flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-1 sm:py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 transition-all shadow-sm">
                           <Gavel className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Bid
                         </button>
                       )}
@@ -144,8 +144,8 @@ export function EventsAuction() {
             <div className="divide-y divide-slate-50">
               {bidHistory.map((b, i) => (
                 <div key={i}
-                  className="animate-fade-in-up flex items-center gap-3 px-5 py-3">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-300 flex items-center justify-center text-white text-[10px] font-black flex-shrink-0">
+                  className="animate-fade-in-up flex items-center gap-3 px-3 sm:px-5 py-2 sm:py-3">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-indigo-400 to-violet-300 flex items-center justify-center text-white text-[10px] font-black flex-shrink-0">
                     {b.bidder[0]}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -165,8 +165,8 @@ export function EventsAuction() {
             </div>
             <div className="divide-y divide-slate-50">
               {leaderboard.map((l) => (
-                <div key={l.rank} className="flex items-center gap-3 px-5 py-3">
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0
+                <div key={l.rank} className="flex items-center gap-3 px-3 sm:px-5 py-2 sm:py-3">
+                  <span className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0
                     ${l.rank === 1 ? "bg-amber-400 text-white" : l.rank === 2 ? "bg-slate-300 text-slate-700" : l.rank === 3 ? "bg-indigo-300 text-white" : "bg-slate-100 text-slate-500"}`}>
                     {l.rank}
                   </span>

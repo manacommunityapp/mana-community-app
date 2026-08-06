@@ -1193,17 +1193,17 @@ export function CreateEventDialog({ open, onOpenChange }: { open: boolean; onOpe
   );
 }
 
-/* ─── Standalone trigger button (for use anywhere) ─── */
 export function CreateEventButton({ className }: { className?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <button onClick={() => setOpen(true)}
         className={cn(
-          "flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm hover:shadow-md hover:from-indigo-700 hover:to-violet-600 transition-all",
+          "flex items-center justify-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-500 text-white shadow-xs hover:shadow-sm hover:from-indigo-700 hover:to-violet-600 active:scale-[0.98] transition-all cursor-pointer whitespace-nowrap shrink-0",
           className
         )}>
-        <PlusCircle className="w-4 h-4" /> Create Event
+        <PlusCircle className="w-3.5 h-3.5 text-indigo-100 shrink-0" />
+        <span>Create Event</span>
       </button>
       <CreateEventDialog open={open} onOpenChange={setOpen} />
     </>

@@ -30,10 +30,10 @@ const statusDot: Record<string, string> = {
 
 export function EventsVenue() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-3 sm:space-y-6">
       <NoBackendBanner feature="Venue Management" />
       {/* Zone occupancy overview */}
-      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+      <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
         <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2">
           <div>
             <h2 className="font-bold text-slate-800 text-sm sm:text-base">Venue Zone Occupancy</h2>
@@ -44,21 +44,21 @@ export function EventsVenue() {
             Live
           </span>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
           {zones.map((zone) => {
             const pct = Math.round((zone.occupied / zone.capacity) * 100);
             const barColor = pct >= 90 ? "#ef4444" : pct >= 70 ? "#f59e0b" : zone.color;
             return (
               <div key={zone.id}
-                className="animate-fade-in-up p-4 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-white hover:shadow-md transition-all">
+                className="animate-fade-in-up p-3 sm:p-4 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-white hover:shadow-md transition-all">
                 <div className="flex items-center justify-between mb-2">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-black flex-shrink-0"
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-white text-[10px] sm:text-xs font-black flex-shrink-0"
                     style={{ background: zone.color }}>
                     {zone.id}
                   </div>
                   <span className="text-xs font-black tabular-nums" style={{ color: barColor }}>{pct}%</span>
                 </div>
-                <p className="font-bold text-slate-800 text-sm">{zone.name}</p>
+                <p className="font-bold text-slate-800 text-xs sm:text-sm">{zone.name}</p>
                 <p className="text-[10px] text-slate-400 mt-0.5">{zone.type}</p>
                 <div className="mt-3 space-y-1.5">
                   <div className="flex justify-between text-[10px] font-semibold">
@@ -76,7 +76,7 @@ export function EventsVenue() {
       </div>
 
       {/* Venue map placeholder */}
-      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+      <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
         <h2 className="font-bold text-slate-800 mb-4 text-sm sm:text-base">Venue Layout Map</h2>
         <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/60 flex items-center justify-center"
           style={{ minHeight: 200 }}>
@@ -84,7 +84,7 @@ export function EventsVenue() {
             {zones.slice(0, 6).map(z => (
               <div key={z.id} className="rounded-xl p-3 text-center flex flex-col items-center justify-center gap-1"
                 style={{ background: `${z.color}18`, border: `1.5px solid ${z.color}30`, minHeight: 70 }}>
-                <span className="text-lg font-black" style={{ color: z.color }}>{z.id}</span>
+                <span className="text-sm sm:text-lg font-black" style={{ color: z.color }}>{z.id}</span>
                 <p className="text-[9px] font-bold text-slate-600">{z.name}</p>
                 <p className="text-[9px] text-slate-400">{Math.round(z.occupied/z.capacity*100)}%</p>
               </div>
@@ -95,18 +95,18 @@ export function EventsVenue() {
       </div>
 
       {/* Facilities status */}
-      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+      <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
         <h2 className="font-bold text-slate-800 mb-4 sm:mb-5 text-sm sm:text-base">Facility Status</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {facilities.map((f) => (
             <div key={f.name}
-              className="animate-fade-in-up flex items-center gap-4 p-4 rounded-xl bg-slate-50/60 border border-slate-100 hover:bg-white hover:shadow-sm transition-all">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${f.status === "ok" ? "bg-emerald-50" : "bg-amber-50"}`}>
-                <f.icon className={`w-5 h-5 ${f.status === "ok" ? "text-emerald-600" : "text-amber-600"}`} />
+              className="animate-fade-in-up flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl bg-slate-50/60 border border-slate-100 hover:bg-white hover:shadow-sm transition-all">
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${f.status === "ok" ? "bg-emerald-50" : "bg-amber-50"}`}>
+                <f.icon className={`w-4 h-4 sm:w-5 sm:h-5 ${f.status === "ok" ? "text-emerald-600" : "text-amber-600"}`} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <p className="text-sm font-bold text-slate-800">{f.name}</p>
+                  <p className="text-xs sm:text-sm font-bold text-slate-800">{f.name}</p>
                   <span className={`w-2 h-2 rounded-full ${statusDot[f.status]}`} />
                 </div>
                 <p className="text-[10px] text-slate-400 mt-0.5">{f.note}</p>
