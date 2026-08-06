@@ -474,6 +474,16 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
     update("ticketTypes", data.ticketTypes.map(t => t.id === id ? { ...t, [field]: value } : t));
 
   const totalSeats = data.ticketTypes.reduce((s, t) => s + (parseInt(t.qty) || 0), 0);
+  const isDeadlineInvalid = Boolean(
+    data.registrationEnabled &&
+    data.registrationDeadline &&
+    data.startDate &&
+    new Date(data.registrationDeadline) >= new Date(data.startDate)
+  );
+
+  const maxDeadlineDate = data.startDate
+    ? new Date(new Date(data.startDate).getTime() - 86400000).toISOString().split("T")[0]
+    : undefined;
 
   return (
     <div className="space-y-4 sm:space-y-7">
@@ -486,8 +496,25 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
         <div className="space-y-6 animate-fade-in-up">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <FieldLabel>Registration Deadline</FieldLabel>
-              <Input type="date" value={data.registrationDeadline} onChange={e => update("registrationDeadline", e.target.value)} className={INPUT_CLS} />
+              <FieldLabel hint={data.startDate ? `Must be before ${data.startDate}` : undefined}>
+                Registration Deadline
+              </FieldLabel>
+              <Input
+                type="date"
+                value={data.registrationDeadline}
+                max={maxDeadlineDate}
+                onChange={e => update("registrationDeadline", e.target.value)}
+                className={cn(
+                  INPUT_CLS,
+                  isDeadlineInvalid && "border-rose-500 focus-visible:ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+                )}
+              />
+              {isDeadlineInvalid && (
+                <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  Registration deadline must be before the event start date ({data.startDate}).
+                </p>
+              )}
             </div>
             <div className="flex items-end pb-1">
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 border border-indigo-100">
@@ -863,6 +890,9 @@ function Step6Review({ data }: { data: FormData }) {
   if (!data.eventType) warnings.push("Please select an event type.");
   if (!data.startDate) warnings.push("Start date is required.");
   if (!data.venueName) warnings.push("Venue name is required.");
+  if (data.registrationEnabled && data.registrationDeadline && data.startDate && new Date(data.registrationDeadline) >= new Date(data.startDate)) {
+    warnings.push(`Registration deadline (${data.registrationDeadline}) must be before the event start date (${data.startDate}).`);
+  }
 
   const reviewSections = [
     {
@@ -1001,7 +1031,27 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
   const update = (key: keyof FormData, value: any) =>
     setFormData(prev => ({ ...prev, [key]: value }));
 
+  const isDeadlineInvalid = Boolean(
+    formData.registrationEnabled &&
+    formData.registrationDeadline &&
+    formData.startDate &&
+    new Date(formData.registrationDeadline) >= new Date(formData.startDate)
+  );
+
+  const handleNext = () => {
+    if (step === 3 && isDeadlineInvalid) {
+      setPublishError(`Registration deadline must be before the event start date (${formData.startDate}).`);
+      return;
+    }
+    setPublishError("");
+    setStep(s => Math.min(STEPS.length, s + 1));
+  };
+
   const handlePublish = async () => {
+    if (isDeadlineInvalid) {
+      setPublishError(`Registration deadline must be before the event start date (${formData.startDate}).`);
+      return;
+    }
     if (!useMock) {
       setPublishing(true);
       setPublishError("");
@@ -1154,7 +1204,7 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
         </div>
 
         {step < STEPS.length ? (
-          <button onClick={() => setStep(s => Math.min(STEPS.length, s + 1))}
+          <button onClick={handleNext}
             className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm hover:shadow-md hover:from-indigo-700 hover:to-violet-600 transition-all">
             Next <ArrowRight className="w-4 h-4" />
           </button>
