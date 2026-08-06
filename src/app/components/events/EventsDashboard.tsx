@@ -167,12 +167,11 @@ export function EventsDashboard() {
       const t = e.type ? e.type.charAt(0).toUpperCase() + e.type.slice(1) : "Other";
       typeMap[t] = (typeMap[t] || 0) + (e.attendees ?? 1);
     });
-    const pie = Object.entries(typeMap).map(([name, value], i) => ({
+    return Object.entries(typeMap).map(([name, value], i) => ({
       name,
       value,
       color: pieColors[i % pieColors.length],
     }));
-    return pie.length > 0 ? pie : categoryPie;
   })();
 
   const displayBudgetData = useMock ? budgetData : (() => {
@@ -181,22 +180,18 @@ export function EventsDashboard() {
       const cat = exp.category || "General";
       catSpent[cat] = (catSpent[cat] || 0) + Math.round((exp.amount ?? 0) / 1000);
     });
-    const chart = Object.entries(catSpent).map(([cat, spent]) => ({
+    return Object.entries(catSpent).map(([cat, spent]) => ({
       cat,
       budget: Math.round(spent * 1.2),
       spent,
     }));
-    return chart.length > 0 ? chart : budgetData;
   })();
 
-  const displayPendingTasks = useMock ? pendingTasks : (() => {
-    const pending = liveTasks.filter(t => !t.done).map(t => ({
-      task: t.title,
-      priority: (t.priority?.toLowerCase() ?? "medium") as "high" | "medium" | "low",
-      due: t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) : "Soon",
-    }));
-    return pending.length > 0 ? pending : pendingTasks;
-  })();
+  const displayPendingTasks = useMock ? pendingTasks : liveTasks.filter(t => !t.done).map(t => ({
+    task: t.title,
+    priority: (t.priority?.toLowerCase() ?? "medium") as "high" | "medium" | "low",
+    due: t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) : "Soon",
+  }));
 
   return (
     <div className="space-y-3 sm:space-y-6">
@@ -270,32 +265,33 @@ export function EventsDashboard() {
 
         {/* Category pie */}
         <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="font-bold text-slate-800 text-xs sm:text-base">Registration Breakdown</h3>
-            <span className="text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-600">
-              {displayCategoryPie.reduce((s, c) => s + c.value, 0).toLocaleString("en-IN")} total
-            </span>
-          </div>
-          <p className="text-xs text-slate-400 mb-4">
-            {useMock ? "By category" : `${displayCategoryPie.length} categories active`}
-          </p>
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={displayCategoryPie} cx="50%" cy="50%" innerRadius={50} outerRadius={75}
-                dataKey="value" paddingAngle={3}>
-                {displayCategoryPie.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-              </Pie>
-              <Tooltip formatter={(v) => [`${v} registrations`]} contentStyle={{ borderRadius: 10, border: "none", fontSize: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-2">
-            {displayCategoryPie.map((c) => (
-              <div key={c.name} className="flex items-center gap-1.5 text-xs text-slate-600">
-                <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
-                {c.name}
+          <h3 className="font-bold text-slate-800 mb-1 text-xs sm:text-base">Registration Breakdown</h3>
+          <p className="text-xs text-slate-400 mb-4">By category</p>
+          {displayCategoryPie.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-slate-400 text-xs">
+              <span>No live category data</span>
+            </div>
+          ) : (
+            <>
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={displayCategoryPie} cx="50%" cy="50%" innerRadius={50} outerRadius={75}
+                    dataKey="value" paddingAngle={3}>
+                    {displayCategoryPie.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(v) => [`${v} registrations`]} contentStyle={{ borderRadius: 10, border: "none", fontSize: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-2">
+                {displayCategoryPie.map((c) => (
+                  <div key={c.name} className="flex items-center gap-1.5 text-xs text-slate-600">
+                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                    {c.name}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -304,25 +300,29 @@ export function EventsDashboard() {
         <div className="flex items-center justify-between mb-3 sm:mb-5">
           <div>
             <h3 className="font-bold text-slate-800 text-xs sm:text-base">Budget vs Expenses</h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {useMock ? "In ₹ thousands" : `₹${(totalSpent/1000).toFixed(1)}k spent of ₹${(totalBudget/1000).toFixed(1)}k budget (${budgetUtilPct}% utilized)`}
-            </p>
+            <p className="text-xs text-slate-400 mt-0.5">In ₹ thousands</p>
           </div>
           <div className="flex items-center gap-4 text-xs font-semibold">
             <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded-full bg-indigo-200 inline-block" /> Budget</span>
             <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded-full bg-indigo-500 inline-block" /> Spent</span>
           </div>
         </div>
-        <ResponsiveContainer width="100%" height={180}>
-          <BarChart data={displayBudgetData} barGap={4} barSize={20}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-            <XAxis dataKey="cat" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ border: "none", borderRadius: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.1)", fontSize: 12 }} />
-            <Bar dataKey="budget" fill="#e0e7ff" radius={[6, 6, 0, 0]} />
-            <Bar dataKey="spent" fill="#4f46e5" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
+        {displayBudgetData.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-10 text-slate-400 text-xs">
+            <span>No live budget or expense data</span>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={displayBudgetData} barGap={4} barSize={20}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="cat" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ border: "none", borderRadius: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.1)", fontSize: 12 }} />
+              <Bar dataKey="budget" fill="#e0e7ff" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="spent" fill="#4f46e5" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* Upcoming events + Pending tasks */}
@@ -332,9 +332,7 @@ export function EventsDashboard() {
         <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
           <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4 border-b border-slate-50">
             <h3 className="font-bold text-slate-800 text-xs sm:text-base">Upcoming Events</h3>
-            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-600">
-              {displayEvents.length} events
-            </span>
+            <button className="text-indigo-600 text-xs font-semibold hover:underline">View all</button>
           </div>
           <div className="divide-y divide-slate-50">
             {displayEvents.map((ev) => (
@@ -363,26 +361,34 @@ export function EventsDashboard() {
         <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
           <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-50">
             <h3 className="font-bold text-slate-800">Pending Tasks</h3>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
-                {displayPendingTasks.length} pending
-              </span>
-              {displayPendingTasks.filter(t => t.priority === "high").length > 0 && (
-                <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-50 text-rose-600">
-                  {displayPendingTasks.filter(t => t.priority === "high").length} urgent
-                </span>
-              )}
-            </div>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-50 text-rose-600">
+              {displayPendingTasks.filter(t => t.priority === "high").length} urgent
+            </span>
           </div>
-          <div className="divide-y divide-slate-50">
-            {displayPendingTasks.map((t, i) => {
-              const s = priorityStyle[t.priority] ?? priorityStyle.medium;
-              return (
-                <div key={i} className="flex items-start sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 hover:bg-slate-50/60 transition-colors">
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 sm:mt-0 ${s.dot}`} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-slate-700 font-medium">{t.task}</p>
-                    <div className="flex items-center gap-2 mt-1 sm:hidden">
+          {displayPendingTasks.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-slate-400 text-xs">
+              <CheckCircle2 className="w-6 h-6 text-emerald-500 mb-1" />
+              <span>No pending tasks found</span>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-50">
+              {displayPendingTasks.map((t, i) => {
+                const s = priorityStyle[t.priority] ?? priorityStyle.medium;
+                return (
+                  <div key={i} className="flex items-start sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 hover:bg-slate-50/60 transition-colors">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 sm:mt-0 ${s.dot}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-700 font-medium">{t.task}</p>
+                      <div className="flex items-center gap-2 mt-1 sm:hidden">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
+                          {t.priority}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> {t.due}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
                         {t.priority}
                       </span>
@@ -391,18 +397,10 @@ export function EventsDashboard() {
                       </span>
                     </div>
                   </div>
-                  <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
-                      {t.priority}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {t.due}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
