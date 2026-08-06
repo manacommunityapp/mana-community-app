@@ -119,10 +119,10 @@ export function EventsDashboard() {
     <div className="space-y-6">
 
       {/* Header with Create Event button */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-slate-900">Events Dashboard</h1>
-          <p className="text-sm text-slate-400 mt-0.5">Overview of all community events</p>
+          <h1 className="text-xl sm:text-2xl font-black text-slate-900">Events Dashboard</h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">Overview of all community events</p>
         </div>
         <CreateEventButton />
       </div>
@@ -140,22 +140,22 @@ export function EventsDashboard() {
       )}
 
       {/* KPI grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {displayKpis.map((kpi, i) => (
           <div
             key={kpi.label}
-            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] transition-shadow`}
+            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-3.5 sm:p-5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] transition-shadow`}
           >
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{ background: kpi.bg }}>
-                <kpi.icon className="w-4 h-4" style={{ color: kpi.color }} />
+                <kpi.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" style={{ color: kpi.color }} />
               </div>
-              <ArrowUpRight className="w-3.5 h-3.5 text-slate-300" />
+              <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-300" />
             </div>
-            <p className="text-2xl font-black text-slate-900 tabular-nums">{kpi.value}</p>
-            <p className="text-xs font-medium text-slate-500 mt-0.5">{kpi.label}</p>
-            <p className="text-[10px] font-semibold mt-2 px-2 py-0.5 rounded-full w-fit"
+            <p className="text-xl sm:text-2xl font-black text-slate-900 tabular-nums">{kpi.value}</p>
+            <p className="text-[10px] sm:text-xs font-medium text-slate-500 mt-0.5">{kpi.label}</p>
+            <p className="text-[9px] sm:text-[10px] font-semibold mt-1.5 sm:mt-2 px-2 py-0.5 rounded-full w-fit"
               style={{ background: kpi.bg, color: kpi.color }}>
               {kpi.trend}
             </p>
@@ -284,10 +284,20 @@ export function EventsDashboard() {
             {pendingTasks.map((t, i) => {
               const s = priorityStyle[t.priority];
               return (
-                <div key={i} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/60 transition-colors">
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${s.dot}`} />
-                  <p className="flex-1 text-sm text-slate-700 font-medium">{t.task}</p>
-                  <div className="flex items-center gap-2 flex-shrink-0">
+                <div key={i} className="flex items-start sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 hover:bg-slate-50/60 transition-colors">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 sm:mt-0 ${s.dot}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-slate-700 font-medium">{t.task}</p>
+                    <div className="flex items-center gap-2 mt-1 sm:hidden">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
+                        {t.priority}
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {t.due}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
                       {t.priority}
                     </span>

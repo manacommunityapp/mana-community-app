@@ -550,8 +550,8 @@ export function EventsUserRegistration() {
     <div className="max-w-2xl mx-auto">
 
       {/* Event hero */}
-      <div className="rounded-2xl overflow-hidden mb-7 shadow-[0_4px_20px_rgba(99,102,241,0.2)]">
-        <div className="px-8 py-8 text-white relative overflow-hidden"
+      <div className="rounded-2xl overflow-hidden mb-5 sm:mb-7 shadow-[0_4px_20px_rgba(99,102,241,0.2)]">
+        <div className="px-5 py-5 sm:px-8 sm:py-8 text-white relative overflow-hidden"
           style={{ background: EVENT.coverGradient }}>
           <div className="absolute inset-0">
             {[...Array(5)].map((_, i) => (
@@ -561,39 +561,39 @@ export function EventsUserRegistration() {
             ))}
           </div>
           <div className="relative">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-2 sm:mb-3">
               <span className="px-2.5 py-1 rounded-full bg-white/20 text-[10px] font-black uppercase tracking-wider text-white/90">
                 Open Registration
               </span>
             </div>
-            <h1 className="text-xl font-black leading-tight mb-3">{EVENT.title}</h1>
-            <div className="flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/80">
-              <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" />{EVENT.date}</span>
-              <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />{EVENT.time}</span>
-              <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" />{EVENT.venue}</span>
+            <h1 className="text-lg sm:text-xl font-black leading-tight mb-2 sm:mb-3">{EVENT.title}</h1>
+            <div className="flex flex-col sm:flex-row flex-wrap gap-x-5 gap-y-1 sm:gap-y-2 text-[11px] sm:text-xs text-white/80">
+              <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 flex-shrink-0" />{EVENT.date}</span>
+              <span className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 flex-shrink-0" />{EVENT.time}</span>
+              <span className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 flex-shrink-0" /><span className="truncate">{EVENT.venue}</span></span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Step indicator */}
-      <div className="flex items-center justify-between mb-6 px-1">
+      <div className="flex items-center justify-between mb-4 sm:mb-6 px-0 sm:px-1">
         {STEPS.map((s, i) => {
           const done = step > s.id || isRegistered;
           const active = step === s.id && !isRegistered;
           return (
-            <div key={s.id} className="flex items-center gap-2 flex-1">
-              <div className="flex flex-col items-center gap-1">
+            <div key={s.id} className="flex items-center gap-1 sm:gap-2 flex-1">
+              <div className="flex flex-col items-center gap-0.5 sm:gap-1">
                 <div className={cn(
-                  "w-8 h-8 rounded-full flex items-center justify-center text-xs font-black border-2 transition-all",
+                  "w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-black border-2 transition-all",
                   done ? "bg-emerald-500 border-emerald-500 text-white"
                   : active ? "bg-indigo-500 border-indigo-500 text-white"
                   : "bg-white border-slate-200 text-slate-400"
                 )}>
-                  {done ? <CheckCircle2 className="w-4 h-4" /> : s.id}
+                  {done ? <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : s.id}
                 </div>
                 <span className={cn(
-                  "text-[9px] font-bold whitespace-nowrap",
+                  "text-[8px] sm:text-[9px] font-bold whitespace-nowrap",
                   active ? "text-indigo-600" : done ? "text-emerald-600" : "text-slate-400"
                 )}>
                   {s.label}
@@ -621,7 +621,7 @@ export function EventsUserRegistration() {
           )}
         </div>
 
-        <div className="px-7 py-6">
+        <div className="px-4 sm:px-7 py-4 sm:py-6">
           <div key={isRegistered ? "done" : step} className="animate-fade-in-up">
             {isRegistered
               ? <Step4Confirm form={form} />
@@ -630,32 +630,32 @@ export function EventsUserRegistration() {
         </div>
 
         {!isRegistered && (
-          <div className="px-7 py-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+          <div className="px-4 sm:px-7 py-4 sm:py-5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2">
             <Button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1}
               variant="outline"
               className={cn(
-                "flex items-center gap-2 px-4 py-2.5 h-auto rounded-xl text-sm font-semibold transition-all",
+                "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 h-auto rounded-xl text-xs sm:text-sm font-semibold transition-all",
                 step === 1 ? "text-slate-300 cursor-not-allowed" : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
               )}>
-              <ChevronLeft className="w-4 h-4" /> Back
+              <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Back
             </Button>
 
             {step < STEPS.length ? (
               <Button onClick={() => setStep(s => s + 1)} disabled={!canNext()}
                 className={cn(
-                  "flex items-center gap-2 px-6 py-2.5 h-auto rounded-xl text-sm font-bold transition-all",
+                  "flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2 sm:py-2.5 h-auto rounded-xl text-xs sm:text-sm font-bold transition-all",
                   canNext()
                     ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm hover:from-indigo-600 hover:to-violet-600"
                     : "bg-slate-200 text-slate-400 cursor-not-allowed"
                 )}>
-                Next <ChevronRight className="w-4 h-4" />
+                Next <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </Button>
             ) : (
-              <div className="flex items-center gap-3">
-                {regError && <span className="text-xs text-rose-600 font-medium">{regError}</span>}
+              <div className="flex items-center gap-2 sm:gap-3">
+                {regError && <span className="text-[10px] sm:text-xs text-rose-600 font-medium">{regError}</span>}
                 <Button onClick={handleConfirm} disabled={registering}
-                  className="flex items-center gap-2 px-6 py-2.5 h-auto rounded-xl text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-60">
-                  {registering ? <><Loader2 className="w-4 h-4 animate-spin" /> Registering…</> : <>Confirm Registration <ArrowRight className="w-4 h-4" /></>}
+                  className="flex items-center gap-1.5 sm:gap-2 px-4 sm:px-6 py-2 sm:py-2.5 h-auto rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-60">
+                  {registering ? <><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> Registering…</> : <>Confirm <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" /></>}
                 </Button>
               </div>
             )}

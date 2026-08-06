@@ -48,8 +48,8 @@ function EventsLayoutInner() {
   });
 
   return (
-    <div className="flex flex-col gap-4 h-full min-h-0">
-      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
+    <div className="flex flex-col gap-3 sm:gap-4 h-full min-h-0">
+      <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 border-b border-slate-100 pb-3">
         <div className="flex items-center gap-2 text-xs" style={{ color: "#6b7094" }}>
           <span>Home</span>
           <ChevronRight className="h-3 w-3" />
@@ -61,11 +61,11 @@ function EventsLayoutInner() {
             </>
           )}
         </div>
-        <div className="flex items-center gap-3 sm:text-right sm:justify-end">
+        <div className="flex items-center gap-2 sm:gap-3 sm:text-right sm:justify-end">
           <DataModeToggle />
-          <div className="text-left sm:text-right">
-            <h2 className="text-xl font-bold leading-tight" style={{ color: "#0d0d2b" }}>Event Management</h2>
-            <p className="text-xs" style={{ color: "#6b7094" }}>
+          <div className="text-left sm:text-right min-w-0">
+            <h2 className="text-lg sm:text-xl font-bold leading-tight truncate" style={{ color: "#0d0d2b" }}>Event Management</h2>
+            <p className="text-xs hidden sm:block" style={{ color: "#6b7094" }}>
               Planning, Registration, Finance & more
             </p>
           </div>
@@ -79,7 +79,7 @@ function EventsLayoutInner() {
       </div>
 
       <div
-        className="rounded-xl p-1.5 flex items-center gap-1 overflow-x-auto shrink-0 hide-scrollbar"
+        className="rounded-xl p-1 sm:p-1.5 flex items-center gap-0.5 sm:gap-1 overflow-x-auto shrink-0 hide-scrollbar"
         style={{
           background: "white",
           border: "1px solid rgba(99, 102, 241, 0.12)",
@@ -90,7 +90,7 @@ function EventsLayoutInner() {
           <NavLink key={to} to={to} end={end} className="flex-shrink-0">
             {({ isActive }) => (
               <div
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer"
+                className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer"
                 style={
                   isActive
                     ? {

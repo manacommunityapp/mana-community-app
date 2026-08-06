@@ -143,11 +143,11 @@ export function EventsRegistration() {
       )}
 
       {/* Stats strip */}
-      <div className={`grid gap-4 ${useMock ? "grid-cols-3 sm:grid-cols-6" : "grid-cols-2 sm:grid-cols-4"}`}>
+      <div className={`grid gap-3 sm:gap-4 ${useMock ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" : "grid-cols-2 sm:grid-cols-4"}`}>
         {catStats.map((s) => (
-          <div key={s.label} className="bg-white rounded-2xl p-4 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
-            <p className="text-2xl font-black tabular-nums" style={{ color: s.color }}>{s.value.toLocaleString()}</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5">{s.label}</p>
+          <div key={s.label} className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
+            <p className="text-xl sm:text-2xl font-black tabular-nums" style={{ color: s.color }}>{s.value.toLocaleString()}</p>
+            <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5">{s.label}</p>
           </div>
         ))}
       </div>
@@ -155,18 +155,18 @@ export function EventsRegistration() {
       {/* Table card */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
         {/* Toolbar */}
-        <div className="px-6 pt-5 pb-4 border-b border-slate-50 space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="px-4 sm:px-6 pt-4 sm:pt-5 pb-3 sm:pb-4 border-b border-slate-50 space-y-3 sm:space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3">
             <h2 className="font-bold text-slate-800">Registrant List</h2>
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 h-auto">
-                <Download className="w-3.5 h-3.5" /> Export
+            <div className="flex gap-1.5 sm:gap-2">
+              <Button variant="ghost" size="sm" className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 h-auto">
+                <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Export</span>
               </Button>
-              <Button variant="ghost" size="sm" className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 h-auto">
+              <Button variant="ghost" size="sm" className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 h-auto">
                 <QrCode className="w-3.5 h-3.5" /> Print Passes
               </Button>
-              <Button size="sm" className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm h-auto">
-                <Plus className="w-3.5 h-3.5" /> Add Registrant
+              <Button size="sm" className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 shadow-sm h-auto">
+                <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Add
               </Button>
             </div>
           </div>
@@ -202,7 +202,9 @@ export function EventsRegistration() {
             <TableHeader>
               <TableRow className="bg-slate-50/80 border-b border-slate-100 hover:bg-slate-50/80">
                 {["ID", "Name", useMock ? "Category" : null, useMock ? "Tickets" : null, useMock ? "Amount" : null, "Status", "Time", "Actions"].filter(Boolean).map(h => (
-                  <TableHead key={h!} className="px-6 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap h-auto">{h}</TableHead>
+                  <TableHead key={h!} className={`px-3 sm:px-6 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap h-auto ${
+                    (h === "ID" || h === "Time" || h === "Tickets") ? "hidden sm:table-cell" : ""
+                  }`}>{h}</TableHead>
                 ))}
               </TableRow>
             </TableHeader>
@@ -211,22 +213,22 @@ export function EventsRegistration() {
                 const ss = statusStyle[r.status] ?? statusStyle.Pending;
                 return (
                   <TableRow key={r.id} className="animate-fade-in-up hover:bg-slate-50/60 transition-colors">
-                    <TableCell className="px-6 py-3.5 font-mono text-xs text-slate-400">{r.id}</TableCell>
-                    <TableCell className="px-6 py-3.5 font-semibold text-slate-800">{r.name}</TableCell>
+                    <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5 font-mono text-xs text-slate-400 hidden sm:table-cell">{r.id}</TableCell>
+                    <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5 font-semibold text-slate-800 text-xs sm:text-sm">{r.name}</TableCell>
                     {useMock && (
-                      <TableCell className="px-6 py-3.5">
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600">{r.category}</span>
+                      <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5">
+                        <span className="px-2 sm:px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600">{r.category}</span>
                       </TableCell>
                     )}
-                    {useMock && <TableCell className="px-6 py-3.5 text-slate-600 font-medium tabular-nums">{r.tickets}</TableCell>}
-                    {useMock && <TableCell className="px-6 py-3.5 font-bold text-slate-800 tabular-nums">{r.amount}</TableCell>}
-                    <TableCell className="px-6 py-3.5">
-                      <span className={`flex items-center gap-1.5 w-fit px-2.5 py-1 rounded-full text-[10px] font-bold ${ss.bg} ${ss.text}`}>
+                    {useMock && <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5 text-slate-600 font-medium tabular-nums hidden sm:table-cell">{r.tickets}</TableCell>}
+                    {useMock && <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5 font-bold text-slate-800 tabular-nums">{r.amount}</TableCell>}
+                    <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5">
+                      <span className={`flex items-center gap-1.5 w-fit px-2 sm:px-2.5 py-1 rounded-full text-[10px] font-bold ${ss.bg} ${ss.text}`}>
                         <ss.icon className="w-3 h-3" /> {r.status}
                       </span>
                     </TableCell>
-                    <TableCell className="px-6 py-3.5 text-xs text-slate-400">{r.time}</TableCell>
-                    <TableCell className="px-6 py-3.5">
+                    <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5 text-xs text-slate-400 hidden sm:table-cell">{r.time}</TableCell>
+                    <TableCell className="px-3 sm:px-6 py-3 sm:py-3.5">
                       <div className="flex items-center gap-2">
                         <button className="text-xs font-semibold text-indigo-600 hover:underline">View</button>
                         {!useMock && r.status === "Pending" && (
@@ -235,7 +237,7 @@ export function EventsRegistration() {
                             <button onClick={() => handleReject(r)} className="text-xs font-semibold text-rose-600 hover:underline">Reject</button>
                           </>
                         )}
-                        {useMock && <button className="text-xs font-semibold text-indigo-600 hover:underline">Pass</button>}
+                        {useMock && <button className="text-xs font-semibold text-indigo-600 hover:underline hidden sm:inline">Pass</button>}
                       </div>
                     </TableCell>
                   </TableRow>

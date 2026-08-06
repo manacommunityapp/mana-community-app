@@ -158,21 +158,21 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
 
       <div>
         <FieldLabel required>Event Type</FieldLabel>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
           {EVENT_TYPES.map(t => {
             const selected = data.eventType === t.value;
             return (
               <button key={t.value} onClick={() => update("eventType", t.value)}
                 className={cn(
-                  "flex flex-col items-center gap-2.5 p-4 rounded-xl border-2 text-center transition-all",
+                  "flex flex-col items-center gap-1.5 sm:gap-2.5 p-2.5 sm:p-4 rounded-xl border-2 text-center transition-all",
                   selected
                     ? "border-indigo-500 shadow-[0_2px_16px_rgba(99,102,241,0.2)] scale-[1.02]"
                     : "border-transparent bg-white hover:border-slate-200 hover:shadow-sm"
                 )}
                 style={{ background: selected ? t.bg : undefined }}>
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-transform"
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-transform"
                   style={{ background: selected ? `${t.color}25` : "#f1f5f9" }}>
-                  <t.icon className="w-5 h-5" style={{ color: t.color }} />
+                  <t.icon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: t.color }} />
                 </div>
                 <span className={cn("text-[11px] font-bold leading-tight", selected ? "text-slate-800" : "text-slate-500")}>
                   {t.label}
@@ -192,7 +192,7 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
 
       <div>
         <FieldLabel>Visibility</FieldLabel>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
           {([
             { value: "public",    label: "Public",      icon: Globe,    desc: "Anyone can view & register", color: "#059669" },
             { value: "community", label: "Community",   icon: Building2, desc: "Members only",               color: "#4f46e5" },
@@ -202,17 +202,19 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
             return (
               <button key={opt.value} onClick={() => update("visibility", opt.value)}
                 className={cn(
-                  "p-4 rounded-xl border-2 text-left transition-all group",
+                  "p-3 sm:p-4 rounded-xl border-2 text-left transition-all group flex sm:flex-col items-center sm:items-start gap-3 sm:gap-0",
                   selected
                     ? "border-indigo-400 bg-indigo-50/60 shadow-sm"
                     : "border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm"
                 )}>
-                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center mb-3 transition-colors",
+                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center sm:mb-3 transition-colors flex-shrink-0",
                   selected ? "bg-indigo-100" : "bg-slate-100 group-hover:bg-slate-50")}>
                   <opt.icon className="w-4 h-4" style={{ color: selected ? opt.color : "#94a3b8" }} />
                 </div>
-                <p className={cn("text-sm font-bold", selected ? "text-indigo-700" : "text-slate-700")}>{opt.label}</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">{opt.desc}</p>
+                <div>
+                  <p className={cn("text-sm font-bold", selected ? "text-indigo-700" : "text-slate-700")}>{opt.label}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{opt.desc}</p>
+                </div>
               </button>
             );
           })}
@@ -663,7 +665,7 @@ function Step4Budget({ data, update }: { data: FormData; update: (k: keyof FormD
         </div>
         <div className="space-y-2.5">
           {data.budgetItems.map((item) => (
-            <div key={item.id} className="flex items-center gap-3 animate-fade-in-up group">
+            <div key={item.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 animate-fade-in-up group">
               <Select value={item.category} onValueChange={v => updateItem(item.id, "category", v)}>
                 <SelectTrigger className="flex-1 h-auto px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus-visible:border-indigo-400">
                   <SelectValue placeholder="Select category…" />
@@ -672,7 +674,7 @@ function Step4Budget({ data, update }: { data: FormData; update: (k: keyof FormD
                   {BUDGET_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <div className="w-40 relative">
+              <div className="w-full sm:w-40 relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">₹</span>
                 <Input value={item.amount} onChange={e => updateItem(item.id, "amount", e.target.value)}
                   type="number" placeholder="Amount" className={cn(INPUT_CLS, "pl-8")} />

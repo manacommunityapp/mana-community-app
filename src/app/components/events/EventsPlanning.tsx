@@ -97,19 +97,19 @@ export function EventsPlanning() {
       )}
 
       {/* Timeline milestones */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+        <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2">
           <div>
-            <h2 className="font-bold text-slate-800">Event Timeline</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Milestones for Ganesh Chaturthi 2026</p>
+            <h2 className="font-bold text-slate-800 text-sm sm:text-base">Event Timeline</h2>
+            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">Milestones for Ganesh Chaturthi 2026</p>
           </div>
-          <span className="text-xs font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-600">
+          <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1 rounded-full bg-indigo-50 text-indigo-600 flex-shrink-0">
             {milestones.filter(m => m.done).length} / {milestones.length} complete
           </span>
         </div>
 
         {/* Progress bar */}
-        <div className="h-2 bg-slate-100 rounded-full mb-6 overflow-hidden">
+        <div className="h-2 bg-slate-100 rounded-full mb-4 sm:mb-6 overflow-hidden">
           <div
             className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-violet-500 animate-fade-in-up"
             style={{ width: `${(milestones.filter(m => m.done).length / milestones.length) * 100}%` }}
@@ -117,9 +117,9 @@ export function EventsPlanning() {
         </div>
 
         {/* Scrollable milestone strip */}
-        <div className="flex items-start gap-0 overflow-x-auto pb-2">
+        <div className="flex items-start gap-0 overflow-x-auto pb-2 hide-scrollbar">
           {milestones.map((m, i) => (
-            <div key={m.id} className="flex flex-col items-center flex-shrink-0" style={{ minWidth: 96 }}>
+            <div key={m.id} className="flex flex-col items-center flex-shrink-0" style={{ minWidth: 80 }}>
               <div className="flex items-center w-full">
                 <div className="flex-1 h-0.5" style={{ background: i === 0 ? "transparent" : m.done ? "#4f46e5" : "#e2e8f0" }} />
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 z-10 flex-shrink-0
@@ -143,21 +143,21 @@ export function EventsPlanning() {
 
       {/* Task management */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-50 flex-wrap gap-3">
+        <div className="flex items-center justify-between px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-slate-50 flex-wrap gap-3">
           <div>
-            <h2 className="font-bold text-slate-800">Task Board</h2>
-            <p className="text-xs text-slate-400 mt-0.5">{taskList.filter(t => !t.done).length} open · {taskList.filter(t => t.done).length} done</p>
+            <h2 className="font-bold text-slate-800 text-sm sm:text-base">Task Board</h2>
+            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">{taskList.filter(t => !t.done).length} open · {taskList.filter(t => t.done).length} done</p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto hide-scrollbar flex-wrap">
             {phases.map(p => (
               <button key={p} onClick={() => setFilter(p)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-[10px] sm:text-xs font-semibold transition-all whitespace-nowrap
                   ${filter === p ? "bg-indigo-600 text-white shadow-sm" : "bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"}`}>
                 {p}
               </button>
             ))}
-            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 transition-all">
-              <Plus className="w-3.5 h-3.5" /> Add Task
+            <button className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-[10px] sm:text-xs font-semibold bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 transition-all whitespace-nowrap">
+              <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Add Task
             </button>
           </div>
         </div>
@@ -167,21 +167,25 @@ export function EventsPlanning() {
             const pc = priorityColor[task.priority] || priorityColor.medium;
             return (
               <div key={task.id}
-                className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/60 transition-colors animate-fade-in-up">
-                <button onClick={() => toggle(task.id)} className="flex-shrink-0">
+                className="flex items-start sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 hover:bg-slate-50/60 transition-colors animate-fade-in-up">
+                <button onClick={() => toggle(task.id)} className="flex-shrink-0 mt-0.5 sm:mt-0">
                   {task.done
                     ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
                     : <Circle className="w-5 h-5 text-slate-300 hover:text-indigo-400 transition-colors" />
                   }
                 </button>
                 <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-semibold ${task.done ? "line-through text-slate-400" : "text-slate-800"}`}>{task.title}</p>
-                  <div className="flex items-center gap-3 mt-1">
-                    <span className="text-xs text-slate-400">{task.phase}</span>
-                    <span className="text-xs text-slate-400">· {task.assignee}</span>
+                  <p className={`text-xs sm:text-sm font-semibold ${task.done ? "line-through text-slate-400" : "text-slate-800"}`}>{task.title}</p>
+                  <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
+                    <span className="text-[10px] sm:text-xs text-slate-400">{task.phase}</span>
+                    <span className="text-[10px] sm:text-xs text-slate-400">· {task.assignee}</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full sm:hidden ${pc.bg} ${pc.text}`}>{task.priority}</span>
+                    <span className="text-[10px] text-slate-400 flex items-center gap-1 sm:hidden">
+                      <Clock className="w-3 h-3" /> {task.due}
+                    </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${pc.bg} ${pc.text}`}>{task.priority}</span>
                   <span className="text-xs text-slate-400 flex items-center gap-1">
                     <Clock className="w-3 h-3" /> {task.due}

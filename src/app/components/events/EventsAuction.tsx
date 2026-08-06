@@ -47,16 +47,16 @@ export function EventsAuction() {
     <div className="space-y-6">
       <NoBackendBanner feature="Auction" />
       {/* KPIs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         {[
           { label: "Live Items",    value: liveItems.length,              color: "#ef4444" },
           { label: "Total Revenue", value: `₹${(totalRevenue/1000).toFixed(1)}K`, color: "#10b981" },
           { label: "Active Bidders",value: 28,                            color: "#6366f1" },
           { label: "Total Bids",    value: auctionItems.reduce((a,i) => a+i.bids, 0), color: "#4f46e5" },
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-2xl p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
-            <p className="text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-1">{s.label}</p>
+          <div key={s.label} className="bg-white rounded-2xl p-3.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
+            <p className="text-xl sm:text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
+            <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5 sm:mt-1">{s.label}</p>
           </div>
         ))}
       </div>
@@ -71,37 +71,37 @@ export function EventsAuction() {
             return (
               <div key={item.id}
                 className="animate-fade-in-up bg-white rounded-2xl border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.05)] overflow-hidden">
-                <div className="flex items-center gap-4 p-5">
-                  <div className="w-14 h-14 rounded-xl bg-indigo-50 flex items-center justify-center text-2xl flex-shrink-0">
+                <div className="flex items-start sm:items-center gap-3 sm:gap-4 p-4 sm:p-5">
+                  <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-xl bg-indigo-50 flex items-center justify-center text-xl sm:text-2xl flex-shrink-0">
                     {item.image}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 flex-wrap">
                       <div>
-                        <p className="font-bold text-slate-800">{item.name}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">{item.category} · {item.bids} bids · Leader: {item.leader}</p>
+                        <p className="font-bold text-slate-800 text-sm sm:text-base">{item.name}</p>
+                        <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">{item.category} · {item.bids} bids · Leader: {item.leader}</p>
                       </div>
-                      <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold flex-shrink-0 ${ss.bg} ${ss.text}`}>
+                      <span className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-[10px] font-bold flex-shrink-0 ${ss.bg} ${ss.text}`}>
                         <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${ss.dot}`} />
                         {ss.label}
                       </span>
                     </div>
-                    <div className="flex items-center gap-4 mt-3">
+                    <div className="flex items-center gap-3 sm:gap-4 mt-2 sm:mt-3 flex-wrap">
                       <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wide">Base</p>
-                        <p className="font-bold text-slate-600">₹{item.basePrice.toLocaleString()}</p>
+                        <p className="text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-wide">Base</p>
+                        <p className="font-bold text-slate-600 text-sm sm:text-base">₹{item.basePrice.toLocaleString()}</p>
                       </div>
                       <div className="h-8 w-px bg-slate-100" />
                       <div>
-                        <p className="text-[10px] text-slate-400 uppercase tracking-wide">Current Bid</p>
-                        <p className="font-black text-emerald-600 text-lg">
+                        <p className="text-[9px] sm:text-[10px] text-slate-400 uppercase tracking-wide">Current Bid</p>
+                        <p className="font-black text-emerald-600 text-base sm:text-lg">
                           {item.currentBid > 0 ? `₹${item.currentBid.toLocaleString()}` : "—"}
                         </p>
                       </div>
                       {item.status === "live" && (
                         <button onClick={() => setBidItem(isOpen ? null : item.id)}
-                          className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 transition-all shadow-sm">
-                          <Gavel className="w-4 h-4" /> Bid
+                          className="ml-auto flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-600 hover:to-violet-600 transition-all shadow-sm">
+                          <Gavel className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Bid
                         </button>
                       )}
                     </div>

@@ -33,11 +33,11 @@ export function EventsVenue() {
     <div className="space-y-6">
       <NoBackendBanner feature="Venue Management" />
       {/* Zone occupancy overview */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+        <div className="flex items-center justify-between mb-4 sm:mb-6 gap-2">
           <div>
-            <h2 className="font-bold text-slate-800">Venue Zone Occupancy</h2>
-            <p className="text-xs text-slate-400 mt-0.5">Real-time capacity tracking</p>
+            <h2 className="font-bold text-slate-800 text-sm sm:text-base">Venue Zone Occupancy</h2>
+            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">Real-time capacity tracking</p>
           </div>
           <span className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-600">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -76,11 +76,11 @@ export function EventsVenue() {
       </div>
 
       {/* Venue map placeholder */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-        <h2 className="font-bold text-slate-800 mb-4">Venue Layout Map</h2>
+      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+        <h2 className="font-bold text-slate-800 mb-4 text-sm sm:text-base">Venue Layout Map</h2>
         <div className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/60 flex items-center justify-center"
-          style={{ height: 280 }}>
-          <div className="grid grid-cols-3 gap-3 p-8 w-full">
+          style={{ minHeight: 200 }}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 p-4 sm:p-8 w-full">
             {zones.slice(0, 6).map(z => (
               <div key={z.id} className="rounded-xl p-3 text-center flex flex-col items-center justify-center gap-1"
                 style={{ background: `${z.color}18`, border: `1.5px solid ${z.color}30`, minHeight: 70 }}>
@@ -95,8 +95,8 @@ export function EventsVenue() {
       </div>
 
       {/* Facilities status */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-        <h2 className="font-bold text-slate-800 mb-5">Facility Status</h2>
+      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+        <h2 className="font-bold text-slate-800 mb-4 sm:mb-5 text-sm sm:text-base">Facility Status</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {facilities.map((f) => (
             <div key={f.name}

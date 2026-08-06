@@ -184,18 +184,18 @@ export function EventsReports() {
       </div>
 
       {/* Quick export */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-        <div className="flex items-center justify-between flex-wrap gap-4">
+      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
           <div>
-            <h3 className="font-bold text-slate-800">Generate Complete Event Report</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Export all modules into a single consolidated PDF report</p>
+            <h3 className="font-bold text-slate-800 text-sm sm:text-base">Generate Complete Event Report</h3>
+            <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">Export all modules into a single consolidated PDF report</p>
           </div>
-          <div className="flex gap-3">
-            <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
-              <FileText className="w-4 h-4" /> Preview
+          <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
+            <button className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-all">
+              <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Preview
             </button>
-            <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 transition-all shadow-sm">
-              <Download className="w-4 h-4" /> Export Full Report
+            <button className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 transition-all shadow-sm">
+              <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Export
             </button>
           </div>
         </div>

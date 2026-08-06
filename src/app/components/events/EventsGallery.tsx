@@ -123,24 +123,24 @@ export function EventsGallery() {
       )}
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-2 sm:gap-3">
         <div>
-          <h2 className="font-bold text-slate-800">Event Gallery</h2>
-          <p className="text-xs text-slate-400 mt-0.5">{totalItems} photos & videos across {albums.length} albums</p>
+          <h2 className="font-bold text-slate-800 text-sm sm:text-base">Event Gallery</h2>
+          <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">{totalItems} photos & videos across {albums.length} albums</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <div className="flex rounded-xl border border-slate-200 overflow-hidden">
             {(["albums", "grid"] as const).map(v => (
               <button key={v} onClick={() => setView(v)}
-                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-semibold transition-all capitalize
+                className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 text-[10px] sm:text-xs font-semibold transition-all capitalize
                   ${view === v ? "bg-indigo-500 text-white" : "bg-white text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"}`}>
-                {v === "albums" ? <List className="w-3.5 h-3.5" /> : <Grid3X3 className="w-3.5 h-3.5" />}
+                {v === "albums" ? <List className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Grid3X3 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
                 {v}
               </button>
             ))}
           </div>
-          <button className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 transition-all shadow-sm">
-            <Upload className="w-3.5 h-3.5" /> Upload
+          <button className="flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 transition-all shadow-sm">
+            <Upload className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Upload
           </button>
         </div>
       </div>
