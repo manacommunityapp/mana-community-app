@@ -4,7 +4,7 @@ import {
   Users, UserPlus, ArrowUpDown, AlertCircle, CreditCard, IndianRupee,
   QrCode, Smartphone, CreditCard as CardIcon, Building2,
   Shield, UserCheck, ThumbsUp, ThumbsDown, Eye, RotateCcw,
-  Languages, Globe, ChevronDown,
+  Languages, Globe, ChevronDown, Search,
   Palette, Image, Type, Paintbrush,
   BarChart3, TrendingUp, TrendingDown, PieChart, Activity, MousePointer,
   LayoutTemplate, Copy, Star, Sparkles, FileText, Download,

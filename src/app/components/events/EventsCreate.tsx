@@ -1567,7 +1567,7 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
 
       {/* Scrollable form content — flex-1 + min-h-0 forces height budget on mobile */}
       <div style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties} className="px-4 sm:px-8 py-4 sm:py-8">
-        <div key={step} className="animate-fade-in-up max-w-3xl mx-auto">
+        <div key={step} className="animate-fade-in-up max-w-5xl mx-auto">
           {stepComponents[step]}
         </div>
       </div>
@@ -1665,17 +1665,17 @@ export function CreateEventDialog({ open, onOpenChange }: { open: boolean; onOpe
             pointerEvents: "auto",
             background: "#fff",
             width: "100%",
-            maxWidth: "56rem",  /* max-w-4xl */
+            maxWidth: "72rem",  /* max-w-6xl */
             /* Mobile: full screen; tablet/desktop: bounded */
             height: "100dvh",
-            maxHeight: "100dvh",
+            maxHeight: "96dvh",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            boxShadow: "0 25px 60px rgba(0,0,0,0.18)",
+            boxShadow: "0 25px 80px rgba(0,0,0,0.22)",
             borderRadius: 0,
           }}
-          className="sm:rounded-3xl sm:h-[min(92vh,900px)] sm:max-h-[92vh] sm:m-4 md:m-6 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
+          className="sm:rounded-3xl sm:h-[min(96vh,980px)] sm:max-h-[96vh] sm:m-3 md:m-4 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
           onClick={e => e.stopPropagation()}
         >
           <EventCreateWizard

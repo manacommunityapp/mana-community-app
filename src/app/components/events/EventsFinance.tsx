@@ -27,10 +27,11 @@ const mockExpenseData = [
   { cat: "Security",  amount: 30000  },
   { cat: "Marketing", amount: 22000  },
   { cat: "Printing",  amount: 18000  },
-  { cat: "Others",    amount: 40000  },
-];
+const CATEGORIES = ["Venue", "Food", "Decor", "AV & Tech", "Security", "Marketing", "Printing", "Others"];
 
-const mockLedger = [
+type LedgerRow = { id: string; expenseId?: number; desc: string; type: string; amount: number; date: string; cat: string };
+
+const mockLedger: LedgerRow[] = [
   { id: "TXN-001", desc: "Stage Booking – Phoenix Events",    type: "expense", amount: -85000,  date: "Aug 2",  cat: "Venue"   },
   { id: "TXN-002", desc: "Sponsor Collection – TechCorp",     type: "income",  amount: 500000,  date: "Aug 1",  cat: "Sponsor" },
   { id: "TXN-003", desc: "Catering Advance – Sai Foods",      type: "expense", amount: -60000,  date: "Jul 31", cat: "Food"    },
@@ -39,10 +40,6 @@ const mockLedger = [
   { id: "TXN-006", desc: "Donations Received (UPI + Cash)",   type: "income",  amount: 175000,  date: "Jul 27", cat: "Donation" },
   { id: "TXN-007", desc: "Flex & Banner Printing",            type: "expense", amount: -18000,  date: "Jul 25", cat: "Marketing" },
 ];
-
-const CATEGORIES = ["Venue", "Food", "Decor", "AV & Tech", "Security", "Marketing", "Printing", "Others"];
-
-type LedgerRow = { id: string; expenseId?: number; desc: string; type: string; amount: number; date: string; cat: string };
 
 interface ExpenseFormState {
   eventId: string;

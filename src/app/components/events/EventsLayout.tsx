@@ -11,7 +11,7 @@ import { CreateEventButton } from "./EventsCreate";
 
 const navItems = [
   { to: "/events",              label: "Dashboard",       icon: LayoutDashboard, end: true  },
-  { to: "/events/schedule",     label: "Schedule",         icon: CalendarDays     },
+  { to: "/events/schedule",     label: "Events & Schedule", icon: CalendarDays     },
   { to: "/events/registration", label: "Registration",     icon: Ticket           },
   { to: "/events/people",       label: "People",           icon: Users            },
   { to: "/events/fundraising",  label: "Fundraising",      icon: HandHeart        },
