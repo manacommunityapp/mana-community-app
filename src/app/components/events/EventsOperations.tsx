@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { UtensilsCrossed, Landmark } from "lucide-react";
+import { UtensilsCrossed, Landmark, FileText } from "lucide-react";
 import { EventsFood } from "./EventsFood";
 import { EventsFinance } from "./EventsFinance";
+import { EventsInvoices } from "./EventsInvoices";
 
 const TABS = [
-  { id: "food",    label: "Food & Catering", icon: UtensilsCrossed },
-  { id: "finance", label: "Finance",         icon: Landmark        },
+  { id: "food",     label: "Food & Catering", icon: UtensilsCrossed },
+  { id: "finance",  label: "Finance",         icon: Landmark        },
+  { id: "invoices", label: "Invoices",        icon: FileText        },
 ] as const;
 
 export function EventsOperations() {
@@ -25,7 +27,7 @@ export function EventsOperations() {
           </button>
         ))}
       </div>
-      {tab === "food" ? <EventsFood /> : <EventsFinance />}
+      {tab === "food" ? <EventsFood /> : tab === "finance" ? <EventsFinance /> : <EventsInvoices />}
     </div>
   );
 }
