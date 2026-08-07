@@ -6,10 +6,21 @@ import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../../contexts/AuthContext";
 
 type LoginFormValues = {
-  email: string;
+  identifier: string;
   password: string;
   rememberMe: boolean;
 };
+
+function validateIdentifier(value: string): true | string {
+  const v = value.trim();
+  if (!v) return "Email or mobile number is required";
+  const isEmail = /^\S+@\S+\.\S+$/.test(v);
+  const isMobile = /^\d{10}$/.test(v);
+  if (!isEmail && !isMobile) {
+    return "Enter a valid email address or 10-digit mobile number";
+  }
+  return true;
+}
 
 function isNetworkError(err: unknown): boolean {
   if (err instanceof TypeError) {
@@ -34,7 +45,7 @@ export function Login() {
   const onSubmit = async (data: LoginFormValues) => {
     setServiceError(false);
     try {
-      await login({ email: data.email, password: data.password });
+      await login({ identifier: data.identifier.trim(), password: data.password });
       toast.success("Welcome back!");
       navigate("/");
     } catch (err) {
@@ -115,21 +126,20 @@ export function Login() {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-muted-foreground mb-2">
-                Email Address
+              <label htmlFor="identifier" className="block text-sm font-medium text-muted-foreground mb-2">
+                Email or Mobile Number
               </label>
               <input
-                id="email"
-                type="email"
-                {...register("email", {
-                  required: "Email is required",
-                  pattern: { value: /^\S+@\S+$/i, message: "Invalid email format" },
-                })}
+                id="identifier"
+                type="text"
+                inputMode="email"
+                autoComplete="username"
+                {...register("identifier", { validate: validateIdentifier })}
                 className="w-full px-4 py-3 bg-[var(--mana-bg-input)] border border-border rounded-lg placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
-                placeholder="you@example.com"
+                placeholder="Email or 10-digit mobile"
               />
-              {errors.email && (
-                <p className="text-destructive text-xs mt-1">{errors.email.message}</p>
+              {errors.identifier && (
+                <p className="text-destructive text-xs mt-1">{errors.identifier.message}</p>
               )}
             </div>
 
