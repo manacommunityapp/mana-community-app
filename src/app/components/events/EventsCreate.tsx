@@ -6,6 +6,7 @@ import {
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
   Zap, Star, ArrowRight, Trash2, PlusCircle, Link2,
+  Save, Bookmark,
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
@@ -1020,7 +1021,9 @@ function toEventRequest(data: FormData): EventRequest {
 function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCreated?: () => void }) {
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
+  const [submitType, setSubmitType] = useState<"published" | "draft">("published");
   const [publishing, setPublishing] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [publishError, setPublishError] = useState("");
 
   let useMock = true;
@@ -1047,40 +1050,69 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
     setStep(s => Math.min(STEPS.length, s + 1));
   };
 
+  const handleSaveDraft = async () => {
+    if (!formData.title.trim()) {
+      setPublishError("Please enter an event title before saving as draft.");
+      return;
+    }
+    setSavingDraft(true);
+    setPublishError("");
+    try {
+      if (!useMock) {
+        await eventService.create(toEventRequest(formData));
+      }
+      setSubmitType("draft");
+      setSubmitted(true);
+      onCreated?.();
+    } catch (e: any) {
+      setPublishError(e.message ?? "Failed to save draft");
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   const handlePublish = async () => {
+    if (!formData.title.trim()) {
+      setPublishError("Event title is required before publishing.");
+      return;
+    }
     if (isDeadlineInvalid) {
       setPublishError(`Registration deadline must be before the event start date (${formData.startDate}).`);
       return;
     }
-    if (!useMock) {
-      setPublishing(true);
-      setPublishError("");
-      try {
+    setPublishing(true);
+    setPublishError("");
+    try {
+      if (!useMock) {
         await eventService.create(toEventRequest(formData));
-        setSubmitted(true);
-        onCreated?.();
-      } catch (e: any) {
-        setPublishError(e.message ?? "Failed to create event");
-      } finally {
-        setPublishing(false);
       }
-    } else {
+      setSubmitType("published");
       setSubmitted(true);
       onCreated?.();
+    } catch (e: any) {
+      setPublishError(e.message ?? "Failed to publish event");
+    } finally {
+      setPublishing(false);
     }
   };
 
   if (submitted) {
+    const isDraft = submitType === "draft";
     return (
       <div className="max-w-lg mx-auto text-center py-10 sm:py-16 animate-fade-in-up">
-        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center mx-auto mb-8
-          shadow-[0_0_0_8px_rgba(16,185,129,0.08),0_0_0_16px_rgba(16,185,129,0.04)]">
-          <Check className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-500" />
+        <div className={cn(
+          "w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 flex items-center justify-center mx-auto mb-8 shadow-md",
+          isDraft
+            ? "bg-amber-50 border-amber-200 text-amber-500 shadow-[0_0_0_8px_rgba(245,158,11,0.08)]"
+            : "bg-emerald-50 border-emerald-200 text-emerald-500 shadow-[0_0_0_8px_rgba(16,185,129,0.08)]"
+        )}>
+          {isDraft ? <Bookmark className="w-10 h-10 sm:w-12 sm:h-12 text-amber-500" /> : <Check className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-500" />}
         </div>
-        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">Event Created!</h2>
+        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">
+          {isDraft ? "Event Saved as Draft!" : "Event Published!"}
+        </h2>
         <p className="text-slate-500 mb-10 max-w-sm mx-auto">
-          <span className="font-semibold text-slate-700">"{formData.title || "Your event"}"</span> has been created
-          and is now {formData.visibility === "public" ? "publicly visible" : "live for your community"}.
+          <span className="font-semibold text-slate-700">"{formData.title || "Your event"}"</span> has been {isDraft ? "saved as a draft. You can edit and publish it anytime." : `created and is now ${formData.visibility === "public" ? "publicly visible" : "live for your community"}.`}
         </p>
         <div className="flex gap-3 justify-center">
           <button onClick={() => { setSubmitted(false); setStep(1); setFormData({ ...INITIAL_FORM_DATA }); }}
@@ -1089,12 +1121,12 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
           </button>
           {onClose ? (
             <button onClick={onClose}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all">
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all">
               <Check className="w-4 h-4" /> Done
             </button>
           ) : (
-            <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all">
-              <Eye className="w-4 h-4" /> View Event
+            <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all">
+              <Eye className="w-4 h-4" /> View Events
             </button>
           )}
         </div>
@@ -1112,7 +1144,7 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0">
       {/* Sticky header with step progress */}
       <div className="flex-shrink-0 border-b border-slate-100">
         {/* Title bar */}
@@ -1178,7 +1210,7 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
       </div>
 
       {/* Scrollable form content */}
-      <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-8 py-4 sm:py-8">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y px-4 sm:px-8 py-4 sm:py-8" style={{ WebkitOverflowScrolling: "touch" }}>
         <div key={step} className="animate-fade-in-up max-w-3xl mx-auto">
           {stepComponents[step]}
         </div>
@@ -1204,15 +1236,27 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
         </div>
 
         {step < STEPS.length ? (
-          <button onClick={handleNext}
-            className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm hover:shadow-md hover:from-indigo-700 hover:to-violet-600 transition-all">
-            Next <ArrowRight className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button onClick={handleSaveDraft} disabled={savingDraft || publishing}
+              className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50">
+              <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+              <span>{savingDraft ? "Saving…" : "Save Draft"}</span>
+            </button>
+            <button onClick={handleNext}
+              className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm hover:shadow-md hover:from-indigo-700 hover:to-violet-600 transition-all">
+              Next <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         ) : (
-          <div className="flex items-center gap-3">
-            {publishError && <span className="text-xs text-rose-600 font-medium max-w-[200px] truncate">{publishError}</span>}
-            <button onClick={handlePublish} disabled={publishing}
-              className="flex items-center gap-2 px-5 sm:px-7 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-60">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {publishError && <span className="text-xs text-rose-600 font-medium max-w-[180px] sm:max-w-[240px] truncate">{publishError}</span>}
+            <button onClick={handleSaveDraft} disabled={savingDraft || publishing}
+              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-xs transition-all disabled:opacity-50">
+              <Bookmark className="w-4 h-4 text-amber-500" />
+              <span>{savingDraft ? "Saving…" : "Save Draft"}</span>
+            </button>
+            <button onClick={handlePublish} disabled={publishing || savingDraft}
+              className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-60">
               <Sparkles className="w-4 h-4" /> {publishing ? "Publishing…" : "Publish Event"}
             </button>
           </div>
@@ -1228,10 +1272,8 @@ export function CreateEventDialog({ open, onOpenChange }: { open: boolean; onOpe
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogPortal>
         <DialogOverlay className="bg-black/40 backdrop-blur-sm" />
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 pointer-events-none">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-[min(92vh,900px)] flex flex-col overflow-hidden animate-fade-in-up
-            border border-slate-200/60 ring-1 ring-black/5 pointer-events-auto"
-            onWheel={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 pointer-events-none">
+          <div className="bg-white rounded-none sm:rounded-3xl shadow-2xl w-full max-w-4xl h-[100dvh] sm:h-[min(92vh,900px)] max-h-[100dvh] flex flex-col min-h-0 overflow-hidden animate-fade-in-up border-0 sm:border border-slate-200/60 ring-1 ring-black/5 pointer-events-auto">
             <EventCreateWizard
               onClose={() => onOpenChange(false)}
               onCreated={() => {}}
