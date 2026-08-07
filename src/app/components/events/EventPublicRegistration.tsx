@@ -15,6 +15,7 @@ import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
 import { cn } from "../ui/utils";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
+import type { RegistrationFormConfig, FormField } from "./EventRegistrationFormBuilder";
 
 /* ─── Constants ─── */
 const GENDER_OPTIONS = ["Male", "Female", "Other", "Prefer not to say"] as const;
@@ -821,6 +822,128 @@ function Step5Review({ form, event }: { form: RegistrationForm; event: typeof MO
   );
 }
 
+/* ─── Dynamic Form Renderer ─── */
+function DynamicFormRenderer({
+  fields,
+  values,
+  onChange,
+}: {
+  fields: FormField[];
+  values: Record<string, any>;
+  onChange: (id: string, value: any) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-x-4 gap-y-4">
+        {fields.map(field => {
+          const widthCls = field.width === "half" ? "w-full sm:w-[calc(50%-8px)]" : "w-full";
+
+          if (field.type === "section") {
+            return (
+              <div key={field.id} className="w-full pt-3 first:pt-0">
+                <p className="text-sm font-bold text-indigo-600">{field.label}</p>
+                {field.description && <p className="text-[10px] text-slate-400 mt-0.5">{field.description}</p>}
+              </div>
+            );
+          }
+
+          if (field.type === "family_repeater") return null;
+
+          if (field.type === "checkbox") {
+            return (
+              <div key={field.id} className={cn(widthCls)}>
+                <label className="flex items-start gap-3 cursor-pointer group">
+                  <button
+                    onClick={() => onChange(field.id, !values[field.id])}
+                    className={cn(
+                      "w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all",
+                      values[field.id]
+                        ? "border-indigo-500 bg-indigo-500"
+                        : "border-slate-300 group-hover:border-indigo-300"
+                    )}
+                  >
+                    {values[field.id] && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                  </button>
+                  <span className="text-xs text-slate-600 leading-relaxed">
+                    {field.label}
+                    {field.required && <span className="text-rose-500 ml-0.5">*</span>}
+                  </span>
+                </label>
+              </div>
+            );
+          }
+
+          if (field.type === "radio") {
+            return (
+              <div key={field.id} className={cn(widthCls)}>
+                <Label className={LABEL_CLS}>
+                  {field.label}{field.required && <span className="text-rose-500 ml-0.5">*</span>}
+                </Label>
+                <div className="flex gap-2 flex-wrap">
+                  {field.options.map(opt => (
+                    <button
+                      key={opt}
+                      onClick={() => onChange(field.id, values[field.id] === opt ? "" : opt)}
+                      className={cn(
+                        "px-3 py-2 rounded-xl border text-xs font-semibold transition-all",
+                        values[field.id] === opt
+                          ? "border-indigo-400 bg-indigo-50 text-indigo-700"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:bg-indigo-50/30"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                {field.description && <p className="text-[10px] text-slate-400 mt-1">{field.description}</p>}
+              </div>
+            );
+          }
+
+          return (
+            <div key={field.id} className={cn(widthCls)}>
+              <Label className={LABEL_CLS}>
+                {field.label}{field.required && <span className="text-rose-500 ml-0.5">*</span>}
+              </Label>
+              {field.type === "textarea" ? (
+                <Textarea
+                  value={values[field.id] ?? ""}
+                  onChange={e => onChange(field.id, e.target.value)}
+                  placeholder={field.placeholder}
+                  className="w-full px-4 py-3 rounded-xl border-slate-200 bg-white text-sm text-slate-800 focus-visible:border-indigo-400 focus-visible:ring-indigo-50 min-h-[60px]"
+                  rows={2}
+                />
+              ) : field.type === "select" || field.type === "multiselect" ? (
+                <Select value={values[field.id] ?? ""} onValueChange={v => onChange(field.id, v)}>
+                  <SelectTrigger className={INPUT_CLS}>
+                    <SelectValue placeholder={field.placeholder || "Select..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {field.options.map(opt => (
+                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  type={field.type === "number" ? "number" : field.type === "email" ? "email" : field.type === "phone" ? "tel" : field.type === "date" ? "date" : "text"}
+                  value={values[field.id] ?? ""}
+                  onChange={e => onChange(field.id, e.target.value)}
+                  placeholder={field.placeholder}
+                  min={field.validation?.min}
+                  max={field.validation?.max}
+                  className={INPUT_CLS}
+                />
+              )}
+              {field.description && <p className="text-[10px] text-slate-400 mt-1">{field.description}</p>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Component ─── */
 export function EventPublicRegistration() {
   const { eventId } = useParams<{ eventId: string }>();
@@ -830,6 +953,12 @@ export function EventPublicRegistration() {
   const [regError, setRegError] = useState("");
   const [event, setEvent] = useState<EventResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [formConfig, setFormConfig] = useState<RegistrationFormConfig | null>(null);
+  const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
+
+  const handleDynamicChange = (id: string, value: any) => {
+    setDynamicValues(prev => ({ ...prev, [id]: value }));
+  };
 
   useEffect(() => {
     if (eventId) {
@@ -837,7 +966,11 @@ export function EventPublicRegistration() {
       if (!isNaN(id)) {
         eventService
           .getById(id)
-          .then(setEvent)
+          .then(ev => {
+            setEvent(ev);
+            // TODO: fetch form config from API when available
+            // eventService.getRegistrationFormConfig(id).then(setFormConfig);
+          })
           .catch(() => {})
           .finally(() => setLoading(false));
       } else {
@@ -849,6 +982,7 @@ export function EventPublicRegistration() {
   }, [eventId]);
 
   const displayEvent = event ?? MOCK_EVENT;
+  const hasDynamicForm = formConfig && formConfig.fields.length > 0;
 
   const [form, setForm] = useState<RegistrationForm>({
     registrationType: "",
@@ -1091,7 +1225,11 @@ export function EventPublicRegistration() {
               ) : step === 3 ? (
                 <Step3Family form={form} setForm={setForm} />
               ) : step === 4 ? (
-                <Step4Additional form={form} update={update} />
+                hasDynamicForm ? (
+                  <DynamicFormRenderer fields={formConfig!.fields} values={dynamicValues} onChange={handleDynamicChange} />
+                ) : (
+                  <Step4Additional form={form} update={update} />
+                )
               ) : step === 5 ? (
                 <Step5Review form={form} event={displayEvent} />
               ) : null}
