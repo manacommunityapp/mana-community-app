@@ -56,7 +56,7 @@ export function TournamentAnnouncementModal({ tournament, onConfirm, onClose }: 
   const [subject, setSubject] = useState(`Tournament announcement — ${tournament.name}`);
   const [message, setMessage] = useState("");
   const [sendEmail, setSendEmail] = useState(true);
-  const [sendPush, setSendPush] = useState(true);
+  const [sendPush, setSendPush] = useState(false);
   const [useCustomHtml, setUseCustomHtml] = useState(false);
   const [customHtml, setCustomHtml] = useState("");
   const [submitting, setSubmitting] = useState(false);

@@ -13,9 +13,9 @@ const STORAGE_KEY = "events_mock_mode";
 export function EventMockProvider({ children }: { children: ReactNode }) {
   const [useMock, setUseMock] = useState(() => {
     try {
-      return localStorage.getItem(STORAGE_KEY) !== "false";
+      return localStorage.getItem(STORAGE_KEY) === "true";
     } catch {
-      return true;
+      return false;
     }
   });
 

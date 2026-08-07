@@ -157,16 +157,16 @@ export const emailAdminService = {
     if (params?.size != null) query.set("size", String(params.size));
 
     const queryString = query.toString();
-    const url = `/api/admin/email/delivery-log${queryString ? `?${queryString}` : ""}`;
+    const url = `/admin/email/delivery-log${queryString ? `?${queryString}` : ""}`;
     return apiClient.get(url);
   },
 
   async getDeliverySummary(communityId: number, days: number = 7): Promise<EmailDeliverySummary> {
-    return apiClient.get(`/api/admin/email/delivery-log/summary?communityId=${communityId}&days=${days}`);
+    return apiClient.get(`/admin/email/delivery-log/summary?communityId=${communityId}&days=${days}`);
   },
 
   async getDeliveryLogById(id: number): Promise<EmailDeliveryLogDto> {
-    return apiClient.get(`/api/admin/email/delivery-log/${id}`);
+    return apiClient.get(`/admin/email/delivery-log/${id}`);
   },
 };
 

@@ -16,8 +16,8 @@ interface RegistrationOpenModalProps {
 
 export function RegistrationOpenModal({ tournament, onConfirm, onClose }: RegistrationOpenModalProps) {
   const [sendEmail, setSendEmail] = useState(true);
-  const [sendPush, setSendPush] = useState(true);
-  const [sendSms, setSendSms] = useState(true);
+  const [sendPush, setSendPush] = useState(false);
+  const [sendSms, setSendSms] = useState(false);
   const [message, setMessage] = useState(
     `Registration for ${tournament.name} is now open! Sign up now to secure your spot.`
   );
@@ -40,7 +40,7 @@ export function RegistrationOpenModal({ tournament, onConfirm, onClose }: Regist
         className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
         onClick={!submitting ? onClose : undefined}
       />
-      <div className="relative bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative bg-white border border-slate-200 rounded-2xl p-6 sm:p-7 w-full max-w-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div className="text-left">
