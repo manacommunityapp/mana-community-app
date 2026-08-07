@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   CalendarDays, MapPin, Users, DollarSign, Image,
   CheckCircle2, ChevronRight, ChevronLeft, Sparkles, Clock,
@@ -15,7 +16,7 @@ import { Switch } from "../ui/switch";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Dialog, DialogOverlay, DialogPortal } from "../ui/dialog";
+
 import { cn } from "../ui/utils";
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventRequest } from "../../../services/events/eventService";
@@ -1144,7 +1145,7 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       {/* Sticky header with step progress */}
       <div className="flex-shrink-0 border-b border-slate-100">
         {/* Title bar */}
@@ -1209,8 +1210,8 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
         </div>
       </div>
 
-      {/* Scrollable form content */}
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y px-4 sm:px-8 py-4 sm:py-8" style={{ WebkitOverflowScrolling: "touch" }}>
+      {/* Scrollable form content — flex-1 + min-h-0 forces height budget on mobile */}
+      <div style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties} className="px-4 sm:px-8 py-4 sm:py-8">
         <div key={step} className="animate-fade-in-up max-w-3xl mx-auto">
           {stepComponents[step]}
         </div>
@@ -1266,22 +1267,70 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
   );
 }
 
-/* ─── Dialog wrapper ─── */
+/* ─── Dialog wrapper — uses createPortal for full mobile scroll control ─── */
 export function CreateEventDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogPortal>
-        <DialogOverlay className="bg-black/40 backdrop-blur-sm" />
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 md:p-6 pointer-events-none">
-          <div className="bg-white rounded-none sm:rounded-3xl shadow-2xl w-full max-w-4xl h-[100dvh] sm:h-[min(92vh,900px)] max-h-[100dvh] flex flex-col min-h-0 overflow-hidden animate-fade-in-up border-0 sm:border border-slate-200/60 ring-1 ring-black/5 pointer-events-auto">
-            <EventCreateWizard
-              onClose={() => onOpenChange(false)}
-              onCreated={() => {}}
-            />
-          </div>
+  // Lock body scroll when open, restore on close
+  useEffect(() => {
+    if (open) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  return createPortal(
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={() => onOpenChange(false)}
+        style={{
+          position: "fixed", inset: 0, zIndex: 9998,
+          background: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(4px)",
+          WebkitBackdropFilter: "blur(4px)",
+        }}
+      />
+      {/* Modal panel */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "0",
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          style={{
+            pointerEvents: "auto",
+            background: "#fff",
+            width: "100%",
+            maxWidth: "56rem",  /* max-w-4xl */
+            /* Mobile: full screen; tablet/desktop: bounded */
+            height: "100dvh",
+            maxHeight: "100dvh",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            boxShadow: "0 25px 60px rgba(0,0,0,0.18)",
+            borderRadius: 0,
+          }}
+          className="sm:rounded-3xl sm:h-[min(92vh,900px)] sm:max-h-[92vh] sm:m-4 md:m-6 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
+          onClick={e => e.stopPropagation()}
+        >
+          <EventCreateWizard
+            onClose={() => onOpenChange(false)}
+            onCreated={() => {}}
+          />
         </div>
-      </DialogPortal>
-    </Dialog>
+      </div>
+    </>,
+    document.body
   );
 }
 
