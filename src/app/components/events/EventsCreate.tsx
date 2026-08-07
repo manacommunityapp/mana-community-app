@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { cn } from "../ui/utils";
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventRequest } from "../../../services/events/eventService";
+import { EventRegistrationFormBuilder, DEFAULT_REGISTRATION_FORM_CONFIG, type RegistrationFormConfig } from "./EventRegistrationFormBuilder";
 
 /* ─── Types ─── */
 interface FormData {
@@ -47,6 +48,7 @@ interface FormData {
   budgetItems: BudgetItem[];
   coverImageUrl: string;
   tags: string[];
+  registrationFormConfig: RegistrationFormConfig;
 }
 
 interface TicketType { id: string; name: string; price: string; qty: string; description: string; }
@@ -71,9 +73,10 @@ const STEPS = [
   { id: 1, label: "Basics",       desc: "Name, type & visibility", icon: CalendarDays },
   { id: 2, label: "Schedule",     desc: "Date, time & venue",      icon: Clock        },
   { id: 3, label: "Registration", desc: "Tickets & categories",    icon: Ticket       },
-  { id: 4, label: "Budget",       desc: "Allocation & breakdown",  icon: DollarSign   },
-  { id: 5, label: "Media",        desc: "Cover image & tags",      icon: Image        },
-  { id: 6, label: "Review",       desc: "Verify & publish",        icon: Eye          },
+  { id: 4, label: "Reg. Form",    desc: "Build registration form", icon: FileText     },
+  { id: 5, label: "Budget",       desc: "Allocation & breakdown",  icon: DollarSign   },
+  { id: 6, label: "Media",        desc: "Cover image & tags",      icon: Image        },
+  { id: 7, label: "Review",       desc: "Verify & publish",        icon: Eye          },
 ];
 
 const BUDGET_CATEGORIES = ["Venue", "Food & Catering", "Decoration", "Audio / Visual", "Security", "Marketing", "Transport", "Volunteers", "Medical", "Other"];
@@ -99,6 +102,7 @@ const INITIAL_FORM_DATA: FormData = {
   requireApproval: false, allowWaitlist: true,
   totalBudget: "", budgetItems: DEFAULT_BUDGET_ITEMS,
   coverImageUrl: "", tags: [],
+  registrationFormConfig: { ...DEFAULT_REGISTRATION_FORM_CONFIG },
 };
 
 const INPUT_CLS = "w-full px-4 py-3 h-auto rounded-xl border border-slate-200 bg-white text-sm text-slate-800 placeholder-slate-400 outline-none focus-visible:border-indigo-400 focus-visible:ring-4 focus-visible:ring-indigo-50 transition-all";
@@ -934,6 +938,14 @@ function Step6Review({ data }: { data: FormData }) {
       ],
     },
     {
+      icon: FileText, title: "Registration Form", color: "#7c3aed",
+      rows: [
+        { label: "Fields",  value: `${data.registrationFormConfig.fields.filter(f => f.type !== "section").length} fields configured` },
+        { label: "Required", value: `${data.registrationFormConfig.fields.filter(f => f.required).length} required fields` },
+        { label: "Family",  value: data.registrationFormConfig.allowFamilyRegistration ? `Up to ${data.registrationFormConfig.maxFamilyMembers} members` : "Disabled" },
+      ],
+    },
+    {
       icon: DollarSign, title: "Budget", color: "#d97706",
       rows: [
         { label: "Total Budget",    value: totalBudget ? `₹${totalBudget.toLocaleString()}` : "—" },
@@ -1139,9 +1151,13 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
     1: <Step1Basics data={formData} update={update} />,
     2: <Step2Schedule data={formData} update={update} />,
     3: <Step3Registration data={formData} update={update} />,
-    4: <Step4Budget data={formData} update={update} />,
-    5: <Step5Media data={formData} update={update} />,
-    6: <Step6Review data={formData} />,
+    4: <EventRegistrationFormBuilder
+         config={formData.registrationFormConfig}
+         onChange={c => update("registrationFormConfig", c)}
+       />,
+    5: <Step4Budget data={formData} update={update} />,
+    6: <Step5Media data={formData} update={update} />,
+    7: <Step6Review data={formData} />,
   };
 
   return (
