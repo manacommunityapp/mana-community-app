@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { Ticket, UserCheck } from "lucide-react";
+import { Ticket, UserCheck, FileText } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { REGISTER_EVENT } from "../../../constants/permissions";
 import { EventsRegistration } from "./EventsRegistration";
 import { EventsUserRegistration } from "./EventsUserRegistration";
+import { EventsRegistrationForms } from "./EventsRegistrationForms";
 
 const TABS = [
   { id: "admin",  label: "Manage Registrations", icon: Ticket,    adminOnly: true  },
+  { id: "forms",  label: "Registration Forms",   icon: FileText,  adminOnly: true  },
   { id: "public", label: "Public Registration",  icon: UserCheck, adminOnly: false },
 ] as const;
 
@@ -15,7 +17,7 @@ export function EventsRegistrationHub() {
   const canRegister = hasPermission(REGISTER_EVENT);
 
   const visibleTabs = TABS.filter(t => {
-    if (t.id === "admin") return isAdmin;
+    if (t.adminOnly) return isAdmin;
     if (t.id === "public") return canRegister || isAdmin;
     return true;
   });
@@ -40,7 +42,9 @@ export function EventsRegistrationHub() {
           </button>
         ))}
       </div>
-      {tab === "admin" ? <EventsRegistration /> : <EventsUserRegistration />}
+      {tab === "admin" && <EventsRegistration />}
+      {tab === "forms" && <EventsRegistrationForms />}
+      {tab === "public" && <EventsUserRegistration />}
     </div>
   );
 }

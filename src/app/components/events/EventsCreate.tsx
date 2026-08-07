@@ -7,7 +7,7 @@ import {
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
   Zap, Star, ArrowRight, Trash2, PlusCircle, Link2,
-  Save, Bookmark,
+  Save, Bookmark, XCircle,
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { cn } from "../ui/utils";
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventRequest } from "../../../services/events/eventService";
-import { EventRegistrationFormBuilder, DEFAULT_REGISTRATION_FORM_CONFIG, type RegistrationFormConfig } from "./EventRegistrationFormBuilder";
+import { DEFAULT_REGISTRATION_FORM_CONFIG, type RegistrationFormConfig, type FormField } from "./EventRegistrationFormBuilder";
 
 /* ─── Types ─── */
 interface FormData {
@@ -73,7 +73,7 @@ const STEPS = [
   { id: 1, label: "Basics",       desc: "Name, type & visibility", icon: CalendarDays },
   { id: 2, label: "Schedule",     desc: "Date, time & venue",      icon: Clock        },
   { id: 3, label: "Registration", desc: "Tickets & categories",    icon: Ticket       },
-  { id: 4, label: "Reg. Form",    desc: "Build registration form", icon: FileText     },
+  { id: 4, label: "Reg. Form",    desc: "Select form template",    icon: FileText     },
   { id: 5, label: "Budget",       desc: "Allocation & breakdown",  icon: DollarSign   },
   { id: 6, label: "Media",        desc: "Cover image & tags",      icon: Image        },
   { id: 7, label: "Review",       desc: "Verify & publish",        icon: Eye          },
@@ -633,7 +633,349 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
   );
 }
 
-/* ─── Step 4: Budget ─── */
+/* ─── Step 4: Form Template Selector ─── */
+
+interface FormTemplateMeta {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  fieldsCount: number;
+  icon: string;
+  config: RegistrationFormConfig;
+}
+
+const FORM_TEMPLATES: FormTemplateMeta[] = [
+  {
+    id: "tmpl-standard",
+    name: "Standard Registration",
+    description: "Personal info, contact, emergency contact, dietary preferences — works for most events",
+    category: "General",
+    fieldsCount: 14,
+    icon: "📋",
+    config: {
+      fields: [
+        { id: "s1", type: "section", label: "Personal Information", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f1", type: "text", label: "First Name", placeholder: "Enter first name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f2", type: "text", label: "Last Name", placeholder: "Enter last name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f3", type: "number", label: "Age", placeholder: "e.g. 32", description: "", required: true, options: [], width: "half", validation: { min: 0, max: 120 }, conditional: null },
+        { id: "f4", type: "select", label: "Gender", placeholder: "Select gender", description: "", required: true, options: ["Male", "Female", "Other", "Prefer not to say"], width: "half", validation: {}, conditional: null },
+        { id: "s2", type: "section", label: "Contact Details", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f5", type: "email", label: "Email Address", placeholder: "your@email.com", description: "Confirmation will be sent here", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f6", type: "phone", label: "Mobile Number", placeholder: "+91 98765 43210", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f7", type: "text", label: "Address", placeholder: "Flat / Building / Street", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f8", type: "text", label: "City", placeholder: "City", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f9", type: "text", label: "Pincode", placeholder: "400069", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "s3", type: "section", label: "Emergency Contact", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f10", type: "text", label: "Emergency Contact Name", placeholder: "Contact person name", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f11", type: "phone", label: "Emergency Contact Phone", placeholder: "+91 98765 43210", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+      ] as FormField[],
+      allowFamilyRegistration: true, maxFamilyMembers: 5,
+      confirmationMessage: "Thank you for registering! A confirmation email will be sent shortly.",
+      collectPayment: false,
+    },
+  },
+  {
+    id: "tmpl-minimal",
+    name: "Quick Registration",
+    description: "Just name, email, and phone — for events needing fast sign-ups",
+    category: "Minimal",
+    fieldsCount: 5,
+    icon: "⚡",
+    config: {
+      fields: [
+        { id: "f1", type: "text", label: "Full Name", placeholder: "Enter your full name", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f2", type: "email", label: "Email Address", placeholder: "your@email.com", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f3", type: "phone", label: "Mobile Number", placeholder: "+91 98765 43210", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f4", type: "number", label: "Age", placeholder: "e.g. 32", description: "", required: false, options: [], width: "half", validation: { min: 0, max: 120 }, conditional: null },
+        { id: "f5", type: "select", label: "Gender", placeholder: "Select", description: "", required: false, options: ["Male", "Female", "Other"], width: "half", validation: {}, conditional: null },
+      ] as FormField[],
+      allowFamilyRegistration: false, maxFamilyMembers: 0,
+      confirmationMessage: "You're registered! See you at the event.",
+      collectPayment: false,
+    },
+  },
+  {
+    id: "tmpl-detailed",
+    name: "Detailed Registration",
+    description: "All fields — personal, contact, emergency, ID, dietary, medical, accessibility, apparel",
+    category: "Detailed",
+    fieldsCount: 22,
+    icon: "📝",
+    config: {
+      fields: [
+        { id: "s1", type: "section", label: "Personal Information", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f1", type: "text", label: "First Name", placeholder: "First name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f2", type: "text", label: "Last Name", placeholder: "Last name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f3", type: "number", label: "Age", placeholder: "e.g. 32", description: "", required: true, options: [], width: "half", validation: { min: 0, max: 120 }, conditional: null },
+        { id: "f4", type: "select", label: "Gender", placeholder: "Select gender", description: "", required: true, options: ["Male", "Female", "Other", "Prefer not to say"], width: "half", validation: {}, conditional: null },
+        { id: "s2", type: "section", label: "Contact Details", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f5", type: "email", label: "Email", placeholder: "your@email.com", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f6", type: "phone", label: "Mobile", placeholder: "+91 98765 43210", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f7", type: "text", label: "Address", placeholder: "Flat / Building / Street", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f8", type: "text", label: "City", placeholder: "City", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f9", type: "text", label: "Pincode", placeholder: "400069", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "s3", type: "section", label: "Emergency Contact", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f10", type: "text", label: "Emergency Contact Name", placeholder: "Contact name", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f11", type: "phone", label: "Emergency Phone", placeholder: "+91 98765 43210", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "s4", type: "section", label: "ID Verification", placeholder: "", description: "Required for entry verification", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f12", type: "select", label: "ID Type", placeholder: "Select ID", description: "", required: false, options: ["Aadhaar Card", "PAN Card", "Passport", "Driving License", "Voter ID"], width: "half", validation: {}, conditional: null },
+        { id: "f13", type: "text", label: "ID Number", placeholder: "ID number", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "s5", type: "section", label: "Dietary & Medical", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f14", type: "select", label: "Dietary Preference", placeholder: "Select", description: "", required: false, options: ["Vegetarian", "Non-Vegetarian", "Vegan", "Jain", "Eggetarian", "No Preference"], width: "half", validation: {}, conditional: null },
+        { id: "f15", type: "text", label: "Allergies", placeholder: "e.g. nuts, dairy", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f16", type: "textarea", label: "Medical Conditions", placeholder: "Any conditions we should know about", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f17", type: "textarea", label: "Accessibility Needs", placeholder: "e.g. wheelchair, hearing assistance", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+      ] as FormField[],
+      allowFamilyRegistration: true, maxFamilyMembers: 6,
+      confirmationMessage: "Thank you for registering! A confirmation with your digital pass will be emailed shortly.",
+      collectPayment: false,
+    },
+  },
+  {
+    id: "tmpl-festival",
+    name: "Festival Registration",
+    description: "Tailored for community festivals — family, dietary, T-shirt size, volunteer preferences",
+    category: "Festival",
+    fieldsCount: 18,
+    icon: "🎪",
+    config: {
+      fields: [
+        { id: "s1", type: "section", label: "Personal Information", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f1", type: "text", label: "First Name", placeholder: "First name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f2", type: "text", label: "Last Name", placeholder: "Last name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f3", type: "number", label: "Age", placeholder: "e.g. 32", description: "", required: true, options: [], width: "half", validation: { min: 0, max: 120 }, conditional: null },
+        { id: "f4", type: "select", label: "Gender", placeholder: "Select gender", description: "", required: true, options: ["Male", "Female", "Other"], width: "half", validation: {}, conditional: null },
+        { id: "s2", type: "section", label: "Contact", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f5", type: "email", label: "Email", placeholder: "your@email.com", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f6", type: "phone", label: "Mobile", placeholder: "+91 98765 43210", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f7", type: "text", label: "City", placeholder: "City", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f8", type: "text", label: "Pincode", placeholder: "400069", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "s3", type: "section", label: "Preferences", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f9", type: "select", label: "Dietary Preference", placeholder: "Select", description: "", required: false, options: ["Vegetarian", "Non-Vegetarian", "Vegan", "Jain", "No Preference"], width: "half", validation: {}, conditional: null },
+        { id: "f10", type: "text", label: "Allergies", placeholder: "e.g. nuts, dairy, gluten", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f11", type: "select", label: "T-Shirt Size", placeholder: "Select size", description: "", required: false, options: ["XS", "S", "M", "L", "XL", "XXL"], width: "half", validation: {}, conditional: null },
+        { id: "f12", type: "radio", label: "Volunteer?", placeholder: "", description: "Would you like to volunteer?", required: false, options: ["Yes", "No", "Maybe"], width: "half", validation: {}, conditional: null },
+        { id: "s4", type: "section", label: "Emergency Contact", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f13", type: "text", label: "Emergency Contact Name", placeholder: "Contact name", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f14", type: "phone", label: "Emergency Phone", placeholder: "+91 98765 43210", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+      ] as FormField[],
+      allowFamilyRegistration: true, maxFamilyMembers: 5,
+      confirmationMessage: "You're all set for the festival! Your digital pass will be emailed shortly.",
+      collectPayment: false,
+    },
+  },
+  {
+    id: "tmpl-none",
+    name: "No Registration Form",
+    description: "Skip the custom form — use default registration fields only",
+    category: "None",
+    fieldsCount: 0,
+    icon: "🚫",
+    config: { ...DEFAULT_REGISTRATION_FORM_CONFIG },
+  },
+];
+
+const FIELD_TYPE_LABELS: Record<string, string> = {
+  text: "Text", textarea: "Long Text", number: "Number", email: "Email",
+  phone: "Phone", date: "Date", select: "Dropdown", multiselect: "Multi Select",
+  radio: "Radio", checkbox: "Checkbox", file: "File", section: "Section", family_repeater: "Family",
+};
+
+function Step4FormTemplate({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
+  const [selectedId, setSelectedId] = useState<string>(
+    data.registrationFormConfig.fields.length === 0 ? "tmpl-none" :
+    FORM_TEMPLATES.find(t => t.config.fields.length === data.registrationFormConfig.fields.length)?.id ?? "tmpl-custom"
+  );
+  const [previewId, setPreviewId] = useState<string | null>(null);
+
+  const selectTemplate = (tmpl: FormTemplateMeta) => {
+    setSelectedId(tmpl.id);
+    update("registrationFormConfig", { ...tmpl.config });
+  };
+
+  const previewTemplate = previewId ? FORM_TEMPLATES.find(t => t.id === previewId) : null;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-base font-bold text-slate-800 mb-1">Select Registration Form Template</h3>
+        <p className="text-xs text-slate-500">
+          Choose a form template for this event. Templates are created in{" "}
+          <span className="text-indigo-600 font-medium">Events &gt; Registration &gt; Registration Forms</span>.
+        </p>
+      </div>
+
+      {/* Saved Templates from Admin */}
+      <div className="bg-indigo-50/50 rounded-xl border border-indigo-100 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-indigo-500" />
+            <h4 className="text-sm font-semibold text-indigo-800">Your Saved Templates</h4>
+          </div>
+          <Badge variant="outline" className="text-[9px] text-indigo-500 border-indigo-200">
+            Manage in Registration Forms tab
+          </Badge>
+        </div>
+        <p className="text-[10px] text-indigo-400">
+          Create custom templates with the Form Builder in Registration Forms, then select them here.
+        </p>
+      </div>
+
+      {/* Built-in Templates */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-semibold text-slate-700">Built-in Templates</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {FORM_TEMPLATES.map(tmpl => {
+            const isSelected = selectedId === tmpl.id;
+            const fieldCount = tmpl.config.fields.filter(f => f.type !== "section").length;
+            const reqCount = tmpl.config.fields.filter(f => f.required).length;
+            return (
+              <button
+                key={tmpl.id}
+                onClick={() => selectTemplate(tmpl)}
+                className={cn(
+                  "text-left p-4 rounded-xl border-2 transition-all relative group",
+                  isSelected
+                    ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200 shadow-sm"
+                    : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50"
+                )}
+              >
+                {isSelected && (
+                  <div className="absolute top-2 right-2">
+                    <CheckCircle2 className="w-5 h-5 text-indigo-500" />
+                  </div>
+                )}
+                <div className="flex items-start gap-3 mb-2">
+                  <span className="text-2xl">{tmpl.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={cn("text-sm font-semibold", isSelected ? "text-indigo-700" : "text-slate-800")}>
+                      {tmpl.name}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">{tmpl.description}</p>
+                  </div>
+                </div>
+                {tmpl.id !== "tmpl-none" && (
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className="text-[10px] text-slate-400">{fieldCount} fields</span>
+                    <span className="text-[10px] text-slate-400">{reqCount} required</span>
+                    {tmpl.config.allowFamilyRegistration && (
+                      <Badge variant="outline" className="text-[8px] py-0 text-violet-500 border-violet-200">Family</Badge>
+                    )}
+                    <div className="flex-1" />
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setPreviewId(tmpl.id); }}
+                      className="text-[10px] text-indigo-500 hover:text-indigo-700 font-medium flex items-center gap-0.5"
+                    >
+                      <Eye className="w-3 h-3" /> Preview
+                    </button>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Selected Summary */}
+      {selectedId !== "tmpl-none" && (
+        <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-2">
+          <h4 className="text-xs font-semibold text-slate-600">Selected Template Summary</h4>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="text-center">
+              <p className="text-lg font-bold text-indigo-600">
+                {data.registrationFormConfig.fields.filter(f => f.type !== "section").length}
+              </p>
+              <p className="text-[10px] text-slate-400">Fields</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-amber-600">
+                {data.registrationFormConfig.fields.filter(f => f.required).length}
+              </p>
+              <p className="text-[10px] text-slate-400">Required</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-violet-600">
+                {data.registrationFormConfig.allowFamilyRegistration ? `${data.registrationFormConfig.maxFamilyMembers}` : "—"}
+              </p>
+              <p className="text-[10px] text-slate-400">Max Family</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {previewTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setPreviewId(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col"
+            onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{previewTemplate.icon}</span>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">{previewTemplate.name}</h3>
+                  <p className="text-[10px] text-slate-400">{previewTemplate.description}</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setPreviewId(null)}>
+                <XCircle className="w-5 h-5" />
+              </Button>
+            </div>
+
+            <div className="overflow-y-auto p-6 flex-1">
+              <div className="space-y-3">
+                {previewTemplate.config.fields.map(field => (
+                  <div key={field.id}>
+                    {field.type === "section" ? (
+                      <div className="pt-2 pb-1 border-b border-slate-200 mb-2">
+                        <h4 className="text-sm font-semibold text-slate-700">{field.label}</h4>
+                        {field.description && <p className="text-[10px] text-slate-400">{field.description}</p>}
+                      </div>
+                    ) : (
+                      <div className={cn("", field.width === "half" ? "inline-block w-[calc(50%-4px)] mr-2 align-top" : "")}>
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-xs font-medium text-slate-600">{field.label}</span>
+                          {field.required && <span className="text-rose-500 text-xs">*</span>}
+                          <Badge variant="outline" className="text-[8px] py-0 ml-auto">{FIELD_TYPE_LABELS[field.type] ?? field.type}</Badge>
+                        </div>
+                        <div className="h-8 bg-slate-50 rounded-lg border border-slate-200 px-3 flex items-center">
+                          <span className="text-[10px] text-slate-400">{field.placeholder || field.label}</span>
+                        </div>
+                        {field.options.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {field.options.map(opt => (
+                              <Badge key={opt} variant="outline" className="text-[8px]">{opt}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="px-6 py-3 border-t border-slate-100 flex gap-2 flex-shrink-0">
+              <Button variant="outline" className="flex-1" onClick={() => setPreviewId(null)}>
+                Close
+              </Button>
+              <Button
+                className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-700 hover:to-violet-600 gap-1"
+                onClick={() => { selectTemplate(previewTemplate); setPreviewId(null); }}
+              >
+                <CheckCircle2 className="w-4 h-4" /> Use This Template
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Step 5: Budget ─── */
 function Step4Budget({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   const addItem = () => update("budgetItems", [...data.budgetItems, { id: `b${Date.now()}`, category: "", amount: "" }]);
   const removeItem = (id: string) => update("budgetItems", data.budgetItems.filter(b => b.id !== id));
@@ -1151,10 +1493,7 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
     1: <Step1Basics data={formData} update={update} />,
     2: <Step2Schedule data={formData} update={update} />,
     3: <Step3Registration data={formData} update={update} />,
-    4: <EventRegistrationFormBuilder
-         config={formData.registrationFormConfig}
-         onChange={c => update("registrationFormConfig", c)}
-       />,
+    4: <Step4FormTemplate data={formData} update={update} />,
     5: <Step4Budget data={formData} update={update} />,
     6: <Step5Media data={formData} update={update} />,
     7: <Step6Review data={formData} />,
