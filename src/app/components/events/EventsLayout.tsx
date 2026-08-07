@@ -47,6 +47,7 @@ function EventsLayoutInner() {
   );
 
   const visibleNav = navItems.filter((nav) => {
+    if (nav.label === "Media & Reports") return true; // Gallery accessible to all logged-in users
     if (nav.label === "Registration") return hasPermission(VIEW_EVENTS) || hasPermission(REGISTER_EVENT);
     return hasPermission(VIEW_EVENTS);
   });
