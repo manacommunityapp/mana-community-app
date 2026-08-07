@@ -529,98 +529,186 @@ function FieldCard({
   );
 }
 
-/* ─── Live Preview ─── */
-function LivePreview({ fields }: { fields: FormField[] }) {
+/* ─── Collapsible Section Component ─── */
+export function CollapsibleFormSection({
+  title,
+  icon: Icon,
+  description,
+  defaultOpen = true,
+  badge,
+  children,
+}: {
+  title: string;
+  icon?: any;
+  description?: string;
+  defaultOpen?: boolean;
+  badge?: string;
+  children: React.ReactNode;
+}) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
   return (
-    <div className="space-y-4">
-      {fields.length === 0 && (
-        <div className="text-center py-10">
-          <Eye className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-          <p className="text-xs text-slate-400">Add fields to see preview</p>
+    <div className="w-full rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-xs transition-all mb-4">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 sm:px-5 py-3 bg-slate-50/90 hover:bg-slate-100/90 transition-colors text-left border-none cursor-pointer select-none"
+      >
+        <div className="flex items-center gap-3">
+          {Icon && (
+            <div className="w-7 h-7 rounded-lg bg-indigo-100/80 text-indigo-600 flex items-center justify-center flex-shrink-0">
+              <Icon className="w-4 h-4" />
+            </div>
+          )}
+          <div>
+            <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              {title}
+              {badge && (
+                <span className="text-[10px] font-semibold bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100">
+                  {badge}
+                </span>
+              )}
+            </h4>
+            {description && <p className="text-[10px] text-slate-400 mt-0.5">{description}</p>}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-semibold text-slate-400">
+            {isOpen ? "Collapse" : "Expand"}
+          </span>
+          <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-all">
+            {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </div>
+        </div>
+      </button>
+      {isOpen && (
+        <div className="p-4 sm:p-5 border-t border-slate-100 animate-fade-in-up">
+          {children}
         </div>
       )}
+    </div>
+  );
+}
 
-      <div className="flex flex-wrap gap-x-4 gap-y-4">
-        {fields.map(field => {
-          const meta = FIELD_TYPE_META[field.type];
-          const widthCls = field.width === "half" ? "w-[calc(50%-8px)]" : "w-full";
-
-          if (field.type === "section") {
-            return (
-              <div key={field.id} className="w-full pt-3 first:pt-0">
-                <p className="text-sm font-bold text-indigo-600 flex items-center gap-2">
-                  <meta.icon className="w-4 h-4" /> {field.label}
-                </p>
-                {field.description && <p className="text-[10px] text-slate-400 mt-0.5">{field.description}</p>}
-              </div>
-            );
-          }
-
-          if (field.type === "family_repeater") {
-            return (
-              <div key={field.id} className="w-full p-4 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/30">
-                <div className="flex items-center gap-2 mb-2">
-                  <Users className="w-4 h-4 text-indigo-500" />
-                  <span className="text-sm font-bold text-indigo-600">{field.label}</span>
-                </div>
-                <p className="text-[10px] text-slate-400">Family members can be added dynamically</p>
-              </div>
-            );
-          }
-
-          if (field.type === "checkbox") {
-            return (
-              <div key={field.id} className={cn(widthCls)}>
-                <label className="flex items-start gap-3 cursor-pointer">
-                  <div className="w-4 h-4 rounded border-2 border-slate-300 mt-0.5 flex-shrink-0" />
-                  <span className="text-xs text-slate-600">
-                    {field.label}
-                    {field.required && <span className="text-rose-500 ml-0.5">*</span>}
-                  </span>
-                </label>
-              </div>
-            );
-          }
-
-          return (
-            <div key={field.id} className={cn(widthCls)}>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5">
-                {field.label}
-                {field.required && <span className="text-rose-500 ml-0.5">*</span>}
-              </label>
-              {field.type === "textarea" ? (
-                <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-400 min-h-[60px]">
-                  {field.placeholder || "Enter text..."}
-                </div>
-              ) : field.type === "select" || field.type === "multiselect" ? (
-                <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-400 flex items-center justify-between">
-                  <span>{field.placeholder || "Select..."}</span>
-                  <ChevronDown className="w-4 h-4" />
-                </div>
-              ) : field.type === "radio" ? (
-                <div className="space-y-2">
-                  {field.options.map(opt => (
-                    <label key={opt} className="flex items-center gap-2 text-xs text-slate-600">
-                      <div className="w-4 h-4 rounded-full border-2 border-slate-300 flex-shrink-0" />
-                      {opt}
-                    </label>
-                  ))}
-                </div>
-              ) : field.type === "file" ? (
-                <div className="w-full px-4 py-6 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 text-center">
-                  <Upload className="w-5 h-5 text-slate-300 mx-auto mb-1" />
-                  <p className="text-[10px] text-slate-400">Click to upload or drag & drop</p>
-                </div>
-              ) : (
-                <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-400">
-                  {field.placeholder || "Enter value..."}
-                </div>
-              )}
-              {field.description && <p className="text-[10px] text-slate-400 mt-1">{field.description}</p>}
-            </div>
-          );
-        })}
+/* ─── Live Preview ─── */
+function LivePreview({ fields }: { fields: FormField[] }) {
+  if (fields.length === 0) {
+    return (
+      <div className="text-center py-10">
+        <Eye className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+        <p className="text-xs text-slate-400">Add fields to see preview</p>
       </div>
+    );
+  }
+
+  // Group fields by section
+  const sections: { sectionField: FormField | null; fields: FormField[] }[] = [];
+  let currentSec: { sectionField: FormField | null; fields: FormField[] } = { sectionField: null, fields: [] };
+
+  fields.forEach(f => {
+    if (f.type === "section") {
+      if (currentSec.sectionField || currentSec.fields.length > 0) {
+        sections.push(currentSec);
+      }
+      currentSec = { sectionField: f, fields: [] };
+    } else {
+      currentSec.fields.push(f);
+    }
+  });
+  if (currentSec.sectionField || currentSec.fields.length > 0) {
+    sections.push(currentSec);
+  }
+
+  const renderSingleField = (field: FormField) => {
+    const widthCls = field.width === "half" ? "w-[calc(50%-8px)]" : "w-full";
+
+    if (field.type === "family_repeater") {
+      return (
+        <div key={field.id} className="w-full p-4 rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/30">
+          <div className="flex items-center gap-2 mb-2">
+            <Users className="w-4 h-4 text-indigo-500" />
+            <span className="text-sm font-bold text-indigo-600">{field.label}</span>
+          </div>
+          <p className="text-[10px] text-slate-400">Family members can be added dynamically</p>
+        </div>
+      );
+    }
+
+    if (field.type === "checkbox") {
+      return (
+        <div key={field.id} className={cn(widthCls)}>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <div className="w-4 h-4 rounded border-2 border-slate-300 mt-0.5 flex-shrink-0" />
+            <span className="text-xs text-slate-600">
+              {field.label}
+              {field.required && <span className="text-rose-500 ml-0.5">*</span>}
+            </span>
+          </label>
+        </div>
+      );
+    }
+
+    return (
+      <div key={field.id} className={cn(widthCls)}>
+        <label className="block text-xs font-bold text-slate-500 uppercase tracking-[0.08em] mb-1.5">
+          {field.label}
+          {field.required && <span className="text-rose-500 ml-0.5">*</span>}
+        </label>
+        {field.type === "textarea" ? (
+          <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-400 min-h-[60px]">
+            {field.placeholder || "Enter text..."}
+          </div>
+        ) : field.type === "select" || field.type === "multiselect" ? (
+          <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-400 flex items-center justify-between">
+            <span>{field.placeholder || "Select..."}</span>
+            <ChevronDown className="w-4 h-4" />
+          </div>
+        ) : field.type === "radio" ? (
+          <div className="space-y-2">
+            {field.options.map(opt => (
+              <label key={opt} className="flex items-center gap-2 text-xs text-slate-600">
+                <div className="w-4 h-4 rounded-full border-2 border-slate-300 flex-shrink-0" />
+                {opt}
+              </label>
+            ))}
+          </div>
+        ) : field.type === "file" ? (
+          <div className="w-full px-4 py-6 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 text-center">
+            <Upload className="w-5 h-5 text-slate-300 mx-auto mb-1" />
+            <p className="text-[10px] text-slate-400">Click to upload or drag & drop</p>
+          </div>
+        ) : (
+          <div className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-400">
+            {field.placeholder || "Enter value..."}
+          </div>
+        )}
+        {field.description && <p className="text-[10px] text-slate-400 mt-1">{field.description}</p>}
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {sections.map((sec, idx) => {
+        const secTitle = sec.sectionField ? sec.sectionField.label : "General Details";
+        const secDesc = sec.sectionField?.description;
+        const secMeta = sec.sectionField ? FIELD_TYPE_META[sec.sectionField.type] : null;
+
+        return (
+          <CollapsibleFormSection
+            key={sec.sectionField ? sec.sectionField.id : `sec_${idx}`}
+            title={secTitle}
+            icon={secMeta?.icon || FileText}
+            description={secDesc}
+            defaultOpen={true}
+            badge={`${sec.fields.length} field${sec.fields.length !== 1 ? "s" : ""}`}
+          >
+            <div className="flex flex-wrap gap-x-4 gap-y-4">
+              {sec.fields.map(field => renderSingleField(field))}
+            </div>
+          </CollapsibleFormSection>
+        );
+      })}
     </div>
   );
 }

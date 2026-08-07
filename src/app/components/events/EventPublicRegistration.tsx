@@ -15,7 +15,8 @@ import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
 import { cn } from "../ui/utils";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
-import type { RegistrationFormConfig, FormField } from "./EventRegistrationFormBuilder";
+import { eventProgramService, type ActivityRegistrationResponse, type EventProgramResponse } from "../../../services/events/eventProgramService";
+import { CollapsibleFormSection, type RegistrationFormConfig, type FormField } from "./EventRegistrationFormBuilder";
 
 /* ─── Constants ─── */
 const GENDER_OPTIONS = ["Male", "Female", "Other", "Prefer not to say"] as const;
@@ -196,85 +197,91 @@ function Step2Details({ form, update }: { form: RegistrationForm; update: (k: ke
   const ageCat = !isNaN(ageNum) ? getAgeCategory(ageNum) : "";
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <p className="text-sm text-slate-500">Enter the primary registrant's details.</p>
 
-      {/* Name row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <Label className={LABEL_CLS}>First Name<span className="text-rose-500 ml-0.5">*</span></Label>
-          <Input value={form.firstName} onChange={e => update("firstName", e.target.value)} placeholder="Arjun" className={INPUT_CLS} />
-        </div>
-        <div>
-          <Label className={LABEL_CLS}>Last Name<span className="text-rose-500 ml-0.5">*</span></Label>
-          <Input value={form.lastName} onChange={e => update("lastName", e.target.value)} placeholder="Sharma" className={INPUT_CLS} />
-        </div>
-      </div>
+      {/* Personal Information */}
+      <CollapsibleFormSection title="Personal Information" icon={User} defaultOpen={true}>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className={LABEL_CLS}>First Name<span className="text-rose-500 ml-0.5">*</span></Label>
+              <Input value={form.firstName} onChange={e => update("firstName", e.target.value)} placeholder="Arjun" className={INPUT_CLS} />
+            </div>
+            <div>
+              <Label className={LABEL_CLS}>Last Name<span className="text-rose-500 ml-0.5">*</span></Label>
+              <Input value={form.lastName} onChange={e => update("lastName", e.target.value)} placeholder="Sharma" className={INPUT_CLS} />
+            </div>
+          </div>
 
-      {/* Age & Gender row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <Label className={LABEL_CLS}>Age<span className="text-rose-500 ml-0.5">*</span></Label>
-          <div className="relative">
-            <Input
-              type="number"
-              min={0}
-              max={120}
-              value={form.age}
-              onChange={e => update("age", e.target.value)}
-              placeholder="e.g. 32"
-              className={INPUT_CLS}
-            />
-            {ageCat && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">
-                {ageCat}
-              </span>
-            )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className={LABEL_CLS}>Age<span className="text-rose-500 ml-0.5">*</span></Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  min={0}
+                  max={120}
+                  value={form.age}
+                  onChange={e => update("age", e.target.value)}
+                  placeholder="e.g. 32"
+                  className={INPUT_CLS}
+                />
+                {ageCat && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">
+                    {ageCat}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div>
+              <Label className={LABEL_CLS}>Gender<span className="text-rose-500 ml-0.5">*</span></Label>
+              <Select value={form.gender} onValueChange={v => update("gender", v)}>
+                <SelectTrigger className={INPUT_CLS}>
+                  <SelectValue placeholder="Select gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  {GENDER_OPTIONS.map(g => (
+                    <SelectItem key={g} value={g}>{g}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
-        <div>
-          <Label className={LABEL_CLS}>Gender<span className="text-rose-500 ml-0.5">*</span></Label>
-          <Select value={form.gender} onValueChange={v => update("gender", v)}>
-            <SelectTrigger className={INPUT_CLS}>
-              <SelectValue placeholder="Select gender" />
-            </SelectTrigger>
-            <SelectContent>
-              {GENDER_OPTIONS.map(g => (
-                <SelectItem key={g} value={g}>{g}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      </CollapsibleFormSection>
+
+      {/* Contact Details */}
+      <CollapsibleFormSection title="Contact Details" icon={Phone} defaultOpen={true}>
+        <div className="space-y-4">
+          <div>
+            <Label className={LABEL_CLS}>Email Address<span className="text-rose-500 ml-0.5">*</span></Label>
+            <Input type="email" value={form.email} onChange={e => update("email", e.target.value)} placeholder="arjun@example.com" className={INPUT_CLS} />
+            <p className="text-[10px] text-slate-400 mt-1">Your confirmation & e-ticket will be sent here</p>
+          </div>
+
+          <div>
+            <Label className={LABEL_CLS}>Mobile Number<span className="text-rose-500 ml-0.5">*</span></Label>
+            <Input type="tel" value={form.phone} onChange={e => update("phone", e.target.value)} placeholder="+91 98765 43210" className={INPUT_CLS} />
+          </div>
+
+          <div>
+            <Label className={LABEL_CLS}>Address</Label>
+            <Input value={form.address} onChange={e => update("address", e.target.value)} placeholder="Flat / Building / Street" className={INPUT_CLS} />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className={LABEL_CLS}>City</Label>
+              <Input value={form.city} onChange={e => update("city", e.target.value)} placeholder="Mumbai" className={INPUT_CLS} />
+            </div>
+            <div>
+              <Label className={LABEL_CLS}>Pincode</Label>
+              <Input value={form.pincode} onChange={e => update("pincode", e.target.value)} placeholder="400069" className={INPUT_CLS} />
+            </div>
+          </div>
         </div>
-      </div>
-
-      {/* Contact info */}
-      <div>
-        <Label className={LABEL_CLS}>Email Address<span className="text-rose-500 ml-0.5">*</span></Label>
-        <Input type="email" value={form.email} onChange={e => update("email", e.target.value)} placeholder="arjun@example.com" className={INPUT_CLS} />
-        <p className="text-[10px] text-slate-400 mt-1">Your confirmation & e-ticket will be sent here</p>
-      </div>
-
-      <div>
-        <Label className={LABEL_CLS}>Mobile Number<span className="text-rose-500 ml-0.5">*</span></Label>
-        <Input type="tel" value={form.phone} onChange={e => update("phone", e.target.value)} placeholder="+91 98765 43210" className={INPUT_CLS} />
-      </div>
-
-      {/* Address */}
-      <div>
-        <Label className={LABEL_CLS}>Address</Label>
-        <Input value={form.address} onChange={e => update("address", e.target.value)} placeholder="Flat / Building / Street" className={INPUT_CLS} />
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <Label className={LABEL_CLS}>City</Label>
-          <Input value={form.city} onChange={e => update("city", e.target.value)} placeholder="Mumbai" className={INPUT_CLS} />
-        </div>
-        <div>
-          <Label className={LABEL_CLS}>Pincode</Label>
-          <Input value={form.pincode} onChange={e => update("pincode", e.target.value)} placeholder="400069" className={INPUT_CLS} />
-        </div>
-      </div>
+      </CollapsibleFormSection>
     </div>
   );
 }
@@ -452,10 +459,7 @@ function Step4Additional({ form, update }: { form: RegistrationForm; update: (k:
       <p className="text-sm text-slate-500">Help us make your experience better with a few more details.</p>
 
       {/* Emergency Contact */}
-      <div className="pt-1 space-y-3">
-        <p className="text-sm font-bold text-indigo-600 flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4" /> Emergency Contact
-        </p>
+      <CollapsibleFormSection title="Emergency Contact" icon={ShieldCheck} defaultOpen={true}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label className={LABEL_CLS}>Contact Name</Label>
@@ -466,14 +470,10 @@ function Step4Additional({ form, update }: { form: RegistrationForm; update: (k:
             <Input type="tel" value={form.emergencyContactPhone} onChange={e => update("emergencyContactPhone", e.target.value)} placeholder="+91 98765 43210" className={INPUT_CLS} />
           </div>
         </div>
-      </div>
+      </CollapsibleFormSection>
 
-      {/* ID Proof */}
-      <div className="pt-3 border-t border-slate-100 space-y-3">
-        <p className="text-sm font-bold text-indigo-600 flex items-center gap-2">
-          <Shield className="w-4 h-4" /> ID Verification
-        </p>
-        <p className="text-[10px] text-slate-400">Required for entry verification at the venue</p>
+      {/* ID Verification */}
+      <CollapsibleFormSection title="ID Verification" icon={Shield} description="Required for entry verification at the venue" defaultOpen={true}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label className={LABEL_CLS}>ID Proof Type</Label>
@@ -493,79 +493,77 @@ function Step4Additional({ form, update }: { form: RegistrationForm; update: (k:
             <Input value={form.idProofNumber} onChange={e => update("idProofNumber", e.target.value)} placeholder="ID number" className={INPUT_CLS} />
           </div>
         </div>
-      </div>
+      </CollapsibleFormSection>
 
       {/* Dietary & Medical */}
-      <div className="pt-3 border-t border-slate-100 space-y-3">
-        <p className="text-sm font-bold text-indigo-600 flex items-center gap-2">
-          <Stethoscope className="w-4 h-4" /> Dietary & Medical
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <Label className={LABEL_CLS}>Dietary Preference</Label>
-            <Select value={form.dietaryPreference} onValueChange={v => update("dietaryPreference", v)}>
-              <SelectTrigger className={INPUT_CLS}>
-                <SelectValue placeholder="Select preference" />
-              </SelectTrigger>
-              <SelectContent>
-                {DIETARY_OPTIONS.map(d => (
-                  <SelectItem key={d} value={d}>{d}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <CollapsibleFormSection title="Dietary & Medical" icon={Stethoscope} defaultOpen={true}>
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className={LABEL_CLS}>Dietary Preference</Label>
+              <Select value={form.dietaryPreference} onValueChange={v => update("dietaryPreference", v)}>
+                <SelectTrigger className={INPUT_CLS}>
+                  <SelectValue placeholder="Select preference" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DIETARY_OPTIONS.map(d => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className={LABEL_CLS}>Allergies</Label>
+              <Input value={form.allergies} onChange={e => update("allergies", e.target.value)} placeholder="e.g. nuts, dairy, gluten" className={INPUT_CLS} />
+            </div>
           </div>
           <div>
-            <Label className={LABEL_CLS}>Allergies</Label>
-            <Input value={form.allergies} onChange={e => update("allergies", e.target.value)} placeholder="e.g. nuts, dairy, gluten" className={INPUT_CLS} />
+            <Label className={LABEL_CLS}>Medical Conditions</Label>
+            <Textarea
+              value={form.medicalConditions}
+              onChange={e => update("medicalConditions", e.target.value)}
+              placeholder="Any medical conditions we should be aware of (e.g. diabetes, asthma, heart condition)"
+              className="w-full px-4 py-3 rounded-xl border-slate-200 bg-white text-sm text-slate-800 focus-visible:border-indigo-400 focus-visible:ring-indigo-50 min-h-[60px]"
+              rows={2}
+            />
           </div>
         </div>
-        <div>
-          <Label className={LABEL_CLS}>Medical Conditions</Label>
-          <Textarea
-            value={form.medicalConditions}
-            onChange={e => update("medicalConditions", e.target.value)}
-            placeholder="Any medical conditions we should be aware of (e.g. diabetes, asthma, heart condition)"
-            className="w-full px-4 py-3 rounded-xl border-slate-200 bg-white text-sm text-slate-800 focus-visible:border-indigo-400 focus-visible:ring-indigo-50 min-h-[60px]"
-            rows={2}
-          />
-        </div>
-      </div>
+      </CollapsibleFormSection>
 
-      {/* Accessibility */}
-      <div className="pt-3 border-t border-slate-100 space-y-3">
-        <p className="text-sm font-bold text-indigo-600 flex items-center gap-2">
-          <Accessibility className="w-4 h-4" /> Accessibility & Preferences
-        </p>
-        <div>
-          <Label className={LABEL_CLS}>Special Needs / Accessibility Requirements</Label>
-          <Textarea
-            value={form.specialNeeds}
-            onChange={e => update("specialNeeds", e.target.value)}
-            placeholder="e.g. wheelchair access, hearing assistance, seating preference"
-            className="w-full px-4 py-3 rounded-xl border-slate-200 bg-white text-sm text-slate-800 focus-visible:border-indigo-400 focus-visible:ring-indigo-50 min-h-[60px]"
-            rows={2}
-          />
-        </div>
-        <div>
-          <Label className={LABEL_CLS}>T-Shirt Size</Label>
-          <div className="flex gap-2 flex-wrap">
-            {TSHIRT_SIZES.map(sz => (
-              <button
-                key={sz}
-                onClick={() => update("tshirtSize", form.tshirtSize === sz ? "" : sz)}
-                className={cn(
-                  "w-12 h-10 rounded-xl border-2 text-sm font-bold transition-all",
-                  form.tshirtSize === sz
-                    ? "border-indigo-500 bg-indigo-500 text-white"
-                    : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300"
-                )}
-              >
-                {sz}
-              </button>
-            ))}
+      {/* Accessibility & Preferences */}
+      <CollapsibleFormSection title="Accessibility & Preferences" icon={Accessibility} defaultOpen={true}>
+        <div className="space-y-4">
+          <div>
+            <Label className={LABEL_CLS}>Special Needs / Accessibility Requirements</Label>
+            <Textarea
+              value={form.specialNeeds}
+              onChange={e => update("specialNeeds", e.target.value)}
+              placeholder="e.g. wheelchair access, hearing assistance, seating preference"
+              className="w-full px-4 py-3 rounded-xl border-slate-200 bg-white text-sm text-slate-800 focus-visible:border-indigo-400 focus-visible:ring-indigo-50 min-h-[60px]"
+              rows={2}
+            />
+          </div>
+          <div>
+            <Label className={LABEL_CLS}>T-Shirt Size</Label>
+            <div className="flex gap-2 flex-wrap">
+              {TSHIRT_SIZES.map(sz => (
+                <button
+                  key={sz}
+                  onClick={() => update("tshirtSize", form.tshirtSize === sz ? "" : sz)}
+                  className={cn(
+                    "w-12 h-10 rounded-xl border-2 text-sm font-bold transition-all",
+                    form.tshirtSize === sz
+                      ? "border-indigo-500 bg-indigo-500 text-white"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-indigo-300"
+                  )}
+                >
+                  {sz}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      </CollapsibleFormSection>
 
       {/* Referral */}
       <div className="pt-3 border-t border-slate-100 space-y-3">
@@ -952,9 +950,12 @@ export function EventPublicRegistration() {
   const [registering, setRegistering] = useState(false);
   const [regError, setRegError] = useState("");
   const [event, setEvent] = useState<EventResponse | null>(null);
+  const [programs, setPrograms] = useState<EventProgramResponse[]>([]);
+  const [registrationResult, setRegistrationResult] = useState<ActivityRegistrationResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [formConfig, setFormConfig] = useState<RegistrationFormConfig | null>(null);
   const [dynamicValues, setDynamicValues] = useState<Record<string, any>>({});
+  const [idempotencyKey] = useState(() => globalThis.crypto?.randomUUID?.() ?? generateId());
 
   const handleDynamicChange = (id: string, value: any) => {
     setDynamicValues(prev => ({ ...prev, [id]: value }));
@@ -970,6 +971,7 @@ export function EventPublicRegistration() {
             setEvent(ev);
             // TODO: fetch form config from API when available
             // eventService.getRegistrationFormConfig(id).then(setFormConfig);
+            return eventProgramService.getByEvent(id).then(setPrograms).catch(() => setPrograms([]));
           })
           .catch(() => {})
           .finally(() => setLoading(false));
@@ -1051,7 +1053,56 @@ export function EventPublicRegistration() {
       setRegistering(true);
       setRegError("");
       try {
-        await eventService.register(event.id);
+        const registrationProgram = programs.find(p => p.requiresRegistration) ?? programs[0];
+        if (registrationProgram) {
+          const primaryName = `${form.firstName} ${form.lastName}`.trim();
+          const participants = [
+            {
+              fullName: primaryName,
+              age: Number(form.age),
+              gender: form.gender,
+              relationship: "Self",
+              email: form.email,
+              phone: form.phone,
+            },
+            ...form.familyMembers.map(member => ({
+              fullName: member.name,
+              age: Number(member.age),
+              gender: member.gender,
+              relationship: member.relationship,
+            })),
+          ];
+          const result = await eventProgramService.registerActivity(registrationProgram.id, {
+            registrationType: form.registrationType || "individual",
+            primaryName,
+            primaryEmail: form.email,
+            primaryPhone: form.phone,
+            headCount: participants.length,
+            idempotencyKey,
+            participants,
+            customData: {
+              address: form.address,
+              city: form.city,
+              pincode: form.pincode,
+              emergencyContactName: form.emergencyContactName,
+              emergencyContactPhone: form.emergencyContactPhone,
+              idProofType: form.idProofType,
+              idProofNumber: form.idProofNumber,
+              dietaryPreference: form.dietaryPreference,
+              medicalConditions: form.medicalConditions,
+              allergies: form.allergies,
+              specialNeeds: form.specialNeeds,
+              tshirtSize: form.tshirtSize,
+              referralSource: form.referralSource,
+              agreeTerms: form.agreeTerms,
+              agreePhotography: form.agreePhotography,
+              dynamicValues,
+            },
+          });
+          setRegistrationResult(result);
+        } else {
+          await eventService.register(event.id);
+        }
         setIsRegistered(true);
       } catch (e: any) {
         setRegError(e.message ?? "Registration failed");
@@ -1210,9 +1261,18 @@ export function EventPublicRegistration() {
                   <div className="flex items-start gap-3 p-4 bg-emerald-50 rounded-xl border border-emerald-100">
                     <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-bold text-emerald-800">Registration Successful!</p>
+                      <p className="text-sm font-bold text-emerald-800">
+                        {registrationResult?.status === "PENDING"
+                          ? "Registration Pending Approval"
+                          : registrationResult?.status === "WAITLISTED"
+                            ? "Added to Waitlist"
+                            : "Registration Successful!"}
+                      </p>
                       <p className="text-xs text-emerald-700 mt-0.5">
-                        Your registration has been received. A confirmation will be sent to {form.email || "your email"}.
+                        Your registration has been received
+                        {registrationResult?.programTitle ? ` for ${registrationResult.programTitle}` : ""}.
+                        {registrationResult?.waitlistPosition ? ` Waitlist position: ${registrationResult.waitlistPosition}.` : ""}
+                        {" "}A confirmation will be sent to {form.email || "your email"}.
                       </p>
                     </div>
                   </div>

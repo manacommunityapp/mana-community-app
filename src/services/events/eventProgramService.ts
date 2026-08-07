@@ -8,7 +8,7 @@ export interface EventProgramResponse {
   dayDate: string | null;
   title: string;
   programType: string | null;
-  activityType: string | null;
+  activityType?: string | null;
   startTime: string | null;
   duration: string | null;
   venue: string | null;
@@ -17,10 +17,13 @@ export interface EventProgramResponse {
   sortOrder: number;
   capacity: number | null;
   requiresRegistration: boolean;
-  registeredCount: number;
-  spotsLeft: number;
-  slotStatus: string;
-  waitlistEnabled: boolean;
+  requiresApproval: boolean;
+  allowWaitlist: boolean;
+  maxPerRegistration: number;
+  registeredCount?: number;
+  spotsLeft?: number;
+  slotStatus?: string;
+  waitlistEnabled?: boolean;
   createdAt: string;
 }
 
@@ -39,19 +42,57 @@ export interface EventProgramRequest {
   sortOrder?: number;
   capacity?: number;
   requiresRegistration?: boolean;
+  requiresApproval?: boolean;
+  allowWaitlist?: boolean;
+  maxPerRegistration?: number;
   waitlistEnabled?: boolean;
+}
+
+export interface ActivityRegistrationParticipant {
+  fullName: string;
+  age?: number;
+  gender?: string;
+  relationship?: string;
+  email?: string;
+  phone?: string;
+  customData?: Record<string, unknown>;
+}
+
+export interface ActivityRegistrationRequest {
+  headCount?: number;
+  registrationType?: string;
+  primaryName?: string;
+  primaryEmail?: string;
+  primaryPhone?: string;
+  idempotencyKey?: string;
+  customData?: Record<string, unknown>;
+  participants?: ActivityRegistrationParticipant[];
 }
 
 export interface ActivityRegistrationResponse {
   id: number;
   programId: number;
   programTitle: string;
+  eventId: number;
+  eventTitle: string;
   userId: number;
   userName: string;
+  userEmail: string;
   headCount: number;
+  registrationType: string;
+  primaryName: string | null;
+  primaryEmail: string | null;
+  primaryPhone: string | null;
   status: string;
   spotsLeft: number;
+  waitlistPosition: number | null;
+  decisionReason: string | null;
+  approvedById: number | null;
+  approvedByName: string | null;
+  approvedAt: string | null;
   registeredAt: string;
+  participants: ActivityRegistrationParticipant[];
+  customData: Record<string, unknown>;
 }
 
 export interface MealRegistrationRequest {
@@ -102,14 +143,35 @@ export const eventProgramService = {
   },
 
   async joinActivity(programId: number, headCount = 1): Promise<ActivityRegistrationResponse> {
+    return this.registerActivity(programId, { headCount });
+  },
+
+  async registerActivity(programId: number, data: ActivityRegistrationRequest): Promise<ActivityRegistrationResponse> {
     return apiClient.post<ActivityRegistrationResponse>(
-      `/events/programs/${programId}/register`,
-      { headCount },
+      `/events/programs/${programId}/registrations`,
+      data,
+    );
+  },
+
+  async cancelActivityRegistration(registrationId: number): Promise<ActivityRegistrationResponse> {
+    return apiClient.put<ActivityRegistrationResponse>(`/events/activity-registrations/${registrationId}/cancel`, {});
+  },
+
+  async approveActivityRegistration(registrationId: number): Promise<ActivityRegistrationResponse> {
+    return apiClient.put<ActivityRegistrationResponse>(`/events/activity-registrations/${registrationId}/approve`, {});
+  },
+
+  async rejectActivityRegistration(registrationId: number, reason?: string): Promise<ActivityRegistrationResponse> {
+    return apiClient.put<ActivityRegistrationResponse>(
+      `/events/activity-registrations/${registrationId}/reject`,
+      reason ? { reason } : {},
     );
   },
 
   async leaveActivity(programId: number): Promise<void> {
-    await apiClient.delete<void>(`/events/programs/${programId}/register`);
+    const registrations = await this.getActivityRegistrations(programId);
+    const mine = registrations[0];
+    if (mine) await this.cancelActivityRegistration(mine.id);
   },
 
   async getActivityRegistrations(programId: number): Promise<ActivityRegistrationResponse[]> {

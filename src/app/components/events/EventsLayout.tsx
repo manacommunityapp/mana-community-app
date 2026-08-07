@@ -56,13 +56,19 @@ function EventsLayoutInner() {
     <div className="flex flex-col gap-2 sm:gap-4 h-full min-h-0">
       <div className="shrink-0 flex items-center justify-between gap-2 sm:gap-3 border-b border-slate-100 pb-2 sm:pb-3 min-w-0">
         <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs shrink-0" style={{ color: "#6b7094" }}>
-          <span>Home</span>
-          <ChevronRight className="h-3 w-3 shrink-0" />
-          <span style={{ color: "#4f46e5" }}>Events</span>
+          <NavLink to="/" className="hover:underline hover:text-indigo-600 transition-colors">
+            Home
+          </NavLink>
+          <ChevronRight className="h-3 w-3 shrink-0 text-slate-300" />
+          <NavLink to="/events" className="hover:underline font-semibold transition-colors" style={{ color: "#4f46e5" }}>
+            Events
+          </NavLink>
           {activeItem && activeItem.label !== "Dashboard" && (
             <>
-              <ChevronRight className="h-3 w-3 shrink-0" />
-              <span style={{ color: "#4f46e5" }}>{activeItem.label}</span>
+              <ChevronRight className="h-3 w-3 shrink-0 text-slate-300" />
+              <NavLink to={activeItem.to} className="hover:underline font-bold transition-colors" style={{ color: "#4f46e5" }}>
+                {activeItem.label}
+              </NavLink>
             </>
           )}
         </div>
