@@ -22,7 +22,10 @@ export interface SponsorPackageConfig {
   price: string;
   perks: string[];
   color: string;
-  bg: string;
+  bg?: string;
+  slots?: string;
+  claimed?: string;
+  badge?: string;
 }
 
 export interface DonationSchemeConfig {
@@ -30,6 +33,8 @@ export interface DonationSchemeConfig {
   title: string;
   amount: string;
   desc: string;
+  badge?: string;
+  category?: string;
 }
 
 export interface PaymentContactPerson {
@@ -47,8 +52,9 @@ export interface BankPaymentConfig {
   ifscCode: string;
   upiId: string;
   qrCodeUrl: string;
-  paymentHelpline: string;
-  taxBenefit: string;
+  paymentHelpline?: string;
+  helplines?: string | string[];
+  taxBenefit?: string;
   contacts: PaymentContactPerson[];
 }
 
@@ -153,34 +159,39 @@ export function ConfigureProspectusModal({
   if (!isOpen) return null;
 
   /* Helper functions for Tiers */
-  const addTier = () => {
+  const addPackage = () => {
     setPackages(prev => [
       ...prev,
-      { id: `sp_${Date.now()}`, name: "New Tier", price: "₹50,000", perks: ["Stage Banner", "2 VIP Passes"], color: "#6366f1", bg: "#eef2ff" },
+      { id: `sp_${Date.now()}`, name: "New Tier", price: "₹50,000", perks: ["Stage Banner", "2 VIP Passes"], color: "#6366f1", bg: "#eef2ff", slots: "5", claimed: "0", badge: "New" },
     ]);
   };
 
-  const updateTier = (id: string, field: keyof SponsorPackageConfig, val: any) => {
+  const updatePackage = (id: string, field: string, val: any) => {
     setPackages(prev => prev.map(p => p.id === id ? { ...p, [field]: val } : p));
   };
 
-  const removeTier = (id: string) => {
+  const updatePackagePerks = (id: string, text: string) => {
+    const perksArr = text.split(",").map(s => s.trim()).filter(Boolean);
+    setPackages(prev => prev.map(p => p.id === id ? { ...p, perks: perksArr } : p));
+  };
+
+  const removePackage = (id: string) => {
     setPackages(prev => prev.filter(p => p.id !== id));
   };
 
   /* Helper functions for Donation Schemes */
-  const addScheme = () => {
+  const addDonationScheme = () => {
     setDonationSchemes(prev => [
       ...prev,
-      { id: `ds_${Date.now()}`, title: "New Seva / Donation Scheme", amount: "₹10,000", desc: "Sponsorship details" },
+      { id: `ds_${Date.now()}`, title: "New Seva / Donation Scheme", amount: "₹10,000", desc: "Sponsorship details", badge: "80G Exempt", category: "General" },
     ]);
   };
 
-  const updateScheme = (id: string, field: keyof DonationSchemeConfig, val: string) => {
+  const updateDonationScheme = (id: string, field: string, val: any) => {
     setDonationSchemes(prev => prev.map(s => s.id === id ? { ...s, [field]: val } : s));
   };
 
-  const removeScheme = (id: string) => {
+  const removeDonationScheme = (id: string) => {
     setDonationSchemes(prev => prev.filter(s => s.id !== id));
   };
 
@@ -217,7 +228,7 @@ export function ConfigureProspectusModal({
       ifscCode: bankConfig.ifscCode,
       upiId: bankConfig.upiId,
       qrCodeUrl: bankConfig.qrCodeUrl,
-      helplines: bankConfig.helplines,
+      helplines: Array.isArray(bankConfig.helplines) ? bankConfig.helplines : bankConfig.helplines ? [bankConfig.helplines] : [],
       contacts: bankConfig.contacts,
       packages: packages.map(p => ({
         id: p.id,
@@ -849,7 +860,8 @@ export function EventsSponsors() {
             name: p.title,
             price: p.amount,
             perks: p.features || [],
-            color: p.color || "from-indigo-600 to-violet-600",
+            color: p.color || "#6366f1",
+            bg: "#eef2ff",
             slots: p.totalSlots || "5",
             claimed: p.claimedSlots || "0",
             badge: p.badge || "Standard",

@@ -48,7 +48,7 @@ export interface EventProspectusDto {
 export const eventProspectusService = {
   async getProspectus(eventId?: number): Promise<EventProspectusDto> {
     try {
-      const url = eventId ? `/api/events/prospectus?eventId=${eventId}` : `/api/events/prospectus`;
+      const url = eventId ? `/events/prospectus?eventId=${eventId}` : `/events/prospectus`;
       return await apiClient.get<EventProspectusDto>(url);
     } catch {
       return {
@@ -78,7 +78,7 @@ export const eventProspectusService = {
 
   async saveProspectus(dto: EventProspectusDto): Promise<EventProspectusDto> {
     try {
-      return await apiClient.post<EventProspectusDto>("/api/events/prospectus", dto);
+      return await apiClient.post<EventProspectusDto>("/events/prospectus", dto);
     } catch (e) {
       console.warn("Prospectus saved locally:", e);
       return dto;
