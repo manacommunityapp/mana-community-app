@@ -1,6 +1,6 @@
-import { Outlet, NavLink, useNavigate } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { Outlet, NavLink, useNavigate, useLocation } from "react-router";
+import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home } from "lucide-react";
+import { useState, useEffect } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -19,12 +19,119 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/* ── Global Header Breadcrumb with Clickable Links ── */
+function AppHeaderBreadcrumb() {
+  const location = useLocation();
+  const path = location.pathname;
+
+  const getCrumbs = () => {
+    const crumbs: { label: string; to: string }[] = [{ label: "Home", to: "/" }];
+
+    if (path === "/") return crumbs;
+
+    if (path.startsWith("/events")) {
+      crumbs.push({ label: "Events", to: "/events" });
+      if (path.includes("/schedule")) crumbs.push({ label: "Schedule", to: "/events/schedule" });
+      else if (path.includes("/registration")) crumbs.push({ label: "Registration", to: "/events/registration" });
+      else if (path.includes("/people")) crumbs.push({ label: "People", to: "/events/people" });
+      else if (path.includes("/fundraising")) crumbs.push({ label: "Fundraising", to: "/events/fundraising" });
+      else if (path.includes("/operations")) crumbs.push({ label: "Operations", to: "/events/operations" });
+      else if (path.includes("/media")) crumbs.push({ label: "Media & Reports", to: "/events/media" });
+    } else if (path.startsWith("/sports")) {
+      crumbs.push({ label: "Sports", to: "/sports" });
+      if (path.includes("/leagues")) crumbs.push({ label: "Leagues", to: "/sports/leagues" });
+      else if (path.includes("/teams")) crumbs.push({ label: "Teams", to: "/sports/teams" });
+      else if (path.includes("/schedule")) crumbs.push({ label: "Schedule", to: "/sports/schedule" });
+      else if (path.includes("/auctions")) crumbs.push({ label: "Auctions", to: "/sports/auctions" });
+    } else if (path.startsWith("/marketplace")) {
+      crumbs.push({ label: "Marketplace", to: "/marketplace" });
+      if (path.includes("/orders")) crumbs.push({ label: "Orders", to: "/marketplace/orders" });
+      else if (path.includes("/my-listings")) crumbs.push({ label: "My Listings", to: "/marketplace/my-listings" });
+    } else if (path.startsWith("/visitors")) {
+      crumbs.push({ label: "Visitors", to: "/visitors" });
+    } else if (path.startsWith("/notices")) {
+      crumbs.push({ label: "Notices", to: "/notices" });
+    } else if (path.startsWith("/bookings")) {
+      crumbs.push({ label: "Bookings", to: "/bookings" });
+    } else if (path.startsWith("/helpdesk")) {
+      crumbs.push({ label: "Helpdesk", to: "/helpdesk" });
+    } else if (path.startsWith("/polls")) {
+      crumbs.push({ label: "Polls", to: "/polls" });
+    } else if (path.startsWith("/jobs")) {
+      crumbs.push({ label: "Jobs & Referrals", to: "/jobs" });
+    } else if (path.startsWith("/cpn")) {
+      crumbs.push({ label: "Professional Network", to: "/cpn" });
+    } else if (path.startsWith("/admin")) {
+      crumbs.push({ label: "Admin Hub", to: "/admin" });
+    } else if (path.startsWith("/finance")) {
+      crumbs.push({ label: "Finance", to: "/finance/expenses" });
+      if (path.includes("/expenses")) crumbs.push({ label: "Expenses", to: "/finance/expenses" });
+      else if (path.includes("/invoices")) crumbs.push({ label: "Invoices", to: "/finance/invoices" });
+      else if (path.includes("/budget")) crumbs.push({ label: "Budget", to: "/finance/budget" });
+      else if (path.includes("/reports")) crumbs.push({ label: "Reports", to: "/finance/reports" });
+    } else if (path.startsWith("/community")) {
+      crumbs.push({ label: "Community", to: "/" });
+      if (path.includes("/inventory")) crumbs.push({ label: "Inventory", to: "/community/inventory" });
+      else if (path.includes("/assets")) crumbs.push({ label: "Assets", to: "/community/assets" });
+      else if (path.includes("/procurement")) crumbs.push({ label: "Procurement", to: "/community/procurement" });
+      else if (path.includes("/vendors")) crumbs.push({ label: "Vendors", to: "/community/vendors" });
+    } else if (path.startsWith("/vendor-portal")) {
+      crumbs.push({ label: "Vendor Portal", to: "/vendor-portal" });
+    } else if (path.startsWith("/profile")) {
+      crumbs.push({ label: "My Profile", to: "/profile" });
+    } else if (path.startsWith("/architecture")) {
+      crumbs.push({ label: "Architecture", to: "/architecture" });
+    } else {
+      const seg = path.replace("/", "").replaceAll("-", " ");
+      if (seg) crumbs.push({ label: seg.charAt(0).toUpperCase() + seg.slice(1), to: path });
+    }
+
+    return crumbs;
+  };
+
+  const crumbs = getCrumbs();
+
+  return (
+    <nav aria-label="Breadcrumb" className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground ml-3">
+      {crumbs.map((crumb, idx) => {
+        const isLast = idx === crumbs.length - 1;
+        return (
+          <div key={crumb.to + idx} className="flex items-center gap-1.5">
+            {idx > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/40 shrink-0" />}
+            {isLast ? (
+              <span className="font-extrabold text-foreground">{crumb.label}</span>
+            ) : (
+              <NavLink
+                to={crumb.to}
+                className="hover:underline hover:text-primary transition-colors font-medium text-muted-foreground"
+              >
+                {crumb.label}
+              </NavLink>
+            )}
+          </div>
+        );
+      })}
+    </nav>
+  );
+}
+
 export function Layout() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(() => typeof window !== 'undefined' ? window.innerWidth >= 1024 : false);
-  const [isCommunityOpen, setIsCommunityOpen] = useState(false);
-  const [isFinanceOpen, setIsFinanceOpen] = useState(false);
+  const location = useLocation();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCommunityOpen, setIsCommunityOpen] = useState(() => location.pathname.startsWith("/community"));
+  const [isFinanceOpen, setIsFinanceOpen] = useState(() => location.pathname.startsWith("/finance"));
   const { user, isAdmin, logout } = useAuth();
   const navigate = useNavigate();
+
+  // Auto expand parent collapsible sub-menus when user is on a child route
+  useEffect(() => {
+    if (location.pathname.startsWith("/community")) {
+      setIsCommunityOpen(true);
+    }
+    if (location.pathname.startsWith("/finance")) {
+      setIsFinanceOpen(true);
+    }
+  }, [location.pathname]);
 
   // AuthContext fetches /users/me on boot and populates user.permissions
   const permissions = user?.permissions || [];
@@ -111,13 +218,13 @@ export function Layout() {
     <ChatProvider>
       <div className="h-screen bg-background flex font-sans text-foreground">
       {isSidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-slate-900/25 backdrop-blur-sm lg:hidden" onClick={() => setIsSidebarOpen(false)} />
+        <div className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs" onClick={() => setIsSidebarOpen(false)} />
       )}
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:flex-shrink-0 flex flex-col overflow-hidden bg-sidebar border-r border-sidebar-border shadow-[4px_0_20px_rgba(0,0,0,0.1)]",
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0 lg:w-0"
+          "fixed inset-y-0 left-0 z-50 w-64 transform transition-all duration-300 ease-in-out flex flex-col overflow-hidden bg-sidebar border-r border-sidebar-border shadow-[4px_0_20px_rgba(0,0,0,0.15)]",
+          isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full shadow-none"
         )}
       >
         <div className="w-64 flex flex-col h-full bg-sidebar">
@@ -130,7 +237,7 @@ export function Layout() {
               Mana Community
             </span>
           </div>
-          <button className="lg:hidden text-white/40 hover:text-white/85 transition-colors" onClick={() => setIsSidebarOpen(false)}>
+          <button className="text-white/40 hover:text-white/85 transition-colors p-1 rounded-lg hover:bg-white/10" onClick={() => setIsSidebarOpen(false)}>
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -492,6 +599,7 @@ export function Layout() {
               <Menu className="h-5 w-5" />
             </button>
             <span className="font-extrabold text-sm sm:text-base text-foreground lg:hidden tracking-tight">Mana Community</span>
+            <AppHeaderBreadcrumb />
           </div>
 
           {/* Search bar - desktop */}

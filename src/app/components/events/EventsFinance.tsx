@@ -25,8 +25,10 @@ const mockExpenseData = [
   { cat: "Decor",     amount: 62000  },
   { cat: "AV & Tech", amount: 55000  },
   { cat: "Security",  amount: 30000  },
-  { cat: "Marketing", amount: 22000  },
   { cat: "Printing",  amount: 18000  },
+  { cat: "Others",    amount: 40000  },
+];
+
 const CATEGORIES = ["Venue", "Food", "Decor", "AV & Tech", "Security", "Marketing", "Printing", "Others"];
 
 type LedgerRow = { id: string; expenseId?: number; desc: string; type: string; amount: number; date: string; cat: string };

@@ -42,12 +42,18 @@ export function VendorPortalLayout() {
 
         {/* Breadcrumb */}
         {activeItem && (
-          <div className="hidden sm:flex items-center gap-1 text-xs text-[#6b7094]">
-            <span>Home</span>
-            <ChevronRight className="w-3 h-3" />
-            <span>Vendor Portal</span>
-            <ChevronRight className="w-3 h-3" />
-            <span className="text-indigo-600 font-semibold">{activeItem.label}</span>
+          <div className="hidden sm:flex items-center gap-1.5 text-xs text-[#6b7094]">
+            <NavLink to="/" className="hover:underline hover:text-indigo-600 transition-colors">
+              Home
+            </NavLink>
+            <ChevronRight className="w-3 h-3 text-slate-300" />
+            <NavLink to="/vendor-portal" className="hover:underline font-semibold transition-colors">
+              Vendor Portal
+            </NavLink>
+            <ChevronRight className="w-3 h-3 text-slate-300" />
+            <NavLink to={activeItem.to} className="text-indigo-600 font-bold hover:underline">
+              {activeItem.label}
+            </NavLink>
           </div>
         )}
       </div>

@@ -70,14 +70,20 @@ export function SportsLayout() {
       {/* Breadcrumb + page header in a single horizontal row */}
       <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
         {/* Left: Breadcrumbs */}
-        <div className="flex items-center gap-2 text-xs" style={{ color: "#6b7094" }}>
-          <span>Home</span>
-          <ChevronRight className="h-3 w-3" />
-          <span style={{ color: "#4f46e5" }}>Sports</span>
+        <div className="flex items-center gap-1.5 text-xs text-[#6b7094]">
+          <NavLink to="/" className="hover:underline hover:text-indigo-600 transition-colors">
+            Home
+          </NavLink>
+          <ChevronRight className="h-3 w-3 text-slate-300" />
+          <NavLink to="/sports" className="hover:underline font-semibold transition-colors" style={{ color: "#4f46e5" }}>
+            Sports
+          </NavLink>
           {activeItem && activeItem.label !== "Dashboard" && (
             <>
-              <ChevronRight className="h-3 w-3" />
-              <span style={{ color: "#4f46e5" }}>{activeItem.label}</span>
+              <ChevronRight className="h-3 w-3 text-slate-300" />
+              <NavLink to={activeItem.to} className="hover:underline font-bold transition-colors" style={{ color: "#4f46e5" }}>
+                {activeItem.label}
+              </NavLink>
             </>
           )}
         </div>

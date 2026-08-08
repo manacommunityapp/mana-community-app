@@ -7,7 +7,7 @@ import {
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
   Zap, Star, ArrowRight, Trash2, PlusCircle, Link2,
-  Save, Bookmark, XCircle,
+  Save, Bookmark, XCircle, Mail,
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
@@ -21,6 +21,7 @@ import { cn } from "../ui/utils";
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventRequest } from "../../../services/events/eventService";
 import { DEFAULT_REGISTRATION_FORM_CONFIG, type RegistrationFormConfig, type FormField } from "./EventRegistrationFormBuilder";
+import { AgendaNotificationModal } from "./EventsPrograms";
 
 /* ─── Types ─── */
 interface FormData {
@@ -248,15 +249,28 @@ function formatDayLabel(dateStr: string): string {
   return d.toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" });
 }
 
+const FESTIVAL_AGENDA_PLACEHOLDERS: ScheduleActivity[] = [
+  { id: "p1", name: "Ganesh Puja & Morning Aarti Ritual", startTime: "08:00", endTime: "09:00", description: "Traditional inauguration & morning stotram aarti" },
+  { id: "p2", name: "Classical Bharatanatyam Dance & Music", startTime: "09:30", endTime: "11:00", description: "Stage performance by community troupe dancers" },
+  { id: "p3", name: "Cultural Talent Hunt & Singing Competition", startTime: "11:15", endTime: "12:45", description: "Youth & adult singing and elocution competition" },
+  { id: "p4", name: "Prasadam & Grand Community Lunch Feast", startTime: "13:00", endTime: "14:30", description: "Buffet dining & prasadam distribution" },
+  { id: "p5", name: "Youth Sports & Rangoli Art Workshop", startTime: "15:00", endTime: "16:30", description: "Indoor badminton & rangoli competition" },
+  { id: "p6", name: "Chief Guest Speech & Prize Ceremony", startTime: "17:00", endTime: "18:30", description: "Felicitation ceremony & awards distribution" },
+  { id: "p7", name: "Grand Evening Musical Night & Orchestra", startTime: "19:00", endTime: "21:30", description: "Live concert & celebrity music performance" },
+];
+
 function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [notifModalOpen, setNotifModalOpen] = useState(false);
+  const [notifDayLabel, setNotifDayLabel] = useState<string | undefined>(undefined);
+  const [notifActivityTitle, setNotifActivityTitle] = useState<string | undefined>(undefined);
 
   const syncDaySchedules = (start: string, end: string) => {
     const days = getDaysBetween(start, end);
     const existing = new Map(data.daySchedules.map(ds => [ds.date, ds]));
     const synced = days.map(date => existing.get(date) ?? {
       date,
-      activities: [{ id: `a${Date.now()}-${date}`, name: "", startTime: "09:00", endTime: "10:00", description: "" }],
+      activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
     });
     update("daySchedules", synced);
     if (synced.length > 0 && !expandedDay) setExpandedDay(synced[0].date);
@@ -276,9 +290,35 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     update("multiDay", v);
     if (v && data.startDate && data.endDate) {
       syncDaySchedules(data.startDate, data.endDate);
-    } else if (!v) {
-      update("daySchedules", []);
+    } else if (!v && data.startDate) {
+      update("daySchedules", [{
+        date: data.startDate,
+        activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+      }]);
     }
+  };
+
+  const loadFestivalPlaceholders = () => {
+    const targetDate = data.startDate || new Date().toISOString().split("T")[0];
+    if (data.daySchedules.length === 0) {
+      update("daySchedules", [{
+        date: targetDate,
+        activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+      }]);
+      setExpandedDay(targetDate);
+    } else {
+      const updated = data.daySchedules.map(ds => ({
+        ...ds,
+        activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+      }));
+      update("daySchedules", updated);
+    }
+  };
+
+  const triggerNotification = (dayLabel?: string, actTitle?: string) => {
+    setNotifDayLabel(dayLabel);
+    setNotifActivityTitle(actTitle);
+    setNotifModalOpen(true);
   };
 
   const addActivity = (date: string) => {
@@ -336,13 +376,51 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         </div>
       </div>
 
-      {/* Multi-day schedule builder */}
-      {data.multiDay && dayCount > 0 && (
-        <div className="animate-fade-in-up">
-          <div className="flex items-center justify-between mb-4">
-            <SectionHeader icon={Zap} title="Day-wise Schedule" subtitle={`${dayCount} day${dayCount > 1 ? "s" : ""} — add activities for each day`} />
+      {/* Day-wise schedule builder */}
+      <div className="animate-fade-in-up pt-3 border-t border-slate-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <SectionHeader icon={Zap} title="Day-wise Agenda & Cultural Activities" subtitle={dayCount > 0 ? `${dayCount} day${dayCount > 1 ? "s" : ""} — set up program activities` : "Add day-wise agenda placeholders for festival activities"} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={loadFestivalPlaceholders}
+              className="border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Load Festival Agenda Placeholders
+            </Button>
+            {dayCount > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => triggerNotification()}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl"
+              >
+                <Mail className="w-3.5 h-3.5" /> Send Agenda Email
+              </Button>
+            )}
           </div>
+        </div>
 
+        {dayCount === 0 && (
+          <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 space-y-3">
+            <Zap className="w-8 h-8 text-indigo-400 mx-auto" />
+            <div>
+              <p className="text-sm font-bold text-slate-700">No Day-wise Agenda Configured</p>
+              <p className="text-xs text-slate-400 mt-0.5">Click below to auto-populate festival program agenda placeholders (puja, cultural dance, sports, lunch feast, musical night).</p>
+            </div>
+            <Button
+              type="button"
+              onClick={loadFestivalPlaceholders}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 text-xs font-bold rounded-xl"
+            >
+              <Sparkles className="w-4 h-4" /> Populate Festival Agenda Placeholders
+            </Button>
+          </div>
+        )}
+
+        {dayCount > 0 && (
           <div className="space-y-3">
             {data.daySchedules.map((day, dayIdx) => {
               const isExpanded = expandedDay === day.date;
@@ -354,12 +432,11 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                     "rounded-2xl border overflow-hidden transition-all",
                     isExpanded ? "border-indigo-200 shadow-[0_4px_20px_rgba(99,102,241,0.08)]" : "border-slate-200 hover:border-slate-300"
                   )}>
-                  <button onClick={() => setExpandedDay(isExpanded ? null : day.date)}
-                    className={cn(
-                      "w-full flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 transition-colors",
-                      isExpanded ? "bg-indigo-50/50" : "bg-white hover:bg-slate-50"
-                    )}>
-                    <div className="flex items-center gap-3 sm:gap-4">
+                  <div className={cn(
+                    "w-full flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 transition-colors",
+                    isExpanded ? "bg-indigo-50/50" : "bg-white hover:bg-slate-50"
+                  )}>
+                    <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="flex items-center gap-3 sm:gap-4 flex-1 text-left">
                       <div className={cn(
                         "w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex flex-col items-center justify-center text-white font-black",
                         isExpanded ? "shadow-md" : ""
@@ -367,20 +444,26 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                         <span className="text-[10px] leading-none opacity-70">DAY</span>
                         <span className="text-sm leading-none">{dayIdx + 1}</span>
                       </div>
-                      <div className="text-left">
+                      <div>
                         <p className="text-sm font-bold text-slate-800">{formatDayLabel(day.date)}</p>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          {filledCount}/{totalCount} activities filled
+                          {filledCount}/{totalCount} activities configured
                         </p>
                       </div>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-2">
-                      {filledCount === totalCount && totalCount > 0 && (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      )}
-                      <ChevronRight className={cn("w-4 h-4 text-slate-400 transition-transform duration-200", isExpanded && "rotate-90")} />
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); triggerNotification(`Day ${dayIdx + 1}`); }}
+                        className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:text-indigo-600 hover:border-indigo-200 flex items-center gap-1.5 shadow-2xs transition-all"
+                      >
+                        <Mail className="w-3.5 h-3.5 text-indigo-500" /> Notify Day {dayIdx + 1}
+                      </button>
+                      <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="p-1">
+                        <ChevronRight className={cn("w-4 h-4 text-slate-400 transition-transform duration-200", isExpanded && "rotate-90")} />
+                      </button>
                     </div>
-                  </button>
+                  </div>
 
                   {isExpanded && (
                     <div className="px-3 sm:px-5 pb-3 sm:pb-5 pt-2 bg-white space-y-3 animate-fade-in-up">
@@ -392,20 +475,31 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
                                 <span className="text-[10px] font-black text-indigo-600">{actIdx + 1}</span>
                               </div>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Activity</span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Activity / Program Item</span>
                             </div>
-                            {day.activities.length > 1 && (
-                              <button onClick={() => removeActivity(day.date, act.id)}
-                                className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded-lg hover:bg-rose-50">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {act.name && (
+                                <button
+                                  type="button"
+                                  onClick={() => triggerNotification(`Day ${dayIdx + 1}`, act.name)}
+                                  className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-lg border border-indigo-100 flex items-center gap-1 transition-all"
+                                >
+                                  <Mail className="w-3 h-3" /> Notify
+                                </button>
+                              )}
+                              {day.activities.length > 1 && (
+                                <button onClick={() => removeActivity(day.date, act.id)}
+                                  className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded-lg hover:bg-rose-50">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
                             <div>
-                              <FieldLabel required>Activity Name</FieldLabel>
+                              <FieldLabel required>Activity / Cultural Event Title</FieldLabel>
                               <Input value={act.name} onChange={e => updateActivity(day.date, act.id, "name", e.target.value)}
-                                placeholder="e.g. Opening Ceremony, Cultural Program" className={INPUT_CLS} />
+                                placeholder="e.g. Bharatanatyam Dance / Aarti / Music Night" className={INPUT_CLS} />
                             </div>
                             <div className="w-28">
                               <FieldLabel required>From</FieldLabel>
@@ -419,9 +513,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                             </div>
                           </div>
                           <div>
-                            <FieldLabel>Description</FieldLabel>
+                            <FieldLabel>Activity Description & Venue Details</FieldLabel>
                             <Input value={act.description} onChange={e => updateActivity(day.date, act.id, "description", e.target.value)}
-                              placeholder="Optional details about this activity" className={INPUT_CLS} />
+                              placeholder="e.g. Main Stage, performed by Ananya Troupe" className={INPUT_CLS} />
                           </div>
                         </div>
                       ))}
@@ -435,8 +529,8 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Venue */}
       <div className="pt-2">
@@ -465,6 +559,15 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
           </div>
         </div>
       </div>
+
+      {/* Agenda Notification Modal */}
+      <AgendaNotificationModal
+        isOpen={notifModalOpen}
+        onClose={() => setNotifModalOpen(false)}
+        eventName={data.title || "Community Event"}
+        dayLabel={notifDayLabel}
+        activityTitle={notifActivityTitle}
+      />
     </div>
   );
 }

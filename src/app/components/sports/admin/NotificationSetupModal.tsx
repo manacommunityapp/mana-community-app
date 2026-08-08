@@ -46,28 +46,28 @@ const DEFAULT_TRIGGER_STATES: Record<string, { enabled: boolean; title: string; 
     title: "🏏 Tournament Registration Open!",
     body: "Registration is now open for {{tournament_name}}! 🏆 Starting {{start_date}} at {{venue}}. Register before spots fill up. Tap to register now.",
     recipients: ["All Members", "Community Feed"],
-    overrideChannels: ["push", "email", "whatsapp"]
+    overrideChannels: ["email"]
   },
   "1d": {
     enabled: true,
     title: "🏆 Tournament Tomorrow!",
     body: "{{tournament_name}} begins TOMORROW at {{start_time}}! 📍 {{venue}}. Your match schedule is ready. Check your fixtures and prepare. See you on the ground! 🏅",
     recipients: ["Registered Players", "Team Owners", "Admins Only"],
-    overrideChannels: []
+    overrideChannels: ["email"]
   },
   "2h": {
     enabled: true,
     title: "⚡ 2 Hours to Kick-Off!",
     body: "⚡ {{tournament_name}} starts in 2 hours! Report at {{venue}} by {{report_time}}. Bring your kit & ID. Your first match is ready! Let's go! 🏏",
     recipients: ["Registered Players", "Team Owners", "Referees"],
-    overrideChannels: []
+    overrideChannels: ["email"]
   },
   "30m": {
     enabled: true,
     title: "🔴 30 Mins to Start — Head to Ground!",
     body: "🔴 FINAL CALL — {{tournament_name}} begins in 30 minutes! Head to {{venue}} NOW. Gate A open. Toss in 15 mins. Don't be late — matches won't be delayed! ⏱️",
     recipients: ["Registered Players", "Referees"],
-    overrideChannels: ["push", "sms", "whatsapp", "inapp"]
+    overrideChannels: ["email"]
   },
   "now": {
     enabled: true,

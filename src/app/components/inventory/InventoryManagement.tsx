@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { NavLink } from "react-router";
 import {
   Package,
   Users,
@@ -393,10 +394,14 @@ export function InventoryManagement() {
       {/* Breadcrumb + page header */}
       <div className="shrink-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-3">
         {/* Left: Breadcrumbs */}
-        <div className="flex items-center gap-2 text-xs" style={{ color: "#6b7094" }}>
-          <span>Home</span>
+        <div className="flex items-center gap-1.5 text-xs text-[#6b7094]">
+          <NavLink to="/" className="hover:underline hover:text-indigo-600 transition-colors">
+            Home
+          </NavLink>
           <span className="text-slate-300">›</span>
-          <span style={{ color: "#4f46e5" }}>Inventory</span>
+          <NavLink to="/community/inventory" className="hover:underline font-bold transition-colors" style={{ color: "#4f46e5" }}>
+            Inventory
+          </NavLink>
         </div>
 
         {/* Right: Page Header */}
