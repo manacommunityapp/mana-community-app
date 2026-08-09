@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { NavLink } from "react-router";
 import { type LineItem, emptyLine } from "./ledgerShared";
 import { LEDGER_CSS } from "./ledgerStyles";
 import { DashboardView } from "./invoice/DashboardView";
@@ -123,9 +124,15 @@ export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "
         {/* ── Breadcrumb + page header ── */}
         <div className="page-head">
           <div className="crumbs">
-            <span>Home</span>
+            <NavLink to="/" className="hover:underline hover:text-indigo-600 transition-colors">
+              Home
+            </NavLink>
             <span className="sep">›</span>
-            <span className="cur">{section === "expense" ? "Expense" : "Income"}</span>
+            <NavLink to="/finance/expenses" className="hover:underline hover:text-indigo-600 transition-colors">
+              Finance
+            </NavLink>
+            <span className="sep">›</span>
+            <span className="cur font-bold">{section === "expense" ? "Expense" : "Income"}</span>
           </div>
           <div className="page-title">
             <div className="pt-text">

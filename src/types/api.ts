@@ -1,7 +1,8 @@
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 export interface LoginRequest {
-  email: string;
+  /** Email address or 10-digit mobile number. */
+  identifier: string;
   password: string;
 }
 

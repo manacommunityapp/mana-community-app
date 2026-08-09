@@ -15,6 +15,7 @@ import { EventMockProvider, useEventMock } from "./EventMockToggle";
 import { CreateEventButton } from "./EventsCreate";
 
 const navItems = [
+
   { to: "/events",              label: "Dashboard",        icon: LayoutDashboard, end: true, permission: VIEW_EVENT_DASHBOARD  },
   { to: "/events/schedule",     label: "Events & Schedule",icon: CalendarDays,              permission: VIEW_EVENT_SCHEDULE   },
   { to: "/events/registration", label: "Registration",     icon: Ticket,                    permission: VIEW_EVENT_REGISTRATION, altPermission: REGISTER_EVENT },
@@ -23,6 +24,7 @@ const navItems = [
   { to: "/events/operations",   label: "Operations",       icon: UtensilsCrossed,           permission: VIEW_EVENT_OPERATIONS },
   { to: "/events/media",        label: "Media & Reports",  icon: ImageIcon,                 permission: VIEW_EVENT_MEDIA, altPermission: VIEW_EVENT_GALLERY },
   { to: "/events/access",       label: "Access & Roles",   icon: Shield,                    permission: VIEW_EVENTS, adminOnly: true },
+
 ];
 
 function DataModeToggle() {
@@ -53,11 +55,17 @@ function EventsLayoutInner() {
   );
 
   const visibleNav = navItems.filter((nav) => {
+
     if ("adminOnly" in nav && nav.adminOnly && !isAdmin) return false;
     if (hasPermission(VIEW_EVENTS)) return true;
     if (nav.permission && hasPermission(nav.permission)) return true;
     if ("altPermission" in nav && nav.altPermission && hasPermission(nav.altPermission)) return true;
     return false;
+
+    if (nav.label === "Media & Reports") return true; // Gallery accessible to all logged-in users
+    if (nav.label === "Registration") return hasPermission(VIEW_EVENTS) || hasPermission(REGISTER_EVENT);
+    return hasPermission(VIEW_EVENTS);
+
   });
 
   return (

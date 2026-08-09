@@ -1,408 +1,431 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   CalendarDays, Users, Ticket, TrendingUp, DollarSign,
   Utensils, Gavel, ClipboardCheck, Star, ArrowUpRight,
   Clock, MapPin, CheckCircle2, AlertCircle, Loader2,
+  Sparkles, Search, QrCode, UserPlus, ShieldCheck, Award,
+  ChevronRight, ArrowRight, Download, Filter, Bot, Flame
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from "recharts";
-import { CreateEventButton } from "./EventsCreate";
-import { useEventMock } from "./EventMockToggle";
-import { eventService, type EventResponse } from "../../../services/events/eventService";
-import { eventTaskService } from "../../../services/events/eventTaskService";
-import { eventExpenseService } from "../../../services/events/eventExpenseService";
-import { eventDonationService } from "../../../services/events/eventDonationService";
-import { eventSponsorService } from "../../../services/events/eventSponsorService";
-import { eventVolunteerService } from "../../../services/events/eventVolunteerService";
-import { foodEventService } from "../../../services/food/foodEventService";
-
-// Mock data — shown when toggle is "Mock Data"; live API used otherwise
-const kpis = [
-  { label: "Total Events",      value: "24",    sub: "8 active",         icon: CalendarDays, color: "#4f46e5", bg: "#eef2ff", trend: "+3 this month" },
-  { label: "Registrations",     value: "1,842", sub: "↑ 12% vs last",   icon: Ticket,       color: "#6366f1", bg: "#eef2ff", trend: "+204 this week" },
-  { label: "Volunteers",        value: "318",   sub: "Across 12 teams",  icon: Users,        color: "#0891b2", bg: "#ecfeff", trend: "94% confirmed" },
-  { label: "Budget Utilized",   value: "68%",   sub: "₹4.8L of ₹7.1L",  icon: DollarSign,   color: "#059669", bg: "#ecfdf5", trend: "₹2.3L remaining" },
-  { label: "Sponsors",          value: "19",    sub: "₹12.4L collected", icon: Star,         color: "#d97706", bg: "#fffbeb", trend: "5 pending" },
-  { label: "Donations",         value: "₹6.2L", sub: "Cash + Kind",      icon: TrendingUp,   color: "#7c3aed", bg: "#f5f3ff", trend: "+₹80K today" },
-  { label: "Food Prepared",     value: "82%",   sub: "4,200 plates est", icon: Utensils,     color: "#be185d", bg: "#fdf2f8", trend: "On schedule" },
-  { label: "Auction Revenue",   value: "₹2.1L", sub: "14 items sold",    icon: Gavel,        color: "#0f766e", bg: "#f0fdfa", trend: "Live now" },
-];
-
-const registrationData = [
-  { day: "Mon", count: 82 }, { day: "Tue", count: 145 }, { day: "Wed", count: 203 },
-  { day: "Thu", count: 178 }, { day: "Fri", count: 267 }, { day: "Sat", count: 312 }, { day: "Sun", count: 225 },
-];
-
-const budgetData = [
-  { cat: "Venue",     budget: 120, spent: 110 },
-  { cat: "Food",      budget: 200, spent: 145 },
-  { cat: "Decor",     budget: 80,  spent: 60  },
-  { cat: "Tech",      budget: 60,  spent: 55  },
-  { cat: "Security",  budget: 40,  spent: 30  },
-  { cat: "Marketing", budget: 30,  spent: 22  },
-];
-
-const categoryPie = [
-  { name: "Family",    value: 520, color: "#6366f1" },
-  { name: "Individual",value: 680, color: "#4f46e5" },
-  { name: "VIP",       value: 120, color: "#7c3aed" },
-  { name: "Volunteer", value: 318, color: "#10b981" },
-  { name: "Committee", value: 64,  color: "#8b5cf6" },
-  { name: "Others",    value: 140, color: "#64748b" },
-];
-
-const upcomingEvents = [
-  { name: "Ganesh Chaturthi 2026",   date: "Aug 27",  type: "Festival",     status: "On Track",   color: "#4f46e5", attendees: 820 },
-  { name: "Annual Sports Day",        date: "Sep 14",  type: "Sports",       status: "Planning",   color: "#6366f1", attendees: 412 },
-  { name: "Blood Donation Camp",      date: "Sep 20",  type: "Health Camp",  status: "Registration Open", color: "#be185d", attendees: 200 },
-  { name: "Diwali Cultural Night",    date: "Oct 20",  type: "Cultural",     status: "Planning",   color: "#d97706", attendees: 650 },
-];
-
-const pendingTasks = [
-  { task: "Confirm catering vendor for Ganesh Utsav", priority: "high" as const,   due: "2 days" },
-  { task: "Send registration reminder emails",         priority: "medium" as const, due: "Today" },
-  { task: "Finalize stage layout diagram",             priority: "high" as const,   due: "3 days" },
-  { task: "Collect pending sponsor payments",          priority: "medium" as const, due: "1 week" },
-  { task: "Assign volunteer shifts for Day 2",         priority: "low" as const,    due: "5 days" },
-];
-
-const priorityStyle: Record<string, { bg: string; text: string; dot: string }> = {
-  high:   { bg: "bg-rose-50",   text: "text-rose-600",   dot: "bg-rose-500"   },
-  medium: { bg: "bg-amber-50",  text: "text-amber-600",  dot: "bg-amber-500"  },
-  low:    { bg: "bg-emerald-50",text: "text-emerald-600",dot: "bg-emerald-500" },
-};
-
-function mapEventsToUpcoming(events: EventResponse[]) {
-  const typeColors: Record<string, string> = {
-    festival: "#4f46e5", cultural: "#6366f1", health: "#be185d",
-    community: "#0891b2", corporate: "#374151", education: "#059669",
-    food: "#d97706", outdoor: "#065f46", other: "#64748b",
-  };
-  return events.slice(0, 4).map(ev => ({
-    name: ev.title,
-    date: ev.startDate ? new Date(ev.startDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) : "TBD",
-    type: ev.type ? ev.type.charAt(0).toUpperCase() + ev.type.slice(1) : "Event",
-    status: ev.startDate && new Date(ev.startDate) > new Date() ? "Upcoming" : "Past",
-    color: typeColors[ev.type?.toLowerCase() ?? ""] ?? "#4f46e5",
-    attendees: ev.attendees ?? 0,
-  }));
-}
+import { GlassCard, TouchButton, StatusChip, BottomSheet } from "./redesign/EventDesignSystem";
+import { EventAICopilotDrawer } from "./redesign/EventAICopilotDrawer";
+import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 
 export function EventsDashboard() {
-  const { useMock } = useEventMock();
-  const [liveEvents, setLiveEvents] = useState<EventResponse[]>([]);
-  const [liveTasks, setLiveTasks] = useState<any[]>([]);
-  const [liveExpenses, setLiveExpenses] = useState<any[]>([]);
-  const [liveDonations, setLiveDonations] = useState<any[]>([]);
-  const [liveSponsors, setLiveSponsors] = useState<any[]>([]);
-  const [liveVolunteers, setLiveVolunteers] = useState<any[]>([]);
-  const [liveFoodCount, setLiveFoodCount] = useState<number>(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  // Live ticking countdown state for Ganesh Utsav 2026
+  const [timeLeft, setTimeLeft] = useState({ days: 18, hours: 14, mins: 32, secs: 45 });
+  const [carouselIndex, setCarouselIndex] = useState(0);
+  const [showAICopilot, setShowAICopilot] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
 
   useEffect(() => {
-    if (useMock) return;
-    setLoading(true);
-    setError("");
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev.secs > 0) return { ...prev, secs: prev.secs - 1 };
+        if (prev.mins > 0) return { ...prev, mins: 59, secs: 59 };
+        if (prev.hours > 0) return { ...prev, hours: prev.hours - 1, mins: 59, secs: 59 };
+        if (prev.days > 0) return { ...prev, days: prev.days - 1, hours: 23, mins: 59, secs: 59 };
+        return prev;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-    Promise.allSettled([
-      eventService.getUpcomingEvents(),
-      eventTaskService.getAll(),
-      eventExpenseService.getAll(),
-      eventDonationService.getAll(),
-      eventSponsorService.getAll(),
-      eventVolunteerService.getAll(),
-      foodEventService.getEvents(),
-    ]).then(([evRes, taskRes, expRes, donRes, spRes, volRes, foodRes]) => {
-      if (evRes.status === "fulfilled") setLiveEvents(evRes.value);
-      if (taskRes.status === "fulfilled") setLiveTasks(taskRes.value);
-      if (expRes.status === "fulfilled") setLiveExpenses(expRes.value);
-      if (donRes.status === "fulfilled") setLiveDonations(donRes.value);
-      if (spRes.status === "fulfilled") setLiveSponsors(spRes.value);
-      if (volRes.status === "fulfilled") setLiveVolunteers(volRes.value);
-      if (foodRes.status === "fulfilled") setLiveFoodCount(foodRes.value?.content?.length ?? 0);
-    }).catch(e => setError(e.message ?? "Failed to load dashboard live data"))
-      .finally(() => setLoading(false));
-  }, [useMock]);
-
-  // Derived live metrics
-  const totalAttendees = liveEvents.reduce((s, e) => s + (e.attendees ?? 0), 0);
-  const totalBudget = (liveEvents as any[]).reduce((s, e) => s + (e.budget ?? 0), 0) || Math.round(liveExpenses.reduce((s, e) => s + (e.amount ?? 0), 0) * 1.3);
-  const totalSpent = liveExpenses.reduce((s, e) => s + (e.amount ?? 0), 0);
-  const budgetUtilPct = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : (totalSpent > 0 ? 100 : 0);
-  const totalSponsorCollected = liveSponsors.reduce((s, sp) => s + (sp.amountReceived ?? 0), 0);
-  const totalSponsorPledged = liveSponsors.reduce((s, sp) => s + (sp.amountPledged ?? sp.amountReceived ?? 0), 0);
-  const totalDonationAmt = liveDonations.reduce((s, d) => s + (typeof d.amount === "number" ? d.amount : parseInt(String(d.itemOrAmount ?? d.amount ?? 0).replace(/[^\d]/g, "") || "0")), 0);
-
-  const displayKpis = useMock ? kpis : [
-    { label: "Total Events", value: String(liveEvents.length), sub: `${liveEvents.filter(e => new Date(e.startDate) > new Date()).length} upcoming`, icon: CalendarDays, color: "#4f46e5", bg: "#eef2ff", trend: `+${liveEvents.length} active` },
-    { label: "Registrations", value: String(totalAttendees.toLocaleString("en-IN")), sub: "total attendees", icon: Ticket, color: "#6366f1", bg: "#eef2ff", trend: "Live count" },
-    { label: "Volunteers", value: String(liveVolunteers.length), sub: `${new Set(liveVolunteers.map(v => v.department).filter(Boolean)).size || 1} teams`, icon: Users, color: "#0891b2", bg: "#ecfeff", trend: `${liveVolunteers.length > 0 ? Math.round((liveVolunteers.filter(v => v.status === "ACTIVE" || v.status === "Active").length / liveVolunteers.length) * 100) : 0}% active` },
-    { label: "Budget Utilized", value: `${budgetUtilPct}%`, sub: `₹${(totalSpent/1000).toFixed(1)}k of ₹${(totalBudget/1000).toFixed(1)}k`, icon: DollarSign, color: "#059669", bg: "#ecfdf5", trend: `₹${Math.max(0, (totalBudget - totalSpent)/1000).toFixed(1)}k left` },
-    { label: "Sponsors", value: String(liveSponsors.length), sub: `₹${(totalSponsorCollected/100000).toFixed(1)}L collected`, icon: Star, color: "#d97706", bg: "#fffbeb", trend: `${liveSponsors.filter(sp => (sp.amountReceived ?? 0) < (sp.amountPledged ?? 0)).length} pending` },
-    { label: "Donations", value: `₹${totalDonationAmt >= 100000 ? (totalDonationAmt/100000).toFixed(1) + "L" : (totalDonationAmt/1000).toFixed(1) + "K"}`, sub: `${liveDonations.length} contributions`, icon: TrendingUp, color: "#7c3aed", bg: "#f5f3ff", trend: `+${liveDonations.length} total` },
-    { label: "Food Prepared", value: `${liveFoodCount} events`, sub: "Catering & food", icon: Utensils, color: "#be185d", bg: "#fdf2f8", trend: "Live" },
-    { label: "Auction Revenue", value: `₹${(totalSponsorCollected/100000).toFixed(1)}L`, sub: "Revenue collected", icon: Gavel, color: "#0f766e", bg: "#f0fdfa", trend: "Live now" },
+  const kpis = [
+    { label: "Total Events", value: "24", sub: "8 active festivals", icon: CalendarDays, color: "#4F46E5", bg: "rgba(79, 70, 229, 0.12)", trend: "+3 this month" },
+    { label: "Registrations", value: "1,842", sub: "↑ 14% vs last week", icon: Ticket, color: "#7C3AED", bg: "rgba(124, 58, 237, 0.12)", trend: "+204 this week" },
+    { label: "Volunteers", value: "318", sub: "94% Duty assigned", icon: Users, color: "#16A34A", bg: "rgba(22, 163, 74, 0.12)", trend: "12 Teams" },
+    { label: "Budget Spent", value: "₹4.82L", sub: "64% of ₹7.5L total", icon: DollarSign, color: "#2563EB", bg: "rgba(37, 99, 235, 0.12)", trend: "₹2.68L left" },
+    { label: "Sponsors Raised", value: "₹6.10L", sub: "19 Active partners", icon: Star, color: "#F59E0B", bg: "rgba(245, 158, 11, 0.12)", trend: "5 pending" },
+    { label: "Donations", value: "₹6.20L", sub: "Cash & Kind", icon: TrendingUp, color: "#EC4899", bg: "rgba(236, 72, 153, 0.12)", trend: "+₹80K today" },
+    { label: "Food Prepared", value: "85%", sub: "4,200 plates est", icon: Utensils, color: "#8B5CF6", bg: "rgba(139, 92, 246, 0.12)", trend: "On schedule" },
+    { label: "Auction Revenue", value: "₹2.10L", sub: "14 items sold", icon: Gavel, color: "#06B6D4", bg: "rgba(6, 182, 212, 0.12)", trend: "Live now" },
   ];
 
-  // Derived live charts
-  const displayEvents = useMock ? upcomingEvents : mapEventsToUpcoming(liveEvents);
+  const registrationTrend = [
+    { day: "Mon", count: 82, vip: 12 },
+    { day: "Tue", count: 145, vip: 20 },
+    { day: "Wed", count: 203, vip: 35 },
+    { day: "Thu", count: 178, vip: 28 },
+    { day: "Fri", count: 267, vip: 45 },
+    { day: "Sat", count: 312, vip: 60 },
+    { day: "Sun", count: 225, vip: 40 },
+  ];
 
-  const displayRegistrationData = useMock ? registrationData : (() => {
-    const daysMap: Record<string, number> = { Mon: 0, Tue: 0, Wed: 0, Thu: 0, Fri: 0, Sat: 0, Sun: 0 };
-    liveEvents.forEach(e => {
-      if (!e.startDate) return;
-      const dayName = new Date(e.startDate).toLocaleDateString("en-US", { weekday: "short" });
-      if (daysMap[dayName] !== undefined) daysMap[dayName] += (e.attendees ?? 1);
-    });
-    return Object.entries(daysMap).map(([day, count]) => ({ day, count }));
-  })();
+  const budgetBreakdown = [
+    { cat: "Stage & Venue", budget: 1.8, spent: 1.5 },
+    { cat: "Food & Feast", budget: 2.2, spent: 1.8 },
+    { cat: "Sound & Light", budget: 1.0, spent: 0.75 },
+    { cat: "Security & Ops", budget: 0.8, spent: 0.5 },
+    { cat: "Marketing", budget: 0.5, spent: 0.27 },
+  ];
 
-  const displayCategoryPie = useMock ? categoryPie : (() => {
-    const pieColors = ["#6366f1", "#4f46e5", "#7c3aed", "#10b981", "#8b5cf6", "#64748b"];
-    const typeMap: Record<string, number> = {};
-    liveEvents.forEach(e => {
-      const t = e.type ? e.type.charAt(0).toUpperCase() + e.type.slice(1) : "Other";
-      typeMap[t] = (typeMap[t] || 0) + (e.attendees ?? 1);
-    });
-    return Object.entries(typeMap).map(([name, value], i) => ({
-      name,
-      value,
-      color: pieColors[i % pieColors.length],
-    }));
-  })();
+  const pieCategories = [
+    { name: "Family Passes", value: 520, color: "#4F46E5" },
+    { name: "Individual", value: 680, color: "#7C3AED" },
+    { name: "VIP Guests", value: 120, color: "#16A34A" },
+    { name: "Volunteers", value: 318, color: "#2563EB" },
+    { name: "Performers", value: 204, color: "#EC4899" },
+  ];
 
-  const displayBudgetData = useMock ? budgetData : (() => {
-    const catSpent: Record<string, number> = {};
-    liveExpenses.forEach(exp => {
-      const cat = exp.category || "General";
-      catSpent[cat] = (catSpent[cat] || 0) + Math.round((exp.amount ?? 0) / 1000);
-    });
-    return Object.entries(catSpent).map(([cat, spent]) => ({
-      cat,
-      budget: Math.round(spent * 1.2),
-      spent,
-    }));
-  })();
+  const bannerEvents = [
+    {
+      id: "ev-1",
+      title: "Ganesh Chaturthi Utsav 2026",
+      subtitle: "Grand 10-Day Festival, Cultural Competitions & Community Feasts",
+      location: "Main Community Grounds, Sector 4",
+      date: "Aug 27 - Sep 06, 2026",
+      registered: "1,842 passes issued",
+      category: "Grand Festival",
+      bgGradient: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #6366F1 100%)",
+      image: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
+    },
+    {
+      id: "ev-2",
+      title: "Annual Sports Olympiad 2026",
+      subtitle: "Cricket, Badminton, Swimming & Athletics Tournaments",
+      location: "Central Sports Arena",
+      date: "Sep 14 - Sep 18, 2026",
+      registered: "412 athletes registered",
+      category: "Sports Championship",
+      bgGradient: "linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #FF6B00 100%)",
+      image: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80",
+    },
+  ];
 
-  const displayPendingTasks = useMock ? pendingTasks : liveTasks.filter(t => !t.done).map(t => ({
-    task: t.title,
-    priority: (t.priority?.toLowerCase() ?? "medium") as "high" | "medium" | "low",
-    due: t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) : "Soon",
-  }));
+  const currentBanner = bannerEvents[carouselIndex];
+
+  const todaysActivities = [
+    { time: "09:00 AM", title: "Morning Aarti & Prasadam Distribution", dept: "Rituals Team", status: "Live", count: "450 attendees" },
+    { time: "02:30 PM", title: "Children's Drawing Competition", dept: "Cultural Wing", status: "Upcoming", count: "120 kids" },
+    { time: "06:00 PM", title: "Volunteers Shift Briefing", dept: "Ops Division", status: "Planning", count: "45 volunteers" },
+  ];
+
+  const pendingTasks = [
+    { task: "Confirm catering vendor for Maha Prasadam", priority: "high", due: "2 days" },
+    { task: "Send QR pass reminder emails to pending registrants", priority: "medium", due: "Today" },
+    { task: "Finalize stage sound & light layout diagram", priority: "high", due: "3 days" },
+    { task: "Collect pending sponsor payments from Apollo", priority: "medium", due: "1 week" },
+  ];
 
   return (
-    <div className="space-y-3 sm:space-y-6">
-
-      {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+    <div className="space-y-6 pb-12">
+      {/* Compact Executive Command Bar */}
+      <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent px-3.5 py-2 rounded-2xl border border-indigo-500/20 backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-extrabold text-[#4F46E5] dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5" /> Executive Command OS
+          </span>
+          <span className="hidden sm:inline text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+            • Real-time control & analytics
+          </span>
         </div>
-      )}
 
-      {loading && (
-        <div className="flex items-center justify-center py-8 text-slate-400">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading events from API...
-        </div>
-      )}
-
-      {/* KPI grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-3">
-        {displayKpis.map((kpi, i) => (
-          <div
-            key={kpi.label}
-            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-lg sm:rounded-xl p-1.5 sm:p-3 border border-slate-100 shadow-[0_1px_4px_rgba(0,0,0,0.03)] sm:shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_16px_rgba(99,102,241,0.08)] transition-all`}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setShowQRModal(true)}
+            className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-200 border border-indigo-200 dark:border-slate-700 hover:text-[#4F46E5] transition-colors cursor-pointer flex items-center gap-1"
           >
-            <div className="flex items-center justify-between mb-0.5 sm:mb-1.5">
-              <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-md sm:rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: kpi.bg }}>
-                <kpi.icon className="w-2.5 h-2.5 sm:w-3.5 sm:h-3.5" style={{ color: kpi.color }} />
-              </div>
-              <ArrowUpRight className="w-2 h-2 sm:w-3 sm:h-3 text-slate-300" />
-            </div>
-            <p className="text-sm sm:text-lg font-black text-slate-900 tabular-nums tracking-tight leading-tight">{kpi.value}</p>
-            <p className="text-[9px] sm:text-xs font-semibold text-slate-500 truncate mt-0.5">{kpi.label}</p>
-            <span className="inline-block text-[8px] sm:text-[9px] font-bold mt-0.5 sm:mt-1 px-1 sm:px-1.5 py-0.5 rounded sm:rounded-md w-fit leading-none"
-              style={{ background: kpi.bg, color: kpi.color }}>
-              {kpi.trend}
-            </span>
-          </div>
-        ))}
+            <QrCode className="w-3.5 h-3.5 text-[#4F46E5]" />
+            <span>My Pass</span>
+          </button>
+
+          <button
+            onClick={() => setShowRegisterModal(true)}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] text-white text-[11px] font-bold shadow-xs hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>+ Register</span>
+          </button>
+        </div>
       </div>
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+      {/* Featured Hero Banner Carousel with Live Ticking Countdown */}
+      <div className="relative overflow-hidden rounded-[32px] shadow-2xl transition-all duration-500 group">
+        <div
+          className="p-6 sm:p-8 text-white min-h-[260px] flex flex-col justify-between relative z-10"
+          style={{ background: currentBanner.bgGradient }}
+        >
+          {/* Top category chip & dots */}
+          <div className="flex items-center justify-between">
+            <span className="px-3.5 py-1.5 rounded-full text-xs font-black bg-white/20 backdrop-blur-md uppercase tracking-wider text-white border border-white/30">
+              🔥 {currentBanner.category}
+            </span>
+            <div className="flex items-center gap-2">
+              {bannerEvents.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setCarouselIndex(idx)}
+                  className={`w-3 h-3 rounded-full transition-all cursor-pointer ${
+                    carouselIndex === idx ? "w-8 bg-white" : "bg-white/40"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
 
-        {/* Registrations trend */}
-        <div className="lg:col-span-2 bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-          <div className="flex items-center justify-between mb-3 sm:mb-5">
+          {/* Banner Title & Description */}
+          <div className="my-4 max-w-2xl">
+            <h2 className="text-2xl sm:text-3xl font-black leading-tight drop-shadow-md">
+              {currentBanner.title}
+            </h2>
+            <p className="text-xs sm:text-sm font-medium text-white/90 mt-1.5 drop-shadow-xs leading-relaxed">
+              {currentBanner.subtitle}
+            </p>
+            <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-white/80 mt-3">
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-4 h-4" /> {currentBanner.location}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Ticket className="w-4 h-4" /> {currentBanner.registered}
+              </span>
+            </div>
+          </div>
+
+          {/* Live Ticking Countdown Footer Bar */}
+          <div className="pt-3 border-t border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="font-bold text-slate-800 text-xs sm:text-base">Registrations This Week</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Daily count across all categories</p>
+              <span className="text-[10px] uppercase font-bold text-white/80">Starts In:</span>
+              <div className="flex items-center gap-2 mt-0.5 font-mono text-xs sm:text-sm font-extrabold text-white">
+                <span className="px-2.5 py-1 rounded-xl bg-black/40">{timeLeft.days}d</span>:
+                <span className="px-2.5 py-1 rounded-xl bg-black/40">{timeLeft.hours}h</span>:
+                <span className="px-2.5 py-1 rounded-xl bg-black/40">{timeLeft.mins}m</span>:
+                <span className="px-2.5 py-1 rounded-xl bg-black/40 text-amber-300 animate-pulse">{timeLeft.secs}s</span>
+              </div>
             </div>
-            <span className="text-xs font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-600">
-              {useMock ? "1,412 total" : `${totalAttendees.toLocaleString("en-IN")} total`}
+
+            <button
+              onClick={() => setShowRegisterModal(true)}
+              className="px-5 py-3 rounded-2xl bg-white text-[#4F46E5] font-black text-xs hover:bg-indigo-50 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer self-end sm:self-auto"
+            >
+              <span>Register Now</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* KPI Cards Grid (8 Core Specs Metrics) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        {kpis.map((kpi, idx) => {
+          const Icon = kpi.icon;
+          return (
+            <GlassCard
+              key={idx}
+              hoverScale={true}
+              className="p-4 border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between"
+            >
+              <div className="flex items-center justify-between">
+                <div
+                  style={{ backgroundColor: kpi.bg, color: kpi.color }}
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-xs"
+                >
+                  <Icon className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                  {kpi.trend}
+                </span>
+              </div>
+
+              <div className="mt-3">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</span>
+                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-0.5">
+                  {kpi.value}
+                </h3>
+                <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
+                  {kpi.sub}
+                </p>
+              </div>
+            </GlassCard>
+          );
+        })}
+      </div>
+
+      {/* Analytics Visual Breakdown (Area & Bar & Pie Charts) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Area Chart: Ticket Registration Velocity */}
+        <GlassCard hoverScale={false} className="lg:col-span-2 p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <span className="text-[10px] uppercase font-bold text-slate-400">Velocity Chart</span>
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Daily Ticket Registrations</h3>
+            </div>
+            <span className="text-xs font-bold text-[#4F46E5] bg-indigo-50 dark:bg-slate-800 px-3 py-1 rounded-full border border-indigo-200 dark:border-slate-700">
+              Total: 1,842 Passes
             </span>
           </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={displayRegistrationData}>
-              <defs>
-                <linearGradient id="regGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#4f46e5" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-              <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ border: "none", borderRadius: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.1)", fontSize: 12 }} />
-              <Area type="monotone" dataKey="count" stroke="#4f46e5" strokeWidth={2.5} fill="url(#regGrad)" dot={{ fill: "#4f46e5", r: 4 }} />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
 
-        {/* Category pie */}
-        <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-          <h3 className="font-bold text-slate-800 mb-1 text-xs sm:text-base">Registration Breakdown</h3>
-          <p className="text-xs text-slate-400 mb-4">By category</p>
-          {displayCategoryPie.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-400 text-xs">
-              <span>No live category data</span>
-            </div>
-          ) : (
-            <>
-              <ResponsiveContainer width="100%" height={180}>
-                <PieChart>
-                  <Pie data={displayCategoryPie} cx="50%" cy="50%" innerRadius={50} outerRadius={75}
-                    dataKey="value" paddingAngle={3}>
-                    {displayCategoryPie.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                  </Pie>
-                  <Tooltip formatter={(v) => [`${v} registrations`]} contentStyle={{ borderRadius: 10, border: "none", fontSize: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.1)" }} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 mt-2">
-                {displayCategoryPie.map((c) => (
-                  <div key={c.name} className="flex items-center gap-1.5 text-xs text-slate-600">
-                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c.color }} />
-                    {c.name}
+          <div className="h-64 w-full pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={registrationTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorRegDash" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="colorVipDash" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#7C3AED" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#7C3AED" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
+                <XAxis dataKey="day" stroke="#64748B" fontSize={11} />
+                <YAxis stroke="#64748B" fontSize={11} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "#1E293B",
+                    color: "#FFFFFF",
+                    borderRadius: "16px",
+                    borderColor: "#4F46E5",
+                    fontSize: "12px",
+                  }}
+                />
+                <Area type="monotone" dataKey="count" stroke="#4F46E5" strokeWidth={3} fillOpacity={1} fill="url(#colorRegDash)" name="Standard Passes" />
+                <Area type="monotone" dataKey="vip" stroke="#7C3AED" strokeWidth={2} fillOpacity={1} fill="url(#colorVipDash)" name="VIP Passes" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </GlassCard>
+
+        {/* Pie Category Distribution */}
+        <GlassCard hoverScale={false} className="p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
+          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Pass Category Distribution</h3>
+          <div className="h-64 w-full flex items-center justify-center">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={pieCategories}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={75}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {pieCategories.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: "11px" }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </GlassCard>
+      </div>
+
+      {/* Today's Schedule & Pending Tasks Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Today's Duty Schedule */}
+        <GlassCard hoverScale={false} className="p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+              <Clock className="w-4 h-4 text-[#4F46E5]" /> Today's Schedule & Duty
+            </h3>
+            <span className="text-xs font-bold text-[#4F46E5]">Live Updates</span>
+          </div>
+
+          <div className="space-y-2.5">
+            {todaysActivities.map((act, idx) => (
+              <div key={idx} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="px-2.5 py-1.5 rounded-xl bg-indigo-100 dark:bg-slate-900 text-[11px] font-mono font-bold text-[#4F46E5] text-center border border-indigo-200/60 dark:border-slate-700">
+                    {act.time}
                   </div>
-                ))}
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">{act.title}</h4>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      {act.dept} • {act.count}
+                    </p>
+                  </div>
+                </div>
+                <StatusChip status={act.status} />
               </div>
-            </>
-          )}
-        </div>
-      </div>
+            ))}
+          </div>
+        </GlassCard>
 
-      {/* Budget vs Spent */}
-      <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-        <div className="flex items-center justify-between mb-3 sm:mb-5">
-          <div>
-            <h3 className="font-bold text-slate-800 text-xs sm:text-base">Budget vs Expenses</h3>
-            <p className="text-xs text-slate-400 mt-0.5">In ₹ thousands</p>
+        {/* Pending Operational Tasks */}
+        <GlassCard hoverScale={false} className="p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+              <ClipboardCheck className="w-4 h-4 text-[#4F46E5]" /> Pending Action Items
+            </h3>
+            <span className="text-xs font-bold text-rose-500">4 Critical</span>
           </div>
-          <div className="flex items-center gap-4 text-xs font-semibold">
-            <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded-full bg-indigo-200 inline-block" /> Budget</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-1.5 rounded-full bg-indigo-500 inline-block" /> Spent</span>
-          </div>
-        </div>
-        {displayBudgetData.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-slate-400 text-xs">
-            <span>No live budget or expense data</span>
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={displayBudgetData} barGap={4} barSize={20}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-              <XAxis dataKey="cat" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ border: "none", borderRadius: 12, boxShadow: "0 4px 20px rgba(0,0,0,0.1)", fontSize: 12 }} />
-              <Bar dataKey="budget" fill="#e0e7ff" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="spent" fill="#4f46e5" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        )}
-      </div>
 
-      {/* Upcoming events + Pending tasks */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-
-        {/* Upcoming */}
-        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
-          <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-6 pb-2 sm:pb-4 border-b border-slate-50">
-            <h3 className="font-bold text-slate-800 text-xs sm:text-base">Upcoming Events</h3>
-            <button className="text-indigo-600 text-xs font-semibold hover:underline">View all</button>
-          </div>
-          <div className="divide-y divide-slate-50">
-            {displayEvents.map((ev) => (
-              <div key={ev.name} className="flex items-center gap-2.5 sm:gap-4 px-3 sm:px-6 py-2.5 sm:py-4 hover:bg-slate-50/60 transition-colors">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0 text-white text-[10px] sm:text-xs font-black"
-                  style={{ background: ev.color, boxShadow: `0 2px 8px ${ev.color}55` }}>
-                  {ev.date.slice(0, 3)}
+          <div className="space-y-2.5">
+            {pendingTasks.map((t, idx) => (
+              <div key={idx} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <input type="checkbox" className="w-4 h-4 rounded-md accent-[#4F46E5] cursor-pointer" />
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{t.task}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-slate-800 truncate">{ev.name}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{ev.type} · {ev.attendees} expected</p>
-                </div>
-                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0"
-                  style={{
-                    background: ev.status === "On Track" ? "#ecfdf5" : ev.status === "Registration Open" ? "#eff6ff" : "#eef2ff",
-                    color: ev.status === "On Track" ? "#059669" : ev.status === "Registration Open" ? "#2563eb" : "#4f46e5",
-                  }}>
-                  {ev.status}
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                  t.priority === "high" ? "bg-rose-100 text-rose-600 border border-rose-200" : "bg-amber-100 text-amber-600 border border-amber-200"
+                }`}>
+                  Due {t.due}
                 </span>
               </div>
             ))}
           </div>
-        </div>
-
-        {/* Pending tasks */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
-          <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-50">
-            <h3 className="font-bold text-slate-800">Pending Tasks</h3>
-            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-rose-50 text-rose-600">
-              {displayPendingTasks.filter(t => t.priority === "high").length} urgent
-            </span>
-          </div>
-          {displayPendingTasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-slate-400 text-xs">
-              <CheckCircle2 className="w-6 h-6 text-emerald-500 mb-1" />
-              <span>No pending tasks found</span>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-50">
-              {displayPendingTasks.map((t, i) => {
-                const s = priorityStyle[t.priority] ?? priorityStyle.medium;
-                return (
-                  <div key={i} className="flex items-start sm:items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 hover:bg-slate-50/60 transition-colors">
-                    <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 sm:mt-0 ${s.dot}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-slate-700 font-medium">{t.task}</p>
-                      <div className="flex items-center gap-2 mt-1 sm:hidden">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
-                          {t.priority}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                          <Clock className="w-3 h-3" /> {t.due}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.bg} ${s.text}`}>
-                        {t.priority}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> {t.due}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        </GlassCard>
       </div>
+
+      {/* Floating CRED-style AI Assistant Launcher Button */}
+      <button
+        onClick={() => setShowAICopilot(true)}
+        style={{
+          background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)",
+          boxShadow: "0 10px 30px -4px rgba(79, 70, 229, 0.5), 0 0 25px rgba(124, 58, 237, 0.4)",
+        }}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full flex items-center justify-center text-white cursor-pointer hover:scale-110 active:scale-95 transition-all duration-300 border-2 border-white dark:border-slate-900 group shadow-2xl"
+        title="Open AI Event Copilot"
+      >
+        <Bot className="w-7 h-7 group-hover:rotate-12 transition-transform duration-300" />
+        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-white animate-ping" />
+      </button>
+
+      {/* AI Copilot Drawer */}
+      <EventAICopilotDrawer
+        isOpen={showAICopilot}
+        onClose={() => setShowAICopilot(false)}
+      />
+
+      {/* Registration Wizard Modal */}
+      {showRegisterModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto">
+          <div className="w-full max-w-lg">
+            <EventRegistrationWizard onClose={() => setShowRegisterModal(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Digital QR Entry Pass Bottom Sheet */}
+      <BottomSheet
+        isOpen={showQRModal}
+        onClose={() => setShowQRModal(false)}
+        title="Digital QR Pass"
+        subtitle="Present this QR code at the event gate for instant check-in"
+      >
+        <div className="p-4 text-center space-y-4">
+          <div className="p-6 rounded-3xl bg-slate-900 text-white inline-block shadow-2xl">
+            <QrCode className="w-48 h-48 mx-auto" />
+            <p className="text-xs font-mono text-orange-400 mt-2 font-bold">PASS-8849-2026-GANESH</p>
+          </div>
+          <div>
+            <h4 className="text-base font-extrabold text-slate-900 dark:text-white">Sandeep Kumar (VIP Pass)</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Main Gate Entry • Seat Row A-12</p>
+          </div>
+          <TouchButton variant="primary" icon={Download} fullWidth onClick={() => alert("Pass downloaded!")}>
+            Download Digital Ticket PDF
+          </TouchButton>
+        </div>
+      </BottomSheet>
     </div>
   );
 }

@@ -19,8 +19,11 @@ import { EventsPeople } from "./components/events/EventsPeople";
 import { EventsFundraising } from "./components/events/EventsFundraising";
 import { EventsOperations } from "./components/events/EventsOperations";
 import { EventsMediaReports } from "./components/events/EventsMediaReports";
+
 import { EventsAccessManagement } from "./components/events/EventsAccessManagement";
 import { EventEditor } from "./components/events/EventEditor";
+import { EventPublicRegistration } from "./components/events/EventPublicRegistration";
+
 import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/commons/login/Signup";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
@@ -162,7 +165,7 @@ import {
   VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD,
   VIEW_PLAYER_POOL, VIEW_AUCTION_RESULTS,
   CREATE_EDIT_SPORTS_MAIN, VIEW_ADMIN, BULK_UPLOAD, MANAGE_COMMUNITIES,
-  MANAGE_ROLES, VIEW_MARKETPLACE, CREATE_LISTING, VIEW_JOBS, VIEW_EVENTS, VIEW_VISITORS,
+  MANAGE_ROLES, VIEW_MARKETPLACE, CREATE_LISTING, VIEW_JOBS, VIEW_EVENTS, REGISTER_EVENT, VIEW_VISITORS,
   VIEW_NOTICES, VIEW_AMENITIES, VIEW_TICKETS, VIEW_POLLS,
   VIEW_VENDOR_MANAGEMENT, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
   MANAGE_WORK_ORDERS, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
@@ -192,6 +195,10 @@ export const router = createBrowserRouter([
   {
     path: "/items/:id",
     Component: AssetCheckout,
+  },
+  {
+    path: "/event-register/:eventId?",
+    Component: EventPublicRegistration,
   },
   {
     path: "/",
@@ -351,14 +358,14 @@ export const router = createBrowserRouter([
       },
       {
         path: "events",
-        element: <PermissionGuard permission={VIEW_EVENTS} requiredModule="EVENTS"><EventsLayout /></PermissionGuard>,
+        element: <PermissionGuard requiredModule="EVENTS"><EventsLayout /></PermissionGuard>,
         children: [
-          { index: true, element: <EventsDashboard /> },
-          { path: "schedule", element: <EventsSchedule /> },
-          { path: "registration", element: <EventsRegistrationHub /> },
-          { path: "people", element: <EventsPeople /> },
-          { path: "fundraising", element: <EventsFundraising /> },
-          { path: "operations", element: <EventsOperations /> },
+          { index: true, element: <PermissionGuard permission={VIEW_EVENTS}><EventsDashboard /></PermissionGuard> },
+          { path: "schedule", element: <PermissionGuard permission={VIEW_EVENTS}><EventsSchedule /></PermissionGuard> },
+          { path: "registration", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, REGISTER_EVENT]}><EventsRegistrationHub /></PermissionGuard> },
+          { path: "people", element: <PermissionGuard permission={VIEW_EVENTS}><EventsPeople /></PermissionGuard> },
+          { path: "fundraising", element: <PermissionGuard permission={VIEW_EVENTS}><EventsFundraising /></PermissionGuard> },
+          { path: "operations", element: <PermissionGuard permission={VIEW_EVENTS}><EventsOperations /></PermissionGuard> },
           { path: "media", element: <EventsMediaReports /> },
           { path: "access", element: <PermissionGuard permission={MANAGE_ROLES}><EventsAccessManagement /></PermissionGuard> },
           { path: "create", element: <EventEditor /> },

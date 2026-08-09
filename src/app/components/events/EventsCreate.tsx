@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   CalendarDays, MapPin, Users, DollarSign, Image,
   CheckCircle2, ChevronRight, ChevronLeft, Sparkles, Clock,
@@ -6,6 +7,7 @@ import {
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
   Zap, Star, ArrowRight, Trash2, PlusCircle, Link2,
+  Save, Bookmark, XCircle, Mail,
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
@@ -14,10 +16,12 @@ import { Switch } from "../ui/switch";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Dialog, DialogOverlay, DialogPortal } from "../ui/dialog";
+
 import { cn } from "../ui/utils";
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventRequest } from "../../../services/events/eventService";
+import { DEFAULT_REGISTRATION_FORM_CONFIG, type RegistrationFormConfig, type FormField } from "./EventRegistrationFormBuilder";
+import { AgendaNotificationModal } from "./EventsPrograms";
 
 /* ─── Types ─── */
 interface FormData {
@@ -45,6 +49,7 @@ interface FormData {
   budgetItems: BudgetItem[];
   coverImageUrl: string;
   tags: string[];
+  registrationFormConfig: RegistrationFormConfig;
 }
 
 interface TicketType { id: string; name: string; price: string; qty: string; description: string; }
@@ -69,9 +74,10 @@ const STEPS = [
   { id: 1, label: "Basics",       desc: "Name, type & visibility", icon: CalendarDays },
   { id: 2, label: "Schedule",     desc: "Date, time & venue",      icon: Clock        },
   { id: 3, label: "Registration", desc: "Tickets & categories",    icon: Ticket       },
-  { id: 4, label: "Budget",       desc: "Allocation & breakdown",  icon: DollarSign   },
-  { id: 5, label: "Media",        desc: "Cover image & tags",      icon: Image        },
-  { id: 6, label: "Review",       desc: "Verify & publish",        icon: Eye          },
+  { id: 4, label: "Reg. Form",    desc: "Select form template",    icon: FileText     },
+  { id: 5, label: "Budget",       desc: "Allocation & breakdown",  icon: DollarSign   },
+  { id: 6, label: "Media",        desc: "Cover image & tags",      icon: Image        },
+  { id: 7, label: "Review",       desc: "Verify & publish",        icon: Eye          },
 ];
 
 const BUDGET_CATEGORIES = ["Venue", "Food & Catering", "Decoration", "Audio / Visual", "Security", "Marketing", "Transport", "Volunteers", "Medical", "Other"];
@@ -97,6 +103,7 @@ const INITIAL_FORM_DATA: FormData = {
   requireApproval: false, allowWaitlist: true,
   totalBudget: "", budgetItems: DEFAULT_BUDGET_ITEMS,
   coverImageUrl: "", tags: [],
+  registrationFormConfig: { ...DEFAULT_REGISTRATION_FORM_CONFIG },
 };
 
 const INPUT_CLS = "w-full px-4 py-3 h-auto rounded-xl border border-slate-200 bg-white text-sm text-slate-800 placeholder-slate-400 outline-none focus-visible:border-indigo-400 focus-visible:ring-4 focus-visible:ring-indigo-50 transition-all";
@@ -242,15 +249,28 @@ function formatDayLabel(dateStr: string): string {
   return d.toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" });
 }
 
+const FESTIVAL_AGENDA_PLACEHOLDERS: ScheduleActivity[] = [
+  { id: "p1", name: "Ganesh Puja & Morning Aarti Ritual", startTime: "08:00", endTime: "09:00", description: "Traditional inauguration & morning stotram aarti" },
+  { id: "p2", name: "Classical Bharatanatyam Dance & Music", startTime: "09:30", endTime: "11:00", description: "Stage performance by community troupe dancers" },
+  { id: "p3", name: "Cultural Talent Hunt & Singing Competition", startTime: "11:15", endTime: "12:45", description: "Youth & adult singing and elocution competition" },
+  { id: "p4", name: "Prasadam & Grand Community Lunch Feast", startTime: "13:00", endTime: "14:30", description: "Buffet dining & prasadam distribution" },
+  { id: "p5", name: "Youth Sports & Rangoli Art Workshop", startTime: "15:00", endTime: "16:30", description: "Indoor badminton & rangoli competition" },
+  { id: "p6", name: "Chief Guest Speech & Prize Ceremony", startTime: "17:00", endTime: "18:30", description: "Felicitation ceremony & awards distribution" },
+  { id: "p7", name: "Grand Evening Musical Night & Orchestra", startTime: "19:00", endTime: "21:30", description: "Live concert & celebrity music performance" },
+];
+
 function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [notifModalOpen, setNotifModalOpen] = useState(false);
+  const [notifDayLabel, setNotifDayLabel] = useState<string | undefined>(undefined);
+  const [notifActivityTitle, setNotifActivityTitle] = useState<string | undefined>(undefined);
 
   const syncDaySchedules = (start: string, end: string) => {
     const days = getDaysBetween(start, end);
     const existing = new Map(data.daySchedules.map(ds => [ds.date, ds]));
     const synced = days.map(date => existing.get(date) ?? {
       date,
-      activities: [{ id: `a${Date.now()}-${date}`, name: "", startTime: "09:00", endTime: "10:00", description: "" }],
+      activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
     });
     update("daySchedules", synced);
     if (synced.length > 0 && !expandedDay) setExpandedDay(synced[0].date);
@@ -270,9 +290,35 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     update("multiDay", v);
     if (v && data.startDate && data.endDate) {
       syncDaySchedules(data.startDate, data.endDate);
-    } else if (!v) {
-      update("daySchedules", []);
+    } else if (!v && data.startDate) {
+      update("daySchedules", [{
+        date: data.startDate,
+        activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+      }]);
     }
+  };
+
+  const loadFestivalPlaceholders = () => {
+    const targetDate = data.startDate || new Date().toISOString().split("T")[0];
+    if (data.daySchedules.length === 0) {
+      update("daySchedules", [{
+        date: targetDate,
+        activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+      }]);
+      setExpandedDay(targetDate);
+    } else {
+      const updated = data.daySchedules.map(ds => ({
+        ...ds,
+        activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+      }));
+      update("daySchedules", updated);
+    }
+  };
+
+  const triggerNotification = (dayLabel?: string, actTitle?: string) => {
+    setNotifDayLabel(dayLabel);
+    setNotifActivityTitle(actTitle);
+    setNotifModalOpen(true);
   };
 
   const addActivity = (date: string) => {
@@ -330,13 +376,51 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         </div>
       </div>
 
-      {/* Multi-day schedule builder */}
-      {data.multiDay && dayCount > 0 && (
-        <div className="animate-fade-in-up">
-          <div className="flex items-center justify-between mb-4">
-            <SectionHeader icon={Zap} title="Day-wise Schedule" subtitle={`${dayCount} day${dayCount > 1 ? "s" : ""} — add activities for each day`} />
+      {/* Day-wise schedule builder */}
+      <div className="animate-fade-in-up pt-3 border-t border-slate-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <SectionHeader icon={Zap} title="Day-wise Agenda & Cultural Activities" subtitle={dayCount > 0 ? `${dayCount} day${dayCount > 1 ? "s" : ""} — set up program activities` : "Add day-wise agenda placeholders for festival activities"} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={loadFestivalPlaceholders}
+              className="border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Load Festival Agenda Placeholders
+            </Button>
+            {dayCount > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => triggerNotification()}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl"
+              >
+                <Mail className="w-3.5 h-3.5" /> Send Agenda Email
+              </Button>
+            )}
           </div>
+        </div>
 
+        {dayCount === 0 && (
+          <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 space-y-3">
+            <Zap className="w-8 h-8 text-indigo-400 mx-auto" />
+            <div>
+              <p className="text-sm font-bold text-slate-700">No Day-wise Agenda Configured</p>
+              <p className="text-xs text-slate-400 mt-0.5">Click below to auto-populate festival program agenda placeholders (puja, cultural dance, sports, lunch feast, musical night).</p>
+            </div>
+            <Button
+              type="button"
+              onClick={loadFestivalPlaceholders}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 text-xs font-bold rounded-xl"
+            >
+              <Sparkles className="w-4 h-4" /> Populate Festival Agenda Placeholders
+            </Button>
+          </div>
+        )}
+
+        {dayCount > 0 && (
           <div className="space-y-3">
             {data.daySchedules.map((day, dayIdx) => {
               const isExpanded = expandedDay === day.date;
@@ -348,12 +432,11 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                     "rounded-2xl border overflow-hidden transition-all",
                     isExpanded ? "border-indigo-200 shadow-[0_4px_20px_rgba(99,102,241,0.08)]" : "border-slate-200 hover:border-slate-300"
                   )}>
-                  <button onClick={() => setExpandedDay(isExpanded ? null : day.date)}
-                    className={cn(
-                      "w-full flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 transition-colors",
-                      isExpanded ? "bg-indigo-50/50" : "bg-white hover:bg-slate-50"
-                    )}>
-                    <div className="flex items-center gap-3 sm:gap-4">
+                  <div className={cn(
+                    "w-full flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 transition-colors",
+                    isExpanded ? "bg-indigo-50/50" : "bg-white hover:bg-slate-50"
+                  )}>
+                    <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="flex items-center gap-3 sm:gap-4 flex-1 text-left">
                       <div className={cn(
                         "w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex flex-col items-center justify-center text-white font-black",
                         isExpanded ? "shadow-md" : ""
@@ -361,20 +444,26 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                         <span className="text-[10px] leading-none opacity-70">DAY</span>
                         <span className="text-sm leading-none">{dayIdx + 1}</span>
                       </div>
-                      <div className="text-left">
+                      <div>
                         <p className="text-sm font-bold text-slate-800">{formatDayLabel(day.date)}</p>
                         <p className="text-[11px] text-slate-400 mt-0.5">
-                          {filledCount}/{totalCount} activities filled
+                          {filledCount}/{totalCount} activities configured
                         </p>
                       </div>
-                    </div>
+                    </button>
                     <div className="flex items-center gap-2">
-                      {filledCount === totalCount && totalCount > 0 && (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                      )}
-                      <ChevronRight className={cn("w-4 h-4 text-slate-400 transition-transform duration-200", isExpanded && "rotate-90")} />
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); triggerNotification(`Day ${dayIdx + 1}`); }}
+                        className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:text-indigo-600 hover:border-indigo-200 flex items-center gap-1.5 shadow-2xs transition-all"
+                      >
+                        <Mail className="w-3.5 h-3.5 text-indigo-500" /> Notify Day {dayIdx + 1}
+                      </button>
+                      <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="p-1">
+                        <ChevronRight className={cn("w-4 h-4 text-slate-400 transition-transform duration-200", isExpanded && "rotate-90")} />
+                      </button>
                     </div>
-                  </button>
+                  </div>
 
                   {isExpanded && (
                     <div className="px-3 sm:px-5 pb-3 sm:pb-5 pt-2 bg-white space-y-3 animate-fade-in-up">
@@ -386,20 +475,31 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
                                 <span className="text-[10px] font-black text-indigo-600">{actIdx + 1}</span>
                               </div>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Activity</span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Activity / Program Item</span>
                             </div>
-                            {day.activities.length > 1 && (
-                              <button onClick={() => removeActivity(day.date, act.id)}
-                                className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded-lg hover:bg-rose-50">
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
+                            <div className="flex items-center gap-2">
+                              {act.name && (
+                                <button
+                                  type="button"
+                                  onClick={() => triggerNotification(`Day ${dayIdx + 1}`, act.name)}
+                                  className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-lg border border-indigo-100 flex items-center gap-1 transition-all"
+                                >
+                                  <Mail className="w-3 h-3" /> Notify
+                                </button>
+                              )}
+                              {day.activities.length > 1 && (
+                                <button onClick={() => removeActivity(day.date, act.id)}
+                                  className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded-lg hover:bg-rose-50">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
                             <div>
-                              <FieldLabel required>Activity Name</FieldLabel>
+                              <FieldLabel required>Activity / Cultural Event Title</FieldLabel>
                               <Input value={act.name} onChange={e => updateActivity(day.date, act.id, "name", e.target.value)}
-                                placeholder="e.g. Opening Ceremony, Cultural Program" className={INPUT_CLS} />
+                                placeholder="e.g. Bharatanatyam Dance / Aarti / Music Night" className={INPUT_CLS} />
                             </div>
                             <div className="w-28">
                               <FieldLabel required>From</FieldLabel>
@@ -413,9 +513,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                             </div>
                           </div>
                           <div>
-                            <FieldLabel>Description</FieldLabel>
+                            <FieldLabel>Activity Description & Venue Details</FieldLabel>
                             <Input value={act.description} onChange={e => updateActivity(day.date, act.id, "description", e.target.value)}
-                              placeholder="Optional details about this activity" className={INPUT_CLS} />
+                              placeholder="e.g. Main Stage, performed by Ananya Troupe" className={INPUT_CLS} />
                           </div>
                         </div>
                       ))}
@@ -429,8 +529,8 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Venue */}
       <div className="pt-2">
@@ -459,6 +559,15 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
           </div>
         </div>
       </div>
+
+      {/* Agenda Notification Modal */}
+      <AgendaNotificationModal
+        isOpen={notifModalOpen}
+        onClose={() => setNotifModalOpen(false)}
+        eventName={data.title || "Community Event"}
+        dayLabel={notifDayLabel}
+        activityTitle={notifActivityTitle}
+      />
     </div>
   );
 }
@@ -627,7 +736,349 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
   );
 }
 
-/* ─── Step 4: Budget ─── */
+/* ─── Step 4: Form Template Selector ─── */
+
+interface FormTemplateMeta {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  fieldsCount: number;
+  icon: string;
+  config: RegistrationFormConfig;
+}
+
+const FORM_TEMPLATES: FormTemplateMeta[] = [
+  {
+    id: "tmpl-standard",
+    name: "Standard Registration",
+    description: "Personal info, contact, emergency contact, dietary preferences — works for most events",
+    category: "General",
+    fieldsCount: 14,
+    icon: "📋",
+    config: {
+      fields: [
+        { id: "s1", type: "section", label: "Personal Information", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f1", type: "text", label: "First Name", placeholder: "Enter first name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f2", type: "text", label: "Last Name", placeholder: "Enter last name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f3", type: "number", label: "Age", placeholder: "e.g. 32", description: "", required: true, options: [], width: "half", validation: { min: 0, max: 120 }, conditional: null },
+        { id: "f4", type: "select", label: "Gender", placeholder: "Select gender", description: "", required: true, options: ["Male", "Female", "Other", "Prefer not to say"], width: "half", validation: {}, conditional: null },
+        { id: "s2", type: "section", label: "Contact Details", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f5", type: "email", label: "Email Address", placeholder: "your@email.com", description: "Confirmation will be sent here", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f6", type: "phone", label: "Mobile Number", placeholder: "+91 98765 43210", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f7", type: "text", label: "Address", placeholder: "Flat / Building / Street", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f8", type: "text", label: "City", placeholder: "City", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f9", type: "text", label: "Pincode", placeholder: "400069", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "s3", type: "section", label: "Emergency Contact", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f10", type: "text", label: "Emergency Contact Name", placeholder: "Contact person name", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f11", type: "phone", label: "Emergency Contact Phone", placeholder: "+91 98765 43210", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+      ] as FormField[],
+      allowFamilyRegistration: true, maxFamilyMembers: 5,
+      confirmationMessage: "Thank you for registering! A confirmation email will be sent shortly.",
+      collectPayment: false,
+    },
+  },
+  {
+    id: "tmpl-minimal",
+    name: "Quick Registration",
+    description: "Just name, email, and phone — for events needing fast sign-ups",
+    category: "Minimal",
+    fieldsCount: 5,
+    icon: "⚡",
+    config: {
+      fields: [
+        { id: "f1", type: "text", label: "Full Name", placeholder: "Enter your full name", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f2", type: "email", label: "Email Address", placeholder: "your@email.com", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f3", type: "phone", label: "Mobile Number", placeholder: "+91 98765 43210", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f4", type: "number", label: "Age", placeholder: "e.g. 32", description: "", required: false, options: [], width: "half", validation: { min: 0, max: 120 }, conditional: null },
+        { id: "f5", type: "select", label: "Gender", placeholder: "Select", description: "", required: false, options: ["Male", "Female", "Other"], width: "half", validation: {}, conditional: null },
+      ] as FormField[],
+      allowFamilyRegistration: false, maxFamilyMembers: 0,
+      confirmationMessage: "You're registered! See you at the event.",
+      collectPayment: false,
+    },
+  },
+  {
+    id: "tmpl-detailed",
+    name: "Detailed Registration",
+    description: "All fields — personal, contact, emergency, ID, dietary, medical, accessibility, apparel",
+    category: "Detailed",
+    fieldsCount: 22,
+    icon: "📝",
+    config: {
+      fields: [
+        { id: "s1", type: "section", label: "Personal Information", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f1", type: "text", label: "First Name", placeholder: "First name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f2", type: "text", label: "Last Name", placeholder: "Last name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f3", type: "number", label: "Age", placeholder: "e.g. 32", description: "", required: true, options: [], width: "half", validation: { min: 0, max: 120 }, conditional: null },
+        { id: "f4", type: "select", label: "Gender", placeholder: "Select gender", description: "", required: true, options: ["Male", "Female", "Other", "Prefer not to say"], width: "half", validation: {}, conditional: null },
+        { id: "s2", type: "section", label: "Contact Details", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f5", type: "email", label: "Email", placeholder: "your@email.com", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f6", type: "phone", label: "Mobile", placeholder: "+91 98765 43210", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f7", type: "text", label: "Address", placeholder: "Flat / Building / Street", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f8", type: "text", label: "City", placeholder: "City", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f9", type: "text", label: "Pincode", placeholder: "400069", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "s3", type: "section", label: "Emergency Contact", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f10", type: "text", label: "Emergency Contact Name", placeholder: "Contact name", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f11", type: "phone", label: "Emergency Phone", placeholder: "+91 98765 43210", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "s4", type: "section", label: "ID Verification", placeholder: "", description: "Required for entry verification", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f12", type: "select", label: "ID Type", placeholder: "Select ID", description: "", required: false, options: ["Aadhaar Card", "PAN Card", "Passport", "Driving License", "Voter ID"], width: "half", validation: {}, conditional: null },
+        { id: "f13", type: "text", label: "ID Number", placeholder: "ID number", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "s5", type: "section", label: "Dietary & Medical", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f14", type: "select", label: "Dietary Preference", placeholder: "Select", description: "", required: false, options: ["Vegetarian", "Non-Vegetarian", "Vegan", "Jain", "Eggetarian", "No Preference"], width: "half", validation: {}, conditional: null },
+        { id: "f15", type: "text", label: "Allergies", placeholder: "e.g. nuts, dairy", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f16", type: "textarea", label: "Medical Conditions", placeholder: "Any conditions we should know about", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f17", type: "textarea", label: "Accessibility Needs", placeholder: "e.g. wheelchair, hearing assistance", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+      ] as FormField[],
+      allowFamilyRegistration: true, maxFamilyMembers: 6,
+      confirmationMessage: "Thank you for registering! A confirmation with your digital pass will be emailed shortly.",
+      collectPayment: false,
+    },
+  },
+  {
+    id: "tmpl-festival",
+    name: "Festival Registration",
+    description: "Tailored for community festivals — family, dietary, T-shirt size, volunteer preferences",
+    category: "Festival",
+    fieldsCount: 18,
+    icon: "🎪",
+    config: {
+      fields: [
+        { id: "s1", type: "section", label: "Personal Information", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f1", type: "text", label: "First Name", placeholder: "First name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f2", type: "text", label: "Last Name", placeholder: "Last name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f3", type: "number", label: "Age", placeholder: "e.g. 32", description: "", required: true, options: [], width: "half", validation: { min: 0, max: 120 }, conditional: null },
+        { id: "f4", type: "select", label: "Gender", placeholder: "Select gender", description: "", required: true, options: ["Male", "Female", "Other"], width: "half", validation: {}, conditional: null },
+        { id: "s2", type: "section", label: "Contact", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f5", type: "email", label: "Email", placeholder: "your@email.com", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f6", type: "phone", label: "Mobile", placeholder: "+91 98765 43210", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f7", type: "text", label: "City", placeholder: "City", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f8", type: "text", label: "Pincode", placeholder: "400069", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "s3", type: "section", label: "Preferences", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f9", type: "select", label: "Dietary Preference", placeholder: "Select", description: "", required: false, options: ["Vegetarian", "Non-Vegetarian", "Vegan", "Jain", "No Preference"], width: "half", validation: {}, conditional: null },
+        { id: "f10", type: "text", label: "Allergies", placeholder: "e.g. nuts, dairy, gluten", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f11", type: "select", label: "T-Shirt Size", placeholder: "Select size", description: "", required: false, options: ["XS", "S", "M", "L", "XL", "XXL"], width: "half", validation: {}, conditional: null },
+        { id: "f12", type: "radio", label: "Volunteer?", placeholder: "", description: "Would you like to volunteer?", required: false, options: ["Yes", "No", "Maybe"], width: "half", validation: {}, conditional: null },
+        { id: "s4", type: "section", label: "Emergency Contact", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+        { id: "f13", type: "text", label: "Emergency Contact Name", placeholder: "Contact name", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+        { id: "f14", type: "phone", label: "Emergency Phone", placeholder: "+91 98765 43210", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+      ] as FormField[],
+      allowFamilyRegistration: true, maxFamilyMembers: 5,
+      confirmationMessage: "You're all set for the festival! Your digital pass will be emailed shortly.",
+      collectPayment: false,
+    },
+  },
+  {
+    id: "tmpl-none",
+    name: "No Registration Form",
+    description: "Skip the custom form — use default registration fields only",
+    category: "None",
+    fieldsCount: 0,
+    icon: "🚫",
+    config: { ...DEFAULT_REGISTRATION_FORM_CONFIG },
+  },
+];
+
+const FIELD_TYPE_LABELS: Record<string, string> = {
+  text: "Text", textarea: "Long Text", number: "Number", email: "Email",
+  phone: "Phone", date: "Date", select: "Dropdown", multiselect: "Multi Select",
+  radio: "Radio", checkbox: "Checkbox", file: "File", section: "Section", family_repeater: "Family",
+};
+
+function Step4FormTemplate({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
+  const [selectedId, setSelectedId] = useState<string>(
+    data.registrationFormConfig.fields.length === 0 ? "tmpl-none" :
+    FORM_TEMPLATES.find(t => t.config.fields.length === data.registrationFormConfig.fields.length)?.id ?? "tmpl-custom"
+  );
+  const [previewId, setPreviewId] = useState<string | null>(null);
+
+  const selectTemplate = (tmpl: FormTemplateMeta) => {
+    setSelectedId(tmpl.id);
+    update("registrationFormConfig", { ...tmpl.config });
+  };
+
+  const previewTemplate = previewId ? FORM_TEMPLATES.find(t => t.id === previewId) : null;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-base font-bold text-slate-800 mb-1">Select Registration Form Template</h3>
+        <p className="text-xs text-slate-500">
+          Choose a form template for this event. Templates are created in{" "}
+          <span className="text-indigo-600 font-medium">Events &gt; Registration &gt; Registration Forms</span>.
+        </p>
+      </div>
+
+      {/* Saved Templates from Admin */}
+      <div className="bg-indigo-50/50 rounded-xl border border-indigo-100 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <FileText className="w-4 h-4 text-indigo-500" />
+            <h4 className="text-sm font-semibold text-indigo-800">Your Saved Templates</h4>
+          </div>
+          <Badge variant="outline" className="text-[9px] text-indigo-500 border-indigo-200">
+            Manage in Registration Forms tab
+          </Badge>
+        </div>
+        <p className="text-[10px] text-indigo-400">
+          Create custom templates with the Form Builder in Registration Forms, then select them here.
+        </p>
+      </div>
+
+      {/* Built-in Templates */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-semibold text-slate-700">Built-in Templates</h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {FORM_TEMPLATES.map(tmpl => {
+            const isSelected = selectedId === tmpl.id;
+            const fieldCount = tmpl.config.fields.filter(f => f.type !== "section").length;
+            const reqCount = tmpl.config.fields.filter(f => f.required).length;
+            return (
+              <button
+                key={tmpl.id}
+                onClick={() => selectTemplate(tmpl)}
+                className={cn(
+                  "text-left p-4 rounded-xl border-2 transition-all relative group",
+                  isSelected
+                    ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200 shadow-sm"
+                    : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50"
+                )}
+              >
+                {isSelected && (
+                  <div className="absolute top-2 right-2">
+                    <CheckCircle2 className="w-5 h-5 text-indigo-500" />
+                  </div>
+                )}
+                <div className="flex items-start gap-3 mb-2">
+                  <span className="text-2xl">{tmpl.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className={cn("text-sm font-semibold", isSelected ? "text-indigo-700" : "text-slate-800")}>
+                      {tmpl.name}
+                    </p>
+                    <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">{tmpl.description}</p>
+                  </div>
+                </div>
+                {tmpl.id !== "tmpl-none" && (
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className="text-[10px] text-slate-400">{fieldCount} fields</span>
+                    <span className="text-[10px] text-slate-400">{reqCount} required</span>
+                    {tmpl.config.allowFamilyRegistration && (
+                      <Badge variant="outline" className="text-[8px] py-0 text-violet-500 border-violet-200">Family</Badge>
+                    )}
+                    <div className="flex-1" />
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setPreviewId(tmpl.id); }}
+                      className="text-[10px] text-indigo-500 hover:text-indigo-700 font-medium flex items-center gap-0.5"
+                    >
+                      <Eye className="w-3 h-3" /> Preview
+                    </button>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Selected Summary */}
+      {selectedId !== "tmpl-none" && (
+        <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-2">
+          <h4 className="text-xs font-semibold text-slate-600">Selected Template Summary</h4>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="text-center">
+              <p className="text-lg font-bold text-indigo-600">
+                {data.registrationFormConfig.fields.filter(f => f.type !== "section").length}
+              </p>
+              <p className="text-[10px] text-slate-400">Fields</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-amber-600">
+                {data.registrationFormConfig.fields.filter(f => f.required).length}
+              </p>
+              <p className="text-[10px] text-slate-400">Required</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-violet-600">
+                {data.registrationFormConfig.allowFamilyRegistration ? `${data.registrationFormConfig.maxFamilyMembers}` : "—"}
+              </p>
+              <p className="text-[10px] text-slate-400">Max Family</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {previewTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setPreviewId(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col"
+            onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{previewTemplate.icon}</span>
+                <div>
+                  <h3 className="font-bold text-slate-800 text-sm">{previewTemplate.name}</h3>
+                  <p className="text-[10px] text-slate-400">{previewTemplate.description}</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => setPreviewId(null)}>
+                <XCircle className="w-5 h-5" />
+              </Button>
+            </div>
+
+            <div className="overflow-y-auto p-6 flex-1">
+              <div className="space-y-3">
+                {previewTemplate.config.fields.map(field => (
+                  <div key={field.id}>
+                    {field.type === "section" ? (
+                      <div className="pt-2 pb-1 border-b border-slate-200 mb-2">
+                        <h4 className="text-sm font-semibold text-slate-700">{field.label}</h4>
+                        {field.description && <p className="text-[10px] text-slate-400">{field.description}</p>}
+                      </div>
+                    ) : (
+                      <div className={cn("", field.width === "half" ? "inline-block w-[calc(50%-4px)] mr-2 align-top" : "")}>
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-xs font-medium text-slate-600">{field.label}</span>
+                          {field.required && <span className="text-rose-500 text-xs">*</span>}
+                          <Badge variant="outline" className="text-[8px] py-0 ml-auto">{FIELD_TYPE_LABELS[field.type] ?? field.type}</Badge>
+                        </div>
+                        <div className="h-8 bg-slate-50 rounded-lg border border-slate-200 px-3 flex items-center">
+                          <span className="text-[10px] text-slate-400">{field.placeholder || field.label}</span>
+                        </div>
+                        {field.options.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {field.options.map(opt => (
+                              <Badge key={opt} variant="outline" className="text-[8px]">{opt}</Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="px-6 py-3 border-t border-slate-100 flex gap-2 flex-shrink-0">
+              <Button variant="outline" className="flex-1" onClick={() => setPreviewId(null)}>
+                Close
+              </Button>
+              <Button
+                className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-700 hover:to-violet-600 gap-1"
+                onClick={() => { selectTemplate(previewTemplate); setPreviewId(null); }}
+              >
+                <CheckCircle2 className="w-4 h-4" /> Use This Template
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Step 5: Budget ─── */
 function Step4Budget({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   const addItem = () => update("budgetItems", [...data.budgetItems, { id: `b${Date.now()}`, category: "", amount: "" }]);
   const removeItem = (id: string) => update("budgetItems", data.budgetItems.filter(b => b.id !== id));
@@ -932,6 +1383,14 @@ function Step6Review({ data }: { data: FormData }) {
       ],
     },
     {
+      icon: FileText, title: "Registration Form", color: "#7c3aed",
+      rows: [
+        { label: "Fields",  value: `${data.registrationFormConfig.fields.filter(f => f.type !== "section").length} fields configured` },
+        { label: "Required", value: `${data.registrationFormConfig.fields.filter(f => f.required).length} required fields` },
+        { label: "Family",  value: data.registrationFormConfig.allowFamilyRegistration ? `Up to ${data.registrationFormConfig.maxFamilyMembers} members` : "Disabled" },
+      ],
+    },
+    {
       icon: DollarSign, title: "Budget", color: "#d97706",
       rows: [
         { label: "Total Budget",    value: totalBudget ? `₹${totalBudget.toLocaleString()}` : "—" },
@@ -1020,7 +1479,9 @@ function toEventRequest(data: FormData): EventRequest {
 function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCreated?: () => void }) {
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
+  const [submitType, setSubmitType] = useState<"published" | "draft">("published");
   const [publishing, setPublishing] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
   const [publishError, setPublishError] = useState("");
 
   let useMock = true;
@@ -1047,40 +1508,69 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
     setStep(s => Math.min(STEPS.length, s + 1));
   };
 
+  const handleSaveDraft = async () => {
+    if (!formData.title.trim()) {
+      setPublishError("Please enter an event title before saving as draft.");
+      return;
+    }
+    setSavingDraft(true);
+    setPublishError("");
+    try {
+      if (!useMock) {
+        await eventService.create(toEventRequest(formData));
+      }
+      setSubmitType("draft");
+      setSubmitted(true);
+      onCreated?.();
+    } catch (e: any) {
+      setPublishError(e.message ?? "Failed to save draft");
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   const handlePublish = async () => {
+    if (!formData.title.trim()) {
+      setPublishError("Event title is required before publishing.");
+      return;
+    }
     if (isDeadlineInvalid) {
       setPublishError(`Registration deadline must be before the event start date (${formData.startDate}).`);
       return;
     }
-    if (!useMock) {
-      setPublishing(true);
-      setPublishError("");
-      try {
+    setPublishing(true);
+    setPublishError("");
+    try {
+      if (!useMock) {
         await eventService.create(toEventRequest(formData));
-        setSubmitted(true);
-        onCreated?.();
-      } catch (e: any) {
-        setPublishError(e.message ?? "Failed to create event");
-      } finally {
-        setPublishing(false);
       }
-    } else {
+      setSubmitType("published");
       setSubmitted(true);
       onCreated?.();
+    } catch (e: any) {
+      setPublishError(e.message ?? "Failed to publish event");
+    } finally {
+      setPublishing(false);
     }
   };
 
   if (submitted) {
+    const isDraft = submitType === "draft";
     return (
       <div className="max-w-lg mx-auto text-center py-10 sm:py-16 animate-fade-in-up">
-        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center mx-auto mb-8
-          shadow-[0_0_0_8px_rgba(16,185,129,0.08),0_0_0_16px_rgba(16,185,129,0.04)]">
-          <Check className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-500" />
+        <div className={cn(
+          "w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 flex items-center justify-center mx-auto mb-8 shadow-md",
+          isDraft
+            ? "bg-amber-50 border-amber-200 text-amber-500 shadow-[0_0_0_8px_rgba(245,158,11,0.08)]"
+            : "bg-emerald-50 border-emerald-200 text-emerald-500 shadow-[0_0_0_8px_rgba(16,185,129,0.08)]"
+        )}>
+          {isDraft ? <Bookmark className="w-10 h-10 sm:w-12 sm:h-12 text-amber-500" /> : <Check className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-500" />}
         </div>
-        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">Event Created!</h2>
+        <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">
+          {isDraft ? "Event Saved as Draft!" : "Event Published!"}
+        </h2>
         <p className="text-slate-500 mb-10 max-w-sm mx-auto">
-          <span className="font-semibold text-slate-700">"{formData.title || "Your event"}"</span> has been created
-          and is now {formData.visibility === "public" ? "publicly visible" : "live for your community"}.
+          <span className="font-semibold text-slate-700">"{formData.title || "Your event"}"</span> has been {isDraft ? "saved as a draft. You can edit and publish it anytime." : `created and is now ${formData.visibility === "public" ? "publicly visible" : "live for your community"}.`}
         </p>
         <div className="flex gap-3 justify-center">
           <button onClick={() => { setSubmitted(false); setStep(1); setFormData({ ...INITIAL_FORM_DATA }); }}
@@ -1089,12 +1579,12 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
           </button>
           {onClose ? (
             <button onClick={onClose}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all">
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all">
               <Check className="w-4 h-4" /> Done
             </button>
           ) : (
-            <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all">
-              <Eye className="w-4 h-4" /> View Event
+            <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all">
+              <Eye className="w-4 h-4" /> View Events
             </button>
           )}
         </div>
@@ -1106,13 +1596,14 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
     1: <Step1Basics data={formData} update={update} />,
     2: <Step2Schedule data={formData} update={update} />,
     3: <Step3Registration data={formData} update={update} />,
-    4: <Step4Budget data={formData} update={update} />,
-    5: <Step5Media data={formData} update={update} />,
-    6: <Step6Review data={formData} />,
+    4: <Step4FormTemplate data={formData} update={update} />,
+    5: <Step4Budget data={formData} update={update} />,
+    6: <Step5Media data={formData} update={update} />,
+    7: <Step6Review data={formData} />,
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
       {/* Sticky header with step progress */}
       <div className="flex-shrink-0 border-b border-slate-100">
         {/* Title bar */}
@@ -1177,9 +1668,9 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
         </div>
       </div>
 
-      {/* Scrollable form content */}
-      <div className="flex-1 overflow-y-auto overscroll-contain px-4 sm:px-8 py-4 sm:py-8">
-        <div key={step} className="animate-fade-in-up max-w-3xl mx-auto">
+      {/* Scrollable form content — flex-1 + min-h-0 forces height budget on mobile */}
+      <div style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties} className="px-4 sm:px-8 py-4 sm:py-8">
+        <div key={step} className="animate-fade-in-up max-w-5xl mx-auto">
           {stepComponents[step]}
         </div>
       </div>
@@ -1204,15 +1695,27 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
         </div>
 
         {step < STEPS.length ? (
-          <button onClick={handleNext}
-            className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm hover:shadow-md hover:from-indigo-700 hover:to-violet-600 transition-all">
-            Next <ArrowRight className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button onClick={handleSaveDraft} disabled={savingDraft || publishing}
+              className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50">
+              <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+              <span>{savingDraft ? "Saving…" : "Save Draft"}</span>
+            </button>
+            <button onClick={handleNext}
+              className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm hover:shadow-md hover:from-indigo-700 hover:to-violet-600 transition-all">
+              Next <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         ) : (
-          <div className="flex items-center gap-3">
-            {publishError && <span className="text-xs text-rose-600 font-medium max-w-[200px] truncate">{publishError}</span>}
-            <button onClick={handlePublish} disabled={publishing}
-              className="flex items-center gap-2 px-5 sm:px-7 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-60">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {publishError && <span className="text-xs text-rose-600 font-medium max-w-[180px] sm:max-w-[240px] truncate">{publishError}</span>}
+            <button onClick={handleSaveDraft} disabled={savingDraft || publishing}
+              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-xs transition-all disabled:opacity-50">
+              <Bookmark className="w-4 h-4 text-amber-500" />
+              <span>{savingDraft ? "Saving…" : "Save Draft"}</span>
+            </button>
+            <button onClick={handlePublish} disabled={publishing || savingDraft}
+              className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-60">
               <Sparkles className="w-4 h-4" /> {publishing ? "Publishing…" : "Publish Event"}
             </button>
           </div>
@@ -1222,24 +1725,70 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
   );
 }
 
-/* ─── Dialog wrapper ─── */
+/* ─── Dialog wrapper — uses createPortal for full mobile scroll control ─── */
 export function CreateEventDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogPortal>
-        <DialogOverlay className="bg-black/40 backdrop-blur-sm" />
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 pointer-events-none">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl h-[min(92vh,900px)] flex flex-col overflow-hidden animate-fade-in-up
-            border border-slate-200/60 ring-1 ring-black/5 pointer-events-auto"
-            onWheel={e => e.stopPropagation()}>
-            <EventCreateWizard
-              onClose={() => onOpenChange(false)}
-              onCreated={() => {}}
-            />
-          </div>
+  // Lock body scroll when open, restore on close
+  useEffect(() => {
+    if (open) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  return createPortal(
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={() => onOpenChange(false)}
+        style={{
+          position: "fixed", inset: 0, zIndex: 9998,
+          background: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(4px)",
+          WebkitBackdropFilter: "blur(4px)",
+        }}
+      />
+      {/* Modal panel */}
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "0",
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          style={{
+            pointerEvents: "auto",
+            background: "#fff",
+            width: "100%",
+            maxWidth: "72rem",  /* max-w-6xl */
+            /* Mobile: full screen; tablet/desktop: bounded */
+            height: "100dvh",
+            maxHeight: "96dvh",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            boxShadow: "0 25px 80px rgba(0,0,0,0.22)",
+            borderRadius: 0,
+          }}
+          className="sm:rounded-3xl sm:h-[min(96vh,980px)] sm:max-h-[96vh] sm:m-3 md:m-4 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
+          onClick={e => e.stopPropagation()}
+        >
+          <EventCreateWizard
+            onClose={() => onOpenChange(false)}
+            onCreated={() => {}}
+          />
         </div>
-      </DialogPortal>
-    </Dialog>
+      </div>
+    </>,
+    document.body
   );
 }
 

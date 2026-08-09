@@ -209,7 +209,7 @@ export function useSportsAdminState() {
   const [startTime, setStartTime] = useState("");
   const [dueTime, setDueTime] = useState("");
 
-  const [globalChannels, setGlobalChannels] = useState<string[]>(["push", "email"]);
+  const [globalChannels, setGlobalChannels] = useState<string[]>(["email"]);
   const [previewTrigger, setPreviewTrigger] = useState<string>("2h");
   const [expandedTrigger, setExpandedTrigger] = useState<string | null>(null);
   const [customTriggers, setCustomTriggers] = useState<any[]>([]);
