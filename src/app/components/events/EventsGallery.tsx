@@ -480,8 +480,11 @@ export function EventsGallery() {
   const [categories, setCategories] = useState<EventMediaCategoryResponse[]>([]);
   const [items, setItems] = useState<EventGalleryItemResponse[]>([]);
 
-  // Filters
-  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  // Multi-dimensional filter states
+  const [selectedYear, setSelectedYear] = useState<string>("All");
+  const [selectedEventId, setSelectedEventId] = useState<string>("All");
+  const [selectedDay, setSelectedDay] = useState<string>("All Days");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All Media");
   const [activeDayTag, setActiveDayTag] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
@@ -490,10 +493,47 @@ export function EventsGallery() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showUpload, setShowUpload] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   // Inline create state
   const [addingDay, setAddingDay] = useState(false);
   const [addingCat, setAddingCat] = useState(false);
+
+  // Extract available years dynamically from dataset
+  const availableYears = useMemo(() => {
+    const years = Array.from(new Set(items.map(i => i.createdAt ? new Date(i.createdAt).getFullYear() : 2026))).sort((a, b) => b - a);
+    return ["All", ...years.map(String)];
+  }, [items]);
+
+  // Extract available events dynamically
+  const availableEvents = useMemo(() => {
+    if (useMock) return MOCK_EVENTS_LIST;
+    return events.map(e => ({ id: e.id, title: e.title, year: new Date(e.startDate).getFullYear() }));
+  }, [useMock, events]);
+
+  // Dynamically derive available days
+  const dynamicDayOptions = useMemo(() => {
+    const set = new Set<string>();
+    days.forEach(d => set.add(d.label));
+    items.forEach(i => { if (i.dayTag) set.add(i.dayTag); });
+    if (set.size === 0) return ["All Days", "Day 1", "Day 2", "Day 3", "Day 4", "Grand Finale"];
+    const sorted = Array.from(set).sort((a, b) => {
+      if (a === "Grand Finale") return 1;
+      if (b === "Grand Finale") return -1;
+      return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    });
+    return ["All Days", ...sorted];
+  }, [days, items]);
+
+  // Dynamically derive available categories
+  const dynamicCategoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    categories.forEach(c => set.add(c.name));
+    items.forEach(i => { if (i.category) set.add(i.category); });
+    if (set.size === 0) return ["All Media", "Puja & Rituals", "Cultural Stage", "Sports & Games", "Food & Feast", "Volunteers & Ops", "Highlights & Videos"];
+    const sorted = Array.from(set).sort();
+    return ["All Media", ...sorted];
+  }, [categories, items]);
 
   // ── Fetch bootstrap data ─────────────────────────────────────────────────
   useEffect(() => {
@@ -519,7 +559,7 @@ export function EventsGallery() {
     ]).then(([evtR, daysR, catsR, itemsR]) => {
       if (evtR.status === "fulfilled") {
         setEvents(evtR.value);
-        if (evtR.value.length > 0) setSelectedEventId(evtR.value[0].id);
+        if (evtR.value.length > 0) setSelectedEventId("All");
       }
       if (daysR.status === "fulfilled") {
         setDays(daysR.value.length > 0 ? daysR.value : DEFAULT_DAYS);
@@ -586,8 +626,14 @@ export function EventsGallery() {
 
   // ── Filter items for the current view ────────────────────────────────────
   const filteredItems = items.filter(item => {
-    if (selectedEventId && item.eventId !== selectedEventId) return false;
+    if (selectedYear !== "All" && item.createdAt && String(new Date(item.createdAt).getFullYear()) !== selectedYear) return false;
+    if (selectedEventId !== "All" && String(item.eventId) !== selectedEventId) return false;
+    if (selectedDay !== "All Days" && item.dayTag !== selectedDay) return false;
     if (activeDayTag && item.dayTag !== activeDayTag) return false;
+    if (selectedCategory !== "All Media") {
+      if (selectedCategory === "Highlights & Videos" && item.mediaType === "VIDEO") return true;
+      if (item.category !== selectedCategory) return false;
+    }
     if (activeCategory && item.category !== activeCategory) return false;
     return true;
   });

@@ -471,13 +471,13 @@ export function EventsDashboard() {
               ? <span className="flex items-center gap-1 text-emerald-600 font-bold">• Live data</span>
               : "• Real-time control & analytics"}
           </span>
-          {loadingLive ? (
+          {loading ? (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold border border-indigo-100">
               <Loader2 className="w-3 h-3 animate-spin text-indigo-500" /> Loading API Data...
             </span>
           ) : !useMock ? (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live API Connected ({liveEvents.length} events)
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live API Connected ({events.length} events)
             </span>
           ) : null}
         </div>
