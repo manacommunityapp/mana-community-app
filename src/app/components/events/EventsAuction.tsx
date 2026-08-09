@@ -1,10 +1,13 @@
-import { useState } from "react";
-import { Gavel, Zap } from "lucide-react";
-import { NoBackendBanner } from "./EventMockToggle";
+import { useState, useEffect } from "react";
+import { Gavel, Zap, ExternalLink } from "lucide-react";
+import { useEventMock } from "./EventMockToggle";
 import { Input } from "../ui/input";
+import { auctionService } from "../../../services/sports/auctionService";
+import type { AuctionConfigResponse, AuctionPlayer } from "../../../types/api";
+import { useNavigate } from "react-router";
 
-// No backend endpoint yet — mock data only
-const auctionItems = [
+// Fallback mock items when no live backend auction is configured
+const MOCK_ITEMS = [
   { id: 1, name: "Ganesh Laddu (21 kg)",      category: "Prasadam",  basePrice: 5000,  currentBid: 28000, bids: 12, leader: "Venkat R.",   status: "live",   image: "🪔" },
   { id: 2, name: "Pattu Vastram – Silk Dhoti", category: "Clothing",  basePrice: 3000,  currentBid: 11500, bids: 7,  leader: "Suresh K.",   status: "live",   image: "🥻" },
   { id: 3, name: "Silver Padaraksha (pair)",   category: "Jewellery", basePrice: 8000,  currentBid: 22000, bids: 9,  leader: "Ramesh M.",   status: "live",   image: "🌸" },
@@ -13,7 +16,6 @@ const auctionItems = [
   { id: 6, name: "Annadanam – Full Day",       category: "Seva",      basePrice: 25000, currentBid: 0,     bids: 0,  leader: "—",           status: "upcoming", image: "🍛" },
 ];
 
-// No backend endpoint yet — mock data only
 const bidHistory = [
   { bidder: "Venkat R.",  amount: 28000, time: "2m ago",  item: "Laddu"  },
   { bidder: "Suresh K.",  amount: 11500, time: "5m ago",  item: "Vastram"},
@@ -23,7 +25,6 @@ const bidHistory = [
   { bidder: "Deepak S.",  amount: 10000, time: "18m ago", item: "Vastram"},
 ];
 
-// No backend endpoint yet — mock data only
 const leaderboard = [
   { rank: 1, name: "Venkat R.",  total: "₹61,500", bids: 8 },
   { rank: 2, name: "Ramesh M.",  total: "₹48,000", bids: 5 },
@@ -39,20 +40,74 @@ const statusStyle: Record<string, { bg: string; text: string; dot: string; label
 };
 
 export function EventsAuction() {
+  const navigate = useNavigate();
+  const { useMock } = useEventMock();
   const [bidItem, setBidItem] = useState<number | null>(null);
-  const liveItems = auctionItems.filter(i => i.status === "live");
-  const totalRevenue = liveItems.reduce((a, i) => a + i.currentBid, 0);
+  const [auctionConfigs, setAuctionConfigs] = useState<AuctionConfigResponse[]>([]);
+  const [livePlayers, setLivePlayers] = useState<AuctionPlayer[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (useMock) return;
+    setLoading(true);
+    auctionService.getAllCommunityConfigs()
+      .then((configs) => {
+        setAuctionConfigs(configs || []);
+        if (configs && configs.length > 0) {
+          const active = configs.find(c => c.status === "LIVE" || c.status === "ACTIVE") || configs[0];
+          return auctionService.getPlayers(active.id);
+        }
+        return [];
+      })
+      .then((players) => setLivePlayers(players || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [useMock]);
+
+  // Combine real backend players with fallback items
+  const items = !useMock && livePlayers.length > 0
+    ? livePlayers.map((p) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category || p.role || "General",
+        basePrice: p.basePrice || 1000,
+        currentBid: p.soldPrice || p.basePrice || 0,
+        bids: p.status === "SOLD" ? 1 : 0,
+        leader: p.assignedTeam?.teamName || "—",
+        status: p.status === "SELLING" ? "live" : p.status === "SOLD" ? "closed" : "upcoming",
+        image: "🏆"
+      }))
+    : MOCK_ITEMS;
+
+  const liveItems = items.filter(i => i.status === "live");
+  const totalRevenue = items.reduce((a, i) => a + (i.currentBid || 0), 0);
 
   return (
     <div className="space-y-3 sm:space-y-6">
-      <NoBackendBanner feature="Auction" />
+      {/* Action Banner to Sports Auction Center */}
+      <div className="flex items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-md">
+        <div>
+          <h3 className="font-extrabold text-base sm:text-lg flex items-center gap-2">
+            <Gavel className="w-5 h-5" /> Live Sports & Community Auction Center
+          </h3>
+          <p className="text-xs sm:text-sm text-indigo-100 mt-0.5">
+            Manage live bidding, team budgets, player pools, and real-time captain nominations.
+          </p>
+        </div>
+        <button
+          onClick={() => navigate("/sports")}
+          className="px-4 py-2 bg-white text-indigo-700 rounded-xl font-extrabold text-xs sm:text-sm hover:bg-indigo-50 transition-all flex items-center gap-1.5 flex-shrink-0 shadow-sm"
+        >
+          Open Sports Center <ExternalLink className="w-4 h-4" />
+        </button>
+      </div>
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {[
           { label: "Live Items",    value: liveItems.length,              color: "#ef4444" },
           { label: "Total Revenue", value: `₹${(totalRevenue/1000).toFixed(1)}K`, color: "#10b981" },
           { label: "Active Bidders",value: 28,                            color: "#6366f1" },
-          { label: "Total Bids",    value: auctionItems.reduce((a,i) => a+i.bids, 0), color: "#4f46e5" },
+          { label: "Total Bids",    value: items.reduce((a,i) => a + i.bids, 0), color: "#4f46e5" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
             <p className="text-lg sm:text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
@@ -65,7 +120,7 @@ export function EventsAuction() {
         {/* Auction items */}
         <div className="lg:col-span-2 space-y-4">
           <h2 className="font-bold text-slate-800 px-1">Auction Items</h2>
-          {auctionItems.map((item) => {
+          {items.map((item) => {
             const ss = statusStyle[item.status];
             const isOpen = bidItem === item.id;
             return (

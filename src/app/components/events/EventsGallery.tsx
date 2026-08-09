@@ -498,6 +498,7 @@ export function EventsGallery() {
   // Inline create state
   const [addingDay, setAddingDay] = useState(false);
   const [addingCat, setAddingCat] = useState(false);
+  const [activeLightbox, setActiveLightbox] = useState<EventGalleryItemResponse | null>(null);
 
   // Extract available years dynamically from dataset
   const availableYears = useMemo(() => {
@@ -645,6 +646,12 @@ export function EventsGallery() {
     if (!albumMap.has(key)) albumMap.set(key, []);
     albumMap.get(key)!.push(item);
   }
+  const albumGroups = Array.from(albumMap.entries()).map(([name, groupItems]) => ({
+    name,
+    count: groupItems.length,
+    cover: groupItems[0]?.url,
+    items: groupItems
+  }));
 
   return (
     <div className="space-y-4">
@@ -733,21 +740,23 @@ export function EventsGallery() {
             </select>
           </div>
 
-          {/* Day Filter dropdown/status indicator */}
-          <div>
-            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-1">
-              <Filter className="w-3 h-3 text-indigo-500" /> Active Day Filter
-            </label>
-            <select
-              value={selectedDay}
-              onChange={e => setSelectedDay(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50 hover:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 text-slate-700"
-            >
-              {dynamicDayOptions.map(d => (
-                <option key={d} value={d}>{d === "All Days" ? "📅 All Days (Multi-day)" : `📌 ${d}`}</option>
-              ))}
-            </select>
-          </div>
+          {/* Day Filter dropdown - shown only when Year & Event are selected */}
+          {selectedYear !== "All" && selectedEventId !== "All" && (
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-1">
+                <Filter className="w-3 h-3 text-indigo-500" /> Active Day Filter
+              </label>
+              <select
+                value={selectedDay}
+                onChange={e => setSelectedDay(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50 hover:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 text-slate-700"
+              >
+                {dynamicDayOptions.map(d => (
+                  <option key={d} value={d}>{d === "All Days" ? "📅 All Days (Multi-day)" : `📌 ${d}`}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Reset Filters button */}
           <div className="flex items-end">
@@ -765,50 +774,56 @@ export function EventsGallery() {
           </div>
         </div>
 
-        {/* ── Day-wise Chips & Category Pill Bar ── */}
-        <div className="space-y-2 pt-2 border-t border-slate-100">
-          {/* Day Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Day:</span>
-            {dynamicDayOptions.map(day => {
-              const active = selectedDay === day;
-              return (
-                <button
-                  key={day}
-                  onClick={() => setSelectedDay(day)}
-                  className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 border ${
-                    active
-                      ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-white hover:border-slate-300"
-                  }`}
-                >
-                  {day}
-                </button>
-              );
-            })}
-          </div>
+        {/* ── Day-wise Chips & Category Pill Bar (shown ONLY when both Year and Event are selected) ── */}
+        {selectedYear !== "All" && selectedEventId !== "All" ? (
+          <div className="space-y-2 pt-2 border-t border-slate-100 animate-fade-in">
+            {/* Day Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Day:</span>
+              {dynamicDayOptions.map(day => {
+                const active = selectedDay === day;
+                return (
+                  <button
+                    key={day}
+                    onClick={() => setSelectedDay(day)}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 border ${
+                      active
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                        : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
 
-          {/* Category Chips */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Category:</span>
-            {dynamicCategoryOptions.map(cat => {
-              const active = selectedCategory === cat;
-              return (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-all shrink-0 border ${
-                    active
-                      ? "bg-slate-800 text-white border-slate-800 shadow-sm"
-                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  {cat}
-                </button>
-              );
-            })}
+            {/* Category Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Category:</span>
+              {dynamicCategoryOptions.map(cat => {
+                const active = selectedCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all shrink-0 border ${
+                      active
+                        ? "bg-slate-800 text-white border-slate-800 shadow-sm"
+                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-400 flex items-center gap-1.5 font-medium">
+            <span>💡 Select a specific <strong className="text-slate-700 dark:text-slate-300">Year</strong> and <strong className="text-slate-700 dark:text-slate-300">Event</strong> above to reveal Day-wise and Category-wise filters.</span>
+          </div>
+        )}
       </div>
 
       {/* ── Loading Spinner ── */}
@@ -841,23 +856,27 @@ export function EventsGallery() {
               <div className="relative aspect-4/3 overflow-hidden bg-slate-100">
                 <GalleryImage
                   src={item.url}
-                  alt={item.title}
+                  alt={item.caption || item.eventName || "Event Image"}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-80 group-hover:opacity-90 transition-opacity" />
 
                 {/* Day & Category Badges */}
                 <div className="absolute top-2 left-2 flex items-center gap-1.5 flex-wrap">
-                  <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white text-[10px] font-bold border border-white/20">
-                    {item.dayLabel}
-                  </span>
-                  <span className="px-2 py-0.5 rounded-md bg-indigo-600/90 backdrop-blur-md text-white text-[10px] font-bold">
-                    {item.category}
-                  </span>
+                  {item.dayTag && (
+                    <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white text-[10px] font-bold border border-white/20">
+                      {item.dayTag}
+                    </span>
+                  )}
+                  {item.category && (
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-600/90 backdrop-blur-md text-white text-[10px] font-bold">
+                      {item.category}
+                    </span>
+                  )}
                 </div>
 
                 {/* Media Type Icon */}
-                {item.type === "video" && (
+                {item.mediaType === "VIDEO" && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform">
                       <Play className="w-4 h-4 text-indigo-600 ml-0.5" />
@@ -867,20 +886,20 @@ export function EventsGallery() {
 
                 {/* Year Tag */}
                 <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/50 text-white font-mono text-[9px]">
-                  {item.year}
+                  {item.createdAt ? new Date(item.createdAt).getFullYear() : 2026}
                 </div>
               </div>
 
               <div className="p-3 flex-1 flex flex-col justify-between">
                 <div>
                   <h4 className="font-bold text-slate-800 text-xs line-clamp-1 group-hover:text-indigo-600 transition-colors">
-                    {item.title}
+                    {item.caption || item.eventName || "Event Media"}
                   </h4>
                   <p className="text-[10px] text-slate-400 truncate mt-0.5">{item.eventName}</p>
                 </div>
                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-400">
-                  <span>{item.album}</span>
-                  <span>{item.dateStr || "2026"}</span>
+                  <span>{item.albumName || "General"}</span>
+                  <span>{item.createdAt ? item.createdAt.substring(0, 10) : "2026"}</span>
                 </div>
               </div>
             </div>
@@ -930,10 +949,10 @@ export function EventsGallery() {
             <div className="flex-1 bg-black flex items-center justify-center relative min-h-[300px]">
               <GalleryImage
                 src={activeLightbox.url}
-                alt={activeLightbox.title}
+                alt={activeLightbox.caption || activeLightbox.eventName || "Preview"}
                 className="max-h-[70vh] w-full object-contain"
               />
-              {activeLightbox.type === "video" && (
+              {activeLightbox.mediaType === "VIDEO" && (
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="w-16 h-16 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-xl">
                     <Play className="w-8 h-8 ml-1" />
@@ -946,7 +965,7 @@ export function EventsGallery() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 text-xs font-bold border border-indigo-500/30">
-                    {activeLightbox.dayLabel} • {activeLightbox.category}
+                    {activeLightbox.dayTag || "Day 1"} • {activeLightbox.category || "General"}
                   </span>
                   <button
                     onClick={() => setActiveLightbox(null)}
@@ -957,22 +976,22 @@ export function EventsGallery() {
                 </div>
 
                 <div>
-                  <h3 className="font-extrabold text-base text-white">{activeLightbox.title}</h3>
-                  <p className="text-xs text-indigo-400 mt-1">{activeLightbox.eventName} ({activeLightbox.year})</p>
+                  <h3 className="font-extrabold text-base text-white">{activeLightbox.caption || activeLightbox.eventName}</h3>
+                  <p className="text-xs text-indigo-400 mt-1">{activeLightbox.eventName} ({activeLightbox.createdAt ? new Date(activeLightbox.createdAt).getFullYear() : 2026})</p>
                 </div>
 
                 <div className="space-y-2 text-xs text-slate-400 border-t border-slate-800 pt-3">
                   <div className="flex justify-between">
                     <span>Album:</span>
-                    <span className="text-slate-200 font-medium">{activeLightbox.album}</span>
+                    <span className="text-slate-200 font-medium">{activeLightbox.albumName || "General"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Uploaded By:</span>
-                    <span className="text-slate-200 font-medium">{activeLightbox.uploader}</span>
+                    <span className="text-slate-200 font-medium">{activeLightbox.uploadedByName || "Admin"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Date:</span>
-                    <span className="text-slate-200 font-medium">{activeLightbox.dateStr}</span>
+                    <span className="text-slate-200 font-medium">{activeLightbox.createdAt ? activeLightbox.createdAt.substring(0, 10) : "2026"}</span>
                   </div>
                 </div>
               </div>
@@ -998,10 +1017,10 @@ export function EventsGallery() {
           <div className="relative flex-1 max-w-xs">
             <select
               value={selectedEventId ?? ""}
-              onChange={e => setSelectedEventId(Number(e.target.value))}
+              onChange={e => setSelectedEventId(e.target.value)}
               className="w-full px-3 py-1.5 pr-8 rounded-xl border border-slate-200 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 dark:text-white appearance-none">
               <option value="">All Events</option>
-              {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
+              {events.map(ev => <option key={ev.id} value={String(ev.id)}>{ev.title}</option>)}
             </select>
             <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           </div>
