@@ -15,6 +15,7 @@ export interface EventResponse {
   venue?: string | null;
   city?: string | null;
   visibility?: string | null;
+  status?: string | null;
   priceType: string;
   price: number | null;
   capacity: number | null;
@@ -46,6 +47,11 @@ export interface EventRequest {
   imageUrl?: string;
   organizerName?: string;
   organizerContact?: string;
+  venue?: string;
+  city?: string;
+  category?: string;
+  status?: string;
+  maxAttendees?: number;
 }
 
 export interface DashboardStatsResponse {

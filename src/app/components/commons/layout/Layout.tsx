@@ -31,7 +31,8 @@ function AppHeaderBreadcrumb() {
 
     if (path.startsWith("/events")) {
       crumbs.push({ label: "Events", to: "/events" });
-      if (path.includes("/schedule")) crumbs.push({ label: "Schedule", to: "/events/schedule" });
+      if (path.includes("/member-flow")) crumbs.push({ label: "Member Flow", to: "/events/member-flow" });
+      else if (path.includes("/schedule")) crumbs.push({ label: "Schedule", to: "/events/schedule" });
       else if (path.includes("/registration")) crumbs.push({ label: "Registration", to: "/events/registration" });
       else if (path.includes("/people")) crumbs.push({ label: "People", to: "/events/people" });
       else if (path.includes("/fundraising")) crumbs.push({ label: "Fundraising", to: "/events/fundraising" });

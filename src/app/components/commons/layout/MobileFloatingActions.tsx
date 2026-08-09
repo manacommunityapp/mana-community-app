@@ -14,8 +14,8 @@ export function MobileHeaderActions() {
 
   return (
     <>
-      {/* ── Icon-Only Buttons inside Header (Mobile Only: lg:hidden) ────────── */}
-      <div className="flex items-center gap-1.5 lg:hidden">
+      {/* ── Icon-Only Buttons inside Header (Visible on Mobile & Desktop) ────────── */}
+      <div className="flex items-center gap-1.5">
         {/* Button 1: Sports & Notifications (Icon Only) */}
         <button
           type="button"
@@ -48,7 +48,7 @@ export function MobileHeaderActions() {
 
       {/* ── Modal 1: Sports & Notifications Modal ──────────────────────────── */}
       {activeModal === "sports_notifications" && (
-        <div className="fixed inset-x-3 top-14 bottom-6 z-50 flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 lg:hidden">
+        <div className="fixed inset-x-3 top-14 bottom-6 z-50 flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 lg:inset-auto lg:top-16 lg:right-24 lg:w-[480px] lg:max-h-[80vh] lg:rounded-2xl">
           {/* Header */}
           <div className="p-4 bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 text-white flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -153,7 +153,7 @@ export function MobileHeaderActions() {
 
       {/* ── Modal 2: Community Directory Modal ────────────────────────────── */}
       {activeModal === "directory" && (
-        <div className="fixed inset-x-3 top-12 bottom-4 z-50 flex flex-col bg-slate-50 rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 lg:hidden">
+        <div className="fixed inset-x-3 top-12 bottom-4 z-50 flex flex-col bg-slate-50 rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 lg:inset-auto lg:top-16 lg:right-12 lg:w-[680px] lg:max-h-[85vh] lg:rounded-2xl">
           {/* Header */}
           <div className="p-4 bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-700 text-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2.5">

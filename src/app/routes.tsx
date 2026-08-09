@@ -13,12 +13,16 @@ import { Jobs } from "./components/jobs/Jobs";
 import { Events } from "./components/events/Events.legacy";
 import { EventsLayout } from "./components/events/EventsLayout";
 import { EventsDashboard } from "./components/events/EventsDashboard";
+import { EventMemberFlow } from "./components/events/EventMemberFlow";
 import { EventsSchedule } from "./components/events/EventsSchedule";
 import { EventsRegistrationHub } from "./components/events/EventsRegistrationHub";
 import { EventsPeople } from "./components/events/EventsPeople";
 import { EventsFundraising } from "./components/events/EventsFundraising";
 import { EventsOperations } from "./components/events/EventsOperations";
 import { EventsMediaReports } from "./components/events/EventsMediaReports";
+
+import { EventsAccessManagement } from "./components/events/EventsAccessManagement";
+import { EventEditor } from "./components/events/EventEditor";
 import { EventPublicRegistration } from "./components/events/EventPublicRegistration";
 import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/commons/login/Signup";
@@ -279,6 +283,10 @@ export const router = createBrowserRouter([
             element: <PermissionGuard permission={MANAGE_ROLES} requiredModule="ADMIN_HUB"><AdminRoleManagement /></PermissionGuard> 
           },
           {
+            path: "access-roles",
+            element: <PermissionGuard permission={MANAGE_ROLES} requiredModule="ADMIN_HUB"><EventsAccessManagement /></PermissionGuard>
+          },
+          {
             path: "audit-logs",
             element: <PermissionGuard superAdminOnly><AuditTrail /></PermissionGuard>
           },
@@ -357,12 +365,16 @@ export const router = createBrowserRouter([
         element: <PermissionGuard requiredModule="EVENTS"><EventsLayout /></PermissionGuard>,
         children: [
           { index: true, element: <PermissionGuard permission={VIEW_EVENTS}><EventsDashboard /></PermissionGuard> },
+          { path: "member-flow", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, REGISTER_EVENT]}><EventMemberFlow /></PermissionGuard> },
           { path: "schedule", element: <PermissionGuard permission={VIEW_EVENTS}><EventsSchedule /></PermissionGuard> },
           { path: "registration", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, REGISTER_EVENT]}><EventsRegistrationHub /></PermissionGuard> },
           { path: "people", element: <PermissionGuard permission={VIEW_EVENTS}><EventsPeople /></PermissionGuard> },
           { path: "fundraising", element: <PermissionGuard permission={VIEW_EVENTS}><EventsFundraising /></PermissionGuard> },
           { path: "operations", element: <PermissionGuard permission={VIEW_EVENTS}><EventsOperations /></PermissionGuard> },
           { path: "media", element: <EventsMediaReports /> },
+          { path: "access", element: <PermissionGuard permission={MANAGE_ROLES}><EventsAccessManagement /></PermissionGuard> },
+          { path: "create", element: <EventEditor /> },
+          { path: ":id/edit", element: <EventEditor /> },
         ],
       },
       { 
