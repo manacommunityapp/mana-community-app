@@ -514,6 +514,12 @@ export function EventsGallery() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
 
+  // Inline creation states inside Upload Modal
+  const [showAddDayInModal, setShowAddDayInModal] = useState(false);
+  const [newDayLabel, setNewDayLabel] = useState("");
+  const [showAddCatInModal, setShowAddCatInModal] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadForm.title.trim() || !uploadForm.url.trim()) return;
@@ -1124,13 +1130,16 @@ export function EventsGallery() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Event</label>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Event *</label>
                   <select
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs font-medium"
                     value={uploadForm.eventName}
                     onChange={e => setUploadForm(f => ({ ...f, eventName: e.target.value }))}
                   >
-                    {availableEvents.map(ev => (
+                    {(!useMock && events.length > 0
+                      ? events.map(ev => ({ id: ev.id, title: ev.title }))
+                      : availableEvents
+                    ).map(ev => (
                       <option key={ev.id} value={ev.title}>{ev.title}</option>
                     ))}
                   </select>
@@ -1138,7 +1147,7 @@ export function EventsGallery() {
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Year</label>
                   <select
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs font-medium"
                     value={uploadForm.year}
                     onChange={e => setUploadForm(f => ({ ...f, year: Number(e.target.value) }))}
                   >
@@ -1150,29 +1159,116 @@ export function EventsGallery() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                {/* Day Tag Dropdown with + Add Day Button */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Day Tag</label>
-                  <select
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs"
-                    value={uploadForm.dayLabel}
-                    onChange={e => setUploadForm(f => ({ ...f, dayLabel: e.target.value }))}
-                  >
-                    {dynamicDayOptions.filter(d => d !== "All Days").map(d => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">Day Tag</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddDayInModal(true)}
+                      className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5"
+                    >
+                      <Plus className="w-3 h-3" /> Add Day
+                    </button>
+                  </div>
+                  {showAddDayInModal ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        placeholder="e.g. Day 6"
+                        value={newDayLabel}
+                        onChange={e => setNewDayLabel(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-300 dark:border-indigo-600 text-xs outline-none bg-white dark:bg-slate-800 dark:text-white"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!newDayLabel.trim()) return;
+                          await handleCreateDay(newDayLabel.trim());
+                          setUploadForm(f => ({ ...f, dayLabel: newDayLabel.trim() }));
+                          setNewDayLabel("");
+                          setShowAddDayInModal(false);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold shrink-0 hover:bg-indigo-700 transition-colors"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddDayInModal(false)}
+                        className="p-1 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs font-medium"
+                      value={uploadForm.dayLabel}
+                      onChange={e => setUploadForm(f => ({ ...f, dayLabel: e.target.value }))}
+                    >
+                      {(days.length > 0 ? days.map(d => d.label) : ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Grand Finale"]).map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
+
+                {/* Category Dropdown with + Add Category Button */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Category</label>
-                  <select
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs"
-                    value={uploadForm.category}
-                    onChange={e => setUploadForm(f => ({ ...f, category: e.target.value }))}
-                  >
-                    {dynamicCategoryOptions.filter(c => c !== "All Media").map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">Category</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCatInModal(true)}
+                      className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5"
+                    >
+                      <Plus className="w-3 h-3" /> Add Category
+                    </button>
+                  </div>
+                  {showAddCatInModal ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        placeholder="e.g. Decoration"
+                        value={newCatName}
+                        onChange={e => setNewCatName(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-300 dark:border-indigo-600 text-xs outline-none bg-white dark:bg-slate-800 dark:text-white"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!newCatName.trim()) return;
+                          await handleCreateCategory(newCatName.trim());
+                          setUploadForm(f => ({ ...f, category: newCatName.trim() }));
+                          setNewCatName("");
+                          setShowAddCatInModal(false);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold shrink-0 hover:bg-indigo-700 transition-colors"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCatInModal(false)}
+                        className="p-1 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs font-medium"
+                      value={uploadForm.category}
+                      onChange={e => setUploadForm(f => ({ ...f, category: e.target.value }))}
+                    >
+                      {(categories.length > 0 ? categories.map(c => c.name) : ["Puja & Rituals", "Cultural Stage", "Sports & Games", "Food & Feast", "Volunteers & Ops", "Highlights & Videos"]).map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 
