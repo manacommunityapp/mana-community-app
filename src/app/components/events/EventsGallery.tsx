@@ -10,6 +10,7 @@ import { eventService, type EventResponse } from "../../../services/events/event
 import { eventDayService, type EventDayResponse } from "../../../services/events/eventDayService";
 import { eventMediaCategoryService, type EventMediaCategoryResponse } from "../../../services/events/eventMediaCategoryService";
 import { fileUploadService } from "../../../services/files/fileUploadService";
+import { validateMediaFile } from "../../../utils/mediaValidator";
 
 export interface GalleryItem {
   id: number;
@@ -519,6 +520,7 @@ export function EventsGallery() {
     album: "General",
   });
   const [uploadFilesQueue, setUploadFilesQueue] = useState<ModalFileQueueItem[]>([]);
+  const [uploadValidationErrors, setUploadValidationErrors] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
 
   // Inline creation states inside Upload Modal
@@ -586,6 +588,7 @@ export function EventsGallery() {
             uploadedByName: "Current Admin",
             createdAt: new Date().toISOString(),
             featured: isPublish,
+            sortOrder: 0,
           };
           createdItems.push(newItem);
         }
@@ -628,6 +631,7 @@ export function EventsGallery() {
             uploadedByName: "Current Admin",
             createdAt: new Date().toISOString(),
             featured: isPublish,
+            sortOrder: 0,
           };
           createdItems.push(newItem);
         }
@@ -1370,20 +1374,51 @@ export function EventsGallery() {
                     type="file"
                     multiple
                     accept="image/*,video/*"
-                    onChange={e => {
+                    onChange={async (e) => {
                       if (e.target.files && e.target.files.length > 0) {
-                        const arr = Array.from(e.target.files);
-                        const newItems: ModalFileQueueItem[] = arr.map(f => ({
-                          key: `${f.name}-${f.size}-${Date.now()}-${Math.random()}`,
-                          file: f,
-                          preview: URL.createObjectURL(f),
-                          mediaType: f.type.startsWith("video/") ? "video" : "photo",
-                        }));
-                        setUploadFilesQueue(prev => [...prev, ...newItems]);
+                        const files = Array.from(e.target.files);
+                        const validItems: ModalFileQueueItem[] = [];
+                        const errors: string[] = [];
+
+                        for (const f of files) {
+                          const result = await validateMediaFile(f);
+                          if (result.valid) {
+                            validItems.push({
+                              key: `${f.name}-${f.size}-${Date.now()}-${Math.random()}`,
+                              file: f,
+                              preview: URL.createObjectURL(f),
+                              mediaType: result.mediaType === "video" ? "video" : "photo",
+                            });
+                          } else if (result.error) {
+                            errors.push(result.error);
+                          }
+                        }
+
+                        if (validItems.length > 0) {
+                          setUploadFilesQueue(prev => [...prev, ...validItems]);
+                        }
+                        if (errors.length > 0) {
+                          setUploadValidationErrors(errors);
+                        } else {
+                          setUploadValidationErrors([]);
+                        }
                       }
                     }}
                     className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 cursor-pointer"
                   />
+
+                  {uploadValidationErrors.length > 0 && (
+                    <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                      <div className="font-bold flex items-center gap-1 text-[11px] uppercase tracking-wider text-amber-900 dark:text-amber-200">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Validation Warnings ({uploadValidationErrors.length})
+                      </div>
+                      <ul className="list-disc list-inside space-y-0.5 text-[11px] font-medium">
+                        {uploadValidationErrors.map((err, i) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   {uploadFilesQueue.length > 0 && (
                     <div className="space-y-1.5 animate-fade-in">

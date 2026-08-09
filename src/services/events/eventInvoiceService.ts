@@ -14,7 +14,7 @@ export interface EventInvoiceResponse {
   category: string;
   status: string;
   invoiceUrl: string | null;
-  fileId: number | null;
+  fileId: number | string | null;
   notes: string | null;
   createdByName: string | null;
   createdAt: string;
@@ -33,7 +33,7 @@ export interface EventInvoiceRequest {
   category?: string;
   status?: string;
   invoiceUrl?: string;
-  fileId?: number;
+  fileId?: number | string;
   notes?: string;
 }
 

@@ -75,7 +75,7 @@ export function EventsInvoices() {
   const [form, setForm] = useState<InvoiceFormState>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
-  const [uploadedFile, setUploadedFile] = useState<{ id: number | null; url: string; name: string } | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<{ id: number | string | null; url: string; name: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);

@@ -804,21 +804,26 @@ function SectionMedia({ data, update }: { data: FormData; update: (k: keyof Form
 }
 
 /* ─── Helpers ─── */
-function toEventRequest(data: FormData): EventRequest {
+function toEventRequest(data: FormData, statusOverride?: string): EventRequest {
   return {
     title: data.title,
     description: data.description || undefined,
     type: data.eventType || undefined,
+    category: data.category || undefined,
     startDate: data.startDate,
     endDate: data.multiDay && data.endDate ? data.endDate : undefined,
     startTime: data.startTime || undefined,
     endTime: data.endTime || undefined,
     locationType: data.visibility,
     location: [data.venueName, data.venueAddress, data.city].filter(Boolean).join(", ") || undefined,
+    venue: data.venueName || undefined,
+    city: data.city || undefined,
     priceType: data.ticketTypes.some(t => parseFloat(t.price) > 0) ? "PAID" : "FREE",
     price: data.ticketTypes.length > 0 ? parseFloat(data.ticketTypes[0].price) || undefined : undefined,
     capacity: data.capacity ? parseInt(data.capacity) : undefined,
+    maxAttendees: data.capacity ? parseInt(data.capacity) : undefined,
     imageUrl: data.coverImageUrl && !data.coverImageUrl.startsWith("data:") ? data.coverImageUrl : undefined,
+    status: statusOverride || undefined,
     organizerName: undefined,
     organizerContact: undefined,
   };
@@ -829,7 +834,7 @@ function fromEventResponse(ev: EventResponse): FormData {
   return {
     title: ev.title || "",
     eventType: ev.type || "",
-    category: "",
+    category: ev.category || "",
     description: ev.description || "",
     visibility: (ev.locationType as FormData["visibility"]) || "community",
     startDate: ev.startDate || "",
@@ -838,10 +843,10 @@ function fromEventResponse(ev: EventResponse): FormData {
     endTime: ev.endTime || "",
     multiDay: !!ev.endDate,
     daySchedules: [],
-    venueName: parts[0] || "",
-    venueAddress: parts.slice(1, -1).join(", ") || "",
-    city: parts[parts.length - 1] || "",
-    capacity: ev.capacity ? String(ev.capacity) : "",
+    venueName: ev.venue || parts[0] || "",
+    venueAddress: parts.length > 2 ? parts.slice(1, -1).join(", ") : parts[1] || "",
+    city: ev.city || parts[parts.length - 1] || "",
+    capacity: ev.capacity ? String(ev.capacity) : ev.maxAttendees ? String(ev.maxAttendees) : "",
     registrationEnabled: true,
     registrationDeadline: "",
     ticketTypes: [
@@ -926,7 +931,7 @@ export function EventEditor() {
     setSaveError("");
     try {
       if (!useMock) {
-        const payload = toEventRequest(formData);
+        const payload = toEventRequest(formData, "DRAFT");
         if (isEditMode) {
           await eventService.update(parseInt(id!), payload);
         } else {
@@ -955,7 +960,7 @@ export function EventEditor() {
     setSaveError("");
     try {
       if (!useMock) {
-        const payload = toEventRequest(formData);
+        const payload = toEventRequest(formData, "PUBLISHED");
         if (isEditMode) {
           await eventService.update(parseInt(id!), payload);
         } else {
