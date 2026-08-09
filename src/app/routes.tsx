@@ -19,7 +19,11 @@ import { EventsPeople } from "./components/events/EventsPeople";
 import { EventsFundraising } from "./components/events/EventsFundraising";
 import { EventsOperations } from "./components/events/EventsOperations";
 import { EventsMediaReports } from "./components/events/EventsMediaReports";
+
+import { EventsAccessManagement } from "./components/events/EventsAccessManagement";
+import { EventEditor } from "./components/events/EventEditor";
 import { EventPublicRegistration } from "./components/events/EventPublicRegistration";
+
 import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/commons/login/Signup";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
@@ -363,6 +367,9 @@ export const router = createBrowserRouter([
           { path: "fundraising", element: <PermissionGuard permission={VIEW_EVENTS}><EventsFundraising /></PermissionGuard> },
           { path: "operations", element: <PermissionGuard permission={VIEW_EVENTS}><EventsOperations /></PermissionGuard> },
           { path: "media", element: <EventsMediaReports /> },
+          { path: "access", element: <PermissionGuard permission={MANAGE_ROLES}><EventsAccessManagement /></PermissionGuard> },
+          { path: "create", element: <EventEditor /> },
+          { path: ":id/edit", element: <EventEditor /> },
         ],
       },
       { 
