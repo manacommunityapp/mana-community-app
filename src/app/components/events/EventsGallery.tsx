@@ -11,7 +11,6 @@ import { eventDayService, type EventDayResponse } from "../../../services/events
 import { eventMediaCategoryService, type EventMediaCategoryResponse } from "../../../services/events/eventMediaCategoryService";
 import { fileUploadService } from "../../../services/files/fileUploadService";
 
-<<<<<<< HEAD
 export interface GalleryItem {
   id: number;
   url: string;
@@ -217,45 +216,6 @@ function mapLivePhotos(data: EventGalleryItemResponse[]): GalleryItem[] {
   }));
 }
 
-export function EventsGallery() {
-  const { useMock } = useEventMock();
-  const [view, setView] = useState<"albums" | "grid">("grid");
-
-  // Multi-dimensional filter states
-  const [selectedYear, setSelectedYear] = useState<string>("All");
-  const [selectedEventId, setSelectedEventId] = useState<string>("All");
-  const [selectedDay, setSelectedDay] = useState<string>("All Days");
-  const [selectedCategory, setSelectedCategory] = useState<string>("All Media");
-
-  // Data & Modal states
-  const [events, setEvents] = useState<EventResponse[]>([]);
-  const [liveItems, setLiveItems] = useState<GalleryItem[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [activeLightbox, setActiveLightbox] = useState<GalleryItem | null>(null);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-
-  // New item upload state
-  const [uploadForm, setUploadForm] = useState({
-    title: "",
-    eventName: "Ganesh Chaturthi Utsav 2026",
-    year: 2026,
-    dayLabel: "Day 1",
-    category: "Puja & Rituals",
-    type: "photo" as "photo" | "video",
-    url: "",
-    album: "General",
-  });
-  const [uploading, setUploading] = useState(false);
-=======
-  if (failed) return (
-    <div className={`${className ?? ""} flex items-center justify-center bg-slate-100 dark:bg-slate-800`}>
-      <ImageIcon className="w-6 h-6 text-slate-300" />
-    </div>
-  );
-  return <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />;
-}
-
 function FilterChip({
   label, active, count, onSelect, onRemove,
 }: {
@@ -311,7 +271,6 @@ function InlineCreate({ placeholder, onSave, onCancel }: {
     </span>
   );
 }
->>>>>>> 52e1ea39e860b034b9d431470ee344d2ee2f21c3
 
 // ─── Upload Drawer ────────────────────────────────────────────────────────────
 function UploadDrawer({
@@ -335,7 +294,6 @@ function UploadDrawer({
 
   // Reset when drawer opens
   useEffect(() => {
-<<<<<<< HEAD
     if (useMock) return;
     eventService.getUpcomingEvents()
       .then(evts => setEvents(evts))
