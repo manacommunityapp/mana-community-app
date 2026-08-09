@@ -501,6 +501,12 @@ export function EventsGallery() {
   const [addingCat, setAddingCat] = useState(false);
   const [activeLightbox, setActiveLightbox] = useState<EventGalleryItemResponse | null>(null);
 
+  // Deletion and Multi-Selection state
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<number[] | null>(null);
+
   // Upload Modal Form State
   interface ModalFileQueueItem {
     key: string;
@@ -782,6 +788,51 @@ export function EventsGallery() {
     if (activeCategory === c.name) setActiveCategory(null);
   }
 
+  // ── Single and Bulk Media Deletion ──────────────────────────────────────
+  const toggleSelectItem = (id: number) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllFilteredItems = (itemsToSelect: EventGalleryItemResponse[]) => {
+    const allFilteredIds = itemsToSelect.map(item => item.id);
+    if (selectedIds.length === allFilteredIds.length && allFilteredIds.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(allFilteredIds);
+    }
+  };
+
+  const handleExecuteDelete = async (ids: number[]) => {
+    if (ids.length === 0) return;
+    setDeleting(true);
+    setError("");
+
+    try {
+      if (!useMock) {
+        for (const id of ids) {
+          try {
+            await eventGalleryService.deleteItem(id);
+          } catch (e: any) {
+            console.warn(`Error deleting gallery item ${id}:`, e);
+          }
+        }
+      }
+      setItems(prev => prev.filter(item => !ids.includes(item.id)));
+      setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
+
+      if (activeLightbox && ids.includes(activeLightbox.id)) {
+        setActiveLightbox(null);
+      }
+      setDeleteConfirmTarget(null);
+    } catch (e: any) {
+      setError(e.message ?? "Failed to delete selected media items.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // ── Filter items for the current view ────────────────────────────────────
   const filteredItems = items.filter(item => {
     if (selectedYear !== "All" && item.createdAt && String(new Date(item.createdAt).getFullYear()) !== selectedYear) return false;
@@ -831,7 +882,40 @@ export function EventsGallery() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Multi-select Actions Bar */}
+            {isSelectMode ? (
+              <>
+                <button
+                  onClick={() => selectAllFilteredItems(filteredItems)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-all"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                  {selectedIds.length === filteredItems.length && filteredItems.length > 0 ? "Deselect All" : "Select All"}
+                </button>
+                <button
+                  onClick={() => setDeleteConfirmTarget(selectedIds)}
+                  disabled={selectedIds.length === 0}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-40 transition-all shadow-sm"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete Selected ({selectedIds.length})
+                </button>
+                <button
+                  onClick={() => { setIsSelectMode(false); setSelectedIds([]); }}
+                  className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 transition-all"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setIsSelectMode(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-all"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" /> Select Items
+              </button>
+            )}
+
             {/* View Mode Toggle */}
             <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-slate-50 p-0.5">
               <button
@@ -1004,33 +1088,70 @@ export function EventsGallery() {
       ) : view === "grid" ? (
         /* ── Grid View ── */
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-          {filteredItems.map(item => (
-            <div
-              key={item.id}
-              onClick={() => setActiveLightbox(item)}
-              className="bg-white rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 group cursor-pointer flex flex-col"
-            >
-              <div className="relative aspect-4/3 overflow-hidden bg-slate-100">
-                <GalleryImage
-                  src={item.url}
-                  alt={item.caption || item.eventName || "Event Image"}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-80 group-hover:opacity-90 transition-opacity" />
+          {filteredItems.map(item => {
+            const isSelected = selectedIds.includes(item.id);
+            return (
+              <div
+                key={item.id}
+                onClick={() => {
+                  if (isSelectMode) {
+                    toggleSelectItem(item.id);
+                  } else {
+                    setActiveLightbox(item);
+                  }
+                }}
+                className={`bg-white rounded-2xl overflow-hidden border transition-all duration-300 group cursor-pointer flex flex-col relative ${
+                  isSelected
+                    ? "border-indigo-500 ring-2 ring-indigo-500/20 shadow-md scale-[0.98]"
+                    : "border-slate-100 shadow-sm hover:shadow-xl"
+                }`}
+              >
+                {/* Single Delete Button */}
+                <button
+                  onClick={e => {
+                    e.stopPropagation();
+                    setDeleteConfirmTarget([item.id]);
+                  }}
+                  title="Delete media item"
+                  className="absolute top-2 right-2 p-1.5 rounded-xl bg-rose-600/90 text-white opacity-0 group-hover:opacity-100 hover:bg-rose-700 transition-all shadow-md z-20"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
 
-                {/* Day & Category Badges */}
-                <div className="absolute top-2 left-2 flex items-center gap-1.5 flex-wrap">
-                  {item.dayTag && (
-                    <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white text-[10px] font-bold border border-white/20">
-                      {item.dayTag}
-                    </span>
-                  )}
-                  {item.category && (
-                    <span className="px-2 py-0.5 rounded-md bg-indigo-600/90 backdrop-blur-md text-white text-[10px] font-bold">
-                      {item.category}
-                    </span>
-                  )}
-                </div>
+                {/* Selection Checkbox overlay */}
+                {isSelectMode && (
+                  <div className="absolute top-2 left-2 z-20">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelectItem(item.id)}
+                      onClick={e => e.stopPropagation()}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                    />
+                  </div>
+                )}
+
+                <div className="relative aspect-4/3 overflow-hidden bg-slate-100">
+                  <GalleryImage
+                    src={item.url}
+                    alt={item.caption || item.eventName || "Event Image"}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-80 group-hover:opacity-90 transition-opacity" />
+
+                  {/* Day & Category Badges */}
+                  <div className={`absolute top-2 ${isSelectMode ? "left-8" : "left-2"} flex items-center gap-1.5 flex-wrap transition-all`}>
+                    {item.dayTag && (
+                      <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white text-[10px] font-bold border border-white/20">
+                        {item.dayTag}
+                      </span>
+                    )}
+                    {item.category && (
+                      <span className="px-2 py-0.5 rounded-md bg-indigo-600/90 backdrop-blur-md text-white text-[10px] font-bold">
+                        {item.category}
+                      </span>
+                    )}
+                  </div>
 
                 {/* Media Type Icon */}
                 {item.mediaType === "VIDEO" && (
@@ -1060,7 +1181,8 @@ export function EventsGallery() {
                 </div>
               </div>
             </div>
-          ))}
+          );
+        })}
         </div>
       ) : (
         /* ── Albums View ── */
@@ -1162,6 +1284,13 @@ export function EventsGallery() {
                 >
                   <Download className="w-3.5 h-3.5" /> Download
                 </a>
+                <button
+                  onClick={() => setDeleteConfirmTarget([activeLightbox.id])}
+                  className="px-4 py-2.5 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-rose-500/30"
+                  title="Delete this media item"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
               </div>
             </div>
           </div>
@@ -1521,6 +1650,42 @@ export function EventsGallery() {
           setItems(its => [item, ...its]);
         }}
       />
+
+      {/* ── Delete Confirmation Modal Popup ── */}
+      {deleteConfirmTarget && deleteConfirmTarget.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-base font-extrabold text-slate-800 dark:text-white">
+                {deleteConfirmTarget.length === 1 ? "Delete Media Item?" : `Delete ${deleteConfirmTarget.length} Selected Media Items?`}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Are you sure you want to delete {deleteConfirmTarget.length === 1 ? "this media item" : `these ${deleteConfirmTarget.length} items`}? This action will permanently remove the files from S3 storage and gallery.
+              </p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setDeleteConfirmTarget(null)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleExecuteDelete(deleteConfirmTarget)}
+                disabled={deleting}
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 disabled:opacity-50 transition-colors shadow-sm"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                {deleting ? "Deleting…" : "Yes, Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
