@@ -501,6 +501,13 @@ export function EventsGallery() {
   const [activeLightbox, setActiveLightbox] = useState<EventGalleryItemResponse | null>(null);
 
   // Upload Modal Form State
+  interface ModalFileQueueItem {
+    key: string;
+    file: File;
+    preview: string;
+    mediaType: "photo" | "video";
+  }
+
   const [uploadForm, setUploadForm] = useState({
     title: "",
     eventName: "Ganesh Chaturthi Utsav 2026",
@@ -511,7 +518,7 @@ export function EventsGallery() {
     url: "",
     album: "General",
   });
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFilesQueue, setUploadFilesQueue] = useState<ModalFileQueueItem[]>([]);
   const [uploading, setUploading] = useState(false);
 
   // Inline creation states inside Upload Modal
@@ -522,54 +529,113 @@ export function EventsGallery() {
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadForm.title.trim() || !uploadForm.url.trim()) return;
+
+    const rawUrls = uploadForm.url
+      .split(/[\n,]/)
+      .map(u => u.trim())
+      .filter(u => u.length > 0);
+
+    if (uploadFilesQueue.length === 0 && rawUrls.length === 0) return;
     setUploading(true);
+
     try {
-      let finalUrl = uploadForm.url;
-      if (uploadFile && !useMock) {
-        try {
-          const res = await fileUploadService.upload(uploadFile);
-          finalUrl = res.url;
-        } catch (err) {
-          console.warn("File upload failed, using provided URL", err);
+      const createdItems: EventGalleryItemResponse[] = [];
+      const evtIdNum = Number(selectedEventId) || events[0]?.id || 1;
+
+      // 1. Process selected files queue
+      for (let i = 0; i < uploadFilesQueue.length; i++) {
+        const item = uploadFilesQueue[i];
+        let finalUrl = item.preview;
+
+        if (!useMock) {
+          try {
+            const res = await fileUploadService.upload(item.file);
+            finalUrl = res.url;
+          } catch (err) {
+            console.warn(`File upload failed for ${item.file.name}, using preview URL`, err);
+          }
+
+          const created = await eventGalleryService.create({
+            eventId: evtIdNum,
+            url: finalUrl,
+            thumbnailUrl: finalUrl,
+            mediaType: item.mediaType === "video" ? "VIDEO" : "PHOTO",
+            dayTag: uploadForm.dayLabel,
+            category: uploadForm.category,
+            caption: uploadForm.title.trim()
+              ? (uploadFilesQueue.length === 1 && rawUrls.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} #${i + 1}`)
+              : item.file.name.replace(/\.[^/.]+$/, ""),
+            albumName: uploadForm.album,
+            featured: false,
+          });
+          createdItems.push(created);
+        } else {
+          const newItem: EventGalleryItemResponse = {
+            id: Date.now() + i,
+            eventId: evtIdNum,
+            eventName: uploadForm.eventName,
+            url: finalUrl,
+            thumbnailUrl: finalUrl,
+            mediaType: item.mediaType === "video" ? "VIDEO" : "PHOTO",
+            dayTag: uploadForm.dayLabel,
+            category: uploadForm.category,
+            caption: uploadForm.title.trim()
+              ? (uploadFilesQueue.length === 1 && rawUrls.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} #${i + 1}`)
+              : item.file.name.replace(/\.[^/.]+$/, ""),
+            albumName: uploadForm.album,
+            uploadedByName: "Current Admin",
+            createdAt: new Date().toISOString(),
+            featured: false,
+          };
+          createdItems.push(newItem);
         }
       }
 
-      if (!useMock) {
-        const evtIdNum = Number(selectedEventId) || events[0]?.id || 1;
-        const created = await eventGalleryService.create({
-          eventId: evtIdNum,
-          url: finalUrl,
-          thumbnailUrl: finalUrl,
-          mediaType: uploadForm.type === "video" ? "VIDEO" : "PHOTO",
-          dayTag: uploadForm.dayLabel,
-          category: uploadForm.category,
-          caption: uploadForm.title,
-          albumName: uploadForm.album,
-          featured: false,
-        });
-        setItems(prev => [created, ...prev]);
-      } else {
-        const newItem: EventGalleryItemResponse = {
-          id: Date.now(),
-          eventId: 1,
-          eventName: uploadForm.eventName,
-          url: finalUrl,
-          thumbnailUrl: finalUrl,
-          mediaType: uploadForm.type === "video" ? "VIDEO" : "PHOTO",
-          dayTag: uploadForm.dayLabel,
-          category: uploadForm.category,
-          caption: uploadForm.title,
-          albumName: uploadForm.album,
-          uploadedByName: "Current Admin",
-          createdAt: new Date().toISOString(),
-          featured: false,
-        };
-        setItems(prev => [newItem, ...prev]);
+      // 2. Process URLs from textarea
+      for (let idx = 0; idx < rawUrls.length; idx++) {
+        const urlStr = rawUrls[idx];
+        const isVideo = urlStr.includes(".mp4") || urlStr.includes(".webm") || urlStr.includes("video") || urlStr.includes("youtube") || urlStr.includes("vimeo");
+
+        if (!useMock) {
+          const created = await eventGalleryService.create({
+            eventId: evtIdNum,
+            url: urlStr,
+            thumbnailUrl: urlStr,
+            mediaType: isVideo ? "VIDEO" : "PHOTO",
+            dayTag: uploadForm.dayLabel,
+            category: uploadForm.category,
+            caption: uploadForm.title.trim()
+              ? (rawUrls.length === 1 && uploadFilesQueue.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} URL #${idx + 1}`)
+              : `Media URL #${idx + 1}`,
+            albumName: uploadForm.album,
+            featured: false,
+          });
+          createdItems.push(created);
+        } else {
+          const newItem: EventGalleryItemResponse = {
+            id: Date.now() + 1000 + idx,
+            eventId: evtIdNum,
+            eventName: uploadForm.eventName,
+            url: urlStr,
+            thumbnailUrl: urlStr,
+            mediaType: isVideo ? "VIDEO" : "PHOTO",
+            dayTag: uploadForm.dayLabel,
+            category: uploadForm.category,
+            caption: uploadForm.title.trim()
+              ? (rawUrls.length === 1 && uploadFilesQueue.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} URL #${idx + 1}`)
+              : `Media URL #${idx + 1}`,
+            albumName: uploadForm.album,
+            uploadedByName: "Current Admin",
+            createdAt: new Date().toISOString(),
+            featured: false,
+          };
+          createdItems.push(newItem);
+        }
       }
 
+      setItems(prev => [...createdItems, ...prev]);
       setShowUploadModal(false);
-      setUploadFile(null);
+      setUploadFilesQueue([]);
       setUploadForm({
         title: "",
         eventName: events[0]?.title || "Ganesh Chaturthi Utsav 2026",
@@ -581,7 +647,7 @@ export function EventsGallery() {
         album: "General",
       });
     } catch (err) {
-      console.error("Failed to publish media", err);
+      console.error("Failed to batch upload media", err);
     } finally {
       setUploading(false);
     }
@@ -1296,27 +1362,76 @@ export function EventsGallery() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Image / Video File or URL *</label>
-                <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Upload Multiple Images & Videos or URLs *
+                </label>
+                <div className="space-y-3">
                   <input
                     type="file"
+                    multiple
                     accept="image/*,video/*"
                     onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        setUploadFile(file);
-                        setUploadForm(f => ({ ...f, url: URL.createObjectURL(file) }));
+                      if (e.target.files && e.target.files.length > 0) {
+                        const arr = Array.from(e.target.files);
+                        const newItems: ModalFileQueueItem[] = arr.map(f => ({
+                          key: `${f.name}-${f.size}-${Date.now()}-${Math.random()}`,
+                          file: f,
+                          preview: URL.createObjectURL(f),
+                          mediaType: f.type.startsWith("video/") ? "video" : "photo",
+                        }));
+                        setUploadFilesQueue(prev => [...prev, ...newItems]);
                       }
                     }}
-                    className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
+                    className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 cursor-pointer"
                   />
+
+                  {uploadFilesQueue.length > 0 && (
+                    <div className="space-y-1.5 animate-fade-in">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                        <span>Selected Files ({uploadFilesQueue.length})</span>
+                        <button
+                          type="button"
+                          onClick={() => setUploadFilesQueue([])}
+                          className="text-rose-500 hover:underline"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-1.5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                        {uploadFilesQueue.map((item, idx) => (
+                          <div key={item.key} className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-black/10">
+                            {item.mediaType === "video" ? (
+                              <video src={item.preview} className="w-full h-full object-cover" />
+                            ) : (
+                              <img src={item.preview} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setUploadFilesQueue(q => q.filter(x => x.key !== item.key))}
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-80 group-hover:opacity-100 hover:bg-rose-600 transition-all"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                            <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[8px] font-bold">
+                              {item.mediaType === "video" ? "🎥 Video" : "🖼️ Image"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="relative flex items-center">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-2 bg-white dark:bg-slate-900 absolute left-1/2 -translate-x-1/2">or URL</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-2 bg-white dark:bg-slate-900 absolute left-1/2 -translate-x-1/2">
+                      or paste image / video URLs
+                    </span>
                     <hr className="w-full border-slate-100 dark:border-slate-800" />
                   </div>
-                  <input
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs focus:ring-2 focus:ring-indigo-200 outline-none"
-                    placeholder="https://images.unsplash.com/..."
+
+                  <textarea
+                    rows={2}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs focus:ring-2 focus:ring-indigo-200 outline-none resize-none"
+                    placeholder="https://images.unsplash.com/... (Multiple URLs separated by lines or commas)"
                     value={uploadForm.url}
                     onChange={e => setUploadForm(f => ({ ...f, url: e.target.value }))}
                   />
@@ -1326,17 +1441,23 @@ export function EventsGallery() {
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowUploadModal(false)}
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setUploadFilesQueue([]);
+                  }}
                   className="flex-1 px-4 py-2.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={uploading || !uploadForm.title.trim() || !uploadForm.url.trim()}
+                  disabled={uploading || (uploadFilesQueue.length === 0 && !uploadForm.url.trim())}
                   className="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 flex items-center justify-center gap-2 transition-all shadow-md"
                 >
-                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} Save & Publish
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                  {uploading
+                    ? "Publishing Media..."
+                    : `Publish ${uploadFilesQueue.length > 0 ? `${uploadFilesQueue.length} Media Item${uploadFilesQueue.length > 1 ? "s" : ""}` : "Media"}`}
                 </button>
               </div>
             </form>
