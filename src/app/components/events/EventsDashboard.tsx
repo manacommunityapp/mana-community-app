@@ -1,18 +1,149 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   CalendarDays, Users, Ticket, TrendingUp, DollarSign,
-  Utensils, Gavel, ClipboardCheck, Star, ArrowUpRight,
-  Clock, MapPin, CheckCircle2, AlertCircle, Loader2,
-  Sparkles, Search, QrCode, UserPlus, ShieldCheck, Award,
-  ChevronRight, ArrowRight, Download, Filter, Bot, Flame
+  Utensils, Gavel, ClipboardCheck, Star,
+  Clock, MapPin, AlertCircle, Loader2,
+  Sparkles, QrCode, UserPlus,
+  ChevronRight, Download, Bot, RefreshCw,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
 } from "recharts";
 import { GlassCard, TouchButton, StatusChip, BottomSheet } from "./redesign/EventDesignSystem";
 import { EventAICopilotDrawer } from "./redesign/EventAICopilotDrawer";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
+import { useEventMock } from "./EventMockToggle";
+import {
+  eventService,
+  type DashboardStatsResponse,
+  type EventResponse,
+  type RegistrationResponse,
+} from "../../../services/events/eventService";
+import { eventSponsorService, type EventSponsorResponse } from "../../../services/events/eventSponsorService";
+import { eventDonationService } from "../../../services/events/eventDonationService";
+import { eventExpenseService, type EventExpenseResponse } from "../../../services/events/eventExpenseService";
+import { eventTaskService, type EventTaskResponse } from "../../../services/events/eventTaskService";
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmtINR(n: number): string {
+  if (n >= 100000) return `₹${(n / 100000).toFixed(2)}L`;
+  if (n >= 1000)   return `₹${(n / 1000).toFixed(1)}K`;
+  return `₹${Math.round(n)}`;
+}
+
+function countdownFrom(dateStr: string, timeStr?: string | null) {
+  const dt = new Date(`${dateStr}${timeStr ? "T" + timeStr : "T00:00:00"}`).getTime();
+  const diff = Math.max(0, dt - Date.now());
+  return {
+    days:  Math.floor(diff / 86400000),
+    hours: Math.floor((diff % 86400000) / 3600000),
+    mins:  Math.floor((diff % 3600000) / 60000),
+    secs:  Math.floor((diff % 60000) / 1000),
+  };
+}
+
+const BANNER_GRADIENTS = [
+  "linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #6366F1 100%)",
+  "linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #FF6B00 100%)",
+  "linear-gradient(135deg, #0891B2 0%, #4F46E5 50%, #7C3AED 100%)",
+  "linear-gradient(135deg, #059669 0%, #0891B2 50%, #4F46E5 100%)",
+];
+
+const WEEK_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const PIE_COLORS = ["#4F46E5", "#7C3AED", "#16A34A", "#2563EB", "#EC4899", "#F59E0B"];
+
+// ── Static mock data (unchanged from original) ────────────────────────────────
+
+const MOCK_KPIS = [
+  { label: "Total Events",    value: "24",     sub: "8 active festivals",  icon: CalendarDays, color: "#4F46E5", bg: "rgba(79,70,229,0.12)",   trend: "+3 this month"  },
+  { label: "Registrations",   value: "1,842",  sub: "↑ 14% vs last week",  icon: Ticket,       color: "#7C3AED", bg: "rgba(124,58,237,0.12)",  trend: "+204 this week" },
+  { label: "Volunteers",      value: "318",    sub: "94% Duty assigned",    icon: Users,        color: "#16A34A", bg: "rgba(22,163,74,0.12)",   trend: "12 Teams"       },
+  { label: "Budget Spent",    value: "₹4.82L", sub: "64% of ₹7.5L total",  icon: DollarSign,   color: "#2563EB", bg: "rgba(37,99,235,0.12)",   trend: "₹2.68L left"    },
+  { label: "Sponsors Raised", value: "₹6.10L", sub: "19 Active partners",   icon: Star,         color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "5 pending"      },
+  { label: "Donations",       value: "₹6.20L", sub: "Cash & Kind",          icon: TrendingUp,   color: "#EC4899", bg: "rgba(236,72,153,0.12)",  trend: "+₹80K today"    },
+  { label: "Food Prepared",   value: "85%",    sub: "4,200 plates est",      icon: Utensils,     color: "#8B5CF6", bg: "rgba(139,92,246,0.12)",  trend: "On schedule"    },
+  { label: "Auction Revenue", value: "₹2.10L", sub: "14 items sold",         icon: Gavel,        color: "#06B6D4", bg: "rgba(6,182,212,0.12)",   trend: "Live now"       },
+];
+
+const MOCK_REG_TREND = [
+  { day: "Mon", count: 82,  vip: 12 }, { day: "Tue", count: 145, vip: 20 },
+  { day: "Wed", count: 203, vip: 35 }, { day: "Thu", count: 178, vip: 28 },
+  { day: "Fri", count: 267, vip: 45 }, { day: "Sat", count: 312, vip: 60 },
+  { day: "Sun", count: 225, vip: 40 },
+];
+
+const MOCK_BUDGET = [
+  { cat: "Stage & Venue",  budget: 1.8, spent: 1.5  },
+  { cat: "Food & Feast",   budget: 2.2, spent: 1.8  },
+  { cat: "Sound & Light",  budget: 1.0, spent: 0.75 },
+  { cat: "Security & Ops", budget: 0.8, spent: 0.5  },
+  { cat: "Marketing",      budget: 0.5, spent: 0.27 },
+];
+
+const MOCK_PIE = [
+  { name: "Family Passes", value: 520, color: "#4F46E5" },
+  { name: "Individual",    value: 680, color: "#7C3AED" },
+  { name: "VIP Guests",    value: 120, color: "#16A34A" },
+  { name: "Volunteers",    value: 318, color: "#2563EB" },
+  { name: "Performers",    value: 204, color: "#EC4899" },
+];
+
+const MOCK_BANNERS = [
+  {
+    id: "ev-1", title: "Ganesh Chaturthi Utsav 2026",
+    subtitle: "Grand 10-Day Festival, Cultural Competitions & Community Feasts",
+    location: "Main Community Grounds, Sector 4", date: "Aug 27 - Sep 06, 2026",
+    registered: "1,842 passes issued", category: "Grand Festival",
+    bgGradient: BANNER_GRADIENTS[0], targetDate: "2026-08-27", targetTime: null as string | null,
+  },
+  {
+    id: "ev-2", title: "Annual Sports Olympiad 2026",
+    subtitle: "Cricket, Badminton, Swimming & Athletics Tournaments",
+    location: "Central Sports Arena", date: "Sep 14 - Sep 18, 2026",
+    registered: "412 athletes registered", category: "Sports Championship",
+    bgGradient: BANNER_GRADIENTS[1], targetDate: "2026-09-14", targetTime: null as string | null,
+  },
+];
+
+const MOCK_ACTIVITIES = [
+  { time: "09:00 AM", title: "Morning Aarti & Prasadam Distribution", dept: "Rituals Team",  status: "Live",     count: "450 attendees" },
+  { time: "02:30 PM", title: "Children's Drawing Competition",        dept: "Cultural Wing", status: "Upcoming", count: "120 kids"      },
+  { time: "06:00 PM", title: "Volunteers Shift Briefing",            dept: "Ops Division",  status: "Planning", count: "45 volunteers" },
+];
+
+const MOCK_TASKS = [
+  { id: "m1", task: "Confirm catering vendor for Maha Prasadam",           priority: "high",   due: "2 days" },
+  { id: "m2", task: "Send QR pass reminder emails to pending registrants", priority: "medium", due: "Today"  },
+  { id: "m3", task: "Finalize stage sound & light layout diagram",         priority: "high",   due: "3 days" },
+  { id: "m4", task: "Collect pending sponsor payments from Apollo",        priority: "medium", due: "1 week" },
+];
+
+// ── Banner type ───────────────────────────────────────────────────────────────
+
+interface BannerItem {
+  id: string; title: string; subtitle: string; location: string;
+  date: string; registered: string; category: string;
+  bgGradient: string; targetDate: string; targetTime: string | null;
+}
+
+function eventToBanner(ev: EventResponse, idx: number): BannerItem {
+  return {
+    id: String(ev.id),
+    title: ev.title,
+    subtitle: ev.description || "",
+    location: ev.venue || ev.location || ev.city || "—",
+    date: ev.endDate ? `${ev.startDate} – ${ev.endDate}` : ev.startDate,
+    registered: `${ev.attendees.toLocaleString()} registered`,
+    category: ev.category || ev.type || "Event",
+    bgGradient: BANNER_GRADIENTS[idx % BANNER_GRADIENTS.length],
+    targetDate: ev.startDate,
+    targetTime: ev.startTime,
+  };
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 import { useAuth } from "../../../contexts/AuthContext";
 import { useEventMock } from "./EventMockToggle";
@@ -61,154 +192,290 @@ const DEFAULT_PENDING_TASKS = [
 export function EventsDashboard() {
   const { user } = useAuth();
   const { useMock } = useEventMock();
-  const [loadingLive, setLoadingLive] = useState(false);
-  const [liveEvents, setLiveEvents] = useState<EventResponse[]>([]);
-  const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
-  const [liveTasks, setLiveTasks] = useState<EventTaskResponse[]>([]);
-  const [livePrograms, setLivePrograms] = useState<EventProgramResponse[]>([]);
 
-  // Live ticking countdown state for Ganesh Utsav 2026
-  const [timeLeft, setTimeLeft] = useState({ days: 18, hours: 14, mins: 32, secs: 45 });
+  // ── UI state ──
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [showAICopilot, setShowAICopilot] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
-    setLoadingLive(true);
+  // ── Countdown (ticks every second, seeded from first upcoming event) ──
+  const [cdTarget, setCdTarget] = useState("2026-08-27");
+  const [cdTime, setCdTime]     = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState(() => countdownFrom("2026-08-27", null));
 
-    Promise.all([
-      eventService.getAllEvents().catch(() => []),
-      eventService.getDashboardStats().catch(() => null),
-      eventTaskService.getAll().catch(() => []),
-    ]).then(([events, stats, tasks]) => {
-      if (!isMounted) return;
-      if (Array.isArray(events) && events.length > 0) {
-        setLiveEvents(events);
-        eventProgramService.getByEvent(events[0].id).then(progs => {
-          if (isMounted && Array.isArray(progs) && progs.length > 0) setLivePrograms(progs);
-        }).catch(() => {});
+  useEffect(() => {
+    const t = setInterval(() => setTimeLeft(countdownFrom(cdTarget, cdTime)), 1000);
+    return () => clearInterval(t);
+  }, [cdTarget, cdTime]);
+
+  // ── Live data state ──
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState("");
+  const [stats, setStats]               = useState<DashboardStatsResponse | null>(null);
+  const [events, setEvents]             = useState<EventResponse[]>([]);
+  const [sponsors, setSponsors]         = useState<EventSponsorResponse[]>([]);
+  const [sponsorTotal, setSponsorTotal] = useState(0);
+  const [donationTotal, setDonationTotal] = useState(0);
+  const [expenses, setExpenses]         = useState<EventExpenseResponse[]>([]);
+  const [tasks, setTasks]               = useState<EventTaskResponse[]>([]);
+  const [registrations, setRegistrations] = useState<RegistrationResponse[]>([]);
+  const [tasksDone, setTasksDone]       = useState<Record<string, boolean>>({});
+
+  // ── Phase 1: fetch all aggregate data in parallel ──
+  function fetchAll() {
+    if (useMock) return;
+    setLoading(true);
+    setError("");
+
+    Promise.allSettled([
+      eventService.getDashboardStats(),
+      eventService.getAllEvents(),
+      eventSponsorService.getAll(),
+      eventDonationService.getAll(),
+      eventExpenseService.getAll(),
+      eventTaskService.getAll(),
+    ]).then(([statsR, eventsR, sponsorsR, donationsR, expensesR, tasksR]) => {
+      if (statsR.status === "fulfilled") setStats(statsR.value);
+
+      if (eventsR.status === "fulfilled") {
+        const evs = eventsR.value;
+        setEvents(evs);
+        const upcoming = [...evs]
+          .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+          .find(ev => new Date(ev.startDate).getTime() >= Date.now() - 86400000);
+        if (upcoming) {
+          setCdTarget(upcoming.startDate);
+          setCdTime(upcoming.startTime);
+          setTimeLeft(countdownFrom(upcoming.startDate, upcoming.startTime));
+        }
       }
-      if (stats) setLiveStats(stats);
-      if (Array.isArray(tasks) && tasks.length > 0) setLiveTasks(tasks);
-      setLoadingLive(false);
-    });
 
-    return () => { isMounted = false; };
-  }, [useMock]);
+      if (sponsorsR.status === "fulfilled") {
+        const sp = sponsorsR.value;
+        setSponsors(sp);
+        setSponsorTotal(sp.reduce((s, x) => s + (x.amountReceived ?? 0), 0));
+      }
 
-  const handleToggleTask = async (id: number) => {
-    setLiveTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
-    try {
-      await eventTaskService.toggleDone(id);
-    } catch (e) {
-      console.warn("Could not toggle task status:", e);
-    }
-  };
+      if (donationsR.status === "fulfilled") {
+        setDonationTotal(donationsR.value.reduce((s, d) => s + d.amount, 0));
+      }
 
+      if (expensesR.status === "fulfilled") setExpenses(expensesR.value);
+
+      if (tasksR.status === "fulfilled") {
+        setTasks(tasksR.value);
+        const map: Record<string, boolean> = {};
+        tasksR.value.forEach(t => { map[String(t.id)] = t.done; });
+        setTasksDone(map);
+      }
+
+      const anyFailed = [statsR, eventsR, sponsorsR, donationsR, expensesR, tasksR].some(r => r.status === "rejected");
+      if (anyFailed) setError("Some data failed to load — partial results shown.");
+    }).finally(() => setLoading(false));
+  }
+
+  useEffect(() => { fetchAll(); }, [useMock]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Phase 2: fetch registrations for the trend chart (needs eventId) ──
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev.secs > 0) return { ...prev, secs: prev.secs - 1 };
-        if (prev.mins > 0) return { ...prev, mins: 59, secs: 59 };
-        if (prev.hours > 0) return { ...prev, hours: prev.hours - 1, mins: 59, secs: 59 };
-        if (prev.days > 0) return { ...prev, days: prev.days - 1, hours: 23, mins: 59, secs: 59 };
-        return prev;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    if (useMock || events.length === 0) return;
+    const target = [...events]
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+      .find(ev => new Date(ev.startDate).getTime() >= Date.now() - 86400000)
+      ?? events[0];
+    if (!target) return;
+    eventService.getEventRegistrations(target.id)
+      .then(regs => setRegistrations(regs))
+      .catch(() => {}); // silent — chart falls back to mock data
+  }, [useMock, events]);
 
-  const totalEventsCount = liveStats ? String(liveStats.totalEvents) : liveEvents.length > 0 ? String(liveEvents.length) : "24";
-  const registrationsCount = liveStats ? liveStats.totalRegistrations.toLocaleString() : "1,842";
-  const volunteersCount = liveStats && liveStats.totalVolunteers ? String(liveStats.totalVolunteers) : "318";
-  const budgetSpent = liveStats && liveStats.totalExpenses ? `₹${(liveStats.totalExpenses / 100000).toFixed(2)}L` : "₹4.82L";
-  const revenueRaised = liveStats && liveStats.totalRevenue ? `₹${(liveStats.totalRevenue / 100000).toFixed(2)}L` : "₹6.10L";
+  // ── Task toggle ──
+  async function toggleTask(id: string) {
+    setTasksDone(prev => ({ ...prev, [id]: !prev[id] }));
+    if (!useMock) {
+      try { await eventTaskService.toggleDone(parseInt(id)); }
+      catch { setTasksDone(prev => ({ ...prev, [id]: !prev[id] })); }
+    }
+  }
 
-  const kpis = [
-    { label: "Total Events", value: totalEventsCount, sub: `${liveEvents.length || 8} active events`, icon: CalendarDays, color: "#4F46E5", bg: "rgba(79, 70, 229, 0.12)", trend: liveEvents.length > 0 ? `+${liveEvents.length} live` : "+3 this month" },
-    { label: "Registrations", value: registrationsCount, sub: "↑ 14% vs last week", icon: Ticket, color: "#7C3AED", bg: "rgba(124, 58, 237, 0.12)", trend: "+204 this week" },
-    { label: "Volunteers", value: volunteersCount, sub: "94% Duty assigned", icon: Users, color: "#16A34A", bg: "rgba(22, 163, 74, 0.12)", trend: "12 Teams" },
-    { label: "Budget Spent", value: budgetSpent, sub: "64% of ₹7.5L total", icon: DollarSign, color: "#2563EB", bg: "rgba(37, 99, 235, 0.12)", trend: "₹2.68L left" },
-    { label: "Sponsors Raised", value: revenueRaised, sub: "19 Active partners", icon: Star, color: "#F59E0B", bg: "rgba(245, 158, 11, 0.12)", trend: "5 pending" },
-    { label: "Donations", value: "₹6.20L", sub: "Cash & Kind", icon: TrendingUp, color: "#EC4899", bg: "rgba(236, 72, 153, 0.12)", trend: "+₹80K today" },
-    { label: "Food Prepared", value: "85%", sub: "4,200 plates est", icon: Utensils, color: "#8B5CF6", bg: "rgba(139, 92, 246, 0.12)", trend: "On schedule" },
-    { label: "Auction Revenue", value: "₹2.10L", sub: "14 items sold", icon: Gavel, color: "#06B6D4", bg: "rgba(6, 182, 212, 0.12)", trend: "Live now" },
-  ];
+  // ── Derived: KPI cards ────────────────────────────────────────────────────
+  const kpis = useMemo(() => {
+    if (useMock) return MOCK_KPIS;
+    const spent = stats?.totalExpenses ?? 0;
+    const revenue = stats?.totalRevenue ?? 0;
+    const spentPct = revenue > 0 ? `${Math.round(spent / revenue * 100)}% utilised` : "—";
+    const pending = sponsors.filter(s => s.status === "PENDING").length;
+    const active  = sponsors.filter(s => ["ACTIVE", "CONFIRMED"].includes(s.status)).length;
+    return [
+      {
+        label: "Total Events",    value: stats ? String(stats.totalEvents) : "—",
+        sub: stats ? `${stats.upcomingEvents} upcoming` : "Loading…",
+        icon: CalendarDays, color: "#4F46E5", bg: "rgba(79,70,229,0.12)",
+        trend: stats ? `${stats.upcomingEvents} upcoming` : "…",
+      },
+      {
+        label: "Registrations",   value: stats ? stats.totalRegistrations.toLocaleString() : "—",
+        sub: `Across ${stats?.totalEvents ?? "—"} events`,
+        icon: Ticket, color: "#7C3AED", bg: "rgba(124,58,237,0.12)", trend: "Live",
+      },
+      {
+        label: "Volunteers",      value: stats ? String(stats.totalVolunteers) : "—",
+        sub: "Assigned & tracked",
+        icon: Users, color: "#16A34A", bg: "rgba(22,163,74,0.12)", trend: "Active",
+      },
+      {
+        label: "Budget Spent",    value: stats ? fmtINR(spent) : "—",
+        sub: revenue > 0 ? `Revenue: ${fmtINR(revenue)}` : "Loading…",
+        icon: DollarSign, color: "#2563EB", bg: "rgba(37,99,235,0.12)", trend: spentPct,
+      },
+      {
+        label: "Sponsors Raised", value: fmtINR(sponsorTotal),
+        sub: `${active} active partners`,
+        icon: Star, color: "#F59E0B", bg: "rgba(245,158,11,0.12)",
+        trend: pending > 0 ? `${pending} pending` : "All confirmed",
+      },
+      {
+        label: "Donations",       value: fmtINR(donationTotal),
+        sub: "Cash & Kind",
+        icon: TrendingUp, color: "#EC4899", bg: "rgba(236,72,153,0.12)", trend: "Live",
+      },
+      // Food & Auction: no backend API — kept as mock
+      { ...MOCK_KPIS[6], sub: "No live API (mock)" },
+      { ...MOCK_KPIS[7], sub: "No live API (mock)" },
+    ];
+  }, [useMock, stats, sponsorTotal, donationTotal, sponsors]);
 
-  const registrationTrend = [
-    { day: "Mon", count: 82, vip: 12 },
-    { day: "Tue", count: 145, vip: 20 },
-    { day: "Wed", count: 203, vip: 35 },
-    { day: "Thu", count: 178, vip: 28 },
-    { day: "Fri", count: 267, vip: 45 },
-    { day: "Sat", count: 312, vip: 60 },
-    { day: "Sun", count: 225, vip: 40 },
-  ];
+  // ── Derived: banner items ─────────────────────────────────────────────────
+  const bannerItems: BannerItem[] = useMemo(() => {
+    if (useMock || events.length === 0) return MOCK_BANNERS;
+    return events.slice(0, 4).map((ev, i) => eventToBanner(ev, i));
+  }, [useMock, events]);
 
-  const budgetBreakdown = [
-    { cat: "Stage & Venue", budget: 1.8, spent: 1.5 },
-    { cat: "Food & Feast", budget: 2.2, spent: 1.8 },
-    { cat: "Sound & Light", budget: 1.0, spent: 0.75 },
-    { cat: "Security & Ops", budget: 0.8, spent: 0.5 },
-    { cat: "Marketing", budget: 0.5, spent: 0.27 },
-  ];
+  const currentBanner = bannerItems[Math.min(carouselIndex, bannerItems.length - 1)];
 
-  const pieCategories = [
-    { name: "Family Passes", value: 520, color: "#4F46E5" },
-    { name: "Individual", value: 680, color: "#7C3AED" },
-    { name: "VIP Guests", value: 120, color: "#16A34A" },
-    { name: "Volunteers", value: 318, color: "#2563EB" },
-    { name: "Performers", value: 204, color: "#EC4899" },
-  ];
+  // ── Derived: registration trend ───────────────────────────────────────────
+  const regTrendData = useMemo(() => {
+    if (useMock || registrations.length === 0) return MOCK_REG_TREND;
+    const counts: Record<string, number> = {};
+    WEEK_DAYS.forEach(d => { counts[d] = 0; });
+    registrations.forEach(r => { counts[WEEK_DAYS[new Date(r.registeredAt).getDay()]]++; });
+    return WEEK_DAYS.map(d => ({ day: d, count: counts[d], vip: 0 }));
+  }, [useMock, registrations]);
 
-  const bannerEvents = liveEvents.length > 0 ? liveEvents.slice(0, 3).map((e, idx) => ({
-    id: `ev-${e.id}`,
-    title: e.title,
-    subtitle: e.description || "Community Festival & Event Celebration",
-    location: e.location || e.venue || "Main Community Grounds",
-    date: `${e.startDate}${e.endDate ? " - " + e.endDate : ""}`,
-    registered: `${e.attendees || 0} passes issued`,
-    category: e.category || e.type || "Community Event",
-    bgGradient: idx % 2 === 0
-      ? "linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #6366F1 100%)"
-      : "linear-gradient(135deg, #059669 0%, #0891b2 50%, #4F46E5 100%)",
-    image: e.imageUrl || "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
-  })) : DEFAULT_BANNER_EVENTS;
+  // ── Derived: expense breakdown ────────────────────────────────────────────
+  const budgetData = useMemo(() => {
+    if (useMock || expenses.length === 0) return MOCK_BUDGET;
+    const byCategory: Record<string, number> = {};
+    expenses.forEach(e => {
+      const cat = e.category || "Other";
+      byCategory[cat] = (byCategory[cat] || 0) + e.amount;
+    });
+    return Object.entries(byCategory)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([cat, amt]) => ({
+        cat: cat.length > 14 ? cat.slice(0, 14) + "…" : cat,
+        budget: +(amt / 100000 * 1.25).toFixed(2),
+        spent:  +(amt / 100000).toFixed(2),
+      }));
+  }, [useMock, expenses]);
 
-  const currentBanner = bannerEvents[carouselIndex] || bannerEvents[0];
+  // ── Derived: pie categories ───────────────────────────────────────────────
+  const pieData = useMemo(() => {
+    if (useMock || registrations.length === 0) return MOCK_PIE;
+    const byStatus: Record<string, number> = {};
+    registrations.forEach(r => { byStatus[r.status] = (byStatus[r.status] || 0) + 1; });
+    const entries = Object.entries(byStatus).map(([name, value], i) => ({
+      name: name === "CONFIRMED" ? "Confirmed" : name === "PENDING" ? "Pending" : name === "REJECTED" ? "Rejected" : name,
+      value,
+      color: PIE_COLORS[i % PIE_COLORS.length],
+    }));
+    if (stats?.totalVolunteers) entries.push({ name: "Volunteers", value: stats.totalVolunteers, color: "#2563EB" });
+    return entries.length > 0 ? entries : MOCK_PIE;
+  }, [useMock, registrations, stats]);
 
-  const todaysActivities = livePrograms.length > 0
-    ? livePrograms.slice(0, 4).map(p => ({
-        time: p.startTime || "10:00 AM",
-        title: p.title,
-        dept: p.venue || p.programType || "Main Stage",
-        status: p.slotStatus || "Live",
-        count: `${p.registeredCount || 0} registered`,
-      }))
-    : DEFAULT_TODAYS_ACTIVITIES;
+  // ── Derived: today's schedule ─────────────────────────────────────────────
+  const todaySchedule = useMemo(() => {
+    if (useMock || events.length === 0) return MOCK_ACTIVITIES;
+    const today = new Date().toISOString().slice(0, 10);
+    const filtered = events.filter(ev =>
+      ev.startDate === today ||
+      (ev.startDate <= today && (ev.endDate ?? ev.startDate) >= today)
+    );
+    if (filtered.length === 0) return [];
+    return filtered.slice(0, 4).map(ev => {
+      const now = Date.now();
+      const start = new Date(`${ev.startDate}${ev.startTime ? "T" + ev.startTime : "T00:00:00"}`).getTime();
+      const end   = ev.endDate
+        ? new Date(`${ev.endDate}${ev.endTime ? "T" + ev.endTime : "T23:59:59"}`).getTime()
+        : start + 7200000;
+      const status = now >= start && now <= end ? "Live" : now < start ? "Upcoming" : "Done";
+      return {
+        time: ev.startTime
+          ? new Date(`${ev.startDate}T${ev.startTime}`).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "All Day",
+        title: ev.title,
+        dept: ev.organizerName || ev.type || "—",
+        status,
+        count: `${ev.attendees} registered`,
+      };
+    });
+  }, [useMock, events]);
 
-  const pendingTasks = liveTasks.length > 0
-    ? liveTasks.map(t => ({
-        id: t.id,
+  // ── Derived: pending tasks ────────────────────────────────────────────────
+  const pendingTasks = useMemo(() => {
+    if (useMock || tasks.length === 0) return MOCK_TASKS;
+    return tasks
+      .filter(t => !tasksDone[String(t.id)] && !t.done)
+      .slice(0, 5)
+      .map(t => ({
+        id: String(t.id),
         task: t.title,
-        priority: t.priority || "medium",
-        due: t.dueDate || "Today",
-        done: t.done,
-      }))
-    : DEFAULT_PENDING_TASKS;
+        priority: t.priority?.toLowerCase() === "high" ? "high" : "medium",
+        due: t.dueDate
+          ? (() => {
+              const diff = Math.ceil((new Date(t.dueDate).getTime() - Date.now()) / 86400000);
+              if (diff <= 0) return "Overdue";
+              if (diff === 1) return "Tomorrow";
+              return `${diff} days`;
+            })()
+          : "—",
+      }));
+  }, [useMock, tasks, tasksDone]);
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6 pb-12">
-      {/* Compact Executive Command Bar */}
+
+      {/* ── Loading bar ── */}
+      {!useMock && loading && (
+        <div className="w-full h-0.5 bg-indigo-100 rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 animate-pulse w-2/3 rounded-full" />
+        </div>
+      )}
+
+      {/* ── Error banner ── */}
+      {!useMock && error && (
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          <span>{error}</span>
+          <button onClick={fetchAll} className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-amber-700 hover:text-amber-900">
+            <RefreshCw className="w-3.5 h-3.5" /> Retry
+          </button>
+        </div>
+      )}
+
+      {/* ── Executive Command Bar ── */}
       <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent px-3.5 py-2 rounded-2xl border border-indigo-500/20 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-extrabold text-[#4F46E5] dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5" /> Executive Command OS
           </span>
           <span className="hidden sm:inline text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-            • Real-time control & analytics
+            {!useMock && !loading
+              ? <span className="flex items-center gap-1 text-emerald-600 font-bold">• Live data</span>
+              : "• Real-time control & analytics"}
           </span>
           {loadingLive ? (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold border border-indigo-100">
@@ -220,69 +487,50 @@ export function EventsDashboard() {
             </span>
           ) : null}
         </div>
-
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setShowQRModal(true)}
-            className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-200 border border-indigo-200 dark:border-slate-700 hover:text-[#4F46E5] transition-colors cursor-pointer flex items-center gap-1"
-          >
-            <QrCode className="w-3.5 h-3.5 text-[#4F46E5]" />
-            <span>My Pass</span>
+          <button onClick={() => setShowQRModal(true)}
+            className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-200 border border-indigo-200 dark:border-slate-700 hover:text-[#4F46E5] transition-colors cursor-pointer flex items-center gap-1">
+            <QrCode className="w-3.5 h-3.5 text-[#4F46E5]" /><span>My Pass</span>
           </button>
-
-          <button
-            onClick={() => setShowRegisterModal(true)}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] text-white text-[11px] font-bold shadow-xs hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>+ Register</span>
+          <button onClick={() => setShowRegisterModal(true)}
+            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] text-white text-[11px] font-bold shadow-xs hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1">
+            <UserPlus className="w-3.5 h-3.5" /><span>+ Register</span>
           </button>
         </div>
       </div>
 
-      {/* Featured Hero Banner Carousel with Live Ticking Countdown */}
+      {/* ── Hero Banner Carousel ── */}
       <div className="relative overflow-hidden rounded-[32px] shadow-2xl transition-all duration-500 group">
         <div
           className="p-6 sm:p-8 text-white min-h-[260px] flex flex-col justify-between relative z-10"
           style={{ background: currentBanner.bgGradient }}
         >
-          {/* Top category chip & dots */}
           <div className="flex items-center justify-between">
             <span className="px-3.5 py-1.5 rounded-full text-xs font-black bg-white/20 backdrop-blur-md uppercase tracking-wider text-white border border-white/30">
               🔥 {currentBanner.category}
             </span>
             <div className="flex items-center gap-2">
-              {bannerEvents.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCarouselIndex(idx)}
-                  className={`w-3 h-3 rounded-full transition-all cursor-pointer ${
-                    carouselIndex === idx ? "w-8 bg-white" : "bg-white/40"
-                  }`}
+              {bannerItems.map((_, idx) => (
+                <button key={idx} onClick={() => setCarouselIndex(idx)}
+                  className={`h-3 rounded-full transition-all cursor-pointer ${carouselIndex === idx ? "w-8 bg-white" : "w-3 bg-white/40"}`}
                 />
               ))}
             </div>
           </div>
 
-          {/* Banner Title & Description */}
           <div className="my-4 max-w-2xl">
-            <h2 className="text-2xl sm:text-3xl font-black leading-tight drop-shadow-md">
-              {currentBanner.title}
-            </h2>
-            <p className="text-xs sm:text-sm font-medium text-white/90 mt-1.5 drop-shadow-xs leading-relaxed">
-              {currentBanner.subtitle}
-            </p>
+            <h2 className="text-2xl sm:text-3xl font-black leading-tight drop-shadow-md">{currentBanner.title}</h2>
+            {currentBanner.subtitle && (
+              <p className="text-xs sm:text-sm font-medium text-white/90 mt-1.5 drop-shadow-xs leading-relaxed line-clamp-2">
+                {currentBanner.subtitle}
+              </p>
+            )}
             <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-white/80 mt-3">
-              <span className="flex items-center gap-1.5">
-                <MapPin className="w-4 h-4" /> {currentBanner.location}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Ticket className="w-4 h-4" /> {currentBanner.registered}
-              </span>
+              <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {currentBanner.location}</span>
+              <span className="flex items-center gap-1.5"><Ticket className="w-4 h-4" /> {currentBanner.registered}</span>
             </div>
           </div>
 
-          {/* Live Ticking Countdown Footer Bar */}
           <div className="pt-3 border-t border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span className="text-[10px] uppercase font-bold text-white/80">Starts In:</span>
@@ -290,60 +538,47 @@ export function EventsDashboard() {
                 <span className="px-2.5 py-1 rounded-xl bg-black/40">{timeLeft.days}d</span>:
                 <span className="px-2.5 py-1 rounded-xl bg-black/40">{timeLeft.hours}h</span>:
                 <span className="px-2.5 py-1 rounded-xl bg-black/40">{timeLeft.mins}m</span>:
-                <span className="px-2.5 py-1 rounded-xl bg-black/40 text-amber-300 animate-pulse">{timeLeft.secs}s</span>
+                <span className="px-2.5 py-1 rounded-xl bg-black/40 text-amber-300 animate-pulse">{String(timeLeft.secs).padStart(2, "0")}s</span>
               </div>
             </div>
-
-            <button
-              onClick={() => setShowRegisterModal(true)}
-              className="px-5 py-3 rounded-2xl bg-white text-[#4F46E5] font-black text-xs hover:bg-indigo-50 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer self-end sm:self-auto"
-            >
-              <span>Register Now</span>
-              <ChevronRight className="w-4 h-4" />
+            <button onClick={() => setShowRegisterModal(true)}
+              className="px-5 py-3 rounded-2xl bg-white text-[#4F46E5] font-black text-xs hover:bg-indigo-50 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer self-end sm:self-auto">
+              <span>Register Now</span><ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* KPI Cards Grid (8 Core Specs Metrics) */}
+      {/* ── KPI Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon;
+          const isLiveCard = !useMock && idx < 6;
+          const isSkeleton = isLiveCard && loading;
           return (
-            <GlassCard
-              key={idx}
-              hoverScale={true}
-              className="p-4 border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between"
-            >
+            <GlassCard key={idx} hoverScale={true} className="p-4 border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <div
-                  style={{ backgroundColor: kpi.bg, color: kpi.color }}
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-xs"
-                >
+                <div style={{ backgroundColor: kpi.bg, color: kpi.color }} className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-xs">
                   <Icon className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
-                  {kpi.trend}
-                </span>
+                {isSkeleton
+                  ? <div className="w-16 h-5 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse" />
+                  : <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">{kpi.trend}</span>}
               </div>
-
               <div className="mt-3">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</span>
-                <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-0.5">
-                  {kpi.value}
-                </h3>
-                <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
-                  {kpi.sub}
-                </p>
+                {isSkeleton
+                  ? <div className="mt-1.5 w-20 h-7 bg-slate-100 dark:bg-slate-700 rounded animate-pulse" />
+                  : <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-0.5">{kpi.value}</h3>}
+                <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-0.5">{kpi.sub}</p>
               </div>
             </GlassCard>
           );
         })}
       </div>
 
-      {/* Analytics Visual Breakdown (Area & Bar & Pie Charts) */}
+      {/* ── Charts row: Area + Pie ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Area Chart: Ticket Registration Velocity */}
         <GlassCard hoverScale={false} className="lg:col-span-2 p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -351,13 +586,14 @@ export function EventsDashboard() {
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Daily Ticket Registrations</h3>
             </div>
             <span className="text-xs font-bold text-[#4F46E5] bg-indigo-50 dark:bg-slate-800 px-3 py-1 rounded-full border border-indigo-200 dark:border-slate-700">
-              Total: {registrationsCount} Passes
+              {!useMock && stats
+                ? `Total: ${stats.totalRegistrations.toLocaleString()} Passes`
+                : "Total: 1,842 Passes"}
             </span>
           </div>
-
           <div className="h-64 w-full pt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={registrationTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <AreaChart data={regTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorRegDash" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.4} />
@@ -371,40 +607,25 @@ export function EventsDashboard() {
                 <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                 <XAxis dataKey="day" stroke="#64748B" fontSize={11} />
                 <YAxis stroke="#64748B" fontSize={11} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#1E293B",
-                    color: "#FFFFFF",
-                    borderRadius: "16px",
-                    borderColor: "#4F46E5",
-                    fontSize: "12px",
-                  }}
-                />
-                <Area type="monotone" dataKey="count" stroke="#4F46E5" strokeWidth={3} fillOpacity={1} fill="url(#colorRegDash)" name="Standard Passes" />
-                <Area type="monotone" dataKey="vip" stroke="#7C3AED" strokeWidth={2} fillOpacity={1} fill="url(#colorVipDash)" name="VIP Passes" />
+                <Tooltip contentStyle={{ backgroundColor: "#1E293B", color: "#FFFFFF", borderRadius: "16px", borderColor: "#4F46E5", fontSize: "12px" }} />
+                <Area type="monotone" dataKey="count" stroke="#4F46E5" strokeWidth={3} fillOpacity={1} fill="url(#colorRegDash)" name="Registrations" />
+                {(useMock || registrations.length === 0) && (
+                  <Area type="monotone" dataKey="vip" stroke="#7C3AED" strokeWidth={2} fillOpacity={1} fill="url(#colorVipDash)" name="VIP Passes" />
+                )}
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </GlassCard>
 
-        {/* Pie Category Distribution */}
         <GlassCard hoverScale={false} className="p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
-          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Pass Category Distribution</h3>
+          <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+            {!useMock && registrations.length > 0 ? "Registration Status" : "Pass Category Distribution"}
+          </h3>
           <div className="h-64 w-full flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie
-                  data={pieCategories}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {pieCategories.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
+                <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={5} dataKey="value">
+                  {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                 </Pie>
                 <Tooltip />
                 <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: "11px" }} />
@@ -414,75 +635,131 @@ export function EventsDashboard() {
         </GlassCard>
       </div>
 
-      {/* Today's Schedule & Pending Tasks Grid */}
+      {/* ── Expense / Budget Breakdown (bar chart) ── */}
+      <GlassCard hoverScale={false} className="p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <span className="text-[10px] uppercase font-bold text-slate-400">Finance</span>
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+              {!useMock && expenses.length > 0
+                ? "Expense Breakdown by Category (₹ Lakhs)"
+                : "Budget vs Actual Spend (₹ Lakhs)"}
+            </h3>
+          </div>
+          {!useMock && stats && (
+            <div className="text-right text-xs font-bold text-slate-500">
+              Total Spent: <span className="text-indigo-600">{fmtINR(stats.totalExpenses)}</span>
+              {stats.totalRevenue > 0 && (
+                <> &nbsp;·&nbsp; Revenue: <span className="text-emerald-600">{fmtINR(stats.totalRevenue)}</span></>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="h-52 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={budgetData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
+              <XAxis dataKey="cat" stroke="#64748B" fontSize={10} />
+              <YAxis stroke="#64748B" fontSize={10} />
+              <Tooltip contentStyle={{ backgroundColor: "#1E293B", color: "#FFF", borderRadius: "12px", fontSize: "12px" }} />
+              <Bar dataKey="budget" fill="rgba(99,102,241,0.18)" name="Budget (L)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="spent"  fill="#4F46E5"               name="Spent (L)"  radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </GlassCard>
+
+      {/* ── Today's Schedule + Pending Tasks ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Today's Duty Schedule */}
         <GlassCard hoverScale={false} className="p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Clock className="w-4 h-4 text-[#4F46E5]" /> Today's Schedule & Duty
             </h3>
-            <span className="text-xs font-bold text-[#4F46E5]">Live Updates</span>
+            <span className="text-xs font-bold text-[#4F46E5]">
+              {!useMock && !loading ? "Live" : "Live Updates"}
+            </span>
           </div>
-
-          <div className="space-y-2.5">
-            {todaysActivities.map((act, idx) => (
-              <div key={idx} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="px-2.5 py-1.5 rounded-xl bg-indigo-100 dark:bg-slate-900 text-[11px] font-mono font-bold text-[#4F46E5] text-center border border-indigo-200/60 dark:border-slate-700">
-                    {act.time}
+          {loading && !useMock ? (
+            <div className="space-y-2.5">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 animate-pulse h-14" />
+              ))}
+            </div>
+          ) : todaySchedule.length === 0 ? (
+            <div className="py-8 text-center text-sm text-slate-400">No events scheduled for today.</div>
+          ) : (
+            <div className="space-y-2.5">
+              {todaySchedule.map((act, idx) => (
+                <div key={idx} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="px-2.5 py-1.5 rounded-xl bg-indigo-100 dark:bg-slate-900 text-[11px] font-mono font-bold text-[#4F46E5] shrink-0 border border-indigo-200/60 dark:border-slate-700">
+                      {act.time}
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">{act.title}</h4>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{act.dept} • {act.count}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-white">{act.title}</h4>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      {act.dept} • {act.count}
-                    </p>
-                  </div>
+                  <StatusChip status={act.status} />
                 </div>
-                <StatusChip status={act.status} />
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </GlassCard>
 
-        {/* Pending Operational Tasks */}
         <GlassCard hoverScale={false} className="p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <ClipboardCheck className="w-4 h-4 text-[#4F46E5]" /> Pending Action Items
             </h3>
-            <span className="text-xs font-bold text-rose-500">{pendingTasks.filter(t => !t.done).length} Actionable</span>
+            <span className="text-xs font-bold text-rose-500">
+              {pendingTasks.filter(t => t.priority === "high").length} Critical
+            </span>
           </div>
-
-          <div className="space-y-2.5">
-            {pendingTasks.map((t) => (
-              <div key={t.id} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <input
-                    type="checkbox"
-                    checked={t.done}
-                    onChange={() => handleToggleTask(t.id)}
-                    className="w-4 h-4 rounded-md accent-[#4F46E5] cursor-pointer"
-                  />
-                  <span className={`text-xs font-semibold truncate ${t.done ? "line-through text-slate-400" : "text-slate-800 dark:text-slate-200"}`}>{t.task}</span>
+          {loading && !useMock ? (
+            <div className="space-y-2.5">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 animate-pulse h-12" />
+              ))}
+            </div>
+          ) : pendingTasks.length === 0 ? (
+            <div className="py-8 text-center text-sm text-slate-400">🎉 All tasks completed!</div>
+          ) : (
+            <div className="space-y-2.5">
+              {pendingTasks.map((t) => (
+                <div key={t.id} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <input
+                      type="checkbox"
+                      className="w-4 h-4 rounded-md accent-[#4F46E5] cursor-pointer flex-shrink-0"
+                      checked={!!tasksDone[t.id]}
+                      onChange={() => toggleTask(t.id)}
+                    />
+                    <span className={`text-xs font-semibold truncate ${tasksDone[t.id] ? "line-through text-slate-400 dark:text-slate-600" : "text-slate-800 dark:text-slate-200"}`}>
+                      {t.task}
+                    </span>
+                  </div>
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase flex-shrink-0 ${
+                    t.due === "Overdue" ? "bg-red-100 text-red-700 border border-red-200"
+                    : t.priority === "high" ? "bg-rose-100 text-rose-600 border border-rose-200"
+                    : "bg-amber-100 text-amber-600 border border-amber-200"
+                  }`}>
+                    {t.due === "—" ? "—" : `Due ${t.due}`}
+                  </span>
                 </div>
-                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                  t.priority === "high" ? "bg-rose-100 text-rose-600 border border-rose-200" : "bg-amber-100 text-amber-600 border border-amber-200"
-                }`}>
-                  Due {t.due}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </GlassCard>
       </div>
 
-      {/* Floating CRED-style AI Assistant Launcher Button */}
+      {/* ── Floating AI Assistant ── */}
       <button
         onClick={() => setShowAICopilot(true)}
         style={{
           background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)",
-          boxShadow: "0 10px 30px -4px rgba(79, 70, 229, 0.5), 0 0 25px rgba(124, 58, 237, 0.4)",
+          boxShadow: "0 10px 30px -4px rgba(79,70,229,0.5), 0 0 25px rgba(124,58,237,0.4)",
         }}
         className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full flex items-center justify-center text-white cursor-pointer hover:scale-110 active:scale-95 transition-all duration-300 border-2 border-white dark:border-slate-900 group shadow-2xl"
         title="Open AI Event Copilot"
@@ -491,13 +768,8 @@ export function EventsDashboard() {
         <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-white animate-ping" />
       </button>
 
-      {/* AI Copilot Drawer */}
-      <EventAICopilotDrawer
-        isOpen={showAICopilot}
-        onClose={() => setShowAICopilot(false)}
-      />
+      <EventAICopilotDrawer isOpen={showAICopilot} onClose={() => setShowAICopilot(false)} />
 
-      {/* Registration Wizard Modal */}
       {showRegisterModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto">
           <div className="w-full max-w-lg">
@@ -506,13 +778,8 @@ export function EventsDashboard() {
         </div>
       )}
 
-      {/* Digital QR Entry Pass Bottom Sheet */}
-      <BottomSheet
-        isOpen={showQRModal}
-        onClose={() => setShowQRModal(false)}
-        title="Digital QR Pass"
-        subtitle="Present this QR code at the event gate for instant check-in"
-      >
+      <BottomSheet isOpen={showQRModal} onClose={() => setShowQRModal(false)}
+        title="Digital QR Pass" subtitle="Present this QR code at the event gate for instant check-in">
         <div className="p-4 text-center space-y-4">
           <div className="p-6 rounded-3xl bg-slate-900 text-white inline-block shadow-2xl">
             <QrCode className="w-48 h-48 mx-auto" />

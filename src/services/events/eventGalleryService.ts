@@ -9,7 +9,8 @@ export interface EventGalleryItemResponse {
   mediaType: string;
   albumName: string | null;
   dayLabel?: string;
-  category?: string;
+  dayTag?: string | null;
+  category?: string | null;
   caption: string | null;
   featured: boolean;
   sortOrder: number;
@@ -24,6 +25,8 @@ export interface EventGalleryItemRequest {
   thumbnailUrl?: string;
   mediaType?: string;
   albumName?: string;
+  dayTag?: string;
+  category?: string;
   caption?: string;
   featured?: boolean;
   sortOrder?: number;
@@ -46,6 +49,14 @@ export const eventGalleryService = {
 
   async update(id: number, data: EventGalleryItemRequest): Promise<EventGalleryItemResponse> {
     return apiClient.put<EventGalleryItemResponse>(`/events/gallery/${id}`, data);
+  },
+
+  async getByCommunity(params?: { dayTag?: string; category?: string }): Promise<EventGalleryItemResponse[]> {
+    const qs = new URLSearchParams();
+    if (params?.dayTag) qs.set("dayTag", params.dayTag);
+    if (params?.category) qs.set("category", params.category);
+    const q = qs.toString();
+    return apiClient.get<EventGalleryItemResponse[]>(`/events/gallery/community${q ? "?" + q : ""}`);
   },
 
   async deleteItem(id: number): Promise<void> {
