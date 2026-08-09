@@ -23,7 +23,6 @@ import { EventsMediaReports } from "./components/events/EventsMediaReports";
 import { EventsAccessManagement } from "./components/events/EventsAccessManagement";
 import { EventEditor } from "./components/events/EventEditor";
 import { EventPublicRegistration } from "./components/events/EventPublicRegistration";
-
 import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/commons/login/Signup";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";

@@ -106,19 +106,19 @@ const INITIAL_FORM_DATA: FormData = {
   registrationFormConfig: { ...DEFAULT_REGISTRATION_FORM_CONFIG },
 };
 
-const INPUT_CLS = "w-full px-4 py-3 h-auto rounded-xl border border-slate-200 bg-white text-sm text-slate-800 placeholder-slate-400 outline-none focus-visible:border-indigo-400 focus-visible:ring-4 focus-visible:ring-indigo-50 transition-all";
+const INPUT_CLS = "w-full px-3 py-2 h-auto rounded-lg border border-slate-200 bg-white text-xs sm:text-sm text-slate-800 placeholder-slate-400 outline-none focus-visible:border-indigo-400 focus-visible:ring-2 focus-visible:ring-indigo-50 transition-all";
 
 /* ─── Shared sub-components ─── */
 function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementType; title: string; subtitle?: string }) {
   return (
-    <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-5">
-      <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+    <div className="flex items-center gap-2 mb-2 sm:mb-4">
+      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg flex items-center justify-center flex-shrink-0"
         style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
-        <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+        <Icon className="w-3.5 h-3.5 text-white" />
       </div>
       <div>
         <h3 className="text-xs sm:text-sm font-bold text-slate-800">{title}</h3>
-        {subtitle && <p className="text-[10px] sm:text-[11px] text-slate-400">{subtitle}</p>}
+        {subtitle && <p className="text-[10px] text-slate-400">{subtitle}</p>}
       </div>
     </div>
   );
@@ -288,13 +288,48 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
   const handleMultiDayToggle = (v: boolean) => {
     update("multiDay", v);
-    if (v && data.startDate && data.endDate) {
-      syncDaySchedules(data.startDate, data.endDate);
-    } else if (!v && data.startDate) {
-      update("daySchedules", [{
-        date: data.startDate,
-        activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
-      }]);
+    if (v) {
+      if (data.daySchedules.length === 0) {
+        const targetDate = data.startDate || new Date().toISOString().split("T")[0];
+        update("daySchedules", [{
+          date: targetDate,
+          activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+        }]);
+        setExpandedDay(targetDate);
+      }
+    } else {
+      if (data.startDate) {
+        update("daySchedules", [{
+          date: data.startDate,
+          activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+        }]);
+      }
+    }
+  };
+
+  const handleAddDay = () => {
+    const lastDay = data.daySchedules[data.daySchedules.length - 1];
+    let nextDateStr = new Date().toISOString().split("T")[0];
+    if (lastDay && lastDay.date) {
+      const d = new Date(lastDay.date + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      nextDateStr = d.toISOString().split("T")[0];
+    }
+    const newDay: DaySchedule = {
+      date: nextDateStr,
+      activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+    };
+    const updated = [...data.daySchedules, newDay];
+    update("daySchedules", updated);
+    setExpandedDay(nextDateStr);
+  };
+
+  const handleRemoveDay = (dateToRemove: string) => {
+    if (data.daySchedules.length <= 1) return;
+    const updated = data.daySchedules.filter(ds => ds.date !== dateToRemove);
+    update("daySchedules", updated);
+    if (expandedDay === dateToRemove) {
+      setExpandedDay(updated[0]?.date || null);
     }
   };
 
@@ -349,13 +384,13 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const dayCount = data.daySchedules.length;
 
   return (
-    <div className="space-y-4 sm:space-y-7">
+    <div className="space-y-3 sm:space-y-5">
       <SectionHeader icon={CalendarDays} title="Date & Time" subtitle="When is your event happening?" />
 
       <ToggleRow checked={data.multiDay} onChange={handleMultiDayToggle}
-        label="Multi-day event" desc="Enable to set up a day-wise schedule with activities" />
+        label="Multi-day event" desc="Enable to set up a day-wise schedule with activities (starts with single day, add dynamically)" />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <FieldLabel required>{data.multiDay ? "Start Date" : "Event Date"}</FieldLabel>
           <Input type="date" value={data.startDate} onChange={e => handleStartDate(e.target.value)} className={INPUT_CLS} />
@@ -378,50 +413,58 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
       {/* Day-wise schedule builder */}
       <div className="animate-fade-in-up pt-3 border-t border-slate-100">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <SectionHeader icon={Zap} title="Day-wise Agenda & Cultural Activities" subtitle={dayCount > 0 ? `${dayCount} day${dayCount > 1 ? "s" : ""} — set up program activities` : "Add day-wise agenda placeholders for festival activities"} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3">
+          <SectionHeader icon={Zap} title="Day-wise Agenda & Cultural Activities" subtitle={dayCount > 0 ? `${dayCount} day${dayCount > 1 ? "s" : ""} configured` : "Add day-wise schedule dynamically"} />
           <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleAddDay}
+              className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white gap-1.5 text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Day
+            </Button>
             <Button
               type="button"
               size="sm"
               variant="outline"
               onClick={loadFestivalPlaceholders}
-              className="border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl"
+              className="border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Load Festival Agenda Placeholders
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Agenda Placeholders
             </Button>
             {dayCount > 0 && (
               <Button
                 type="button"
                 size="sm"
                 onClick={() => triggerNotification()}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl"
+                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
               >
-                <Mail className="w-3.5 h-3.5" /> Send Agenda Email
+                <Mail className="w-3.5 h-3.5" /> Notify Email
               </Button>
             )}
           </div>
         </div>
 
         {dayCount === 0 && (
-          <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 space-y-3">
-            <Zap className="w-8 h-8 text-indigo-400 mx-auto" />
+          <div className="p-4 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 space-y-2">
+            <Zap className="w-6 h-6 text-indigo-400 mx-auto" />
             <div>
-              <p className="text-sm font-bold text-slate-700">No Day-wise Agenda Configured</p>
-              <p className="text-xs text-slate-400 mt-0.5">Click below to auto-populate festival program agenda placeholders (puja, cultural dance, sports, lunch feast, musical night).</p>
+              <p className="text-xs font-bold text-slate-700">No Day-wise Agenda Configured</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Click "+ Add Day" to add Day 1, Day 2, etc. dynamically.</p>
             </div>
             <Button
               type="button"
-              onClick={loadFestivalPlaceholders}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 text-xs font-bold rounded-xl"
+              onClick={handleAddDay}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl"
             >
-              <Sparkles className="w-4 h-4" /> Populate Festival Agenda Placeholders
+              <Plus className="w-3.5 h-3.5" /> Add Day 1
             </Button>
           </div>
         )}
 
         {dayCount > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {data.daySchedules.map((day, dayIdx) => {
               const isExpanded = expandedDay === day.date;
               const filledCount = day.activities.filter(a => a.name).length;
@@ -429,98 +472,108 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
               return (
                 <div key={day.date}
                   className={cn(
-                    "rounded-2xl border overflow-hidden transition-all",
-                    isExpanded ? "border-indigo-200 shadow-[0_4px_20px_rgba(99,102,241,0.08)]" : "border-slate-200 hover:border-slate-300"
+                    "rounded-xl border overflow-hidden transition-all",
+                    isExpanded ? "border-indigo-200 shadow-xs" : "border-slate-200 hover:border-slate-300"
                   )}>
                   <div className={cn(
-                    "w-full flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 transition-colors",
+                    "w-full flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 transition-colors",
                     isExpanded ? "bg-indigo-50/50" : "bg-white hover:bg-slate-50"
                   )}>
-                    <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="flex items-center gap-3 sm:gap-4 flex-1 text-left">
+                    <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="flex items-center gap-2.5 sm:gap-3 flex-1 text-left">
                       <div className={cn(
-                        "w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex flex-col items-center justify-center text-white font-black",
-                        isExpanded ? "shadow-md" : ""
+                        "w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex flex-col items-center justify-center text-white font-black shrink-0",
+                        isExpanded ? "shadow-xs" : ""
                       )} style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
-                        <span className="text-[10px] leading-none opacity-70">DAY</span>
-                        <span className="text-sm leading-none">{dayIdx + 1}</span>
+                        <span className="text-[9px] leading-none opacity-70">DAY</span>
+                        <span className="text-xs leading-none">{dayIdx + 1}</span>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-slate-800">{formatDayLabel(day.date)}</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
+                        <p className="text-xs sm:text-sm font-bold text-slate-800">{formatDayLabel(day.date)}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
                           {filledCount}/{totalCount} activities configured
                         </p>
                       </div>
                     </button>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); triggerNotification(`Day ${dayIdx + 1}`); }}
-                        className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:text-indigo-600 hover:border-indigo-200 flex items-center gap-1.5 shadow-2xs transition-all"
+                        className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-slate-700 hover:text-indigo-600 hover:border-indigo-200 flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
                       >
-                        <Mail className="w-3.5 h-3.5 text-indigo-500" /> Notify Day {dayIdx + 1}
+                        <Mail className="w-3 h-3 text-indigo-500" /> Notify
                       </button>
+                      {data.daySchedules.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleRemoveDay(day.date); }}
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+                          title="Remove Day"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="p-1">
-                        <ChevronRight className={cn("w-4 h-4 text-slate-400 transition-transform duration-200", isExpanded && "rotate-90")} />
+                        <ChevronRight className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-200", isExpanded && "rotate-90")} />
                       </button>
                     </div>
                   </div>
 
                   {isExpanded && (
-                    <div className="px-3 sm:px-5 pb-3 sm:pb-5 pt-2 bg-white space-y-3 animate-fade-in-up">
+                    <div className="px-3 sm:px-4 pb-3 pt-2 bg-white space-y-2.5 animate-fade-in-up">
                       {day.activities.map((act, actIdx) => (
                         <div key={act.id}
-                          className="relative p-3 sm:p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3 group">
+                          className="relative p-2.5 sm:p-3 bg-slate-50 rounded-lg border border-slate-100 space-y-2 group">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
-                                <span className="text-[10px] font-black text-indigo-600">{actIdx + 1}</span>
+                              <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <span className="text-[9px] font-black text-indigo-600">{actIdx + 1}</span>
                               </div>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Activity / Program Item</span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Activity / Item</span>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                               {act.name && (
                                 <button
                                   type="button"
                                   onClick={() => triggerNotification(`Day ${dayIdx + 1}`, act.name)}
-                                  className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-lg border border-indigo-100 flex items-center gap-1 transition-all"
+                                  className="text-[9px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded border border-indigo-100 flex items-center gap-1 transition-all"
                                 >
-                                  <Mail className="w-3 h-3" /> Notify
+                                  <Mail className="w-2.5 h-2.5" /> Notify
                                 </button>
                               )}
                               {day.activities.length > 1 && (
                                 <button onClick={() => removeActivity(day.date, act.id)}
-                                  className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded-lg hover:bg-rose-50">
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded hover:bg-rose-50">
+                                  <Trash2 className="w-3 h-3" />
                                 </button>
                               )}
                             </div>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
+                          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
                             <div>
-                              <FieldLabel required>Activity / Cultural Event Title</FieldLabel>
+                              <FieldLabel required>Activity / Event Title</FieldLabel>
                               <Input value={act.name} onChange={e => updateActivity(day.date, act.id, "name", e.target.value)}
-                                placeholder="e.g. Bharatanatyam Dance / Aarti / Music Night" className={INPUT_CLS} />
+                                placeholder="e.g. Aarti / Music Night" className={INPUT_CLS} />
                             </div>
-                            <div className="w-28">
+                            <div className="w-24">
                               <FieldLabel required>From</FieldLabel>
                               <Input type="time" value={act.startTime} onChange={e => updateActivity(day.date, act.id, "startTime", e.target.value)}
                                 className={INPUT_CLS} />
                             </div>
-                            <div className="w-28">
+                            <div className="w-24">
                               <FieldLabel required>To</FieldLabel>
                               <Input type="time" value={act.endTime} onChange={e => updateActivity(day.date, act.id, "endTime", e.target.value)}
                                 className={INPUT_CLS} />
                             </div>
                           </div>
                           <div>
-                            <FieldLabel>Activity Description & Venue Details</FieldLabel>
+                            <FieldLabel>Description & Location</FieldLabel>
                             <Input value={act.description} onChange={e => updateActivity(day.date, act.id, "description", e.target.value)}
-                              placeholder="e.g. Main Stage, performed by Ananya Troupe" className={INPUT_CLS} />
+                              placeholder="e.g. Main Stage" className={INPUT_CLS} />
                           </div>
                         </div>
                       ))}
                       <button onClick={() => addActivity(day.date)}
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all">
+                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all cursor-pointer">
                         <Plus className="w-3.5 h-3.5" /> Add Activity to Day {dayIdx + 1}
                       </button>
                     </div>
@@ -528,6 +581,15 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                 </div>
               );
             })}
+
+            {/* Bottom Add Day Button */}
+            <button
+              type="button"
+              onClick={handleAddDay}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50/40 text-xs font-bold text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all cursor-pointer shadow-2xs"
+            >
+              <Plus className="w-4 h-4 text-indigo-600" /> Add Day {dayCount + 1} Schedule
+            </button>
           </div>
         )}
       </div>
@@ -1768,17 +1830,17 @@ export function CreateEventDialog({ open, onOpenChange }: { open: boolean; onOpe
             pointerEvents: "auto",
             background: "#fff",
             width: "100%",
-            maxWidth: "72rem",  /* max-w-6xl */
-            /* Mobile: full screen; tablet/desktop: bounded */
+            maxWidth: "54rem",  /* max-w-4xl */
+            /* Mobile: full screen; tablet/desktop: bounded compact */
             height: "100dvh",
-            maxHeight: "96dvh",
+            maxHeight: "92dvh",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            boxShadow: "0 25px 80px rgba(0,0,0,0.22)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.18)",
             borderRadius: 0,
           }}
-          className="sm:rounded-3xl sm:h-[min(96vh,980px)] sm:max-h-[96vh] sm:m-3 md:m-4 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
+          className="sm:rounded-2xl sm:h-[min(90vh,760px)] sm:max-h-[92vh] sm:m-3 md:m-4 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
           onClick={e => e.stopPropagation()}
         >
           <EventCreateWizard
