@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   ImageIcon, Play, Upload, Grid3X3, List, Star, Loader2, AlertCircle,
   Calendar, Filter, X, ChevronRight, Download, Share2, Layers, Tag, Film, CheckCircle2,
-  Plus, Trash2, CalendarDays, ChevronDown,
+  Plus, Trash2, CalendarDays, ChevronDown, Save, Send,
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { eventGalleryService, type EventGalleryItemResponse } from "../../../services/events/eventGalleryService";
@@ -527,7 +527,7 @@ export function EventsGallery() {
   const [showAddCatInModal, setShowAddCatInModal] = useState(false);
   const [newCatName, setNewCatName] = useState("");
 
-  const handleUploadSubmit = async (e: React.FormEvent) => {
+  const handleUploadSubmit = async (e: React.FormEvent, isPublish: boolean = true) => {
     e.preventDefault();
 
     const rawUrls = uploadForm.url
@@ -566,7 +566,7 @@ export function EventsGallery() {
               ? (uploadFilesQueue.length === 1 && rawUrls.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} #${i + 1}`)
               : item.file.name.replace(/\.[^/.]+$/, ""),
             albumName: uploadForm.album,
-            featured: false,
+            featured: isPublish,
           });
           createdItems.push(created);
         } else {
@@ -585,7 +585,7 @@ export function EventsGallery() {
             albumName: uploadForm.album,
             uploadedByName: "Current Admin",
             createdAt: new Date().toISOString(),
-            featured: false,
+            featured: isPublish,
           };
           createdItems.push(newItem);
         }
@@ -608,7 +608,7 @@ export function EventsGallery() {
               ? (rawUrls.length === 1 && uploadFilesQueue.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} URL #${idx + 1}`)
               : `Media URL #${idx + 1}`,
             albumName: uploadForm.album,
-            featured: false,
+            featured: isPublish,
           });
           createdItems.push(created);
         } else {
@@ -627,7 +627,7 @@ export function EventsGallery() {
             albumName: uploadForm.album,
             uploadedByName: "Current Admin",
             createdAt: new Date().toISOString(),
-            featured: false,
+            featured: isPublish,
           };
           createdItems.push(newItem);
         }
@@ -1438,26 +1438,36 @@ export function EventsGallery() {
                 </div>
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => {
                     setShowUploadModal(false);
                     setUploadFilesQueue([]);
                   }}
-                  className="flex-1 px-4 py-2.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                  className="px-3.5 py-2.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                 >
                   Cancel
                 </button>
+
                 <button
-                  type="submit"
+                  type="button"
                   disabled={uploading || (uploadFilesQueue.length === 0 && !uploadForm.url.trim())}
-                  className="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 flex items-center justify-center gap-2 transition-all shadow-md"
+                  onClick={e => handleUploadSubmit(e, false)}
+                  className="flex-1 px-3 py-2.5 rounded-xl text-xs font-bold border border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 disabled:opacity-40 flex items-center justify-center gap-1.5 transition-all shadow-sm"
                 >
-                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                  {uploading
-                    ? "Publishing Media..."
-                    : `Publish ${uploadFilesQueue.length > 0 ? `${uploadFilesQueue.length} Media Item${uploadFilesQueue.length > 1 ? "s" : ""}` : "Media"}`}
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  Save
+                </button>
+
+                <button
+                  type="button"
+                  disabled={uploading || (uploadFilesQueue.length === 0 && !uploadForm.url.trim())}
+                  onClick={e => handleUploadSubmit(e, true)}
+                  className="flex-1 px-3 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 flex items-center justify-center gap-1.5 transition-all shadow-md"
+                >
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  Save & Publish
                 </button>
               </div>
             </form>
