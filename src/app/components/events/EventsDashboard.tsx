@@ -14,6 +14,7 @@ import { GlassCard, TouchButton, StatusChip, BottomSheet } from "./redesign/Even
 import { EventAICopilotDrawer } from "./redesign/EventAICopilotDrawer";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { useEventMock } from "./EventMockToggle";
+import { useAuth } from "../../../contexts/AuthContext";
 import {
   eventService,
   type DashboardStatsResponse,
@@ -24,6 +25,7 @@ import { eventSponsorService, type EventSponsorResponse } from "../../../service
 import { eventDonationService } from "../../../services/events/eventDonationService";
 import { eventExpenseService, type EventExpenseResponse } from "../../../services/events/eventExpenseService";
 import { eventTaskService, type EventTaskResponse } from "../../../services/events/eventTaskService";
+import { eventProgramService, type EventProgramResponse } from "../../../services/events/eventProgramService";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -142,14 +144,6 @@ function eventToBanner(ev: EventResponse, idx: number): BannerItem {
     targetTime: ev.startTime,
   };
 }
-
-// ── Main component ────────────────────────────────────────────────────────────
-
-import { useAuth } from "../../../contexts/AuthContext";
-import { useEventMock } from "./EventMockToggle";
-import { eventService, type EventResponse, type DashboardStatsResponse } from "../../../services/events/eventService";
-import { eventTaskService, type EventTaskResponse } from "../../../services/events/eventTaskService";
-import { eventProgramService, type EventProgramResponse } from "../../../services/events/eventProgramService";
 
 const DEFAULT_BANNER_EVENTS = [
   {
