@@ -113,10 +113,135 @@ export const VIEW_JOBS  = "View Jobs";
 export const CREATE_JOB = "Create Job";
 export const APPLY_JOB  = "Apply Job";
 
-// ──── EVENTS ────
+// ──── EVENTS — GRANULAR PERMISSIONS ────
+// Core
 export const VIEW_EVENTS    = "View Events";
 export const CREATE_EVENT   = "Create Event";
 export const REGISTER_EVENT = "Register Event";
+// Dashboard
+export const VIEW_EVENT_DASHBOARD        = "View Event Dashboard";
+export const MANAGE_EVENT_DASHBOARD      = "Manage Event Dashboard";
+// Events & Schedule
+export const VIEW_EVENT_SCHEDULE         = "View Event Schedule";
+export const CREATE_EDIT_EVENT_SCHEDULE  = "Create/Edit Event Schedule";
+export const DELETE_EVENT_SCHEDULE       = "Delete Event Schedule";
+// Registration
+export const VIEW_EVENT_REGISTRATION     = "View Event Registration";
+export const MANAGE_EVENT_REGISTRATION   = "Manage Event Registration";
+export const EXPORT_EVENT_REGISTRATION   = "Export Event Registration";
+// People / Volunteers
+export const VIEW_EVENT_PEOPLE           = "View Event People";
+export const MANAGE_EVENT_PEOPLE         = "Manage Event People";
+// Fundraising / Finance
+export const VIEW_EVENT_FUNDRAISING      = "View Event Fundraising";
+export const MANAGE_EVENT_FUNDRAISING    = "Manage Event Fundraising";
+// Operations
+export const VIEW_EVENT_OPERATIONS       = "View Event Operations";
+export const MANAGE_EVENT_OPERATIONS     = "Manage Event Operations";
+// Media & Reports
+export const VIEW_EVENT_MEDIA            = "View Event Media";
+export const MANAGE_EVENT_MEDIA          = "Manage Event Media";
+// Gallery (subset of Media — view-only gallery without reports access)
+export const VIEW_EVENT_GALLERY          = "View Event Gallery";
+// Reports
+export const VIEW_EVENT_REPORTS          = "View Event Reports";
+// Notifications
+export const SEND_EVENT_NOTIFICATIONS    = "Send Event Notifications";
+export const MANAGE_EVENT_NOTIFICATIONS  = "Manage Event Notifications";
+
+/**
+ * Events Permission Matrix — structured for the table-based role editor.
+ */
+export interface EventPermissionRow {
+  label: string;
+  view?: string;
+  createEdit?: string;
+  delete?: string;
+  isChild?: boolean;
+  isGroupHeader?: boolean;
+  childIndices?: number[];
+}
+
+export const EVENT_PERMISSION_MATRIX: EventPermissionRow[] = [
+  { label: "Events Module",        isGroupHeader: true, childIndices: [1, 2, 3, 4, 5, 6, 7, 8, 9] },
+  { label: "Dashboard",            view: VIEW_EVENT_DASHBOARD,      createEdit: MANAGE_EVENT_DASHBOARD,      isChild: true },
+  { label: "Events & Schedule",    view: VIEW_EVENT_SCHEDULE,       createEdit: CREATE_EDIT_EVENT_SCHEDULE,   delete: DELETE_EVENT_SCHEDULE, isChild: true },
+  { label: "Registration",         view: VIEW_EVENT_REGISTRATION,   createEdit: MANAGE_EVENT_REGISTRATION,   delete: EXPORT_EVENT_REGISTRATION, isChild: true },
+  { label: "People & Volunteers",  view: VIEW_EVENT_PEOPLE,         createEdit: MANAGE_EVENT_PEOPLE,         isChild: true },
+  { label: "Fundraising",          view: VIEW_EVENT_FUNDRAISING,    createEdit: MANAGE_EVENT_FUNDRAISING,    isChild: true },
+  { label: "Operations",           view: VIEW_EVENT_OPERATIONS,     createEdit: MANAGE_EVENT_OPERATIONS,     isChild: true },
+  { label: "Gallery",              view: VIEW_EVENT_GALLERY,        createEdit: MANAGE_EVENT_MEDIA,          isChild: true },
+  { label: "Reports",              view: VIEW_EVENT_REPORTS,        createEdit: MANAGE_EVENT_MEDIA,          isChild: true },
+  { label: "Notifications",        view: SEND_EVENT_NOTIFICATIONS,  createEdit: MANAGE_EVENT_NOTIFICATIONS,  isChild: true },
+];
+
+/**
+ * Suggested default event permissions per role.
+ */
+export const EVENT_ROLE_DEFAULTS: Record<string, string[]> = {
+  ADMIN: [
+    VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT,
+    VIEW_EVENT_DASHBOARD, MANAGE_EVENT_DASHBOARD,
+    VIEW_EVENT_SCHEDULE, CREATE_EDIT_EVENT_SCHEDULE, DELETE_EVENT_SCHEDULE,
+    VIEW_EVENT_REGISTRATION, MANAGE_EVENT_REGISTRATION, EXPORT_EVENT_REGISTRATION,
+    VIEW_EVENT_PEOPLE, MANAGE_EVENT_PEOPLE,
+    VIEW_EVENT_FUNDRAISING, MANAGE_EVENT_FUNDRAISING,
+    VIEW_EVENT_OPERATIONS, MANAGE_EVENT_OPERATIONS,
+    VIEW_EVENT_MEDIA, MANAGE_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
+    SEND_EVENT_NOTIFICATIONS, MANAGE_EVENT_NOTIFICATIONS,
+  ],
+  COMMUNITY_ADMIN: [
+    VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT,
+    VIEW_EVENT_DASHBOARD, MANAGE_EVENT_DASHBOARD,
+    VIEW_EVENT_SCHEDULE, CREATE_EDIT_EVENT_SCHEDULE, DELETE_EVENT_SCHEDULE,
+    VIEW_EVENT_REGISTRATION, MANAGE_EVENT_REGISTRATION, EXPORT_EVENT_REGISTRATION,
+    VIEW_EVENT_PEOPLE, MANAGE_EVENT_PEOPLE,
+    VIEW_EVENT_FUNDRAISING, MANAGE_EVENT_FUNDRAISING,
+    VIEW_EVENT_OPERATIONS, MANAGE_EVENT_OPERATIONS,
+    VIEW_EVENT_MEDIA, MANAGE_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
+    SEND_EVENT_NOTIFICATIONS, MANAGE_EVENT_NOTIFICATIONS,
+  ],
+  SPORTS_ADMIN: [
+    VIEW_EVENTS, REGISTER_EVENT,
+    VIEW_EVENT_DASHBOARD,
+    VIEW_EVENT_SCHEDULE,
+    VIEW_EVENT_REGISTRATION,
+    VIEW_EVENT_PEOPLE,
+    VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
+    SEND_EVENT_NOTIFICATIONS,
+  ],
+  MEMBER: [
+    VIEW_EVENTS, REGISTER_EVENT,
+    VIEW_EVENT_DASHBOARD,
+    VIEW_EVENT_SCHEDULE,
+    VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
+  ],
+  VENDOR: [
+    VIEW_EVENTS, REGISTER_EVENT,
+    VIEW_EVENT_DASHBOARD,
+    VIEW_EVENT_SCHEDULE,
+  ],
+  CASHIER: [
+    VIEW_EVENTS,
+    VIEW_EVENT_DASHBOARD,
+    VIEW_EVENT_SCHEDULE,
+    VIEW_EVENT_REGISTRATION,
+  ],
+  STAFF: [
+    VIEW_EVENTS, REGISTER_EVENT,
+    VIEW_EVENT_DASHBOARD,
+    VIEW_EVENT_SCHEDULE,
+    VIEW_EVENT_REGISTRATION,
+    VIEW_EVENT_PEOPLE,
+    VIEW_EVENT_OPERATIONS,
+    VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
+  ],
+  USER: [
+    VIEW_EVENTS, REGISTER_EVENT,
+    VIEW_EVENT_DASHBOARD,
+    VIEW_EVENT_GALLERY,
+  ],
+};
 
 
 // ──── VENDOR MANAGEMENT SYSTEM ────
@@ -274,7 +399,17 @@ export const PERMISSION_CATEGORIES = [
   {
     id: "events",
     title: "EVENTS Permission",
-    permissions: [VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT],
+    permissions: [
+      VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT,
+      VIEW_EVENT_DASHBOARD, MANAGE_EVENT_DASHBOARD,
+      VIEW_EVENT_SCHEDULE, CREATE_EDIT_EVENT_SCHEDULE, DELETE_EVENT_SCHEDULE,
+      VIEW_EVENT_REGISTRATION, MANAGE_EVENT_REGISTRATION, EXPORT_EVENT_REGISTRATION,
+      VIEW_EVENT_PEOPLE, MANAGE_EVENT_PEOPLE,
+      VIEW_EVENT_FUNDRAISING, MANAGE_EVENT_FUNDRAISING,
+      VIEW_EVENT_OPERATIONS, MANAGE_EVENT_OPERATIONS,
+      VIEW_EVENT_MEDIA, MANAGE_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
+      SEND_EVENT_NOTIFICATIONS, MANAGE_EVENT_NOTIFICATIONS,
+    ],
   },
   {
     id: "vendor_management",
