@@ -500,6 +500,87 @@ export function EventsGallery() {
   const [addingCat, setAddingCat] = useState(false);
   const [activeLightbox, setActiveLightbox] = useState<EventGalleryItemResponse | null>(null);
 
+  // Upload Modal Form State
+  const [uploadForm, setUploadForm] = useState({
+    title: "",
+    eventName: "Ganesh Chaturthi Utsav 2026",
+    year: 2026,
+    dayLabel: "Day 1",
+    category: "Puja & Rituals",
+    type: "photo" as "photo" | "video",
+    url: "",
+    album: "General",
+  });
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadForm.title.trim() || !uploadForm.url.trim()) return;
+    setUploading(true);
+    try {
+      let finalUrl = uploadForm.url;
+      if (uploadFile && !useMock) {
+        try {
+          const res = await fileUploadService.upload(uploadFile);
+          finalUrl = res.url;
+        } catch (err) {
+          console.warn("File upload failed, using provided URL", err);
+        }
+      }
+
+      if (!useMock) {
+        const evtIdNum = Number(selectedEventId) || events[0]?.id || 1;
+        const created = await eventGalleryService.create({
+          eventId: evtIdNum,
+          url: finalUrl,
+          thumbnailUrl: finalUrl,
+          mediaType: uploadForm.type === "video" ? "VIDEO" : "PHOTO",
+          dayTag: uploadForm.dayLabel,
+          category: uploadForm.category,
+          caption: uploadForm.title,
+          albumName: uploadForm.album,
+          featured: false,
+        });
+        setItems(prev => [created, ...prev]);
+      } else {
+        const newItem: EventGalleryItemResponse = {
+          id: Date.now(),
+          eventId: 1,
+          eventName: uploadForm.eventName,
+          url: finalUrl,
+          thumbnailUrl: finalUrl,
+          mediaType: uploadForm.type === "video" ? "VIDEO" : "PHOTO",
+          dayTag: uploadForm.dayLabel,
+          category: uploadForm.category,
+          caption: uploadForm.title,
+          albumName: uploadForm.album,
+          uploadedByName: "Current Admin",
+          createdAt: new Date().toISOString(),
+          featured: false,
+        };
+        setItems(prev => [newItem, ...prev]);
+      }
+
+      setShowUploadModal(false);
+      setUploadFile(null);
+      setUploadForm({
+        title: "",
+        eventName: events[0]?.title || "Ganesh Chaturthi Utsav 2026",
+        year: 2026,
+        dayLabel: "Day 1",
+        category: "Puja & Rituals",
+        type: "photo",
+        url: "",
+        album: "General",
+      });
+    } catch (err) {
+      console.error("Failed to publish media", err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // Extract available years dynamically from dataset
   const availableYears = useMemo(() => {
     const years = Array.from(new Set(items.map(i => i.createdAt ? new Date(i.createdAt).getFullYear() : 2026))).sort((a, b) => b - a);
@@ -1010,154 +1091,161 @@ export function EventsGallery() {
           </div>
         </div>
       )}
-      {/* ── Event selector ───────────────────────────────────────────────── */}
-      {!useMock && events.length > 0 && (
-        <div className="flex items-center gap-2">
-          <CalendarDays className="w-4 h-4 text-slate-400 flex-shrink-0" />
-          <div className="relative flex-1 max-w-xs">
-            <select
-              value={selectedEventId ?? ""}
-              onChange={e => setSelectedEventId(e.target.value)}
-              className="w-full px-3 py-1.5 pr-8 rounded-xl border border-slate-200 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 dark:text-white appearance-none">
-              <option value="">All Events</option>
-              {events.map(ev => <option key={ev.id} value={String(ev.id)}>{ev.title}</option>)}
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          </div>
-        </div>
-      )}
-
-      {/* ── Day tags ─────────────────────────────────────────────────────── */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <Tag className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Day Tags</span>
-        </div>
-        <div className="flex flex-wrap gap-1.5 items-center">
-          <FilterChip label="All Days" active={activeDayTag === null} onSelect={() => setActiveDayTag(null)}
-            count={items.length} />
-          {days.map(d => (
-            <FilterChip
-              key={d.id}
-              label={d.label}
-              active={activeDayTag === d.label}
-              count={items.filter(i => i.dayTag === d.label).length}
-              onSelect={() => setActiveDayTag(activeDayTag === d.label ? null : d.label)}
-              onRemove={!useMock ? () => deleteDay(d) : undefined}
-            />
-          ))}
-          {!useMock && !addingDay && (
-            <button onClick={() => setAddingDay(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-slate-300 dark:border-slate-600 text-xs text-slate-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors">
-              <Plus className="w-3 h-3" /> Add Day
-            </button>
-          )}
-          {addingDay && (
-            <InlineCreate placeholder="Day label" onSave={handleCreateDay} onCancel={() => setAddingDay(false)} />
-          )}
-        </div>
-      </div>
-
-      {/* ── Categories ───────────────────────────────────────────────────── */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <Layers className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Categories</span>
-        </div>
-        <div className="flex flex-wrap gap-1.5 items-center">
-          <FilterChip label="All" active={activeCategory === null} onSelect={() => setActiveCategory(null)} />
-          {categories.map(c => (
-            <FilterChip
-              key={c.id}
-              label={c.name}
-              active={activeCategory === c.name}
-              count={items.filter(i => i.category === c.name).length}
-              onSelect={() => setActiveCategory(activeCategory === c.name ? null : c.name)}
-              onRemove={!useMock ? () => deleteCategory(c) : undefined}
-            />
-          ))}
-          {!useMock && !addingCat && (
-            <button onClick={() => setAddingCat(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-slate-300 dark:border-slate-600 text-xs text-slate-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors">
-              <Plus className="w-3 h-3" /> Add Category
-            </button>
-          )}
-          {addingCat && (
-            <InlineCreate placeholder="Category name" onSave={handleCreateCategory} onCancel={() => setAddingCat(false)} />
-          )}
-        </div>
-      </div>
-
-      {/* ── Toolbar ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h2 className="font-bold text-slate-800 dark:text-white text-sm sm:text-base">
-            {activeDayTag ?? activeCategory ?? "All Media"}
-          </h2>
-          <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">
-            {filteredItems.length} item{filteredItems.length !== 1 ? "s" : ""}
-            {(activeDayTag || activeCategory) ? " matching filters" : ""}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* View toggle */}
-          <div className="flex rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-            {(["grid", "albums"] as const).map(v => (
-              <button key={v} onClick={() => setView(v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all capitalize
-                  ${view === v ? "bg-indigo-500 text-white" : "bg-white dark:bg-slate-800 text-slate-500 hover:text-indigo-600"}`}>
-                {v === "grid" ? <Grid3X3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}
-                {v}
+      {/* ── Upload New Media Modal Popup ── */}
+      {showUploadModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={e => { if (e.target === e.currentTarget) setShowUploadModal(false); }}
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+              <h3 className="font-bold text-slate-800 dark:text-white text-sm flex items-center gap-2">
+                <Upload className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Upload Event Media & Memories
+              </h3>
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
               </button>
-            ))}
-          </div>
-          {/* Upload button */}
-          <button onClick={() => setShowUpload(true)}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm">
-            <Upload className="w-3.5 h-3.5" /> Upload Media
-          </button>
-        </div>
-      </div>
+            </div>
 
-      {/* ── Loading spinner ───────────────────────────────────────────────── */}
-      {loading && (
-        <div className="flex items-center justify-center py-10 text-slate-400">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading gallery…
-        </div>
-      )}
-
-      {/* ── Grid view ────────────────────────────────────────────────────── */}
-      {!loading && view === "grid" && (
-        filteredItems.length === 0 ? (
-          <EmptyState onUpload={() => setShowUpload(true)} />
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
-            {filteredItems.map((item, i) => (
-              <MediaTile key={item.id} item={item} index={i} onDelete={id => setItems(its => its.filter(x => x.id !== id))} useMock={useMock} />
-            ))}
-            <UploadTile onUpload={() => setShowUpload(true)} />
-          </div>
-        )
-      )}
-
-      {/* ── Albums view ───────────────────────────────────────────────────── */}
-      {!loading && view === "albums" && (
-        albumMap.size === 0 ? (
-          <EmptyState onUpload={() => setShowUpload(true)} />
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from(albumMap.entries()).map(([name, albumItems]) => (
-              <AlbumCard key={name} name={name} items={albumItems} />
-            ))}
-            <button onClick={() => setShowUpload(true)}
-              className="min-h-[200px] border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col items-center justify-center gap-3 hover:border-indigo-300 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-all group">
-              <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 flex items-center justify-center transition-all">
-                <Plus className="w-6 h-6 text-slate-400 group-hover:text-indigo-500" />
+            <form onSubmit={handleUploadSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Media Title / Caption *</label>
+                <input
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs focus:ring-2 focus:ring-indigo-200 outline-none"
+                  placeholder="e.g. Visarjan Procession Evening Dance"
+                  value={uploadForm.title}
+                  onChange={e => setUploadForm(f => ({ ...f, title: e.target.value }))}
+                  required
+                />
               </div>
-              <p className="text-sm font-bold text-slate-600 dark:text-slate-300 group-hover:text-indigo-600 transition-colors">Upload to new album</p>
-            </button>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Event</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs"
+                    value={uploadForm.eventName}
+                    onChange={e => setUploadForm(f => ({ ...f, eventName: e.target.value }))}
+                  >
+                    {availableEvents.map(ev => (
+                      <option key={ev.id} value={ev.title}>{ev.title}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Year</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs"
+                    value={uploadForm.year}
+                    onChange={e => setUploadForm(f => ({ ...f, year: Number(e.target.value) }))}
+                  >
+                    <option value={2026}>2026</option>
+                    <option value={2025}>2025</option>
+                    <option value={2024}>2024</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Day Tag</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs"
+                    value={uploadForm.dayLabel}
+                    onChange={e => setUploadForm(f => ({ ...f, dayLabel: e.target.value }))}
+                  >
+                    {dynamicDayOptions.filter(d => d !== "All Days").map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Category</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs"
+                    value={uploadForm.category}
+                    onChange={e => setUploadForm(f => ({ ...f, category: e.target.value }))}
+                  >
+                    {dynamicCategoryOptions.filter(c => c !== "All Media").map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Media Type</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs"
+                    value={uploadForm.type}
+                    onChange={e => setUploadForm(f => ({ ...f, type: e.target.value as "photo" | "video" }))}
+                  >
+                    <option value="photo">🖼️ Image / Photo</option>
+                    <option value="video">🎥 Video</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Album Name</label>
+                  <input
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs"
+                    placeholder="General Album"
+                    value={uploadForm.album}
+                    onChange={e => setUploadForm(f => ({ ...f, album: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Image / Video File or URL *</label>
+                <div className="space-y-2">
+                  <input
+                    type="file"
+                    accept="image/*,video/*"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setUploadFile(file);
+                        setUploadForm(f => ({ ...f, url: URL.createObjectURL(file) }));
+                      }
+                    }}
+                    className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100"
+                  />
+                  <div className="relative flex items-center">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-2 bg-white dark:bg-slate-900 absolute left-1/2 -translate-x-1/2">or URL</span>
+                    <hr className="w-full border-slate-100 dark:border-slate-800" />
+                  </div>
+                  <input
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs focus:ring-2 focus:ring-indigo-200 outline-none"
+                    placeholder="https://images.unsplash.com/..."
+                    value={uploadForm.url}
+                    onChange={e => setUploadForm(f => ({ ...f, url: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowUploadModal(false)}
+                  className="flex-1 px-4 py-2.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading || !uploadForm.title.trim() || !uploadForm.url.trim()}
+                  className="flex-1 px-4 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 flex items-center justify-center gap-2 transition-all shadow-md"
+                >
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />} Save & Publish
+                </button>
+              </div>
+            </form>
           </div>
-        )
+        </div>
       )}
 
       {/* ── Upload drawer ─────────────────────────────────────────────────── */}
@@ -1169,7 +1257,6 @@ export function EventsGallery() {
         categories={categories}
         onUploaded={item => {
           setItems(its => [item, ...its]);
-          // keep drawer open so user can upload more
         }}
       />
     </div>
