@@ -4,11 +4,18 @@ import {
   X, LogIn, LogOut, Edit2, Trash2, Filter,
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
+import { userService } from "../../../services/common/userService";
+import { useAuth } from "../../../contexts/AuthContext";
 import {
   eventVolunteerService,
   type EventVolunteerResponse,
   type EventVolunteerRequest,
 } from "../../../services/events/eventVolunteerService";
+import {
+  eventDepartmentService,
+  type EventDepartmentResponse,
+  type EventDepartmentRequest,
+} from "../../../services/events/eventDepartmentService";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "../ui/table";
@@ -51,10 +58,11 @@ interface VolunteerRow {
   rawId: number;
   id: string;
   name: string;
+  contact: string;
+  flatNo: string;
   dept: string;
   shift: string;
   status: string;
-  contact: string;
   checkInTime?: string;
   checkOutTime?: string;
 }
@@ -63,6 +71,7 @@ type Modal =
   | { type: "assign" }
   | { type: "edit"; volunteer: VolunteerRow }
   | { type: "delete"; volunteer: VolunteerRow }
+  | { type: "addDepartment" }
   | null;
 
 // ── Mock seed data ────────────────────────────────────────────────────────────
@@ -70,13 +79,26 @@ type Modal =
 let _mockSeq = 8;
 
 const MOCK_VOLUNTEERS: VolunteerRow[] = [
-  { rawId: 1, id: "V-001", name: "Rahul Nair",     dept: "Food & Kitchen", shift: "Morning (6AM–2PM)",   status: "Checked In",  contact: "+91 98001 11111", checkInTime: "06:05 AM" },
-  { rawId: 2, id: "V-002", name: "Meera Pillai",   dept: "Registration",   shift: "Morning (6AM–2PM)",   status: "Checked In",  contact: "+91 98002 22222", checkInTime: "08:02 AM" },
-  { rawId: 3, id: "V-003", name: "Suresh Babu",    dept: "Security",       shift: "Full Day",            status: "Checked In",  contact: "+91 98003 33333", checkInTime: "06:58 AM" },
-  { rawId: 4, id: "V-004", name: "Kavitha Rao",    dept: "Venue & Decor",  shift: "Evening (2PM–10PM)",  status: "Checked Out", contact: "+91 98004 44444", checkInTime: "02:01 PM", checkOutTime: "05:45 PM" },
-  { rawId: 5, id: "V-005", name: "Ajay Mathur",    dept: "Parking",        shift: "Morning (6AM–2PM)",   status: "Checked In",  contact: "+91 98005 55555", checkInTime: "06:55 AM" },
-  { rawId: 6, id: "V-006", name: "Divya Menon",    dept: "Audio/Visual",   shift: "Full Day",            status: "No Show",     contact: "+91 98006 66666" },
-  { rawId: 7, id: "V-007", name: "Sanjay Gupta",   dept: "Guest Mgmt",     shift: "Evening (2PM–10PM)",  status: "Assigned",    contact: "+91 98007 77777" },
+  { rawId: 1, id: "V-001", name: "Rahul Nair",     contact: "+91 98001 11111", flatNo: "A-102", dept: "Food & Kitchen", shift: "Morning (6AM–2PM)",   status: "Checked In",  checkInTime: "06:05 AM" },
+  { rawId: 2, id: "V-002", name: "Meera Pillai",   contact: "+91 98002 22222", flatNo: "B-405", dept: "Registration",   shift: "Morning (6AM–2PM)",   status: "Checked In",  checkInTime: "08:02 AM" },
+  { rawId: 3, id: "V-003", name: "Suresh Babu",    contact: "+91 98003 33333", flatNo: "C-201", dept: "Security",       shift: "Full Day",            status: "Checked In",  checkInTime: "06:58 AM" },
+  { rawId: 4, id: "V-004", name: "Kavitha Rao",    contact: "+91 98004 44444", flatNo: "D-304", dept: "Venue & Decor",  shift: "Evening (2PM–10PM)",  status: "Checked Out", checkInTime: "02:01 PM", checkOutTime: "05:45 PM" },
+  { rawId: 5, id: "V-005", name: "Ajay Mathur",    contact: "+91 98005 55555", flatNo: "A-501", dept: "Parking",        shift: "Morning (6AM–2PM)",   status: "Checked In",  checkInTime: "06:55 AM" },
+  { rawId: 6, id: "V-006", name: "Divya Menon",    contact: "+91 98006 66666", flatNo: "B-108", dept: "Audio/Visual",   shift: "Full Day",            status: "No Show" },
+  { rawId: 7, id: "V-007", name: "Sanjay Gupta",   contact: "+91 98007 77777", flatNo: "C-303", dept: "Guest Mgmt",     shift: "Evening (2PM–10PM)",  status: "Assigned" },
+];
+
+const MOCK_APP_USERS = [
+  { id: 101, fullName: "Rahul Nair", phone: "+91 98001 11111", flatNo: "A-102" },
+  { id: 102, fullName: "Meera Pillai", phone: "+91 98002 22222", flatNo: "B-405" },
+  { id: 103, fullName: "Suresh Babu", phone: "+91 98003 33333", flatNo: "C-201" },
+  { id: 104, fullName: "Kavitha Rao", phone: "+91 98004 44444", flatNo: "D-304" },
+  { id: 105, fullName: "Ajay Mathur", phone: "+91 98005 55555", flatNo: "A-501" },
+  { id: 106, fullName: "Divya Menon", phone: "+91 98006 66666", flatNo: "B-108" },
+  { id: 107, fullName: "Sanjay Gupta", phone: "+91 98007 77777", flatNo: "C-303" },
+  { id: 108, fullName: "Vikram Malhotra", phone: "+91 98008 88888", flatNo: "A-302" },
+  { id: 109, fullName: "Priya Sharma", phone: "+91 98009 99999", flatNo: "B-204" },
+  { id: 110, fullName: "Anand Verma", phone: "+91 98010 00000", flatNo: "C-506" },
 ];
 
 function mapLive(data: EventVolunteerResponse[]): VolunteerRow[] {
@@ -84,10 +106,11 @@ function mapLive(data: EventVolunteerResponse[]): VolunteerRow[] {
     rawId: v.id,
     id: `V-${String(v.id).padStart(3, "0")}`,
     name: v.userName || `User #${v.userId}`,
+    contact: "",
+    flatNo: v.zone || "—",
     dept: v.role ?? v.zone ?? "General",
     shift: v.shift ?? "—",
     status: v.status,
-    contact: "",
     checkInTime:  v.checkInTime  ? new Date(v.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : undefined,
     checkOutTime: v.checkOutTime ? new Date(v.checkOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : undefined,
   }));
@@ -95,8 +118,8 @@ function mapLive(data: EventVolunteerResponse[]): VolunteerRow[] {
 
 // ── Assign / Edit dialog ──────────────────────────────────────────────────────
 
-interface VolForm { name: string; userId: string; dept: string; shift: string; zone: string }
-const EMPTY_FORM: VolForm = { name: "", userId: "", dept: "", shift: "", zone: "" };
+interface VolForm { name: string; contact: string; flatNo: string; userId: string; dept: string; shift: string; zone: string }
+const EMPTY_FORM: VolForm = { name: "", contact: "", flatNo: "", userId: "", dept: "", shift: "", zone: "" };
 
 interface AssignDialogProps {
   mode: "assign" | "edit";
@@ -107,17 +130,75 @@ interface AssignDialogProps {
 }
 
 function AssignDialog({ mode, initial, useMock, onClose, onSaved }: AssignDialogProps) {
+  const { user: currentUser } = useAuth();
+  const communityId = currentUser?.communityId ?? 1;
+
   const [form, setForm] = useState<VolForm>(
     initial
-      ? { name: initial.name, userId: String(initial.rawId), dept: initial.dept, shift: initial.shift, zone: "" }
+      ? { name: initial.name, contact: initial.contact, flatNo: initial.flatNo, userId: String(initial.rawId), dept: initial.dept, shift: initial.shift, zone: "" }
       : EMPTY_FORM
   );
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
+  const [userSuggestions, setUserSuggestions] = useState<Array<{ id: number; fullName: string; phone: string; flatNo: string }>>([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+
   const set = (k: keyof VolForm) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setForm(f => ({ ...f, [k]: e.target.value }));
+
+  useEffect(() => {
+    const q = form.name.trim();
+    if (q.length < 3) {
+      setUserSuggestions([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setSearchingUsers(true);
+
+    if (useMock) {
+      const matches = MOCK_APP_USERS.filter(u => u.fullName.toLowerCase().includes(q.toLowerCase()));
+      setUserSuggestions(matches);
+      setShowDropdown(matches.length > 0);
+      setSearchingUsers(false);
+    } else {
+      userService.searchUsers(communityId, q)
+        .then(users => {
+          if (isCancelled) return;
+          const mapped = (users || []).map(u => ({
+            id: u.id,
+            fullName: u.fullName || u.email,
+            phone: u.phone || "",
+            flatNo: u.flatNo || (u.block ? `${u.block}-${u.flatNo || ''}` : "—"),
+          }));
+          setUserSuggestions(mapped);
+          setShowDropdown(mapped.length > 0);
+        })
+        .catch(() => {
+          if (!isCancelled) setUserSuggestions([]);
+        })
+        .finally(() => {
+          if (!isCancelled) setSearchingUsers(false);
+        });
+    }
+
+    return () => { isCancelled = true; };
+  }, [form.name, useMock, communityId]);
+
+  const selectUserSuggestion = (u: { id: number; fullName: string; phone: string; flatNo: string }) => {
+    setForm(prev => ({
+      ...prev,
+      name: u.fullName,
+      contact: u.phone,
+      flatNo: u.flatNo,
+      userId: String(u.id),
+    }));
+    setShowDropdown(false);
+  };
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -134,10 +215,11 @@ function AssignDialog({ mode, initial, useMock, onClose, onSaved }: AssignDialog
           rawId: id,
           id: initial?.id ?? `V-${String(id).padStart(3, "0")}`,
           name: form.name.trim(),
+          contact: form.contact.trim(),
+          flatNo: form.flatNo.trim(),
           dept: form.dept,
           shift: form.shift,
           status: initial?.status ?? "Assigned",
-          contact: "",
           checkInTime: initial?.checkInTime,
           checkOutTime: initial?.checkOutTime,
         });
@@ -147,7 +229,7 @@ function AssignDialog({ mode, initial, useMock, onClose, onSaved }: AssignDialog
           userId: parseInt(form.userId) || 0,
           role: form.dept,
           shift: form.shift,
-          zone: form.zone || undefined,
+          zone: form.flatNo || form.zone || undefined,
         };
         const res = mode === "edit" && initial
           ? await eventVolunteerService.update(initial.rawId, req)
@@ -156,10 +238,11 @@ function AssignDialog({ mode, initial, useMock, onClose, onSaved }: AssignDialog
           rawId: res.id,
           id: `V-${String(res.id).padStart(3, "0")}`,
           name: res.userName || form.name,
+          contact: form.contact,
+          flatNo: form.flatNo || res.zone || "—",
           dept: res.role ?? form.dept,
           shift: res.shift ?? form.shift,
           status: res.status,
-          contact: "",
           checkInTime:  res.checkInTime  ? new Date(res.checkInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : undefined,
           checkOutTime: res.checkOutTime ? new Date(res.checkOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : undefined,
         });
@@ -195,9 +278,60 @@ function AssignDialog({ mode, initial, useMock, onClose, onSaved }: AssignDialog
             </div>
           )}
 
-          <div>
-            <label className={lbl}>Volunteer Name</label>
-            <input className={inp} placeholder="e.g. Ravi Kumar" value={form.name} onChange={set("name")} />
+          <div className="relative">
+            <label className={lbl}>
+              Volunteer Name <span className="text-[10px] text-indigo-500 font-normal">(Type 3+ letters to search)</span>
+            </label>
+            <div className="relative">
+              <input
+                className={inp}
+                placeholder="e.g. Rahul Nair"
+                value={form.name}
+                onChange={set("name")}
+                onFocus={() => { if (userSuggestions.length > 0) setShowDropdown(true); }}
+              />
+              {searchingUsers && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                </div>
+              )}
+            </div>
+
+            {showDropdown && userSuggestions.length > 0 && (
+              <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white rounded-xl border border-slate-200 shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100">
+                {userSuggestions.map(u => (
+                  <div
+                    key={u.id}
+                    onClick={() => selectUserSuggestion(u)}
+                    className="p-2.5 hover:bg-indigo-50/70 transition-colors cursor-pointer flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-7 h-7 rounded-full bg-indigo-100 text-[#4F46E5] font-black text-xs flex items-center justify-center shrink-0">
+                        {u.fullName[0]}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">{u.fullName}</p>
+                        <p className="text-[10px] text-slate-500 truncate">{u.phone}</p>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-600 font-mono text-[10px] font-bold shrink-0 border border-indigo-200/50">
+                      Flat: {u.flatNo}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Contact Number</label>
+              <input className={inp} placeholder="e.g. +91 98001 11111" value={form.contact} onChange={set("contact")} />
+            </div>
+            <div>
+              <label className={lbl}>Flat No.</label>
+              <input className={inp} placeholder="e.g. A-102" value={form.flatNo} onChange={set("flatNo")} />
+            </div>
           </div>
 
           {!useMock && (
@@ -222,11 +356,6 @@ function AssignDialog({ mode, initial, useMock, onClose, onSaved }: AssignDialog
                 {SHIFTS.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
-          </div>
-
-          <div>
-            <label className={lbl}>Zone <span className="font-normal text-slate-400">(optional)</span></label>
-            <input className={inp} placeholder="e.g. Gate A, North Block" value={form.zone} onChange={set("zone")} />
           </div>
 
           <div className="flex gap-3 pt-1">
@@ -307,6 +436,138 @@ function DeleteConfirm({ volunteer, useMock, onClose, onDeleted }: DeleteConfirm
   );
 }
 
+// ── Add Department Dialog ───────────────────────────────────────────────────
+
+interface AddDepartmentDialogProps {
+  useMock: boolean;
+  onClose: () => void;
+  onSaved: (dept: { name: string; head: string; total: number; present: number; color: string }) => void;
+}
+
+function AddDepartmentDialog({ useMock, onClose, onSaved }: AddDepartmentDialogProps) {
+  const [name, setName] = useState("");
+  const [head, setHead] = useState("");
+  const [total, setTotal] = useState(15);
+  const [color, setColor] = useState("#6366f1");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+
+  const PRESET_COLORS = ["#6366f1", "#4f46e5", "#0891b2", "#8b5cf6", "#be185d", "#d97706", "#0f766e", "#059669"];
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) { setErr("Department name is required."); return; }
+    setSaving(true);
+    setErr("");
+    try {
+      if (useMock) {
+        await new Promise(r => setTimeout(r, 400));
+        onSaved({ name: name.trim(), head: head.trim() || "Lead TBD", total: Number(total) || 10, present: 0, color });
+      } else {
+        const res = await eventDepartmentService.create({
+          name: name.trim(),
+          headName: head.trim() || "Lead TBD",
+          totalTarget: Number(total) || 10,
+          color,
+          description: description.trim() || undefined,
+        });
+        onSaved({
+          name: res.name,
+          head: res.headName || "Lead TBD",
+          total: res.totalTarget || 10,
+          present: res.presentCount || 0,
+          color: res.color || color,
+        });
+      }
+    } catch (ex: unknown) {
+      setErr((ex as Error).message ?? "Failed to save department.");
+      setSaving(false);
+    }
+  }
+
+  const inp = "w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400 bg-white text-slate-800 placeholder-slate-400";
+  const lbl = "block text-xs font-semibold text-slate-600 mb-1";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4"
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
+            <Users className="w-4 h-4 text-indigo-600" /> Add New Department
+          </h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {err && (
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-700">
+              <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {err}
+            </div>
+          )}
+
+          <div>
+            <label className={lbl}>Department Name *</label>
+            <input className={inp} placeholder="e.g. VIP Hospitality & Protocol" value={name} onChange={e => setName(e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Department Head / Lead</label>
+              <input className={inp} placeholder="e.g. Dr. Neha M." value={head} onChange={e => setHead(e.target.value)} />
+            </div>
+            <div>
+              <label className={lbl}>Target Volunteers</label>
+              <input className={inp} type="number" min={1} max={500} value={total} onChange={e => setTotal(Number(e.target.value))} />
+            </div>
+          </div>
+
+          <div>
+            <label className={lbl}>Department Color Accent</label>
+            <div className="flex items-center gap-2 pt-1">
+              {PRESET_COLORS.map(c => (
+                <button
+                  type="button"
+                  key={c}
+                  onClick={() => setColor(c)}
+                  className={`w-7 h-7 rounded-full transition-transform cursor-pointer border-2 ${color === c ? "scale-110 border-slate-800 shadow-md" : "border-transparent"}`}
+                  style={{ backgroundColor: c }}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className={lbl}>Description / Notes <span className="font-normal text-slate-400">(optional)</span></label>
+            <input className={inp} placeholder="e.g. Handles VIP stage entry & hospitality" value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button" onClick={onClose}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit" disabled={saving}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+            >
+              {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              Create Department
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function EventsVolunteers() {
@@ -328,6 +589,23 @@ export function EventsVolunteers() {
       .then(d => setVolunteers(mapLive(d)))
       .catch(e => setError(e.message ?? "Failed to load volunteers"))
       .finally(() => setLoading(false));
+  }, [useMock]);
+
+  const [customDepts, setCustomDepts] = useState<Array<{ name: string; head: string; total: number; present: number; color: string }>>([]);
+
+  useEffect(() => {
+    if (useMock) return;
+    eventDepartmentService.getAll().then(res => {
+      if (Array.isArray(res) && res.length > 0) {
+        setCustomDepts(res.map(d => ({
+          name: d.name,
+          head: d.headName || "Lead TBD",
+          total: d.totalTarget || 10,
+          present: d.presentCount || 0,
+          color: d.color || "#6366f1",
+        })));
+      }
+    }).catch(() => {});
   }, [useMock]);
 
   // ── Check-in / out ──
@@ -382,6 +660,11 @@ export function EventsVolunteers() {
     setModal(null);
   }
 
+  function onDepartmentSaved(dept: { name: string; head: string; total: number; present: number; color: string }) {
+    setCustomDepts(p => [...p, dept]);
+    setModal(null);
+  }
+
   // ── Filtered list ──
 
   const normalized = (s: string) => STATUS_META[s]?.label ?? s;
@@ -389,12 +672,55 @@ export function EventsVolunteers() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
     return volunteers.filter(v => {
-      if (q && !v.name.toLowerCase().includes(q) && !v.dept.toLowerCase().includes(q)) return false;
+      if (q && !v.name.toLowerCase().includes(q) && !v.contact.toLowerCase().includes(q) && !v.flatNo.toLowerCase().includes(q) && !v.dept.toLowerCase().includes(q)) return false;
       if (deptFilter !== "All" && v.dept !== deptFilter) return false;
       if (statusFilter !== "All" && normalized(v.status) !== statusFilter) return false;
       return true;
     });
   }, [volunteers, search, deptFilter, statusFilter]);
+
+  const liveDepartments = useMemo(() => {
+    const baseList = [...DEPARTMENTS, ...customDepts];
+    if (useMock) return baseList;
+
+    const deptMap: Record<string, { total: number; present: number; head: string }> = {};
+    
+    volunteers.forEach(v => {
+      const deptName = v.dept || "General";
+      if (!deptMap[deptName]) {
+        deptMap[deptName] = { total: 0, present: 0, head: v.name };
+      }
+      deptMap[deptName].total += 1;
+      if (normalized(v.status) === "Checked In") {
+        deptMap[deptName].present += 1;
+      }
+    });
+
+    const colors = ["#6366f1", "#4f46e5", "#0891b2", "#8b5cf6", "#be185d", "#d97706", "#0f766e", "#059669"];
+
+    const computed = Object.entries(deptMap).map(([name, data], idx) => ({
+      name,
+      head: data.head,
+      total: data.total,
+      present: data.present,
+      color: colors[idx % colors.length],
+    }));
+
+    // Merge custom departments that don't have volunteers assigned yet
+    customDepts.forEach((cd, idx) => {
+      if (!deptMap[cd.name]) {
+        computed.push({
+          name: cd.name,
+          head: cd.head,
+          total: cd.total,
+          present: 0,
+          color: cd.color || colors[(computed.length + idx) % colors.length],
+        });
+      }
+    });
+
+    return computed.length > 0 ? computed : baseList;
+  }, [volunteers, customDepts, useMock]);
 
   const totalVols    = useMock ? DEPARTMENTS.reduce((a, d) => a + d.total, 0) : volunteers.length;
   const totalPresent = useMock ? DEPARTMENTS.reduce((a, d) => a + d.present, 0) : volunteers.filter(v => normalized(v.status) === "Checked In").length;
@@ -410,6 +736,9 @@ export function EventsVolunteers() {
       )}
       {modal?.type === "delete" && (
         <DeleteConfirm volunteer={modal.volunteer} useMock={useMock} onClose={() => setModal(null)} onDeleted={onDeleted} />
+      )}
+      {modal?.type === "addDepartment" && (
+        <AddDepartmentDialog useMock={useMock} onClose={() => setModal(null)} onSaved={onDepartmentSaved} />
       )}
 
       {/* ── Error banner ── */}
@@ -427,7 +756,7 @@ export function EventsVolunteers() {
         {[
           { label: "Total Volunteers", value: totalVols, color: "#4f46e5" },
           { label: "Present Today",    value: totalPresent, color: "#10b981" },
-          { label: "Departments",      value: useMock ? DEPARTMENTS.length : "—", color: "#6366f1" },
+          { label: "Departments",      value: liveDepartments.length, color: "#6366f1" },
           { label: "Attendance Rate",  value: totalVols > 0 ? `${Math.round(totalPresent / totalVols * 100)}%` : "—", color: "#d97706" },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
@@ -437,53 +766,54 @@ export function EventsVolunteers() {
         ))}
       </div>
 
-      {/* ── Department grid (mock only) — cards are clickable to filter ── */}
-      {useMock && (
-        <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
-          <div className="flex items-center justify-between mb-3 sm:mb-5">
-            <h2 className="font-bold text-slate-800 text-xs sm:text-base">Departments</h2>
-            <button className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm">
-              <Plus className="w-3.5 h-3.5" /> Add Department
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-            {DEPARTMENTS.map(dept => {
-              const pct = Math.round((dept.present / dept.total) * 100);
-              const active = deptFilter === dept.name;
-              return (
-                <div
-                  key={dept.name}
-                  onClick={() => setDeptFilter(active ? "All" : dept.name)}
-                  className={`p-3 sm:p-4 rounded-xl border transition-all cursor-pointer ${
-                    active
-                      ? "border-indigo-300 bg-indigo-50 shadow-md"
-                      : "border-slate-100 bg-slate-50/60 hover:bg-white hover:shadow-md"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center" style={{ background: `${dept.color}18` }}>
-                      <Users className="w-4 h-4" style={{ color: dept.color }} />
-                    </div>
-                    <span className="text-xs font-black" style={{ color: dept.color }}>{pct}%</span>
-                  </div>
-                  <p className="font-bold text-slate-800 text-xs sm:text-sm">{dept.name}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">Head: {dept.head}</p>
-                  <div className="mt-3 space-y-1.5">
-                    <div className="flex justify-between text-[10px] font-semibold">
-                      <span className="text-slate-500">{dept.present} present</span>
-                      <span className="text-slate-400">of {dept.total}</span>
-                    </div>
-                    <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ background: dept.color, width: `${pct}%` }} />
-                    </div>
-                  </div>
-                  {active && <p className="text-[9px] font-bold text-indigo-500 mt-2">Filtering by this dept ×</p>}
-                </div>
-              );
-            })}
-          </div>
+      {/* ── Department grid — cards are clickable to filter ── */}
+      <div className="bg-white rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">
+        <div className="flex items-center justify-between mb-3 sm:mb-5">
+          <h2 className="font-bold text-slate-800 text-xs sm:text-base">Departments</h2>
+          <button
+            onClick={() => setModal({ type: "addDepartment" })}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Department
+          </button>
         </div>
-      )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+          {liveDepartments.map(dept => {
+            const pct = dept.total > 0 ? Math.round((dept.present / dept.total) * 100) : 0;
+            const active = deptFilter === dept.name;
+            return (
+              <div
+                key={dept.name}
+                onClick={() => setDeptFilter(active ? "All" : dept.name)}
+                className={`p-3 sm:p-4 rounded-xl border transition-all cursor-pointer ${
+                  active
+                    ? "border-indigo-300 bg-indigo-50 shadow-md"
+                    : "border-slate-100 bg-slate-50/60 hover:bg-white hover:shadow-md"
+                }`}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center" style={{ background: `${dept.color}18` }}>
+                    <Users className="w-4 h-4" style={{ color: dept.color }} />
+                  </div>
+                  <span className="text-xs font-black" style={{ color: dept.color }}>{pct}%</span>
+                </div>
+                <p className="font-bold text-slate-800 text-xs sm:text-sm">{dept.name}</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Head: {dept.head}</p>
+                <div className="mt-3 space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-semibold">
+                    <span className="text-slate-500">{dept.present} present</span>
+                    <span className="text-slate-400">of {dept.total}</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ background: dept.color, width: `${pct}%` }} />
+                  </div>
+                </div>
+                {active && <p className="text-[9px] font-bold text-indigo-500 mt-2">Filtering by this dept ×</p>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {/* ── Volunteer table ── */}
       <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
@@ -505,7 +835,7 @@ export function EventsVolunteers() {
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
               <input
                 className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-300 bg-white text-slate-800 placeholder-slate-400"
-                placeholder="Search by name or department…"
+                placeholder="Search by volunteer name, contact, flat no., or dept…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -560,10 +890,10 @@ export function EventsVolunteers() {
 
         {!loading && (
           <div className="overflow-x-auto">
-            <Table className="text-xs sm:text-sm min-w-[700px]">
+            <Table className="text-xs sm:text-sm min-w-[750px]">
               <TableHeader>
                 <TableRow className="bg-slate-50/80 border-b border-slate-100 hover:bg-slate-50/80">
-                  {["ID", "Name", "Department", "Shift", "Status", "Check-in", "Actions"].map(h => (
+                  {["ID", "Volunteer Name", "Contact Number", "Flat No.", "Department", "Shift", "Status", "Check-in", "Actions"].map(h => (
                     <TableHead
                       key={h}
                       className={`px-3 sm:px-5 py-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap h-auto ${
@@ -579,7 +909,7 @@ export function EventsVolunteers() {
               <TableBody className="divide-y divide-slate-50">
                 {filtered.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-10 text-sm text-slate-400">
+                    <TableCell colSpan={9} className="text-center py-10 text-sm text-slate-400">
                       {search || deptFilter !== "All" || statusFilter !== "All"
                         ? "No volunteers match your filters."
                         : "No volunteers assigned yet. Click \"Assign Volunteer\" to add one."}
@@ -600,7 +930,7 @@ export function EventsVolunteers() {
                         {v.id}
                       </TableCell>
 
-                      {/* Name */}
+                      {/* Volunteer Name */}
                       <TableCell className="px-3 sm:px-5 py-3">
                         <div className="flex items-center gap-2">
                           <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-600 to-violet-500 flex items-center justify-center text-white text-[10px] font-black flex-shrink-0">
@@ -608,6 +938,18 @@ export function EventsVolunteers() {
                           </div>
                           <span className="font-semibold text-slate-800 text-xs sm:text-sm">{v.name}</span>
                         </div>
+                      </TableCell>
+
+                      {/* Contact Number */}
+                      <TableCell className="px-3 sm:px-5 py-3 text-slate-600 text-xs font-mono">
+                        {v.contact || "—"}
+                      </TableCell>
+
+                      {/* Flat No */}
+                      <TableCell className="px-3 sm:px-5 py-3">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 font-mono font-bold text-slate-700 dark:text-slate-300 text-xs">
+                          {v.flatNo || "—"}
+                        </span>
                       </TableCell>
 
                       {/* Dept */}

@@ -51,6 +51,7 @@ import { AdminVenues } from "./AdminVenues";
 import { AdminCommunity } from "./AdminCommunity";
 import { AdminDirectory } from "./AdminDirectory";
 import { AdminRoleManagement } from "./AdminRoleManagement";
+import { EventsAccessManagement } from "../events/EventsAccessManagement";
 import { LogsDashboard } from "./LogsDashboard";
 import { AuditTrail } from "./AuditTrail";
 import { AdminSportsMeta } from "./AdminSportsMeta";
@@ -82,6 +83,7 @@ interface AdminOverviewData {
 const TAB_ITEMS = [
   { id: "overview",   label: "Overview",      icon: LayoutDashboard },
   { id: "users-roles", label: "Users & Roles", icon: Users },
+  { id: "access-roles", label: "Access & Roles", icon: Shield },
   { id: "kyc",        label: "KYC Review",    icon: ShieldCheck },
   { id: "modules",    label: "Modules",       icon: ToggleLeft },
   { id: "bulk",       label: "Bulk Upload",   icon: FileSpreadsheet },
@@ -792,7 +794,7 @@ export function AdminHub() {
     if (t.id === "kyc") return isSuperAdmin || isAdmin;
     if (t.id === "modules") return isSuperAdmin;
     if (t.id === "community") return canManageCommunities;
-    if (t.id === "users-roles") return isSuperAdmin || isAdmin || hasPermission("Manage Roles");
+    if (t.id === "users-roles" || t.id === "access-roles") return isSuperAdmin || isAdmin || hasPermission("Manage Roles");
     return true;
   });
 
@@ -874,6 +876,7 @@ export function AdminHub() {
           />
         )}
         {activeTab === "users-roles" && <AdminRoleManagement />}
+        {activeTab === "access-roles" && <EventsAccessManagement />}
         {activeTab === "kyc" && <AdminDashboard />}
         {activeTab === "modules" && <ModulesTab />}
         {activeTab === "bulk" && <AdminBulkUpload />}

@@ -168,7 +168,7 @@ function AccessMatrixTable({
               { key: "view", perm: row.view },
               { key: "createEdit", perm: row.createEdit },
               { key: "delete", perm: row.delete },
-            ].filter(a => a.perm);
+            ].filter((a): a is { key: "view" | "createEdit" | "delete"; perm: string } => Boolean(a.perm));
 
             return actions.map((action, ai) => (
               <tr key={`${idx}-${action.key}`} className="hover:bg-slate-50/60 transition-colors">

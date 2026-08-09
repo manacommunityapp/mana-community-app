@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Car, Shield, Stethoscope, Wifi, Zap, Wind, Save, RefreshCw, CheckCircle2, AlertTriangle, Edit3 } from "lucide-react";
-import { eventVenueService, EventZoneDto, EventFacilityDto } from "../../../services/events/eventVenueService";
+import { eventVenueService, type EventZoneDto, type EventFacilityDto } from "../../../services/events/eventVenueService";
 
 const FACILITY_ICONS: Record<string, any> = {
   "Power Supply": Zap,

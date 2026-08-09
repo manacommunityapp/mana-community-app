@@ -14,13 +14,98 @@ import { GlassCard, TouchButton, StatusChip, BottomSheet } from "./redesign/Even
 import { EventAICopilotDrawer } from "./redesign/EventAICopilotDrawer";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 
+import { useAuth } from "../../../contexts/AuthContext";
+import { useEventMock } from "./EventMockToggle";
+import { eventService, type EventResponse, type DashboardStatsResponse } from "../../../services/events/eventService";
+import { eventTaskService, type EventTaskResponse } from "../../../services/events/eventTaskService";
+import { eventProgramService, type EventProgramResponse } from "../../../services/events/eventProgramService";
+
+const DEFAULT_BANNER_EVENTS = [
+  {
+    id: "ev-1",
+    title: "Ganesh Chaturthi Utsav 2026",
+    subtitle: "Grand 10-Day Festival, Cultural Competitions & Community Feasts",
+    location: "Main Community Grounds, Sector 4",
+    date: "Aug 27 - Sep 06, 2026",
+    registered: "1,842 passes issued",
+    category: "Grand Festival",
+    bgGradient: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #6366F1 100%)",
+    image: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
+  },
+  {
+    id: "ev-2",
+    title: "Annual Sports Olympiad 2026",
+    subtitle: "Cricket, Badminton, Swimming & Athletics Tournaments",
+    location: "Central Sports Arena",
+    date: "Sep 14 - Sep 18, 2026",
+    registered: "412 athletes registered",
+    category: "Sports Championship",
+    bgGradient: "linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #FF6B00 100%)",
+    image: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80",
+  },
+];
+
+const DEFAULT_TODAYS_ACTIVITIES = [
+  { time: "09:00 AM", title: "Morning Aarti & Prasadam Distribution", dept: "Rituals Team", status: "Live", count: "450 attendees" },
+  { time: "02:30 PM", title: "Children's Drawing Competition", dept: "Cultural Wing", status: "Upcoming", count: "120 kids" },
+  { time: "06:00 PM", title: "Volunteers Shift Briefing", dept: "Ops Division", status: "Planning", count: "45 volunteers" },
+];
+
+const DEFAULT_PENDING_TASKS = [
+  { id: 101, task: "Confirm catering vendor for Maha Prasadam", priority: "high", due: "2 days", done: false },
+  { id: 102, task: "Send QR pass reminder emails to pending registrants", priority: "medium", due: "Today", done: false },
+  { id: 103, task: "Finalize stage sound & light layout diagram", priority: "high", due: "3 days", done: false },
+  { id: 104, task: "Collect pending sponsor payments from Apollo", priority: "medium", due: "1 week", done: false },
+];
+
 export function EventsDashboard() {
+  const { user } = useAuth();
+  const { useMock } = useEventMock();
+  const [loadingLive, setLoadingLive] = useState(false);
+  const [liveEvents, setLiveEvents] = useState<EventResponse[]>([]);
+  const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
+  const [liveTasks, setLiveTasks] = useState<EventTaskResponse[]>([]);
+  const [livePrograms, setLivePrograms] = useState<EventProgramResponse[]>([]);
+
   // Live ticking countdown state for Ganesh Utsav 2026
   const [timeLeft, setTimeLeft] = useState({ days: 18, hours: 14, mins: 32, secs: 45 });
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [showAICopilot, setShowAICopilot] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingLive(true);
+
+    Promise.all([
+      eventService.getAllEvents().catch(() => []),
+      eventService.getDashboardStats().catch(() => null),
+      eventTaskService.getAll().catch(() => []),
+    ]).then(([events, stats, tasks]) => {
+      if (!isMounted) return;
+      if (Array.isArray(events) && events.length > 0) {
+        setLiveEvents(events);
+        eventProgramService.getByEvent(events[0].id).then(progs => {
+          if (isMounted && Array.isArray(progs) && progs.length > 0) setLivePrograms(progs);
+        }).catch(() => {});
+      }
+      if (stats) setLiveStats(stats);
+      if (Array.isArray(tasks) && tasks.length > 0) setLiveTasks(tasks);
+      setLoadingLive(false);
+    });
+
+    return () => { isMounted = false; };
+  }, [useMock]);
+
+  const handleToggleTask = async (id: number) => {
+    setLiveTasks(prev => prev.map(t => t.id === id ? { ...t, done: !t.done } : t));
+    try {
+      await eventTaskService.toggleDone(id);
+    } catch (e) {
+      console.warn("Could not toggle task status:", e);
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -35,12 +120,18 @@ export function EventsDashboard() {
     return () => clearInterval(timer);
   }, []);
 
+  const totalEventsCount = liveStats ? String(liveStats.totalEvents) : liveEvents.length > 0 ? String(liveEvents.length) : "24";
+  const registrationsCount = liveStats ? liveStats.totalRegistrations.toLocaleString() : "1,842";
+  const volunteersCount = liveStats && liveStats.totalVolunteers ? String(liveStats.totalVolunteers) : "318";
+  const budgetSpent = liveStats && liveStats.totalExpenses ? `₹${(liveStats.totalExpenses / 100000).toFixed(2)}L` : "₹4.82L";
+  const revenueRaised = liveStats && liveStats.totalRevenue ? `₹${(liveStats.totalRevenue / 100000).toFixed(2)}L` : "₹6.10L";
+
   const kpis = [
-    { label: "Total Events", value: "24", sub: "8 active festivals", icon: CalendarDays, color: "#4F46E5", bg: "rgba(79, 70, 229, 0.12)", trend: "+3 this month" },
-    { label: "Registrations", value: "1,842", sub: "↑ 14% vs last week", icon: Ticket, color: "#7C3AED", bg: "rgba(124, 58, 237, 0.12)", trend: "+204 this week" },
-    { label: "Volunteers", value: "318", sub: "94% Duty assigned", icon: Users, color: "#16A34A", bg: "rgba(22, 163, 74, 0.12)", trend: "12 Teams" },
-    { label: "Budget Spent", value: "₹4.82L", sub: "64% of ₹7.5L total", icon: DollarSign, color: "#2563EB", bg: "rgba(37, 99, 235, 0.12)", trend: "₹2.68L left" },
-    { label: "Sponsors Raised", value: "₹6.10L", sub: "19 Active partners", icon: Star, color: "#F59E0B", bg: "rgba(245, 158, 11, 0.12)", trend: "5 pending" },
+    { label: "Total Events", value: totalEventsCount, sub: `${liveEvents.length || 8} active events`, icon: CalendarDays, color: "#4F46E5", bg: "rgba(79, 70, 229, 0.12)", trend: liveEvents.length > 0 ? `+${liveEvents.length} live` : "+3 this month" },
+    { label: "Registrations", value: registrationsCount, sub: "↑ 14% vs last week", icon: Ticket, color: "#7C3AED", bg: "rgba(124, 58, 237, 0.12)", trend: "+204 this week" },
+    { label: "Volunteers", value: volunteersCount, sub: "94% Duty assigned", icon: Users, color: "#16A34A", bg: "rgba(22, 163, 74, 0.12)", trend: "12 Teams" },
+    { label: "Budget Spent", value: budgetSpent, sub: "64% of ₹7.5L total", icon: DollarSign, color: "#2563EB", bg: "rgba(37, 99, 235, 0.12)", trend: "₹2.68L left" },
+    { label: "Sponsors Raised", value: revenueRaised, sub: "19 Active partners", icon: Star, color: "#F59E0B", bg: "rgba(245, 158, 11, 0.12)", trend: "5 pending" },
     { label: "Donations", value: "₹6.20L", sub: "Cash & Kind", icon: TrendingUp, color: "#EC4899", bg: "rgba(236, 72, 153, 0.12)", trend: "+₹80K today" },
     { label: "Food Prepared", value: "85%", sub: "4,200 plates est", icon: Utensils, color: "#8B5CF6", bg: "rgba(139, 92, 246, 0.12)", trend: "On schedule" },
     { label: "Auction Revenue", value: "₹2.10L", sub: "14 items sold", icon: Gavel, color: "#06B6D4", bg: "rgba(6, 182, 212, 0.12)", trend: "Live now" },
@@ -72,45 +163,41 @@ export function EventsDashboard() {
     { name: "Performers", value: 204, color: "#EC4899" },
   ];
 
-  const bannerEvents = [
-    {
-      id: "ev-1",
-      title: "Ganesh Chaturthi Utsav 2026",
-      subtitle: "Grand 10-Day Festival, Cultural Competitions & Community Feasts",
-      location: "Main Community Grounds, Sector 4",
-      date: "Aug 27 - Sep 06, 2026",
-      registered: "1,842 passes issued",
-      category: "Grand Festival",
-      bgGradient: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #6366F1 100%)",
-      image: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
-    },
-    {
-      id: "ev-2",
-      title: "Annual Sports Olympiad 2026",
-      subtitle: "Cricket, Badminton, Swimming & Athletics Tournaments",
-      location: "Central Sports Arena",
-      date: "Sep 14 - Sep 18, 2026",
-      registered: "412 athletes registered",
-      category: "Sports Championship",
-      bgGradient: "linear-gradient(135deg, #4F46E5 0%, #6366F1 50%, #FF6B00 100%)",
-      image: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80",
-    },
-  ];
+  const bannerEvents = liveEvents.length > 0 ? liveEvents.slice(0, 3).map((e, idx) => ({
+    id: `ev-${e.id}`,
+    title: e.title,
+    subtitle: e.description || "Community Festival & Event Celebration",
+    location: e.location || e.venue || "Main Community Grounds",
+    date: `${e.startDate}${e.endDate ? " - " + e.endDate : ""}`,
+    registered: `${e.attendees || 0} passes issued`,
+    category: e.category || e.type || "Community Event",
+    bgGradient: idx % 2 === 0
+      ? "linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #6366F1 100%)"
+      : "linear-gradient(135deg, #059669 0%, #0891b2 50%, #4F46E5 100%)",
+    image: e.imageUrl || "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
+  })) : DEFAULT_BANNER_EVENTS;
 
-  const currentBanner = bannerEvents[carouselIndex];
+  const currentBanner = bannerEvents[carouselIndex] || bannerEvents[0];
 
-  const todaysActivities = [
-    { time: "09:00 AM", title: "Morning Aarti & Prasadam Distribution", dept: "Rituals Team", status: "Live", count: "450 attendees" },
-    { time: "02:30 PM", title: "Children's Drawing Competition", dept: "Cultural Wing", status: "Upcoming", count: "120 kids" },
-    { time: "06:00 PM", title: "Volunteers Shift Briefing", dept: "Ops Division", status: "Planning", count: "45 volunteers" },
-  ];
+  const todaysActivities = livePrograms.length > 0
+    ? livePrograms.slice(0, 4).map(p => ({
+        time: p.startTime || "10:00 AM",
+        title: p.title,
+        dept: p.venue || p.programType || "Main Stage",
+        status: p.slotStatus || "Live",
+        count: `${p.registeredCount || 0} registered`,
+      }))
+    : DEFAULT_TODAYS_ACTIVITIES;
 
-  const pendingTasks = [
-    { task: "Confirm catering vendor for Maha Prasadam", priority: "high", due: "2 days" },
-    { task: "Send QR pass reminder emails to pending registrants", priority: "medium", due: "Today" },
-    { task: "Finalize stage sound & light layout diagram", priority: "high", due: "3 days" },
-    { task: "Collect pending sponsor payments from Apollo", priority: "medium", due: "1 week" },
-  ];
+  const pendingTasks = liveTasks.length > 0
+    ? liveTasks.map(t => ({
+        id: t.id,
+        task: t.title,
+        priority: t.priority || "medium",
+        due: t.dueDate || "Today",
+        done: t.done,
+      }))
+    : DEFAULT_PENDING_TASKS;
 
   return (
     <div className="space-y-6 pb-12">
@@ -123,6 +210,15 @@ export function EventsDashboard() {
           <span className="hidden sm:inline text-[11px] text-slate-500 dark:text-slate-400 font-medium">
             • Real-time control & analytics
           </span>
+          {loadingLive ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold border border-indigo-100">
+              <Loader2 className="w-3 h-3 animate-spin text-indigo-500" /> Loading API Data...
+            </span>
+          ) : !useMock ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live API Connected ({liveEvents.length} events)
+            </span>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
@@ -255,7 +351,7 @@ export function EventsDashboard() {
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Daily Ticket Registrations</h3>
             </div>
             <span className="text-xs font-bold text-[#4F46E5] bg-indigo-50 dark:bg-slate-800 px-3 py-1 rounded-full border border-indigo-200 dark:border-slate-700">
-              Total: 1,842 Passes
+              Total: {registrationsCount} Passes
             </span>
           </div>
 
@@ -355,15 +451,20 @@ export function EventsDashboard() {
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <ClipboardCheck className="w-4 h-4 text-[#4F46E5]" /> Pending Action Items
             </h3>
-            <span className="text-xs font-bold text-rose-500">4 Critical</span>
+            <span className="text-xs font-bold text-rose-500">{pendingTasks.filter(t => !t.done).length} Actionable</span>
           </div>
 
           <div className="space-y-2.5">
-            {pendingTasks.map((t, idx) => (
-              <div key={idx} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
+            {pendingTasks.map((t) => (
+              <div key={t.id} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <input type="checkbox" className="w-4 h-4 rounded-md accent-[#4F46E5] cursor-pointer" />
-                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{t.task}</span>
+                  <input
+                    type="checkbox"
+                    checked={t.done}
+                    onChange={() => handleToggleTask(t.id)}
+                    className="w-4 h-4 rounded-md accent-[#4F46E5] cursor-pointer"
+                  />
+                  <span className={`text-xs font-semibold truncate ${t.done ? "line-through text-slate-400" : "text-slate-800 dark:text-slate-200"}`}>{t.task}</span>
                 </div>
                 <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
                   t.priority === "high" ? "bg-rose-100 text-rose-600 border border-rose-200" : "bg-amber-100 text-amber-600 border border-amber-200"
@@ -418,8 +519,8 @@ export function EventsDashboard() {
             <p className="text-xs font-mono text-orange-400 mt-2 font-bold">PASS-8849-2026-GANESH</p>
           </div>
           <div>
-            <h4 className="text-base font-extrabold text-slate-900 dark:text-white">Sandeep Kumar (VIP Pass)</h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Main Gate Entry • Seat Row A-12</p>
+            <h4 className="text-base font-extrabold text-slate-900 dark:text-white">{user?.fullName || "Member Pass"} (VIP Pass)</h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Main Gate Entry • Community Member ID #{user?.userId || 101}</p>
           </div>
           <TouchButton variant="primary" icon={Download} fullWidth onClick={() => alert("Pass downloaded!")}>
             Download Digital Ticket PDF

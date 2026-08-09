@@ -2,7 +2,7 @@ import { NavLink, Outlet, useLocation } from "react-router";
 import {
   LayoutDashboard, CalendarDays, Ticket, Users,
   HandHeart, UtensilsCrossed, ImageIcon, ChevronRight,
-  Database, Wifi, Shield,
+  Database, Wifi, Shield, UserRound,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -16,13 +16,13 @@ import { CreateEventButton } from "./EventsCreate";
 
 const navItems = [
   { to: "/events",              label: "Dashboard",        icon: LayoutDashboard, end: true, permission: VIEW_EVENT_DASHBOARD  },
+  { to: "/events/member-flow",  label: "Member Flow",      icon: UserRound,                  permission: REGISTER_EVENT, altPermission: VIEW_EVENTS },
   { to: "/events/schedule",     label: "Events & Schedule",icon: CalendarDays,              permission: VIEW_EVENT_SCHEDULE   },
   { to: "/events/registration", label: "Registration",     icon: Ticket,                    permission: VIEW_EVENT_REGISTRATION, altPermission: REGISTER_EVENT },
   { to: "/events/people",       label: "People",           icon: Users,                     permission: VIEW_EVENT_PEOPLE     },
   { to: "/events/fundraising",  label: "Fundraising",      icon: HandHeart,                 permission: VIEW_EVENT_FUNDRAISING },
   { to: "/events/operations",   label: "Operations",       icon: UtensilsCrossed,           permission: VIEW_EVENT_OPERATIONS },
   { to: "/events/media",        label: "Media & Reports",  icon: ImageIcon,                 permission: VIEW_EVENT_MEDIA, altPermission: VIEW_EVENT_GALLERY },
-  { to: "/events/access",       label: "Access & Roles",   icon: Shield,                    permission: VIEW_EVENTS, adminOnly: true },
 ];
 
 function DataModeToggle() {

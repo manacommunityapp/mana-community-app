@@ -3,14 +3,18 @@ import { apiClient } from "../common/apiClient";
 export interface EventGalleryItemResponse {
   id: number;
   eventId: number;
+  eventName?: string;
   url: string;
   thumbnailUrl: string | null;
   mediaType: string;
   albumName: string | null;
+  dayLabel?: string;
+  category?: string;
   caption: string | null;
   featured: boolean;
   sortOrder: number;
   uploadedByName: string;
+  uploaderName?: string;
   createdAt: string;
 }
 
