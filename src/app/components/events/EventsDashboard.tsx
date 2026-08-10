@@ -293,6 +293,55 @@ export function EventsDashboard() {
     }
   }
 
+  // ── Derived: today's schedule ─────────────────────────────────────────────
+  const todaySchedule = useMemo(() => {
+    if (useMock || events.length === 0) return MOCK_ACTIVITIES;
+    const today = new Date().toISOString().slice(0, 10);
+    const filtered = events.filter(ev =>
+      ev.startDate === today ||
+      (ev.startDate <= today && (ev.endDate ?? ev.startDate) >= today)
+    );
+    if (filtered.length === 0) return [];
+    return filtered.slice(0, 4).map(ev => {
+      const now = Date.now();
+      const start = new Date(`${ev.startDate}${ev.startTime ? "T" + ev.startTime : "T00:00:00"}`).getTime();
+      const end   = ev.endDate
+        ? new Date(`${ev.endDate}${ev.endTime ? "T" + ev.endTime : "T23:59:59"}`).getTime()
+        : start + 7200000;
+      const status = now >= start && now <= end ? "Live" : now < start ? "Upcoming" : "Done";
+      return {
+        time: ev.startTime
+          ? new Date(`${ev.startDate}T${ev.startTime}`).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "All Day",
+        title: ev.title,
+        dept: ev.organizerName || ev.type || "—",
+        status,
+        count: `${ev.attendees} registered`,
+      };
+    });
+  }, [useMock, events]);
+
+  // ── Derived: pending tasks ────────────────────────────────────────────────
+  const pendingTasks = useMemo(() => {
+    if (useMock || tasks.length === 0) return MOCK_TASKS;
+    return tasks
+      .filter(t => !tasksDone[String(t.id)] && !t.done)
+      .slice(0, 5)
+      .map(t => ({
+        id: String(t.id),
+        task: t.title,
+        priority: t.priority?.toLowerCase() === "high" ? "high" : "medium",
+        due: t.dueDate
+          ? (() => {
+              const diff = Math.ceil((new Date(t.dueDate).getTime() - Date.now()) / 86400000);
+              if (diff <= 0) return "Overdue";
+              if (diff === 1) return "Tomorrow";
+              return `${diff} days`;
+            })()
+          : "—",
+      }));
+  }, [useMock, tasks, tasksDone]);
+
   // ── Derived: KPI cards ────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     if (useMock) return MOCK_KPIS;
@@ -413,32 +462,6 @@ export function EventsDashboard() {
 
   // ── Derived: today's schedule ─────────────────────────────────────────────
   const todaySchedule = useMemo(() => {
-    if (useMock || events.length === 0) return MOCK_ACTIVITIES;
-    const today = new Date().toISOString().slice(0, 10);
-    const filtered = events.filter(ev =>
-      ev.startDate === today ||
-      (ev.startDate <= today && (ev.endDate ?? ev.startDate) >= today)
-    );
-    if (filtered.length === 0) return [];
-    return filtered.slice(0, 4).map(ev => {
-      const now = Date.now();
-      const start = new Date(`${ev.startDate}${ev.startTime ? "T" + ev.startTime : "T00:00:00"}`).getTime();
-      const end   = ev.endDate
-        ? new Date(`${ev.endDate}${ev.endTime ? "T" + ev.endTime : "T23:59:59"}`).getTime()
-        : start + 7200000;
-      const status = now >= start && now <= end ? "Live" : now < start ? "Upcoming" : "Done";
-      return {
-        time: ev.startTime
-          ? new Date(`${ev.startDate}T${ev.startTime}`).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-          : "All Day",
-        title: ev.title,
-        dept: ev.organizerName || ev.type || "—",
-        status,
-        count: `${ev.attendees} registered`,
-      };
-    });
-  }, [useMock, events]);
-
   // ── Derived: today's schedule & duty chart data ───────────────────────────
   const scheduleDutyChartData = useMemo(() => {
     const timeSlots = ["08:00 AM", "10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM", "08:00 PM"];
@@ -472,27 +495,6 @@ export function EventsDashboard() {
       volunteers: counts[t].volunteers || (stats?.totalVolunteers ? Math.ceil(stats.totalVolunteers / timeSlots.length) : 0),
     }));
   }, [useMock, events, tasks, stats]);
-
-  // ── Derived: pending tasks ────────────────────────────────────────────────
-  const pendingTasks = useMemo(() => {
-    if (useMock || tasks.length === 0) return MOCK_TASKS;
-    return tasks
-      .filter(t => !tasksDone[String(t.id)] && !t.done)
-      .slice(0, 5)
-      .map(t => ({
-        id: String(t.id),
-        task: t.title,
-        priority: t.priority?.toLowerCase() === "high" ? "high" : "medium",
-        due: t.dueDate
-          ? (() => {
-              const diff = Math.ceil((new Date(t.dueDate).getTime() - Date.now()) / 86400000);
-              if (diff <= 0) return "Overdue";
-              if (diff === 1) return "Tomorrow";
-              return `${diff} days`;
-            })()
-          : "—",
-      }));
-  }, [useMock, tasks, tasksDone]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
