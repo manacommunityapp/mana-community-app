@@ -460,8 +460,6 @@ export function EventsDashboard() {
     return entries.length > 0 ? entries : MOCK_PIE;
   }, [useMock, registrations, stats]);
 
-  // ── Derived: today's schedule ─────────────────────────────────────────────
-  const todaySchedule = useMemo(() => {
   // ── Derived: today's schedule & duty chart data ───────────────────────────
   const scheduleDutyChartData = useMemo(() => {
     const timeSlots = ["08:00 AM", "10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM", "08:00 PM"];
