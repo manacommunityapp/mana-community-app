@@ -61,6 +61,13 @@ export interface DashboardStatsResponse {
   totalVolunteers: number;
   totalRevenue: number;
   totalExpenses: number;
+  foodPreparedPercentage?: number;
+  foodPlatesCount?: number;
+  auctionRevenue?: number;
+  auctionItemCount?: number;
+  todaysScheduleCount?: number;
+  todaysDutyCount?: number;
+  pendingActionItemsCount?: number;
 }
 
 export interface RegistrationResponse {
