@@ -207,6 +207,7 @@ export function EventsDashboard() {
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState("");
   const [stats, setStats]               = useState<DashboardStatsResponse | null>(null);
+  const [analytics, setAnalytics]       = useState<DashboardAnalyticsResponse | null>(null);
   const [events, setEvents]             = useState<EventResponse[]>([]);
   const [sponsors, setSponsors]         = useState<EventSponsorResponse[]>([]);
   const [sponsorTotal, setSponsorTotal] = useState(0);
@@ -224,13 +225,15 @@ export function EventsDashboard() {
 
     Promise.allSettled([
       eventService.getDashboardStats(),
+      eventService.getDashboardAnalytics(),
       eventService.getAllEvents(),
       eventSponsorService.getAll(),
       eventDonationService.getAll(),
       eventExpenseService.getAll(),
       eventTaskService.getAll(),
-    ]).then(([statsR, eventsR, sponsorsR, donationsR, expensesR, tasksR]) => {
+    ]).then(([statsR, analyticsR, eventsR, sponsorsR, donationsR, expensesR, tasksR]) => {
       if (statsR.status === "fulfilled") setStats(statsR.value);
+      if (analyticsR.status === "fulfilled") setAnalytics(analyticsR.value);
 
       if (eventsR.status === "fulfilled") {
         const evs = eventsR.value;
@@ -264,7 +267,7 @@ export function EventsDashboard() {
         setTasksDone(map);
       }
 
-      const anyFailed = [statsR, eventsR, sponsorsR, donationsR, expensesR, tasksR].some(r => r.status === "rejected");
+      const anyFailed = [statsR, analyticsR, eventsR, sponsorsR, donationsR, expensesR, tasksR].some(r => r.status === "rejected");
       if (anyFailed) setError("Some data failed to load — partial results shown.");
     }).finally(() => setLoading(false));
   }
@@ -421,15 +424,17 @@ export function EventsDashboard() {
 
   // ── Derived: registration trend ───────────────────────────────────────────
   const regTrendData = useMemo(() => {
+    if (!useMock && analytics?.dailyRegistrations?.length) return analytics.dailyRegistrations;
     if (useMock || registrations.length === 0) return MOCK_REG_TREND;
     const counts: Record<string, number> = {};
     WEEK_DAYS.forEach(d => { counts[d] = 0; });
     registrations.forEach(r => { counts[WEEK_DAYS[new Date(r.registeredAt).getDay()]]++; });
     return WEEK_DAYS.map(d => ({ day: d, count: counts[d], vip: 0 }));
-  }, [useMock, registrations]);
+  }, [useMock, analytics, registrations]);
 
   // ── Derived: expense breakdown ────────────────────────────────────────────
   const budgetData = useMemo(() => {
+    if (!useMock && analytics?.budgetVsExpenses?.length) return analytics.budgetVsExpenses;
     if (useMock || expenses.length === 0) return MOCK_BUDGET;
     const byCategory: Record<string, number> = {};
     expenses.forEach(e => {
@@ -444,10 +449,11 @@ export function EventsDashboard() {
         budget: +(amt / 100000 * 1.25).toFixed(2),
         spent:  +(amt / 100000).toFixed(2),
       }));
-  }, [useMock, expenses]);
+  }, [useMock, analytics, expenses]);
 
   // ── Derived: pie categories ───────────────────────────────────────────────
   const pieData = useMemo(() => {
+    if (!useMock && analytics?.passCategories?.length) return analytics.passCategories;
     if (useMock || registrations.length === 0) return MOCK_PIE;
     const byStatus: Record<string, number> = {};
     registrations.forEach(r => { byStatus[r.status] = (byStatus[r.status] || 0) + 1; });
@@ -458,10 +464,11 @@ export function EventsDashboard() {
     }));
     if (stats?.totalVolunteers) entries.push({ name: "Volunteers", value: stats.totalVolunteers, color: "#2563EB" });
     return entries.length > 0 ? entries : MOCK_PIE;
-  }, [useMock, registrations, stats]);
+  }, [useMock, analytics, registrations, stats]);
 
   // ── Derived: today's schedule & duty chart data ───────────────────────────
   const scheduleDutyChartData = useMemo(() => {
+    if (!useMock && analytics?.todaysScheduleDuty?.length) return analytics.todaysScheduleDuty;
     const timeSlots = ["08:00 AM", "10:00 AM", "12:00 PM", "02:00 PM", "04:00 PM", "06:00 PM", "08:00 PM"];
     if (useMock || (events.length === 0 && tasks.length === 0)) {
       return [
@@ -492,7 +499,7 @@ export function EventsDashboard() {
       programs: counts[t].programs || (activeToday.length > 0 ? 1 : 0),
       volunteers: counts[t].volunteers || (stats?.totalVolunteers ? Math.ceil(stats.totalVolunteers / timeSlots.length) : 0),
     }));
-  }, [useMock, events, tasks, stats]);
+  }, [useMock, analytics, events, tasks, stats]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
