@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Landmark, TrendingUp, TrendingDown, DollarSign, Plus, Download, Loader2, AlertCircle, Trash2, Pencil } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
+import { ErrorBanner, LoadingSpinner } from "./shared";
 import { eventExpenseService, type EventExpenseResponse, type EventExpenseRequest } from "../../../services/events/eventExpenseService";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
@@ -210,17 +211,8 @@ export function EventsFinance() {
 
   return (
     <div className="space-y-3 sm:space-y-6">
-      {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
-        </div>
-      )}
-
-      {loading && (
-        <div className="flex items-center justify-center py-8 text-slate-400">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading finance data...
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
+      {loading && <LoadingSpinner label="Loading finance data…" />}
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">

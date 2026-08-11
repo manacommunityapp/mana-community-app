@@ -3,6 +3,7 @@ import {
   FileText, Upload, CheckCircle, Clock, XCircle, AlertCircle,
   Plus, Trash2, ExternalLink, Loader2, DollarSign, TrendingDown,
 } from "lucide-react";
+import { ErrorBanner, LoadingSpinner } from "./shared";
 import {
   eventInvoiceService,
   type EventInvoiceResponse,
@@ -213,11 +214,7 @@ export function EventsInvoices() {
       </div>
 
       {/* Error banner */}
-      {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
@@ -239,9 +236,7 @@ export function EventsInvoices() {
       {/* Table */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
         {loading ? (
-          <div className="flex items-center justify-center py-12 text-slate-400">
-            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading invoices...
-          </div>
+          <LoadingSpinner label="Loading invoices…" className="py-12" />
         ) : invoices.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 text-slate-400">
             <FileText className="w-10 h-10 mb-3 opacity-30" />

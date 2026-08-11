@@ -13,11 +13,10 @@ import {
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Button } from "../ui/button";
-import { Switch } from "../ui/switch";
-import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { cn } from "../ui/utils";
+import { SectionHeader, FieldLabel, ToggleRow } from "./shared";
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventRequest, type EventResponse } from "../../../services/events/eventService";
 
@@ -104,47 +103,6 @@ const INITIAL_FORM_DATA: FormData = {
 
 const INPUT_CLS = "w-full px-4 py-3 h-auto rounded-xl border border-slate-200 bg-white text-sm text-slate-800 placeholder-slate-400 outline-none focus-visible:border-indigo-400 focus-visible:ring-4 focus-visible:ring-indigo-50 transition-all";
 
-/* ─── Shared sub-components ─── */
-function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementType; title: string; subtitle?: string }) {
-  return (
-    <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-5">
-      <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
-        <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-      </div>
-      <div>
-        <h3 className="text-xs sm:text-sm font-bold text-slate-800">{title}</h3>
-        {subtitle && <p className="text-[10px] sm:text-[11px] text-slate-400">{subtitle}</p>}
-      </div>
-    </div>
-  );
-}
-
-function FieldLabel({ children, required, hint }: { children: React.ReactNode; required?: boolean; hint?: string }) {
-  return (
-    <div className="flex items-baseline justify-between mb-1.5">
-      <Label className="block text-xs font-bold text-slate-500 uppercase tracking-[0.08em]">
-        {children}{required && <span className="text-rose-500 ml-0.5">*</span>}
-      </Label>
-      {hint && <span className="text-[10px] text-slate-400">{hint}</span>}
-    </div>
-  );
-}
-
-function ToggleRow({ checked, onChange, label, desc }: { checked: boolean; onChange: (v: boolean) => void; label: string; desc?: string }) {
-  return (
-    <div className={cn(
-      "flex items-center justify-between p-3 sm:p-4 rounded-xl border transition-all",
-      checked ? "bg-indigo-50/50 border-indigo-200" : "bg-slate-50 border-slate-100"
-    )}>
-      <div>
-        <span className="text-xs sm:text-sm font-medium text-slate-700">{label}</span>
-        {desc && <p className="text-[10px] text-slate-400 mt-0.5">{desc}</p>}
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </div>
-  );
-}
 
 /* ─── Section: Basics ─── */
 function SectionBasics({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
@@ -302,7 +260,7 @@ function SectionSchedule({ data, update }: { data: FormData; update: (k: keyof F
     <div className="space-y-4 sm:space-y-7">
       <SectionHeader icon={CalendarDays} title="Date & Time" subtitle="When is your event happening?" />
       <ToggleRow checked={data.multiDay} onChange={handleMultiDayToggle}
-        label="Multi-day event" desc="Enable to set up a day-wise schedule with activities" />
+        label="Multi-day event" description="Enable to set up a day-wise schedule with activities" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <FieldLabel required>{data.multiDay ? "Start Date" : "Event Date"}</FieldLabel>
@@ -463,7 +421,7 @@ function SectionRegistration({ data, update }: { data: FormData; update: (k: key
     <div className="space-y-4 sm:space-y-7">
       <SectionHeader icon={Ticket} title="Registration Settings" subtitle="Configure how attendees can register for your event" />
       <ToggleRow checked={data.registrationEnabled} onChange={v => update("registrationEnabled", v)}
-        label="Enable event registration" desc="Allow attendees to register for this event" />
+        label="Enable event registration" description="Allow attendees to register for this event" />
       {data.registrationEnabled && (
         <div className="space-y-6 animate-fade-in-up">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -512,9 +470,9 @@ function SectionRegistration({ data, update }: { data: FormData; update: (k: key
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <ToggleRow checked={data.requireApproval} onChange={v => update("requireApproval", v)}
-              label="Require approval" desc="Admin must approve each registration" />
+              label="Require approval" description="Admin must approve each registration" />
             <ToggleRow checked={data.allowWaitlist} onChange={v => update("allowWaitlist", v)}
-              label="Enable waitlist" desc="When tickets are full" />
+              label="Enable waitlist" description="When tickets are full" />
           </div>
           <div>
             <div className="flex items-center justify-between mb-4">

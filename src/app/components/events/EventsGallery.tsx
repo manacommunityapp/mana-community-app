@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  ImageIcon, Play, Upload, Grid3X3, List, Star, Loader2, AlertCircle,
-  Plus, X, Trash2, Tag, Layers, CalendarDays, CheckCircle2, ChevronDown,
+  ImageIcon, Play, Upload, Grid3X3, List, Star,
+  Plus, X, Trash2, Tag, Layers, CalendarDays, CheckCircle2, ChevronDown, Loader2, AlertCircle,
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
+import { FilterChip, FilterChipRow, ErrorBanner, LoadingSpinner, EmptyState } from "./shared";
 import { eventGalleryService, type EventGalleryItemResponse } from "../../../services/events/eventGalleryService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { eventDayService, type EventDayResponse } from "../../../services/events/eventDayService";
@@ -46,32 +47,6 @@ function GalleryImage({ src, alt, className }: { src: string; alt: string; class
     </div>
   );
   return <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />;
-}
-
-function FilterChip({
-  label, active, count, onSelect, onRemove,
-}: {
-  label: string; active: boolean; count?: number;
-  onSelect: () => void; onRemove?: () => void;
-}) {
-  return (
-    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border cursor-pointer select-none transition-all
-      ${active
-        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-        : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300 hover:text-indigo-600"}`}
-      onClick={onSelect}>
-      {label}
-      {count !== undefined && (
-        <span className={`text-[10px] px-1 rounded-full ${active ? "bg-white/20" : "bg-slate-100 dark:bg-slate-700"}`}>{count}</span>
-      )}
-      {onRemove && (
-        <button onClick={e => { e.stopPropagation(); onRemove(); }}
-          className="ml-0.5 hover:text-rose-400 transition-colors">
-          <X className="w-2.5 h-2.5" />
-        </button>
-      )}
-    </span>
-  );
 }
 
 // ─── Create-tag inline form ───────────────────────────────────────────────────
@@ -435,11 +410,7 @@ export function EventsGallery() {
   return (
     <div className="space-y-4">
       {/* ── Error banner ─────────────────────────────────────────────────── */}
-      {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
-        </div>
-      )}
+      {error && <ErrorBanner message={error} variant="warning" />}
 
       {/* ── Event selector ───────────────────────────────────────────────── */}
       {!useMock && events.length > 0 && (
@@ -551,16 +522,12 @@ export function EventsGallery() {
       </div>
 
       {/* ── Loading spinner ───────────────────────────────────────────────── */}
-      {loading && (
-        <div className="flex items-center justify-center py-10 text-slate-400">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading gallery…
-        </div>
-      )}
+      {loading && <LoadingSpinner label="Loading gallery…" />}
 
       {/* ── Grid view ────────────────────────────────────────────────────── */}
       {!loading && view === "grid" && (
         filteredItems.length === 0 ? (
-          <EmptyState onUpload={() => setShowUpload(true)} />
+          <EmptyState icon={<ImageIcon className="w-8 h-8 text-slate-300" />} label="No media yet" sub="Upload photos and videos to build your gallery" action="Upload Media" onAction={() => setShowUpload(true)} />
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
             {filteredItems.map((item, i) => (
@@ -574,7 +541,7 @@ export function EventsGallery() {
       {/* ── Albums view ───────────────────────────────────────────────────── */}
       {!loading && view === "albums" && (
         albumMap.size === 0 ? (
-          <EmptyState onUpload={() => setShowUpload(true)} />
+          <EmptyState icon={<ImageIcon className="w-8 h-8 text-slate-300" />} label="No media yet" sub="Upload photos and videos to build your gallery" action="Upload Media" onAction={() => setShowUpload(true)} />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {Array.from(albumMap.entries()).map(([name, albumItems]) => (
@@ -691,20 +658,3 @@ function UploadTile({ onUpload }: { onUpload: () => void }) {
   );
 }
 
-function EmptyState({ onUpload }: { onUpload: () => void }) {
-  return (
-    <div className="py-16 flex flex-col items-center justify-center gap-4 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-        <ImageIcon className="w-8 h-8 text-slate-300" />
-      </div>
-      <div>
-        <p className="font-bold text-slate-600 dark:text-slate-300">No media yet</p>
-        <p className="text-sm text-slate-400 mt-1">Upload photos and videos to build your gallery</p>
-      </div>
-      <button onClick={onUpload}
-        className="flex items-center gap-2 px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm">
-        <Upload className="w-4 h-4" /> Upload Media
-      </button>
-    </div>
-  );
-}

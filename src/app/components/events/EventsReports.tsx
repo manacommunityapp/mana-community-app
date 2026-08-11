@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { BarChart3, Download, TrendingUp, Users, DollarSign, Package, FileText, Loader2, AlertCircle } from "lucide-react";
+import { BarChart3, Download, TrendingUp, Users, DollarSign, Package, FileText } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
+import { ErrorBanner, LoadingSpinner } from "./shared";
 import { eventReportService, type EventReportResponse } from "../../../services/events/eventReportService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import {
@@ -96,17 +97,8 @@ export function EventsReports() {
 
   return (
     <div className="space-y-3 sm:space-y-6">
-      {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
-        </div>
-      )}
-
-      {loading && (
-        <div className="flex items-center justify-center py-8 text-slate-400">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading report...
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
+      {loading && <LoadingSpinner label="Loading report…" />}
 
       {!useMock && events.length > 1 && (
         <select
