@@ -1316,21 +1316,6 @@ export function EventsGallery() {
               </button>
             </div>
 
-
-      {/* ── Albums view ───────────────────────────────────────────────────── */}
-      {!loading && view === "albums" && (
-        albumMap.size === 0 ? (
-          <EmptyState icon={<ImageIcon className="w-8 h-8 text-slate-300" />} label="No media yet" sub="Upload photos and videos to build your gallery" action="Upload Media" onAction={() => setShowUpload(true)} />
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from(albumMap.entries()).map(([name, albumItems]) => (
-              <AlbumCard key={name} name={name} items={albumItems} />
-            ))}
-            <button onClick={() => setShowUpload(true)}
-              className="min-h-[200px] border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col items-center justify-center gap-3 hover:border-indigo-300 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-all group">
-              <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 flex items-center justify-center transition-all">
-                <Plus className="w-6 h-6 text-slate-400 group-hover:text-indigo-500" />
-
             <form onSubmit={handleUploadSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Media Title / Caption *</label>
