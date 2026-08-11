@@ -12,10 +12,9 @@ import {
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Button } from "../ui/button";
-import { Switch } from "../ui/switch";
-import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { SectionHeader, FieldLabel, ToggleRow } from "./shared";
 
 import { cn } from "../ui/utils";
 import { useEventMock } from "./EventMockToggle";
@@ -117,6 +116,7 @@ function hexRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+
 /* ─── Shared sub-components ─── */
 function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementType; title: string; subtitle?: string }) {
   return (
@@ -161,6 +161,7 @@ function ToggleRow({ checked, onChange, label, desc }: { checked: boolean; onCha
     </div>
   );
 }
+
 
 /* ─── Step 1: Basics ─── */
 function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
@@ -395,8 +396,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       <SectionHeader icon={CalendarDays} title="Date & Time" subtitle="When is your event happening?" />
 
       <ToggleRow checked={data.multiDay} onChange={handleMultiDayToggle}
-        label="Multi-day event" desc="Enable to set up a day-wise schedule with activities (starts with single day, add dynamically)" />
-
+      label="Multi-day event" description="Enable to set up a day-wise schedule with activities" />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <FieldLabel required>{data.multiDay ? "Start Date" : "Event Date"}</FieldLabel>
@@ -668,7 +668,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
       <SectionHeader icon={Ticket} title="Registration Settings" subtitle="Configure how attendees can register for your event" />
 
       <ToggleRow checked={data.registrationEnabled} onChange={v => update("registrationEnabled", v)}
-        label="Enable event registration" desc="Allow attendees to register for this event" />
+        label="Enable event registration" description="Allow attendees to register for this event" />
 
       {data.registrationEnabled && (
         <div className="space-y-6 animate-fade-in-up">
@@ -738,9 +738,9 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <ToggleRow checked={data.requireApproval} onChange={v => update("requireApproval", v)}
-              label="Require approval" desc="Admin must approve each registration" />
+              label="Require approval" description="Admin must approve each registration" />
             <ToggleRow checked={data.allowWaitlist} onChange={v => update("allowWaitlist", v)}
-              label="Enable waitlist" desc="When tickets are full" />
+              label="Enable waitlist" description="When tickets are full" />
           </div>
 
           <div>

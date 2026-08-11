@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { CheckCircle2, Circle, Clock, AlertTriangle, Plus, ChevronDown, ChevronRight, CalendarDays, Flag, Loader2, AlertCircle } from "lucide-react";
+import { CheckCircle2, Circle, Clock, AlertTriangle, Plus, ChevronDown, ChevronRight, CalendarDays, Flag } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
+import { ErrorBanner, LoadingSpinner } from "./shared";
 import { eventTaskService, type EventTaskResponse } from "../../../services/events/eventTaskService";
 
 // Mock data — shown when toggle is "Mock Data"; live API used otherwise
@@ -84,17 +85,8 @@ export function EventsPlanning() {
   return (
     <div className="space-y-3 sm:space-y-6">
 
-      {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
-        </div>
-      )}
-
-      {loading && (
-        <div className="flex items-center justify-center py-8 text-slate-400">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading tasks...
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
+      {loading && <LoadingSpinner label="Loading tasks…" />}
 
       {/* Timeline milestones */}
       <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)]">

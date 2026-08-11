@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { TrendingDown, Plus, Loader2, AlertCircle, UtensilsCrossed } from "lucide-react";
+import { TrendingDown, Plus, UtensilsCrossed } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
+import { ErrorBanner, LoadingSpinner } from "./shared";
 import { foodEventService } from "../../../services/food/foodEventService";
 import { eventProgramService, type MealSummaryResponse } from "../../../services/events/eventProgramService";
 
@@ -92,16 +93,8 @@ export function EventsFood() {
 
   return (
     <div className="space-y-3 sm:space-y-6">
-      {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
-        </div>
-      )}
-      {loading && (
-        <div className="flex items-center justify-center py-8 text-slate-400">
-          <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading food events...
-        </div>
-      )}
+      {error && <ErrorBanner message={error} />}
+      {loading && <LoadingSpinner label="Loading food events…" />}
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {foodKpis.map((s, i) => (
