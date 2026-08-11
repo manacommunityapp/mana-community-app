@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { ShieldCheck, Eye, EyeOff, ArrowRight, Loader2, WifiOff, RefreshCw, ServerCrash } from "lucide-react";
-import { Link, useNavigate } from "react-router";
+import { ShieldCheck, Eye, EyeOff, ArrowRight, Loader2, WifiOff, RefreshCw, ServerCrash, CalendarDays } from "lucide-react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../../contexts/AuthContext";
 
@@ -36,6 +36,9 @@ export function Login() {
   const [retrying, setRetrying] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTo = searchParams.get("redirect") || "/";
+  const eventContext = searchParams.get("event");
   const {
     register,
     handleSubmit,
@@ -47,7 +50,7 @@ export function Login() {
     try {
       await login({ identifier: data.identifier.trim(), password: data.password });
       toast.success("Welcome back!");
-      navigate("/");
+      navigate(redirectTo);
     } catch (err) {
       if (isNetworkError(err)) {
         setServiceError(true);
@@ -89,6 +92,20 @@ export function Login() {
           <h1 className="text-3xl font-bold text-foreground mb-2">Welcome Back</h1>
           <p className="text-muted-foreground">Sign in to your Mana Community</p>
         </div>
+
+        {eventContext && (
+          <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 dark:border-indigo-800/50 dark:bg-indigo-950/30 p-4 flex items-start gap-3">
+            <div className="flex-shrink-0 p-2 bg-indigo-100 dark:bg-indigo-900/40 rounded-lg">
+              <CalendarDays className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-indigo-800 dark:text-indigo-300">Event Registration</p>
+              <p className="text-xs text-indigo-600/80 dark:text-indigo-400/80 mt-0.5">
+                Sign in to continue with your event registration.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="bg-card rounded-2xl shadow-2xl border border-border p-8">
           {serviceError && (

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router";
+import { useParams, useNavigate } from "react-router";
+import { useAuth } from "../../../contexts/AuthContext";
 import {
   User, Users, Mail, Phone, MapPin, Calendar, Clock, CheckCircle2,
   ChevronRight, ChevronLeft, ArrowRight, Loader2, AlertCircle,
@@ -75,6 +76,9 @@ interface RegistrationForm {
   email: string;
   phone: string;
   address: string;
+  flatNo?: string;
+  colonyAddress?: string;
+  poojaSlot?: string;
   city: string;
   pincode: string;
   familyMembers: FamilyMember[];
@@ -198,7 +202,12 @@ function Step2Details({ form, update }: { form: RegistrationForm; update: (k: ke
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-slate-500">Enter the primary registrant's details.</p>
+      <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+        <p className="text-sm font-bold text-slate-700">Primary Registrant Details</p>
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-orange-100 text-orange-800 border border-orange-200">
+          Category: Family Pass
+        </span>
+      </div>
 
       {/* Personal Information */}
       <CollapsibleFormSection title="Personal Information" icon={User} defaultOpen={true}>
@@ -251,33 +260,59 @@ function Step2Details({ form, update }: { form: RegistrationForm; update: (k: ke
         </div>
       </CollapsibleFormSection>
 
-      {/* Contact Details */}
-      <CollapsibleFormSection title="Contact Details" icon={Phone} defaultOpen={true}>
+      {/* Contact & Address Details */}
+      <CollapsibleFormSection title="Contact & Residential Details" icon={Phone} defaultOpen={true}>
         <div className="space-y-4">
-          <div>
-            <Label className={LABEL_CLS}>Email Address<span className="text-rose-500 ml-0.5">*</span></Label>
-            <Input type="email" value={form.email} onChange={e => update("email", e.target.value)} placeholder="arjun@example.com" className={INPUT_CLS} />
-            <p className="text-[10px] text-slate-400 mt-1">Your confirmation & e-ticket will be sent here</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className={LABEL_CLS}>Mobile Number (WhatsApp)<span className="text-rose-500 ml-0.5">*</span></Label>
+              <Input type="tel" value={form.phone} onChange={e => update("phone", e.target.value)} placeholder="+91 98765 43210" className={INPUT_CLS} />
+            </div>
+            <div>
+              <Label className={LABEL_CLS}>Email Address<span className="text-rose-500 ml-0.5">*</span></Label>
+              <Input type="email" value={form.email} onChange={e => update("email", e.target.value)} placeholder="arjun@example.com" className={INPUT_CLS} />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label className={LABEL_CLS}>Emergency Contact Number</Label>
+              <Input type="tel" value={form.emergencyContactPhone} onChange={e => update("emergencyContactPhone", e.target.value)} placeholder="+91 98200 54321" className={INPUT_CLS} />
+            </div>
+            <div>
+              <Label className={LABEL_CLS}>Flat / Villa No</Label>
+              <Input value={form.flatNo || ""} onChange={e => update("flatNo", e.target.value)} placeholder="e.g. Villa 402 / Flat B-12" className={INPUT_CLS} />
+            </div>
           </div>
 
           <div>
-            <Label className={LABEL_CLS}>Mobile Number<span className="text-rose-500 ml-0.5">*</span></Label>
-            <Input type="tel" value={form.phone} onChange={e => update("phone", e.target.value)} placeholder="+91 98765 43210" className={INPUT_CLS} />
+            <Label className={LABEL_CLS}>Residential Colony / Street Address</Label>
+            <Input value={form.colonyAddress || form.address} onChange={e => { update("colonyAddress", e.target.value); update("address", e.target.value); }} placeholder="e.g. LE Community, M.G. Road, Miyapur, Hyderabad" className={INPUT_CLS} />
           </div>
 
           <div>
-            <Label className={LABEL_CLS}>Address</Label>
-            <Input value={form.address} onChange={e => update("address", e.target.value)} placeholder="Flat / Building / Street" className={INPUT_CLS} />
+            <Label className={LABEL_CLS}>Preferred Pooja Time Slot</Label>
+            <Select value={form.poojaSlot || "Evening Visarjan / Utsav (05:00 PM - 09:00 PM)"} onValueChange={v => update("poojaSlot", v)}>
+              <SelectTrigger className={INPUT_CLS}>
+                <SelectValue placeholder="Select Pooja Time Slot" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Morning Aarti (07:00 AM - 11:00 AM)">Morning Aarti (07:00 AM - 11:00 AM)</SelectItem>
+                <SelectItem value="Afternoon Pooja & Prasad (12:00 PM - 03:00 PM)">Afternoon Pooja & Prasad (12:00 PM - 03:00 PM)</SelectItem>
+                <SelectItem value="Evening Visarjan / Utsav (05:00 PM - 09:00 PM)">Evening Visarjan / Utsav (05:00 PM - 09:00 PM)</SelectItem>
+                <SelectItem value="Late Night Bhajan Sandhya (09:00 PM - 11:30 PM)">Late Night Bhajan Sandhya (09:00 PM - 11:30 PM)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label className={LABEL_CLS}>City</Label>
-              <Input value={form.city} onChange={e => update("city", e.target.value)} placeholder="Mumbai" className={INPUT_CLS} />
+              <Input value={form.city} onChange={e => update("city", e.target.value)} placeholder="Hyderabad" className={INPUT_CLS} />
             </div>
             <div>
               <Label className={LABEL_CLS}>Pincode</Label>
-              <Input value={form.pincode} onChange={e => update("pincode", e.target.value)} placeholder="400069" className={INPUT_CLS} />
+              <Input value={form.pincode} onChange={e => update("pincode", e.target.value)} placeholder="500049" className={INPUT_CLS} />
             </div>
           </div>
         </div>
@@ -945,6 +980,8 @@ function DynamicFormRenderer({
 /* ─── Main Component ─── */
 export function EventPublicRegistration() {
   const { eventId } = useParams<{ eventId: string }>();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [step, setStep] = useState(1);
   const [isRegistered, setIsRegistered] = useState(false);
   const [registering, setRegistering] = useState(false);
@@ -960,6 +997,14 @@ export function EventPublicRegistration() {
   const handleDynamicChange = (id: string, value: any) => {
     setDynamicValues(prev => ({ ...prev, [id]: value }));
   };
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      const params = new URLSearchParams({ redirect: "/events" });
+      if (eventId) params.set("event", eventId);
+      navigate(`/login?${params.toString()}`, { replace: true });
+    }
+  }, [isAuthenticated, eventId, navigate]);
 
   useEffect(() => {
     if (eventId) {
@@ -1134,6 +1179,17 @@ export function EventPublicRegistration() {
       return eventStart;
     }
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto" />
+          <p className="text-sm text-slate-500 font-medium">Redirecting to sign in...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
