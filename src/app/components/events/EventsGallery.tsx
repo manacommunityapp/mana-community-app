@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
+
   ImageIcon, Play, Upload, Grid3X3, List, Star, Loader2, AlertCircle,
-  Calendar, Filter, X, ChevronRight, Download, Share2, Layers, Tag, Film, CheckCircle2,
-  Plus, Trash2, CalendarDays, ChevronDown, Save, Send,
+  Calendar, Filter, X, ChevronRight, Download, Share2, Layers, Tag, Film, CheckCircle2, ChevronDown,
+  Plus, Trash2, CalendarDays, Save, Send,
+
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
+import { FilterChip, FilterChipRow, ErrorBanner, LoadingSpinner, EmptyState } from "./shared";
 import { eventGalleryService, type EventGalleryItemResponse } from "../../../services/events/eventGalleryService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { eventDayService, type EventDayResponse } from "../../../services/events/eventDayService";
@@ -200,6 +203,7 @@ function GalleryImage({ src, alt, className }: { src: string; alt: string; class
   return <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />;
 }
 
+
 function mapLivePhotos(data: EventGalleryItemResponse[]): GalleryItem[] {
   return data.map(g => ({
     id: g.id,
@@ -215,32 +219,6 @@ function mapLivePhotos(data: EventGalleryItemResponse[]): GalleryItem[] {
     uploader: g.uploaderName || "Community Admin",
     dateStr: g.createdAt ? new Date(g.createdAt).toLocaleDateString() : undefined,
   }));
-}
-
-function FilterChip({
-  label, active, count, onSelect, onRemove,
-}: {
-  label: string; active: boolean; count?: number;
-  onSelect: () => void; onRemove?: () => void;
-}) {
-  return (
-    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border cursor-pointer select-none transition-all
-      ${active
-        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-        : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300 hover:text-indigo-600"}`}
-      onClick={onSelect}>
-      {label}
-      {count !== undefined && (
-        <span className={`text-[10px] px-1 rounded-full ${active ? "bg-white/20" : "bg-slate-100 dark:bg-slate-700"}`}>{count}</span>
-      )}
-      {onRemove && (
-        <button onClick={e => { e.stopPropagation(); onRemove(); }}
-          className="ml-0.5 hover:text-rose-400 transition-colors">
-          <X className="w-2.5 h-2.5" />
-        </button>
-      )}
-    </span>
-  );
 }
 
 // ─── Create-tag inline form ───────────────────────────────────────────────────
@@ -528,6 +506,8 @@ export function EventsGallery() {
   const [uploadFilesQueue, setUploadFilesQueue] = useState<ModalFileQueueItem[]>([]);
   const [uploadValidationErrors, setUploadValidationErrors] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
+  const [modalError, setModalError] = useState("");
 
   // Inline creation states inside Upload Modal
   const [showAddDayInModal, setShowAddDayInModal] = useState(false);
@@ -556,13 +536,11 @@ export function EventsGallery() {
         let finalUrl = item.preview;
 
         if (!useMock) {
-          try {
-            const res = await fileUploadService.upload(item.file);
-            finalUrl = res.url;
-          } catch (err) {
-            console.warn(`File upload failed for ${item.file.name}, using preview URL`, err);
-          }
+          // 1. Upload to AWS S3 first and verify object persistence
+          const res = await fileUploadService.upload(item.file);
+          finalUrl = res.url;
 
+          // 2. Only after S3 upload succeeds, save metadata details to PostgreSQL DB
           const created = await eventGalleryService.create({
             eventId: evtIdNum,
             url: finalUrl,
@@ -656,8 +634,27 @@ export function EventsGallery() {
         url: "",
         album: "General",
       });
-    } catch (err) {
-      console.error("Failed to batch upload media", err);
+      setError("");
+      setModalError("");
+      setSuccessMsg(`Media stored in AWS S3 and saved to PostgreSQL successfully! (${createdItems.length} items)`);
+    } catch (err: any) {
+      console.error("Failed to upload media:", err);
+      let rawMsg = err?.response?.data?.message || err?.message || "Failed to store media in AWS S3 cloud storage.";
+      const lower = rawMsg.toLowerCase();
+      let shortMsg = "Failed to upload file to AWS S3 storage.";
+
+      if (lower.includes("access key") || lower.includes("accessdenied") || lower.includes("403") || lower.includes("invalidaccesskeyid")) {
+        shortMsg = "Invalid AWS Access Key or Secret Key. Please check S3_ACCESS_KEY credentials.";
+      } else if (lower.includes("301") || lower.includes("specified endpoint") || lower.includes("permanentredirect")) {
+        shortMsg = "S3 bucket region misconfigured. Check S3_REGION settings.";
+      } else if (lower.includes("nosuchbucket") || lower.includes("404")) {
+        shortMsg = "S3 target bucket does not exist.";
+      } else if (lower.includes("timeout") || lower.includes("connecttimeout")) {
+        shortMsg = "Network timeout connecting to AWS S3.";
+      }
+
+      setModalError(shortMsg);
+      setError(`⚠️ Media Upload Failed: ${shortMsg} — No records were saved to database.`);
     } finally {
       setUploading(false);
     }
@@ -863,12 +860,21 @@ export function EventsGallery() {
 
   return (
     <div className="space-y-4">
-      {/* ── Error banner ─────────────────────────────────────────────────── */}
-      {error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300">
-          <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+      {/* ── Success banner ───────────────────────────────────────────────── */}
+      {successMsg && (
+        <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-between shadow-sm animate-fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>{successMsg}</span>
+          </div>
+          <button onClick={() => setSuccessMsg("")} className="text-emerald-500 hover:text-emerald-700 p-1">
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
+
+      {/* ── Error banner ─────────────────────────────────────────────────── */}
+      {error && <ErrorBanner message={error} variant="warning" />}
 
       {/* ── Top Header Bar & Multi-dimensional Controls ── */}
       <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] space-y-4">
@@ -1325,6 +1331,7 @@ export function EventsGallery() {
                   onChange={e => setUploadForm(f => ({ ...f, title: e.target.value }))}
                   required
                 />
+
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1602,6 +1609,18 @@ export function EventsGallery() {
                 </div>
               </div>
 
+              {modalError && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs font-semibold text-rose-800 dark:text-rose-300 flex items-center justify-between gap-2 animate-fade-in shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                    <span>{modalError}</span>
+                  </div>
+                  <button type="button" onClick={() => setModalError("")} className="text-rose-400 hover:text-rose-600 p-0.5">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
               <div className="flex gap-2.5 pt-2">
                 <button
                   type="button"
@@ -1774,20 +1793,3 @@ function UploadTile({ onUpload }: { onUpload: () => void }) {
   );
 }
 
-function EmptyState({ onUpload }: { onUpload: () => void }) {
-  return (
-    <div className="py-16 flex flex-col items-center justify-center gap-4 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-        <ImageIcon className="w-8 h-8 text-slate-300" />
-      </div>
-      <div>
-        <p className="font-bold text-slate-600 dark:text-slate-300">No media yet</p>
-        <p className="text-sm text-slate-400 mt-1">Upload photos and videos to build your gallery</p>
-      </div>
-      <button onClick={onUpload}
-        className="flex items-center gap-2 px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors shadow-sm">
-        <Upload className="w-4 h-4" /> Upload Media
-      </button>
-    </div>
-  );
-}

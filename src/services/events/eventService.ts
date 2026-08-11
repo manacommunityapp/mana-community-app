@@ -61,6 +61,20 @@ export interface DashboardStatsResponse {
   totalVolunteers: number;
   totalRevenue: number;
   totalExpenses: number;
+  foodPreparedPercentage?: number;
+  foodPlatesCount?: number;
+  auctionRevenue?: number;
+  auctionItemCount?: number;
+  todaysScheduleCount?: number;
+  todaysDutyCount?: number;
+  pendingActionItemsCount?: number;
+}
+
+export interface DashboardAnalyticsResponse {
+  dailyRegistrations: { day: string; count: number; vip: number }[];
+  passCategories: { name: string; value: number; color: string }[];
+  todaysScheduleDuty: { time: string; programs: number; volunteers: number }[];
+  budgetVsExpenses: { cat: string; budget: number; spent: number }[];
 }
 
 export interface RegistrationResponse {
@@ -114,6 +128,10 @@ export const eventService = {
 
   async getDashboardStats(): Promise<DashboardStatsResponse> {
     return apiClient.get<DashboardStatsResponse>("/events/dashboard/stats");
+  },
+
+  async getDashboardAnalytics(): Promise<DashboardAnalyticsResponse> {
+    return apiClient.get<DashboardAnalyticsResponse>("/events/dashboard/analytics");
   },
 
   async getEventRegistrations(eventId: number): Promise<RegistrationResponse[]> {

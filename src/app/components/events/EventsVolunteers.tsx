@@ -4,8 +4,12 @@ import {
   X, LogIn, LogOut, Edit2, Trash2, Filter,
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
+
+import { LoadingSpinner } from "./shared";
+
 import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
+
 import {
   eventVolunteerService,
   type EventVolunteerResponse,
@@ -882,11 +886,7 @@ export function EventsVolunteers() {
         </div>
 
         {/* Loading state */}
-        {loading && (
-          <div className="flex items-center justify-center py-10 text-slate-400">
-            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading volunteers…
-          </div>
-        )}
+        {loading && <LoadingSpinner label="Loading volunteers…" className="py-10" />}
 
         {!loading && (
           <div className="overflow-x-auto">
