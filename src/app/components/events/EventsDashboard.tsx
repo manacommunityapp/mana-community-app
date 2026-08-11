@@ -682,18 +682,37 @@ export function EventsDashboard() {
               <span className="text-[10px] uppercase font-bold text-slate-400">Category Breakdown</span>
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Pass Category Distribution</h3>
             </div>
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-slate-800 px-3 py-1 rounded-full border border-emerald-200 dark:border-slate-700">
-              Live Category View
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full border border-slate-200 dark:border-slate-700">
+                Total: {pieData.reduce((acc, curr) => acc + (curr.value || 0), 0).toLocaleString()} Passes
+              </span>
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-slate-800 px-3 py-1 rounded-full border border-emerald-200 dark:border-slate-700">
+                Live Category View
+              </span>
+            </div>
           </div>
           <div className="h-60 w-full flex items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={5} dataKey="value">
-                  {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                <Pie
+                  data={pieData}
+                  cx="50%"
+                  cy="48%"
+                  innerRadius={52}
+                  outerRadius={78}
+                  paddingAngle={5}
+                  dataKey="value"
+                  animationDuration={800}
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color || PIE_COLORS[index % PIE_COLORS.length]} stroke="rgba(255,255,255,0.2)" strokeWidth={2} />
+                  ))}
                 </Pie>
-                <Tooltip />
-                <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: "11px" }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#0F172A", color: "#F8FAFC", borderRadius: "14px", borderColor: "#6366F1", fontSize: "12px", boxShadow: "0 10px 25px -5px rgba(0,0,0,0.3)" }}
+                  formatter={(value: any, name: any) => [`${Number(value).toLocaleString()} passes`, name]}
+                />
+                <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
               </PieChart>
             </ResponsiveContainer>
           </div>
