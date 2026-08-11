@@ -354,16 +354,16 @@ export function EventsDashboard() {
     const pending = sponsors.filter(s => s.status === "PENDING").length;
     const active  = sponsors.filter(s => ["ACTIVE", "CONFIRMED"].includes(s.status)).length;
 
-    const foodPct = stats?.foodPreparedPercentage
+    const foodPct = stats?.foodPreparedPercentage != null
       ? `${Math.round(stats.foodPreparedPercentage)}%`
-      : `${Math.round((registrations.length > 0 ? registrations.length * 0.85 : 850) / Math.max(1, registrations.length || 1000) * 100)}%`;
+      : "0%";
 
-    const foodPlates = stats?.foodPlatesCount
+    const foodPlates = stats?.foodPlatesCount != null
       ? `${stats.foodPlatesCount.toLocaleString()} plates prepared`
-      : `${(registrations.length > 0 ? Math.round(registrations.length * 2.2) : 4200).toLocaleString()} plates est`;
+      : "0 plates prepared";
 
-    const auctionRev = stats?.auctionRevenue ? fmtINR(stats.auctionRevenue) : fmtINR(sponsorTotal > 0 ? sponsorTotal * 0.35 : 210000);
-    const auctionItems = stats?.auctionItemCount ? `${stats.auctionItemCount} items sold` : "14 items sold";
+    const auctionRev = stats?.auctionRevenue != null ? fmtINR(stats.auctionRevenue) : fmtINR(0);
+    const auctionItems = stats?.auctionItemCount != null ? `${stats.auctionItemCount} items sold` : "0 items sold";
 
     const todaysScheduleDutyCount = (stats?.todaysScheduleCount ?? todaySchedule.length) + (stats?.todaysDutyCount ?? (stats?.totalVolunteers ?? 45));
     const pendingActionsCount = stats?.pendingActionItemsCount ?? (pendingTasks.length + pending);
