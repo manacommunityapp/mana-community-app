@@ -105,7 +105,62 @@ const INITIAL_FORM_DATA: FormData = {
   registrationFormConfig: { ...DEFAULT_REGISTRATION_FORM_CONFIG },
 };
 
-const INPUT_CLS = "w-full px-4 py-3 h-auto rounded-xl border border-slate-200 bg-white text-sm text-slate-800 placeholder-slate-400 outline-none focus-visible:border-indigo-400 focus-visible:ring-4 focus-visible:ring-indigo-50 transition-all";
+// shadcn theme tokens: --input-background:#f3f3f5, --border:rgba(0,0,0,0.1), --radius:0.625rem
+const INPUT_CLS = "w-full px-3 py-[7px] h-auto rounded-[0.625rem] border border-black/10 bg-[#f3f3f5] text-[12.5px] text-slate-800 placeholder-slate-400 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-100 transition-all";
+
+function hexRgba(hex: string, alpha: number): string {
+  const h = hex.replace("#", "");
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+
+/* ─── Shared sub-components ─── */
+function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementType; title: string; subtitle?: string }) {
+  return (
+    <div className="flex items-center gap-2.5 pb-4 mb-1 border-b border-slate-100">
+      <div className="w-7 h-7 rounded-[0.625rem] flex items-center justify-center flex-shrink-0"
+        style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
+        <Icon className="w-3.5 h-3.5 text-white" strokeWidth={2.2} />
+      </div>
+      <div>
+        <p className="text-[13px] font-semibold text-slate-800 leading-none">{title}</p>
+        {subtitle && <p className="text-[11px] text-slate-400 mt-[3px]">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
+
+function FieldLabel({ children, required, hint }: { children: React.ReactNode; required?: boolean; hint?: string }) {
+  return (
+    <div className="flex items-center justify-between mb-1">
+      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.04em]">
+        {children}{required && <span className="text-rose-500 ml-0.5 normal-case text-[10px]">*</span>}
+      </span>
+      {hint && <span className="text-[10.5px] text-slate-400 normal-case font-normal tracking-normal">{hint}</span>}
+    </div>
+  );
+}
+
+function ToggleRow({ checked, onChange, label, desc }: { checked: boolean; onChange: (v: boolean) => void; label: string; desc?: string }) {
+  return (
+    <div
+      className={cn(
+        "flex items-center justify-between px-4 py-3 rounded-[0.625rem] border transition-all",
+        checked ? "bg-indigo-50/50 border-indigo-200" : "border-slate-200"
+      )}
+      style={checked ? undefined : { background: "rgba(79,70,229,0.015)" }}
+    >
+      <div>
+        <p className="text-[12px] font-medium text-slate-700">{label}</p>
+        {desc && <p className="text-[10.5px] text-slate-400 mt-0.5">{desc}</p>}
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  );
+}
 
 
 /* ─── Step 1: Basics ─── */
@@ -123,25 +178,20 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
 
       <div>
         <FieldLabel required>Event Type</FieldLabel>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {EVENT_TYPES.map(t => {
             const selected = data.eventType === t.value;
             return (
               <button key={t.value} onClick={() => update("eventType", t.value)}
-                className={cn(
-                  "flex flex-col items-center gap-1.5 sm:gap-2.5 p-2.5 sm:p-4 rounded-xl border-2 text-center transition-all",
-                  selected
-                    ? "border-indigo-500 shadow-[0_2px_16px_rgba(99,102,241,0.2)] scale-[1.02]"
-                    : "border-transparent bg-white hover:border-slate-200 hover:shadow-sm"
-                )}
-                style={{ background: selected ? t.bg : undefined }}>
-                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-transform"
-                  style={{ background: selected ? `${t.color}25` : "#f1f5f9" }}>
-                  <t.icon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: t.color }} />
-                </div>
-                <span className={cn("text-[11px] font-bold leading-tight", selected ? "text-slate-800" : "text-slate-500")}>
-                  {t.label}
-                </span>
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11.5px] font-medium transition-all duration-150"
+                style={{
+                  borderColor: selected ? t.color : "#E2E8F0",
+                  background: selected ? hexRgba(t.color, 0.08) : "#FAFAFA",
+                  color: selected ? t.color : "#64748B",
+                  boxShadow: selected ? `0 0 0 3px ${hexRgba(t.color, 0.12)}` : "none",
+                }}>
+                <t.icon className="w-[11px] h-[11px]" style={{ color: selected ? t.color : "#94A3B8" }} strokeWidth={2.2} />
+                {t.label}
               </button>
             );
           })}
@@ -157,7 +207,7 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
 
       <div>
         <FieldLabel>Visibility</FieldLabel>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+        <div className="flex flex-col gap-1.5 sm:grid sm:grid-cols-3 sm:gap-2">
           {([
             { value: "public",    label: "Public",      icon: Globe,    desc: "Anyone can view & register", color: "#059669" },
             { value: "community", label: "Community",   icon: Building2, desc: "Members only",               color: "#4f46e5" },
@@ -166,18 +216,18 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
             const selected = data.visibility === opt.value;
             return (
               <button key={opt.value} onClick={() => update("visibility", opt.value)}
-                className={cn(
-                  "p-3 sm:p-4 rounded-xl border-2 text-left transition-all group flex sm:flex-col items-center sm:items-start gap-3 sm:gap-0",
-                  selected
-                    ? "border-indigo-400 bg-indigo-50/60 shadow-sm"
-                    : "border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm"
-                )}>
-                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center sm:mb-3 transition-colors flex-shrink-0",
-                  selected ? "bg-indigo-100" : "bg-slate-100 group-hover:bg-slate-50")}>
-                  <opt.icon className="w-4 h-4" style={{ color: selected ? opt.color : "#94a3b8" }} />
+                className="flex items-center gap-2.5 px-3 py-2 rounded-[0.625rem] border text-left transition-all duration-150"
+                style={{
+                  borderColor: selected ? opt.color : "#E2E8F0",
+                  background: selected ? hexRgba(opt.color, 0.05) : "#FAFAFA",
+                  boxShadow: selected ? `0 0 0 3px ${hexRgba(opt.color, 0.10)}` : "none",
+                }}>
+                <div className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
+                  style={{ background: selected ? hexRgba(opt.color, 0.14) : "#F1F5F9" }}>
+                  <opt.icon className="w-3 h-3" style={{ color: selected ? opt.color : "#94A3B8" }} strokeWidth={2} />
                 </div>
                 <div>
-                  <p className={cn("text-sm font-bold", selected ? "text-indigo-700" : "text-slate-700")}>{opt.label}</p>
+                  <p className="text-[11.5px] font-semibold leading-none" style={{ color: selected ? opt.color : "#334155" }}>{opt.label}</p>
                   <p className="text-[10px] text-slate-400 mt-0.5">{opt.desc}</p>
                 </div>
               </button>
@@ -246,13 +296,48 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
   const handleMultiDayToggle = (v: boolean) => {
     update("multiDay", v);
-    if (v && data.startDate && data.endDate) {
-      syncDaySchedules(data.startDate, data.endDate);
-    } else if (!v && data.startDate) {
-      update("daySchedules", [{
-        date: data.startDate,
-        activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
-      }]);
+    if (v) {
+      if (data.daySchedules.length === 0) {
+        const targetDate = data.startDate || new Date().toISOString().split("T")[0];
+        update("daySchedules", [{
+          date: targetDate,
+          activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+        }]);
+        setExpandedDay(targetDate);
+      }
+    } else {
+      if (data.startDate) {
+        update("daySchedules", [{
+          date: data.startDate,
+          activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+        }]);
+      }
+    }
+  };
+
+  const handleAddDay = () => {
+    const lastDay = data.daySchedules[data.daySchedules.length - 1];
+    let nextDateStr = new Date().toISOString().split("T")[0];
+    if (lastDay && lastDay.date) {
+      const d = new Date(lastDay.date + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      nextDateStr = d.toISOString().split("T")[0];
+    }
+    const newDay: DaySchedule = {
+      date: nextDateStr,
+      activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+    };
+    const updated = [...data.daySchedules, newDay];
+    update("daySchedules", updated);
+    setExpandedDay(nextDateStr);
+  };
+
+  const handleRemoveDay = (dateToRemove: string) => {
+    if (data.daySchedules.length <= 1) return;
+    const updated = data.daySchedules.filter(ds => ds.date !== dateToRemove);
+    update("daySchedules", updated);
+    if (expandedDay === dateToRemove) {
+      setExpandedDay(updated[0]?.date || null);
     }
   };
 
@@ -307,13 +392,12 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const dayCount = data.daySchedules.length;
 
   return (
-    <div className="space-y-4 sm:space-y-7">
+    <div className="space-y-3 sm:space-y-5">
       <SectionHeader icon={CalendarDays} title="Date & Time" subtitle="When is your event happening?" />
 
       <ToggleRow checked={data.multiDay} onChange={handleMultiDayToggle}
-        label="Multi-day event" description="Enable to set up a day-wise schedule with activities" />
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      label="Multi-day event" description="Enable to set up a day-wise schedule with activities" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <FieldLabel required>{data.multiDay ? "Start Date" : "Event Date"}</FieldLabel>
           <Input type="date" value={data.startDate} onChange={e => handleStartDate(e.target.value)} className={INPUT_CLS} />
@@ -336,50 +420,58 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
       {/* Day-wise schedule builder */}
       <div className="animate-fade-in-up pt-3 border-t border-slate-100">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <SectionHeader icon={Zap} title="Day-wise Agenda & Cultural Activities" subtitle={dayCount > 0 ? `${dayCount} day${dayCount > 1 ? "s" : ""} — set up program activities` : "Add day-wise agenda placeholders for festival activities"} />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3">
+          <SectionHeader icon={Zap} title="Day-wise Agenda & Cultural Activities" subtitle={dayCount > 0 ? `${dayCount} day${dayCount > 1 ? "s" : ""} configured` : "Add day-wise schedule dynamically"} />
           <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleAddDay}
+              className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white gap-1.5 text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Day
+            </Button>
             <Button
               type="button"
               size="sm"
               variant="outline"
               onClick={loadFestivalPlaceholders}
-              className="border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl"
+              className="border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Load Festival Agenda Placeholders
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Agenda Placeholders
             </Button>
             {dayCount > 0 && (
               <Button
                 type="button"
                 size="sm"
                 onClick={() => triggerNotification()}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl"
+                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
               >
-                <Mail className="w-3.5 h-3.5" /> Send Agenda Email
+                <Mail className="w-3.5 h-3.5" /> Notify Email
               </Button>
             )}
           </div>
         </div>
 
         {dayCount === 0 && (
-          <div className="p-6 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 space-y-3">
-            <Zap className="w-8 h-8 text-indigo-400 mx-auto" />
+          <div className="p-4 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 space-y-2">
+            <Zap className="w-6 h-6 text-indigo-400 mx-auto" />
             <div>
-              <p className="text-sm font-bold text-slate-700">No Day-wise Agenda Configured</p>
-              <p className="text-xs text-slate-400 mt-0.5">Click below to auto-populate festival program agenda placeholders (puja, cultural dance, sports, lunch feast, musical night).</p>
+              <p className="text-xs font-bold text-slate-700">No Day-wise Agenda Configured</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Click "+ Add Day" to add Day 1, Day 2, etc. dynamically.</p>
             </div>
             <Button
               type="button"
-              onClick={loadFestivalPlaceholders}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 text-xs font-bold rounded-xl"
+              onClick={handleAddDay}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl"
             >
-              <Sparkles className="w-4 h-4" /> Populate Festival Agenda Placeholders
+              <Plus className="w-3.5 h-3.5" /> Add Day 1
             </Button>
           </div>
         )}
 
         {dayCount > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {data.daySchedules.map((day, dayIdx) => {
               const isExpanded = expandedDay === day.date;
               const filledCount = day.activities.filter(a => a.name).length;
@@ -387,98 +479,108 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
               return (
                 <div key={day.date}
                   className={cn(
-                    "rounded-2xl border overflow-hidden transition-all",
-                    isExpanded ? "border-indigo-200 shadow-[0_4px_20px_rgba(99,102,241,0.08)]" : "border-slate-200 hover:border-slate-300"
+                    "rounded-xl border overflow-hidden transition-all",
+                    isExpanded ? "border-indigo-200 shadow-xs" : "border-slate-200 hover:border-slate-300"
                   )}>
                   <div className={cn(
-                    "w-full flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4 transition-colors",
+                    "w-full flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 transition-colors",
                     isExpanded ? "bg-indigo-50/50" : "bg-white hover:bg-slate-50"
                   )}>
-                    <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="flex items-center gap-3 sm:gap-4 flex-1 text-left">
+                    <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="flex items-center gap-2.5 sm:gap-3 flex-1 text-left">
                       <div className={cn(
-                        "w-9 h-9 sm:w-11 sm:h-11 rounded-xl flex flex-col items-center justify-center text-white font-black",
-                        isExpanded ? "shadow-md" : ""
+                        "w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex flex-col items-center justify-center text-white font-black shrink-0",
+                        isExpanded ? "shadow-xs" : ""
                       )} style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
-                        <span className="text-[10px] leading-none opacity-70">DAY</span>
-                        <span className="text-sm leading-none">{dayIdx + 1}</span>
+                        <span className="text-[9px] leading-none opacity-70">DAY</span>
+                        <span className="text-xs leading-none">{dayIdx + 1}</span>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-slate-800">{formatDayLabel(day.date)}</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
+                        <p className="text-xs sm:text-sm font-bold text-slate-800">{formatDayLabel(day.date)}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
                           {filledCount}/{totalCount} activities configured
                         </p>
                       </div>
                     </button>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); triggerNotification(`Day ${dayIdx + 1}`); }}
-                        className="px-2.5 py-1.5 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:text-indigo-600 hover:border-indigo-200 flex items-center gap-1.5 shadow-2xs transition-all"
+                        className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-slate-700 hover:text-indigo-600 hover:border-indigo-200 flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
                       >
-                        <Mail className="w-3.5 h-3.5 text-indigo-500" /> Notify Day {dayIdx + 1}
+                        <Mail className="w-3 h-3 text-indigo-500" /> Notify
                       </button>
+                      {data.daySchedules.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleRemoveDay(day.date); }}
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
+                          title="Remove Day"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                       <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="p-1">
-                        <ChevronRight className={cn("w-4 h-4 text-slate-400 transition-transform duration-200", isExpanded && "rotate-90")} />
+                        <ChevronRight className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-200", isExpanded && "rotate-90")} />
                       </button>
                     </div>
                   </div>
 
                   {isExpanded && (
-                    <div className="px-3 sm:px-5 pb-3 sm:pb-5 pt-2 bg-white space-y-3 animate-fade-in-up">
+                    <div className="px-3 sm:px-4 pb-3 pt-2 bg-white space-y-2.5 animate-fade-in-up">
                       {day.activities.map((act, actIdx) => (
                         <div key={act.id}
-                          className="relative p-3 sm:p-4 bg-slate-50 rounded-xl border border-slate-100 space-y-3 group">
+                          className="relative p-2.5 sm:p-3 bg-slate-50 rounded-lg border border-slate-100 space-y-2 group">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                              <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
-                                <span className="text-[10px] font-black text-indigo-600">{actIdx + 1}</span>
+                              <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <span className="text-[9px] font-black text-indigo-600">{actIdx + 1}</span>
                               </div>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Activity / Program Item</span>
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Activity / Item</span>
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                               {act.name && (
                                 <button
                                   type="button"
                                   onClick={() => triggerNotification(`Day ${dayIdx + 1}`, act.name)}
-                                  className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-lg border border-indigo-100 flex items-center gap-1 transition-all"
+                                  className="text-[9px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded border border-indigo-100 flex items-center gap-1 transition-all"
                                 >
-                                  <Mail className="w-3 h-3" /> Notify
+                                  <Mail className="w-2.5 h-2.5" /> Notify
                                 </button>
                               )}
                               {day.activities.length > 1 && (
                                 <button onClick={() => removeActivity(day.date, act.id)}
-                                  className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded-lg hover:bg-rose-50">
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded hover:bg-rose-50">
+                                  <Trash2 className="w-3 h-3" />
                                 </button>
                               )}
                             </div>
                           </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
+                          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
                             <div>
-                              <FieldLabel required>Activity / Cultural Event Title</FieldLabel>
+                              <FieldLabel required>Activity / Event Title</FieldLabel>
                               <Input value={act.name} onChange={e => updateActivity(day.date, act.id, "name", e.target.value)}
-                                placeholder="e.g. Bharatanatyam Dance / Aarti / Music Night" className={INPUT_CLS} />
+                                placeholder="e.g. Aarti / Music Night" className={INPUT_CLS} />
                             </div>
-                            <div className="w-28">
+                            <div className="w-24">
                               <FieldLabel required>From</FieldLabel>
                               <Input type="time" value={act.startTime} onChange={e => updateActivity(day.date, act.id, "startTime", e.target.value)}
                                 className={INPUT_CLS} />
                             </div>
-                            <div className="w-28">
+                            <div className="w-24">
                               <FieldLabel required>To</FieldLabel>
                               <Input type="time" value={act.endTime} onChange={e => updateActivity(day.date, act.id, "endTime", e.target.value)}
                                 className={INPUT_CLS} />
                             </div>
                           </div>
                           <div>
-                            <FieldLabel>Activity Description & Venue Details</FieldLabel>
+                            <FieldLabel>Description & Location</FieldLabel>
                             <Input value={act.description} onChange={e => updateActivity(day.date, act.id, "description", e.target.value)}
-                              placeholder="e.g. Main Stage, performed by Ananya Troupe" className={INPUT_CLS} />
+                              placeholder="e.g. Main Stage" className={INPUT_CLS} />
                           </div>
                         </div>
                       ))}
                       <button onClick={() => addActivity(day.date)}
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all">
+                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all cursor-pointer">
                         <Plus className="w-3.5 h-3.5" /> Add Activity to Day {dayIdx + 1}
                       </button>
                     </div>
@@ -486,6 +588,15 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                 </div>
               );
             })}
+
+            {/* Bottom Add Day Button */}
+            <button
+              type="button"
+              onClick={handleAddDay}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50/40 text-xs font-bold text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all cursor-pointer shadow-2xs"
+            >
+              <Plus className="w-4 h-4 text-indigo-600" /> Add Day {dayCount + 1} Schedule
+            </button>
           </div>
         )}
       </div>
@@ -1566,10 +1677,10 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
       <div className="flex-shrink-0 border-b border-slate-100">
         {/* Title bar */}
         <div className="px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 flex items-center justify-between"
-          style={{ background: "linear-gradient(135deg, #eef2ff 0%, #faf5ff 40%, #ffffff 100%)" }}>
+          style={{ background: "linear-gradient(160deg, rgba(79,70,229,0.06), rgba(79,70,229,0.01) 70%, #fff)" }}>
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md"
-              style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
+            <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0"
+              style={{ background: "linear-gradient(135deg, #4f46e5, rgba(79,70,229,0.75))", boxShadow: "0 4px 12px -2px rgba(79,70,229,0.5), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
               {(() => { const S = STEPS[step - 1]; return <S.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />; })()}
             </div>
             <div>
@@ -1604,12 +1715,21 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
                 <div key={s.id} className="flex items-center gap-1 flex-shrink-0">
                   <button onClick={() => (done || active) && setStep(s.id)}
                     className={cn(
-                      "flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
-                      active ? "bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-[0_2px_12px_rgba(99,102,241,0.25)]"
-                      : done ? "bg-emerald-50 text-emerald-700 cursor-pointer hover:bg-emerald-100"
-                      : "bg-slate-50 text-slate-400 cursor-default"
+                      "flex items-center gap-2 px-3 py-[7px] rounded-[0.625rem] text-[12px] font-medium transition-all whitespace-nowrap",
+                      active ? "bg-white shadow-sm border border-slate-200/80 text-slate-900"
+                      : done ? "bg-[rgba(79,70,229,0.07)] text-indigo-700 cursor-pointer hover:bg-[rgba(79,70,229,0.12)]"
+                      : "bg-slate-50/80 text-slate-400 cursor-default opacity-60"
                     )}>
-                    {done ? <Check className="w-3.5 h-3.5" /> : <s.icon className="w-3.5 h-3.5" />}
+                    {done ? (
+                      <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center flex-shrink-0 bg-indigo-100 text-indigo-600">
+                        <Check className="w-2.5 h-2.5" strokeWidth={3} />
+                      </span>
+                    ) : (
+                      <span className={cn(
+                        "w-[18px] h-[18px] rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold",
+                        active ? "bg-[#4f46e5] text-white" : "bg-slate-200 text-slate-400"
+                      )}>{s.id}</span>
+                    )}
                     <span className="hidden sm:inline">{s.label}</span>
                   </button>
                   {i < STEPS.length - 1 && (
@@ -1619,9 +1739,9 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
               );
             })}
           </div>
-          <div className="mt-3 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-indigo-600 to-violet-500 transition-all duration-500 ease-out"
-              style={{ width: `${((step - 1) / (STEPS.length - 1)) * 100}%` }} />
+          <div className="mt-2.5 mx-1 h-[3px] bg-slate-200/80 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-500 ease-out"
+              style={{ width: `${((step - 1) / (STEPS.length - 1)) * 100}%`, background: "#4f46e5" }} />
           </div>
         </div>
       </div>
@@ -1634,47 +1754,54 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
       </div>
 
       {/* Sticky footer navigation */}
-      <div className="flex-shrink-0 px-4 sm:px-8 py-3 sm:py-4 border-t border-slate-100 flex items-center justify-between bg-white/80 backdrop-blur-sm">
+      <div className="flex-shrink-0 px-4 sm:px-8 py-3 border-t border-slate-100 flex items-center justify-between bg-white/95 backdrop-blur-sm">
         <button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1}
           className={cn(
-            "flex items-center gap-2 px-3 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all",
-            step === 1 ? "text-slate-300 cursor-not-allowed" : "bg-white border border-slate-200 text-slate-600 hover:border-slate-300 hover:shadow-sm"
+            "flex items-center gap-1 px-3 py-1.5 rounded-[0.625rem] text-[12px] font-medium transition-all",
+            step === 1 ? "opacity-0 pointer-events-none" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
           )}>
-          <ChevronLeft className="w-4 h-4" /> Back
+          <ChevronLeft className="w-3.5 h-3.5" /> Back
         </button>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1">
           {STEPS.map(s => (
-            <div key={s.id} className={cn(
-              "w-2 h-2 rounded-full transition-all",
-              step === s.id ? "bg-indigo-500 w-6" : step > s.id ? "bg-emerald-400" : "bg-slate-200"
-            )} />
+            <button key={s.id}
+              onClick={() => (step >= s.id) && setStep(s.id)}
+              className="rounded-full transition-all duration-300"
+              style={{
+                width: s.id === step ? 16 : 5,
+                height: 5,
+                background: s.id < step ? "rgba(79,70,229,0.5)" : s.id === step ? "#4f46e5" : "#E2E8F0",
+              }}
+            />
           ))}
         </div>
 
         {step < STEPS.length ? (
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2">
             <button onClick={handleSaveDraft} disabled={savingDraft || publishing}
-              className="flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all disabled:opacity-50">
-              <Bookmark className="w-3.5 h-3.5 text-amber-500" />
-              <span>{savingDraft ? "Saving…" : "Save Draft"}</span>
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[0.625rem] text-[12px] font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">
+              <Bookmark className="w-3 h-3 text-amber-500" />
+              <span>{savingDraft ? "Saving…" : "Save draft"}</span>
             </button>
             <button onClick={handleNext}
-              className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm hover:shadow-md hover:from-indigo-700 hover:to-violet-600 transition-all">
-              Next <ArrowRight className="w-4 h-4" />
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-[0.625rem] text-[12px] font-semibold text-white transition-all"
+              style={{ background: "#4f46e5", boxShadow: "0 2px 10px -2px rgba(79,70,229,0.55)" }}>
+              Next step <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2 sm:gap-3">
-            {publishError && <span className="text-xs text-rose-600 font-medium max-w-[180px] sm:max-w-[240px] truncate">{publishError}</span>}
+          <div className="flex items-center gap-2">
+            {publishError && <span className="text-[11px] text-rose-600 font-medium max-w-[160px] truncate">{publishError}</span>}
             <button onClick={handleSaveDraft} disabled={savingDraft || publishing}
-              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400 shadow-xs transition-all disabled:opacity-50">
-              <Bookmark className="w-4 h-4 text-amber-500" />
-              <span>{savingDraft ? "Saving…" : "Save Draft"}</span>
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[0.625rem] text-[12px] font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">
+              <Bookmark className="w-3 h-3 text-amber-500" />
+              <span>{savingDraft ? "Saving…" : "Save draft"}</span>
             </button>
             <button onClick={handlePublish} disabled={publishing || savingDraft}
-              className="flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md hover:shadow-lg hover:from-emerald-600 hover:to-teal-600 transition-all disabled:opacity-60">
-              <Sparkles className="w-4 h-4" /> {publishing ? "Publishing…" : "Publish Event"}
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-[0.625rem] text-[12px] font-semibold text-white transition-all disabled:opacity-60"
+              style={{ background: "#059669", boxShadow: "0 2px 10px -2px rgba(5,150,105,0.45)" }}>
+              <Check className="w-3.5 h-3.5" /> {publishing ? "Publishing…" : "Publish event"}
             </button>
           </div>
         )}
@@ -1726,17 +1853,17 @@ export function CreateEventDialog({ open, onOpenChange }: { open: boolean; onOpe
             pointerEvents: "auto",
             background: "#fff",
             width: "100%",
-            maxWidth: "72rem",  /* max-w-6xl */
-            /* Mobile: full screen; tablet/desktop: bounded */
+            maxWidth: "54rem",  /* max-w-4xl */
+            /* Mobile: full screen; tablet/desktop: bounded compact */
             height: "100dvh",
-            maxHeight: "96dvh",
+            maxHeight: "92dvh",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
-            boxShadow: "0 25px 80px rgba(0,0,0,0.22)",
+            boxShadow: "0 0 0 1px rgba(0,0,0,0.06), 0 4px 6px -1px rgba(0,0,0,0.04), 0 20px 50px -12px rgba(79,70,229,0.22)",
             borderRadius: 0,
           }}
-          className="sm:rounded-3xl sm:h-[min(96vh,980px)] sm:max-h-[96vh] sm:m-3 md:m-4 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
+          className="sm:rounded-2xl sm:h-[min(90vh,760px)] sm:max-h-[92vh] sm:m-3 md:m-4 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
           onClick={e => e.stopPropagation()}
         >
           <EventCreateWizard

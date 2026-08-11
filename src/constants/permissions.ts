@@ -151,6 +151,7 @@ export const MANAGE_EVENT_NOTIFICATIONS  = "Manage Event Notifications";
 
 /**
  * Events Permission Matrix — structured for the table-based role editor.
+ * Each row maps a sub-menu to its View / Create-Edit / Delete permission keys.
  */
 export interface EventPermissionRow {
   label: string;

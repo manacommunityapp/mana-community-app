@@ -1,7 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
-  ImageIcon, Play, Upload, Grid3X3, List, Star,
-  Plus, X, Trash2, Tag, Layers, CalendarDays, CheckCircle2, ChevronDown, Loader2, AlertCircle,
+
+  ImageIcon, Play, Upload, Grid3X3, List, Star, Loader2, AlertCircle,
+  Calendar, Filter, X, ChevronRight, Download, Share2, Layers, Tag, Film, CheckCircle2,ChevronDown, Loader2, AlertCircle,
+  Plus, Trash2, CalendarDays, ChevronDown, Save, Send,
+
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { FilterChip, FilterChipRow, ErrorBanner, LoadingSpinner, EmptyState } from "./shared";
@@ -10,6 +13,162 @@ import { eventService, type EventResponse } from "../../../services/events/event
 import { eventDayService, type EventDayResponse } from "../../../services/events/eventDayService";
 import { eventMediaCategoryService, type EventMediaCategoryResponse } from "../../../services/events/eventMediaCategoryService";
 import { fileUploadService } from "../../../services/files/fileUploadService";
+import { validateMediaFile } from "../../../utils/mediaValidator";
+
+export interface GalleryItem {
+  id: number;
+  url: string;
+  title: string;
+  eventName: string;
+  eventId?: number;
+  year: number;
+  dayLabel: string;
+  category: string;
+  type: "photo" | "video";
+  album: string;
+  uploader?: string;
+  dateStr?: string;
+}
+
+const MOCK_EVENTS_LIST = [
+  { id: 1, title: "Ganesh Chaturthi Utsav 2026", year: 2026 },
+  { id: 2, title: "Annual Sports Olympiad 2026", year: 2026 },
+  { id: 3, title: "Navratri Garba & Cultural 2025", year: 2025 },
+  { id: 4, title: "Diwali Community Carnival 2025", year: 2025 },
+  { id: 5, title: "New Year Celebration 2024", year: 2024 },
+];
+
+const MOCK_GALLERY_ITEMS: GalleryItem[] = [
+  {
+    id: 1,
+    url: "https://images.unsplash.com/photo-1604328698692-f76ea9498e76?w=800&q=80",
+    title: "Morning Prana Pratishtha & Archana",
+    eventName: "Ganesh Chaturthi Utsav 2026",
+    eventId: 1,
+    year: 2026,
+    dayLabel: "Day 1",
+    category: "Puja & Rituals",
+    type: "photo",
+    album: "Morning Rituals",
+    uploader: "Pandit Sharma",
+    dateStr: "Aug 27, 2026",
+  },
+  {
+    id: 2,
+    url: "https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&q=80",
+    title: "Kids Classical Bharatanatyam Performance",
+    eventName: "Ganesh Chaturthi Utsav 2026",
+    eventId: 1,
+    year: 2026,
+    dayLabel: "Day 2",
+    category: "Cultural Stage",
+    type: "photo",
+    album: "Cultural Extravaganza",
+    uploader: "Anita Rao",
+    dateStr: "Aug 28, 2026",
+  },
+  {
+    id: 3,
+    url: "https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?w=800&q=80",
+    title: "Badminton Men's Singles Semi-Finals",
+    eventName: "Annual Sports Olympiad 2026",
+    eventId: 2,
+    year: 2026,
+    dayLabel: "Day 1",
+    category: "Sports & Games",
+    type: "photo",
+    album: "Racquet Sports",
+    uploader: "Sports Committee",
+    dateStr: "Jul 12, 2026",
+  },
+  {
+    id: 4,
+    url: "https://images.unsplash.com/photo-1559027615-cd4628902d4a?w=800&q=80",
+    title: "Volunteers Managing Food Counters",
+    eventName: "Ganesh Chaturthi Utsav 2026",
+    eventId: 1,
+    year: 2026,
+    dayLabel: "Day 3",
+    category: "Volunteers & Ops",
+    type: "photo",
+    album: "Community Service",
+    uploader: "Rahul Nair",
+    dateStr: "Aug 29, 2026",
+  },
+  {
+    id: 5,
+    url: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800&q=80",
+    title: "Sponsor Stage Banner Unveiling",
+    eventName: "Annual Sports Olympiad 2026",
+    eventId: 2,
+    year: 2026,
+    dayLabel: "Day 2",
+    category: "Sponsors & Stalls",
+    type: "photo",
+    album: "Sponsors",
+    uploader: "Finance Desk",
+    dateStr: "Jul 13, 2026",
+  },
+  {
+    id: 6,
+    url: "https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=800&q=80",
+    title: "Community Maha Prasadam Feast",
+    eventName: "Ganesh Chaturthi Utsav 2026",
+    eventId: 1,
+    year: 2026,
+    dayLabel: "Day 3",
+    category: "Food & Feast",
+    type: "photo",
+    album: "Maha Prasadam",
+    uploader: "Food Committee",
+    dateStr: "Aug 29, 2026",
+  },
+  {
+    id: 7,
+    url: "https://images.unsplash.com/photo-1505236858219-8359eb29e329?w=800&q=80",
+    title: "Grand Visarjan Dhol Tasha Procession",
+    eventName: "Ganesh Chaturthi Utsav 2026",
+    eventId: 1,
+    year: 2026,
+    dayLabel: "Grand Finale",
+    category: "Highlights & Videos",
+    type: "video",
+    album: "Visarjan Highlights",
+    uploader: "Media Team",
+    dateStr: "Aug 30, 2026",
+  },
+  {
+    id: 8,
+    url: "https://images.unsplash.com/photo-1468971050039-be99497410af?w=800&q=80",
+    title: "Garba Dandiya Raas Evening Highlights",
+    eventName: "Navratri Garba & Cultural 2025",
+    eventId: 3,
+    year: 2025,
+    dayLabel: "Day 2",
+    category: "Cultural Stage",
+    type: "video",
+    album: "Garba Nights",
+    uploader: "Cultural Desk",
+    dateStr: "Oct 15, 2025",
+  },
+  {
+    id: 9,
+    url: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&q=80",
+    title: "Diwali Light Show & Fireworks Display",
+    eventName: "Diwali Community Carnival 2025",
+    eventId: 4,
+    year: 2025,
+    dayLabel: "Grand Finale",
+    category: "Highlights & Videos",
+    type: "photo",
+    album: "Diwali Sparkle",
+    uploader: "Youth Club",
+    dateStr: "Nov 01, 2025",
+  },
+];
+
+const DAY_OPTIONS = ["All Days", "Day 1", "Day 2", "Day 3", "Day 4", "Grand Finale"];
+const CATEGORY_OPTIONS = ["All Media", "Puja & Rituals", "Cultural Stage", "Sports & Games", "Food & Feast", "Volunteers & Ops", "Highlights & Videos"];
 
 // ─── default day tags shown when no DB records exist ────────────────────────
 const DEFAULT_DAYS: EventDayResponse[] = [
@@ -41,13 +200,53 @@ interface QueueItem {
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function GalleryImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
   const [failed, setFailed] = useState(false);
-  if (failed) return (
-    <div className={`${className ?? ""} flex items-center justify-center bg-slate-100 dark:bg-slate-800`}>
-      <ImageIcon className="w-6 h-6 text-slate-300" />
-    </div>
-  );
   return <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />;
 }
+
+
+function mapLivePhotos(data: EventGalleryItemResponse[]): GalleryItem[] {
+  return data.map(g => ({
+    id: g.id,
+    url: g.thumbnailUrl ?? g.url,
+    title: g.caption || g.albumName || `Media #${g.id}`,
+    eventName: g.eventName || "Event",
+    eventId: g.eventId,
+    year: g.createdAt ? new Date(g.createdAt).getFullYear() : 2026,
+    dayLabel: g.dayLabel || "Day 1",
+    category: g.category || "General",
+    type: (g.mediaType ?? "PHOTO").toLowerCase() === "video" ? "video" : "photo",
+    album: g.albumName ?? "General Gallery",
+    uploader: g.uploaderName || "Community Admin",
+    dateStr: g.createdAt ? new Date(g.createdAt).toLocaleDateString() : undefined,
+  }));
+}
+
+function FilterChip({
+  label, active, count, onSelect, onRemove,
+}: {
+  label: string; active: boolean; count?: number;
+  onSelect: () => void; onRemove?: () => void;
+}) {
+  return (
+    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border cursor-pointer select-none transition-all
+      ${active
+        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+        : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-indigo-300 hover:text-indigo-600"}`}
+      onClick={onSelect}>
+      {label}
+      {count !== undefined && (
+        <span className={`text-[10px] px-1 rounded-full ${active ? "bg-white/20" : "bg-slate-100 dark:bg-slate-700"}`}>{count}</span>
+      )}
+      {onRemove && (
+        <button onClick={e => { e.stopPropagation(); onRemove(); }}
+          className="ml-0.5 hover:text-rose-400 transition-colors">
+          <X className="w-2.5 h-2.5" />
+        </button>
+      )}
+    </span>
+  );
+}
+
 
 // ─── Create-tag inline form ───────────────────────────────────────────────────
 function InlineCreate({ placeholder, onSave, onCancel }: {
@@ -287,8 +486,11 @@ export function EventsGallery() {
   const [categories, setCategories] = useState<EventMediaCategoryResponse[]>([]);
   const [items, setItems] = useState<EventGalleryItemResponse[]>([]);
 
-  // Filters
-  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  // Multi-dimensional filter states
+  const [selectedYear, setSelectedYear] = useState<string>("All");
+  const [selectedEventId, setSelectedEventId] = useState<string>("All");
+  const [selectedDay, setSelectedDay] = useState<string>("All Days");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All Media");
   const [activeDayTag, setActiveDayTag] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
@@ -297,10 +499,210 @@ export function EventsGallery() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showUpload, setShowUpload] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
 
   // Inline create state
   const [addingDay, setAddingDay] = useState(false);
   const [addingCat, setAddingCat] = useState(false);
+  const [activeLightbox, setActiveLightbox] = useState<EventGalleryItemResponse | null>(null);
+
+  // Deletion and Multi-Selection state
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState<number[] | null>(null);
+
+  // Upload Modal Form State
+  interface ModalFileQueueItem {
+    key: string;
+    file: File;
+    preview: string;
+    mediaType: "photo" | "video";
+  }
+
+  const [uploadForm, setUploadForm] = useState({
+    title: "",
+    eventName: "Ganesh Chaturthi Utsav 2026",
+    year: 2026,
+    dayLabel: "Day 1",
+    category: "Puja & Rituals",
+    type: "photo" as "photo" | "video",
+    url: "",
+    album: "General",
+  });
+  const [uploadFilesQueue, setUploadFilesQueue] = useState<ModalFileQueueItem[]>([]);
+  const [uploadValidationErrors, setUploadValidationErrors] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  // Inline creation states inside Upload Modal
+  const [showAddDayInModal, setShowAddDayInModal] = useState(false);
+  const [newDayLabel, setNewDayLabel] = useState("");
+  const [showAddCatInModal, setShowAddCatInModal] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+
+  const handleUploadSubmit = async (e: React.FormEvent, isPublish: boolean = true) => {
+    e.preventDefault();
+
+    const rawUrls = uploadForm.url
+      .split(/[\n,]/)
+      .map(u => u.trim())
+      .filter(u => u.length > 0);
+
+    if (uploadFilesQueue.length === 0 && rawUrls.length === 0) return;
+    setUploading(true);
+
+    try {
+      const createdItems: EventGalleryItemResponse[] = [];
+      const evtIdNum = Number(selectedEventId) || events[0]?.id || 1;
+
+      // 1. Process selected files queue
+      for (let i = 0; i < uploadFilesQueue.length; i++) {
+        const item = uploadFilesQueue[i];
+        let finalUrl = item.preview;
+
+        if (!useMock) {
+          try {
+            const res = await fileUploadService.upload(item.file);
+            finalUrl = res.url;
+          } catch (err) {
+            console.warn(`File upload failed for ${item.file.name}, using preview URL`, err);
+          }
+
+          const created = await eventGalleryService.create({
+            eventId: evtIdNum,
+            url: finalUrl,
+            thumbnailUrl: finalUrl,
+            mediaType: item.mediaType === "video" ? "VIDEO" : "PHOTO",
+            dayTag: uploadForm.dayLabel,
+            category: uploadForm.category,
+            caption: uploadForm.title.trim()
+              ? (uploadFilesQueue.length === 1 && rawUrls.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} #${i + 1}`)
+              : item.file.name.replace(/\.[^/.]+$/, ""),
+            albumName: uploadForm.album,
+            featured: isPublish,
+          });
+          createdItems.push(created);
+        } else {
+          const newItem: EventGalleryItemResponse = {
+            id: Date.now() + i,
+            eventId: evtIdNum,
+            eventName: uploadForm.eventName,
+            url: finalUrl,
+            thumbnailUrl: finalUrl,
+            mediaType: item.mediaType === "video" ? "VIDEO" : "PHOTO",
+            dayTag: uploadForm.dayLabel,
+            category: uploadForm.category,
+            caption: uploadForm.title.trim()
+              ? (uploadFilesQueue.length === 1 && rawUrls.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} #${i + 1}`)
+              : item.file.name.replace(/\.[^/.]+$/, ""),
+            albumName: uploadForm.album,
+            uploadedByName: "Current Admin",
+            createdAt: new Date().toISOString(),
+            featured: isPublish,
+            sortOrder: 0,
+          };
+          createdItems.push(newItem);
+        }
+      }
+
+      // 2. Process URLs from textarea
+      for (let idx = 0; idx < rawUrls.length; idx++) {
+        const urlStr = rawUrls[idx];
+        const isVideo = urlStr.includes(".mp4") || urlStr.includes(".webm") || urlStr.includes("video") || urlStr.includes("youtube") || urlStr.includes("vimeo");
+
+        if (!useMock) {
+          const created = await eventGalleryService.create({
+            eventId: evtIdNum,
+            url: urlStr,
+            thumbnailUrl: urlStr,
+            mediaType: isVideo ? "VIDEO" : "PHOTO",
+            dayTag: uploadForm.dayLabel,
+            category: uploadForm.category,
+            caption: uploadForm.title.trim()
+              ? (rawUrls.length === 1 && uploadFilesQueue.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} URL #${idx + 1}`)
+              : `Media URL #${idx + 1}`,
+            albumName: uploadForm.album,
+            featured: isPublish,
+          });
+          createdItems.push(created);
+        } else {
+          const newItem: EventGalleryItemResponse = {
+            id: Date.now() + 1000 + idx,
+            eventId: evtIdNum,
+            eventName: uploadForm.eventName,
+            url: urlStr,
+            thumbnailUrl: urlStr,
+            mediaType: isVideo ? "VIDEO" : "PHOTO",
+            dayTag: uploadForm.dayLabel,
+            category: uploadForm.category,
+            caption: uploadForm.title.trim()
+              ? (rawUrls.length === 1 && uploadFilesQueue.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} URL #${idx + 1}`)
+              : `Media URL #${idx + 1}`,
+            albumName: uploadForm.album,
+            uploadedByName: "Current Admin",
+            createdAt: new Date().toISOString(),
+            featured: isPublish,
+            sortOrder: 0,
+          };
+          createdItems.push(newItem);
+        }
+      }
+
+      setItems(prev => [...createdItems, ...prev]);
+      setShowUploadModal(false);
+      setUploadFilesQueue([]);
+      setUploadForm({
+        title: "",
+        eventName: events[0]?.title || "Ganesh Chaturthi Utsav 2026",
+        year: 2026,
+        dayLabel: "Day 1",
+        category: "Puja & Rituals",
+        type: "photo",
+        url: "",
+        album: "General",
+      });
+    } catch (err) {
+      console.error("Failed to batch upload media", err);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Extract available years dynamically from dataset
+  const availableYears = useMemo(() => {
+    const years = Array.from(new Set(items.map(i => i.createdAt ? new Date(i.createdAt).getFullYear() : 2026))).sort((a, b) => b - a);
+    return ["All", ...years.map(String)];
+  }, [items]);
+
+  // Extract available events dynamically
+  const availableEvents = useMemo(() => {
+    if (useMock) return MOCK_EVENTS_LIST;
+    return events.map(e => ({ id: e.id, title: e.title, year: new Date(e.startDate).getFullYear() }));
+  }, [useMock, events]);
+
+  // Dynamically derive available days
+  const dynamicDayOptions = useMemo(() => {
+    const set = new Set<string>();
+    days.forEach(d => set.add(d.label));
+    items.forEach(i => { if (i.dayTag) set.add(i.dayTag); });
+    if (set.size === 0) return ["All Days", "Day 1", "Day 2", "Day 3", "Day 4", "Grand Finale"];
+    const sorted = Array.from(set).sort((a, b) => {
+      if (a === "Grand Finale") return 1;
+      if (b === "Grand Finale") return -1;
+      return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+    });
+    return ["All Days", ...sorted];
+  }, [days, items]);
+
+  // Dynamically derive available categories
+  const dynamicCategoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    categories.forEach(c => set.add(c.name));
+    items.forEach(i => { if (i.category) set.add(i.category); });
+    if (set.size === 0) return ["All Media", "Puja & Rituals", "Cultural Stage", "Sports & Games", "Food & Feast", "Volunteers & Ops", "Highlights & Videos"];
+    const sorted = Array.from(set).sort();
+    return ["All Media", ...sorted];
+  }, [categories, items]);
 
   // ── Fetch bootstrap data ─────────────────────────────────────────────────
   useEffect(() => {
@@ -326,7 +728,7 @@ export function EventsGallery() {
     ]).then(([evtR, daysR, catsR, itemsR]) => {
       if (evtR.status === "fulfilled") {
         setEvents(evtR.value);
-        if (evtR.value.length > 0) setSelectedEventId(evtR.value[0].id);
+        if (evtR.value.length > 0) setSelectedEventId("All");
       }
       if (daysR.status === "fulfilled") {
         setDays(daysR.value.length > 0 ? daysR.value : DEFAULT_DAYS);
@@ -391,10 +793,61 @@ export function EventsGallery() {
     if (activeCategory === c.name) setActiveCategory(null);
   }
 
+  // ── Single and Bulk Media Deletion ──────────────────────────────────────
+  const toggleSelectItem = (id: number) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const selectAllFilteredItems = (itemsToSelect: EventGalleryItemResponse[]) => {
+    const allFilteredIds = itemsToSelect.map(item => item.id);
+    if (selectedIds.length === allFilteredIds.length && allFilteredIds.length > 0) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(allFilteredIds);
+    }
+  };
+
+  const handleExecuteDelete = async (ids: number[]) => {
+    if (ids.length === 0) return;
+    setDeleting(true);
+    setError("");
+
+    try {
+      if (!useMock) {
+        for (const id of ids) {
+          try {
+            await eventGalleryService.deleteItem(id);
+          } catch (e: any) {
+            console.warn(`Error deleting gallery item ${id}:`, e);
+          }
+        }
+      }
+      setItems(prev => prev.filter(item => !ids.includes(item.id)));
+      setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
+
+      if (activeLightbox && ids.includes(activeLightbox.id)) {
+        setActiveLightbox(null);
+      }
+      setDeleteConfirmTarget(null);
+    } catch (e: any) {
+      setError(e.message ?? "Failed to delete selected media items.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   // ── Filter items for the current view ────────────────────────────────────
   const filteredItems = items.filter(item => {
-    if (selectedEventId && item.eventId !== selectedEventId) return false;
+    if (selectedYear !== "All" && item.createdAt && String(new Date(item.createdAt).getFullYear()) !== selectedYear) return false;
+    if (selectedEventId !== "All" && String(item.eventId) !== selectedEventId) return false;
+    if (selectedDay !== "All Days" && item.dayTag !== selectedDay) return false;
     if (activeDayTag && item.dayTag !== activeDayTag) return false;
+    if (selectedCategory !== "All Media") {
+      if (selectedCategory === "Highlights & Videos" && item.mediaType === "VIDEO") return true;
+      if (item.category !== selectedCategory) return false;
+    }
     if (activeCategory && item.category !== activeCategory) return false;
     return true;
   });
@@ -406,120 +859,266 @@ export function EventsGallery() {
     if (!albumMap.has(key)) albumMap.set(key, []);
     albumMap.get(key)!.push(item);
   }
+  const albumGroups = Array.from(albumMap.entries()).map(([name, groupItems]) => ({
+    name,
+    count: groupItems.length,
+    cover: groupItems[0]?.url,
+    items: groupItems
+  }));
 
   return (
     <div className="space-y-4">
       {/* ── Error banner ─────────────────────────────────────────────────── */}
       {error && <ErrorBanner message={error} variant="warning" />}
 
-      {/* ── Event selector ───────────────────────────────────────────────── */}
-      {!useMock && events.length > 0 && (
-        <div className="flex items-center gap-2">
-          <CalendarDays className="w-4 h-4 text-slate-400 flex-shrink-0" />
-          <div className="relative flex-1 max-w-xs">
-            <select
-              value={selectedEventId ?? ""}
-              onChange={e => setSelectedEventId(Number(e.target.value))}
-              className="w-full px-3 py-1.5 pr-8 rounded-xl border border-slate-200 dark:border-slate-700 text-sm bg-white dark:bg-slate-800 dark:text-white appearance-none">
-              <option value="">All Events</option>
-              {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
-            </select>
-            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+      {/* ── Top Header Bar & Multi-dimensional Controls ── */}
+      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="font-extrabold text-slate-800 text-base sm:text-lg flex items-center gap-2">
+              <ImageIcon className="w-5 h-5 text-indigo-600" /> Event Media & Memories
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Showing <span className="font-bold text-indigo-600">{filteredItems.length}</span> items across events & days
+            </p>
           </div>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Multi-select Actions Bar */}
+            {isSelectMode ? (
+              <>
+                <button
+                  onClick={() => selectAllFilteredItems(filteredItems)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-all"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600" />
+                  {selectedIds.length === filteredItems.length && filteredItems.length > 0 ? "Deselect All" : "Select All"}
+                </button>
+                <button
+                  onClick={() => setDeleteConfirmTarget(selectedIds)}
+                  disabled={selectedIds.length === 0}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-bold rounded-xl bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-40 transition-all shadow-sm"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete Selected ({selectedIds.length})
+                </button>
+                <button
+                  onClick={() => { setIsSelectMode(false); setSelectedIds([]); }}
+                  className="px-3 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 transition-all"
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setIsSelectMode(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition-all"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" /> Select Items
+              </button>
+            )}
+
+            {/* View Mode Toggle */}
+            <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-slate-50 p-0.5">
+              <button
+                onClick={() => setView("grid")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  view === "grid" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Grid3X3 className="w-3.5 h-3.5" /> Media Grid
+              </button>
+              <button
+                onClick={() => setView("albums")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  view === "albums" ? "bg-white text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" /> Albums
+              </button>
+            </div>
+
+            {/* Upload Button */}
+            <button
+              onClick={() => setShowUploadModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm"
+            >
+              <Upload className="w-3.5 h-3.5" /> Upload Media
+            </button>
+          </div>
+        </div>
+
+        {/* ── Dropdown Filters (Year & Event Selection) ── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2 border-t border-slate-100">
+          {/* Year Filter */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-1">
+              <Calendar className="w-3 h-3 text-indigo-500" /> Filter Year
+            </label>
+            <select
+              value={selectedYear}
+              onChange={e => setSelectedYear(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50 hover:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 text-slate-700"
+            >
+              {availableYears.map(y => (
+                <option key={y} value={y}>{y === "All" ? "🗓️ All Years" : `Year ${y}`}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Event Filter */}
+          <div>
+            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-1">
+              <Tag className="w-3 h-3 text-indigo-500" /> Filter Event
+            </label>
+            <select
+              value={selectedEventId}
+              onChange={e => setSelectedEventId(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50 hover:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 text-slate-700"
+            >
+              <option value="All">🎉 All Community Events</option>
+              {availableEvents.map(ev => (
+                <option key={ev.id} value={String(ev.id)}>{ev.title}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Day Filter dropdown - shown only when Year & Event are selected */}
+          {selectedYear !== "All" && selectedEventId !== "All" && (
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 flex items-center gap-1">
+                <Filter className="w-3 h-3 text-indigo-500" /> Active Day Filter
+              </label>
+              <select
+                value={selectedDay}
+                onChange={e => setSelectedDay(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50 hover:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200 text-slate-700"
+              >
+                {dynamicDayOptions.map(d => (
+                  <option key={d} value={d}>{d === "All Days" ? "📅 All Days (Multi-day)" : `📌 ${d}`}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Reset Filters button */}
+          <div className="flex items-end">
+            <button
+              onClick={() => {
+                setSelectedYear("All");
+                setSelectedEventId("All");
+                setSelectedDay("All Days");
+                setSelectedCategory("All Media");
+              }}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors flex items-center justify-center gap-1.5"
+            >
+              <X className="w-3.5 h-3.5" /> Clear Filters
+            </button>
+          </div>
+        </div>
+
+        {/* ── Day-wise Chips & Category Pill Bar (shown ONLY when both Year and Event are selected) ── */}
+        {selectedYear !== "All" && selectedEventId !== "All" ? (
+          <div className="space-y-2 pt-2 border-t border-slate-100 animate-fade-in">
+            {/* Day Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Day:</span>
+              {dynamicDayOptions.map(day => {
+                const active = selectedDay === day;
+                return (
+                  <button
+                    key={day}
+                    onClick={() => setSelectedDay(day)}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition-all shrink-0 border ${
+                      active
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                        : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-white hover:border-slate-300"
+                    }`}
+                  >
+                    {day}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Category Chips */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Category:</span>
+              {dynamicCategoryOptions.map(cat => {
+                const active = selectedCategory === cat;
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-all shrink-0 border ${
+                      active
+                        ? "bg-slate-800 text-white border-slate-800 shadow-sm"
+                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="pt-2 border-t border-slate-100 text-[11px] text-slate-400 flex items-center gap-1.5 font-medium">
+            <span>💡 Select a specific <strong className="text-slate-700 dark:text-slate-300">Year</strong> and <strong className="text-slate-700 dark:text-slate-300">Event</strong> above to reveal Day-wise and Category-wise filters.</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Loading Spinner ── */}
+      {loading && (
+        <div className="flex items-center justify-center py-12 text-slate-400">
+          <Loader2 className="w-5 h-5 animate-spin mr-2 text-indigo-500" /> Loading event media...
         </div>
       )}
 
-      {/* ── Day tags ─────────────────────────────────────────────────────── */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <Tag className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Day Tags</span>
-        </div>
-        <div className="flex flex-wrap gap-1.5 items-center">
-          <FilterChip label="All Days" active={activeDayTag === null} onSelect={() => setActiveDayTag(null)}
-            count={items.length} />
-          {days.map(d => (
-            <FilterChip
-              key={d.id}
-              label={d.label}
-              active={activeDayTag === d.label}
-              count={items.filter(i => i.dayTag === d.label).length}
-              onSelect={() => setActiveDayTag(activeDayTag === d.label ? null : d.label)}
-              onRemove={!useMock ? () => deleteDay(d) : undefined}
-            />
-          ))}
-          {!useMock && !addingDay && (
-            <button onClick={() => setAddingDay(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-slate-300 dark:border-slate-600 text-xs text-slate-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors">
-              <Plus className="w-3 h-3" /> Add Day
-            </button>
-          )}
-          {addingDay && (
-            <InlineCreate placeholder="Day label" onSave={handleCreateDay} onCancel={() => setAddingDay(false)} />
-          )}
-        </div>
-      </div>
-
-      {/* ── Categories ───────────────────────────────────────────────────── */}
-      <div>
-        <div className="flex items-center gap-1.5 mb-2">
-          <Layers className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Categories</span>
-        </div>
-        <div className="flex flex-wrap gap-1.5 items-center">
-          <FilterChip label="All" active={activeCategory === null} onSelect={() => setActiveCategory(null)} />
-          {categories.map(c => (
-            <FilterChip
-              key={c.id}
-              label={c.name}
-              active={activeCategory === c.name}
-              count={items.filter(i => i.category === c.name).length}
-              onSelect={() => setActiveCategory(activeCategory === c.name ? null : c.name)}
-              onRemove={!useMock ? () => deleteCategory(c) : undefined}
-            />
-          ))}
-          {!useMock && !addingCat && (
-            <button onClick={() => setAddingCat(true)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-dashed border-slate-300 dark:border-slate-600 text-xs text-slate-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors">
-              <Plus className="w-3 h-3" /> Add Category
-            </button>
-          )}
-          {addingCat && (
-            <InlineCreate placeholder="Category name" onSave={handleCreateCategory} onCancel={() => setAddingCat(false)} />
-          )}
-        </div>
-      </div>
-
-      {/* ── Toolbar ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div>
-          <h2 className="font-bold text-slate-800 dark:text-white text-sm sm:text-base">
-            {activeDayTag ?? activeCategory ?? "All Media"}
-          </h2>
-          <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">
-            {filteredItems.length} item{filteredItems.length !== 1 ? "s" : ""}
-            {(activeDayTag || activeCategory) ? " matching filters" : ""}
+      {/* ── Media Content View ── */}
+      {!loading && filteredItems.length === 0 ? (
+        <div className="bg-white rounded-2xl p-12 border border-slate-100 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
+            <ImageIcon className="w-6 h-6" />
+          </div>
+          <h3 className="font-bold text-slate-800 text-sm">No media found for the selected filters</h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            Try switching year, event, day, or category filters to view other uploaded memories.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* View toggle */}
-          <div className="flex rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-            {(["grid", "albums"] as const).map(v => (
-              <button key={v} onClick={() => setView(v)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all capitalize
-                  ${view === v ? "bg-indigo-500 text-white" : "bg-white dark:bg-slate-800 text-slate-500 hover:text-indigo-600"}`}>
-                {v === "grid" ? <Grid3X3 className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}
-                {v}
-              </button>
-            ))}
-          </div>
-          {/* Upload button */}
-          <button onClick={() => setShowUpload(true)}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm">
-            <Upload className="w-3.5 h-3.5" /> Upload Media
-          </button>
-        </div>
-      </div>
+      ) : view === "grid" ? (
+        /* ── Grid View ── */
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+          {filteredItems.map(item => {
+            const isSelected = selectedIds.includes(item.id);
+            return (
+              <div
+                key={item.id}
+                onClick={() => {
+                  if (isSelectMode) {
+                    toggleSelectItem(item.id);
+                  } else {
+                    setActiveLightbox(item);
+                  }
+                }}
+                className={`bg-white rounded-2xl overflow-hidden border transition-all duration-300 group cursor-pointer flex flex-col relative ${
+                  isSelected
+                    ? "border-indigo-500 ring-2 ring-indigo-500/20 shadow-md scale-[0.98]"
+                    : "border-slate-100 shadow-sm hover:shadow-xl"
+                }`}
+              >
+                {/* Single Delete Button */}
+                <button
+                  onClick={e => {
+                    e.stopPropagation();
+                    setDeleteConfirmTarget([item.id]);
+                  }}
+                  title="Delete media item"
+                  className="absolute top-2 right-2 p-1.5 rounded-xl bg-rose-600/90 text-white opacity-0 group-hover:opacity-100 hover:bg-rose-700 transition-all shadow-md z-20"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+
 
       {/* ── Loading spinner ───────────────────────────────────────────────── */}
       {loading && <LoadingSpinner label="Loading gallery…" />}
@@ -534,9 +1133,204 @@ export function EventsGallery() {
               <MediaTile key={item.id} item={item} index={i} onDelete={id => setItems(its => its.filter(x => x.id !== id))} useMock={useMock} />
             ))}
             <UploadTile onUpload={() => setShowUpload(true)} />
-          </div>
-        )
+
+                {/* Selection Checkbox overlay */}
+                {isSelectMode && (
+                  <div className="absolute top-2 left-2 z-20">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelectItem(item.id)}
+                      onClick={e => e.stopPropagation()}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 cursor-pointer"
+                    />
+                  </div>
+                )}
+
+                <div className="relative aspect-4/3 overflow-hidden bg-slate-100">
+                  <GalleryImage
+                    src={item.url}
+                    alt={item.caption || item.eventName || "Event Image"}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-80 group-hover:opacity-90 transition-opacity" />
+
+                  {/* Day & Category Badges */}
+                  <div className={`absolute top-2 ${isSelectMode ? "left-8" : "left-2"} flex items-center gap-1.5 flex-wrap transition-all`}>
+                    {item.dayTag && (
+                      <span className="px-2 py-0.5 rounded-md bg-black/60 backdrop-blur-md text-white text-[10px] font-bold border border-white/20">
+                        {item.dayTag}
+                      </span>
+                    )}
+                    {item.category && (
+                      <span className="px-2 py-0.5 rounded-md bg-indigo-600/90 backdrop-blur-md text-white text-[10px] font-bold">
+                        {item.category}
+                      </span>
+                    )}
+                  </div>
+
+                {/* Media Type Icon */}
+                {item.mediaType === "VIDEO" && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-full bg-white/90 shadow-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Play className="w-4 h-4 text-indigo-600 ml-0.5" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Year Tag */}
+                <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/50 text-white font-mono text-[9px]">
+                  {item.createdAt ? new Date(item.createdAt).getFullYear() : 2026}
+                </div>
+              </div>
+
+              <div className="p-3 flex-1 flex flex-col justify-between">
+                <div>
+                  <h4 className="font-bold text-slate-800 text-xs line-clamp-1 group-hover:text-indigo-600 transition-colors">
+                    {item.caption || item.eventName || "Event Media"}
+                  </h4>
+                  <p className="text-[10px] text-slate-400 truncate mt-0.5">{item.eventName}</p>
+                </div>
+                <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-400">
+                  <span>{item.albumName || "General"}</span>
+                  <span>{item.createdAt ? item.createdAt.substring(0, 10) : "2026"}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        </div>
+      ) : (
+        /* ── Albums View ── */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {albumGroups.map(alb => (
+            <div
+              key={alb.name}
+              onClick={() => {
+                setSelectedCategory(alb.items[0]?.category || "All Media");
+                setView("grid");
+              }}
+              className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group cursor-pointer"
+            >
+              <div className="relative h-44 overflow-hidden bg-slate-100">
+                {alb.cover ? (
+                  <GalleryImage src={alb.cover} alt={alb.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-slate-300">
+                    <ImageIcon className="w-10 h-10" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-md text-white text-[10px] font-bold">
+                  {alb.count} Items
+                </div>
+                <div className="absolute bottom-3 left-3 right-3">
+                  <p className="text-white font-extrabold text-base leading-tight">{alb.name}</p>
+                  <p className="text-white/70 text-xs mt-0.5 truncate">{alb.items[0]?.eventName}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
+
+      {/* ── Lightbox Preview Modal ── */}
+      {activeLightbox && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+          onClick={e => { if (e.target === e.currentTarget) setActiveLightbox(null); }}
+        >
+          <div className="bg-slate-900 rounded-2xl overflow-hidden max-w-4xl w-full shadow-2xl border border-slate-800 flex flex-col md:flex-row max-h-[90vh]">
+            <div className="flex-1 bg-black flex items-center justify-center relative min-h-[300px]">
+              <GalleryImage
+                src={activeLightbox.url}
+                alt={activeLightbox.caption || activeLightbox.eventName || "Preview"}
+                className="max-h-[70vh] w-full object-contain"
+              />
+              {activeLightbox.mediaType === "VIDEO" && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-16 h-16 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-xl">
+                    <Play className="w-8 h-8 ml-1" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="w-full md:w-80 p-6 bg-slate-900 text-white flex flex-col justify-between border-t md:border-t-0 md:border-l border-slate-800">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 text-xs font-bold border border-indigo-500/30">
+                    {activeLightbox.dayTag || "Day 1"} • {activeLightbox.category || "General"}
+                  </span>
+                  <button
+                    onClick={() => setActiveLightbox(null)}
+                    className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div>
+                  <h3 className="font-extrabold text-base text-white">{activeLightbox.caption || activeLightbox.eventName}</h3>
+                  <p className="text-xs text-indigo-400 mt-1">{activeLightbox.eventName} ({activeLightbox.createdAt ? new Date(activeLightbox.createdAt).getFullYear() : 2026})</p>
+                </div>
+
+                <div className="space-y-2 text-xs text-slate-400 border-t border-slate-800 pt-3">
+                  <div className="flex justify-between">
+                    <span>Album:</span>
+                    <span className="text-slate-200 font-medium">{activeLightbox.albumName || "General"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Uploaded By:</span>
+                    <span className="text-slate-200 font-medium">{activeLightbox.uploadedByName || "Admin"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Date:</span>
+                    <span className="text-slate-200 font-medium">{activeLightbox.createdAt ? activeLightbox.createdAt.substring(0, 10) : "2026"}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-slate-800 flex gap-2">
+                <a
+                  href={activeLightbox.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" /> Download
+                </a>
+                <button
+                  onClick={() => setDeleteConfirmTarget([activeLightbox.id])}
+                  className="px-4 py-2.5 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-rose-500/30"
+                  title="Delete this media item"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ── Upload New Media Modal Popup ── */}
+      {showUploadModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in"
+          onClick={e => { if (e.target === e.currentTarget) setShowUploadModal(false); }}
+        >
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 dark:border-slate-800">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+              <h3 className="font-bold text-slate-800 dark:text-white text-sm flex items-center gap-2">
+                <Upload className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Upload Event Media & Memories
+              </h3>
+              <button
+                onClick={() => setShowUploadModal(false)}
+                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
 
       {/* ── Albums view ───────────────────────────────────────────────────── */}
       {!loading && view === "albums" && (
@@ -551,11 +1345,330 @@ export function EventsGallery() {
               className="min-h-[200px] border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-2xl flex flex-col items-center justify-center gap-3 hover:border-indigo-300 hover:bg-indigo-50/30 dark:hover:bg-indigo-900/10 transition-all group">
               <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 group-hover:bg-indigo-100 dark:group-hover:bg-indigo-900/30 flex items-center justify-center transition-all">
                 <Plus className="w-6 h-6 text-slate-400 group-hover:text-indigo-500" />
+
+            <form onSubmit={handleUploadSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Media Title / Caption *</label>
+                <input
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs focus:ring-2 focus:ring-indigo-200 outline-none"
+                  placeholder="e.g. Visarjan Procession Evening Dance"
+                  value={uploadForm.title}
+                  onChange={e => setUploadForm(f => ({ ...f, title: e.target.value }))}
+                  required
+                />
+
               </div>
-              <p className="text-sm font-bold text-slate-600 dark:text-slate-300 group-hover:text-indigo-600 transition-colors">Upload to new album</p>
-            </button>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Event *</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs font-medium"
+                    value={uploadForm.eventName}
+                    onChange={e => setUploadForm(f => ({ ...f, eventName: e.target.value }))}
+                  >
+                    {(!useMock && events.length > 0
+                      ? events.map(ev => ({ id: ev.id, title: ev.title }))
+                      : availableEvents
+                    ).map(ev => (
+                      <option key={ev.id} value={ev.title}>{ev.title}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Year</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs font-medium"
+                    value={uploadForm.year}
+                    onChange={e => setUploadForm(f => ({ ...f, year: Number(e.target.value) }))}
+                  >
+                    <option value={2026}>2026</option>
+                    <option value={2025}>2025</option>
+                    <option value={2024}>2024</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {/* Day Tag Dropdown with + Add Day Button */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">Day Tag</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddDayInModal(true)}
+                      className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5"
+                    >
+                      <Plus className="w-3 h-3" /> Add Day
+                    </button>
+                  </div>
+                  {showAddDayInModal ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        placeholder="e.g. Day 6"
+                        value={newDayLabel}
+                        onChange={e => setNewDayLabel(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-300 dark:border-indigo-600 text-xs outline-none bg-white dark:bg-slate-800 dark:text-white"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!newDayLabel.trim()) return;
+                          await handleCreateDay(newDayLabel.trim());
+                          setUploadForm(f => ({ ...f, dayLabel: newDayLabel.trim() }));
+                          setNewDayLabel("");
+                          setShowAddDayInModal(false);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold shrink-0 hover:bg-indigo-700 transition-colors"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddDayInModal(false)}
+                        className="p-1 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs font-medium"
+                      value={uploadForm.dayLabel}
+                      onChange={e => setUploadForm(f => ({ ...f, dayLabel: e.target.value }))}
+                    >
+                      {(days.length > 0 ? days.map(d => d.label) : ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5", "Grand Finale"]).map(d => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                {/* Category Dropdown with + Add Category Button */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300">Category</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCatInModal(true)}
+                      className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5"
+                    >
+                      <Plus className="w-3 h-3" /> Add Category
+                    </button>
+                  </div>
+                  {showAddCatInModal ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        placeholder="e.g. Decoration"
+                        value={newCatName}
+                        onChange={e => setNewCatName(e.target.value)}
+                        className="w-full px-2.5 py-1.5 rounded-lg border border-indigo-300 dark:border-indigo-600 text-xs outline-none bg-white dark:bg-slate-800 dark:text-white"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!newCatName.trim()) return;
+                          await handleCreateCategory(newCatName.trim());
+                          setUploadForm(f => ({ ...f, category: newCatName.trim() }));
+                          setNewCatName("");
+                          setShowAddCatInModal(false);
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold shrink-0 hover:bg-indigo-700 transition-colors"
+                      >
+                        Save
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCatInModal(false)}
+                        className="p-1 text-slate-400 hover:text-slate-600"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs font-medium"
+                      value={uploadForm.category}
+                      onChange={e => setUploadForm(f => ({ ...f, category: e.target.value }))}
+                    >
+                      {(categories.length > 0 ? categories.map(c => c.name) : ["Puja & Rituals", "Cultural Stage", "Sports & Games", "Food & Feast", "Volunteers & Ops", "Highlights & Videos"]).map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Media Type</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs"
+                    value={uploadForm.type}
+                    onChange={e => setUploadForm(f => ({ ...f, type: e.target.value as "photo" | "video" }))}
+                  >
+                    <option value="photo">🖼️ Image / Photo</option>
+                    <option value="video">🎥 Video</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Album Name</label>
+                  <input
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs"
+                    placeholder="General Album"
+                    value={uploadForm.album}
+                    onChange={e => setUploadForm(f => ({ ...f, album: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">
+                  Upload Multiple Images & Videos or URLs *
+                </label>
+                <div className="space-y-3">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,video/*"
+                    onChange={async (e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        const files = Array.from(e.target.files);
+                        const validItems: ModalFileQueueItem[] = [];
+                        const errors: string[] = [];
+
+                        for (const f of files) {
+                          const result = await validateMediaFile(f);
+                          if (result.valid) {
+                            validItems.push({
+                              key: `${f.name}-${f.size}-${Date.now()}-${Math.random()}`,
+                              file: f,
+                              preview: URL.createObjectURL(f),
+                              mediaType: result.mediaType === "video" ? "video" : "photo",
+                            });
+                          } else if (result.error) {
+                            errors.push(result.error);
+                          }
+                        }
+
+                        if (validItems.length > 0) {
+                          setUploadFilesQueue(prev => [...prev, ...validItems]);
+                        }
+                        if (errors.length > 0) {
+                          setUploadValidationErrors(errors);
+                        } else {
+                          setUploadValidationErrors([]);
+                        }
+                      }
+                    }}
+                    className="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-600 hover:file:bg-indigo-100 cursor-pointer"
+                  />
+
+                  {uploadValidationErrors.length > 0 && (
+                    <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+                      <div className="font-bold flex items-center gap-1 text-[11px] uppercase tracking-wider text-amber-900 dark:text-amber-200">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Validation Warnings ({uploadValidationErrors.length})
+                      </div>
+                      <ul className="list-disc list-inside space-y-0.5 text-[11px] font-medium">
+                        {uploadValidationErrors.map((err, i) => (
+                          <li key={i}>{err}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {uploadFilesQueue.length > 0 && (
+                    <div className="space-y-1.5 animate-fade-in">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
+                        <span>Selected Files ({uploadFilesQueue.length})</span>
+                        <button
+                          type="button"
+                          onClick={() => setUploadFilesQueue([])}
+                          className="text-rose-500 hover:underline"
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-1.5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                        {uploadFilesQueue.map((item, idx) => (
+                          <div key={item.key} className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-black/10">
+                            {item.mediaType === "video" ? (
+                              <video src={item.preview} className="w-full h-full object-cover" />
+                            ) : (
+                              <img src={item.preview} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setUploadFilesQueue(q => q.filter(x => x.key !== item.key))}
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-80 group-hover:opacity-100 hover:bg-rose-600 transition-all"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                            <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[8px] font-bold">
+                              {item.mediaType === "video" ? "🎥 Video" : "🖼️ Image"}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="relative flex items-center">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-2 bg-white dark:bg-slate-900 absolute left-1/2 -translate-x-1/2">
+                      or paste image / video URLs
+                    </span>
+                    <hr className="w-full border-slate-100 dark:border-slate-800" />
+                  </div>
+
+                  <textarea
+                    rows={2}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs focus:ring-2 focus:ring-indigo-200 outline-none resize-none"
+                    placeholder="https://images.unsplash.com/... (Multiple URLs separated by lines or commas)"
+                    value={uploadForm.url}
+                    onChange={e => setUploadForm(f => ({ ...f, url: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowUploadModal(false);
+                    setUploadFilesQueue([]);
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  disabled={uploading || (uploadFilesQueue.length === 0 && !uploadForm.url.trim())}
+                  onClick={e => handleUploadSubmit(e, false)}
+                  className="flex-1 px-3 py-2.5 rounded-xl text-xs font-bold border border-indigo-600 text-indigo-600 dark:text-indigo-400 dark:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 disabled:opacity-40 flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                >
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  Save
+                </button>
+
+                <button
+                  type="button"
+                  disabled={uploading || (uploadFilesQueue.length === 0 && !uploadForm.url.trim())}
+                  onClick={e => handleUploadSubmit(e, true)}
+                  className="flex-1 px-3 py-2.5 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 flex items-center justify-center gap-1.5 transition-all shadow-md"
+                >
+                  {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  Save & Publish
+                </button>
+              </div>
+            </form>
           </div>
-        )
+        </div>
       )}
 
       {/* ── Upload drawer ─────────────────────────────────────────────────── */}
@@ -567,9 +1680,44 @@ export function EventsGallery() {
         categories={categories}
         onUploaded={item => {
           setItems(its => [item, ...its]);
-          // keep drawer open so user can upload more
         }}
       />
+
+      {/* ── Delete Confirmation Modal Popup ── */}
+      {deleteConfirmTarget && deleteConfirmTarget.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-md w-full shadow-2xl border border-slate-100 dark:border-slate-800 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-base font-extrabold text-slate-800 dark:text-white">
+                {deleteConfirmTarget.length === 1 ? "Delete Media Item?" : `Delete ${deleteConfirmTarget.length} Selected Media Items?`}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Are you sure you want to delete {deleteConfirmTarget.length === 1 ? "this media item" : `these ${deleteConfirmTarget.length} items`}? This action will permanently remove the files from S3 storage and gallery.
+              </p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => setDeleteConfirmTarget(null)}
+                disabled={deleting}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleExecuteDelete(deleteConfirmTarget)}
+                disabled={deleting}
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 disabled:opacity-50 transition-colors shadow-sm"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                {deleting ? "Deleting…" : "Yes, Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
