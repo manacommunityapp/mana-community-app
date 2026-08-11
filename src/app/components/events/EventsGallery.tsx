@@ -638,10 +638,11 @@ export function EventsGallery() {
     } catch (err: any) {
       console.error("Failed to upload media:", err);
       let rawMsg = err?.response?.data?.message || err?.message || "Failed to store media in AWS S3 cloud storage.";
-      if (rawMsg.includes("301") || rawMsg.includes("specified endpoint") || rawMsg.includes("PermanentRedirect")) {
+      const lower = rawMsg.toLowerCase();
+      if (lower.includes("301") || lower.includes("specified endpoint") || lower.includes("permanentredirect")) {
         rawMsg = "Unable to save file to AWS S3: S3 bucket region misconfigured. Please check S3_REGION settings.";
-      } else if (rawMsg.includes("AccessDenied") || rawMsg.includes("403") || rawMsg.includes("InvalidAccessKeyId")) {
-        rawMsg = "Unable to save file to AWS S3: Access denied or invalid S3 storage credentials.";
+      } else if (lower.includes("access key") || lower.includes("accessdenied") || lower.includes("403") || lower.includes("invalidaccesskeyid")) {
+        rawMsg = "Unable to save file to AWS S3: Invalid S3 Access Key or Secret Key. Please verify S3_ACCESS_KEY and S3_SECRET_KEY environment variables.";
       }
       setError(`⚠️ Media Upload Failed: ${rawMsg} — No records were saved to database.`);
     } finally {
