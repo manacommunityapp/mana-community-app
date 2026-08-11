@@ -1119,21 +1119,6 @@ export function EventsGallery() {
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
 
-
-      {/* ── Loading spinner ───────────────────────────────────────────────── */}
-      {loading && <LoadingSpinner label="Loading gallery…" />}
-
-      {/* ── Grid view ────────────────────────────────────────────────────── */}
-      {!loading && view === "grid" && (
-        filteredItems.length === 0 ? (
-          <EmptyState icon={<ImageIcon className="w-8 h-8 text-slate-300" />} label="No media yet" sub="Upload photos and videos to build your gallery" action="Upload Media" onAction={() => setShowUpload(true)} />
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3">
-            {filteredItems.map((item, i) => (
-              <MediaTile key={item.id} item={item} index={i} onDelete={id => setItems(its => its.filter(x => x.id !== id))} useMock={useMock} />
-            ))}
-            <UploadTile onUpload={() => setShowUpload(true)} />
-
                 {/* Selection Checkbox overlay */}
                 {isSelectMode && (
                   <div className="absolute top-2 left-2 z-20">
