@@ -506,6 +506,7 @@ export function EventsGallery() {
   const [uploadFilesQueue, setUploadFilesQueue] = useState<ModalFileQueueItem[]>([]);
   const [uploadValidationErrors, setUploadValidationErrors] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
 
   // Inline creation states inside Upload Modal
   const [showAddDayInModal, setShowAddDayInModal] = useState(false);
@@ -534,13 +535,11 @@ export function EventsGallery() {
         let finalUrl = item.preview;
 
         if (!useMock) {
-          try {
-            const res = await fileUploadService.upload(item.file);
-            finalUrl = res.url;
-          } catch (err) {
-            console.warn(`File upload failed for ${item.file.name}, using preview URL`, err);
-          }
+          // 1. Upload to AWS S3 first and verify object persistence
+          const res = await fileUploadService.upload(item.file);
+          finalUrl = res.url;
 
+          // 2. Only after S3 upload succeeds, save metadata details to PostgreSQL DB
           const created = await eventGalleryService.create({
             eventId: evtIdNum,
             url: finalUrl,
@@ -634,8 +633,12 @@ export function EventsGallery() {
         url: "",
         album: "General",
       });
-    } catch (err) {
-      console.error("Failed to batch upload media", err);
+      setError("");
+      setSuccessMsg(`Media stored in AWS S3 and saved to PostgreSQL successfully! (${createdItems.length} items)`);
+    } catch (err: any) {
+      console.error("Failed to upload media:", err);
+      const msg = err?.response?.data?.message || err?.message || "Failed to store media in AWS S3 cloud storage. Database record was NOT created.";
+      setError(msg);
     } finally {
       setUploading(false);
     }
@@ -841,6 +844,19 @@ export function EventsGallery() {
 
   return (
     <div className="space-y-4">
+      {/* ── Success banner ───────────────────────────────────────────────── */}
+      {successMsg && (
+        <div className="p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center justify-between shadow-sm animate-fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>{successMsg}</span>
+          </div>
+          <button onClick={() => setSuccessMsg("")} className="text-emerald-500 hover:text-emerald-700 p-1">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* ── Error banner ─────────────────────────────────────────────────── */}
       {error && <ErrorBanner message={error} variant="warning" />}
 
