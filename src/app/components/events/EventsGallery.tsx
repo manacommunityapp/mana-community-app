@@ -506,7 +506,6 @@ export function EventsGallery() {
   const [uploadFilesQueue, setUploadFilesQueue] = useState<ModalFileQueueItem[]>([]);
   const [uploadValidationErrors, setUploadValidationErrors] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [successMsg, setSuccessMsg] = useState("");
   const [modalError, setModalError] = useState("");
 
   // Inline creation states inside Upload Modal
@@ -514,6 +513,24 @@ export function EventsGallery() {
   const [newDayLabel, setNewDayLabel] = useState("");
   const [showAddCatInModal, setShowAddCatInModal] = useState(false);
   const [newCatName, setNewCatName] = useState("");
+
+  // Helper to open upload modal pre-populated for specific Event, Day, Category, or Album
+  const openUploadModalFor = (opts?: { eventName?: string; dayLabel?: string; category?: string; album?: string }) => {
+    const defaultEvt = (selectedEventId !== "All" ? availableEvents.find(e => String(e.id) === selectedEventId)?.title : events[0]?.title) || "Ganesh Chaturthi Utsav 2026";
+    const defaultDay = selectedDay !== "All Days" ? selectedDay : (days[0]?.label || "Day 1");
+    const defaultCat = selectedCategory !== "All Media" ? selectedCategory : (categories[0]?.name || "Puja & Rituals");
+
+    setUploadForm(f => ({
+      ...f,
+      eventName: opts?.eventName || defaultEvt,
+      dayLabel: opts?.dayLabel || defaultDay,
+      category: opts?.category || defaultCat,
+      album: opts?.album || "General",
+    }));
+    setModalError("");
+    setSuccessMsg("");
+    setShowUploadModal(true);
+  };
 
   const handleUploadSubmit = async (e: React.FormEvent, isPublish: boolean = true) => {
     e.preventDefault();
@@ -1071,6 +1088,47 @@ export function EventsGallery() {
             <span>💡 Select a specific <strong className="text-slate-700 dark:text-slate-300">Year</strong> and <strong className="text-slate-700 dark:text-slate-300">Event</strong> above to reveal Day-wise and Category-wise filters.</span>
           </div>
         )}
+
+        {/* ── Active Day Tag & Category Section Banner with "Upload More" button ── */}
+        {(selectedEventId !== "All" || selectedDay !== "All Days" || selectedCategory !== "All Media") && (
+          <div className="bg-gradient-to-r from-indigo-50/90 via-white to-purple-50/90 dark:from-slate-800/90 dark:to-slate-800/70 p-3.5 rounded-2xl border border-indigo-100 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3 shadow-xs animate-fade-in mt-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-indigo-600 text-white shadow-xs shrink-0">
+                <Tag className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-extrabold text-slate-800 dark:text-white">
+                    {selectedEventId !== "All" ? availableEvents.find(e => String(e.id) === selectedEventId)?.title : "Event Gallery"}
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-600 font-bold">•</span>
+                  <span className="px-2 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[11px] font-extrabold">
+                    {selectedDay !== "All Days" ? selectedDay : "Day 1"}
+                  </span>
+                  <span className="text-slate-300 dark:text-slate-600 font-bold">•</span>
+                  <span className="px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-[11px] font-extrabold">
+                    {selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
+                  Currently showing {filteredItems.length} media item{filteredItems.length === 1 ? "" : "s"} in this category section
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => openUploadModalFor({
+                eventName: selectedEventId !== "All" ? availableEvents.find(e => String(e.id) === selectedEventId)?.title : undefined,
+                dayLabel: selectedDay !== "All Days" ? selectedDay : "Day 1",
+                category: selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals",
+              })}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md transition-all shrink-0 active:scale-95"
+            >
+              <Plus className="w-4 h-4" /> Upload More ({selectedDay !== "All Days" ? selectedDay : "Day 1"} • {selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals"})
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Loading Spinner ── */}
@@ -1088,8 +1146,21 @@ export function EventsGallery() {
           </div>
           <h3 className="font-bold text-slate-800 text-sm">No media found for the selected filters</h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            Try switching year, event, day, or category filters to view other uploaded memories.
+            No media uploaded yet for {selectedDay !== "All Days" ? selectedDay : "Day 1"} • {selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals"}.
           </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => openUploadModalFor({
+                eventName: selectedEventId !== "All" ? availableEvents.find(e => String(e.id) === selectedEventId)?.title : undefined,
+                dayLabel: selectedDay !== "All Days" ? selectedDay : "Day 1",
+                category: selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals",
+              })}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition-all shadow-sm"
+            >
+              <Plus className="w-4 h-4" /> Upload More ({selectedDay !== "All Days" ? selectedDay : "Day 1"} • {selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals"})
+            </button>
+          </div>
         </div>
       ) : view === "grid" ? (
         /* ── Grid View ── */
@@ -1281,22 +1352,40 @@ export function EventsGallery() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-800 flex gap-2">
-                <a
-                  href={activeLightbox.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex-1 px-4 py-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 font-bold text-xs flex items-center justify-center gap-2 transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5" /> Download
-                </a>
+              <div className="pt-4 border-t border-slate-800 flex flex-col gap-2">
                 <button
-                  onClick={() => setDeleteConfirmTarget([activeLightbox.id])}
-                  className="px-4 py-2.5 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-rose-500/30"
-                  title="Delete this media item"
+                  type="button"
+                  onClick={() => {
+                    const item = activeLightbox;
+                    setActiveLightbox(null);
+                    openUploadModalFor({
+                      eventName: item.eventName,
+                      dayLabel: item.dayTag || "Day 1",
+                      category: item.category || "Puja & Rituals",
+                      album: item.albumName || "General",
+                    });
+                  }}
+                  className="w-full px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors shadow-md"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                  <Plus className="w-4 h-4" /> Upload More ({activeLightbox.dayTag || "Day 1"} • {activeLightbox.category || "General"})
                 </button>
+                <div className="flex gap-2">
+                  <a
+                    href={activeLightbox.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-slate-700"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download
+                  </a>
+                  <button
+                    onClick={() => setDeleteConfirmTarget([activeLightbox.id])}
+                    className="px-4 py-2.5 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-rose-500/30"
+                    title="Delete this media item"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1568,9 +1657,9 @@ export function EventsGallery() {
                           Clear All
                         </button>
                       </div>
-                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto p-1.5 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1.5 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700">
                         {uploadFilesQueue.map((item, idx) => (
-                          <div key={item.key} className="relative group aspect-square rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-black/10">
+                          <div key={item.key} className="relative group w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-700 bg-black/10 shrink-0 shadow-xs">
                             {item.mediaType === "video" ? (
                               <video src={item.preview} className="w-full h-full object-cover" />
                             ) : (
@@ -1579,12 +1668,13 @@ export function EventsGallery() {
                             <button
                               type="button"
                               onClick={() => setUploadFilesQueue(q => q.filter(x => x.key !== item.key))}
-                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-80 group-hover:opacity-100 hover:bg-rose-600 transition-all"
+                              className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-black/70 text-white flex items-center justify-center opacity-80 group-hover:opacity-100 hover:bg-rose-600 transition-all z-10"
+                              title="Remove file"
                             >
-                              <X className="w-3 h-3" />
+                              <X className="w-2.5 h-2.5" />
                             </button>
-                            <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-white text-[8px] font-bold">
-                              {item.mediaType === "video" ? "🎥 Video" : "🖼️ Image"}
+                            <span className="absolute bottom-0.5 left-0.5 text-[8px] font-extrabold text-white px-1 py-0.2 rounded bg-black/60 leading-none">
+                              {item.mediaType === "video" ? "🎥" : "🖼️"}
                             </span>
                           </div>
                         ))}
