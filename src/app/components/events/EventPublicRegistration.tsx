@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router";
+import { useParams, useNavigate } from "react-router";
+import { useAuth } from "../../../contexts/AuthContext";
 import {
   User, Users, Mail, Phone, MapPin, Calendar, Clock, CheckCircle2,
   ChevronRight, ChevronLeft, ArrowRight, Loader2, AlertCircle,
@@ -945,6 +946,8 @@ function DynamicFormRenderer({
 /* ─── Main Component ─── */
 export function EventPublicRegistration() {
   const { eventId } = useParams<{ eventId: string }>();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [step, setStep] = useState(1);
   const [isRegistered, setIsRegistered] = useState(false);
   const [registering, setRegistering] = useState(false);
@@ -960,6 +963,14 @@ export function EventPublicRegistration() {
   const handleDynamicChange = (id: string, value: any) => {
     setDynamicValues(prev => ({ ...prev, [id]: value }));
   };
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      const params = new URLSearchParams({ redirect: "/events" });
+      if (eventId) params.set("event", eventId);
+      navigate(`/login?${params.toString()}`, { replace: true });
+    }
+  }, [isAuthenticated, eventId, navigate]);
 
   useEffect(() => {
     if (eventId) {
@@ -1134,6 +1145,17 @@ export function EventPublicRegistration() {
       return eventStart;
     }
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mx-auto" />
+          <p className="text-sm text-slate-500 font-medium">Redirecting to sign in...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
