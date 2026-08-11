@@ -221,9 +221,6 @@ function mapLivePhotos(data: EventGalleryItemResponse[]): GalleryItem[] {
   }));
 }
 
-}
-
-
 // ─── Create-tag inline form ───────────────────────────────────────────────────
 function InlineCreate({ placeholder, onSave, onCancel }: {
   placeholder: string; onSave: (val: string) => Promise<void>; onCancel: () => void;
