@@ -117,52 +117,6 @@ function hexRgba(hex: string, alpha: number): string {
 }
 
 
-/* ─── Shared sub-components ─── */
-function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementType; title: string; subtitle?: string }) {
-  return (
-    <div className="flex items-center gap-2.5 pb-4 mb-1 border-b border-slate-100">
-      <div className="w-7 h-7 rounded-[0.625rem] flex items-center justify-center flex-shrink-0"
-        style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
-        <Icon className="w-3.5 h-3.5 text-white" strokeWidth={2.2} />
-      </div>
-      <div>
-        <p className="text-[13px] font-semibold text-slate-800 leading-none">{title}</p>
-        {subtitle && <p className="text-[11px] text-slate-400 mt-[3px]">{subtitle}</p>}
-      </div>
-    </div>
-  );
-}
-
-function FieldLabel({ children, required, hint }: { children: React.ReactNode; required?: boolean; hint?: string }) {
-  return (
-    <div className="flex items-center justify-between mb-1">
-      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.04em]">
-        {children}{required && <span className="text-rose-500 ml-0.5 normal-case text-[10px]">*</span>}
-      </span>
-      {hint && <span className="text-[10.5px] text-slate-400 normal-case font-normal tracking-normal">{hint}</span>}
-    </div>
-  );
-}
-
-function ToggleRow({ checked, onChange, label, desc }: { checked: boolean; onChange: (v: boolean) => void; label: string; desc?: string }) {
-  return (
-    <div
-      className={cn(
-        "flex items-center justify-between px-4 py-3 rounded-[0.625rem] border transition-all",
-        checked ? "bg-indigo-50/50 border-indigo-200" : "border-slate-200"
-      )}
-      style={checked ? undefined : { background: "rgba(79,70,229,0.015)" }}
-    >
-      <div>
-        <p className="text-[12px] font-medium text-slate-700">{label}</p>
-        {desc && <p className="text-[10.5px] text-slate-400 mt-0.5">{desc}</p>}
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </div>
-  );
-}
-
-
 /* ─── Step 1: Basics ─── */
 function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   return (
