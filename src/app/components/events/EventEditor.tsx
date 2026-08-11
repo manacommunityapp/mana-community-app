@@ -141,40 +141,57 @@ function SectionBasics({ data, update }: { data: FormData; update: (k: keyof For
           })}
         </div>
       </div>
-      <div>
-        <FieldLabel required hint={`${data.description.length}/1000`}>Description</FieldLabel>
-        <Textarea value={data.description} onChange={e => update("description", e.target.value)} rows={4}
-          placeholder="Describe your event – purpose, highlights, what attendees can expect…"
-          className={cn(INPUT_CLS, "resize-none")} />
-      </div>
-      <div>
-        <FieldLabel>Visibility</FieldLabel>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-          {([
-            { value: "public",    label: "Public",      icon: Globe,    desc: "Anyone can view & register", color: "#059669" },
-            { value: "community", label: "Community",   icon: Building2, desc: "Members only",               color: "#4f46e5" },
-            { value: "invite",    label: "Invite Only", icon: Lock,      desc: "Private, by invitation",     color: "#7c3aed" },
-          ] as const).map(opt => {
-            const selected = data.visibility === opt.value;
-            return (
-              <button key={opt.value} onClick={() => update("visibility", opt.value)}
-                className={cn(
-                  "p-3 sm:p-4 rounded-xl border-2 text-left transition-all group flex sm:flex-col items-center sm:items-start gap-3 sm:gap-0",
-                  selected
-                    ? "border-indigo-400 bg-indigo-50/60 shadow-sm"
-                    : "border-slate-100 bg-white hover:border-slate-200 hover:shadow-sm"
-                )}>
-                <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center sm:mb-3 transition-colors flex-shrink-0",
-                  selected ? "bg-indigo-100" : "bg-slate-100 group-hover:bg-slate-50")}>
-                  <opt.icon className="w-4 h-4" style={{ color: selected ? opt.color : "#94a3b8" }} />
-                </div>
-                <div>
-                  <p className={cn("text-sm font-bold", selected ? "text-indigo-700" : "text-slate-700")}>{opt.label}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{opt.desc}</p>
-                </div>
-              </button>
-            );
-          })}
+      {/* Description & Visibility Side-by-Side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Left: Description */}
+        <div className="flex flex-col">
+          <FieldLabel required hint={`${data.description.length}/1000`}>Description</FieldLabel>
+          <Textarea 
+            value={data.description} 
+            onChange={e => update("description", e.target.value)} 
+            rows={5}
+            placeholder="Describe your event – purpose, highlights, what attendees can expect…"
+            className={cn(INPUT_CLS, "resize-none h-full min-h-[140px]")} 
+          />
+        </div>
+
+        {/* Right: Visibility Options */}
+        <div className="flex flex-col">
+          <FieldLabel>Visibility</FieldLabel>
+          <div className="flex flex-col gap-2 h-full justify-between">
+            {([
+              { value: "public",    label: "Public",      icon: Globe,    desc: "Anyone can view & register for event", color: "#059669" },
+              { value: "community", label: "Community",   icon: Building2, desc: "Restricted to community members only", color: "#4f46e5" },
+              { value: "invite",    label: "Invite Only", icon: Lock,      desc: "Private event, access by invitation", color: "#7c3aed" },
+            ] as const).map(opt => {
+              const selected = data.visibility === opt.value;
+              return (
+                <button 
+                  key={opt.value} 
+                  type="button"
+                  onClick={() => update("visibility", opt.value)}
+                  className={cn(
+                    "p-3 rounded-xl border-2 text-left transition-all flex items-center gap-3 flex-1 hover:shadow-sm",
+                    selected
+                      ? "border-indigo-500 bg-indigo-50/60 shadow-sm"
+                      : "border-slate-100 bg-white hover:border-slate-200"
+                  )}
+                >
+                  <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center transition-colors flex-shrink-0",
+                    selected ? "bg-indigo-100" : "bg-slate-100")}>
+                    <opt.icon className="w-4 h-4" style={{ color: selected ? opt.color : "#94a3b8" }} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className={cn("text-xs font-bold leading-none", selected ? "text-indigo-700" : "text-slate-700")}>{opt.label}</p>
+                      {selected && <span className="w-1.5 h-1.5 rounded-full" style={{ background: opt.color }} />}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1 leading-tight">{opt.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -355,9 +372,12 @@ function SectionSchedule({ data, update }: { data: FormData; update: (k: keyof F
                           </div>
                         </div>
                       ))}
-                      <button onClick={() => addActivity(day.date)}
-                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all">
-                        <Plus className="w-3.5 h-3.5" /> Add Activity to Day {dayIdx + 1}
+                      <button 
+                        type="button"
+                        onClick={() => addActivity(day.date)}
+                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-extrabold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100/80 hover:border-indigo-300 transition-all cursor-pointer shadow-xs mt-2"
+                      >
+                        <Plus className="w-4 h-4 text-indigo-600" /> Add Activity / Item to Day {dayIdx + 1}
                       </button>
                     </div>
                   )}

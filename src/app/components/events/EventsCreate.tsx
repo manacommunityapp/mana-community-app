@@ -152,41 +152,57 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
         </div>
       </div>
 
-      <div>
-        <FieldLabel required hint={`${data.description.length}/1000`}>Description</FieldLabel>
-        <Textarea value={data.description} onChange={e => update("description", e.target.value)} rows={4}
-          placeholder="Describe your event – purpose, highlights, what attendees can expect…"
-          className={cn(INPUT_CLS, "resize-none")} />
-      </div>
+      {/* Description & Visibility Side-by-Side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Left: Description */}
+        <div className="flex flex-col">
+          <FieldLabel required hint={`${data.description.length}/1000`}>Description</FieldLabel>
+          <Textarea 
+            value={data.description} 
+            onChange={e => update("description", e.target.value)} 
+            rows={5}
+            placeholder="Describe your event – purpose, highlights, what attendees can expect…"
+            className={cn(INPUT_CLS, "resize-none h-full min-h-[140px]")} 
+          />
+        </div>
 
-      <div>
-        <FieldLabel>Visibility</FieldLabel>
-        <div className="flex flex-col gap-1.5 sm:grid sm:grid-cols-3 sm:gap-2">
-          {([
-            { value: "public",    label: "Public",      icon: Globe,    desc: "Anyone can view & register", color: "#059669" },
-            { value: "community", label: "Community",   icon: Building2, desc: "Members only",               color: "#4f46e5" },
-            { value: "invite",    label: "Invite Only", icon: Lock,      desc: "Private, by invitation",     color: "#7c3aed" },
-          ] as const).map(opt => {
-            const selected = data.visibility === opt.value;
-            return (
-              <button key={opt.value} onClick={() => update("visibility", opt.value)}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-[0.625rem] border text-left transition-all duration-150"
-                style={{
-                  borderColor: selected ? opt.color : "#E2E8F0",
-                  background: selected ? hexRgba(opt.color, 0.05) : "#FAFAFA",
-                  boxShadow: selected ? `0 0 0 3px ${hexRgba(opt.color, 0.10)}` : "none",
-                }}>
-                <div className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
-                  style={{ background: selected ? hexRgba(opt.color, 0.14) : "#F1F5F9" }}>
-                  <opt.icon className="w-3 h-3" style={{ color: selected ? opt.color : "#94A3B8" }} strokeWidth={2} />
-                </div>
-                <div>
-                  <p className="text-[11.5px] font-semibold leading-none" style={{ color: selected ? opt.color : "#334155" }}>{opt.label}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{opt.desc}</p>
-                </div>
-              </button>
-            );
-          })}
+        {/* Right: Visibility Options */}
+        <div className="flex flex-col">
+          <FieldLabel>Visibility</FieldLabel>
+          <div className="flex flex-col gap-2 h-full justify-between">
+            {([
+              { value: "public",    label: "Public",      icon: Globe,    desc: "Anyone can view & register for event", color: "#059669" },
+              { value: "community", label: "Community",   icon: Building2, desc: "Restricted to community members only", color: "#4f46e5" },
+              { value: "invite",    label: "Invite Only", icon: Lock,      desc: "Private event, access by invitation", color: "#7c3aed" },
+            ] as const).map(opt => {
+              const selected = data.visibility === opt.value;
+              return (
+                <button 
+                  key={opt.value} 
+                  type="button"
+                  onClick={() => update("visibility", opt.value)}
+                  className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-[0.625rem] border text-left transition-all duration-150 flex-1 hover:border-slate-300"
+                  style={{
+                    borderColor: selected ? opt.color : "#E2E8F0",
+                    background: selected ? hexRgba(opt.color, 0.05) : "#FAFAFA",
+                    boxShadow: selected ? `0 0 0 3px ${hexRgba(opt.color, 0.10)}` : "none",
+                  }}
+                >
+                  <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+                    style={{ background: selected ? hexRgba(opt.color, 0.14) : "#F1F5F9" }}>
+                    <opt.icon className="w-3.5 h-3.5" style={{ color: selected ? opt.color : "#94A3B8" }} strokeWidth={2} />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11.5px] font-bold leading-none" style={{ color: selected ? opt.color : "#334155" }}>{opt.label}</p>
+                      {selected && <span className="w-1.5 h-1.5 rounded-full" style={{ background: opt.color }} />}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1 leading-tight">{opt.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -227,12 +243,16 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const [notifDayLabel, setNotifDayLabel] = useState<string | undefined>(undefined);
   const [notifActivityTitle, setNotifActivityTitle] = useState<string | undefined>(undefined);
 
+  const createDefaultSingleActivity = (): ScheduleActivity[] => [
+    { id: `a${Date.now()}-${Math.random()}`, name: "", startTime: "09:00", endTime: "10:00", description: "" }
+  ];
+
   const syncDaySchedules = (start: string, end: string) => {
     const days = getDaysBetween(start, end);
     const existing = new Map(data.daySchedules.map(ds => [ds.date, ds]));
     const synced = days.map(date => existing.get(date) ?? {
       date,
-      activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+      activities: createDefaultSingleActivity(),
     });
     update("daySchedules", synced);
     if (synced.length > 0 && !expandedDay) setExpandedDay(synced[0].date);
@@ -255,7 +275,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         const targetDate = data.startDate || new Date().toISOString().split("T")[0];
         update("daySchedules", [{
           date: targetDate,
-          activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+          activities: createDefaultSingleActivity(),
         }]);
         setExpandedDay(targetDate);
       }
@@ -263,7 +283,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       if (data.startDate) {
         update("daySchedules", [{
           date: data.startDate,
-          activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+          activities: createDefaultSingleActivity(),
         }]);
       }
     }
@@ -279,7 +299,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     }
     const newDay: DaySchedule = {
       date: nextDateStr,
-      activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+      activities: createDefaultSingleActivity(),
     };
     const updated = [...data.daySchedules, newDay];
     update("daySchedules", updated);
@@ -533,9 +553,12 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                           </div>
                         </div>
                       ))}
-                      <button onClick={() => addActivity(day.date)}
-                        className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-indigo-200 text-xs font-bold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-300 transition-all cursor-pointer">
-                        <Plus className="w-3.5 h-3.5" /> Add Activity to Day {dayIdx + 1}
+                      <button 
+                        type="button"
+                        onClick={() => addActivity(day.date)}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-extrabold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100/80 hover:border-indigo-300 transition-all cursor-pointer shadow-xs mt-2"
+                      >
+                        <Plus className="w-4 h-4 text-indigo-600" /> Add Activity / Item to Day {dayIdx + 1}
                       </button>
                     </div>
                   )}
@@ -1627,105 +1650,132 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, overflow: "hidden" }}>
-      {/* Sticky header with step progress */}
-      <div className="flex-shrink-0 border-b border-slate-100">
-        {/* Title bar */}
-        <div className="px-4 sm:px-8 pt-4 sm:pt-6 pb-3 sm:pb-4 flex items-center justify-between"
-          style={{ background: "linear-gradient(160deg, rgba(79,70,229,0.06), rgba(79,70,229,0.01) 70%, #fff)" }}>
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="w-9 h-9 rounded-[10px] flex items-center justify-center flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #4f46e5, rgba(79,70,229,0.75))", boxShadow: "0 4px 12px -2px rgba(79,70,229,0.5), inset 0 1px 0 rgba(255,255,255,0.2)" }}>
-              {(() => { const S = STEPS[step - 1]; return <S.icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />; })()}
-            </div>
-            <div>
-              <div className="flex items-center gap-3">
-                <h2 className="text-sm sm:text-lg font-black text-slate-900">Create New Event</h2>
-                {formData.title && (
-                  <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-xs font-medium text-indigo-600 max-w-[180px] truncate">
-                    <Sparkles className="w-3 h-3 flex-shrink-0" /> {formData.title}
-                  </span>
-                )}
-              </div>
-              <p className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.15em] mt-0.5">
-                Step {step} of {STEPS.length} — {STEPS[step - 1].desc}
-              </p>
-            </div>
+      {/* ── Modal Header ── */}
+      <div className="flex items-center justify-between px-6 py-3.5 border-b border-slate-200 bg-white shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-500 flex items-center justify-center text-white shadow-md">
+            {(() => { const S = STEPS[step - 1]; return <S.icon className="w-5 h-5 text-white" />; })()}
           </div>
-          {onClose && (
-            <button onClick={onClose}
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-all">
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-extrabold text-slate-900">Create new event</h2>
+              {formData.title && (
+                <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 border border-purple-100 text-xs font-semibold text-purple-700 max-w-[160px] truncate">
+                  <Sparkles className="w-3 h-3 flex-shrink-0 text-purple-600" /> {formData.title}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-500 font-medium">Step {step} of {STEPS.length} · {STEPS[step - 1].desc}</p>
+          </div>
         </div>
+        {onClose && (
+          <button onClick={onClose}
+            className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 flex items-center justify-center transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
 
-        {/* Step pills */}
-        <div className="px-4 sm:px-8 pb-3 sm:pb-4">
-          <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar">
-            {STEPS.map((s, i) => {
+      {/* ── Body: Stepper Sidebar + Form Content ── */}
+      <div className="flex flex-1 overflow-hidden min-h-0">
+        {/* Left Stepper Sidebar (Desktop/Tablet) */}
+        <div className="w-56 hidden md:flex flex-col justify-between bg-slate-50 border-r border-slate-200 p-4 shrink-0 overflow-y-auto">
+          <div className="space-y-1">
+            {STEPS.map(s => {
               const done = step > s.id;
               const active = step === s.id;
               return (
-                <div key={s.id} className="flex items-center gap-1 flex-shrink-0">
-                  <button onClick={() => (done || active) && setStep(s.id)}
-                    className={cn(
-                      "flex items-center gap-2 px-3 py-[7px] rounded-[0.625rem] text-[12px] font-medium transition-all whitespace-nowrap",
-                      active ? "bg-white shadow-sm border border-slate-200/80 text-slate-900"
-                      : done ? "bg-[rgba(79,70,229,0.07)] text-indigo-700 cursor-pointer hover:bg-[rgba(79,70,229,0.12)]"
-                      : "bg-slate-50/80 text-slate-400 cursor-default opacity-60"
-                    )}>
-                    {done ? (
-                      <span className="w-[18px] h-[18px] rounded-full flex items-center justify-center flex-shrink-0 bg-indigo-100 text-indigo-600">
-                        <Check className="w-2.5 h-2.5" strokeWidth={3} />
-                      </span>
-                    ) : (
-                      <span className={cn(
-                        "w-[18px] h-[18px] rounded-full flex items-center justify-center flex-shrink-0 text-[9px] font-bold",
-                        active ? "bg-[#4f46e5] text-white" : "bg-slate-200 text-slate-400"
-                      )}>{s.id}</span>
-                    )}
-                    <span className="hidden sm:inline">{s.label}</span>
-                  </button>
-                  {i < STEPS.length - 1 && (
-                    <div className={cn("w-6 h-0.5 rounded-full mx-0.5", done ? "bg-emerald-300" : "bg-slate-200")} />
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => (done || active) && setStep(s.id)}
+                  className={cn(
+                    "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold w-full text-left transition-all",
+                    active
+                      ? "bg-white border border-purple-200 text-purple-700 shadow-xs"
+                      : done
+                      ? "text-slate-700 hover:bg-slate-100 cursor-pointer"
+                      : "text-slate-400 cursor-default opacity-70"
                   )}
-                </div>
+                >
+                  <span
+                    className={cn(
+                      "w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0",
+                      active
+                        ? "bg-purple-600 text-white"
+                        : done
+                        ? "bg-purple-100 text-purple-700"
+                        : "bg-slate-200 text-slate-500"
+                    )}
+                  >
+                    {done ? <Check className="w-3 h-3 stroke-[3]" /> : s.id}
+                  </span>
+                  <div className="truncate">
+                    <p className="leading-tight">{s.label}</p>
+                  </div>
+                </button>
               );
             })}
           </div>
-          <div className="mt-2.5 mx-1 h-[3px] bg-slate-200/80 rounded-full overflow-hidden">
-            <div className="h-full rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${((step - 1) / (STEPS.length - 1)) * 100}%`, background: "#4f46e5" }} />
+
+          {/* Draft Status Box */}
+          <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-2.5 text-xs shadow-xs mt-4">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+            <div>
+              <p className="font-bold text-slate-800 text-[11px]">Draft status</p>
+              <p className="text-[10px] text-slate-400 font-medium">Autosaved just now</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Form Scroller Container */}
+        <div style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties} className="px-4 sm:px-6 py-5">
+          {/* Mobile Top Pill Bar Fallback */}
+          <div className="md:hidden mb-4 pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-1">
+              {STEPS.map(s => {
+                const done = step > s.id;
+                const active = step === s.id;
+                return (
+                  <button key={s.id} onClick={() => (done || active) && setStep(s.id)}
+                    className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-all",
+                      active ? "bg-purple-600 text-white shadow-xs"
+                      : done ? "bg-purple-50 text-purple-700"
+                      : "bg-slate-100 text-slate-400"
+                    )}>
+                    <span>{s.id}. {s.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div key={step} className="animate-fade-in-up max-w-4xl mx-auto">
+            {stepComponents[step]}
           </div>
         </div>
       </div>
 
-      {/* Scrollable form content — flex-1 + min-h-0 forces height budget on mobile */}
-      <div style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties} className="px-4 sm:px-8 py-4 sm:py-8">
-        <div key={step} className="animate-fade-in-up max-w-5xl mx-auto">
-          {stepComponents[step]}
-        </div>
-      </div>
-
-      {/* Sticky footer navigation */}
-      <div className="flex-shrink-0 px-4 sm:px-8 py-3 border-t border-slate-100 flex items-center justify-between bg-white/95 backdrop-blur-sm">
+      {/* ── Footer Navigation Bar ── */}
+      <div className="flex-shrink-0 px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
         <button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1}
           className={cn(
-            "flex items-center gap-1 px-3 py-1.5 rounded-[0.625rem] text-[12px] font-medium transition-all",
-            step === 1 ? "opacity-0 pointer-events-none" : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-50"
+            "flex items-center gap-1 px-4 py-2 rounded-xl text-xs font-bold transition-all",
+            step === 1 ? "opacity-0 pointer-events-none" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 shadow-xs"
           )}>
           <ChevronLeft className="w-3.5 h-3.5" /> Back
         </button>
 
-        <div className="flex items-center gap-1">
+        <div className="hidden sm:flex items-center gap-1">
           {STEPS.map(s => (
             <button key={s.id}
               onClick={() => (step >= s.id) && setStep(s.id)}
               className="rounded-full transition-all duration-300"
               style={{
-                width: s.id === step ? 16 : 5,
-                height: 5,
-                background: s.id < step ? "rgba(79,70,229,0.5)" : s.id === step ? "#4f46e5" : "#E2E8F0",
+                width: s.id === step ? 16 : 6,
+                height: 6,
+                background: s.id < step ? "rgba(124,58,237,0.4)" : s.id === step ? "#7c3aed" : "#E2E8F0",
               }}
             />
           ))}
@@ -1734,28 +1784,26 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
         {step < STEPS.length ? (
           <div className="flex items-center gap-2">
             <button onClick={handleSaveDraft} disabled={savingDraft || publishing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[0.625rem] text-[12px] font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">
-              <Bookmark className="w-3 h-3 text-amber-500" />
-              <span>{savingDraft ? "Saving…" : "Save draft"}</span>
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all shadow-xs disabled:opacity-50">
+              <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+              <span>{savingDraft ? "Saving…" : "Save Draft"}</span>
             </button>
             <button onClick={handleNext}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-[0.625rem] text-[12px] font-semibold text-white transition-all"
-              style={{ background: "#4f46e5", boxShadow: "0 2px 10px -2px rgba(79,70,229,0.55)" }}>
-              Next step <ChevronRight className="w-3.5 h-3.5" />
+              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-all">
+              Next Step <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
             {publishError && <span className="text-[11px] text-rose-600 font-medium max-w-[160px] truncate">{publishError}</span>}
             <button onClick={handleSaveDraft} disabled={savingDraft || publishing}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[0.625rem] text-[12px] font-medium bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all disabled:opacity-50">
-              <Bookmark className="w-3 h-3 text-amber-500" />
-              <span>{savingDraft ? "Saving…" : "Save draft"}</span>
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all shadow-xs disabled:opacity-50">
+              <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+              <span>{savingDraft ? "Saving…" : "Save Draft"}</span>
             </button>
             <button onClick={handlePublish} disabled={publishing || savingDraft}
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-[0.625rem] text-[12px] font-semibold text-white transition-all disabled:opacity-60"
-              style={{ background: "#059669", boxShadow: "0 2px 10px -2px rgba(5,150,105,0.45)" }}>
-              <Check className="w-3.5 h-3.5" /> {publishing ? "Publishing…" : "Publish event"}
+              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md transition-all disabled:opacity-60">
+              <Check className="w-3.5 h-3.5" /> {publishing ? "Publishing…" : "Publish Event"}
             </button>
           </div>
         )}

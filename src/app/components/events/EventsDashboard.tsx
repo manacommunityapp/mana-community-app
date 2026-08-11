@@ -13,11 +13,13 @@ import {
 import { GlassCard, TouchButton, StatusChip, BottomSheet } from "./redesign/EventDesignSystem";
 import { EventAICopilotDrawer } from "./redesign/EventAICopilotDrawer";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
+import { GatePassModal } from "./GatePassModal";
 import { useEventMock } from "./EventMockToggle";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   eventService,
   type DashboardStatsResponse,
+  type DashboardAnalyticsResponse,
   type EventResponse,
   type RegistrationResponse,
 } from "../../../services/events/eventService";
@@ -503,7 +505,7 @@ export function EventsDashboard() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-3.5 pb-12 min-h-screen bg-gradient-to-br from-[#F3F4FB] via-[#F6F4FE] to-[#EEF0F8] px-3 sm:px-5 py-3.5">
 
       {/* ── Loading bar ── */}
       {!useMock && loading && (
@@ -514,7 +516,7 @@ export function EventsDashboard() {
 
       {/* ── Error banner ── */}
       {!useMock && error && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-800">
+        <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
           <button onClick={fetchAll} className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-amber-700 hover:text-amber-900">
@@ -523,342 +525,378 @@ export function EventsDashboard() {
         </div>
       )}
 
-      {/* ── Executive Command Bar ── */}
-      <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-indigo-500/10 via-purple-500/5 to-transparent px-3.5 py-2 rounded-2xl border border-indigo-500/20 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-extrabold text-[#4F46E5] dark:text-indigo-400 uppercase tracking-wider flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5" /> Executive Command OS
-          </span>
-          <span className="hidden sm:inline text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-            {!useMock && !loading
-              ? <span className="flex items-center gap-1 text-emerald-600 font-bold">• Live data</span>
-              : "• Real-time control & analytics"}
-          </span>
-          {loading ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-bold border border-indigo-100">
-              <Loader2 className="w-3 h-3 animate-spin text-indigo-500" /> Loading API Data...
-            </span>
-          ) : !useMock ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-bold border border-emerald-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live API Connected ({events.length} events)
-            </span>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <button onClick={() => setShowQRModal(true)}
-            className="px-3 py-1.5 rounded-xl bg-white/80 dark:bg-slate-800 text-[11px] font-bold text-slate-700 dark:text-slate-200 border border-indigo-200 dark:border-slate-700 hover:text-[#4F46E5] transition-colors cursor-pointer flex items-center gap-1">
-            <QrCode className="w-3.5 h-3.5 text-[#4F46E5]" /><span>My Pass</span>
-          </button>
-          <button onClick={() => setShowRegisterModal(true)}
-            className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] text-white text-[11px] font-bold shadow-xs hover:opacity-90 transition-opacity cursor-pointer flex items-center gap-1">
-            <UserPlus className="w-3.5 h-3.5" /><span>+ Register</span>
-          </button>
-        </div>
-      </div>
+      {/* ── Single Merged Unified Festival & Event Header Bar ── */}
+      <div
+        className="relative rounded-2xl overflow-hidden shadow-md transition-all duration-300 border border-indigo-900/20"
+        style={{ background: currentBanner.bgGradient || "linear-gradient(135deg, #3730A3 0%, #4F46E5 40%, #7C3AED 72%, #9333EA 100%)" }}
+      >
+        {/* Dot grid texture */}
+        <div className="absolute inset-0 opacity-[0.07] pointer-events-none z-0"
+          style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
+        {/* Glow blob */}
+        <div className="absolute right-0 top-0 w-64 h-full rounded-full opacity-15 blur-3xl pointer-events-none z-0"
+          style={{ background: "radial-gradient(circle, #FEF3C7 0%, transparent 70%)", transform: "translate(20%,-20%)" }} />
 
-      {/* ── Hero Banner Carousel ── */}
-      <div className="relative overflow-hidden rounded-[32px] shadow-2xl transition-all duration-500 group">
-        <div
-          className="p-6 sm:p-8 text-white min-h-[260px] flex flex-col justify-between relative z-10"
-          style={{ background: currentBanner.bgGradient }}
-        >
-          <div className="flex items-center justify-between">
-            <span className="px-3.5 py-1.5 rounded-full text-xs font-black bg-white/20 backdrop-blur-md uppercase tracking-wider text-white border border-white/30">
-              🔥 {currentBanner.category}
-            </span>
-            <div className="flex items-center gap-2">
-              {bannerItems.map((_, idx) => (
-                <button key={idx} onClick={() => setCarouselIndex(idx)}
-                  className={`h-3 rounded-full transition-all cursor-pointer ${carouselIndex === idx ? "w-8 bg-white" : "w-3 bg-white/40"}`}
-                />
-              ))}
+        <div className="relative z-10 px-4 py-3 sm:px-5 sm:py-3.5 text-white flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          
+          {/* Left: Festival Icon + Title + Metadata */}
+          <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+            <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-xl shrink-0 shadow-xs">
+              🕉️
             </div>
-          </div>
-
-          <div className="my-4 max-w-2xl">
-            <h2 className="text-2xl sm:text-3xl font-black leading-tight drop-shadow-md">{currentBanner.title}</h2>
-            {currentBanner.subtitle && (
-              <p className="text-xs sm:text-sm font-medium text-white/90 mt-1.5 drop-shadow-xs leading-relaxed line-clamp-2">
-                {currentBanner.subtitle}
-              </p>
-            )}
-            <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-white/80 mt-3">
-              <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4" /> {currentBanner.location}</span>
-              <span className="flex items-center gap-1.5"><Ticket className="w-4 h-4" /> {currentBanner.registered}</span>
-            </div>
-          </div>
-
-          <div className="pt-3 border-t border-white/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <span className="text-[10px] uppercase font-bold text-white/80">Starts In:</span>
-              <div className="flex items-center gap-2 mt-0.5 font-mono text-xs sm:text-sm font-extrabold text-white">
-                <span className="px-2.5 py-1 rounded-xl bg-black/40">{timeLeft.days}d</span>:
-                <span className="px-2.5 py-1 rounded-xl bg-black/40">{timeLeft.hours}h</span>:
-                <span className="px-2.5 py-1 rounded-xl bg-black/40">{timeLeft.mins}m</span>:
-                <span className="px-2.5 py-1 rounded-xl bg-black/40 text-amber-300 animate-pulse">{String(timeLeft.secs).padStart(2, "0")}s</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400/20 text-amber-200 border border-amber-300/30 uppercase tracking-wider">
+                  🔥 {currentBanner.category}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 text-[10px] font-bold border border-emerald-400/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live · {events.length || 1} Event
+                </span>
+                <span className="text-white/60 text-xs hidden sm:inline">·</span>
+                <span className="text-xs font-semibold text-white/80 hidden sm:inline-flex items-center gap-1">
+                  <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {currentBanner.registered}
+                </span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-black text-white leading-tight drop-shadow-md truncate">
+                {currentBanner.title}
+              </h2>
+              <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-white/75 mt-0.5">
+                <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-amber-300" /> {currentBanner.location}</span>
+                <span className="text-white/30">·</span>
+                <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3 text-indigo-200" /> {currentBanner.date}</span>
               </div>
             </div>
-            <button onClick={() => setShowRegisterModal(true)}
-              className="px-5 py-3 rounded-2xl bg-white text-[#4F46E5] font-black text-xs hover:bg-indigo-50 active:scale-95 transition-all shadow-xl flex items-center justify-center gap-2 cursor-pointer self-end sm:self-auto">
-              <span>Register Now</span><ChevronRight className="w-4 h-4" />
-            </button>
           </div>
+
+          {/* Right: Countdown Ticker & Action Buttons */}
+          <div className="flex flex-wrap items-center gap-3 shrink-0 justify-between lg:justify-end border-t lg:border-t-0 pt-2.5 lg:pt-0 border-white/10">
+            {/* Countdown */}
+            <div className="flex items-center gap-1">
+              <span className="text-[9px] font-bold text-white/60 uppercase tracking-wider mr-1">Starts in</span>
+              {[
+                { val: timeLeft.days, unit: "d" },
+                { val: timeLeft.hours, unit: "h" },
+                { val: timeLeft.mins, unit: "m" },
+                { val: timeLeft.secs, unit: "s", amber: true },
+              ].map(({ val, unit, amber }, i) => (
+                <div key={unit} className="flex items-center">
+                  <div className="flex flex-col items-center">
+                    <span
+                      className={`w-7 sm:w-8 text-center px-1 py-0.5 rounded-lg font-mono text-xs font-extrabold leading-none ${
+                        amber ? "bg-amber-500/30 text-amber-200 border border-amber-400/30" : "bg-black/30 text-white"
+                      }`}
+                    >
+                      {String(val).padStart(2, "0")}
+                    </span>
+                    <span className="text-[7.5px] font-bold text-white/50 mt-0.5 uppercase">{unit}</span>
+                  </div>
+                  {i < 3 && <span className="text-white/40 font-bold text-xs mx-0.5 mb-1.5">:</span>}
+                </div>
+              ))}
+            </div>
+
+            {/* Buttons */}
+            <div className="flex items-center gap-2">
+              <button onClick={() => setShowQRModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/20 text-xs font-bold transition-all shadow-xs cursor-pointer">
+                <QrCode className="w-3.5 h-3.5 text-amber-300" /> My Pass
+              </button>
+              <button onClick={() => setShowRegisterModal(true)}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-black shadow-md cursor-pointer hover:scale-105 active:scale-95 transition-all"
+                style={{ background: "linear-gradient(135deg, #EA580C, #F97316)", boxShadow: "0 4px 12px rgba(234,88,12,0.35)" }}
+              >
+                <UserPlus className="w-3.5 h-3.5" /> Register
+              </button>
+            </div>
+          </div>
+
         </div>
       </div>
 
-      {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+      {/* ── KPI Cards Grid ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon;
           const isLiveCard = !useMock && idx < 6;
           const isSkeleton = isLiveCard && loading;
           return (
-            <GlassCard key={idx} hoverScale={true} className="p-4 border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <div style={{ backgroundColor: kpi.bg, color: kpi.color }} className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-xs">
-                  <Icon className="w-5 h-5" />
+            <div key={idx} className="bg-white rounded-xl border border-indigo-100/60 shadow-[0_2px_12px_rgba(79,70,229,0.05)] p-3 sm:p-3.5 flex flex-col gap-2 hover:-translate-y-0.5 transition-transform cursor-pointer">
+              <div className="flex items-start justify-between">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: kpi.bg, color: kpi.color }}
+                >
+                  <Icon className="w-4 h-4" strokeWidth={2} />
                 </div>
                 {isSkeleton
-                  ? <div className="w-16 h-5 bg-slate-100 dark:bg-slate-700 rounded-full animate-pulse" />
-                  : <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">{kpi.trend}</span>}
+                  ? <div className="w-14 h-4 bg-slate-100 rounded-full animate-pulse" />
+                  : <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">{kpi.trend}</span>}
               </div>
-              <div className="mt-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</span>
+              <div>
+                <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</p>
                 {isSkeleton
-                  ? <div className="mt-1.5 w-20 h-7 bg-slate-100 dark:bg-slate-700 rounded animate-pulse" />
-                  : <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white mt-0.5">{kpi.value}</h3>}
-                <p className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 mt-0.5">{kpi.sub}</p>
+                  ? <div className="mt-1 w-16 h-6 bg-slate-100 rounded animate-pulse" />
+                  : <p className="text-lg font-black text-slate-900 mt-0.5 leading-none">{kpi.value}</p>}
+                <p className="text-[10px] font-medium text-slate-500 mt-0.5 truncate">{kpi.sub}</p>
               </div>
-            </GlassCard>
+            </div>
           );
         })}
       </div>
 
       {/* ── Charts Grid: 4 Live Charts ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Chart 1: Daily Ticket Registrations */}
-        <GlassCard hoverScale={false} className="p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-xl border border-indigo-100/60 shadow-[0_2px_12px_rgba(79,70,229,0.05)] p-3.5 sm:p-4 space-y-2">
+          <div className="flex items-start justify-between">
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400">Registration Trend</span>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Daily Ticket Registrations</h3>
+              <p className="text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">Registration Trend</p>
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5">Daily Ticket Registrations</h3>
             </div>
-            <span className="text-xs font-bold text-[#4F46E5] bg-indigo-50 dark:bg-slate-800 px-3 py-1 rounded-full border border-indigo-200 dark:border-slate-700">
+            <span className="text-[10.5px] font-bold text-[#4F46E5] bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
               {!useMock && stats
                 ? `Total: ${stats.totalRegistrations.toLocaleString()} Passes`
                 : "Total: 1,842 Passes"}
             </span>
           </div>
-          <div className="h-60 w-full pt-2">
-            {!useMock && regTrendData.every(d => d.count === 0 && d.vip === 0) ? (
-              <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 space-y-2 bg-slate-50/50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                <CalendarDays className="w-8 h-8 text-slate-300 dark:text-slate-600" />
-                <p className="text-xs font-bold text-slate-600 dark:text-slate-300">No Daily Registrations Data</p>
-                <p className="text-[11px] text-slate-400">No ticket registrations recorded in database yet</p>
+          <div className="h-[175px] w-full">
+            {!useMock && regTrendData.every((d: any) => d.count === 0 && d.vip === 0) ? (
+              <div className="h-full w-full flex flex-col items-center justify-center text-center gap-1.5 rounded-xl border-2 border-dashed border-slate-100 bg-slate-50/50">
+                <CalendarDays className="w-6 h-6 text-slate-300" strokeWidth={1.5} />
+                <p className="text-[11.5px] font-semibold text-slate-500">No Daily Registrations Data</p>
+                <p className="text-[10.5px] text-slate-400 max-w-[200px] leading-snug">No ticket registrations recorded in database yet</p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={regTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart data={regTrendData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="colorRegDash" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.4} />
+                      <stop offset="5%" stopColor="#4F46E5" stopOpacity={0.15} />
                       <stop offset="95%" stopColor="#4F46E5" stopOpacity={0} />
                     </linearGradient>
-                    <linearGradient id="colorVipDash" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#7C3AED" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#7C3AED" stopOpacity={0} />
-                    </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-                  <XAxis dataKey="day" stroke="#64748B" fontSize={11} />
-                  <YAxis stroke="#64748B" fontSize={11} />
-                  <Tooltip contentStyle={{ backgroundColor: "#1E293B", color: "#FFFFFF", borderRadius: "16px", borderColor: "#4F46E5", fontSize: "12px" }} />
-                  <Area type="monotone" dataKey="count" stroke="#4F46E5" strokeWidth={3} fillOpacity={1} fill="url(#colorRegDash)" name="Registrations" />
-                  {(useMock || registrations.length === 0) && (
-                    <Area type="monotone" dataKey="vip" stroke="#7C3AED" strokeWidth={2} fillOpacity={1} fill="url(#colorVipDash)" name="VIP Passes" />
-                  )}
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                  <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #E0E7FF", fontSize: 11 }} />
+                  <Area type="monotone" dataKey="count" stroke="#4F46E5" strokeWidth={2} fill="url(#colorRegDash)" name="Registrations" dot={{ r: 3, fill: "#4F46E5" }} />
                 </AreaChart>
               </ResponsiveContainer>
             )}
           </div>
-        </GlassCard>
+        </div>
 
         {/* Chart 2: Pass Category Distribution */}
-        <GlassCard hoverScale={false} className="p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-xl border border-indigo-100/60 shadow-[0_2px_12px_rgba(79,70,229,0.05)] p-3.5 sm:p-4 space-y-2">
+          <div className="flex items-start justify-between">
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400">Category Breakdown</span>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Pass Category Distribution</h3>
+              <p className="text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">Category Breakdown</p>
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5">Pass Category Distribution</h3>
             </div>
-            <span className="text-xs font-bold text-emerald-600 bg-emerald-50 dark:bg-slate-800 px-3 py-1 rounded-full border border-emerald-200 dark:border-slate-700">
+            <span className="text-[10.5px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
               Live Category View
             </span>
           </div>
-          <div className="h-60 w-full flex items-center justify-center">
+          <div className="h-[175px] w-full flex items-center">
             {!useMock && pieData.length === 0 ? (
-              <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 space-y-2 bg-slate-50/50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                <Ticket className="w-8 h-8 text-slate-300 dark:text-slate-600" />
-                <p className="text-xs font-bold text-slate-600 dark:text-slate-300">No Pass Category Data</p>
-                <p className="text-[11px] text-slate-400">No pass registration categories recorded in database yet</p>
+              <div className="h-full w-full flex flex-col items-center justify-center text-center gap-1.5 rounded-xl border-2 border-dashed border-slate-100 bg-slate-50/50">
+                <Ticket className="w-6 h-6 text-slate-300" strokeWidth={1.5} />
+                <p className="text-[11.5px] font-semibold text-slate-500">No Pass Category Data</p>
+                <p className="text-[10.5px] text-slate-400 max-w-[200px] leading-snug">No pass registration categories recorded in database yet</p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={75} paddingAngle={5} dataKey="value">
-                    {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
+                  <Pie data={pieData} cx="40%" cy="50%" innerRadius={48} outerRadius={72} paddingAngle={3} dataKey="value">
+                    {pieData.map((entry: any, index: number) => <Cell key={`cell-${index}`} fill={entry.color} />)}
                   </Pie>
-                  <Tooltip />
-                  <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: "11px" }} />
+                  <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #E0E7FF", fontSize: 11 }} />
                 </PieChart>
               </ResponsiveContainer>
             )}
+            <div className="flex flex-col gap-1.5 pr-2">
+              {pieData.map((d: any) => (
+                <div key={d.name} className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: d.color }} />
+                  <div>
+                    <p className="text-[10.5px] font-semibold text-slate-700 leading-tight">{d.name}</p>
+                    <p className="text-[9.5px] text-slate-400 leading-tight">{d.value} passes</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </GlassCard>
+        </div>
 
         {/* Chart 3: Today's Schedule & Duty */}
-        <GlassCard hoverScale={false} className="p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-xl border border-indigo-100/60 shadow-[0_2px_12px_rgba(79,70,229,0.05)] p-3.5 sm:p-4 space-y-2">
+          <div className="flex items-start justify-between">
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400">Timeline Analysis</span>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Today's Schedule & Duty</h3>
+              <p className="text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">Timeline Analysis</p>
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5">Today's Schedule & Duty</h3>
             </div>
-            <span className="text-xs font-bold text-indigo-600 bg-indigo-50 dark:bg-slate-800 px-3 py-1 rounded-full border border-indigo-200 dark:border-slate-700">
+            <span className="text-[10.5px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
               Today's Slots
             </span>
           </div>
-          <div className="h-60 w-full pt-2">
-            {!useMock && scheduleDutyChartData.every(d => d.programs === 0 && d.volunteers === 0) ? (
-              <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 space-y-2 bg-slate-50/50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                <Clock className="w-8 h-8 text-slate-300 dark:text-slate-600" />
-                <p className="text-xs font-bold text-slate-600 dark:text-slate-300">No Schedule & Duty Data</p>
-                <p className="text-[11px] text-slate-400">No active event programs or duty shifts scheduled today</p>
+          <div className="h-[175px] space-y-1.5 overflow-y-auto pr-1">
+            {!useMock && scheduleDutyChartData.every((d: any) => d.programs === 0 && d.volunteers === 0) ? (
+              <div className="h-full w-full flex flex-col items-center justify-center text-center gap-1.5 rounded-xl border-2 border-dashed border-slate-100 bg-slate-50/50">
+                <Clock className="w-6 h-6 text-slate-300" strokeWidth={1.5} />
+                <p className="text-[11.5px] font-semibold text-slate-500">No Schedule & Duty Data</p>
+                <p className="text-[10.5px] text-slate-400 max-w-[200px] leading-snug">No active event programs or duty shifts scheduled today</p>
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={scheduleDutyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
-                  <XAxis dataKey="time" stroke="#64748B" fontSize={10} />
-                  <YAxis stroke="#64748B" fontSize={10} />
-                  <Tooltip contentStyle={{ backgroundColor: "#1E293B", color: "#FFFFFF", borderRadius: "14px", fontSize: "12px" }} />
-                  <Bar dataKey="programs" fill="#4F46E5" name="Scheduled Programs" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="volunteers" fill="#16A34A" name="Volunteers on Duty" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              scheduleDutyChartData.map((item: any) => (
+                <div key={item.time} className="flex items-center gap-2.5">
+                  <span className="text-[10.5px] font-mono font-bold text-slate-400 w-16 flex-shrink-0">{item.time}</span>
+                  <div className="flex-1 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100">
+                    <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-indigo-100 text-indigo-700">{item.programs}p</span>
+                    <span className="text-[11px] font-semibold text-slate-800 flex-1">{item.volunteers} volunteers</span>
+                  </div>
+                </div>
+              ))
             )}
           </div>
-        </GlassCard>
+        </div>
 
         {/* Chart 4: Budget vs Actual Spend (₹ Lakhs) */}
-        <GlassCard hoverScale={false} className="p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
-          <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="bg-white rounded-xl border border-indigo-100/60 shadow-[0_2px_12px_rgba(79,70,229,0.05)] p-3.5 sm:p-4 space-y-2">
+          <div className="flex items-start justify-between flex-wrap gap-2">
             <div>
-              <span className="text-[10px] uppercase font-bold text-slate-400">Finance Analytics</span>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Budget vs Actual Spend (₹ Lakhs)</h3>
+              <p className="text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">Finance Analytics</p>
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5">Budget vs Actual Spend (₹ Lakhs)</h3>
             </div>
             {!useMock && stats && (
-              <div className="text-right text-xs font-bold text-slate-500">
+              <p className="text-[10.5px] font-bold text-slate-500">
                 Spent: <span className="text-indigo-600">{fmtINR(stats.totalExpenses)}</span>
-              </div>
+              </p>
             )}
           </div>
-          <div className="h-60 w-full pt-2">
-            {!useMock && (budgetData.length === 0 || budgetData.every(d => d.budget === 0 && d.spent === 0)) ? (
-              <div className="h-full w-full flex flex-col items-center justify-center text-center p-6 space-y-2 bg-slate-50/50 dark:bg-slate-800/30 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
-                <DollarSign className="w-8 h-8 text-slate-300 dark:text-slate-600" />
-                <p className="text-xs font-bold text-slate-600 dark:text-slate-300">No Financial Expense Data</p>
-                <p className="text-[11px] text-slate-400">No category budget or actual spend recorded in database yet</p>
+          <div className="h-[175px] w-full">
+            {!useMock && (budgetData.length === 0 || budgetData.every((d: any) => d.budget === 0 && d.spent === 0)) ? (
+              <div className="h-full w-full flex flex-col items-center justify-center text-center gap-1.5 rounded-xl border-2 border-dashed border-slate-100 bg-slate-50/50">
+                <DollarSign className="w-6 h-6 text-slate-300" strokeWidth={1.5} />
+                <p className="text-[11.5px] font-semibold text-slate-500">No Financial Expense Data</p>
+                <p className="text-[10.5px] text-slate-400 max-w-[200px] leading-snug">No category budget or actual spend recorded in database yet</p>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={budgetData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" opacity={0.1} />
-                  <XAxis dataKey="cat" stroke="#64748B" fontSize={10} />
-                  <YAxis stroke="#64748B" fontSize={10} />
-                  <Tooltip contentStyle={{ backgroundColor: "#1E293B", color: "#FFF", borderRadius: "12px", fontSize: "12px" }} />
-                  <Bar dataKey="budget" fill="rgba(99,102,241,0.2)" name="Budget (L)" radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="spent"  fill="#2563EB"               name="Spent (L)"  radius={[6, 6, 0, 0]} />
+                <BarChart data={budgetData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }} barSize={12}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                  <XAxis dataKey="cat" tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #E0E7FF", fontSize: 11 }} />
+                  <Bar dataKey="budget" fill="rgba(79,70,229,0.18)" stroke="#4F46E5" strokeWidth={1.5} radius={[4, 4, 0, 0]} name="Budget (L)" />
+                  <Bar dataKey="spent" fill="#7C3AED" radius={[4, 4, 0, 0]} name="Spent (L)" />
                 </BarChart>
               </ResponsiveContainer>
             )}
           </div>
-        </GlassCard>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
+              <span className="w-2.5 h-2.5 rounded-sm border border-indigo-400" style={{ background: "rgba(79,70,229,0.18)" }} />
+              Budget
+            </div>
+            <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
+              <span className="w-2.5 h-2.5 rounded-sm bg-violet-600" />
+              Actual
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── Today's Schedule + Pending Tasks ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <GlassCard hoverScale={false} className="p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#4F46E5]" /> Today's Schedule & Duty
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="bg-white rounded-xl border border-indigo-100/60 shadow-[0_2px_12px_rgba(79,70,229,0.05)] p-3.5 sm:p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-indigo-500" /> Today's Schedule & Duty
             </h3>
-            <span className="text-xs font-bold text-[#4F46E5]">
+            <span className="text-[10.5px] font-bold text-indigo-600">
               {!useMock && !loading ? "Live" : "Live Updates"}
             </span>
           </div>
           {loading && !useMock ? (
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {[1, 2, 3].map(i => (
-                <div key={i} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 animate-pulse h-14" />
+                <div key={i} className="p-2.5 rounded-xl bg-slate-50 animate-pulse h-12" />
               ))}
             </div>
           ) : todaySchedule.length === 0 ? (
-            <div className="py-8 text-center text-sm text-slate-400">No events scheduled for today.</div>
+            <div className="py-6 text-center text-xs text-slate-400">No events scheduled for today.</div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="relative pl-3.5 space-y-0">
+              <div className="absolute left-[5px] top-2 bottom-2 w-px bg-slate-200" />
               {todaySchedule.map((act, idx) => (
-                <div key={idx} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="px-2.5 py-1.5 rounded-xl bg-indigo-100 dark:bg-slate-900 text-[11px] font-mono font-bold text-[#4F46E5] shrink-0 border border-indigo-200/60 dark:border-slate-700">
-                      {act.time}
+                <div key={idx} className="relative flex gap-2.5 pb-3 last:pb-0">
+                  <div
+                    className="w-3 h-3 rounded-full flex-shrink-0 mt-0.5 border-2 border-white shadow-xs"
+                    style={{ background: act.status === "Live" ? "#7C3AED" : act.status === "Done" ? "#16A34A" : "#4F46E5" }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[12px] font-semibold text-slate-800 truncate">{act.title}</p>
+                      <span className="text-[9.5px] font-mono font-bold text-slate-400 flex-shrink-0">{act.time}</span>
                     </div>
-                    <div className="min-w-0">
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">{act.title}</h4>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{act.dept} • {act.count}</p>
-                    </div>
+                    <p className="text-[10.5px] text-slate-500 mt-0.5">{act.dept} · {act.count}</p>
                   </div>
-                  <StatusChip status={act.status} />
                 </div>
               ))}
             </div>
           )}
-        </GlassCard>
+        </div>
 
-        <GlassCard hoverScale={false} className="p-5 border border-slate-200/80 dark:border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-              <ClipboardCheck className="w-4 h-4 text-[#4F46E5]" /> Pending Action Items
+        <div className="bg-white rounded-xl border border-indigo-100/60 shadow-[0_2px_12px_rgba(79,70,229,0.05)] p-3.5 sm:p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+              <ClipboardCheck className="w-4 h-4 text-indigo-500" /> Pending Action Items
             </h3>
-            <span className="text-xs font-bold text-rose-500">
+            <span className="text-[10.5px] font-bold text-rose-500">
               {pendingTasks.filter(t => t.priority === "high").length} Critical
             </span>
           </div>
           {loading && !useMock ? (
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {[1, 2, 3, 4].map(i => (
-                <div key={i} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 animate-pulse h-12" />
+                <div key={i} className="p-2.5 rounded-xl bg-slate-50 animate-pulse h-10" />
               ))}
             </div>
           ) : pendingTasks.length === 0 ? (
-            <div className="py-8 text-center text-sm text-slate-400">🎉 All tasks completed!</div>
+            <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 py-6 justify-center">
+              🎉 All tasks completed!
+            </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-1.5">
               {pendingTasks.map((t) => (
-                <div key={t.id} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/60 dark:border-slate-700 flex items-center justify-between gap-2">
+                <div
+                  key={t.id}
+                  className={`flex items-center justify-between gap-2.5 p-2.5 rounded-xl border transition-all ${
+                    tasksDone[t.id]
+                      ? "bg-slate-50 border-slate-100 opacity-60"
+                      : "bg-white border-slate-200/80 shadow-2xs"
+                  }`}
+                >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <input
-                      type="checkbox"
-                      className="w-4 h-4 rounded-md accent-[#4F46E5] cursor-pointer flex-shrink-0"
-                      checked={!!tasksDone[t.id]}
-                      onChange={() => toggleTask(t.id)}
-                    />
-                    <span className={`text-xs font-semibold truncate ${tasksDone[t.id] ? "line-through text-slate-400 dark:text-slate-600" : "text-slate-800 dark:text-slate-200"}`}>
+                    <button
+                      onClick={() => toggleTask(t.id)}
+                      className={`w-4.5 h-4.5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-colors ${
+                        tasksDone[t.id] ? "bg-indigo-500 border-indigo-500" : "bg-white border-slate-300 hover:border-indigo-400"
+                      }`}
+                    >
+                      {tasksDone[t.id] && (
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      )}
+                    </button>
+                    <span className={`text-[11.5px] font-semibold truncate ${tasksDone[t.id] ? "line-through text-slate-400" : "text-slate-800"}`}>
                       {t.task}
                     </span>
                   </div>
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase flex-shrink-0 ${
-                    t.due === "Overdue" ? "bg-red-100 text-red-700 border border-red-200"
-                    : t.priority === "high" ? "bg-rose-100 text-rose-600 border border-rose-200"
-                    : "bg-amber-100 text-amber-600 border border-amber-200"
+                  <span className={`text-[9.5px] font-black px-2 py-0.5 rounded-full border flex-shrink-0 ${
+                    t.due === "Overdue" ? "bg-red-50 text-red-600 border-red-200"
+                    : t.priority === "high" ? "bg-rose-50 text-rose-600 border-rose-200"
+                    : "bg-blue-50 text-blue-600 border-blue-200"
                   }`}>
                     {t.due === "—" ? "—" : `Due ${t.due}`}
                   </span>
@@ -866,7 +904,7 @@ export function EventsDashboard() {
               ))}
             </div>
           )}
-        </GlassCard>
+        </div>
       </div>
 
       {/* ── Floating AI Assistant ── */}
@@ -874,13 +912,16 @@ export function EventsDashboard() {
         onClick={() => setShowAICopilot(true)}
         style={{
           background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)",
-          boxShadow: "0 10px 30px -4px rgba(79,70,229,0.5), 0 0 25px rgba(124,58,237,0.4)",
+          boxShadow: "0 10px 30px -4px rgba(79,70,229,0.5), 0 0 20px rgba(124,58,237,0.3)",
+          width: 52,
+          height: 52,
         }}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full flex items-center justify-center text-white cursor-pointer hover:scale-110 active:scale-95 transition-all duration-300 border-2 border-white dark:border-slate-900 group shadow-2xl"
+        className="fixed bottom-6 right-6 z-40 rounded-full flex items-center justify-center text-white cursor-pointer hover:scale-110 active:scale-95 transition-all duration-300 border-2 border-white group shadow-2xl"
         title="Open AI Event Copilot"
       >
-        <Bot className="w-7 h-7 group-hover:rotate-12 transition-transform duration-300" />
+        <Bot className="w-6 h-6 group-hover:rotate-12 transition-transform duration-300" />
         <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-white animate-ping" />
+        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-white" />
       </button>
 
       <EventAICopilotDrawer isOpen={showAICopilot} onClose={() => setShowAICopilot(false)} />
@@ -893,22 +934,7 @@ export function EventsDashboard() {
         </div>
       )}
 
-      <BottomSheet isOpen={showQRModal} onClose={() => setShowQRModal(false)}
-        title="Digital QR Pass" subtitle="Present this QR code at the event gate for instant check-in">
-        <div className="p-4 text-center space-y-4">
-          <div className="p-6 rounded-3xl bg-slate-900 text-white inline-block shadow-2xl">
-            <QrCode className="w-48 h-48 mx-auto" />
-            <p className="text-xs font-mono text-orange-400 mt-2 font-bold">PASS-8849-2026-GANESH</p>
-          </div>
-          <div>
-            <h4 className="text-base font-extrabold text-slate-900 dark:text-white">{user?.fullName || "Member Pass"} (VIP Pass)</h4>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Main Gate Entry • Community Member ID #{user?.userId || 101}</p>
-          </div>
-          <TouchButton variant="primary" icon={Download} fullWidth onClick={() => alert("Pass downloaded!")}>
-            Download Digital Ticket PDF
-          </TouchButton>
-        </div>
-      </BottomSheet>
+      <GatePassModal isOpen={showQRModal} onClose={() => setShowQRModal(false)} />
     </div>
   );
 }

@@ -18,10 +18,14 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   const [currentStep, setCurrentStep] = useState(1);
   const [regType, setRegType] = useState<"individual" | "family" | "volunteer" | "sponsor">("family");
   const [formData, setFormData] = useState({
+    category: "Family Pass",
     fullName: "Sandeep Kumar",
     phone: "+91 98765 43210",
     email: "sandeep@example.com",
+    emergencyContact: "+91 98200 54321",
     flatNo: "A-402, Green Towers",
+    colonyAddress: "LE Community, M.G. Road, Miyapur, Hyderabad",
+    poojaSlot: "Evening Visarjan / Utsav (05:00 PM - 09:00 PM)",
     membersCount: 3,
     members: [
       { name: "Sandeep Kumar", age: 34, diet: "Veg" },
@@ -133,7 +137,10 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                   return (
                     <div
                       key={cat.id}
-                      onClick={() => setRegType(cat.id as any)}
+                      onClick={() => {
+                        setRegType(cat.id as any);
+                        setFormData(prev => ({ ...prev, category: cat.title }));
+                      }}
                       className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
                         selected
                           ? "border-[#FF6B00] bg-orange-50/50 dark:bg-slate-800/80 shadow-md"
@@ -160,37 +167,112 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           {/* STEP 2: Primary Info */}
           {currentStep === 2 && (
             <div className="space-y-3">
-              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Primary Registrant Details</h3>
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Primary Registrant Details</h3>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-200">
+                  Category: {formData.category || "Family Pass"}
+                </span>
+              </div>
 
+              {/* Full Name * */}
               <div>
-                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Full Name</label>
+                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                  Full Name <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
+                  placeholder="e.g. Sandeep Patel"
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="w-full h-11 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
+                  className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              {/* Mobile Number (WhatsApp) * & Email Address * */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Phone Number</label>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                    Mobile Number (WhatsApp) <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="text"
+                    placeholder="+91 98765 43210"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full h-11 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
+                    className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Flat / Villa No</label>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                    Email Address <span className="text-rose-500">*</span>
+                  </label>
                   <input
-                    type="text"
-                    value={formData.flatNo}
-                    onChange={(e) => setFormData({ ...formData, flatNo: e.target.value })}
-                    className="w-full h-11 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
+                    type="email"
+                    placeholder="sandeep@example.com"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
                   />
                 </div>
+              </div>
+
+              {/* Emergency Contact Number & Flat / Villa No */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                    Emergency Contact Number
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="+91 98200 54321"
+                    value={formData.emergencyContact}
+                    onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
+                    className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                    Flat / Villa No
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Villa 402 / Flat B-12"
+                    value={formData.flatNo}
+                    onChange={(e) => setFormData({ ...formData, flatNo: e.target.value })}
+                    className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Residential Colony / Street Address */}
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                  Residential Colony / Street Address
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. LE Community, M.G. Road, Miyapur, Hyderabad"
+                  value={formData.colonyAddress}
+                  onChange={(e) => setFormData({ ...formData, colonyAddress: e.target.value })}
+                  className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
+                />
+              </div>
+
+              {/* Preferred Pooja Time Slot */}
+              <div>
+                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                  Preferred Pooja Time Slot
+                </label>
+                <select
+                  value={formData.poojaSlot}
+                  onChange={(e) => setFormData({ ...formData, poojaSlot: e.target.value })}
+                  className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white cursor-pointer"
+                >
+                  <option value="Morning Aarti (07:00 AM - 11:00 AM)">Morning Aarti (07:00 AM - 11:00 AM)</option>
+                  <option value="Afternoon Pooja & Prasad (12:00 PM - 03:00 PM)">Afternoon Pooja & Prasad (12:00 PM - 03:00 PM)</option>
+                  <option value="Evening Visarjan / Utsav (05:00 PM - 09:00 PM)">Evening Visarjan / Utsav (05:00 PM - 09:00 PM)</option>
+                  <option value="Late Night Bhajan Sandhya (09:00 PM - 11:30 PM)">Late Night Bhajan Sandhya (09:00 PM - 11:30 PM)</option>
+                </select>
               </div>
             </div>
           )}
