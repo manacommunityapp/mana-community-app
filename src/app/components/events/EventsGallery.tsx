@@ -637,8 +637,13 @@ export function EventsGallery() {
       setSuccessMsg(`Media stored in AWS S3 and saved to PostgreSQL successfully! (${createdItems.length} items)`);
     } catch (err: any) {
       console.error("Failed to upload media:", err);
-      const msg = err?.response?.data?.message || err?.message || "Failed to store media in AWS S3 cloud storage. Database record was NOT created.";
-      setError(msg);
+      let rawMsg = err?.response?.data?.message || err?.message || "Failed to store media in AWS S3 cloud storage.";
+      if (rawMsg.includes("301") || rawMsg.includes("specified endpoint") || rawMsg.includes("PermanentRedirect")) {
+        rawMsg = "Unable to save file to AWS S3: S3 bucket region misconfigured. Please check S3_REGION settings.";
+      } else if (rawMsg.includes("AccessDenied") || rawMsg.includes("403") || rawMsg.includes("InvalidAccessKeyId")) {
+        rawMsg = "Unable to save file to AWS S3: Access denied or invalid S3 storage credentials.";
+      }
+      setError(`⚠️ Media Upload Failed: ${rawMsg} — No records were saved to database.`);
     } finally {
       setUploading(false);
     }

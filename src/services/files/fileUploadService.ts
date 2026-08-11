@@ -35,7 +35,12 @@ export const fileUploadService = {
         sizeBytes: media.fileSize,
       };
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || "Failed to upload file to S3 cloud storage.";
+      let msg = err?.response?.data?.message || err?.message || "Failed to upload file to S3 cloud storage.";
+      if (msg.includes("301") || msg.includes("specified endpoint") || msg.includes("PermanentRedirect")) {
+        msg = "Unable to save file to AWS S3: S3 bucket region misconfigured. Please check S3_REGION settings.";
+      } else if (msg.includes("AccessDenied") || msg.includes("403") || msg.includes("InvalidAccessKeyId")) {
+        msg = "Unable to save file to AWS S3: Access denied or invalid S3 storage credentials.";
+      }
       console.error("S3 Media Service upload failed:", msg);
       throw new Error(msg);
     }
