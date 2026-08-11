@@ -507,6 +507,7 @@ export function EventsGallery() {
   const [uploadValidationErrors, setUploadValidationErrors] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [successMsg, setSuccessMsg] = useState("");
+  const [modalError, setModalError] = useState("");
 
   // Inline creation states inside Upload Modal
   const [showAddDayInModal, setShowAddDayInModal] = useState(false);
@@ -634,17 +635,26 @@ export function EventsGallery() {
         album: "General",
       });
       setError("");
+      setModalError("");
       setSuccessMsg(`Media stored in AWS S3 and saved to PostgreSQL successfully! (${createdItems.length} items)`);
     } catch (err: any) {
       console.error("Failed to upload media:", err);
       let rawMsg = err?.response?.data?.message || err?.message || "Failed to store media in AWS S3 cloud storage.";
       const lower = rawMsg.toLowerCase();
-      if (lower.includes("301") || lower.includes("specified endpoint") || lower.includes("permanentredirect")) {
-        rawMsg = "Unable to save file to AWS S3: S3 bucket region misconfigured. Please check S3_REGION settings.";
-      } else if (lower.includes("access key") || lower.includes("accessdenied") || lower.includes("403") || lower.includes("invalidaccesskeyid")) {
-        rawMsg = "Unable to save file to AWS S3: Invalid S3 Access Key or Secret Key. Please verify S3_ACCESS_KEY and S3_SECRET_KEY environment variables.";
+      let shortMsg = "Failed to upload file to AWS S3 storage.";
+
+      if (lower.includes("access key") || lower.includes("accessdenied") || lower.includes("403") || lower.includes("invalidaccesskeyid")) {
+        shortMsg = "Invalid AWS Access Key or Secret Key. Please check S3_ACCESS_KEY credentials.";
+      } else if (lower.includes("301") || lower.includes("specified endpoint") || lower.includes("permanentredirect")) {
+        shortMsg = "S3 bucket region misconfigured. Check S3_REGION settings.";
+      } else if (lower.includes("nosuchbucket") || lower.includes("404")) {
+        shortMsg = "S3 target bucket does not exist.";
+      } else if (lower.includes("timeout") || lower.includes("connecttimeout")) {
+        shortMsg = "Network timeout connecting to AWS S3.";
       }
-      setError(`⚠️ Media Upload Failed: ${rawMsg} — No records were saved to database.`);
+
+      setModalError(shortMsg);
+      setError(`⚠️ Media Upload Failed: ${shortMsg} — No records were saved to database.`);
     } finally {
       setUploading(false);
     }
@@ -1598,6 +1608,18 @@ export function EventsGallery() {
                   />
                 </div>
               </div>
+
+              {modalError && (
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-xs font-semibold text-rose-800 dark:text-rose-300 flex items-center justify-between gap-2 animate-fade-in shadow-sm">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                    <span>{modalError}</span>
+                  </div>
+                  <button type="button" onClick={() => setModalError("")} className="text-rose-400 hover:text-rose-600 p-0.5">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
 
               <div className="flex gap-2.5 pt-2">
                 <button
