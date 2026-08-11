@@ -2,8 +2,8 @@ import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
 
   ImageIcon, Play, Upload, Grid3X3, List, Star, Loader2, AlertCircle,
-  Calendar, Filter, X, ChevronRight, Download, Share2, Layers, Tag, Film, CheckCircle2,ChevronDown, Loader2, AlertCircle,
-  Plus, Trash2, CalendarDays, ChevronDown, Save, Send,
+  Calendar, Filter, X, ChevronRight, Download, Share2, Layers, Tag, Film, CheckCircle2, ChevronDown,
+  Plus, Trash2, CalendarDays, Save, Send,
 
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
