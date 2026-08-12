@@ -72,6 +72,18 @@ interface MealDay {
   headCount: number;
 }
 
+interface EventCategoryItem {
+  id: string;
+  name: string;
+  icon: any;
+  price: number;
+  badge: string | null;
+  badgeColor: string;
+  includes: string[];
+  qty: number;
+  remaining: number;
+}
+
 interface RegForm {
   category: string;
   qty: number;
@@ -101,7 +113,7 @@ const STEPS = [
 const T_SHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 const VOLUNTEER_ROLES = ["Food & Kitchen", "Registration", "Security", "Decoration", "Audio/Visual", "Medical Support", "Guest Management"];
 
-function getDynamicCategories(liveEvent?: EventResponse | null) {
+function getDynamicCategories(liveEvent?: EventResponse | null): EventCategoryItem[] {
   let cats: any[] = [];
   if (liveEvent?.ticketTypes && liveEvent.ticketTypes.length > 0) {
     cats = liveEvent.ticketTypes;
@@ -143,7 +155,7 @@ function getDynamicCategories(liveEvent?: EventResponse | null) {
 }
 
 /* ─── Step components ─── */
-function Step1Category({ form, update, categories }: { form: RegForm; update: (k: keyof RegForm, v: any) => void; categories: typeof EVENT.categories }) {
+function Step1Category({ form, update, categories }: { form: RegForm; update: (k: keyof RegForm, v: any) => void; categories: EventCategoryItem[] }) {
   const selected = categories.find(c => c.id === form.category);
   const total = selected ? selected.price * form.qty : 0;
 

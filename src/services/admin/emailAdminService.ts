@@ -189,85 +189,85 @@ export const SYSTEM_TEMPLATES_CATALOG: EmailTemplateInfo[] = [
     customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
   },
 
-  // Event Templates (New 8 Entries)
+  // Event Templates (8 Entries)
   {
     key: "EVENT_ANNOUNCEMENT",
-    subject: "Community Event Announcement 🎆",
+    subject: "You're Invited — {{eventName}}!",
     templateFile: "email/event-announcement.html",
     category: "EVENT",
     triggerMenuPath: "Events → Announcements",
     triggerWired: true,
-    triggerDescription: "Fires when a major community event or festival is announced to all members.",
+    triggerDescription: "Sent when an admin publishes a new community event or festival announcement to all residents.",
     customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
   },
   {
     key: "EVENT_REMINDER",
-    subject: "Upcoming Event Reminder ⏰",
+    subject: "Reminder: {{eventName}} is Coming Up!",
     templateFile: "email/event-reminder.html",
     category: "EVENT",
-    triggerMenuPath: "Events → Schedule",
+    triggerMenuPath: "Events → Reminders",
     triggerWired: true,
-    triggerDescription: "Sent before an upcoming community event to remind attendees of pending actions or timing.",
+    triggerDescription: "Triggered manually by admin or automatically N days before an event's date; sent to invited/registered residents.",
     customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
   },
   {
     key: "EVENT_DONATION_APPEAL",
-    subject: "Support Our Festival & Event Drive 🚩",
+    subject: "Support {{eventName}} — Donate Now",
     templateFile: "email/event-donation-appeal.html",
     category: "EVENT",
-    triggerMenuPath: "Events → Fundraising",
+    triggerMenuPath: "Events → Donations",
     triggerWired: true,
-    triggerDescription: "Fires for donation appeals, festival fundraising, or community contribution drives.",
+    triggerDescription: "Sent when an admin opens a donation drive for an upcoming community event.",
     customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
   },
   {
     key: "EVENT_REGISTRATION_CONFIRMED",
-    subject: "RSVP Confirmed for Event 🎉",
+    subject: "You're Registered for {{eventName}}! 🎉",
     templateFile: "email/event-registration-confirmed.html",
     category: "EVENT",
-    triggerMenuPath: "Events → Registration",
+    triggerMenuPath: "Events → RSVP / Registration",
     triggerWired: true,
-    triggerDescription: "Sent immediately after a member registers/RSVPs for a community event.",
+    triggerDescription: "Auto-sent to the resident immediately after a successful RSVP or registration submission for an event.",
     customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
   },
   {
     key: "EVENT_VOLUNTEER_INVITATION",
-    subject: "Join as a Community Volunteer 🤝",
+    subject: "Join Us as a Volunteer for {{eventName}}",
     templateFile: "email/event-volunteer-invitation.html",
     category: "EVENT",
-    triggerMenuPath: "Events → Operations & Volunteers",
+    triggerMenuPath: "Events → Volunteers",
     triggerWired: true,
-    triggerDescription: "Invites members to volunteer for committee responsibilities and event setups.",
+    triggerDescription: "Sent by an admin to residents who are invited to volunteer at a community event.",
     customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
   },
   {
     key: "EVENT_THANK_YOU",
-    subject: "Thank You for Joining Us! ❤️",
+    subject: "Thank You for Joining {{eventName}}! 🙏",
     templateFile: "email/event-thank-you.html",
     category: "EVENT",
-    triggerMenuPath: "Events → Media & Reports",
+    triggerMenuPath: "Events → Post-Event",
     triggerWired: true,
-    triggerDescription: "Post-event thank-you email sent to participants with media highlights and highlights reel.",
+    triggerDescription: "Sent after an event concludes to attendees and volunteers; may include highlights and a feedback link.",
     customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
   },
   {
     key: "EVENT_SCHEDULE_UPDATE",
-    subject: "Important Schedule Update 📅",
+    subject: "Update: {{eventName}} Schedule Changed",
     templateFile: "email/event-schedule-update.html",
     category: "EVENT",
-    triggerMenuPath: "Events → Schedule",
-    triggerWired: true,
-    triggerDescription: "Notifies registered members of venue, timing, or itinerary changes for an event.",
+    triggerMenuPath: "Events → Admin → Edit Event",
+    triggerWired: false,
+    triggerDescription: "Not yet wired to an automatic trigger — reachable from this admin test-send tool while the schedule-change flow is under development.",
     customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
   },
   {
     key: "EVENT_CANCELLATION",
-    subject: "Event Cancellation Notice ⚠️",
+    subject: "Important: {{eventName}} Has Been Cancelled",
     templateFile: "email/event-cancellation.html",
     category: "EVENT",
-    triggerMenuPath: "Events → Management",
-    triggerWired: true,
-    triggerDescription: "Fires if a community event is cancelled or postponed due to weather/unforeseen reasons.",
+    triggerMenuPath: "Events → Admin → Cancel Event",
+    triggerWired: false,
+    triggerDescription: "Not yet wired to an automatic trigger — reachable from this admin test-send tool while the cancellation flow is under development.",
     customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
   }
 ];
