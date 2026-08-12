@@ -33,6 +33,7 @@ import {
   ToggleLeft,
   Megaphone,
   Mail,
+  MailOpen,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigate } from "react-router";
@@ -90,6 +91,7 @@ const TAB_ITEMS = [
   { id: "community",  label: "Community",     icon: Building2 },
   { id: "announcements", label: "Announcements", icon: Megaphone },
   { id: "email-templates", label: "Email Builder", icon: Mail },
+  { id: "email-gallery", label: "Email Templates", icon: MailOpen },
   { id: "email-logs", label: "Email Delivery Logs", icon: Clock },
   { id: "directory",  label: "Directory",     icon: Shield },
 ] as const;
@@ -883,6 +885,7 @@ export function AdminHub() {
         {activeTab === "community" && <AdminCommunity />}
         {activeTab === "announcements" && <AnnouncementsPlanner />}
         {activeTab === "email-templates" && <EmailTemplateBuilder />}
+        {activeTab === "email-gallery" && <EmailTemplatesTab />}
         {activeTab === "email-logs" && <EmailDeliveryLogTab />}
         {activeTab === "directory" && <AdminDirectory />}
       </div>

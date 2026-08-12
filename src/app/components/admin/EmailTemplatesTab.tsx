@@ -16,6 +16,7 @@ const CATEGORY_STYLES: Record<string, { bg: string; border: string; icon: string
   PRIZE:         { bg: "bg-pink-50/70",    border: "border-pink-200",    icon: "text-pink-500",    badge: "bg-pink-100 text-pink-700",     gradient: "from-pink-600 to-rose-600",     emoji: "🎁" },
   ANNOUNCEMENT:  { bg: "bg-purple-50/70",  border: "border-purple-200",  icon: "text-purple-500",  badge: "bg-purple-100 text-purple-700", gradient: "from-purple-600 to-fuchsia-600",emoji: "📢" },
   AUTH:          { bg: "bg-cyan-50/70",    border: "border-cyan-200",    icon: "text-cyan-500",    badge: "bg-cyan-100 text-cyan-700",     gradient: "from-cyan-600 to-blue-600",     emoji: "🔐" },
+  EVENT:         { bg: "bg-amber-50/70",  border: "border-amber-200",   icon: "text-amber-600",   badge: "bg-amber-100 text-amber-700",   gradient: "from-amber-500 to-orange-500",  emoji: "🪔" },
 };
 
 const DEFAULT_STYLE = { bg: "bg-gray-50", border: "border-gray-200", icon: "text-gray-500", badge: "bg-gray-100 text-gray-700", gradient: "from-slate-600 to-slate-800", emoji: "📧" };
