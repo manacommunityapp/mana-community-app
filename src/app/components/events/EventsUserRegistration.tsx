@@ -29,48 +29,15 @@ const EVENT = {
     "Join us for 10 days of devotion, culture, and celebration! Featuring live performances, cultural programs, food courts, competitions, and the grand visarjan procession.",
   categories: [
     {
-      id: "family",
-      name: "Family Pass",
-      icon: Users,
-      price: 500,
-      badge: "Most Popular",
-      badgeColor: "#10b981",
-      includes: ["Entry for 2 adults + 2 children", "Welcome gift kit", "Priority seating", "Food coupon ₹200"],
-      qty: 200,
-      remaining: 73,
-    },
-    {
-      id: "individual",
-      name: "Individual",
-      icon: User,
-      price: 200,
-      badge: null,
-      badgeColor: "",
-      includes: ["Single entry", "Programme booklet", "Food coupon ₹100"],
-      qty: 500,
-      remaining: 312,
-    },
-    {
-      id: "vip",
-      name: "VIP Experience",
-      icon: Star,
-      price: 1500,
-      badge: "Premium",
-      badgeColor: "#6366f1",
-      includes: ["VIP lounge access", "5 seats reserved front row", "Welcome hamper", "Dinner invite", "Certificate"],
-      qty: 50,
-      remaining: 18,
-    },
-    {
-      id: "volunteer",
-      name: "Volunteer",
+      id: "ganesh-pass-2026",
+      name: "Ganesh Utsav 2026 Pass",
       icon: Sparkles,
-      price: 0,
-      badge: "Free",
-      badgeColor: "#4f46e5",
-      includes: ["Volunteer T-shirt", "Meals provided", "Certificate of appreciation", "Volunteer ID"],
-      qty: 150,
-      remaining: 42,
+      price: 250,
+      badge: "Official Pass",
+      badgeColor: "#10b981",
+      includes: ["Full 10-day festival entry access", "Maha Prasadam voucher", "Welcome pooja kit", "Priority seating"],
+      qty: 2500,
+      remaining: 658,
     },
   ],
 };
@@ -134,15 +101,56 @@ const STEPS = [
 const T_SHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 const VOLUNTEER_ROLES = ["Food & Kitchen", "Registration", "Security", "Decoration", "Audio/Visual", "Medical Support", "Guest Management"];
 
+function getDynamicCategories(liveEvent?: EventResponse | null) {
+  let cats: any[] = [];
+  if (liveEvent?.ticketTypes && liveEvent.ticketTypes.length > 0) {
+    cats = liveEvent.ticketTypes;
+  } else {
+    try {
+      const saved = localStorage.getItem("mana_created_event_tickets");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          cats = parsed;
+        }
+      }
+    } catch {}
+  }
+
+  if (cats.length > 0) {
+    return cats.map((c, i) => {
+      const priceNum = typeof c.price === "number" ? c.price : (parseFloat(c.price) || 0);
+      const nameLower = (c.name || "").toLowerCase();
+      let icon = User;
+      if (nameLower.includes("family")) icon = Users;
+      else if (nameLower.includes("vip") || nameLower.includes("gold") || nameLower.includes("sponsor")) icon = Star;
+      else if (nameLower.includes("volunteer")) icon = Sparkles;
+
+      return {
+        id: c.id || c.name,
+        name: c.name,
+        icon,
+        price: priceNum,
+        badge: priceNum === 0 ? "Free" : nameLower.includes("vip") ? "Premium" : i === 0 ? "Most Popular" : null,
+        badgeColor: priceNum === 0 ? "#4f46e5" : "#10b981",
+        includes: [c.description || `${c.qty || 100} seats available`, "Official entry pass badge", "Includes event entry access"],
+        qty: parseInt(c.qty) || 100,
+        remaining: Math.max(5, Math.floor((parseInt(c.qty) || 100) * 0.4)),
+      };
+    });
+  }
+  return EVENT.categories;
+}
+
 /* ─── Step components ─── */
-function Step1Category({ form, update }: { form: RegForm; update: (k: keyof RegForm, v: any) => void }) {
-  const selected = EVENT.categories.find(c => c.id === form.category);
+function Step1Category({ form, update, categories }: { form: RegForm; update: (k: keyof RegForm, v: any) => void; categories: typeof EVENT.categories }) {
+  const selected = categories.find(c => c.id === form.category);
   const total = selected ? selected.price * form.qty : 0;
 
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {EVENT.categories.map(cat => {
+        {categories.map(cat => {
           const isSelected = form.category === cat.id;
           const soldPct = Math.round((1 - cat.remaining / cat.qty) * 100);
           return (
@@ -802,7 +810,18 @@ export function EventsUserRegistration() {
   const update = (key: keyof RegForm, value: any) =>
     setForm(prev => ({ ...prev, [key]: value }));
 
-  const selected = EVENT.categories.find(c => c.id === form.category);
+  const [categoriesList, setCategoriesList] = useState(() => getDynamicCategories(null));
+
+  useEffect(() => {
+    const liveEv = liveEvents.length > 0 ? liveEvents[0] : null;
+    const computed = getDynamicCategories(liveEv);
+    setCategoriesList(computed);
+    if (computed.length > 0 && !form.category) {
+      setForm(prev => ({ ...prev, category: computed[0].id }));
+    }
+  }, [liveEvents]);
+
+  const selected = categoriesList.find(c => c.id === form.category);
 
   const canNext = (): boolean => {
     if (step === 1) return !!form.category;
@@ -829,7 +848,7 @@ export function EventsUserRegistration() {
   };
 
   const stepContent = {
-    1: <Step1Category form={form} update={update} />,
+    1: <Step1Category form={form} update={update} categories={categoriesList} />,
     2: <Step2Details form={form} update={update} setForm={setForm} />,
     3: <Step3Payment form={form} update={update} />,
     4: <Step4Confirm form={form} />,

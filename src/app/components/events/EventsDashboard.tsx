@@ -16,10 +16,12 @@ import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { GatePassModal } from "./GatePassModal";
 import { useEventMock } from "./EventMockToggle";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import {
   eventService,
   type DashboardStatsResponse,
   type DashboardAnalyticsResponse,
+  type PendingActionItemResponse,
   type EventResponse,
   type RegistrationResponse,
 } from "../../../services/events/eventService";
@@ -195,6 +197,10 @@ export function EventsDashboard() {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [showQRModal, setShowQRModal] = useState(false);
 
+  useEscapeKey(() => setShowRegisterModal(false), showRegisterModal);
+  useEscapeKey(() => setShowQRModal(false), showQRModal);
+  useEscapeKey(() => setShowAICopilot(false), showAICopilot);
+
   // ── Countdown (ticks every second, seeded from first upcoming event) ──
   const [cdTarget, setCdTarget] = useState("2026-08-27");
   const [cdTime, setCdTime]     = useState<string | null>(null);
@@ -216,6 +222,7 @@ export function EventsDashboard() {
   const [donationTotal, setDonationTotal] = useState(0);
   const [expenses, setExpenses]         = useState<EventExpenseResponse[]>([]);
   const [tasks, setTasks]               = useState<EventTaskResponse[]>([]);
+  const [pendingActionItems, setPendingActionItems] = useState<PendingActionItemResponse[]>([]);
   const [registrations, setRegistrations] = useState<RegistrationResponse[]>([]);
   const [tasksDone, setTasksDone]       = useState<Record<string, boolean>>({});
 
@@ -233,7 +240,8 @@ export function EventsDashboard() {
       eventDonationService.getAll(),
       eventExpenseService.getAll(),
       eventTaskService.getAll(),
-    ]).then(([statsR, analyticsR, eventsR, sponsorsR, donationsR, expensesR, tasksR]) => {
+      eventService.getPendingActionItems(),
+    ]).then(([statsR, analyticsR, eventsR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR]) => {
       if (statsR.status === "fulfilled") setStats(statsR.value);
       if (analyticsR.status === "fulfilled") setAnalytics(analyticsR.value);
 
@@ -269,7 +277,11 @@ export function EventsDashboard() {
         setTasksDone(map);
       }
 
-      const anyFailed = [statsR, analyticsR, eventsR, sponsorsR, donationsR, expensesR, tasksR].some(r => r.status === "rejected");
+      if (pendingActionsR.status === "fulfilled" && pendingActionsR.value && pendingActionsR.value.length > 0) {
+        setPendingActionItems(pendingActionsR.value);
+      }
+
+      const anyFailed = [statsR, analyticsR, eventsR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR].some(r => r.status === "rejected");
       if (anyFailed) setError("Some data failed to load — partial results shown.");
     }).finally(() => setLoading(false));
   }
@@ -328,24 +340,37 @@ export function EventsDashboard() {
 
   // ── Derived: pending tasks ────────────────────────────────────────────────
   const pendingTasks = useMemo(() => {
-    if (useMock || tasks.length === 0) return MOCK_TASKS;
-    return tasks
-      .filter(t => !tasksDone[String(t.id)] && !t.done)
-      .slice(0, 5)
-      .map(t => ({
-        id: String(t.id),
-        task: t.title,
-        priority: t.priority?.toLowerCase() === "high" ? "high" : "medium",
-        due: t.dueDate
-          ? (() => {
-              const diff = Math.ceil((new Date(t.dueDate).getTime() - Date.now()) / 86400000);
-              if (diff <= 0) return "Overdue";
-              if (diff === 1) return "Tomorrow";
-              return `${diff} days`;
-            })()
-          : "—",
+    if (useMock) return MOCK_TASKS;
+    if (pendingActionItems.length > 0) {
+      return pendingActionItems.map((item: any) => ({
+        id: item.id,
+        task: item.task,
+        priority: item.priority || "medium",
+        due: item.due || "—",
+        done: tasksDone[item.id] || item.done,
       }));
-  }, [useMock, tasks, tasksDone]);
+    }
+    if (tasks.length > 0) {
+      return tasks
+        .filter(t => !tasksDone[String(t.id)] && !t.done)
+        .slice(0, 5)
+        .map(t => ({
+          id: String(t.id),
+          task: t.title,
+          priority: t.priority?.toLowerCase() === "high" ? "high" : "medium",
+          due: t.dueDate
+            ? (() => {
+                const diff = Math.ceil((new Date(t.dueDate).getTime() - Date.now()) / 86400000);
+                if (diff <= 0) return "Overdue";
+                if (diff === 1) return "Tomorrow";
+                return `${diff} days`;
+              })()
+            : "—",
+          done: tasksDone[String(t.id)] || t.done,
+        }));
+    }
+    return MOCK_TASKS;
+  }, [useMock, pendingActionItems, tasks, tasksDone]);
 
   // ── Derived: KPI cards ────────────────────────────────────────────────────
   const kpis = useMemo(() => {
@@ -927,9 +952,26 @@ export function EventsDashboard() {
       <EventAICopilotDrawer isOpen={showAICopilot} onClose={() => setShowAICopilot(false)} />
 
       {showRegisterModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md overflow-y-auto">
-          <div className="w-full max-w-lg">
-            <EventRegistrationWizard onClose={() => setShowRegisterModal(false)} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-md overflow-y-auto">
+          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-3.5 sm:p-5 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[92vh] overflow-y-auto animate-scaleUp">
+            <EventRegistrationWizard
+              event={
+                (events && events.length > 0 && events[0]) ? events[0] : {
+                  id: "ev-1",
+                  title: "Ganesh Chaturthi Utsav 2026",
+                  ticketTypes: [
+                    {
+                      id: "ganesh-pass-2026",
+                      name: "Ganesh Utsav 2026 Pass",
+                      price: "250",
+                      qty: "2500",
+                      description: "All-access entry pass for Ganesh Chaturthi 2026 Mahotsav rituals, prasadam & cultural programs",
+                    },
+                  ],
+                }
+              }
+              onClose={() => setShowRegisterModal(false)}
+            />
           </div>
         </div>
       )}

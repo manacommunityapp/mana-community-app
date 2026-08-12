@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Bot, Mic, Send, Sparkles, X, User, ArrowRight, ShieldCheck, PieChart, Users, DollarSign } from "lucide-react";
 import { GlassCard, TouchButton } from "./EventDesignSystem";
+import { useEscapeKey } from "../../../../hooks/useEscapeKey";
 
 interface Message {
   id: string;
@@ -24,6 +25,7 @@ export const EventAICopilotDrawer: React.FC<EventAICopilotDrawerProps> = ({
   onClose,
   isDark = false,
 }) => {
+  useEscapeKey(onClose, isOpen);
   const [query, setQuery] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [messages, setMessages] = useState<Message[]>([

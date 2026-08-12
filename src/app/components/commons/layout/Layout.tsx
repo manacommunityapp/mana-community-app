@@ -134,6 +134,30 @@ export function Layout() {
     }
   }, [location.pathname]);
 
+  // ── Global Escape Key handler to close any active modal or mobile sidebar across the app ──
+  useEffect(() => {
+    const handleGlobalEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (isSidebarOpen) {
+          setIsSidebarOpen(false);
+        }
+        // Find topmost open modal overlay close button and trigger click if present
+        const modalCloseButtons = Array.from(
+          document.querySelectorAll<HTMLElement>(
+            "div.fixed.inset-0 button[aria-label='Close'], div.fixed.inset-0 button:has(svg.lucide-x), div.fixed.inset-0 button.close-btn"
+          )
+        );
+        if (modalCloseButtons.length > 0) {
+          const topBtn = modalCloseButtons[modalCloseButtons.length - 1];
+          topBtn.click();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalEscape);
+    return () => window.removeEventListener("keydown", handleGlobalEscape);
+  }, [isSidebarOpen]);
+
   // AuthContext fetches /users/me on boot and populates user.permissions
   const permissions = user?.permissions || [];
   const enabledModules = user?.enabledModules || [];

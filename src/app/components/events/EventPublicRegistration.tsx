@@ -18,6 +18,7 @@ import { cn } from "../ui/utils";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { eventProgramService, type ActivityRegistrationResponse, type EventProgramResponse } from "../../../services/events/eventProgramService";
 import { CollapsibleFormSection, type RegistrationFormConfig, type FormField } from "./EventRegistrationFormBuilder";
+import { userService } from "../../../services/common/userService";
 
 /* ─── Constants ─── */
 const GENDER_OPTIONS = ["Male", "Female", "Other", "Prefer not to say"] as const;
@@ -981,7 +982,7 @@ function DynamicFormRenderer({
 export function EventPublicRegistration() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user: authUser } = useAuth();
   const [step, setStep] = useState(1);
   const [isRegistered, setIsRegistered] = useState(false);
   const [registering, setRegistering] = useState(false);
@@ -1040,6 +1041,9 @@ export function EventPublicRegistration() {
     email: "",
     phone: "",
     address: "",
+    flatNo: "",
+    colonyAddress: "",
+    poojaSlot: "Evening Visarjan / Utsav (05:00 PM - 09:00 PM)",
     city: "",
     pincode: "",
     familyMembers: [],
@@ -1056,6 +1060,40 @@ export function EventPublicRegistration() {
     agreeTerms: false,
     agreePhotography: false,
   });
+
+  // ── Auto-fill logged in user details dynamically from database ──
+  useEffect(() => {
+    if (authUser) {
+      const parts = (authUser.fullName || "").trim().split(" ");
+      setForm(prev => ({
+        ...prev,
+        firstName: parts[0] || prev.firstName,
+        lastName: parts.slice(1).join(" ") || prev.lastName,
+        email: authUser.email || prev.email,
+      }));
+    }
+
+    userService
+      .getMe()
+      .then(u => {
+        if (u) {
+          const parts = (u.fullName || "").trim().split(" ");
+          const flat = u.flatNo ? (u.block ? `${u.block}-${u.flatNo}` : u.flatNo) : "";
+          setForm(prev => ({
+            ...prev,
+            firstName: parts[0] || prev.firstName,
+            lastName: parts.slice(1).join(" ") || prev.lastName,
+            email: u.email || prev.email,
+            phone: u.phone || prev.phone,
+            gender: u.gender || prev.gender,
+            flatNo: flat || prev.flatNo,
+            colonyAddress: flat ? `${flat}, Mana Community, Miyapur, Hyderabad` : prev.colonyAddress,
+            address: flat || prev.address,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, [authUser]);
 
   const update = (key: keyof RegistrationForm, value: any) =>
     setForm(prev => ({ ...prev, [key]: value }));

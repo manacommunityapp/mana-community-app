@@ -732,11 +732,11 @@ export function Feed() {
 
         {/* Sidebar */}
         <div className="hidden lg:block sticky top-20 space-y-4">
-          {myScore && <EngagementScoreCard score={myScore} />}
           <TrendingCard trending={trending} onHashtagClick={(tag) => { setSearchQuery(tag); handleSearch(); }} />
           <MyGroupsCard groups={myGroups} />
           <LeaderboardCard leaderboard={leaderboard} getInitials={getInitials} />
           <CommunityDirectory />
+          {myScore && <EngagementScoreCard score={myScore} />}
           <SportsNotificationCard />
           <SidebarAnnouncements posts={posts} />
           <QuickLinksCard />
@@ -1107,33 +1107,35 @@ function CommentItem({ comment, allComments, postId, user, isAdmin, getInitials,
 /* ─── Sidebar Components ─── */
 function EngagementScoreCard({ score }: { score: EngagementScoreResponse }) {
   return (
-    <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-xl p-4 text-white shadow-sm">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="text-xs font-bold uppercase tracking-wider opacity-90">Your Engagement</h4>
-        <div className="flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded-full text-[10px] font-bold">
-          <Crown className="w-3 h-3" /> Level {score.level}
+    <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-lg p-2.5 text-white shadow-sm">
+      <div className="flex items-center justify-between mb-1.5">
+        <h4 className="text-[10px] font-bold uppercase tracking-wider opacity-90">Your Engagement</h4>
+        <div className="flex items-center gap-1 bg-white/20 px-1.5 py-0.5 rounded-full text-[9px] font-bold">
+          <Crown className="w-2.5 h-2.5" /> Lvl {score.level}
         </div>
       </div>
-      <div className="text-2xl font-black mb-1">{score.totalPoints.toLocaleString()}</div>
-      <div className="text-[10px] opacity-80 mb-3">Community Points</div>
-      <div className="grid grid-cols-3 gap-2 text-center">
-        <div className="bg-white/10 rounded-lg p-2">
-          <div className="text-sm font-bold">{score.postsCount}</div>
-          <div className="text-[9px] opacity-70">Posts</div>
+      <div className="flex items-baseline gap-1 mb-2">
+        <span className="text-lg font-black leading-none">{score.totalPoints.toLocaleString()}</span>
+        <span className="text-[9px] opacity-75 font-medium">pts</span>
+      </div>
+      <div className="grid grid-cols-3 gap-1 text-center">
+        <div className="bg-white/10 rounded p-1">
+          <div className="text-xs font-bold leading-tight">{score.postsCount}</div>
+          <div className="text-[8px] opacity-70 leading-tight">Posts</div>
         </div>
-        <div className="bg-white/10 rounded-lg p-2">
-          <div className="text-sm font-bold">{score.commentsCount}</div>
-          <div className="text-[9px] opacity-70">Comments</div>
+        <div className="bg-white/10 rounded p-1">
+          <div className="text-xs font-bold leading-tight">{score.commentsCount}</div>
+          <div className="text-[8px] opacity-70 leading-tight">Comments</div>
         </div>
-        <div className="bg-white/10 rounded-lg p-2">
-          <div className="text-sm font-bold">{score.helpfulCount}</div>
-          <div className="text-[9px] opacity-70">Helpful</div>
+        <div className="bg-white/10 rounded p-1">
+          <div className="text-xs font-bold leading-tight">{score.helpfulCount}</div>
+          <div className="text-[8px] opacity-70 leading-tight">Helpful</div>
         </div>
       </div>
       {score.badges.length > 0 && (
-        <div className="flex gap-1 mt-3 flex-wrap">
+        <div className="flex gap-1 mt-1.5 flex-wrap">
           {score.badges.slice(0, 5).map((b) => (
-            <span key={b.id} className="bg-white/15 px-1.5 py-0.5 rounded-full text-[9px] font-bold" title={b.title}>
+            <span key={b.id} className="bg-white/15 px-1.5 py-0.5 rounded text-[8px] font-semibold" title={b.title}>
               {b.icon || "🏅"} {b.title}
             </span>
           ))}

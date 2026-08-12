@@ -804,6 +804,7 @@ function toEventRequest(data: FormData, statusOverride?: string): EventRequest {
     status: statusOverride || undefined,
     organizerName: undefined,
     organizerContact: undefined,
+    ticketTypes: data.ticketTypes,
   };
 }
 
@@ -867,6 +868,16 @@ export function EventEditor() {
   try { useMock = useEventMock().useMock; } catch {}
 
   const [formData, setFormData] = useState<FormData>({ ...INITIAL_FORM_DATA });
+
+  // Auto-sync ticket categories to localStorage whenever user edits ticket categories
+  useEffect(() => {
+    if (formData.ticketTypes && formData.ticketTypes.length > 0) {
+      try {
+        localStorage.setItem("mana_created_event_tickets", JSON.stringify(formData.ticketTypes));
+        localStorage.setItem("mana_last_event_title", formData.title);
+      } catch (err) {}
+    }
+  }, [formData.ticketTypes, formData.title]);
   const [status, setStatus] = useState<EventStatus>("draft");
   const [activeSection, setActiveSection] = useState("basics");
   const [loading, setLoading] = useState(isEditMode);

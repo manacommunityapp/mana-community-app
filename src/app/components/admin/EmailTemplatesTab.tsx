@@ -16,12 +16,30 @@ const CATEGORY_STYLES: Record<string, { bg: string; border: string; icon: string
   PRIZE:         { bg: "bg-pink-50/70",    border: "border-pink-200",    icon: "text-pink-500",    badge: "bg-pink-100 text-pink-700",     gradient: "from-pink-600 to-rose-600",     emoji: "🎁" },
   ANNOUNCEMENT:  { bg: "bg-purple-50/70",  border: "border-purple-200",  icon: "text-purple-500",  badge: "bg-purple-100 text-purple-700", gradient: "from-purple-600 to-fuchsia-600",emoji: "📢" },
   AUTH:          { bg: "bg-cyan-50/70",    border: "border-cyan-200",    icon: "text-cyan-500",    badge: "bg-cyan-100 text-cyan-700",     gradient: "from-cyan-600 to-blue-600",     emoji: "🔐" },
+  EVENT:         { bg: "bg-amber-50/70",   border: "border-amber-200",   icon: "text-amber-500",   badge: "bg-amber-100 text-amber-700",   gradient: "from-amber-500 to-orange-600",  emoji: "🎆" },
 };
 
 const DEFAULT_STYLE = { bg: "bg-gray-50", border: "border-gray-200", icon: "text-gray-500", badge: "bg-gray-100 text-gray-700", gradient: "from-slate-600 to-slate-800", emoji: "📧" };
 
-function styleFor(category: string) {
+function styleFor(category?: string | null) {
+  if (!category) return DEFAULT_STYLE;
   return CATEGORY_STYLES[category] || DEFAULT_STYLE;
+}
+
+function getTplKey(tpl?: Partial<EmailTemplateInfo> | null): string {
+  if (!tpl) return "";
+  const val = tpl.key ?? (tpl as any).name ?? (tpl as any).templateKey ?? (tpl as any).id ?? "";
+  return String(val);
+}
+
+function getTplLabel(tpl?: Partial<EmailTemplateInfo> | null): string {
+  const key = String(getTplKey(tpl) || "");
+  if (!key) return "Template";
+  return key.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
+}
+
+function getTplCategory(tpl?: Partial<EmailTemplateInfo> | null): string {
+  return tpl?.category || "";
 }
 
 export function EmailTemplatesTab() {
@@ -60,18 +78,22 @@ export function EmailTemplatesTab() {
   const sponsorFileInputRef = useRef<HTMLInputElement>(null);
   const previewRequestId = useRef(0);
 
-  // Communities are loaded once; the currently selected one scopes every
-  // subsequent template/health/preview/test call (the backend requires it).
-  useEffect(() => {
-    async function loadCommunities() {
-      try {
-        const list = await communityService.getCommunities();
-        setCommunities(list);
-        setCommunityId(prev => prev ?? user?.communityId ?? list[0]?.id ?? null);
-      } catch {
-        showError("Failed to load communities");
+  const loadCommunities = async () => {
+    try {
+      const data = await communityService.getCommunities();
+      let list: CommunityResponse[] = [];
+      if (Array.isArray(data)) list = data;
+      else if (typeof data === "object" && data !== null && Array.isArray((data as any).content)) list = (data as any).content;
+      setCommunities(list);
+      if (communityId == null && list.length > 0) {
+        setCommunityId(list[0].id);
       }
+    } catch {
+      showError("Failed to load communities");
     }
+  };
+
+  useEffect(() => {
     loadCommunities();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -84,10 +106,12 @@ export function EmailTemplatesTab() {
         emailAdminService.getTemplates(communityId),
         emailAdminService.getHealth(communityId),
       ]);
-      // Display order follows the backend's declaration order (already a
-      // deliberately curated sequence) — no frontend-side sort table to
-      // keep in sync whenever a template is added or removed.
-      setTemplates(tpl.templates);
+      const list = Array.isArray(tpl)
+        ? tpl
+        : Array.isArray((tpl as any)?.templates)
+        ? (tpl as any).templates
+        : [];
+      setTemplates(list);
       setHealth(h);
     } catch {
       showError("Failed to load email data");
@@ -395,8 +419,8 @@ export function EmailTemplatesTab() {
                   <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
                 )}
                 <div className="min-w-0">
-                  <p className="font-bold text-slate-700 truncate">{r.template.replace(/_/g, " ")}</p>
-                  {r.error && <p className="text-[10px] text-red-500 mt-0.5 break-words">{r.error}</p>}
+                  <p className="font-bold text-slate-700 truncate">{(r?.template || "").replace(/_/g, " ") || "Template"}</p>
+                  {r?.error && <p className="text-[10px] text-red-500 mt-0.5 break-words">{r.error}</p>}
                 </div>
               </div>
             ))}
@@ -532,47 +556,51 @@ export function EmailTemplatesTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {templates.map(tpl => (
-                <tr key={tpl.key} className="hover:bg-slate-50/60">
-                  <td className="px-5 py-2.5 font-bold text-slate-700 whitespace-nowrap">
-                    {tpl.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
-                  </td>
-                  <td className="px-5 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{tpl.templateFile}</td>
-                  <td className="px-5 py-2.5 text-slate-600">
-                    {tpl.customTemplateExists ? (
-                      <span className="inline-flex items-center gap-1">
-                        {tpl.customTemplateName}
-                        <span className="text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
-                          {tpl.customTemplateStatus}
+              {templates.map((tpl, idx) => {
+                const key = getTplKey(tpl) || `template-${idx}`;
+                const label = getTplLabel(tpl);
+                return (
+                  <tr key={key} className="hover:bg-slate-50/60">
+                    <td className="px-5 py-2.5 font-bold text-slate-700 whitespace-nowrap">
+                      {label}
+                    </td>
+                    <td className="px-5 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{tpl?.templateFile || "—"}</td>
+                    <td className="px-5 py-2.5 text-slate-600">
+                      {tpl?.customTemplateExists ? (
+                        <span className="inline-flex items-center gap-1">
+                          {tpl.customTemplateName}
+                          <span className="text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                            {tpl.customTemplateStatus}
+                          </span>
                         </span>
-                      </span>
-                    ) : (
-                      <span className="text-slate-300">— none drafted —</span>
-                    )}
-                  </td>
-                  <td className="px-5 py-2.5">
-                    {tpl.appliedSource === "CUSTOM" ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
-                        Custom
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                        Default
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-5 py-2.5 text-right">
-                    <button
-                      type="button"
-                      onClick={() => openDefaultTemplateView(tpl)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 shadow-sm transition-all cursor-pointer"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                      Default Template View
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                      ) : (
+                        <span className="text-slate-300">— none drafted —</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-2.5">
+                      {tpl?.appliedSource === "CUSTOM" ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                          Custom
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                          Default
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-5 py-2.5 text-right">
+                      <button
+                        type="button"
+                        onClick={() => openDefaultTemplateView(tpl)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 shadow-sm transition-all cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        Default Template View
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -587,13 +615,14 @@ export function EmailTemplatesTab() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {templates.map(tpl => {
-            const style = styleFor(tpl.category);
-            const templateLabel = tpl.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+          {templates.map((tpl, idx) => {
+            const key = getTplKey(tpl) || `template-card-${idx}`;
+            const style = styleFor(getTplCategory(tpl));
+            const templateLabel = getTplLabel(tpl);
 
             return (
               <div
-                key={tpl.key}
+                key={key}
                 onClick={() => setActiveTemplate(tpl)}
                 className={`group rounded-2xl border bg-white overflow-hidden transition-all duration-200 hover:scale-[1.01] hover:shadow-md cursor-pointer ${style.border}`}
               >
@@ -601,14 +630,14 @@ export function EmailTemplatesTab() {
                   <div className="text-xl flex-shrink-0">{style.emoji}</div>
                   <div className="min-w-0 flex-1">
                     <div className="text-xs font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors">{templateLabel}</div>
-                    <div className="text-[10px] text-slate-400 truncate mt-0.5">{tpl.subject}</div>
+                    <div className="text-[10px] text-slate-400 truncate mt-0.5">{tpl?.subject || ""}</div>
                   </div>
                   <div className="flex-shrink-0 text-slate-300 group-hover:text-indigo-400 transition-colors">
                     <Eye className="w-4.5 h-4.5" />
                   </div>
                 </div>
                 <div className="px-4 py-2 border-t border-slate-100 bg-white">
-                  {tpl.triggerWired && tpl.triggerMenuPath ? (
+                  {tpl?.triggerWired && tpl?.triggerMenuPath ? (
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-500 truncate">
                       <MapPin className="w-3 h-3 shrink-0 text-slate-400" />
                       <span className="truncate">{tpl.triggerMenuPath}</span>
@@ -634,12 +663,12 @@ export function EmailTemplatesTab() {
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200">
               <div className="flex items-center gap-2.5">
-                <span className="text-2xl">{styleFor(activeTemplate.category).emoji}</span>
+                <span className="text-2xl">{styleFor(getTplCategory(activeTemplate)).emoji}</span>
                 <div>
                   <h3 className="text-sm font-black text-slate-800">
-                    {activeTemplate.key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}
+                    {getTplLabel(activeTemplate)}
                   </h3>
-                  <p className="text-[11px] text-slate-400 font-semibold mt-0.5">{activeTemplate.subject}</p>
+                  <p className="text-[11px] text-slate-400 font-semibold mt-0.5">{activeTemplate.subject || ""}</p>
                 </div>
               </div>
               <button
@@ -785,10 +814,10 @@ export function EmailTemplatesTab() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 flex-shrink-0">
               <div>
                 <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                  Default Template View: <span className="text-indigo-600 font-extrabold">{viewingDefaultTemplate.key}</span>
+                  Default Template View: <span className="text-indigo-600 font-extrabold">{getTplLabel(viewingDefaultTemplate)}</span>
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5 font-mono">
-                  Default File: {viewingDefaultTemplate.templateFile}
+                  Default File: {viewingDefaultTemplate.templateFile || "—"}
                 </p>
               </div>
               <div className="flex items-center gap-2">

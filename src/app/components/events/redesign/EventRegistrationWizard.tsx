@@ -1,24 +1,67 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   User, Users, ShieldCheck, Heart, Sparkles, CheckCircle2,
   ArrowRight, ArrowLeft, Upload, QrCode, CreditCard, Download,
-  Check, Lock, DollarSign, Calendar
+  Check, Lock, DollarSign, Calendar, X
 } from "lucide-react";
 import { GlassCard, TouchButton, BottomSheet } from "./EventDesignSystem";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { userService } from "../../../../services/common/userService";
+import { useEscapeKey } from "../../../../hooks/useEscapeKey";
+
+export interface TicketCategoryItem {
+  id?: string;
+  name: string;
+  price?: string | number;
+  qty?: string | number;
+  description?: string;
+}
 
 interface EventRegistrationWizardProps {
   isDark?: boolean;
   onClose: () => void;
+  event?: any;
+  ticketCategories?: TicketCategoryItem[];
 }
+
+const parseNumericPrice = (priceVal: string | number | undefined | null): number => {
+  if (priceVal === undefined || priceVal === null || priceVal === "" || String(priceVal).toLowerCase() === "free") return 0;
+  const num = typeof priceVal === "number" ? priceVal : parseFloat(String(priceVal).replace(/[^0-9.]/g, ""));
+  return isNaN(num) ? 0 : num;
+};
+
+const formatPrice = (priceVal: string | number | undefined | null): string => {
+  const num = parseNumericPrice(priceVal);
+  if (num === 0) return "Free";
+  return `₹${num.toLocaleString()}`;
+};
+
+const getCategoryIcon = (name: string) => {
+  const lower = (name || "").toLowerCase();
+  if (lower.includes("family") || lower.includes("group")) return Users;
+  if (lower.includes("volunteer") || lower.includes("staff") || lower.includes("crew") || lower.includes("duty")) return ShieldCheck;
+  if (lower.includes("vip") || lower.includes("sponsor") || lower.includes("premium") || lower.includes("gold") || lower.includes("platinum")) return Sparkles;
+  if (lower.includes("student") || lower.includes("child") || lower.includes("kid")) return Heart;
+  if (lower.includes("individual") || lower.includes("single") || lower.includes("person") || lower.includes("general")) return User;
+  return DollarSign;
+};
 
 export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = ({
   isDark = false,
   onClose,
+  event,
+  ticketCategories,
 }) => {
+  useEscapeKey(onClose);
+  const { user: authUser } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
-  const [regType, setRegType] = useState<"individual" | "family" | "volunteer" | "sponsor">("family");
+  const [categories, setCategories] = useState<TicketCategoryItem[]>([]);
+  const [selectedCatId, setSelectedCatId] = useState<string>("");
+
   const [formData, setFormData] = useState({
     category: "Family Pass",
+    categoryPrice: "₹250",
+    numericPrice: 250,
     fullName: "Sandeep Kumar",
     phone: "+91 98765 43210",
     email: "sandeep@example.com",
@@ -36,6 +79,105 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     signatureSigned: true,
   });
   const [isSuccess, setIsSuccess] = useState(false);
+
+  // ── Load Ticket Categories dynamically from Event Creation details / Props / LocalStorage ──
+  useEffect(() => {
+    let cats: TicketCategoryItem[] = [];
+
+    // 1. Explicit ticketCategories prop
+    if (ticketCategories && ticketCategories.length > 0) {
+      cats = ticketCategories;
+    }
+
+    // 2. Event object ticketTypes or ticketCategories
+    if (cats.length === 0 && event) {
+      if (event.ticketTypes && Array.isArray(event.ticketTypes) && event.ticketTypes.length > 0) {
+        cats = event.ticketTypes;
+      } else if (event.ticketCategories && Array.isArray(event.ticketCategories) && event.ticketCategories.length > 0) {
+        cats = event.ticketCategories;
+      }
+    }
+
+    // 3. Saved created/edited event categories from local storage
+    if (cats.length === 0) {
+      try {
+        const saved = localStorage.getItem("mana_created_event_tickets");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            cats = parsed;
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 4. Default fallback category configured for Ganesh Chaturthi Utsav 2026
+    if (!cats || cats.length === 0) {
+      cats = [
+        {
+          id: "ganesh-pass-2026",
+          name: "Ganesh Utsav 2026 Pass",
+          price: "250",
+          qty: "2500",
+          description: "All-access entry pass for Ganesh Chaturthi 2026 Mahotsav rituals, prasadam & cultural programs",
+        },
+      ];
+    }
+
+    setCategories(cats);
+
+    if (cats.length > 0) {
+      const first = cats[0];
+      const idStr = first.id || first.name;
+      setSelectedCatId(idStr);
+      const priceText = formatPrice(first.price);
+      setFormData((prev) => ({
+        ...prev,
+        category: first.name,
+        categoryPrice: priceText,
+        numericPrice: parseNumericPrice(first.price),
+      }));
+    }
+  }, [event, ticketCategories]);
+
+  // ── Dynamically auto-fill logged in user details from database ──
+  useEffect(() => {
+    if (authUser) {
+      setFormData((prev) => ({
+        ...prev,
+        fullName: authUser.fullName || prev.fullName,
+        email: authUser.email || prev.email,
+      }));
+    }
+
+    userService
+      .getMe()
+      .then((userProfile) => {
+        if (userProfile) {
+          const names = (userProfile.fullName || "").trim();
+          const flat = userProfile.flatNo
+            ? userProfile.block
+              ? `${userProfile.block}-${userProfile.flatNo}`
+              : userProfile.flatNo
+            : "";
+
+          setFormData((prev) => ({
+            ...prev,
+            fullName: names || prev.fullName,
+            email: userProfile.email || prev.email,
+            phone: userProfile.phone || prev.phone,
+            flatNo: flat || prev.flatNo,
+            colonyAddress: flat ? `${flat}, Mana Community, Miyapur, Hyderabad` : prev.colonyAddress,
+            members: prev.members.map((m, idx) =>
+              idx === 0 ? { ...m, name: names || m.name } : m
+            ),
+          }));
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch logged-in user profile:", err);
+      });
+  }, [authUser]);
 
   const steps = [
     { num: 1, title: "Category" },
@@ -58,45 +200,48 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   };
 
   return (
-    <div className="space-y-5 pb-8">
+    <div className="space-y-3">
       {/* Wizard Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-        <div>
-          <span className="text-[10px] font-extrabold uppercase text-[#FF6B00] flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5" /> Event Registration Portal
+      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+        <div className="min-w-0 pr-2">
+          <span className="text-[9px] font-extrabold uppercase tracking-wider text-[#FF6B00] flex items-center gap-1">
+            <Sparkles className="w-3 h-3" /> Event Registration Portal
           </span>
-          <h2 className="text-xl font-black text-slate-900 dark:text-white">Ganesh Utsav 2026 Pass</h2>
+          <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white truncate">
+            {event?.title || "Ganesh Utsav 2026 Pass"}
+          </h2>
         </div>
         <button
           onClick={onClose}
-          className="text-xs font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
+          className="p-1 rounded-lg text-xs font-bold text-slate-400 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer flex-shrink-0"
+          title="Close Modal (Esc)"
         >
-          Cancel
+          <X className="w-4 h-4" />
         </button>
       </div>
 
       {/* Stepper Progress Indicator */}
-      <div className="flex items-center justify-between px-2">
+      <div className="flex items-center justify-between px-1 py-1">
         {steps.map((s, idx) => {
           const isActive = currentStep === s.num;
           const isDone = currentStep > s.num;
 
           return (
             <React.Fragment key={s.num}>
-              <div className="flex flex-col items-center gap-1 cursor-pointer" onClick={() => s.num < currentStep && setCurrentStep(s.num)}>
+              <div className="flex flex-col items-center gap-0.5 cursor-pointer" onClick={() => s.num < currentStep && setCurrentStep(s.num)}>
                 <div
-                  className={`w-9 h-9 rounded-2xl flex items-center justify-center text-xs font-black transition-all ${
+                  className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-[10px] sm:text-xs font-black transition-all ${
                     isDone
                       ? "bg-emerald-500 text-white"
                       : isActive
-                      ? "bg-[#FF6B00] text-white shadow-lg scale-110"
-                      : "bg-slate-200 dark:bg-slate-800 text-slate-500"
+                      ? "bg-[#FF6B00] text-white shadow-md scale-105"
+                      : "bg-slate-200 dark:bg-slate-800 text-slate-400"
                   }`}
                 >
-                  {isDone ? <Check className="w-4 h-4" /> : s.num}
+                  {isDone ? <Check className="w-3.5 h-3.5" /> : s.num}
                 </div>
                 <span
-                  className={`text-[10px] font-bold ${
+                  className={`text-[9px] font-extrabold ${
                     isActive ? "text-[#FF6B00]" : "text-slate-400"
                   }`}
                 >
@@ -117,46 +262,75 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
       {/* Step Content */}
       {!isSuccess ? (
-        <GlassCard isDark={isDark} hoverScale={false} className="p-5 border space-y-4">
-          {/* STEP 1: Registration Type */}
+        <GlassCard isDark={isDark} hoverScale={false} className="p-3.5 sm:p-4 border space-y-3">
+          {/* STEP 1: Dynamic Pass Categories */}
           {currentStep === 1 && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                Select Pass Category
-              </h3>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { id: "family", title: "Family Pass", desc: "Up to 6 family members", icon: Users, price: "₹250" },
-                  { id: "individual", title: "Individual Pass", desc: "Single entry access", icon: User, price: "₹100" },
-                  { id: "volunteer", title: "Volunteer Pass", desc: "Duty team registration", icon: ShieldCheck, price: "Free" },
-                  { id: "sponsor", title: "Sponsor / VIP", desc: "Special guest lounge", icon: Sparkles, price: "₹1,000+" },
-                ].map((cat) => {
-                  const Icon = cat.icon;
-                  const selected = regType === cat.id;
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white">
+                    Select Pass Category
+                  </h3>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    Select from configured event ticket tiers
+                  </p>
+                </div>
+                <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-950/50 text-[#FF6B00] border border-orange-200 dark:border-orange-800">
+                  {categories.length} Tiers
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {categories.map((cat, idx) => {
+                  const Icon = getCategoryIcon(cat.name);
+                  const catId = cat.id || cat.name || `cat-${idx}`;
+                  const selected = selectedCatId === catId;
+                  const priceText = formatPrice(cat.price);
 
                   return (
                     <div
-                      key={cat.id}
+                      key={catId}
                       onClick={() => {
-                        setRegType(cat.id as any);
-                        setFormData(prev => ({ ...prev, category: cat.title }));
+                        setSelectedCatId(catId);
+                        setFormData((prev) => ({
+                          ...prev,
+                          category: cat.name,
+                          categoryPrice: priceText,
+                          numericPrice: parseNumericPrice(cat.price),
+                        }));
                       }}
-                      className={`p-4 rounded-2xl border-2 transition-all cursor-pointer ${
+                      className={`p-3 rounded-xl border-2 transition-all cursor-pointer ${
                         selected
-                          ? "border-[#FF6B00] bg-orange-50/50 dark:bg-slate-800/80 shadow-md"
+                          ? "border-[#FF6B00] bg-orange-50/50 dark:bg-slate-800/80 shadow-xs scale-[1.01]"
                           : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 hover:border-orange-300"
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <Icon className={`w-6 h-6 ${selected ? "text-[#FF6B00]" : "text-slate-400"}`} />
-                        <span className="text-xs font-black text-[#FF6B00]">{cat.price}</span>
+                        <div className={`p-1.5 rounded-lg ${selected ? "bg-[#FF6B00] text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <span className={`text-[11px] font-black px-2 py-0.5 rounded-full ${
+                          priceText === "Free"
+                            ? "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400"
+                            : "bg-orange-100 dark:bg-orange-950/60 text-[#FF6B00]"
+                        }`}>
+                          {priceText}
+                        </span>
                       </div>
+
                       <h4 className="text-xs font-extrabold text-slate-900 dark:text-white mt-2">
-                        {cat.title}
+                        {cat.name}
                       </h4>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        {cat.desc}
+                      <p className="text-[9.5px] text-slate-500 dark:text-slate-400 mt-0.5 leading-tight line-clamp-1">
+                        {cat.description || (cat.qty ? `${cat.qty} seats allocated` : "Standard pass tier")}
                       </p>
+
+                      {cat.qty && (
+                        <div className="mt-2 pt-1.5 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between text-[8.5px] font-semibold text-slate-400">
+                          <span>Capacity: {cat.qty} seats</span>
+                          {selected && <span className="text-[#FF6B00] font-extrabold">Selected ✓</span>}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -166,17 +340,22 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
           {/* STEP 2: Primary Info */}
           {currentStep === 2 && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Primary Registrant Details</h3>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-200">
-                  Category: {formData.category || "Family Pass"}
-                </span>
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white">Primary Registrant Details</h3>
+                <div className="flex items-center gap-1">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 border border-orange-200">
+                    {formData.category}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200">
+                    {formData.categoryPrice}
+                  </span>
+                </div>
               </div>
 
               {/* Full Name * */}
               <div>
-                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                <label className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">
                   Full Name <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -184,14 +363,14 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                   placeholder="e.g. Sandeep Patel"
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                  className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
+                  className="w-full h-8.5 px-3 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
                 />
               </div>
 
               {/* Mobile Number (WhatsApp) * & Email Address * */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                  <label className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">
                     Mobile Number (WhatsApp) <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -199,11 +378,11 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                     placeholder="+91 98765 43210"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
+                    className="w-full h-8.5 px-3 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                  <label className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">
                     Email Address <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -211,7 +390,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                     placeholder="sandeep@example.com"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
+                    className="w-full h-8.5 px-3 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
@@ -219,7 +398,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
               {/* Emergency Contact Number & Flat / Villa No */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                  <label className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">
                     Emergency Contact Number
                   </label>
                   <input
@@ -227,11 +406,11 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                     placeholder="+91 98200 54321"
                     value={formData.emergencyContact}
                     onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
-                    className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
+                    className="w-full h-8.5 px-3 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                  <label className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">
                     Flat / Villa No
                   </label>
                   <input
@@ -239,14 +418,14 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                     placeholder="e.g. Villa 402 / Flat B-12"
                     value={formData.flatNo}
                     onChange={(e) => setFormData({ ...formData, flatNo: e.target.value })}
-                    className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
+                    className="w-full h-8.5 px-3 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
 
               {/* Residential Colony / Street Address */}
               <div>
-                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                <label className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">
                   Residential Colony / Street Address
                 </label>
                 <input
@@ -254,24 +433,24 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                   placeholder="e.g. LE Community, M.G. Road, Miyapur, Hyderabad"
                   value={formData.colonyAddress}
                   onChange={(e) => setFormData({ ...formData, colonyAddress: e.target.value })}
-                  className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
+                  className="w-full h-8.5 px-3 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white"
                 />
               </div>
 
-              {/* Preferred Pooja Time Slot */}
+              {/* Preferred Time Slot */}
               <div>
-                <label className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
-                  Preferred Pooja Time Slot
+                <label className="text-[9px] uppercase font-bold text-slate-400 block mb-0.5">
+                  Preferred Time Slot
                 </label>
                 <select
                   value={formData.poojaSlot}
                   onChange={(e) => setFormData({ ...formData, poojaSlot: e.target.value })}
-                  className="w-full h-10 px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white cursor-pointer"
+                  className="w-full h-8.5 px-3 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold border border-transparent focus:border-[#FF6B00] outline-none text-slate-900 dark:text-white cursor-pointer"
                 >
-                  <option value="Morning Aarti (07:00 AM - 11:00 AM)">Morning Aarti (07:00 AM - 11:00 AM)</option>
-                  <option value="Afternoon Pooja & Prasad (12:00 PM - 03:00 PM)">Afternoon Pooja & Prasad (12:00 PM - 03:00 PM)</option>
-                  <option value="Evening Visarjan / Utsav (05:00 PM - 09:00 PM)">Evening Visarjan / Utsav (05:00 PM - 09:00 PM)</option>
-                  <option value="Late Night Bhajan Sandhya (09:00 PM - 11:30 PM)">Late Night Bhajan Sandhya (09:00 PM - 11:30 PM)</option>
+                  <option value="Morning Aarti (07:00 AM - 11:00 AM)">Morning Slot (07:00 AM - 11:00 AM)</option>
+                  <option value="Afternoon Pooja & Prasad (12:00 PM - 03:00 PM)">Afternoon Slot (12:00 PM - 03:00 PM)</option>
+                  <option value="Evening Visarjan / Utsav (05:00 PM - 09:00 PM)">Evening Slot (05:00 PM - 09:00 PM)</option>
+                  <option value="Late Night Bhajan Sandhya (09:00 PM - 11:30 PM)">Night Slot (09:00 PM - 11:30 PM)</option>
                 </select>
               </div>
             </div>
@@ -279,9 +458,9 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
           {/* STEP 3: Multi-person Family Members */}
           {currentStep === 3 && (
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Family Members List</h3>
+                <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white">Family / Group Members List</h3>
                 <button
                   onClick={handleAddMember}
                   className="text-xs font-bold text-[#FF6B00] hover:underline cursor-pointer"
@@ -291,10 +470,23 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
               </div>
 
               {formData.members.map((mem, idx) => (
-                <div key={idx} className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+                <div key={idx} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-slate-400">
                     <span>Member #{idx + 1}</span>
-                    {idx > 0 && <span className="text-rose-500 cursor-pointer">Remove</span>}
+                    {idx > 0 && (
+                      <button
+                        onClick={() => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            membersCount: Math.max(1, prev.membersCount - 1),
+                            members: prev.members.filter((_, i) => i !== idx),
+                          }));
+                        }}
+                        className="text-rose-500 hover:underline cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <input
@@ -306,7 +498,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                         updated[idx].name = e.target.value;
                         setFormData({ ...formData, members: updated });
                       }}
-                      className="col-span-2 h-10 px-3 rounded-xl bg-white dark:bg-slate-900 text-xs font-semibold border outline-none text-slate-900 dark:text-white"
+                      className="col-span-2 h-8.5 px-2.5 rounded-lg bg-white dark:bg-slate-900 text-xs font-semibold border outline-none text-slate-900 dark:text-white"
                     />
                     <input
                       type="number"
@@ -317,7 +509,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                         updated[idx].age = parseInt(e.target.value) || 0;
                         setFormData({ ...formData, members: updated });
                       }}
-                      className="h-10 px-3 rounded-xl bg-white dark:bg-slate-900 text-xs font-semibold border outline-none text-slate-900 dark:text-white"
+                      className="h-8.5 px-2.5 rounded-lg bg-white dark:bg-slate-900 text-xs font-semibold border outline-none text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>
@@ -327,19 +519,19 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
           {/* STEP 4: Verification & Photo Upload */}
           {currentStep === 4 && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Photo & Verification</h3>
+            <div className="space-y-3">
+              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white">Photo & Verification</h3>
 
-              <div className="p-4 rounded-2xl border-2 border-dashed border-[#FF6B00] bg-orange-50/30 dark:bg-slate-800/40 text-center space-y-2 cursor-pointer">
-                <Upload className="w-8 h-8 text-[#FF6B00] mx-auto" />
+              <div className="p-3 rounded-xl border-2 border-dashed border-[#FF6B00] bg-orange-50/30 dark:bg-slate-800/40 text-center space-y-1 cursor-pointer">
+                <Upload className="w-6 h-6 text-[#FF6B00] mx-auto" />
                 <p className="text-xs font-bold text-slate-900 dark:text-white">Upload Member Photo ID</p>
-                <p className="text-[10px] text-slate-400">PNG, JPG up to 5MB (Used for Gate QR Badge)</p>
+                <p className="text-[9.5px] text-slate-400">PNG, JPG up to 5MB (Used for Gate QR Badge)</p>
               </div>
 
               {/* Digital Signature Pad Preview */}
-              <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Digital Signature Touch Pad</span>
-                <div className="h-20 border-b border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-400 italic text-xs">
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <span className="text-[9px] font-bold text-slate-400 uppercase">Digital Signature Touch Pad</span>
+                <div className="h-14 border-b border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-slate-400 italic text-xs">
                   [ Touch signature captured electronically ]
                 </div>
               </div>
@@ -347,7 +539,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           )}
 
           {/* Controls Navigation */}
-          <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
             {currentStep > 1 ? (
               <TouchButton variant="ghost" size="sm" icon={ArrowLeft} onClick={() => setCurrentStep(currentStep - 1)}>
                 Back
@@ -360,38 +552,43 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
               </TouchButton>
             ) : (
               <TouchButton variant="primary" size="sm" icon={CheckCircle2} onClick={handleComplete}>
-                Pay & Generate Pass (₹250)
+                {formData.numericPrice === 0 ? "Generate Free Pass" : `Pay & Generate Pass (${formData.categoryPrice})`}
               </TouchButton>
             )}
           </div>
         </GlassCard>
       ) : (
         /* SUCCESS PASS DISPLAY */
-        <GlassCard isDark={isDark} hoverScale={false} className="p-6 border text-center space-y-4 animate-scaleUp">
-          <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center mx-auto shadow-lg">
-            <CheckCircle2 className="w-10 h-10 animate-bounce" />
+        <GlassCard isDark={isDark} hoverScale={false} className="p-4 sm:p-5 border text-center space-y-3 animate-scaleUp">
+          <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center mx-auto shadow-md">
+            <CheckCircle2 className="w-7 h-7 animate-bounce" />
           </div>
 
           <div>
-            <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white uppercase">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white uppercase">
               Registration Successful 🎉
             </span>
-            <h3 className="text-xl font-black text-slate-900 dark:text-white mt-2">Pass #GANESH-8849 Issued</h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Pass sent to your email and SMS. Your QR badge is ready below.
+            <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mt-1.5">
+              Pass #{Math.floor(1000 + Math.random() * 9000)} Issued
+            </h3>
+            <p className="text-xs font-semibold text-[#FF6B00] mt-0.5">
+              Category: {formData.category} ({formData.categoryPrice})
+            </p>
+            <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
+              Pass confirmation sent to {formData.email}. Your QR badge is ready below.
             </p>
           </div>
 
-          <div className="p-4 rounded-3xl bg-slate-900 text-white inline-block">
-            <QrCode className="w-32 h-32 text-white mx-auto" />
-            <p className="text-[10px] font-mono text-orange-400 mt-2">SCAN AT GATE FOR ACCESS</p>
+          <div className="p-3 rounded-2xl bg-slate-900 text-white inline-block shadow-lg">
+            <QrCode className="w-24 h-24 text-white mx-auto" />
+            <p className="text-[9px] font-mono text-orange-400 mt-1">SCAN AT GATE FOR ACCESS</p>
           </div>
 
-          <div className="flex gap-2">
-            <TouchButton variant="primary" icon={Download} fullWidth onClick={() => alert("Pass downloaded!")}>
+          <div className="flex gap-2 pt-1">
+            <TouchButton variant="primary" size="sm" icon={Download} fullWidth onClick={() => alert("Pass downloaded!")}>
               Download Pass PDF
             </TouchButton>
-            <TouchButton variant="outline" fullWidth onClick={onClose}>
+            <TouchButton variant="outline" size="sm" fullWidth onClick={onClose}>
               Done
             </TouchButton>
           </div>
