@@ -471,6 +471,7 @@ export function EventsGallery() {
   const [view, setView] = useState<"grid" | "albums">("grid");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
   const [showUpload, setShowUpload] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
 

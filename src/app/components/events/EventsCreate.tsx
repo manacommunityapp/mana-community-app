@@ -18,6 +18,7 @@ import { SectionHeader, FieldLabel, ToggleRow } from "./shared";
 
 import { cn } from "../ui/utils";
 import { useEventMock } from "./EventMockToggle";
+import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { eventService, type EventRequest } from "../../../services/events/eventService";
 import { DEFAULT_REGISTRATION_FORM_CONFIG, type RegistrationFormConfig, type FormField } from "./EventRegistrationFormBuilder";
 import { AgendaNotificationModal } from "./EventsPrograms";
@@ -1518,11 +1519,13 @@ function toEventRequest(data: FormData): EventRequest {
     imageUrl: data.coverImageUrl && !data.coverImageUrl.startsWith("data:") ? data.coverImageUrl : undefined,
     organizerName: undefined,
     organizerContact: undefined,
+    ticketTypes: data.ticketTypes,
   };
 }
 
 /* ─── Wizard content (shared between page and dialog) ─── */
 function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCreated?: () => void }) {
+  useEscapeKey(onClose);
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [submitType, setSubmitType] = useState<"published" | "draft">("published");
@@ -1534,6 +1537,16 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
   try { useMock = useEventMock().useMock; } catch {}
 
   const [formData, setFormData] = useState<FormData>({ ...INITIAL_FORM_DATA });
+
+  // Auto-sync ticket categories to localStorage whenever user edits ticket categories
+  useEffect(() => {
+    if (formData.ticketTypes && formData.ticketTypes.length > 0) {
+      try {
+        localStorage.setItem("mana_created_event_tickets", JSON.stringify(formData.ticketTypes));
+        localStorage.setItem("mana_last_event_title", formData.title);
+      } catch (err) {}
+    }
+  }, [formData.ticketTypes, formData.title]);
 
   const update = (key: keyof FormData, value: any) =>
     setFormData(prev => ({ ...prev, [key]: value }));
@@ -1554,6 +1567,13 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
     setStep(s => Math.min(STEPS.length, s + 1));
   };
 
+  const persistTicketCategoriesLocally = (tickets: TicketType[], title: string) => {
+    try {
+      localStorage.setItem("mana_created_event_tickets", JSON.stringify(tickets));
+      localStorage.setItem("mana_last_event_title", title);
+    } catch {}
+  };
+
   const handleSaveDraft = async () => {
     if (!formData.title.trim()) {
       setPublishError("Please enter an event title before saving as draft.");
@@ -1562,6 +1582,7 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
     setSavingDraft(true);
     setPublishError("");
     try {
+      persistTicketCategoriesLocally(formData.ticketTypes, formData.title);
       if (!useMock) {
         await eventService.create(toEventRequest(formData));
       }
@@ -1587,6 +1608,7 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
     setPublishing(true);
     setPublishError("");
     try {
+      persistTicketCategoriesLocally(formData.ticketTypes, formData.title);
       if (!useMock) {
         await eventService.create(toEventRequest(formData));
       }

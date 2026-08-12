@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Search, QrCode, CheckCircle2, AlertCircle, X, Download, Share2, Printer, ShieldCheck, Wallet, MapPin, Calendar, Clock, Users, Gift } from 'lucide-react';
+import { useEscapeKey } from '../../../hooks/useEscapeKey';
 
 export interface GatePassRecord {
   id: string;
@@ -76,6 +77,7 @@ export const GatePassModal: React.FC<GatePassModalProps> = ({
   pass,
   onPassScanned
 }) => {
+  useEscapeKey(onClose, isOpen);
   const [query, setQuery] = useState<string>('');
   const [activePass, setActivePass] = useState<GatePassRecord>(pass || SAMPLE_PASSES[0]);
   const [searched, setSearched] = useState<boolean>(false);

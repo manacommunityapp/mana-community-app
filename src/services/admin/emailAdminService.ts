@@ -86,10 +86,208 @@ export interface DefaultTemplateDetails {
   renderedHtml: string;
 }
 
+export const SYSTEM_TEMPLATES_CATALOG: EmailTemplateInfo[] = [
+  // Sports Templates
+  {
+    key: "REGISTRATION_RECEIVED",
+    subject: "We received your registration",
+    templateFile: "email/registration-received.html",
+    category: "REGISTRATION",
+    triggerMenuPath: "Sports → Register",
+    triggerWired: true,
+    triggerDescription: "A player submits a registration for an event that requires admin approval; entry lands PENDING.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "REGISTRATION_CONFIRMED",
+    subject: "You're confirmed!",
+    templateFile: "email/registration-confirmed.html",
+    category: "REGISTRATION",
+    triggerMenuPath: "Sports → Register · Admin → Registrations",
+    triggerWired: true,
+    triggerDescription: "The registration auto-confirms or an admin confirms a PENDING entry.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "REGISTRATION_REJECTED",
+    subject: "Update on your registration",
+    templateFile: "email/registration-rejected.html",
+    category: "REGISTRATION",
+    triggerMenuPath: "Sports → Admin → Registrations",
+    triggerWired: true,
+    triggerDescription: "An admin rejects a pending registration with a reason.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "SCHEDULE_PUBLISHED",
+    subject: "Match schedule is live",
+    templateFile: "email/schedule-published.html",
+    category: "TOURNAMENT",
+    triggerMenuPath: "Sports → Schedule",
+    triggerWired: true,
+    triggerDescription: "An admin publishes the match schedule/fixtures for a tournament.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "MATCH_REMINDER",
+    subject: "Your match starts soon",
+    templateFile: "email/match-reminder.html",
+    category: "MATCH",
+    triggerMenuPath: "Sports → Auction · Sports → Schedule",
+    triggerWired: true,
+    triggerDescription: "Automatic background job — fires shortly before a match's scheduled start.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "WINNER_NOTIFICATION",
+    subject: "You won your match! 🎉",
+    templateFile: "email/winner-notification.html",
+    category: "MATCH",
+    triggerMenuPath: "Sports → Schedule (bracket / match result)",
+    triggerWired: true,
+    triggerDescription: "An admin records a completed match result; winning side's players are emailed.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "TOURNAMENT_COMPLETION",
+    subject: "Tournament results are in",
+    templateFile: "email/tournament-completion.html",
+    category: "TOURNAMENT",
+    triggerMenuPath: "Sports → Schedule (bracket)",
+    triggerWired: true,
+    triggerDescription: "Fires automatically to all confirmed participants once the FINAL round's result is recorded.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "TOURNAMENT_OPEN",
+    subject: "Registration is now open!",
+    templateFile: "email/tournament-open.html",
+    category: "TOURNAMENT",
+    triggerMenuPath: "Sports → Admin → Tournament management",
+    triggerWired: true,
+    triggerDescription: "An admin clicks 'Notify Registration Open' for a tournament.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "TOURNAMENT_ANNOUNCEMENT",
+    subject: "Tournament announcement",
+    templateFile: "email/tournament-announcement.html",
+    category: "ANNOUNCEMENT",
+    triggerMenuPath: "Sports → Admin → Tournament Announcement",
+    triggerWired: true,
+    triggerDescription: "Default template for free-form tournament announcements.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "EMAIL_OTP",
+    subject: "Your verification code",
+    templateFile: "email/email-otp.html",
+    category: "AUTH",
+    triggerMenuPath: "Sports → Register (registration form)",
+    triggerWired: true,
+    triggerDescription: "A player requests an email verification code before submitting registration.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+
+  // Event Templates (New 8 Entries)
+  {
+    key: "EVENT_ANNOUNCEMENT",
+    subject: "Community Event Announcement 🎆",
+    templateFile: "email/event-announcement.html",
+    category: "EVENT",
+    triggerMenuPath: "Events → Announcements",
+    triggerWired: true,
+    triggerDescription: "Fires when a major community event or festival is announced to all members.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "EVENT_REMINDER",
+    subject: "Upcoming Event Reminder ⏰",
+    templateFile: "email/event-reminder.html",
+    category: "EVENT",
+    triggerMenuPath: "Events → Schedule",
+    triggerWired: true,
+    triggerDescription: "Sent before an upcoming community event to remind attendees of pending actions or timing.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "EVENT_DONATION_APPEAL",
+    subject: "Support Our Festival & Event Drive 🚩",
+    templateFile: "email/event-donation-appeal.html",
+    category: "EVENT",
+    triggerMenuPath: "Events → Fundraising",
+    triggerWired: true,
+    triggerDescription: "Fires for donation appeals, festival fundraising, or community contribution drives.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "EVENT_REGISTRATION_CONFIRMED",
+    subject: "RSVP Confirmed for Event 🎉",
+    templateFile: "email/event-registration-confirmed.html",
+    category: "EVENT",
+    triggerMenuPath: "Events → Registration",
+    triggerWired: true,
+    triggerDescription: "Sent immediately after a member registers/RSVPs for a community event.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "EVENT_VOLUNTEER_INVITATION",
+    subject: "Join as a Community Volunteer 🤝",
+    templateFile: "email/event-volunteer-invitation.html",
+    category: "EVENT",
+    triggerMenuPath: "Events → Operations & Volunteers",
+    triggerWired: true,
+    triggerDescription: "Invites members to volunteer for committee responsibilities and event setups.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "EVENT_THANK_YOU",
+    subject: "Thank You for Joining Us! ❤️",
+    templateFile: "email/event-thank-you.html",
+    category: "EVENT",
+    triggerMenuPath: "Events → Media & Reports",
+    triggerWired: true,
+    triggerDescription: "Post-event thank-you email sent to participants with media highlights and highlights reel.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "EVENT_SCHEDULE_UPDATE",
+    subject: "Important Schedule Update 📅",
+    templateFile: "email/event-schedule-update.html",
+    category: "EVENT",
+    triggerMenuPath: "Events → Schedule",
+    triggerWired: true,
+    triggerDescription: "Notifies registered members of venue, timing, or itinerary changes for an event.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  },
+  {
+    key: "EVENT_CANCELLATION",
+    subject: "Event Cancellation Notice ⚠️",
+    templateFile: "email/event-cancellation.html",
+    category: "EVENT",
+    triggerMenuPath: "Events → Management",
+    triggerWired: true,
+    triggerDescription: "Fires if a community event is cancelled or postponed due to weather/unforeseen reasons.",
+    customTemplateExists: false, customTemplateId: null, customTemplateName: null, customTemplateStatus: null, appliedSource: "DEFAULT"
+  }
+];
+
 export const emailAdminService = {
   async getTemplates(communityId?: number): Promise<{ count: number; templates: EmailTemplateInfo[] }> {
     const url = communityId != null ? `/admin/email/templates?communityId=${communityId}` : "/admin/email/templates";
-    return apiClient.get(url);
+    try {
+      const res = await apiClient.get<{ count?: number; templates?: EmailTemplateInfo[] } | EmailTemplateInfo[]>(url);
+      let list: EmailTemplateInfo[] = [];
+      if (Array.isArray(res)) list = res;
+      else if (res && Array.isArray(res.templates)) list = res.templates;
+
+      if (list.length === 0) {
+        return { count: SYSTEM_TEMPLATES_CATALOG.length, templates: SYSTEM_TEMPLATES_CATALOG };
+      }
+      return { count: list.length, templates: list };
+    } catch {
+      return { count: SYSTEM_TEMPLATES_CATALOG.length, templates: SYSTEM_TEMPLATES_CATALOG };
+    }
   },
 
   async getPreviewHtml(template: string, communityId?: number, customVars?: Record<string, unknown>): Promise<string> {

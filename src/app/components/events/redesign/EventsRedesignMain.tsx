@@ -17,6 +17,7 @@ import { FinanceSponsorsView } from "./FinanceSponsorsView";
 import { GalleryMediaView } from "./GalleryMediaView";
 import { ProfileNotificationsView } from "./ProfileNotificationsView";
 import { BottomSheet, SkeletonLoader } from "./EventDesignSystem";
+import { useEscapeKey } from "../../../../hooks/useEscapeKey";
 
 export function EventsRedesignMain() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -25,6 +26,9 @@ export function EventsRedesignMain() {
   const [showAICopilot, setShowAICopilot] = useState(false);
   const [showSearchCmd, setShowSearchCmd] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEscapeKey(() => setShowSearchCmd(false), showSearchCmd);
+  useEscapeKey(() => setShowAICopilot(false), showAICopilot);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -165,7 +169,9 @@ export function EventsRedesignMain() {
               )}
               {activeTab === "analytics" && <EventsAnalyticsView isDark={isDark} />}
               {activeTab === "registration" && (
-                <EventRegistrationWizard isDark={isDark} onClose={() => setActiveTab("dashboard")} />
+                <div className="max-w-xl mx-auto py-1 sm:py-3">
+                  <EventRegistrationWizard isDark={isDark} onClose={() => setActiveTab("dashboard")} />
+                </div>
               )}
               {activeTab === "cultural" && <CulturalActivitiesView isDark={isDark} />}
               {activeTab === "volunteer" && <VolunteerModuleView isDark={isDark} />}

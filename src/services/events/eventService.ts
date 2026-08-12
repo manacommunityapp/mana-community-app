@@ -1,5 +1,13 @@
 import { apiClient } from "../common/apiClient";
 
+export interface TicketTypeItem {
+  id?: string;
+  name: string;
+  price: string | number;
+  qty?: string | number;
+  description?: string;
+}
+
 export interface EventResponse {
   id: number;
   title: string;
@@ -29,6 +37,7 @@ export interface EventResponse {
   attendees: number;
   isRegistered: boolean;
   createdAt: string;
+  ticketTypes?: TicketTypeItem[];
 }
 
 export interface EventRequest {
@@ -52,6 +61,7 @@ export interface EventRequest {
   category?: string;
   status?: string;
   maxAttendees?: number;
+  ticketTypes?: TicketTypeItem[];
 }
 
 export interface DashboardStatsResponse {
@@ -86,6 +96,15 @@ export interface RegistrationResponse {
   userEmail: string;
   status: string;
   registeredAt: string;
+}
+
+export interface PendingActionItemResponse {
+  id: string;
+  task: string;
+  due: string;
+  priority: string;
+  category: string;
+  done: boolean;
 }
 
 export const eventService = {
@@ -132,6 +151,10 @@ export const eventService = {
 
   async getDashboardAnalytics(): Promise<DashboardAnalyticsResponse> {
     return apiClient.get<DashboardAnalyticsResponse>("/events/dashboard/analytics");
+  },
+
+  async getPendingActionItems(): Promise<PendingActionItemResponse[]> {
+    return apiClient.get<PendingActionItemResponse[]>("/events/dashboard/pending-actions");
   },
 
   async getEventRegistrations(eventId: number): Promise<RegistrationResponse[]> {
