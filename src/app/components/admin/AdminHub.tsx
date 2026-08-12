@@ -92,6 +92,7 @@ const TAB_ITEMS = [
   { id: "announcements", label: "Announcements", icon: Megaphone },
   { id: "email-gallery", label: "Email Templates", icon: MailOpen },
   { id: "email-templates", label: "Email Builder", icon: Mail },
+  { id: "email-gallery", label: "Email Templates", icon: MailOpen },
   { id: "email-logs", label: "Email Delivery Logs", icon: Clock },
   { id: "directory",  label: "Directory",     icon: Shield },
 ] as const;
@@ -886,6 +887,7 @@ export function AdminHub() {
         {activeTab === "announcements" && <AnnouncementsPlanner />}
         {activeTab === "email-gallery" && <EmailTemplatesTab />}
         {activeTab === "email-templates" && <EmailTemplateBuilder />}
+        {activeTab === "email-gallery" && <EmailTemplatesTab />}
         {activeTab === "email-logs" && <EmailDeliveryLogTab />}
         {activeTab === "directory" && <AdminDirectory />}
       </div>
