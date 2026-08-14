@@ -16,10 +16,12 @@ import { EventsDashboard } from "./components/events/EventsDashboard";
 import { EventMemberFlow } from "./components/events/EventMemberFlow";
 import { EventsSchedule } from "./components/events/EventsSchedule";
 import { EventsRegistrationHub } from "./components/events/EventsRegistrationHub";
+import { EventsFormsHub } from "./components/events/EventsFormsHub";
 import { EventsPeople } from "./components/events/EventsPeople";
 import { EventsFundraising } from "./components/events/EventsFundraising";
 import { EventsOperations } from "./components/events/EventsOperations";
-import { EventsMediaReports } from "./components/events/EventsMediaReports";
+import { EventsGallery } from "./components/events/EventsGallery";
+import { EventsReports } from "./components/events/EventsReports";
 
 import { EventsAccessManagement } from "./components/events/EventsAccessManagement";
 import { EventEditor } from "./components/events/EventEditor";
@@ -166,7 +168,11 @@ import {
   VIEW_LIVE_AUCTION, VIEW_AUCTION_CONFIG, VIEW_TEAMS_DASHBOARD,
   VIEW_PLAYER_POOL, VIEW_AUCTION_RESULTS,
   CREATE_EDIT_SPORTS_MAIN, VIEW_ADMIN, BULK_UPLOAD, MANAGE_COMMUNITIES,
-  MANAGE_ROLES, VIEW_MARKETPLACE, CREATE_LISTING, VIEW_JOBS, VIEW_EVENTS, REGISTER_EVENT, VIEW_VISITORS,
+  MANAGE_ROLES, VIEW_MARKETPLACE, CREATE_LISTING, VIEW_JOBS, VIEW_EVENTS, REGISTER_EVENT,
+  VIEW_EVENT_DASHBOARD, VIEW_EVENT_SCHEDULE, VIEW_EVENT_REGISTRATION, VIEW_EVENT_PEOPLE,
+  VIEW_EVENT_FUNDRAISING, VIEW_EVENT_OPERATIONS, VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY,
+  VIEW_EVENT_REPORTS, CREATE_EVENT, MANAGE_EVENT_DASHBOARD,
+  VIEW_VISITORS,
   VIEW_NOTICES, VIEW_AMENITIES, VIEW_TICKETS, VIEW_POLLS,
   VIEW_VENDOR_MANAGEMENT, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
   MANAGE_WORK_ORDERS, MANAGE_CONTRACTS, MANAGE_VENDOR_PAYMENTS,
@@ -369,17 +375,18 @@ export const router = createBrowserRouter([
         path: "events",
         element: <PermissionGuard requiredModule="EVENTS"><EventsLayout /></PermissionGuard>,
         children: [
-          { index: true, element: <PermissionGuard permission={VIEW_EVENTS}><EventsDashboard /></PermissionGuard> },
+          { index: true, element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_DASHBOARD]}><EventsDashboard /></PermissionGuard> },
           { path: "member-flow", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, REGISTER_EVENT]}><EventMemberFlow /></PermissionGuard> },
-          { path: "schedule", element: <PermissionGuard permission={VIEW_EVENTS}><EventsSchedule /></PermissionGuard> },
-          { path: "registration", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, REGISTER_EVENT]}><EventsRegistrationHub /></PermissionGuard> },
-          { path: "people", element: <PermissionGuard permission={VIEW_EVENTS}><EventsPeople /></PermissionGuard> },
-          { path: "fundraising", element: <PermissionGuard permission={VIEW_EVENTS}><EventsFundraising /></PermissionGuard> },
-          { path: "operations", element: <PermissionGuard permission={VIEW_EVENTS}><EventsOperations /></PermissionGuard> },
-          { path: "media", element: <EventsMediaReports /> },
-          { path: "access", element: <PermissionGuard permission={MANAGE_ROLES}><EventsAccessManagement /></PermissionGuard> },
-          { path: "create", element: <EventEditor /> },
-          { path: ":id/edit", element: <EventEditor /> },
+          { path: "schedule", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_SCHEDULE]}><EventsSchedule /></PermissionGuard> },
+          { path: "registration", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_REGISTRATION, REGISTER_EVENT]}><EventsRegistrationHub /></PermissionGuard> },
+          { path: "forms", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_REGISTRATION, REGISTER_EVENT]}><EventsFormsHub /></PermissionGuard> },
+          { path: "people", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_PEOPLE]}><EventsPeople /></PermissionGuard> },
+          { path: "fundraising", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_FUNDRAISING]}><EventsFundraising /></PermissionGuard> },
+          { path: "operations", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_OPERATIONS]}><EventsOperations /></PermissionGuard> },
+          { path: "media", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY]}><EventsGallery /></PermissionGuard> },
+          { path: "reports", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_MEDIA, VIEW_EVENT_REPORTS, VIEW_EVENT_DASHBOARD]}><EventsReports /></PermissionGuard> },
+          { path: "create", element: <PermissionGuard anyPermissions={[CREATE_EVENT, MANAGE_EVENT_DASHBOARD]}><EventEditor /></PermissionGuard> },
+          { path: ":id/edit", element: <PermissionGuard anyPermissions={[CREATE_EVENT, MANAGE_EVENT_DASHBOARD]}><EventEditor /></PermissionGuard> },
         ],
       },
       { 

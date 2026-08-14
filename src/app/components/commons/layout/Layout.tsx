@@ -217,7 +217,7 @@ export function Layout() {
     if (link.label === "Polls") return permissions.includes(VIEW_POLLS);
     if (link.label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
     if (link.label === "Professional Network") return permissions.includes(VIEW_JOBS);
-    if (link.label === "Events") return true; // Gallery is accessible to all; EVENTS module gate above already filters by enabledModules
+    if (link.label === "Events") return isAdmin || permissions.includes(VIEW_EVENTS);
     return true;
   });
 

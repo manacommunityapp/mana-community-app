@@ -443,11 +443,27 @@ export function EventsDashboard() {
 
   // ── Derived: banner items ─────────────────────────────────────────────────
   const bannerItems: BannerItem[] = useMemo(() => {
-    if (useMock || events.length === 0) return MOCK_BANNERS;
-    return events.slice(0, 4).map((ev, i) => eventToBanner(ev, i));
+    if (useMock) return MOCK_BANNERS;
+    if (events.length > 0) {
+      return events.slice(0, 4).map((ev, i) => eventToBanner(ev, i));
+    }
+    return [
+      {
+        id: "empty-db",
+        title: "No Events Created Yet",
+        subtitle: "Create your first community event in the Events module to display it here",
+        location: "Community Center",
+        date: "Upcoming",
+        registered: "0 registered",
+        category: "Community Event",
+        bgGradient: BANNER_GRADIENTS[0],
+        targetDate: new Date().toISOString().slice(0, 10),
+        targetTime: null,
+      }
+    ];
   }, [useMock, events]);
 
-  const currentBanner = bannerItems[Math.min(carouselIndex, bannerItems.length - 1)];
+  const currentBanner = bannerItems[Math.min(carouselIndex, bannerItems.length - 1)] || bannerItems[0];
 
   // ── Derived: registration trend ───────────────────────────────────────────
   const regTrendData = useMemo(() => {

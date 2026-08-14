@@ -1,8 +1,8 @@
 import { NavLink, Outlet, useLocation } from "react-router";
 import {
-  LayoutDashboard, CalendarDays, Ticket, Users,
+  LayoutDashboard, CalendarDays, Users,
   HandHeart, UtensilsCrossed, ImageIcon, ChevronRight,
-  Database, Wifi, Shield, UserRound,
+  Database, Wifi, UserRound, ClipboardList, BarChart3,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -15,14 +15,15 @@ import { EventMockProvider, useEventMock } from "./EventMockToggle";
 import { CreateEventButton } from "./EventsCreate";
 
 const navItems = [
-  { to: "/events",              label: "Dashboard",        icon: LayoutDashboard, end: true, permission: VIEW_EVENT_DASHBOARD  },
-  { to: "/events/member-flow",  label: "Member Flow",      icon: UserRound,                  permission: REGISTER_EVENT, altPermission: VIEW_EVENTS },
-  { to: "/events/schedule",     label: "Events & Schedule",icon: CalendarDays,              permission: VIEW_EVENT_SCHEDULE   },
-  { to: "/events/registration", label: "Registration",     icon: Ticket,                    permission: VIEW_EVENT_REGISTRATION, altPermission: REGISTER_EVENT },
-  { to: "/events/people",       label: "People",           icon: Users,                     permission: VIEW_EVENT_PEOPLE     },
+  { to: "/events",              label: "Dashboard",        icon: LayoutDashboard, end: true, permission: VIEW_EVENT_DASHBOARD, altPermission: VIEW_EVENTS },
+  { to: "/events/member-flow",  label: "Member Flow",      icon: UserRound,                  permission: REGISTER_EVENT,       altPermission: VIEW_EVENTS },
+  { to: "/events/schedule",     label: "Events & Schedule",icon: CalendarDays,              permission: VIEW_EVENT_SCHEDULE },
+  { to: "/events/forms",        label: "Forms",            icon: ClipboardList,             permission: VIEW_EVENT_REGISTRATION, altPermission: REGISTER_EVENT },
+  { to: "/events/people",       label: "People",           icon: Users,                     permission: VIEW_EVENT_PEOPLE },
   { to: "/events/fundraising",  label: "Fundraising",      icon: HandHeart,                 permission: VIEW_EVENT_FUNDRAISING },
   { to: "/events/operations",   label: "Operations",       icon: UtensilsCrossed,           permission: VIEW_EVENT_OPERATIONS },
-  { to: "/events/media",        label: "Media & Reports",  icon: ImageIcon,                 permission: VIEW_EVENT_MEDIA, altPermission: VIEW_EVENT_GALLERY },
+  { to: "/events/media",        label: "Media",            icon: ImageIcon,                 permission: VIEW_EVENT_MEDIA, altPermission: VIEW_EVENT_GALLERY },
+  { to: "/events/reports",      label: "Reports",          icon: BarChart3,                 permission: VIEW_EVENT_MEDIA, altPermission: VIEW_EVENT_DASHBOARD },
 ];
 
 function DataModeToggle() {
@@ -54,7 +55,9 @@ function EventsLayoutInner() {
 
   const visibleNav = navItems.filter((nav) => {
     if ("adminOnly" in nav && nav.adminOnly && !isAdmin) return false;
-    if (hasPermission(VIEW_EVENTS)) return true;
+    // ADMIN/COMMUNITY_ADMIN roles see all event tabs regardless of explicit permission strings,
+    // because the backend may not return per-permission strings for admin roles.
+    if (isAdmin) return true;
     if (nav.permission && hasPermission(nav.permission)) return true;
     if ("altPermission" in nav && nav.altPermission && hasPermission(nav.altPermission)) return true;
     return false;

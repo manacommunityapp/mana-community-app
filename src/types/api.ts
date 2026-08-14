@@ -503,6 +503,7 @@ export interface UserResponse {
   isActive?: boolean;
   permissions?: string[];
   enabledModules?: string[];
+  roles?: string[];
 }
 
 export type RolePermissionsMap = Record<string, string[]>;

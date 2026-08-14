@@ -67,11 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .then((me) => {
           updateUser({
             role: me.role,
+            roles: me.roles,
             fullName: me.fullName,
             email: me.email,
             communityId: me.communityId,
             roleId: me.roleId,
-            permissions: me.permissions,
+            permissions: me.permissions ?? [],
             enabledModules: me.enabledModules,
           });
         })
@@ -96,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: response.email ?? (payload?.email != null ? String(payload.email) : undefined),
       dateOfBirth: response.dateOfBirth,
       enabledModules: response.enabledModules,
+      permissions: [], // guard nav from flash before /users/me resolves
     };
     storeUser(newUser);
     setUser(newUser);
@@ -105,11 +107,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updated = {
         ...newUser,
         role: me.role,
+        roles: me.roles,
         fullName: me.fullName,
         email: me.email,
         communityId: me.communityId,
         roleId: me.roleId,
-        permissions: me.permissions,
+        permissions: me.permissions ?? [],
         enabledModules: me.enabledModules,
       };
       storeUser(updated);
@@ -133,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: response.email ?? data.email,
       dateOfBirth: response.dateOfBirth,
       enabledModules: response.enabledModules,
+      permissions: [], // guard nav from flash before /users/me resolves
     };
     storeUser(newUser);
     setUser(newUser);
@@ -142,11 +146,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updated = {
         ...newUser,
         role: me.role,
+        roles: me.roles,
         fullName: me.fullName,
         email: me.email,
         communityId: me.communityId,
         roleId: me.roleId,
-        permissions: me.permissions,
+        permissions: me.permissions ?? [],
         enabledModules: me.enabledModules,
       };
       storeUser(updated);
@@ -164,26 +169,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = "/login";
   }, []);
 
-  // Removed redundant updateUser declaration
+  // Parse all assigned roles from roles array or comma-separated role string.
+  // Must be above hasPermission/hasAnyPermission so they can reference it.
+  const userRoleSet = new Set<string>(
+    user
+      ? (user.roles && user.roles.length > 0
+          ? user.roles
+          : (user.role ?? "").split(",")
+        ).map((r) => r.trim().toUpperCase()).filter(Boolean)
+      : []
+  );
+
+  const isSuperAdmin = userRoleSet.has("SUPER_ADMIN");
 
   const hasPermission = useCallback((permission: string): boolean => {
     if (!user) return false;
-    if (user.role === 'SUPER_ADMIN') return true;
+    if (isSuperAdmin) return true;
     return user.permissions?.includes(permission) ?? false;
-  }, [user]);
+  }, [user, isSuperAdmin]);
 
   const hasAnyPermission = useCallback((...permissions: string[]): boolean => {
     if (!user) return false;
-    if (user.role === 'SUPER_ADMIN') return true;
+    if (isSuperAdmin) return true;
     return permissions.some(p => user.permissions?.includes(p) ?? false);
-  }, [user]);
+  }, [user, isSuperAdmin]);
 
   const value: AuthContextValue = {
     user,
     isAuthenticated: !!user && !!getToken(),
-    isAdmin: user?.role === "ADMIN" || user?.role === "SUPER_ADMIN" || user?.role === "COMMUNITY_ADMIN",
-    isSportsAdmin: user?.role === "SPORTS_ADMIN" || user?.role === "SUPER_ADMIN" || user?.role === "COMMUNITY_ADMIN",
-    isAuctionAdmin: user?.role === "SUPER_ADMIN" || user?.role === "COMMUNITY_ADMIN" || user?.role === "SPORTS_ADMIN" || user?.role === "ADMIN",
+    isAdmin: userRoleSet.has("ADMIN") || userRoleSet.has("SUPER_ADMIN") || userRoleSet.has("COMMUNITY_ADMIN"),
+    isSportsAdmin: userRoleSet.has("SPORTS_ADMIN") || userRoleSet.has("SUPER_ADMIN") || userRoleSet.has("COMMUNITY_ADMIN"),
+    isAuctionAdmin: userRoleSet.has("SUPER_ADMIN") || userRoleSet.has("COMMUNITY_ADMIN") || userRoleSet.has("SPORTS_ADMIN") || userRoleSet.has("ADMIN"),
     login,
     register,
     logout,

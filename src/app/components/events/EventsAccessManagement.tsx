@@ -3,8 +3,10 @@ import {
   Shield, Users, Eye, Pencil, Trash2, ChevronDown, ChevronRight,
   CheckCircle2, Info, LayoutDashboard, CalendarDays, Ticket,
   HandHeart, UtensilsCrossed, ImageIcon, Bell, UserCheck, Lock,
-  Unlock, Copy, RotateCcw, Save, AlertCircle, Loader2, Crown,
-  Briefcase, Banknote, Wrench, Camera,
+  Unlock, RotateCcw, Save, Loader2, Crown,
+  Briefcase, Banknote, Wrench, Camera, ClipboardList,
+  CalendarClock, HeartHandshake, ScanLine, DollarSign, Flame,
+  Plus, Sparkles,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -25,6 +27,8 @@ interface RoleConfig {
   color: string;
   permissions: Set<string>;
   isDefault?: boolean;
+  /** Suggested custom role — not a system role, must be created in Admin Hub */
+  suggested?: boolean;
 }
 
 const MENU_ICONS: Record<string, any> = {
@@ -38,6 +42,7 @@ const MENU_ICONS: Record<string, any> = {
   "Gallery": Camera,
   "Reports": ImageIcon,
   "Notifications": Bell,
+  "Forms (Categories)": ClipboardList,
   "Events Module": Shield,
 };
 
@@ -56,45 +61,84 @@ const ACTION_ICONS = {
 /* ─── Role Presets ─── */
 function buildRoles(): RoleConfig[] {
   return [
+    // ── System roles ───────────────────────────────────────────────────────
     {
       name: "ADMIN", label: "Admin", icon: Crown, color: "#4f46e5",
-      description: "Full access to all event features including creation, management, and notifications",
+      description: "Full access to all event features — create, manage, export, notify, manage forms",
       permissions: new Set(EVENT_ROLE_DEFAULTS.ADMIN),
     },
     {
       name: "COMMUNITY_ADMIN", label: "Community Admin", icon: Shield, color: "#7c3aed",
-      description: "Full event management within the community scope",
+      description: "Full event management within the community scope, same as Admin",
       permissions: new Set(EVENT_ROLE_DEFAULTS.COMMUNITY_ADMIN),
     },
     {
       name: "SPORTS_ADMIN", label: "Sports Admin", icon: Briefcase, color: "#0891b2",
-      description: "View events, manage registrations, send notifications",
+      description: "View events, registrations and people; send notifications; view forms",
       permissions: new Set(EVENT_ROLE_DEFAULTS.SPORTS_ADMIN),
     },
     {
       name: "MEMBER", label: "Member", icon: UserCheck, color: "#059669",
-      description: "View events and schedules, register for events, view media",
+      description: "Browse events, register, view schedules, media, and forms",
       permissions: new Set(EVENT_ROLE_DEFAULTS.MEMBER),
     },
     {
       name: "VENDOR", label: "Vendor", icon: Banknote, color: "#d97706",
-      description: "View and register for events relevant to vendor operations",
+      description: "View events and register; view forms relevant to vendor stalls",
       permissions: new Set(EVENT_ROLE_DEFAULTS.VENDOR),
     },
     {
       name: "CASHIER", label: "Cashier", icon: Banknote, color: "#be185d",
-      description: "View dashboard, schedules, and registration data",
+      description: "View dashboard, schedules, registration data, and forms for on-ground use",
       permissions: new Set(EVENT_ROLE_DEFAULTS.CASHIER),
     },
     {
       name: "STAFF", label: "Staff", icon: Wrench, color: "#64748b",
-      description: "View and support event operations, people, and media",
+      description: "Operational support — registrations, people, operations, media, forms",
       permissions: new Set(EVENT_ROLE_DEFAULTS.STAFF),
     },
     {
       name: "USER", label: "User", icon: Users, color: "#8b5cf6",
-      description: "View-only access to dashboard and gallery, can register for events",
+      description: "Basic access — dashboard, gallery, register for events, view forms",
       permissions: new Set(EVENT_ROLE_DEFAULTS.USER),
+    },
+
+    // ── Suggested event-specific custom roles ──────────────────────────────
+    {
+      name: "EVENT_COORDINATOR", label: "Event Coordinator", icon: CalendarClock, color: "#0ea5e9",
+      description: "Plans and runs events end-to-end — create, schedule, manage registrations, forms, operations, media",
+      permissions: new Set(EVENT_ROLE_DEFAULTS.EVENT_COORDINATOR),
+      suggested: true,
+    },
+    {
+      name: "EVENT_VOLUNTEER", label: "Volunteer", icon: HeartHandshake, color: "#10b981",
+      description: "On-ground helper — check-ins, people management, operations, form viewing",
+      permissions: new Set(EVENT_ROLE_DEFAULTS.EVENT_VOLUNTEER),
+      suggested: true,
+    },
+    {
+      name: "PRIEST", label: "Priest / Purohit", icon: Flame, color: "#f97316",
+      description: "Manages pooja schedule and sacred forms (archana, sankalpam, homam)",
+      permissions: new Set(EVENT_ROLE_DEFAULTS.PRIEST),
+      suggested: true,
+    },
+    {
+      name: "TICKET_CHECKER", label: "Ticket Checker", icon: ScanLine, color: "#64748b",
+      description: "Entry gate role — scans passes, verifies registrations at the door",
+      permissions: new Set(EVENT_ROLE_DEFAULTS.TICKET_CHECKER),
+      suggested: true,
+    },
+    {
+      name: "FUNDRAISING_MANAGER", label: "Fundraising Manager", icon: DollarSign, color: "#059669",
+      description: "Oversees donations, sponsors and financial goals; views fundraising reports",
+      permissions: new Set(EVENT_ROLE_DEFAULTS.FUNDRAISING_MANAGER),
+      suggested: true,
+    },
+    {
+      name: "MEDIA_TEAM", label: "Media Team", icon: Camera, color: "#8b5cf6",
+      description: "Uploads photos and videos, manages gallery and generates event reports",
+      permissions: new Set(EVENT_ROLE_DEFAULTS.MEDIA_TEAM),
+      suggested: true,
     },
   ];
 }
@@ -227,17 +271,24 @@ function RoleCard({ role, onSelect, selected }: {
   return (
     <button onClick={onSelect}
       className={cn(
-        "text-left p-3 sm:p-4 rounded-xl border-2 transition-all",
+        "text-left p-3 sm:p-4 rounded-xl border-2 transition-all w-full",
         selected
           ? "border-indigo-400 bg-indigo-50 ring-1 ring-indigo-200 shadow-sm"
           : "border-slate-100 bg-white hover:border-indigo-200 hover:shadow-sm"
       )}>
       <div className="flex items-center gap-2 mb-2">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${role.color}15` }}>
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${role.color}15` }}>
           <role.icon className="w-4 h-4" style={{ color: role.color }} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-slate-800">{role.label}</p>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="text-sm font-bold text-slate-800">{role.label}</p>
+            {role.suggested && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold bg-amber-100 text-amber-700 border border-amber-200">
+                <Sparkles className="w-2 h-2" /> Suggested
+              </span>
+            )}
+          </div>
           <p className="text-[9px] text-slate-400 uppercase">{role.name}</p>
         </div>
       </div>
@@ -347,67 +398,148 @@ function RoleDetailPanel({ role, matrix, onToggle, onReset }: {
 
 /* ─── Suggested Access Info ─── */
 function AccessSuggestions() {
-  const suggestions = [
+  const systemRoles = [
     {
       role: "Admin / Community Admin", icon: Crown, color: "#4f46e5",
-      access: "Full access to all event sub-menus. Can create, edit, delete events, manage registrations, export data, send notifications, manage fundraising and operations.",
-      menus: ["Dashboard", "Events & Schedule", "Registration", "People", "Fundraising", "Operations", "Media & Reports"],
+      access: "Full access — create, edit, delete events, manage registrations, export, notify, manage all forms and fundraising.",
+      menus: ["Dashboard", "Events & Schedule", "Registration", "People", "Fundraising", "Operations", "Media", "Reports", "Forms"],
     },
     {
       role: "Sports Admin", icon: Briefcase, color: "#0891b2",
       access: "View-only for most event features. Can view registrations, people, and send notifications for cross-sport events.",
-      menus: ["Dashboard", "Events & Schedule", "Registration (view)", "People (view)", "Media & Reports"],
+      menus: ["Dashboard", "Events & Schedule", "Registration (view)", "People (view)", "Media", "Forms (view)"],
     },
     {
       role: "Staff", icon: Wrench, color: "#64748b",
-      access: "Operational support. Can view and help with registrations, people management, operations tasks, and media.",
-      menus: ["Dashboard", "Events & Schedule", "Registration (view)", "People", "Operations", "Media & Reports"],
+      access: "Operational support — assist with registrations, people, operations, media, and view forms.",
+      menus: ["Dashboard", "Events & Schedule", "Registration (view)", "People", "Operations", "Media", "Forms (view)"],
     },
     {
       role: "Member", icon: UserCheck, color: "#059669",
-      access: "End-user access. Can browse events, register, view schedules, and access media/gallery.",
-      menus: ["Dashboard", "Events & Schedule", "Registration (register only)", "Media & Reports"],
-    },
-    {
-      role: "Vendor", icon: Banknote, color: "#d97706",
-      access: "Limited access. Can view events and register for relevant ones (stalls, services).",
-      menus: ["Dashboard", "Events & Schedule"],
+      access: "Browse events, register for events, view schedules, access gallery, and view forms.",
+      menus: ["Dashboard", "Events & Schedule", "Media", "Forms (view)"],
     },
     {
       role: "Cashier", icon: Banknote, color: "#be185d",
-      access: "Financial/check-in access. Can view dashboard stats, schedules, and registration data for on-ground operations.",
-      menus: ["Dashboard", "Events & Schedule", "Registration (view)"],
+      access: "On-ground financial access — view dashboard, schedules, registration data, and forms.",
+      menus: ["Dashboard", "Events & Schedule", "Registration (view)", "Forms (view)"],
+    },
+    {
+      role: "Vendor", icon: Banknote, color: "#d97706",
+      access: "View and register for relevant events (stalls, services); access forms for bookings.",
+      menus: ["Dashboard", "Events & Schedule", "Forms (view)"],
     },
     {
       role: "User", icon: Users, color: "#8b5cf6",
-      access: "Basic end-user access. Can view the dashboard and gallery in view-only mode, and register for events. No access to reports.",
-      menus: ["Dashboard (view)", "Gallery (view only)", "Registration (register only)"],
+      access: "Minimal access — view dashboard and gallery, register for events, view forms.",
+      menus: ["Dashboard (view)", "Gallery (view)", "Forms (view)"],
+    },
+  ];
+
+  const suggestedRoles = [
+    {
+      role: "Event Coordinator", icon: CalendarClock, color: "#0ea5e9",
+      access: "Dedicated event planner with end-to-end control — create events, manage registrations and forms, handle operations and media.",
+      menus: ["Dashboard", "Events & Schedule", "Registration (manage)", "People (manage)", "Operations (manage)", "Media", "Forms (manage)"],
+      why: "Separate from Admin so coordinators can run events without touching admin settings or user management.",
+    },
+    {
+      role: "Volunteer", icon: HeartHandshake, color: "#10b981",
+      access: "On-ground helper for check-ins, crowd management, and operational support.",
+      menus: ["Dashboard", "Events & Schedule", "Registration (view)", "People (manage)", "Operations", "Gallery", "Forms (view)"],
+      why: "Restricts financial and notification access while enabling all ground-level tasks.",
+    },
+    {
+      role: "Priest / Purohit", icon: Flame, color: "#f97316",
+      access: "Manages pooja schedule and sacred forms — archana requests, sankalpam, homam sign-ups.",
+      menus: ["Dashboard", "Events & Schedule", "Forms (manage — Pooja only)", "Notifications (send)"],
+      why: "Purpose-built role for religious event coordinators with no access to financials or registrations.",
+    },
+    {
+      role: "Ticket Checker", icon: ScanLine, color: "#64748b",
+      access: "Entry gate role — scans QR passes and verifies attendee registrations at the door.",
+      menus: ["Dashboard", "Events & Schedule", "Registration (view)", "Forms (view)"],
+      why: "Minimal read-only access tailored for on-ground entry verification without any management capability.",
+    },
+    {
+      role: "Fundraising Manager", icon: DollarSign, color: "#059669",
+      access: "Manages donations, sponsors, and financial goals; views fundraising reports and donation forms.",
+      menus: ["Dashboard", "Events & Schedule", "Registration (view)", "Fundraising (manage)", "Reports (view)", "Forms (view)"],
+      why: "Gives financial ownership without event creation or people management access.",
+    },
+    {
+      role: "Media Team", icon: Camera, color: "#8b5cf6",
+      access: "Uploads photos/videos, manages gallery, generates event reports.",
+      menus: ["Dashboard", "Events & Schedule", "Media (manage)", "Gallery (manage)", "Reports (manage)", "Forms (view)"],
+      why: "Scoped to content and reporting — no access to registrations, people, or financials.",
     },
   ];
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2 mb-1">
-        <Info className="w-4 h-4 text-indigo-500" />
-        <h4 className="text-sm font-bold text-slate-700">Suggested Access by Role</h4>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {suggestions.map(s => (
-          <div key={s.role} className="bg-white rounded-xl border border-slate-100 p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${s.color}15` }}>
-                <s.icon className="w-4 h-4" style={{ color: s.color }} />
+    <div className="space-y-6">
+      {/* System roles */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Shield className="w-4 h-4 text-indigo-500" />
+          <h4 className="text-sm font-bold text-slate-700">System Roles — Event Access</h4>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          {systemRoles.map(s => (
+            <div key={s.role} className="bg-white rounded-xl border border-slate-100 p-4 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${s.color}15` }}>
+                  <s.icon className="w-3.5 h-3.5" style={{ color: s.color }} />
+                </div>
+                <span className="text-xs font-bold text-slate-800">{s.role}</span>
               </div>
-              <span className="text-sm font-bold text-slate-800">{s.role}</span>
+              <p className="text-[10px] text-slate-500 mb-2">{s.access}</p>
+              <div className="flex flex-wrap gap-1">
+                {s.menus.map(m => (
+                  <Badge key={m} variant="outline" className="text-[8px] py-0">{m}</Badge>
+                ))}
+              </div>
             </div>
-            <p className="text-[10px] text-slate-500 mb-2">{s.access}</p>
-            <div className="flex flex-wrap gap-1">
-              {s.menus.map(m => (
-                <Badge key={m} variant="outline" className="text-[8px] py-0">{m}</Badge>
-              ))}
+          ))}
+        </div>
+      </div>
+
+      {/* Suggested custom roles */}
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <Sparkles className="w-4 h-4 text-amber-500" />
+          <h4 className="text-sm font-bold text-slate-700">Suggested Custom Roles for Events</h4>
+          <span className="text-[10px] text-slate-400">— create these in Admin Hub → Roles</span>
+        </div>
+        <p className="text-[11px] text-slate-400 mb-3">
+          These roles don't exist as system defaults. Create them as custom roles in Admin Hub and assign the permissions shown in "By Role" view above.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {suggestedRoles.map(s => (
+            <div key={s.role} className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-100 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${s.color}20` }}>
+                  <s.icon className="w-3.5 h-3.5" style={{ color: s.color }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-slate-800">{s.role}</span>
+                    <span className="text-[8px] font-bold px-1.5 py-0.5 bg-amber-200 text-amber-800 rounded-full">NEW</span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-600 mb-1.5">{s.access}</p>
+              <p className="text-[9px] text-amber-700 italic mb-2">💡 {s.why}</p>
+              <div className="flex flex-wrap gap-1">
+                {s.menus.map(m => (
+                  <Badge key={m} className="text-[8px] py-0 bg-amber-100 text-amber-800 border-amber-200">{m}</Badge>
+                ))}
+              </div>
+              <button className="mt-3 flex items-center gap-1 text-[10px] font-semibold text-amber-700 hover:text-amber-900 transition-colors">
+                <Plus className="w-3 h-3" /> Create this role in Admin Hub
+              </button>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -422,6 +554,8 @@ export function EventsAccessManagement() {
   const [saved, setSaved] = useState(false);
 
   const activeRole = roles.find(r => r.name === selectedRole)!;
+  const systemRoles = roles.filter(r => !r.suggested);
+  const suggestedRoles = roles.filter(r => r.suggested);
 
   const handleToggle = (roleName: string, permKey: string) => {
     setRoles(prev => prev.map(r => {
@@ -460,8 +594,10 @@ export function EventsAccessManagement() {
             <Shield className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-800">Event Access Management</h2>
-            <p className="text-xs text-slate-400">Configure which roles can access each event sub-menu</p>
+            <h2 className="text-lg font-bold text-slate-800">Event Access & Roles</h2>
+            <p className="text-xs text-slate-400">
+              Admin Hub only — configure per-role event permissions and review suggested custom roles
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -483,7 +619,7 @@ export function EventsAccessManagement() {
         {([
           { id: "role" as const, label: "By Role", icon: Users },
           { id: "matrix" as const, label: "Access Matrix", icon: Shield },
-          { id: "suggestions" as const, label: "Suggestions", icon: Info },
+          { id: "suggestions" as const, label: "Suggestions", icon: Sparkles },
         ]).map(tab => (
           <button key={tab.id} onClick={() => setViewMode(tab.id)}
             className={cn(
@@ -507,11 +643,22 @@ export function EventsAccessManagement() {
 
       {viewMode === "role" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Role list */}
-          <div className="lg:col-span-4 space-y-2">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">Roles ({roles.length})</p>
+          {/* Role list — split into system + suggested */}
+          <div className="lg:col-span-4 space-y-4">
             <div className="space-y-2">
-              {roles.map(r => (
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1 flex items-center gap-1.5">
+                <Shield className="w-3 h-3" /> System Roles ({systemRoles.length})
+              </p>
+              {systemRoles.map(r => (
+                <RoleCard key={r.name} role={r} selected={selectedRole === r.name}
+                  onSelect={() => setSelectedRole(r.name)} />
+              ))}
+            </div>
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider px-1 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3" /> Suggested Custom Roles ({suggestedRoles.length})
+              </p>
+              {suggestedRoles.map(r => (
                 <RoleCard key={r.name} role={r} selected={selectedRole === r.name}
                   onSelect={() => setSelectedRole(r.name)} />
               ))}
@@ -520,6 +667,12 @@ export function EventsAccessManagement() {
           {/* Detail panel */}
           <div className="lg:col-span-8">
             <div className="bg-white rounded-xl border border-slate-100 p-4 sm:p-6 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
+              {activeRole?.suggested && (
+                <div className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-100 text-amber-800 text-[11px]">
+                  <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-500" />
+                  <span>This is a <strong>suggested custom role</strong>. Create it in <strong>Admin Hub → Roles</strong> and assign the permissions below to activate it.</span>
+                </div>
+              )}
               <RoleDetailPanel
                 role={activeRole}
                 matrix={EVENT_PERMISSION_MATRIX}

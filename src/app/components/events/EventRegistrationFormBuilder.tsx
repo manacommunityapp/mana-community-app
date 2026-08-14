@@ -199,6 +199,19 @@ const FIELD_TEMPLATES: FieldTemplate[] = [
       { type: "checkbox", label: "I consent to being photographed/recorded during the event", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
     ],
   },
+  {
+    id: "ganesh_festival",
+    label: "Ganesh Festival Pack",
+    icon: Sparkles,
+    description: "Puja Aarti slot, Prasadam pass, Cultural & Volunteer",
+    fields: [
+      { type: "section", label: "Ganesh Festival Specifics", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+      { type: "select", label: "Preferred Aarti Slot", placeholder: "Select slot", description: "", required: true, options: ["Morning Inaugural Aarti (08:00 AM)", "Afternoon Mahapooja (12:30 PM)", "Evening Grand Aarti (07:00 PM)", "Late Night Bhajan Aarti (09:30 PM)"], width: "half", validation: {}, conditional: null },
+      { type: "select", label: "Mahaprasadam Meal Pass Count", placeholder: "Select meal count", description: "", required: true, options: ["1 Pass (Self)", "2 Passes", "3 Passes", "4 Passes", "5 Passes", "6+ Family Passes"], width: "half", validation: {}, conditional: null },
+      { type: "select", label: "Cultural Activity Participation", placeholder: "Select activity", description: "", required: false, options: ["None / Audience Only", "Classical Dance", "Devotional Bhajan", "Kids Drawing Contest", "Rangoli Contest", "Dhol Tasha Troupe"], width: "half", validation: {}, conditional: null },
+      { type: "radio", label: "Volunteer Team", placeholder: "", description: "", required: false, options: ["Prasadam Distribution", "Pandal Decoration", "Crowd & Gate Control", "Visarjan Procession", "Medical Desk", "Not Volunteering"], width: "half", validation: {}, conditional: null },
+    ],
+  },
 ];
 
 const INPUT_CLS = "w-full px-4 py-3 h-auto rounded-xl border-slate-200 bg-white text-sm text-slate-800 focus-visible:border-indigo-400 focus-visible:ring-indigo-50";
@@ -1009,5 +1022,78 @@ export const DEFAULT_REGISTRATION_FORM_CONFIG: RegistrationFormConfig = {
   allowFamilyRegistration: true,
   maxFamilyMembers: 5,
   confirmationMessage: "Thank you for registering! A confirmation email will be sent to you shortly.",
+  collectPayment: false,
+};
+
+export const GANESH_CHATURTHI_FORM_CONFIG: RegistrationFormConfig = {
+  fields: [
+    { id: "gc_s1", type: "section", label: "Personal Details", placeholder: "", description: "Primary attendee registration details", required: false, options: [], width: "full", validation: {}, conditional: null },
+    { id: "gc_f1", type: "text", label: "First Name", placeholder: "Enter first name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+    { id: "gc_f2", type: "text", label: "Last Name", placeholder: "Enter last name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+    { id: "gc_f3", type: "number", label: "Age", placeholder: "e.g. 32", description: "", required: true, options: [], width: "half", validation: { min: 0, max: 120 }, conditional: null },
+    { id: "gc_f4", type: "select", label: "Gender", placeholder: "Select gender", description: "", required: true, options: ["Male", "Female", "Other", "Prefer not to say"], width: "half", validation: {}, conditional: null },
+
+    { id: "gc_s2", type: "section", label: "Contact & Address", placeholder: "", description: "Required for entry pass distribution & updates", required: false, options: [], width: "full", validation: {}, conditional: null },
+    { id: "gc_f5", type: "email", label: "Email Address", placeholder: "your@email.com", description: "Digital entry pass & slot confirmation will be sent here", required: true, options: [], width: "full", validation: {}, conditional: null },
+    { id: "gc_f6", type: "phone", label: "Mobile Number", placeholder: "+91 98765 43210", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+    { id: "gc_f7", type: "text", label: "Flat / Villa No & Street", placeholder: "Flat / Villa number & street address", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+    { id: "gc_f8", type: "text", label: "Community Wing / Tower", placeholder: "e.g. Tower B, Flat 402", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+    { id: "gc_f9", type: "text", label: "Pincode", placeholder: "400069", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+
+    { id: "gc_s3", type: "section", label: "Puja, Aarti & Meal Preferences", placeholder: "", description: "Choose your preferred time slots & mahaprasadam passes", required: false, options: [], width: "full", validation: {}, conditional: null },
+    { id: "gc_f10", type: "select", label: "Preferred Aarti Slot", placeholder: "Select Aarti slot", description: "Slot allocation ensures smooth crowd management at the Pandal", required: true, options: [
+      "Morning Inaugural Aarti (08:00 AM - 09:00 AM)",
+      "Afternoon Mahapooja & Aarti (12:30 PM - 01:30 PM)",
+      "Evening Grand Aarti & Dhoop (07:00 PM - 08:30 PM)",
+      "Late Night Stotram & Bhajan Aarti (09:30 PM - 10:30 PM)",
+    ], width: "half", validation: {}, conditional: null },
+    { id: "gc_f11", type: "select", label: "Mahaprasadam Meal Pass Count", placeholder: "Select meal pass count", description: "Pure vegetarian Mahaprasadam served daily", required: true, options: [
+      "1 Pass (Self Only)",
+      "2 Passes (Self + 1)",
+      "3 Passes (Self + 2)",
+      "4 Passes (Family of 4)",
+      "5 Passes (Family of 5)",
+      "6+ Family Passes",
+    ], width: "half", validation: {}, conditional: null },
+    { id: "gc_f12", type: "select", label: "Cultural Program Participation", placeholder: "Select event activity", description: "Register for festival stage performances", required: false, options: [
+      "None / Audience Only",
+      "Classical Dance (Bharatanatyam / Kathak)",
+      "Devotional Bhajan / Group Singing",
+      "Kids Drawing & Craft Competition",
+      "Rangoli & Floral Art Contest",
+      "Dhol Tasha / Cultural Music Troupe",
+    ], width: "half", validation: {}, conditional: null },
+    { id: "gc_f13", type: "radio", label: "Volunteer Interest", placeholder: "", description: "Would you like to assist our festival organizing committee?", required: false, options: [
+      "Prasadam Distribution",
+      "Pandal & Stage Decoration",
+      "Crowd Control & Gate Management",
+      "Visarjan Procession Team",
+      "Medical & First Aid Desk",
+      "Not Volunteering",
+    ], width: "half", validation: {}, conditional: null },
+
+    { id: "gc_s4", type: "section", label: "Family Members Registration", placeholder: "", description: "Add family members attending the festival with you", required: false, options: [], width: "full", validation: {}, conditional: null },
+    {
+      id: "gc_f14", type: "family_repeater", label: "Family Members", placeholder: "", description: "Include details of all family members for gate pass generation",
+      required: false, options: [], width: "full", validation: {}, conditional: null,
+      familyFields: [
+        { id: "gc_fm_name", type: "text", label: "Full Name", placeholder: "Full name", description: "", required: true, options: [], width: "half", validation: {}, conditional: null },
+        { id: "gc_fm_age", type: "number", label: "Age", placeholder: "Age", description: "", required: true, options: [], width: "half", validation: { min: 0, max: 120 }, conditional: null },
+        { id: "gc_fm_gender", type: "select", label: "Gender", placeholder: "Select gender", description: "", required: true, options: ["Male", "Female", "Other"], width: "half", validation: {}, conditional: null },
+        { id: "gc_fm_rel", type: "select", label: "Relationship", placeholder: "Select relation", description: "", required: true, options: ["Spouse", "Child", "Parent", "Sibling", "Relative", "Other"], width: "half", validation: {}, conditional: null },
+      ],
+    },
+
+    { id: "gc_s5", type: "section", label: "Emergency Contact", placeholder: "", description: "In case of emergency during festival events", required: false, options: [], width: "full", validation: {}, conditional: null },
+    { id: "gc_f15", type: "text", label: "Emergency Contact Name", placeholder: "Contact person name", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+    { id: "gc_f16", type: "phone", label: "Emergency Contact Phone", placeholder: "+91 98765 43210", description: "", required: false, options: [], width: "half", validation: {}, conditional: null },
+
+    { id: "gc_s6", type: "section", label: "Consent & Guidelines", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+    { id: "gc_f17", type: "checkbox", label: "I agree to abide by the festival safety, eco-friendly Visarjan guidelines and community code of conduct.", placeholder: "", description: "", required: true, options: [], width: "full", validation: {}, conditional: null },
+    { id: "gc_f18", type: "checkbox", label: "I consent to official photography and video recording during Ganesh Utsav 2026 celebrations.", placeholder: "", description: "", required: false, options: [], width: "full", validation: {}, conditional: null },
+  ],
+  allowFamilyRegistration: true,
+  maxFamilyMembers: 6,
+  confirmationMessage: "Jai Ganesh! Thank you for registering for Ganesh Chaturthi Grand Festival 2026. Your official gate pass & Aarti slot confirmation details have been generated.",
   collectPayment: false,
 };

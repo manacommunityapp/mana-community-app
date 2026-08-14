@@ -15,6 +15,7 @@ import { FoodModuleView } from "./FoodModuleView";
 import { InventoryModuleView } from "./InventoryModuleView";
 import { FinanceSponsorsView } from "./FinanceSponsorsView";
 import { GalleryMediaView } from "./GalleryMediaView";
+import { EventsReports } from "../EventsReports";
 import { ProfileNotificationsView } from "./ProfileNotificationsView";
 import { BottomSheet, SkeletonLoader } from "./EventDesignSystem";
 import { useEscapeKey } from "../../../../hooks/useEscapeKey";
@@ -30,10 +31,14 @@ export function EventsRedesignMain() {
   useEscapeKey(() => setShowSearchCmd(false), showSearchCmd);
   useEscapeKey(() => setShowAICopilot(false), showAICopilot);
 
-  // Search state
+  // Search state & selected event state for registration
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRegisterEvent, setSelectedRegisterEvent] = useState<any>(null);
 
-  const handleOpenRegister = () => {
+  const handleOpenRegister = (evt?: any) => {
+    if (evt) {
+      setSelectedRegisterEvent(evt);
+    }
     setActiveTab("registration");
   };
 
@@ -128,6 +133,7 @@ export function EventsRedesignMain() {
               { id: "inventory", label: "Inventory" },
               { id: "finance", label: "Finance" },
               { id: "gallery", label: "Media" },
+              { id: "reports", label: "Reports" },
             ].map((t) => (
               <button
                 key={t.id}
@@ -170,7 +176,7 @@ export function EventsRedesignMain() {
               {activeTab === "analytics" && <EventsAnalyticsView isDark={isDark} />}
               {activeTab === "registration" && (
                 <div className="max-w-xl mx-auto py-1 sm:py-3">
-                  <EventRegistrationWizard isDark={isDark} onClose={() => setActiveTab("dashboard")} />
+                  <EventRegistrationWizard isDark={isDark} event={selectedRegisterEvent} onClose={() => setActiveTab("dashboard")} />
                 </div>
               )}
               {activeTab === "cultural" && <CulturalActivitiesView isDark={isDark} />}
@@ -179,6 +185,7 @@ export function EventsRedesignMain() {
               {activeTab === "inventory" && <InventoryModuleView isDark={isDark} />}
               {activeTab === "finance" && <FinanceSponsorsView isDark={isDark} />}
               {activeTab === "gallery" && <GalleryMediaView isDark={isDark} />}
+              {activeTab === "reports" && <EventsReports />}
               {activeTab === "events" && (
                 <EventsExecutiveHome
                   isDark={isDark}

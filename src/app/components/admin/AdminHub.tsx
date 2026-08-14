@@ -52,7 +52,7 @@ import { AdminVenues } from "./AdminVenues";
 import { AdminCommunity } from "./AdminCommunity";
 import { AdminDirectory } from "./AdminDirectory";
 import { AdminRoleManagement } from "./AdminRoleManagement";
-import { EventsAccessManagement } from "../events/EventsAccessManagement";
+import { AdminAccessManagement } from "./AdminAccessManagement";
 import { LogsDashboard } from "./LogsDashboard";
 import { AuditTrail } from "./AuditTrail";
 import { AdminSportsMeta } from "./AdminSportsMeta";
@@ -879,7 +879,7 @@ export function AdminHub() {
           />
         )}
         {activeTab === "users-roles" && <AdminRoleManagement />}
-        {activeTab === "access-roles" && <EventsAccessManagement />}
+        {activeTab === "access-roles" && <AdminAccessManagement />}
         {activeTab === "kyc" && <AdminDashboard />}
         {activeTab === "modules" && <ModulesTab />}
         {activeTab === "bulk" && <AdminBulkUpload />}

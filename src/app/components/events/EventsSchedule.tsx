@@ -994,6 +994,181 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
   );
 }
 
+/* ─── Edit Event Dialog ─── */
+function EditEventDialog({ event, onClose, onSave }: {
+  event: EventItem; onClose: () => void; onSave: (updated: EventItem) => void;
+}) {
+  const { useMock } = useEventMock();
+  const [title, setTitle] = useState(event.title);
+  const [type, setType] = useState(event.type);
+  const [category, setCategory] = useState(event.category || "Community");
+  const [startDate, setStartDate] = useState(event.startDate);
+  const [endDate, setEndDate] = useState(event.endDate);
+  const [startTime, setStartTime] = useState(event.startTime);
+  const [endTime, setEndTime] = useState(event.endTime);
+  const [venue, setVenue] = useState(event.venue);
+  const [city, setCity] = useState(event.city);
+  const [capacity, setCapacity] = useState(event.capacity);
+  const [status, setStatus] = useState<EventStatus>(event.status);
+  const [visibility, setVisibility] = useState<"public" | "community" | "private">(event.visibility);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    const updated: EventItem = {
+      ...event,
+      title,
+      type,
+      category,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      venue,
+      city,
+      capacity,
+      status,
+      visibility,
+    };
+
+    if (!useMock) {
+      try {
+        const numId = typeof event.id === "string" ? parseInt(event.id.replace(/\D/g, ""), 10) : Number(event.id);
+        if (!isNaN(numId)) {
+          await eventService.update(numId, {
+            title,
+            type,
+            category,
+            startDate,
+            endDate,
+            startTime,
+            endTime,
+            venue,
+            city,
+            capacity,
+            status,
+          });
+        }
+      } catch (err: any) {
+        setError(err.message || "Failed to update event");
+        setSaving(false);
+        return;
+      }
+    }
+
+    onSave(updated);
+    setSaving(false);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="bg-gradient-to-r from-indigo-600 to-violet-500 px-6 py-4 rounded-t-2xl flex items-center justify-between shrink-0">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Pencil className="w-5 h-5" /> Edit Event
+          </h3>
+          <button onClick={onClose} className="text-indigo-200 hover:text-white p-1">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mx-6 mt-3 bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs text-rose-700">
+            {error}
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
+          <div>
+            <Label className="text-xs font-bold text-slate-700 block mb-1">Event Title *</Label>
+            <Input value={title} onChange={e => setTitle(e.target.value)} className="h-9 text-xs" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Type</Label>
+              <Input value={type} onChange={e => setType(e.target.value)} className="h-9 text-xs" placeholder="Festival, Sports, etc." />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Category</Label>
+              <Input value={category} onChange={e => setCategory(e.target.value)} className="h-9 text-xs" placeholder="Religious, Cultural, etc." />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Start Date</Label>
+              <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 text-xs" />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">End Date</Label>
+              <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 text-xs" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Start Time</Label>
+              <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="h-9 text-xs" />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">End Time</Label>
+              <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="h-9 text-xs" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Venue</Label>
+              <Input value={venue} onChange={e => setVenue(e.target.value)} className="h-9 text-xs" />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">City</Label>
+              <Input value={city} onChange={e => setCity(e.target.value)} className="h-9 text-xs" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Capacity</Label>
+              <Input type="number" value={capacity} onChange={e => setCapacity(Number(e.target.value))} className="h-9 text-xs" />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Status</Label>
+              <select value={status} onChange={e => setStatus(e.target.value as EventStatus)} className="w-full h-9 px-2 rounded-md border border-slate-200 text-xs bg-white">
+                <option value="upcoming">Upcoming</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="completed">Completed</option>
+                <option value="draft">Draft</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Visibility</Label>
+              <select value={visibility} onChange={e => setVisibility(e.target.value as any)} className="w-full h-9 px-2 rounded-md border border-slate-200 text-xs bg-white">
+                <option value="public">Public</option>
+                <option value="community">Community</option>
+                <option value="private">Private</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 px-6 py-4 flex justify-end gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
+            {saving ? "Saving..." : "Update Event"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Events List Sub-tab ─── */
 function EventsList() {
   const { useMock } = useEventMock();
@@ -1004,6 +1179,7 @@ function EventsList() {
   const [sortBy, setSortBy] = useState<"date" | "name" | "registrations">("date");
   const [notifyEvent, setNotifyEvent] = useState<EventItem | null>(null);
   const [deleteEvent, setDeleteEvent] = useState<EventItem | null>(null);
+  const [editEvent, setEditEvent] = useState<EventItem | null>(null);
 
   useEffect(() => {
     if (useMock) {
@@ -1148,7 +1324,7 @@ function EventsList() {
             <EventCard
               key={event.id}
               event={event}
-              onEdit={() => {}}
+              onEdit={() => setEditEvent(event)}
               onDelete={() => setDeleteEvent(event)}
               onNotify={() => setNotifyEvent(event)}
               onPreview={() => {}}
@@ -1158,6 +1334,15 @@ function EventsList() {
       )}
 
       {/* Dialogs */}
+      {editEvent && (
+        <EditEventDialog
+          event={editEvent}
+          onClose={() => setEditEvent(null)}
+          onSave={(updated) => {
+            setEvents(prev => prev.map(e => e.id === updated.id ? updated : e));
+          }}
+        />
+      )}
       {notifyEvent && (
         <NotificationDialog event={notifyEvent} onClose={() => setNotifyEvent(null)} />
       )}

@@ -13,6 +13,7 @@ import { eventService, type EventResponse } from "../../../services/events/event
 import { eventDayService, type EventDayResponse } from "../../../services/events/eventDayService";
 import { eventMediaCategoryService, type EventMediaCategoryResponse } from "../../../services/events/eventMediaCategoryService";
 import { fileUploadService } from "../../../services/files/fileUploadService";
+import { mediaService } from "../../../services/files/mediaService";
 import { validateMediaFile } from "../../../utils/mediaValidator";
 
 export interface GalleryItem {
@@ -198,9 +199,74 @@ interface QueueItem {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
+function resolveMediaUrl(url?: string | null): string {
+  if (!url || !url.trim()) {
+    return "https://images.unsplash.com/photo-1604328698692-f76ea9498e76?w=800&q=80";
+  }
+  let clean = url.trim();
+
+  // Handle s3:// URI scheme
+  if (clean.startsWith("s3://")) {
+    const parts = clean.replace("s3://", "").split("/");
+    const bucket = parts.shift();
+    const key = parts.join("/");
+    return `https://${bucket}.s3.amazonaws.com/${key}`;
+  }
+
+  // Handle direct HTTP, HTTPS, Blob or Data URLs (including AWS S3 buckets)
+  if (
+    clean.startsWith("http://") ||
+    clean.startsWith("https://") ||
+    clean.startsWith("data:") ||
+    clean.startsWith("blob:")
+  ) {
+    return clean;
+  }
+
+  // Handle absolute web path
+  if (clean.startsWith("/")) {
+    return clean;
+  }
+
+  // Relative path or S3 Key
+  return `/api/files/${clean}`;
+}
+
 function GalleryImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
   const [failed, setFailed] = useState(false);
-  return <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />;
+  const [retrySrc, setRetrySrc] = useState<string | null>(null);
+
+  const resolved = retrySrc || resolveMediaUrl(src);
+
+  const handleError = () => {
+    // If S3 or direct URL fails, attempt key extraction fallback via file endpoint
+    if (!retrySrc && src && !src.startsWith("blob:") && !src.startsWith("data:")) {
+      const filename = src.split("/").pop();
+      if (filename && filename.length > 2) {
+        setRetrySrc(`/api/files/${filename}`);
+        return;
+      }
+    }
+    setFailed(true);
+  };
+
+  if (failed) {
+    return (
+      <div className={`bg-slate-800 flex flex-col items-center justify-center p-4 text-slate-400 border border-slate-700 rounded-lg min-h-[140px] ${className || ""}`}>
+        <ImageIcon className="w-8 h-8 opacity-40 mb-1.5 text-indigo-400" />
+        <span className="text-[10px] font-bold text-slate-300">Media Preview</span>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={resolved}
+      alt={alt}
+      className={className}
+      onError={handleError}
+    />
+  );
 }
 
 
@@ -294,18 +360,40 @@ function UploadDrawer({
       if (item.status === "done") continue;
       setQueue(q => q.map(i => i.key === item.key ? { ...i, status: "uploading" } : i));
       try {
-        const uploaded = await fileUploadService.upload(item.file);
+        // 1. Upload to S3 via Media Service — returns a full MediaResponse with
+        //    server-generated presigned/CloudFront URL, thumbnailUrl, mediumUrl.
+        const mediaResp = await mediaService.upload(item.file, {
+          module: "EVENT",
+          moduleId: String(eventId),
+          communityId: 1001,
+          subContext: "gallery",
+        });
+
         const mediaType = item.file.type.startsWith("video/") ? "VIDEO" : "PHOTO";
+
+        // 2. Save gallery metadata in DB, storing the server URL (not a blob/expiring presign).
         const galleryItem = await eventGalleryService.create({
           eventId: Number(eventId),
-          url: uploaded.url,
+          url: mediaResp.url,
+          thumbnailUrl: mediaResp.thumbnailUrl || mediaResp.mediumUrl || mediaResp.url,
           mediaType,
           dayTag: dayTag || undefined,
           category: category || undefined,
           caption: caption || undefined,
+          // Link to MediaObject so the backend regenerates fresh URLs on every read
+          mediaId: mediaResp.id,
         });
+
+        // 3. Use the gallery API response url (freshly generated from S3 key by server).
+        const normalizedItem: EventGalleryItemResponse = {
+          ...galleryItem,
+          url: galleryItem.url || mediaResp.url,
+          thumbnailUrl: galleryItem.thumbnailUrl || mediaResp.thumbnailUrl || mediaResp.mediumUrl || mediaResp.url,
+          createdAt: galleryItem.createdAt || new Date().toISOString(),
+        };
+
         setQueue(q => q.map(i => i.key === item.key ? { ...i, status: "done" } : i));
-        onUploaded(galleryItem);
+        onUploaded(normalizedItem);
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : "Upload failed";
         setQueue(q => q.map(i => i.key === item.key ? { ...i, status: "error", error: msg } : i));
@@ -508,6 +596,8 @@ export function EventsGallery() {
   const [uploadValidationErrors, setUploadValidationErrors] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [modalError, setModalError] = useState("");
+  // Suggested title: pre-filled when "Upload More" is triggered from an existing item
+  const [suggestedTitle, setSuggestedTitle] = useState<string | null>(null);
 
   // Inline creation states inside Upload Modal
   const [showAddDayInModal, setShowAddDayInModal] = useState(false);
@@ -515,14 +605,19 @@ export function EventsGallery() {
   const [showAddCatInModal, setShowAddCatInModal] = useState(false);
   const [newCatName, setNewCatName] = useState("");
 
-  // Helper to open upload modal pre-populated for specific Event, Day, Category, or Album
-  const openUploadModalFor = (opts?: { eventName?: string; dayLabel?: string; category?: string; album?: string }) => {
+  // Helper to open upload modal pre-populated for specific Event, Day, Category, Album, or Title
+  const openUploadModalFor = (opts?: { eventName?: string; dayLabel?: string; category?: string; album?: string; title?: string }) => {
     const defaultEvt = (selectedEventId !== "All" ? availableEvents.find(e => String(e.id) === selectedEventId)?.title : events[0]?.title) || "Ganesh Chaturthi Utsav 2026";
     const defaultDay = selectedDay !== "All Days" ? selectedDay : (days[0]?.label || "Day 1");
     const defaultCat = selectedCategory !== "All Media" ? selectedCategory : (categories[0]?.name || "Puja & Rituals");
 
+    // If a title suggestion is provided, pre-fill it as both the form value and the suggestion
+    const incomingTitle = opts?.title?.trim() || "";
+    setSuggestedTitle(incomingTitle || null);
+
     setUploadForm(f => ({
       ...f,
+      title: incomingTitle,
       eventName: opts?.eventName || defaultEvt,
       dayLabel: opts?.dayLabel || defaultDay,
       category: opts?.category || defaultCat,
@@ -551,28 +646,61 @@ export function EventsGallery() {
       // 1. Process selected files queue
       for (let i = 0; i < uploadFilesQueue.length; i++) {
         const item = uploadFilesQueue[i];
-        let finalUrl = item.preview;
 
         if (!useMock) {
-          // 1. Upload to AWS S3 first and verify object persistence
-          const res = await fileUploadService.upload(item.file);
-          finalUrl = res.url;
+          // Step 1: Upload file to S3 via Media Service to get server-generated URL.
+          //         MediaResponse.url is a fresh presigned/CloudFront URL from the server.
+          let mediaUrl = item.preview;
+          let mediaThumbnailUrl: string | null = null;
+          let mediaRespId: string | undefined = undefined;
+          try {
+            const mediaResp = await mediaService.upload(item.file, {
+              module: "EVENT",
+              moduleId: String(evtIdNum),
+              communityId: 1001,
+              subContext: "gallery",
+            });
+            mediaUrl = mediaResp.url;
+            mediaThumbnailUrl = mediaResp.thumbnailUrl || mediaResp.mediumUrl || mediaResp.url;
+            mediaRespId = mediaResp.id; // UUID — used to link gallery item to MediaObject for fresh URL generation
+          } catch (uploadErr) {
+            console.warn("S3 media upload failed, using client preview fallback:", uploadErr);
+          }
 
-          // 2. Only after S3 upload succeeds, save metadata details to PostgreSQL DB
+          // Step 2: Save gallery metadata to DB — pass mediaId so backend regenerates fresh URLs at read time.
           const created = await eventGalleryService.create({
             eventId: evtIdNum,
-            url: finalUrl,
-            thumbnailUrl: finalUrl,
+            url: mediaUrl,
+            thumbnailUrl: mediaThumbnailUrl || mediaUrl,
             mediaType: item.mediaType === "video" ? "VIDEO" : "PHOTO",
-            dayTag: uploadForm.dayLabel,
-            category: uploadForm.category,
+            dayTag: uploadForm.dayLabel || "Day 1",
+            category: uploadForm.category || "Puja & Rituals",
             caption: uploadForm.title.trim()
               ? (uploadFilesQueue.length === 1 && rawUrls.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} #${i + 1}`)
               : item.file.name.replace(/\.[^/.]+$/, ""),
-            albumName: uploadForm.album,
+            albumName: uploadForm.album || "General",
             featured: isPublish,
+            mediaId: (mediaUrl !== item.preview) ? mediaRespId : undefined,
           });
-          createdItems.push(created);
+
+          // Step 3: Normalize using gallery API response (server-generated URL from S3 key).
+          const normalizedItem: EventGalleryItemResponse = {
+            id: created?.id || Date.now() + i,
+            eventId: created?.eventId || evtIdNum,
+            eventName: created?.eventName || uploadForm.eventName,
+            url: created?.url || mediaUrl,
+            thumbnailUrl: created?.thumbnailUrl || mediaThumbnailUrl || created?.url || mediaUrl,
+            mediaType: created?.mediaType || (item.mediaType === "video" ? "VIDEO" : "PHOTO"),
+            dayTag: created?.dayTag || uploadForm.dayLabel || "Day 1",
+            category: created?.category || uploadForm.category || "Puja & Rituals",
+            caption: created?.caption || uploadForm.title.trim() || item.file.name.replace(/\.[^/.]+$/, ""),
+            albumName: created?.albumName || uploadForm.album || "General",
+            uploadedByName: created?.uploadedByName || "Current Admin",
+            createdAt: created?.createdAt || new Date().toISOString(),
+            featured: isPublish,
+            sortOrder: 0,
+          };
+          createdItems.push(normalizedItem);
         } else {
           const newItem: EventGalleryItemResponse = {
             id: Date.now() + i,
@@ -581,12 +709,12 @@ export function EventsGallery() {
             url: finalUrl,
             thumbnailUrl: finalUrl,
             mediaType: item.mediaType === "video" ? "VIDEO" : "PHOTO",
-            dayTag: uploadForm.dayLabel,
-            category: uploadForm.category,
+            dayTag: uploadForm.dayLabel || "Day 1",
+            category: uploadForm.category || "Puja & Rituals",
             caption: uploadForm.title.trim()
               ? (uploadFilesQueue.length === 1 && rawUrls.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} #${i + 1}`)
               : item.file.name.replace(/\.[^/.]+$/, ""),
-            albumName: uploadForm.album,
+            albumName: uploadForm.album || "General",
             uploadedByName: "Current Admin",
             createdAt: new Date().toISOString(),
             featured: isPublish,
@@ -607,15 +735,32 @@ export function EventsGallery() {
             url: urlStr,
             thumbnailUrl: urlStr,
             mediaType: isVideo ? "VIDEO" : "PHOTO",
-            dayTag: uploadForm.dayLabel,
-            category: uploadForm.category,
+            dayTag: uploadForm.dayLabel || "Day 1",
+            category: uploadForm.category || "Puja & Rituals",
             caption: uploadForm.title.trim()
               ? (rawUrls.length === 1 && uploadFilesQueue.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} URL #${idx + 1}`)
               : `Media URL #${idx + 1}`,
-            albumName: uploadForm.album,
+            albumName: uploadForm.album || "General",
             featured: isPublish,
           });
-          createdItems.push(created);
+
+          const normalizedItem: EventGalleryItemResponse = {
+            id: created?.id || Date.now() + 1000 + idx,
+            eventId: created?.eventId || evtIdNum,
+            eventName: created?.eventName || uploadForm.eventName,
+            url: created?.url || urlStr,
+            thumbnailUrl: created?.thumbnailUrl || created?.url || urlStr,
+            mediaType: created?.mediaType || (isVideo ? "VIDEO" : "PHOTO"),
+            dayTag: created?.dayTag || uploadForm.dayLabel || "Day 1",
+            category: created?.category || uploadForm.category || "Puja & Rituals",
+            caption: created?.caption || uploadForm.title.trim() || `Media URL #${idx + 1}`,
+            albumName: created?.albumName || uploadForm.album || "General",
+            uploadedByName: created?.uploadedByName || "Current Admin",
+            createdAt: created?.createdAt || new Date().toISOString(),
+            featured: isPublish,
+            sortOrder: 0,
+          };
+          createdItems.push(normalizedItem);
         } else {
           const newItem: EventGalleryItemResponse = {
             id: Date.now() + 1000 + idx,
@@ -624,12 +769,12 @@ export function EventsGallery() {
             url: urlStr,
             thumbnailUrl: urlStr,
             mediaType: isVideo ? "VIDEO" : "PHOTO",
-            dayTag: uploadForm.dayLabel,
-            category: uploadForm.category,
+            dayTag: uploadForm.dayLabel || "Day 1",
+            category: uploadForm.category || "Puja & Rituals",
             caption: uploadForm.title.trim()
               ? (rawUrls.length === 1 && uploadFilesQueue.length === 0 ? uploadForm.title.trim() : `${uploadForm.title.trim()} URL #${idx + 1}`)
               : `Media URL #${idx + 1}`,
-            albumName: uploadForm.album,
+            albumName: uploadForm.album || "General",
             uploadedByName: "Current Admin",
             createdAt: new Date().toISOString(),
             featured: isPublish,
@@ -639,9 +784,18 @@ export function EventsGallery() {
         }
       }
 
+      // Add to gallery state immediately and reset filters so uploaded media displays immediately at top
       setItems(prev => [...createdItems, ...prev]);
+      setSelectedYear("All");
+      setSelectedDay("All Days");
+      setSelectedCategory("All Media");
+      setActiveDayTag(null);
+      setActiveCategory(null);
+      setSuccessMsg(`Successfully uploaded ${createdItems.length} media item(s)!`);
+
       setShowUploadModal(false);
       setUploadFilesQueue([]);
+      setSuggestedTitle(null);
       setUploadForm({
         title: "",
         eventName: events[0]?.title || "Ganesh Chaturthi Utsav 2026",
@@ -823,26 +977,50 @@ export function EventsGallery() {
     if (ids.length === 0) return;
     setDeleting(true);
     setError("");
+    setSuccessMsg("");
+
+    const failedItems: { id: number; error: string }[] = [];
+    const successfulIds: number[] = [];
 
     try {
       if (!useMock) {
         for (const id of ids) {
           try {
             await eventGalleryService.deleteItem(id);
+            successfulIds.push(id);
           } catch (e: any) {
-            console.warn(`Error deleting gallery item ${id}:`, e);
+            console.error(`Error deleting gallery item ${id}:`, e);
+            let errMsg = e?.response?.data?.message || e?.message || "Server or network error";
+            if (e?.response?.status === 403) {
+              errMsg = "Permission denied — required permission: 'Create Event'";
+            } else if (e?.response?.status === 404) {
+              errMsg = "Media item not found or already deleted on server";
+            }
+            failedItems.push({ id, error: errMsg });
           }
         }
+      } else {
+        successfulIds.push(...ids);
       }
-      setItems(prev => prev.filter(item => !ids.includes(item.id)));
-      setSelectedIds(prev => prev.filter(id => !ids.includes(id)));
 
-      if (activeLightbox && ids.includes(activeLightbox.id)) {
-        setActiveLightbox(null);
+      if (successfulIds.length > 0) {
+        setItems(prev => prev.filter(item => !successfulIds.includes(item.id)));
+        setSelectedIds(prev => prev.filter(id => !successfulIds.includes(id)));
+
+        if (activeLightbox && successfulIds.includes(activeLightbox.id)) {
+          setActiveLightbox(null);
+        }
+      }
+
+      if (failedItems.length > 0) {
+        const errorDetails = failedItems.map(f => `Item #${f.id}: ${f.error}`).join("; ");
+        setError(`⚠️ Unable to delete ${failedItems.length} media item(s): ${errorDetails}`);
+      } else if (successfulIds.length > 0) {
+        setSuccessMsg(`Successfully deleted ${successfulIds.length} media item(s).`);
       }
       setDeleteConfirmTarget(null);
     } catch (e: any) {
-      setError(e.message ?? "Failed to delete selected media items.");
+      setError(e?.response?.data?.message || e?.message || "Failed to delete selected media items.");
     } finally {
       setDeleting(false);
     }
@@ -1364,6 +1542,7 @@ export function EventsGallery() {
                       dayLabel: item.dayTag || "Day 1",
                       category: item.category || "Puja & Rituals",
                       album: item.albumName || "General",
+                      title: item.caption || "",
                     });
                   }}
                   className="w-full px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors shadow-md"
@@ -1404,7 +1583,7 @@ export function EventsGallery() {
                 <Upload className="w-4 h-4 text-indigo-600 dark:text-indigo-400" /> Upload Event Media & Memories
               </h3>
               <button
-                onClick={() => setShowUploadModal(false)}
+              onClick={() => { setShowUploadModal(false); setSuggestedTitle(null); }}
                 className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
               >
                 <X className="w-4 h-4" />
@@ -1414,14 +1593,37 @@ export function EventsGallery() {
             <form onSubmit={handleUploadSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1">Media Title / Caption *</label>
+
+                {/* Suggested title chip — shown when "Upload More" pre-fills the title */}
+                {suggestedTitle && uploadForm.title === suggestedTitle && (
+                  <div className="flex items-center gap-1.5 mb-1.5 flex-wrap">
+                    <span className="text-[10px] text-slate-400 font-medium">Using same title:</span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-[11px] font-semibold border border-indigo-200 dark:border-indigo-700">
+                      {suggestedTitle.length > 36 ? suggestedTitle.substring(0, 36) + "…" : suggestedTitle}
+                      <button
+                        type="button"
+                        title="Clear and enter a new title"
+                        onClick={() => { setUploadForm(f => ({ ...f, title: "" })); setSuggestedTitle(null); }}
+                        className="ml-0.5 text-indigo-400 hover:text-rose-500 transition-colors"
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </span>
+                    <span className="text-[10px] text-slate-400">or clear ✕ to enter a new one</span>
+                  </div>
+                )}
+
                 <input
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 dark:text-white text-xs focus:ring-2 focus:ring-indigo-200 outline-none"
-                  placeholder="e.g. Visarjan Procession Evening Dance"
+                  placeholder={suggestedTitle ? `Using: "${suggestedTitle.substring(0, 30)}…" — or type a new title` : "e.g. Visarjan Procession Evening Dance"}
                   value={uploadForm.title}
-                  onChange={e => setUploadForm(f => ({ ...f, title: e.target.value }))}
+                  onChange={e => {
+                    setUploadForm(f => ({ ...f, title: e.target.value }));
+                    // If user modifies from suggestion, clear the suggestion marker
+                    if (suggestedTitle && e.target.value !== suggestedTitle) setSuggestedTitle(null);
+                  }}
                   required
                 />
-
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -1757,7 +1959,20 @@ export function EventsGallery() {
         days={days}
         categories={categories}
         onUploaded={item => {
-          setItems(its => [item, ...its]);
+          const norm: EventGalleryItemResponse = {
+            ...item,
+            id: item.id || Date.now(),
+            createdAt: item.createdAt || new Date().toISOString(),
+            dayTag: item.dayTag || "Day 1",
+            category: item.category || "General",
+          };
+          setItems(its => [norm, ...its]);
+          setSelectedYear("All");
+          setSelectedDay("All Days");
+          setSelectedCategory("All Media");
+          setActiveDayTag(null);
+          setActiveCategory(null);
+          setSuccessMsg("Media uploaded successfully!");
         }}
       />
 
@@ -1805,10 +2020,8 @@ function MediaTile({ item, index, onDelete, useMock }: {
   item: EventGalleryItemResponse; index: number;
   onDelete: (id: number) => void; useMock: boolean;
 }) {
-  async function handleDelete() {
-    if (!useMock) {
-      try { await eventGalleryService.deleteItem(item.id); } catch { return; }
-    }
+  function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation();
     onDelete(item.id);
   }
   return (

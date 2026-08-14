@@ -6,6 +6,8 @@ export interface EventGalleryItemResponse {
   eventName?: string;
   url: string;
   thumbnailUrl: string | null;
+  compressedUrl?: string | null;
+  mediumUrl?: string | null;
   mediaType: string;
   albumName: string | null;
   dayLabel?: string;
@@ -17,6 +19,8 @@ export interface EventGalleryItemResponse {
   uploadedByName: string;
   uploaderName?: string;
   createdAt: string;
+  /** UUID of the linked MediaObject — present when uploaded via the Media Service */
+  mediaId?: string | null;
 }
 
 export interface EventGalleryItemRequest {
@@ -30,6 +34,13 @@ export interface EventGalleryItemRequest {
   caption?: string;
   featured?: boolean;
   sortOrder?: number;
+  /**
+   * UUID from MediaResponse.id returned by mediaService.upload().
+   * When supplied, the backend links the gallery item to the MediaObject
+   * and generates fresh presigned / CloudFront URLs on every read,
+   * preventing "Request has expired" S3 errors after 3600 s.
+   */
+  mediaId?: string;
 }
 
 export const eventGalleryService = {

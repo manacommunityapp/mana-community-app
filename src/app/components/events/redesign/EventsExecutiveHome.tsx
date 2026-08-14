@@ -3,7 +3,7 @@ import {
   Sparkles, Bell, Search, QrCode, UserPlus, Utensils,
   CalendarDays, ChevronRight, TrendingUp, Clock, MapPin,
   Ticket, ShieldCheck, Heart, Award, ArrowUpRight, DollarSign,
-  Flame, CheckCircle2, ChevronLeft, Plus
+  Flame, CheckCircle2, ChevronLeft, Plus, BarChart3
 } from "lucide-react";
 import { GlassCard, TouchButton, StatusChip } from "./EventDesignSystem";
 
@@ -97,6 +97,7 @@ export const EventsExecutiveHome: React.FC<EventsExecutiveHomeProps> = ({
     { id: "finance", label: "Finance & Sponsors", icon: DollarSign, count: "₹18.5L Budget", color: "#EC4899" },
     { id: "cultural", label: "Cultural Contest", icon: Sparkles, count: "10 Categories", color: "#8B5CF6" },
     { id: "gallery", label: "Media Gallery", icon: Award, count: "240 Photos", color: "#06B6D4" },
+    { id: "reports", label: "Reports", icon: BarChart3, count: "Export & PDF", color: "#6366F1" },
   ];
 
   return (
