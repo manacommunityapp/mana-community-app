@@ -6,7 +6,7 @@ import {
   Unlock, RotateCcw, Save, Loader2, Crown,
   Briefcase, Banknote, Wrench, Camera, ClipboardList,
   CalendarClock, HeartHandshake, ScanLine, DollarSign, Flame,
-  Plus, Sparkles,
+  Plus, Sparkles, ShieldAlert,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -309,11 +309,13 @@ function RoleCard({ role, onSelect, selected }: {
 }
 
 /* ─── Role Detail Panel ─── */
-function RoleDetailPanel({ role, matrix, onToggle, onReset }: {
+function RoleDetailPanel({ role, matrix, onToggle, onReset, onDisableRole, onDisableAll }: {
   role: RoleConfig;
   matrix: EventPermissionRow[];
   onToggle: (permKey: string) => void;
   onReset: () => void;
+  onDisableRole: () => void;
+  onDisableAll: () => void;
 }) {
   const allPerms = matrix
     .filter(r => !r.isGroupHeader)
@@ -324,7 +326,7 @@ function RoleDetailPanel({ role, matrix, onToggle, onReset }: {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${role.color}15` }}>
             <role.icon className="w-5 h-5" style={{ color: role.color }} />
@@ -334,9 +336,25 @@ function RoleDetailPanel({ role, matrix, onToggle, onReset }: {
             <p className="text-xs text-slate-400">{role.description}</p>
           </div>
         </div>
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 flex-wrap items-center">
+          <Button
+            variant="outline" size="sm"
+            className="gap-1 text-xs h-8 text-amber-700 border-amber-200 bg-amber-50/50 hover:bg-amber-100"
+            onClick={onDisableRole}
+            title="Revoke all permissions for this specific role"
+          >
+            <Lock className="w-3 h-3 text-amber-600" /> Disable for this Role
+          </Button>
+          <Button
+            variant="outline" size="sm"
+            className="gap-1 text-xs h-8 text-rose-700 border-rose-200 bg-rose-50/50 hover:bg-rose-100"
+            onClick={onDisableAll}
+            title="Revoke all permissions across all roles"
+          >
+            <ShieldAlert className="w-3 h-3 text-rose-600" /> Disable All
+          </Button>
           <Button variant="outline" size="sm" className="gap-1 text-xs h-8" onClick={onReset}>
-            <RotateCcw className="w-3 h-3" /> Reset
+            <RotateCcw className="w-3 h-3" /> Reset Defaults
           </Button>
         </div>
       </div>
@@ -576,6 +594,18 @@ export function EventsAccessManagement() {
     setSaved(false);
   };
 
+  const handleDisableRole = (roleName: string) => {
+    setRoles(prev => prev.map(r =>
+      r.name === roleName ? { ...r, permissions: new Set() } : r
+    ));
+    setSaved(false);
+  };
+
+  const handleDisableAll = () => {
+    setRoles(prev => prev.map(r => ({ ...r, permissions: new Set() })));
+    setSaved(false);
+  };
+
   const handleSave = async () => {
     setSaving(true);
     await new Promise(resolve => setTimeout(resolve, 800));
@@ -601,13 +631,22 @@ export function EventsAccessManagement() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs h-9 text-rose-700 border-rose-200 bg-rose-50/50 hover:bg-rose-100 gap-1.5"
+            onClick={handleDisableAll}
+            title="Disable all permissions across all roles"
+          >
+            <ShieldAlert className="w-4 h-4 text-rose-600" /> Disable All
+          </Button>
           {saved && (
-            <span className="text-xs text-emerald-600 flex items-center gap-1">
+            <span className="text-xs text-emerald-600 flex items-center gap-1 font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5" /> Saved
             </span>
           )}
           <Button onClick={handleSave} disabled={saving}
-            className="bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-700 hover:to-violet-600 gap-2 text-sm">
+            className="bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-700 hover:to-violet-600 gap-2 text-sm h-9">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? "Saving..." : "Save Changes"}
           </Button>
@@ -678,6 +717,8 @@ export function EventsAccessManagement() {
                 matrix={EVENT_PERMISSION_MATRIX}
                 onToggle={(perm) => handleToggle(selectedRole, perm)}
                 onReset={() => handleReset(selectedRole)}
+                onDisableRole={() => handleDisableRole(selectedRole)}
+                onDisableAll={handleDisableAll}
               />
             </div>
           </div>

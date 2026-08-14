@@ -5,7 +5,7 @@ import {
   Briefcase, Banknote, Wrench, DollarSign, Sparkles, UserCheck,
   MessageSquare, ShoppingBag, DoorOpen, Building, Bell,
   Headphones, Trophy, UtensilsCrossed, Package, CalendarDays,
-  Settings, Truck, ChefHat, CalendarCheck, BarChart2, Star,
+  Settings, Truck, ChefHat, CalendarCheck, BarChart2, Star, ShieldAlert,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -526,13 +526,15 @@ function AccessMatrixTable({
 
 /* ─── Role Detail Panel ─── */
 function RoleDetailPanel({
-  role, rows, perms, onToggle, onReset, onSave, isSaving,
+  role, rows, perms, onToggle, onReset, onDisableRole, onDisableAll, onSave, isSaving,
 }: {
   role: typeof SYSTEM_ROLES[number];
   rows: PermRow[];
   perms: Set<string>;
   onToggle: (perm: string) => void;
   onReset: () => void;
+  onDisableRole: () => void;
+  onDisableAll: () => void;
   onSave: () => void;
   isSaving: boolean;
 }) {
@@ -552,12 +554,28 @@ function RoleDetailPanel({
             <p className="text-xs text-slate-400">{role.name}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Button
+            variant="outline" size="sm"
+            className="gap-1 text-xs h-8 text-amber-700 border-amber-200 bg-amber-50/50 hover:bg-amber-100"
+            onClick={onDisableRole}
+            title="Revoke all permissions for this specific role in this module"
+          >
+            <Lock className="w-3 h-3 text-amber-600" /> Disable for this Role
+          </Button>
+          <Button
+            variant="outline" size="sm"
+            className="gap-1 text-xs h-8 text-rose-700 border-rose-200 bg-rose-50/50 hover:bg-rose-100"
+            onClick={onDisableAll}
+            title="Revoke all permissions across all roles in this module"
+          >
+            <ShieldAlert className="w-3 h-3 text-rose-600" /> Disable All
+          </Button>
           <Button variant="outline" size="sm" className="gap-1 text-xs h-8" onClick={onReset}>
             <RotateCcw className="w-3 h-3" /> Reset
           </Button>
           <Button size="sm" onClick={onSave} disabled={isSaving}
-            className="gap-1 text-xs h-8 bg-indigo-600 hover:bg-indigo-700 text-white">
+            className="gap-1 text-xs h-8 bg-indigo-600 hover:bg-indigo-700 text-white font-medium">
             {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
             {isSaving ? "Saving…" : "Save this role"}
           </Button>
@@ -705,6 +723,28 @@ export function AdminAccessManagement() {
     setSaveDetails(null);
   };
 
+  const handleDisableRole = (roleName: string) => {
+    setPerms(prev => {
+      const next = { ...prev };
+      next[activeModule] = { ...next[activeModule], [roleName]: new Set() };
+      return next;
+    });
+    setSaved(false);
+    setSaveDetails(null);
+  };
+
+  const handleDisableAll = () => {
+    setPerms(prev => {
+      const next = { ...prev };
+      const emptyModuleRoles: Record<string, Set<string>> = {};
+      SYSTEM_ROLES.forEach(r => { emptyModuleRoles[r.name] = new Set(); });
+      next[activeModule] = emptyModuleRoles;
+      return next;
+    });
+    setSaved(false);
+    setSaveDetails(null);
+  };
+
   /** Re-fetch from backend and build a verification summary. */
   const verifyAndRefresh = async (sentMap: Record<string, number>): Promise<SaveDetail[]> => {
     setVerifying(true);
@@ -813,6 +853,15 @@ export function AdminAccessManagement() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs h-9 text-rose-700 border-rose-200 bg-rose-50/50 hover:bg-rose-100 gap-1.5"
+            onClick={handleDisableAll}
+            title="Disable all permissions across all roles in this module"
+          >
+            <ShieldAlert className="w-4 h-4 text-rose-600" /> Disable All
+          </Button>
           {verifying && (
             <span className="text-xs text-indigo-500 flex items-center gap-1">
               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Verifying…
@@ -829,7 +878,7 @@ export function AdminAccessManagement() {
             </span>
           )}
           <Button onClick={handleSave} disabled={saving || !!savingRole}
-            className="bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-700 hover:to-violet-600 gap-2 text-sm">
+            className="bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-700 hover:to-violet-600 gap-2 text-sm h-9">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? `Saving ${SYSTEM_ROLES.length} roles…` : "Save All Roles"}
           </Button>
@@ -979,6 +1028,8 @@ export function AdminAccessManagement() {
                   perms={modulePerms[selectedRole] ?? new Set()}
                   onToggle={perm => handleToggle(selectedRole, perm)}
                   onReset={() => handleReset(selectedRole)}
+                  onDisableRole={() => handleDisableRole(selectedRole)}
+                  onDisableAll={handleDisableAll}
                   onSave={() => handleSaveRole(selectedRole)}
                   isSaving={savingRole === selectedRole}
                 />

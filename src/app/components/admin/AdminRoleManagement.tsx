@@ -269,6 +269,7 @@ export function AdminRoleManagement() {
       const perms = saved?.permissions;
 
       toast.success(`Roles saved for ${selectedUser.name}: ${rolesArr.join(", ")}`);
+      toast.info(`API response — role: "${saved?.role ?? "(none)"}" | roles: [${saved?.roles?.join(", ") ?? "(none)"}] | type: ${typeof saved}`, { duration: 8000 });
 
       // Update the users table immediately
       setUsers((prev) =>
@@ -286,8 +287,9 @@ export function AdminRoleManagement() {
 
       setSavedRoles(rolesArr);
 
-      // Re-sync table from backend to pick up any server-side normalization
-      loadUsers().catch(() => {});
+      // Delay the re-sync so the backend has time to persist the write.
+      // The optimistic updates above already show correct data immediately.
+      setTimeout(() => { loadUsers().catch(() => {}); }, 2000);
 
       // If we changed the logged-in user's own roles, refresh AuthContext so menus update
       if (user && String(selectedUser.id) === String(user.userId)) {
@@ -449,9 +451,25 @@ export function AdminRoleManagement() {
       if (editingUserId) {
         // Save user's multi-role assignment and custom permissions
         const rolesToSave = selectedUserRoles.length > 0 ? selectedUserRoles : [editingRoleName.toUpperCase()];
-        await userService.updateUserRole(editingUserId, rolesToSave);
+        const saved = await userService.updateUserRole(editingUserId, rolesToSave);
         await userService.updateRolePermissions(editingRoleName.toUpperCase(), checkedPerms, editingUserId);
-        toast.success(`Saved assigned roles (${rolesToSave.join(", ")}) and permissions for user`);
+
+        const roleStr = saved?.role ?? rolesToSave.join(", ");
+        const rolesArr = (saved?.roles && saved.roles.length > 0)
+          ? saved.roles.map((r: string) => r.toUpperCase())
+          : rolesToSave.map((r) => r.toUpperCase());
+        const perms = saved?.permissions;
+
+        toast.success(`Saved assigned roles (${rolesArr.join(", ")}) and permissions for user`);
+
+        // Optimistic update so the table shows new roles immediately
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === editingUserId
+              ? { ...u, role: roleStr, roles: rolesArr, permissions: perms }
+              : u
+          )
+        );
       } else {
         // Save role-level permissions
         await userService.updateRolePermissions(editingRoleName.toUpperCase(), checkedPerms);
@@ -469,7 +487,8 @@ export function AdminRoleManagement() {
         return copy;
       });
 
-      await loadUsers();
+      // Delay re-sync so the backend has time to persist
+      setTimeout(() => { loadUsers().catch(() => {}); }, 2000);
       setCurrentView('list');
     } catch (err) {
       toast.error("Failed to update role permissions in database");

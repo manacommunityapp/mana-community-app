@@ -92,7 +92,6 @@ const TAB_ITEMS = [
   { id: "announcements", label: "Announcements", icon: Megaphone },
   { id: "email-gallery", label: "Email Templates", icon: MailOpen },
   { id: "email-templates", label: "Email Builder", icon: Mail },
-  { id: "email-gallery", label: "Email Templates", icon: MailOpen },
   { id: "email-logs", label: "Email Delivery Logs", icon: Clock },
   { id: "directory",  label: "Directory",     icon: Shield },
 ] as const;
@@ -527,17 +526,15 @@ function ModulesTab() {
   const loadModules = async (communityId: number) => {
     try {
       const modules = await communityService.getCommunityModules(communityId);
-      // A community that was never initialized has no module rows. The backend
-      // access gate treats "no rows" as all-enabled, so mirror that here rather
-      // than showing every module as OFF (which would let a Save mass-disable them).
+      // A community that was never initialized has no module rows.
+      // Feature modules for all module checks should be disabled initially.
       if (modules.length === 0) {
-        setEnabledModules(ALL_MODULES.map((m) => m.key));
+        setEnabledModules([]);
       } else {
         setEnabledModules(modules.filter((m) => m.isEnabled).map((m) => m.moduleKey));
       }
     } catch {
-      const community = communities.find((c) => c.id === communityId);
-      setEnabledModules(community?.enabledModules || []);
+      setEnabledModules([]);
     }
   };
 
@@ -887,7 +884,6 @@ export function AdminHub() {
         {activeTab === "announcements" && <AnnouncementsPlanner />}
         {activeTab === "email-gallery" && <EmailTemplatesTab />}
         {activeTab === "email-templates" && <EmailTemplateBuilder />}
-        {activeTab === "email-gallery" && <EmailTemplatesTab />}
         {activeTab === "email-logs" && <EmailDeliveryLogTab />}
         {activeTab === "directory" && <AdminDirectory />}
       </div>
