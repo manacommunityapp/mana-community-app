@@ -59,10 +59,11 @@ function Label({ children, required }: { children: React.ReactNode; required?: b
 }
 
 function Input({
-  value, onChange, placeholder, type = "text", min, className = "", autoFocus
+  value, onChange, placeholder, type = "text", min, className = "", autoFocus, onKeyDown
 }: {
   value: string; onChange: (v: string) => void; placeholder?: string;
   type?: string; min?: string; className?: string; autoFocus?: boolean;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }) {
   return (
     <input
@@ -70,6 +71,7 @@ function Input({
       min={min}
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onKeyDown={onKeyDown}
       placeholder={placeholder}
       autoFocus={autoFocus}
       className={`w-full px-3 py-2 rounded-xl border border-border bg-background text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition ${className}`}

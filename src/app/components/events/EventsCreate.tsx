@@ -17,6 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { SectionHeader, FieldLabel, ToggleRow } from "./shared";
 
 import { cn } from "../ui/utils";
+import { useAuth } from "../../../contexts/AuthContext";
+import { CREATE_EVENT, MANAGE_EVENT_DASHBOARD } from "../../../constants/permissions";
 import { useEventMock } from "./EventMockToggle";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { eventService, type EventRequest } from "../../../services/events/eventService";
@@ -1919,7 +1921,24 @@ export function CreateEventDialog({ open, onOpenChange }: { open: boolean; onOpe
 }
 
 export function CreateEventButton({ className }: { className?: string }) {
+  const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
   const [open, setOpen] = useState(false);
+
+  const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
+  const canCreate =
+    isAdmin ||
+    isSuperAdmin ||
+    userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("COMMUNITY_ADMIN") ||
+    userRolesUpper.includes("EVENT_ADMIN") ||
+    userRolesUpper.includes("EVENTS_ADMIN") ||
+    hasPermission(CREATE_EVENT) ||
+    hasPermission(MANAGE_EVENT_DASHBOARD);
+
+  if (!canCreate) {
+    return null;
+  }
+
   return (
     <>
       <button onClick={() => setOpen(true)}

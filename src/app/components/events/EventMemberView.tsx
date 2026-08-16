@@ -324,8 +324,27 @@ export function EventMemberView() {
     }
   };
 
-  // Load family members dynamically
-  const loadFamilyMembers = () => {
+  // Load family members dynamically from database
+  const loadFamilyMembers = async () => {
+    if (!useMock) {
+      try {
+        const dbMembers = await eventService.getFamilyMembers();
+        if (Array.isArray(dbMembers) && dbMembers.length > 0) {
+          const mapped: FamilyMember[] = dbMembers.map((m: any) => ({
+            id: String(m.id || m.name),
+            name: m.name,
+            relation: m.relation || "Family",
+            age: m.age || 25,
+            avatar: m.avatar || "👤",
+          }));
+          setFamilyMembers(mapped);
+          return;
+        }
+      } catch (err) {
+        console.warn("Could not fetch family members from database API, falling back:", err);
+      }
+    }
+
     try {
       const stored: FamilyMember[] = JSON.parse(localStorage.getItem("mana_family_members") || "[]");
       if (stored.length > 0) {
@@ -335,7 +354,7 @@ export function EventMemberView() {
       } else {
         setFamilyMembers(INITIAL_FAMILY);
       }
-    } catch (e) {
+    } catch {
       setFamilyMembers(INITIAL_FAMILY);
     }
   };
@@ -473,16 +492,37 @@ export function EventMemberView() {
     setSelectedMembers((prev) => (prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]));
   };
 
-  const handleAddFamilyMemberSubmit = (e: React.FormEvent) => {
+  const handleAddFamilyMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMember.name.trim()) return;
 
-    const createdMember: FamilyMember = {
-      id: "fam-" + Date.now(),
+    const payload = {
       name: newMember.name.trim(),
       relation: newMember.relation,
       age: Number(newMember.age) || 18,
       avatar: newMember.avatar,
+      status: "ACTIVE",
+    };
+
+    let createdId = "fam-" + Date.now();
+
+    if (!useMock) {
+      try {
+        const saved = await eventService.addFamilyMember(payload);
+        if (saved && saved.id) {
+          createdId = String(saved.id);
+        }
+      } catch (err) {
+        console.error("Failed to save devotee to database:", err);
+      }
+    }
+
+    const createdMember: FamilyMember = {
+      id: createdId,
+      name: payload.name,
+      relation: payload.relation,
+      age: payload.age,
+      avatar: payload.avatar,
     };
 
     const updatedList = [...familyMembers, createdMember];
@@ -536,25 +576,35 @@ export function EventMemberView() {
   });
 
   return (
-    <div className="w-full max-w-7xl mx-auto bg-card border border-border text-card-foreground font-sans rounded-2xl overflow-hidden shadow-xs pb-12 relative">
-      <div className="p-4 sm:p-6 space-y-6">
+    <div className="w-full max-w-7xl mx-auto bg-card border border-border text-card-foreground font-sans rounded-2xl overflow-hidden shadow-xs pb-20 md:pb-12 relative">
+      <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6">
         {activeTab === "home" && (
           <>
-            {/* Search Input on Mobile */}
-            <div className="md:hidden relative">
-              <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search Pooja, Cultural, Passes, Events..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-muted/60 focus:bg-background text-xs text-foreground placeholder:text-muted-foreground pl-9 pr-4 py-2.5 rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
-              />
+            {/* Search & Filter Bar on Mobile */}
+            <div className="md:hidden space-y-2">
+              <div className="relative">
+                <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Search Pooja, Meals, Passes, Contests..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-muted/70 focus:bg-background text-xs text-foreground placeholder:text-muted-foreground pl-9 pr-8 py-2.5 rounded-2xl border border-border focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all shadow-2xs"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
 
-            {/* Hero Community Event Banner (Matching Prompt HTML Design with Dynamic Data) */}
+            {/* Hero Community Event Banner (Interactive Mobile Optimized) */}
             <div
-              className="relative rounded-2xl overflow-hidden shadow-md transition-all duration-300 border border-indigo-900/20"
+              className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-md transition-all duration-300 border border-indigo-900/20"
               style={{
                 background:
                   "linear-gradient(135deg, rgb(79, 70, 229) 0%, rgb(124, 58, 237) 50%, rgb(99, 102, 241) 100%)",
@@ -568,96 +618,102 @@ export function EventMemberView() {
                 }}
               />
               <div
-                className="absolute right-0 top-0 w-64 h-full rounded-full opacity-15 blur-3xl pointer-events-none z-0"
+                className="absolute right-0 top-0 w-64 h-full rounded-full opacity-20 blur-3xl pointer-events-none z-0"
                 style={{
                   background: "radial-gradient(circle, rgb(254, 243, 199) 0%, transparent 70%)",
                   transform: "translate(20%, -20%)",
                 }}
               />
-              <div className="relative z-10 px-4 py-3 sm:px-5 sm:py-3.5 text-white flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div className="relative z-10 p-4 sm:p-5 text-white flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
                 <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
-                  <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-xl shrink-0 shadow-xs">
-                    📅
+                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-2xl shrink-0 shadow-xs">
+                    🪔
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400/20 text-amber-200 border border-amber-300/30 uppercase tracking-wider">
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1">
+                      <span className="px-2.5 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs">
                         🔥 Community Event
                       </span>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-300 text-[10px] font-bold border border-slate-400/30">
-                        <span className={`w-1.5 h-1.5 rounded-full ${activitiesList.length > 0 ? "bg-emerald-400" : "bg-slate-400"}`} />
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/30 text-slate-200 text-[9.5px] sm:text-[10px] font-bold border border-white/15 backdrop-blur-xs">
+                        <span className={`w-1.5 h-1.5 rounded-full ${activitiesList.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
                         {activitiesList.length > 0 ? `${activitiesList.length} Events Available` : "0 Events Available"}
                       </span>
                     </div>
-                    <h2 className="text-lg sm:text-xl font-black text-white leading-tight drop-shadow-md truncate">
+                    <h2 className="text-base sm:text-xl font-black text-white leading-snug drop-shadow-md truncate">
                       {activitiesList.length > 0
                         ? (activitiesList[0]?.title || "Maha Ganapathi Archana & Silver Shield Pooja")
                         : "No Events Created Yet"}
                     </h2>
-                    <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-white/75 mt-0.5">
-                      <span className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-amber-300" />
-                        {activitiesList.length > 0 ? (activitiesList[0]?.venue || "Main Temple Mandap, Gate 1") : "Community Center"}
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] font-medium text-white/80 mt-1">
+                      <span className="flex items-center gap-1 truncate max-w-[200px] sm:max-w-none">
+                        <MapPin className="w-3 h-3 text-amber-300 shrink-0" />
+                        <span className="truncate">{activitiesList.length > 0 ? (activitiesList[0]?.venue || "Main Temple Mandap, Gate 1") : "Community Center"}</span>
                       </span>
-                      <span className="text-white/30">·</span>
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3 text-indigo-200" />
+                      <span className="text-white/40">·</span>
+                      <span className="flex items-center gap-1 shrink-0">
+                        <Calendar className="w-3 h-3 text-indigo-200 shrink-0" />
                         {activitiesList.length > 0 ? (activitiesList[0]?.date || "22 Aug 2026") : "Upcoming"}
                       </span>
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-3 shrink-0 justify-between lg:justify-end border-t lg:border-t-0 pt-2.5 lg:pt-0 border-white/10">
-                  <div className="text-[11px] font-semibold text-white/70 italic">
-                    {activitiesList.length > 0 ? "Select an activity below to register" : "No active timer"}
+
+                <div className="flex items-center justify-between lg:justify-end gap-2 border-t lg:border-t-0 pt-2.5 lg:pt-0 border-white/15">
+                  <div className="text-[10.5px] sm:text-[11px] font-semibold text-white/80 italic truncate">
+                    {activitiesList.length > 0 ? "⚡ 2-Tap Booking Active" : "No active timer"}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-semibold text-amber-200 bg-amber-400/20 px-3 py-1 rounded-xl border border-amber-300/30">
-                      {activitiesList.length > 0
-                        ? "⚡ 2-Tap Booking Active"
-                        : "Create an event in Events module to open registrations"}
-                    </span>
-                  </div>
+                  {activitiesList.length > 0 && (
+                    <button
+                      onClick={() => {
+                        const el = document.getElementById("activities-grid-section");
+                        el?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className="px-3 py-1 bg-amber-400/25 hover:bg-amber-400/35 text-amber-100 text-[11px] font-bold rounded-xl border border-amber-300/40 shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                    >
+                      Book Now ↓
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
 
             {/* Dynamic Collapsible Family Devotees Section */}
-            <div className="bg-card border border-border rounded-2xl p-3.5 shadow-xs space-y-3 transition-all">
+            <div className="bg-card border border-border rounded-2xl p-3 sm:p-4 shadow-xs space-y-3 transition-all">
               <div
                 className="flex items-center justify-between cursor-pointer select-none"
                 onClick={() => setShowFamily(!showFamily)}
               >
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-primary/10 text-primary">
                     <Users className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-2">
+                    <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5">
                       Family Devotees ({familyMembers.length})
-                      <span className="text-[10px] text-muted-foreground font-semibold">
-                        ({showFamily ? "Click to collapse" : "Click to view members"})
+                      <span className="text-[10px] text-muted-foreground font-normal hidden sm:inline">
+                        ({showFamily ? "Tap to collapse" : "Tap to view"})
                       </span>
                     </h3>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2">
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       setShowAddMemberModal(true);
                     }}
-                    className="px-2.5 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-[11px] font-bold border border-primary/20 transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                    className="px-2.5 py-1 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-[10.5px] sm:text-[11px] font-bold border border-primary/20 transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    Add Family Member
+                    <span className="hidden sm:inline">Add Family Member</span>
+                    <span className="sm:hidden">Add</span>
                   </button>
 
                   <button
                     type="button"
-                    className="p-1 text-muted-foreground hover:text-foreground rounded-md transition-colors"
+                    className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
                   >
                     {showFamily ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
@@ -665,22 +721,22 @@ export function EventMemberView() {
               </div>
 
               {showFamily && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-2 border-t border-border animate-fadeIn">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-border animate-fadeIn">
                   {familyMembers.map((member) => (
                     <div
                       key={member.id}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-muted/40 border border-border/60"
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-muted/50 border border-border/70 hover:border-primary/30 transition-all"
                     >
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-lg">{member.avatar}</span>
-                        <div>
-                          <p className="text-xs font-bold text-foreground">{member.name}</p>
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-xl shrink-0">{member.avatar}</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-foreground truncate">{member.name}</p>
                           <p className="text-[10px] text-muted-foreground font-medium">
                             {member.relation} • Age {member.age}
                           </p>
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      <span className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 shrink-0">
                         Active
                       </span>
                     </div>
@@ -689,46 +745,34 @@ export function EventMemberView() {
               )}
             </div>
 
-            {/* Quick Member Actions Grid (Live REST API & Mock Toggle Indicator) */}
-            <div className="space-y-3">
+            {/* Quick Member Actions Grid (Horizontal Mobile Scroll + Grid) */}
+            <div className="space-y-2.5 sm:space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5 text-primary" />
-                  User View (Quick Actions)
+                <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5 sm:gap-2">
+                  <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
+                  <span>Quick Actions</span>
                   {useMock ? (
-                    <span className="px-2 py-0.5 rounded-full text-[9.5px] font-black bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                      ⚡ Mock Data Mode
+                    <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                      ⚡ Mock
                     </span>
                   ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
-                      {loadingApiData ? (
-                        <>
-                          <Loader2 className="w-3 h-3 animate-spin text-emerald-600" /> Fetching Live API...
-                        </>
-                      ) : (
-                        <>
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live API Active
-                        </>
-                      )}
+                    <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
                     </span>
                   )}
                 </h3>
-                <div className="flex items-center gap-2">
-                  {selectedCategoryFilter && (
-                    <button
-                      onClick={() => setSelectedCategoryFilter(null)}
-                      className="text-[10.5px] font-bold text-rose-600 bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/20 hover:bg-rose-500/20 transition-all flex items-center gap-1 cursor-pointer"
-                    >
-                      <X className="w-3 h-3" /> Clear Filter: {selectedCategoryFilter}
-                    </button>
-                  )}
-                  <span className="text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
-                    Interactive Dynamic Cards
-                  </span>
-                </div>
+                {selectedCategoryFilter && (
+                  <button
+                    onClick={() => setSelectedCategoryFilter(null)}
+                    className="text-[10px] sm:text-[10.5px] font-bold text-rose-600 bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/20 hover:bg-rose-500/20 transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <X className="w-3 h-3" /> Clear: {selectedCategoryFilter}
+                  </button>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3">
+              {/* Mobile Swipeable / Desktop Responsive Touch Grid */}
+              <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2 sm:gap-3 overflow-x-auto pb-1 sm:pb-0 hide-scrollbar">
                 {dynamicQuickActions.map((action) => {
                   const Icon = action.icon;
                   const isSelected = selectedCategoryFilter === action.category;
@@ -744,23 +788,25 @@ export function EventMemberView() {
                           );
                         }
                       }}
-                      className={`flex flex-col items-center p-3 rounded-2xl border transition-all hover:scale-[1.03] text-center cursor-pointer shadow-xs group ${
+                      className={`flex flex-col items-center justify-between p-2.5 sm:p-3 rounded-2xl border transition-all active:scale-95 sm:hover:scale-[1.03] text-center cursor-pointer shadow-2xs group select-none min-h-[95px] sm:min-h-[110px] ${
                         isSelected
                           ? "bg-primary/15 border-primary ring-2 ring-primary/30"
                           : "bg-card hover:bg-accent/10 border-border hover:border-primary/40"
                       }`}
                     >
                       <div
-                        className={`w-11 h-11 rounded-2xl ${action.color} border flex items-center justify-center mb-2 shadow-xs group-hover:scale-110 transition-transform`}
+                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl ${action.color} border flex items-center justify-center shadow-xs group-hover:scale-110 transition-transform shrink-0`}
                       >
-                        <Icon className="w-5 h-5" />
+                        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                       </div>
-                      <span className="text-xs font-extrabold text-foreground leading-tight block truncate w-full">
-                        {action.label}
-                      </span>
-                      <span className="text-[9.5px] font-extrabold text-primary mt-1 block truncate w-full">
-                        {action.badge}
-                      </span>
+                      <div className="w-full mt-1.5 space-y-0.5">
+                        <span className="text-[10.5px] sm:text-xs font-black text-foreground leading-tight block truncate w-full">
+                          {action.label}
+                        </span>
+                        <span className="text-[8.5px] sm:text-[9.5px] font-bold text-primary block truncate w-full">
+                          {action.badge}
+                        </span>
+                      </div>
                     </button>
                   );
                 })}
@@ -768,14 +814,14 @@ export function EventMemberView() {
             </div>
 
             {/* Featured Sevas & Events (Dynamic Filtered List) */}
-            <div className="space-y-3 pt-2">
+            <div id="activities-grid-section" className="space-y-3 pt-1">
               <div className="flex items-center justify-between">
-                <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-2">
-                  <Filter className="w-3.5 h-3.5 text-primary" />
-                  Featured Sevas, Cultural &amp; Competitions ({filteredActivities.length})
+                <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5 sm:gap-2">
+                  <Filter className="w-3.5 h-3.5 text-primary shrink-0" />
+                  <span>Scheduled Activities ({filteredActivities.length})</span>
                   {selectedCategoryFilter && (
-                    <span className="text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
-                      Category: {selectedCategoryFilter}
+                    <span className="text-[10px] sm:text-[11px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                      {selectedCategoryFilter}
                     </span>
                   )}
                 </h3>
@@ -784,15 +830,15 @@ export function EventMemberView() {
                     onClick={() => setSelectedCategoryFilter(null)}
                     className="text-xs text-rose-600 font-bold hover:underline cursor-pointer"
                   >
-                    View All Categories
+                    Show All
                   </button>
                 ) : (
-                  <span className="text-xs text-primary font-bold">All Active Registrations</span>
+                  <span className="text-xs text-primary font-bold hidden sm:inline">All Active Registrations</span>
                 )}
               </div>
 
               {filteredActivities.length === 0 ? (
-                <div className="p-8 text-center bg-card border border-border rounded-2xl space-y-3">
+                <div className="p-6 sm:p-8 text-center bg-card border border-border rounded-2xl space-y-3 shadow-2xs">
                   <div className="w-12 h-12 rounded-2xl bg-muted text-muted-foreground flex items-center justify-center mx-auto">
                     <Calendar className="w-6 h-6" />
                   </div>
@@ -818,30 +864,30 @@ export function EventMemberView() {
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                   {filteredActivities.map((act) => (
                     <div
                       key={act.id}
-                      className="bg-card rounded-2xl border border-border p-4 flex gap-4 shadow-xs hover:shadow-md hover:border-primary/40 transition-all"
+                      className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 flex gap-3 sm:gap-4 shadow-xs hover:shadow-md hover:border-primary/40 transition-all group"
                     >
-                      <div className="w-16 h-16 rounded-2xl bg-primary/10 text-3xl flex items-center justify-center shrink-0 border border-primary/20">
+                      <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-primary/10 text-2xl sm:text-3xl flex items-center justify-center shrink-0 border border-primary/20 shadow-2xs group-hover:scale-105 transition-transform">
                         {act.image}
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col justify-between space-y-2">
                         <div>
-                          <div className="flex items-center justify-between text-[10.5px]">
-                            <span className="font-extrabold uppercase text-primary bg-primary/10 px-2.5 py-0.5 rounded-md border border-primary/20">
+                          <div className="flex items-center justify-between text-[10px] sm:text-[10.5px]">
+                            <span className="font-black uppercase text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
                               {act.category}
                             </span>
-                            <span className="text-muted-foreground font-bold">{act.availableSeats} slots left</span>
+                            <span className="text-muted-foreground font-bold text-[10px]">{act.availableSeats} slots left</span>
                           </div>
-                          <h4 className="text-xs sm:text-sm font-extrabold text-foreground mt-1.5 line-clamp-1">
+                          <h4 className="text-xs sm:text-sm font-black text-foreground mt-1 line-clamp-1">
                             {act.title}
                           </h4>
-                          <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                          <p className="text-[10.5px] sm:text-[11px] text-muted-foreground font-medium mt-0.5">
                             {act.date} • {act.time}
                           </p>
-                          <p className="text-[11px] text-muted-foreground/80 mt-0.5 line-clamp-1">{act.venue}</p>
+                          <p className="text-[10.5px] sm:text-[11px] text-muted-foreground/80 mt-0.5 line-clamp-1">{act.venue}</p>
                         </div>
 
                         <div className="flex items-center justify-between pt-2 border-t border-border">
@@ -850,7 +896,7 @@ export function EventMemberView() {
                           </span>
                           <button
                             onClick={() => setSelectedActivity(act)}
-                            className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                            className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95"
                           >
                             <Ticket className="w-3.5 h-3.5" /> Book / Register
                           </button>
@@ -866,7 +912,7 @@ export function EventMemberView() {
 
         {/* ─── PASSES VIEW TAB ─── */}
         {activeTab === "passes" && (
-          <div className="space-y-4">
+          <div className="space-y-4 animate-fadeIn">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
                 <h3 className="text-base font-black text-foreground">My Active E-Passes &amp; Tokens ({passesList.length})</h3>
@@ -876,51 +922,136 @@ export function EventMemberView() {
                 onClick={() => setActiveTab("home")}
                 className="px-3 py-1.5 rounded-xl bg-muted text-foreground text-xs font-bold hover:bg-muted/80 transition-colors cursor-pointer"
               >
-                ← Back to Dashboard
+                ← Back
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {passesList.map((p) => (
-                <div key={p.id} className="p-5 rounded-2xl bg-card border border-border shadow-xs space-y-3 flex flex-col justify-between">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between border-b border-border pb-2">
-                      <div>
-                        <span className="text-[10px] font-extrabold text-primary uppercase block">{p.passType}</span>
-                        <h4 className="text-xs sm:text-sm font-bold text-foreground">{p.title}</h4>
+            {passesList.length === 0 ? (
+              <div className="p-8 text-center bg-card border border-border rounded-2xl space-y-3">
+                <Ticket className="w-8 h-8 text-muted-foreground mx-auto" />
+                <p className="text-sm font-bold text-foreground">No Passes Issued Yet</p>
+                <p className="text-xs text-muted-foreground">Register for any Pooja, Cultural or Competition event to get your QR E-Pass.</p>
+                <button
+                  onClick={() => setActiveTab("home")}
+                  className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl cursor-pointer"
+                >
+                  Browse Events
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                {passesList.map((p) => (
+                  <div key={p.id} className="p-4 sm:p-5 rounded-2xl bg-card border border-border shadow-xs space-y-3 flex flex-col justify-between hover:border-primary/40 transition-all">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between border-b border-border pb-2">
+                        <div>
+                          <span className="text-[10px] font-extrabold text-primary uppercase block">{p.passType}</span>
+                          <h4 className="text-xs sm:text-sm font-bold text-foreground">{p.title}</h4>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
+                          {p.status}
+                        </span>
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-md text-[10px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                        {p.status}
-                      </span>
+
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p>Attendee: <strong className="text-foreground">{p.participantName}</strong></p>
+                        <p>Date &amp; Time: <strong className="text-foreground">{p.date} • {p.time}</strong></p>
+                        <p className="font-mono text-[10.5px] text-muted-foreground/80">Reg ID: {p.regId}</p>
+                      </div>
                     </div>
 
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <p>Attendee: <strong className="text-foreground">{p.participantName}</strong></p>
-                      <p>Date &amp; Time: <strong className="text-foreground">{p.date} • {p.time}</strong></p>
-                      <p className="font-mono text-[10.5px] text-muted-foreground/70">Reg ID: {p.regId}</p>
-                    </div>
+                    <button
+                      onClick={() => setShowQRPass(p)}
+                      className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95"
+                    >
+                      <QrCode className="w-4 h-4" /> View Entry QR Pass
+                    </button>
                   </div>
-
-                  <button
-                    onClick={() => setShowQRPass(p)}
-                    className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs"
-                  >
-                    <QrCode className="w-4 h-4" /> View Entry QR Pass
-                  </button>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* ─── ADD FAMILY MEMBER MODAL ─── */}
+      {/* ─── STICKY MOBILE BOTTOM NAVIGATION BAR ─── */}
+      <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-3 py-2 flex items-center justify-around shadow-lg">
+        <button
+          onClick={() => {
+            setActiveTab("home");
+            setSelectedCategoryFilter(null);
+          }}
+          className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer ${
+            activeTab === "home" && !selectedCategoryFilter ? "text-primary font-black scale-105" : "text-muted-foreground font-semibold"
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span className="text-[9.5px]">Home</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab("home");
+            setSelectedCategoryFilter("Pooja");
+          }}
+          className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer ${
+            selectedCategoryFilter === "Pooja" ? "text-amber-600 font-black scale-105" : "text-muted-foreground font-semibold"
+          }`}
+        >
+          <Flame className="w-4 h-4" />
+          <span className="text-[9.5px]">Pooja</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab("home");
+            setSelectedCategoryFilter("Food");
+          }}
+          className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer ${
+            selectedCategoryFilter === "Food" ? "text-orange-600 font-black scale-105" : "text-muted-foreground font-semibold"
+          }`}
+        >
+          <Utensils className="w-4 h-4" />
+          <span className="text-[9.5px]">Meals</span>
+        </button>
+
+        <button
+          onClick={() => {
+            setActiveTab("passes");
+            setSelectedCategoryFilter(null);
+          }}
+          className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer relative ${
+            activeTab === "passes" ? "text-indigo-600 font-black scale-105" : "text-muted-foreground font-semibold"
+          }`}
+        >
+          <Ticket className="w-4 h-4" />
+          <span className="text-[9.5px]">Passes</span>
+          {passesList.length > 0 && (
+            <span className="absolute top-0 right-1 w-2 h-2 rounded-full bg-indigo-600"></span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setShowFamily(!showFamily)}
+          className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer ${
+            showFamily ? "text-primary font-black scale-105" : "text-muted-foreground font-semibold"
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span className="text-[9.5px]">Family</span>
+        </button>
+      </div>
+
+      {/* ─── ADD FAMILY MEMBER MODAL (MOBILE BOTTOM-SHEET) ─── */}
       {showAddMemberModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
           <form
             onSubmit={handleAddFamilyMemberSubmit}
-            className="w-full max-w-sm bg-card border border-border text-card-foreground rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn"
+            className="w-full max-w-sm bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto"
           >
+            {/* Mobile Drag Indicator */}
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-2 sm:hidden" />
+
             <div className="flex items-center justify-between border-b border-border pb-2">
               <h3 className="text-sm font-black text-foreground flex items-center gap-2">
                 <UserPlus className="w-4 h-4 text-primary" />
@@ -1016,13 +1147,13 @@ export function EventMemberView() {
               <button
                 type="button"
                 onClick={() => setShowAddMemberModal(false)}
-                className="px-3.5 py-1.5 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:bg-muted cursor-pointer"
+                className="px-3.5 py-2 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:bg-muted cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-4 py-1.5 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
               >
                 <Plus className="w-3.5 h-3.5" /> Save Family Member
               </button>
@@ -1031,10 +1162,13 @@ export function EventMemberView() {
         </div>
       )}
 
-      {/* ─── MEMBER REGISTRATION MODAL ─── */}
+      {/* ─── MEMBER REGISTRATION MODAL (MOBILE BOTTOM-SHEET) ─── */}
       {selectedActivity && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-card border border-border text-card-foreground rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="w-full max-w-md bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
+            {/* Mobile Drag Indicator */}
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-2 sm:hidden" />
+
             <div className="flex items-center justify-between border-b border-border pb-3">
               <div>
                 <span className="text-[10px] font-extrabold uppercase text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
@@ -1057,7 +1191,7 @@ export function EventMemberView() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Select Attending Family Devotees ({familyMembers.length})
+                    Select Attending Devotees ({familyMembers.length})
                   </label>
                   <button
                     type="button"
@@ -1106,7 +1240,7 @@ export function EventMemberView() {
               <button
                 onClick={handleBookingSubmit}
                 disabled={selectedMembers.length === 0}
-                className="px-5 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all shadow-xs cursor-pointer flex items-center gap-2"
+                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all shadow-xs cursor-pointer flex items-center gap-2 active:scale-95"
               >
                 Confirm &amp; Issue E-Pass <ArrowRight className="w-3.5 h-3.5" />
               </button>
@@ -1115,10 +1249,13 @@ export function EventMemberView() {
         </div>
       )}
 
-      {/* ─── QR GATE PASS MODAL ─── */}
+      {/* ─── QR GATE PASS MODAL (DIGITAL PASS WALLET) ─── */}
       {showQRPass && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-sm bg-card border border-border text-card-foreground rounded-2xl p-6 space-y-4 shadow-2xl text-center animate-fadeIn relative">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="w-full max-w-sm bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl text-center animate-fadeIn relative">
+            {/* Mobile Drag Indicator */}
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-2 mb-2 sm:hidden" />
+
             <button
               onClick={() => setShowQRPass(null)}
               className="absolute right-4 top-4 text-muted-foreground hover:text-foreground cursor-pointer"
@@ -1126,7 +1263,7 @@ export function EventMemberView() {
               <X className="w-4 h-4" />
             </button>
 
-            <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-600 inline-block">
+            <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-600 inline-block shadow-2xs">
               <QrCode className="w-8 h-8" />
             </div>
 
@@ -1135,7 +1272,7 @@ export function EventMemberView() {
               <h3 className="text-base font-black text-foreground mt-0.5">{showQRPass.title}</h3>
             </div>
 
-            <div className="p-4 bg-white rounded-2xl border border-slate-200 inline-block shadow-inner">
+            <div className="p-4 bg-white rounded-2xl border border-slate-200 inline-block shadow-sm">
               <img src={showQRPass.qrCodeUrl} alt="QR Gate Pass" className="w-40 h-40 mx-auto" />
             </div>
 
@@ -1149,7 +1286,7 @@ export function EventMemberView() {
                 alert("E-Pass downloaded to your device gallery!");
                 setShowQRPass(null);
               }}
-              className="w-full py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all"
+              className="w-full py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
             >
               <Download className="w-4 h-4" /> Download Digital Pass
             </button>

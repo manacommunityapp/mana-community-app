@@ -23,6 +23,8 @@ import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 import { cn } from "../ui/utils";
+import { useAuth } from "../../../contexts/AuthContext";
+import { CREATE_EVENT, MANAGE_EVENT_DASHBOARD } from "../../../constants/permissions";
 import { EventsPlanning } from "./EventsPlanning";
 import { EventsPrograms } from "./EventsPrograms";
 import { EventsFood } from "./EventsFood";
@@ -866,6 +868,18 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
   onNotify: () => void;
   onPreview: () => void;
 }) {
+  const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
+  const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
+  const isEventsAdmin =
+    isAdmin ||
+    isSuperAdmin ||
+    userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("COMMUNITY_ADMIN") ||
+    userRolesUpper.includes("EVENT_ADMIN") ||
+    userRolesUpper.includes("EVENTS_ADMIN") ||
+    hasPermission(CREATE_EVENT) ||
+    hasPermission(MANAGE_EVENT_DASHBOARD);
+
   const s = STATUS_CONFIG[event.status];
   const vis = VISIBILITY_ICON[event.visibility];
   const typeColor = TYPE_COLORS[event.type] ?? "#64748b";
@@ -904,43 +918,45 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
             <h4 className="font-semibold text-slate-800 text-sm sm:text-base line-clamp-1">{event.title}</h4>
           </div>
 
-          <div className="relative">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setMenuOpen(!menuOpen)}>
-              <MoreVertical className="w-4 h-4 text-slate-400" />
-            </Button>
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-9 z-20 bg-white rounded-lg shadow-lg border border-slate-100 py-1 w-48">
-                  <button onClick={() => { onPreview(); setMenuOpen(false); }}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                    <Eye className="w-3.5 h-3.5" /> View Details
-                  </button>
-                  <button onClick={() => { onEdit(); setMenuOpen(false); }}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                    <Pencil className="w-3.5 h-3.5" /> Edit Event
-                  </button>
-                  <button onClick={() => { onNotify(); setMenuOpen(false); }}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                    <Bell className="w-3.5 h-3.5" /> Send Notification
-                  </button>
-                  <button className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                    <Copy className="w-3.5 h-3.5" /> Duplicate Event
-                  </button>
-                  {event.status !== "completed" && (
-                    <button className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                      <ExternalLink className="w-3.5 h-3.5" /> Registration Link
+          {isEventsAdmin && (
+            <div className="relative">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setMenuOpen(!menuOpen)}>
+                <MoreVertical className="w-4 h-4 text-slate-400" />
+              </Button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 top-9 z-20 bg-white rounded-lg shadow-lg border border-slate-100 py-1 w-48">
+                    <button onClick={() => { onPreview(); setMenuOpen(false); }}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      <Eye className="w-3.5 h-3.5" /> View Details
                     </button>
-                  )}
-                  <hr className="my-1 border-slate-100" />
-                  <button onClick={() => { onDelete(); setMenuOpen(false); }}
-                    className="w-full text-left px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2">
-                    <Trash2 className="w-3.5 h-3.5" /> Delete Event
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+                    <button onClick={() => { onEdit(); setMenuOpen(false); }}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      <Pencil className="w-3.5 h-3.5" /> Edit Event
+                    </button>
+                    <button onClick={() => { onNotify(); setMenuOpen(false); }}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      <Bell className="w-3.5 h-3.5" /> Send Notification
+                    </button>
+                    <button className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      <Copy className="w-3.5 h-3.5" /> Duplicate Event
+                    </button>
+                    {event.status !== "completed" && (
+                      <button className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                        <ExternalLink className="w-3.5 h-3.5" /> Registration Link
+                      </button>
+                    )}
+                    <hr className="my-1 border-slate-100" />
+                    <button onClick={() => { onDelete(); setMenuOpen(false); }}
+                      className="w-full text-left px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2">
+                      <Trash2 className="w-3.5 h-3.5" /> Delete Event
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Date & Venue */}
@@ -981,15 +997,19 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
 
       {/* Action Bar */}
       <div className="border-t border-slate-100 px-4 sm:px-5 py-2.5 flex items-center gap-1">
-        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-indigo-600" onClick={onEdit}>
-          <Pencil className="w-3 h-3" /> Edit
-        </Button>
-        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-rose-500" onClick={onDelete}>
-          <Trash2 className="w-3 h-3" /> Delete
-        </Button>
-        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-amber-600" onClick={onNotify}>
-          <Bell className="w-3 h-3" /> Notify
-        </Button>
+        {isEventsAdmin && (
+          <>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-indigo-600" onClick={onEdit}>
+              <Pencil className="w-3 h-3" /> Edit
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-rose-500" onClick={onDelete}>
+              <Trash2 className="w-3 h-3" /> Delete
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-amber-600" onClick={onNotify}>
+              <Bell className="w-3 h-3" /> Notify
+            </Button>
+          </>
+        )}
         <div className="flex-1" />
         <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-indigo-600" onClick={onPreview}>
           Details <ChevronRight className="w-3 h-3" />
@@ -1176,6 +1196,7 @@ function EditEventDialog({ event, onClose, onSave }: {
 
 /* ─── Events List Sub-tab ─── */
 function EventsList() {
+  const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
   const { useMock } = useEventMock();
   const [events, setEvents] = useState<EventItem[]>(MOCK_EVENTS);
   const [loading, setLoading] = useState(false);
@@ -1185,6 +1206,17 @@ function EventsList() {
   const [notifyEvent, setNotifyEvent] = useState<EventItem | null>(null);
   const [deleteEvent, setDeleteEvent] = useState<EventItem | null>(null);
   const [editEvent, setEditEvent] = useState<EventItem | null>(null);
+
+  const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
+  const isEventsAdmin =
+    isAdmin ||
+    isSuperAdmin ||
+    userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("COMMUNITY_ADMIN") ||
+    userRolesUpper.includes("EVENT_ADMIN") ||
+    userRolesUpper.includes("EVENTS_ADMIN") ||
+    hasPermission(CREATE_EVENT) ||
+    hasPermission(MANAGE_EVENT_DASHBOARD);
 
   useEffect(() => {
     if (useMock) {
@@ -1320,7 +1352,11 @@ function EventsList() {
             {search.trim() ? "No events found" : "No events yet"}
           </h3>
           <p className="text-sm text-slate-400">
-            {search.trim() ? "Try a different search term" : "Create your first event using the 'Create Event' button"}
+            {search.trim()
+              ? "Try a different search term"
+              : isEventsAdmin
+              ? "Create your first event using the 'Create Event' button"
+              : "Events will appear here once scheduled by community organizers."}
           </p>
         </div>
       ) : (
@@ -1371,12 +1407,29 @@ const TABS = [
 ] as const;
 
 export function EventsSchedule() {
+  const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
   const [tab, setTab] = useState<string>("events");
+
+  const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
+  const isEventsAdmin =
+    isAdmin ||
+    isSuperAdmin ||
+    userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("COMMUNITY_ADMIN") ||
+    userRolesUpper.includes("EVENT_ADMIN") ||
+    userRolesUpper.includes("EVENTS_ADMIN") ||
+    hasPermission(CREATE_EVENT) ||
+    hasPermission(MANAGE_EVENT_DASHBOARD);
+
+  const visibleTabs = TABS.filter((t) => {
+    if (t.id === "events" || t.id === "organizer") return true;
+    return isEventsAdmin;
+  });
 
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 bg-white rounded-lg sm:rounded-xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-x-auto hide-scrollbar">
-        {TABS.map(t => (
+        {visibleTabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[10px] sm:text-sm font-semibold transition-all whitespace-nowrap flex-1 sm:flex-none justify-center ${
               tab === t.id

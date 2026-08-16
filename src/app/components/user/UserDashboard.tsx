@@ -45,7 +45,7 @@ export function UserDashboard() {
     apiClient
       .get<UserStats>("/dashboard/user/stats")
       .then((res) => {
-        if (res.data) setStats(res.data);
+        if (res) setStats(res);
       })
       .catch((err) => {
         console.error("Failed to load user dashboard stats:", err);

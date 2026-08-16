@@ -249,4 +249,20 @@ export const eventService = {
   async deleteLunchDinner(id: number): Promise<void> {
     return apiClient.delete<void>(`/events/lunch-dinners/${id}`);
   },
+
+  async getFamilyMembers(): Promise<any[]> {
+    return apiClient.get<any[]>("/events/family-members");
+  },
+
+  async addFamilyMember(data: any): Promise<any> {
+    return apiClient.post<any>("/events/family-members", data);
+  },
+
+  async updateFamilyMember(id: number, data: any): Promise<any> {
+    return apiClient.put<any>(`/events/family-members/${id}`, data);
+  },
+
+  async deleteFamilyMember(id: number): Promise<void> {
+    return apiClient.delete<void>(`/events/family-members/${id}`);
+  },
 };
