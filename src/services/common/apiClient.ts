@@ -57,6 +57,7 @@ export interface StoredUser {
   dateOfBirth?: string;
   permissions?: string[];
   enabledModules?: string[];
+  menuPermissions?: import("../../types/api").MenuRolePermissionResponse[];
 }
 
 export function getStoredUser(): StoredUser | null {

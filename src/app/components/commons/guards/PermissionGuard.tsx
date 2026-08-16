@@ -15,15 +15,13 @@ interface PermissionGuardProps {
 }
 
 export function PermissionGuard({ children, permission, anyPermissions, superAdminOnly, requiredModule }: PermissionGuardProps) {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  const isSuperAdmin = user.role === "SUPER_ADMIN";
-
-  // SUPER_ADMIN role bypasses all permission constraints
+  // SUPER_ADMIN role bypasses all permission & module constraints
   if (isSuperAdmin) {
     return <>{children}</>;
   }

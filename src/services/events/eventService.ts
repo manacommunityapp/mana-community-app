@@ -168,4 +168,85 @@ export const eventService = {
   async rejectRegistration(regId: number): Promise<RegistrationResponse> {
     return apiClient.put<RegistrationResponse>(`/events/registrations/${regId}/reject`, {});
   },
+
+  async getPoojaTypes(): Promise<{ id: number; name: string; description?: string }[]> {
+    return apiClient.get<{ id: number; name: string; description?: string }[]>("/events/pooja-types");
+  },
+
+  async createPoojaType(name: string, description?: string): Promise<{ id: number; name: string; description?: string }> {
+    return apiClient.post<{ id: number; name: string; description?: string }>("/events/pooja-types", { name, description });
+  },
+
+  async getCulturalCategories(): Promise<{ id: number; name: string; description?: string }[]> {
+    return apiClient.get<{ id: number; name: string; description?: string }[]>("/events/cultural-categories");
+  },
+
+  async createCulturalCategory(name: string, description?: string): Promise<{ id: number; name: string; description?: string }> {
+    return apiClient.post<{ id: number; name: string; description?: string }>("/events/cultural-categories", { name, description });
+  },
+
+  async getCulturalPerformanceTypes(): Promise<{ id: number; name: string; description?: string }[]> {
+    return apiClient.get<{ id: number; name: string; description?: string }[]>("/events/cultural-performance-types");
+  },
+
+  async createCulturalPerformanceType(name: string, description?: string): Promise<{ id: number; name: string; description?: string }> {
+    return apiClient.post<{ id: number; name: string; description?: string }>("/events/cultural-performance-types", { name, description });
+  },
+
+  async getCompetitionCategories(): Promise<{ id: number; name: string; description?: string }[]> {
+    return apiClient.get<{ id: number; name: string; description?: string }[]>("/events/competition-categories");
+  },
+
+  async createCompetitionCategory(name: string, description?: string): Promise<{ id: number; name: string; description?: string }> {
+    return apiClient.post<{ id: number; name: string; description?: string }>("/events/competition-categories", { name, description });
+  },
+
+  async getCompetitionAgeGroups(): Promise<{ id: number; name: string; description?: string }[]> {
+    return apiClient.get<{ id: number; name: string; description?: string }[]>("/events/competition-age-groups");
+  },
+
+  async createCompetitionAgeGroup(name: string, description?: string): Promise<{ id: number; name: string; description?: string }> {
+    return apiClient.post<{ id: number; name: string; description?: string }>("/events/competition-age-groups", { name, description });
+  },
+
+  async getPoojaSevas(): Promise<any[]> {
+    return apiClient.get<any[]>("/events/pooja-sevas");
+  },
+
+  async createPoojaSeva(data: any): Promise<any> {
+    return apiClient.post<any>("/events/pooja-sevas", data);
+  },
+
+  async getCulturalEvents(): Promise<any[]> {
+    return apiClient.get<any[]>("/events/cultural-events");
+  },
+
+  async createCulturalEvent(data: any): Promise<any> {
+    return apiClient.post<any>("/events/cultural-events", data);
+  },
+
+  async getCompetitions(): Promise<any[]> {
+    return apiClient.get<any[]>("/events/competitions");
+  },
+
+  async createCompetition(data: any): Promise<any> {
+    return apiClient.post<any>("/events/competitions", data);
+  },
+
+  async getLunchDinners(mainEventId?: number): Promise<any[]> {
+    const qs = mainEventId ? `?mainEventId=${mainEventId}` : "";
+    return apiClient.get<any[]>(`/events/lunch-dinners${qs}`);
+  },
+
+  async createLunchDinner(data: any): Promise<any> {
+    return apiClient.post<any>("/events/lunch-dinners", data);
+  },
+
+  async updateLunchDinner(id: number, data: any): Promise<any> {
+    return apiClient.put<any>(`/events/lunch-dinners/${id}`, data);
+  },
+
+  async deleteLunchDinner(id: number): Promise<void> {
+    return apiClient.delete<void>(`/events/lunch-dinners/${id}`);
+  },
 };

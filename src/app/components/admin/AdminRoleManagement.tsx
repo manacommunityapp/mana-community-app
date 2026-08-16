@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   Shield,
   Users,
@@ -33,6 +33,8 @@ import { communityService } from "../../../services/community/communityService";
 import { PERMISSION_CATEGORIES, SPORTS_PERMISSION_MATRIX, EVENT_PERMISSION_MATRIX, MANAGE_COMMUNITIES as PERM_MANAGE_COMMUNITIES } from "../../../constants/permissions";
 import type { SportsPermissionRow, EventPermissionRow } from "../../../constants/permissions";
 import type { CommunityResponse, UserResponse } from "../../../types/api";
+import { sortRoles, sortRoleStrings } from "../../../utils/roleUtils";
+
 
 // --- TYPES ---
 interface UserItem {
@@ -58,10 +60,9 @@ const permissionCategories = PERMISSION_CATEGORIES;
 
 export function AdminRoleManagement() {
   const navigate = useNavigate();
-  const { user, updateUser } = useAuth();
+  const { user, isSuperAdmin, updateUser } = useAuth();
 
-  const canManageCommunities = user?.role === "SUPER_ADMIN" || (user?.permissions || []).includes(PERM_MANAGE_COMMUNITIES);
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const canManageCommunities = isSuperAdmin || (user?.permissions || []).includes(PERM_MANAGE_COMMUNITIES);
 
   // STATE MANAGEMENT
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);
@@ -80,7 +81,14 @@ export function AdminRoleManagement() {
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
 
   // Custom Roles & Tab States
-  const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("roleTab") as 'users' | 'roles') || 'users';
+  const setActiveTab = (tab: 'users' | 'roles') => {
+    setSearchParams((prev) => {
+      prev.set("roleTab", tab);
+      return prev;
+    }, { replace: true });
+  };
   const [roles, setRoles] = useState<Array<{ id: number; name: string }>>([]);
   const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
@@ -111,9 +119,9 @@ export function AdminRoleManagement() {
     try {
       const data = await userService.getRoles();
       const filtered = (data || []).filter(
-        (r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR"].includes(r.name.toUpperCase())
+        (r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r.name.toUpperCase())
       );
-      setRoles(filtered);
+      setRoles(sortRoles(filtered));
     } catch (err) {
       toast.error("Failed to load security roles from database");
     }
@@ -143,7 +151,7 @@ export function AdminRoleManagement() {
     setIsCreatingRole(true);
     try {
       const created = await userService.createRole(newRoleName);
-      setRoles((prev) => [...prev, created]);
+      setRoles((prev) => sortRoles([...prev, created]));
       
       const normalizedRole = created.name.charAt(0).toUpperCase() + created.name.slice(1).toLowerCase();
       // Initialize empty permissions map for this role
@@ -185,10 +193,10 @@ export function AdminRoleManagement() {
         const rolesList = (u.roles && u.roles.length > 0
           ? u.roles.map((r) => r.trim().toUpperCase())
           : rawRole.split(",").map((r) => r.trim().toUpperCase()).filter(Boolean)
-        ).map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR"].includes(r) ? "ADMIN" : r);
+        ).map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r) ? "ADMIN" : r);
         const displayRole = rawRole.split(",")
           .map((r) => r.trim().toUpperCase())
-          .map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR"].includes(r) ? "ADMIN" : r)
+          .map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r) ? "ADMIN" : r)
           .join(", ");
         return {
           id: u.id,
@@ -236,11 +244,14 @@ export function AdminRoleManagement() {
     const initialRoles = u.roles && u.roles.length > 0
       ? u.roles.map((r) => r.toUpperCase())
       : u.role.split(",").map((r) => r.trim().toUpperCase()).filter(Boolean);
+    // Ensure USER base role is always present
+    if (!initialRoles.includes("USER")) initialRoles.push("USER");
     setSelectedUserRoles(initialRoles);
   };
 
   const toggleSelectedRole = (roleName: string) => {
     const normalized = roleName.toUpperCase();
+    if (normalized === "USER") return; // USER is always assigned
     setSelectedUserRoles((prev) =>
       prev.includes(normalized)
         ? prev.filter((r) => r !== normalized)
@@ -256,16 +267,21 @@ export function AdminRoleManagement() {
     }
     setUpdatingUserRoles(true);
     try {
+      // Every user always retains the USER base role
+      const rolesToSend = selectedUserRoles.includes("USER")
+        ? selectedUserRoles
+        : [...selectedUserRoles, "USER"];
+
       // PUT /api/users/{id}/role — backend reads `roles` array, stores comma-joined,
       // creates combined permissions, and returns 200 with full UserResponse.
-      const saved = await userService.updateUserRole(selectedUser.id, selectedUserRoles);
+      const saved = await userService.updateUserRole(selectedUser.id, rolesToSend);
 
       // Backend returns 200 with role, roles[], and permissions[] populated.
       // Use response data when available; fall back to what we sent if not.
-      const roleStr = saved?.role ?? selectedUserRoles.join(", ");
+      const roleStr = saved?.role ?? rolesToSend.join(", ");
       const rolesArr = (saved?.roles && saved.roles.length > 0)
         ? saved.roles.map((r: string) => r.toUpperCase())
-        : selectedUserRoles.map((r) => r.toUpperCase());
+        : rolesToSend.map((r) => r.toUpperCase());
       const perms = saved?.permissions;
 
       toast.success(`Roles saved for ${selectedUser.name}: ${rolesArr.join(", ")}`);
@@ -388,6 +404,7 @@ export function AdminRoleManagement() {
 
   const toggleRoleOnEditView = async (roleKey: string) => {
     const norm = roleKey.toUpperCase();
+    if (norm === "USER") return; // USER is always assigned
     const isCurrentlyActive = selectedUserRoles.includes(norm);
     const updatedRoles = isCurrentlyActive
       ? selectedUserRoles.filter((r) => r !== norm)
@@ -450,7 +467,8 @@ export function AdminRoleManagement() {
 
       if (editingUserId) {
         // Save user's multi-role assignment and custom permissions
-        const rolesToSave = selectedUserRoles.length > 0 ? selectedUserRoles : [editingRoleName.toUpperCase()];
+        const rawRolesToSave = selectedUserRoles.length > 0 ? selectedUserRoles : [editingRoleName.toUpperCase()];
+        const rolesToSave = rawRolesToSave.includes("USER") ? rawRolesToSave : [...rawRolesToSave, "USER"];
         const saved = await userService.updateUserRole(editingUserId, rolesToSave);
         await userService.updateRolePermissions(editingRoleName.toUpperCase(), checkedPerms, editingUserId);
 
@@ -964,22 +982,26 @@ export function AdminRoleManagement() {
 
             {/* Toggle Pills */}
             <div className="flex flex-wrap gap-2 pt-1">
-              {Array.from(new Set([
-                "USER", "MEMBER", "COMMUNITY_ADMIN", "SPORTS_ADMIN",
-                "VENDOR", "CASHIER", "STAFF", "ADMIN",
+              {sortRoleStrings(Array.from(new Set([
+                "ADMIN", "CASHIER", "EVENT_ADMIN", "MEMBER",
+                "SPORTS_ADMIN", "STAFF", "USER", "VENDOR",
                 ...roles.map((r) => r.name.toUpperCase())
-              ])).filter((r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR"].includes(r.toUpperCase()))
+              ])).filter((r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r.toUpperCase())))
               .map((roleKey) => {
                 const isSelected = selectedUserRoles.includes(roleKey);
+                const isLocked = roleKey === "USER";
                 return (
                   <button
                     key={roleKey}
                     type="button"
                     onClick={() => toggleRoleOnEditView(roleKey)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border active:scale-95 ${
-                      isSelected
-                        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-500/20"
-                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                    disabled={isLocked}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border active:scale-95 ${
+                      isLocked
+                        ? "bg-slate-300 text-slate-500 border-slate-300 cursor-not-allowed opacity-70"
+                        : isSelected
+                          ? "bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-500/20 cursor-pointer"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100 cursor-pointer"
                     }`}
                   >
                     <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
@@ -987,7 +1009,7 @@ export function AdminRoleManagement() {
                     }`}>
                       {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                     </div>
-                    {roleKey.replace("_", " ")}
+                    {roleKey.replace(/_/g, " ")}{roleKey === "USER" ? " (auto)" : ""}
                   </button>
                 );
               })}
@@ -1569,30 +1591,36 @@ export function AdminRoleManagement() {
 
                   {/* Multi-role Toggle Grid */}
                   <div className="flex flex-wrap gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl max-h-48 overflow-y-auto">
-                    {Array.from(new Set([
-                      "USER", "MEMBER", "COMMUNITY_ADMIN", "SPORTS_ADMIN",
+                    {sortRoleStrings(Array.from(new Set([
+                      "USER", "MEMBER", "SPORTS_ADMIN",
                       "VENDOR", "CASHIER", "STAFF", "ADMIN",
                       ...roles.map((r) => r.name.toUpperCase())
-                    ])).filter((r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR"].includes(r.toUpperCase()))
+                    ])).filter((r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r.toUpperCase())))
                     .map((roleKey) => {
                       const isSelected = selectedUserRoles.includes(roleKey);
+                      const isLocked = roleKey === "USER";
                       return (
                         <button
                           key={roleKey}
                           type="button"
                           onClick={() => toggleSelectedRole(roleKey)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border active:scale-95 ${
-                            isSelected
-                              ? "bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-500/20"
-                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                          disabled={isLocked}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border active:scale-95 ${
+                            isLocked
+                              ? "bg-slate-300 text-slate-500 border-slate-300 cursor-not-allowed opacity-70"
+                              : isSelected
+                                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-500/20 cursor-pointer"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100 cursor-pointer"
                           }`}
                         >
                           <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
-                            isSelected ? "bg-white text-indigo-600 border-white" : "border-slate-300 bg-slate-50"
+                            isLocked
+                              ? "bg-slate-400 text-white border-slate-400"
+                              : isSelected ? "bg-white text-indigo-600 border-white" : "border-slate-300 bg-slate-50"
                           }`}>
-                            {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                            {(isSelected || isLocked) && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                           </div>
-                          {roleKey.replace("_", " ")}
+                          {roleKey.replace(/_/g, " ")}{isLocked ? " (auto)" : ""}
                         </button>
                       );
                     })}

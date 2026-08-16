@@ -109,10 +109,10 @@ const mockApplications: UserApplication[] = [
 ];
 
 export function AdminDashboard() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAnyAdmin } = useAuth();
   const navigate = useNavigate();
 
-  if (!isAdmin) {
+  if (!isAnyAdmin) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <p className="text-slate-500 font-medium">Access Denied. Administrative privileges required.</p>

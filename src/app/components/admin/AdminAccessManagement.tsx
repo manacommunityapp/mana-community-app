@@ -1,4 +1,5 @@
 import { useState, useEffect, type ElementType } from "react";
+import { useSearchParams } from "react-router";
 import {
   Shield, Users, Eye, Pencil, Trash2, ChevronDown, ChevronRight,
   CheckCircle2, Lock, Unlock, RotateCcw, Save, Loader2, Crown,
@@ -54,6 +55,8 @@ import {
   VIEW_WORK_ORDERS, MANAGE_SERVICE_WORK_ORDERS,
 } from "../../../constants/permissions";
 import { userService } from "../../../services/common/userService";
+import { sortRoles } from "../../../utils/roleUtils";
+
 
 /* ─── Types ─── */
 interface PermRow {
@@ -77,17 +80,58 @@ interface ModuleConfig {
   roleDefaults: Record<string, string[]>;
 }
 
-/* ─── System roles ─── */
-const SYSTEM_ROLES = [
-  { name: "ADMIN",           label: "Admin",           color: "#4f46e5", icon: Crown },
-  { name: "COMMUNITY_ADMIN", label: "Community Admin", color: "#7c3aed", icon: Shield },
-  { name: "SPORTS_ADMIN",    label: "Sports Admin",    color: "#0891b2", icon: Briefcase },
-  { name: "MEMBER",          label: "Member",          color: "#059669", icon: UserCheck },
-  { name: "VENDOR",          label: "Vendor",          color: "#d97706", icon: Banknote },
-  { name: "CASHIER",         label: "Cashier",         color: "#be185d", icon: DollarSign },
-  { name: "STAFF",           label: "Staff",           color: "#64748b", icon: Wrench },
-  { name: "USER",            label: "User",            color: "#8b5cf6", icon: Users },
+export interface SystemRoleDef {
+  name: string;
+  label: string;
+  color: string;
+  icon: ElementType;
+}
+
+const HIDDEN_ROLES = [
+  "SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR",
+  "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN",
 ];
+
+const isHiddenRole = (name: string) => HIDDEN_ROLES.includes(name.trim().toUpperCase());
+
+const KNOWN_ROLE_META: Record<string, { label: string; color: string; icon: ElementType }> = {
+  ADMIN:        { label: "Admin",        color: "#4f46e5", icon: Crown },
+  SPORTS_ADMIN: { label: "Sports Admin", color: "#0891b2", icon: Briefcase },
+  MEMBER:       { label: "Member",       color: "#059669", icon: UserCheck },
+  VENDOR:       { label: "Vendor",       color: "#d97706", icon: Banknote },
+  CASHIER:      { label: "Cashier",      color: "#be185d", icon: DollarSign },
+  STAFF:        { label: "Staff",        color: "#64748b", icon: Wrench },
+  USER:         { label: "User",         color: "#8b5cf6", icon: Users },
+};
+
+function mapRoleNameToDef(name: string): SystemRoleDef {
+  const upper = name.trim().toUpperCase();
+  if (KNOWN_ROLE_META[upper]) {
+    return { name: upper, ...KNOWN_ROLE_META[upper] };
+  }
+  const formattedLabel = upper
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, c => c.toUpperCase());
+  return {
+    name: upper,
+    label: formattedLabel,
+    color: "#6366f1",
+    icon: Shield,
+  };
+}
+
+/* ─── Default fallback roles (never includes SUPER_ADMIN or COMMUNITY_ADMIN) ─── */
+const DEFAULT_SYSTEM_ROLES: SystemRoleDef[] = sortRoles([
+  { name: "ADMIN",        label: "Admin",        color: "#4f46e5", icon: Crown },
+  { name: "CASHIER",      label: "Cashier",      color: "#be185d", icon: DollarSign },
+  { name: "MEMBER",       label: "Member",       color: "#059669", icon: UserCheck },
+  { name: "SPORTS_ADMIN", label: "Sports Admin", color: "#0891b2", icon: Briefcase },
+  { name: "STAFF",        label: "Staff",        color: "#64748b", icon: Wrench },
+  { name: "USER",         label: "User",         color: "#8b5cf6", icon: Users },
+  { name: "VENDOR",       label: "Vendor",       color: "#d97706", icon: Banknote },
+]);
+
 
 /* ─── Module configs ─── */
 const MODULES: ModuleConfig[] = [
@@ -396,7 +440,7 @@ function buildInitialState(): PermState {
   const state: PermState = {};
   MODULES.forEach(m => {
     state[m.id] = {};
-    SYSTEM_ROLES.forEach(r => {
+    DEFAULT_SYSTEM_ROLES.forEach(r => {
       state[m.id][r.name] = new Set(m.roleDefaults[r.name] ?? []);
     });
   });
@@ -406,15 +450,20 @@ function buildInitialState(): PermState {
 /** Merge backend RolePermissionsMap into per-module PermState. */
 function buildStateFromMap(roleMap: Record<string, string[]>): PermState {
   const next: PermState = {};
+  const allRoleNames = Array.from(new Set([
+    ...DEFAULT_SYSTEM_ROLES.map(r => r.name),
+    ...Object.keys(roleMap).map(r => r.toUpperCase()),
+  ])).filter(r => !isHiddenRole(r));
+
   MODULES.forEach(m => {
     const modulePossible = new Set(
       m.rows.filter(row => !row.isGroupHeader)
         .flatMap(row => [row.view, row.createEdit, row.delete].filter(Boolean)) as string[]
     );
     next[m.id] = {};
-    SYSTEM_ROLES.forEach(r => {
-      const relevant = (roleMap[r.name] ?? []).filter(p => modulePossible.has(p));
-      next[m.id][r.name] = new Set(relevant.length > 0 ? relevant : (m.roleDefaults[r.name] ?? []));
+    allRoleNames.forEach(rName => {
+      const relevant = (roleMap[rName] ?? []).filter(p => modulePossible.has(p));
+      next[m.id][rName] = new Set(relevant.length > 0 ? relevant : (m.roleDefaults[rName] ?? []));
     });
   });
   return next;
@@ -428,7 +477,7 @@ function AccessMatrixTable({
   rows, roles, perms, onToggle,
 }: {
   rows: PermRow[];
-  roles: typeof SYSTEM_ROLES;
+  roles: SystemRoleDef[];
   perms: Record<string, Set<string>>;
   onToggle: (roleName: string, perm: string) => void;
 }) {
@@ -528,7 +577,7 @@ function AccessMatrixTable({
 function RoleDetailPanel({
   role, rows, perms, onToggle, onReset, onDisableRole, onDisableAll, onSave, isSaving,
 }: {
-  role: typeof SYSTEM_ROLES[number];
+  role: SystemRoleDef;
   rows: PermRow[];
   perms: Set<string>;
   onToggle: (perm: string) => void;
@@ -680,7 +729,15 @@ function collectRolePerms(perms: PermState, roleName: string): string[] {
 /* ─── Main Component ─── */
 export function AdminAccessManagement() {
   const [perms, setPerms] = useState<PermState>(buildInitialState);
-  const [activeModule, setActiveModule] = useState("events");
+  const [systemRoles, setSystemRoles] = useState<SystemRoleDef[]>(DEFAULT_SYSTEM_ROLES);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeModule = searchParams.get("module") || "events";
+  const setActiveModule = (mod: string) => {
+    setSearchParams((prev) => {
+      prev.set("module", mod);
+      return prev;
+    }, { replace: true });
+  };
   const [selectedRole, setSelectedRole] = useState("ADMIN");
   const [viewMode, setViewMode] = useState<"role" | "matrix">("role");
   const [saving, setSaving] = useState(false);
@@ -690,8 +747,39 @@ export function AdminAccessManagement() {
   const [saveError, setSaveError] = useState(false);
   const [saveDetails, setSaveDetails] = useState<SaveDetail[] | null>(null);
 
-  // Load current role permissions from the backend on mount
+  // Load current role permissions & dynamic security roles from backend DB on mount
   useEffect(() => {
+    userService.getRoles()
+      .then(dbRoles => {
+        const filtered = (dbRoles || [])
+          .filter(r => r?.name && !isHiddenRole(r.name))
+          .map(r => mapRoleNameToDef(r.name));
+
+        if (filtered.length > 0) {
+          const seen = new Set(filtered.map(r => r.name.toUpperCase()));
+          const combined = [...filtered];
+          DEFAULT_SYSTEM_ROLES.forEach(def => {
+            if (!seen.has(def.name.toUpperCase())) {
+              combined.push(def);
+              seen.add(def.name.toUpperCase());
+            }
+          });
+          // Final dedup pass — guard against any duplicate names from DB
+          const deduped = Array.from(
+            combined.reduce((map, r) => {
+              if (!map.has(r.name.toUpperCase())) map.set(r.name.toUpperCase(), r);
+              return map;
+            }, new Map<string, SystemRoleDef>()).values()
+          );
+          const sorted = sortRoles(deduped);
+          setSystemRoles(sorted);
+          if (!sorted.some(r => r.name === selectedRole)) {
+            setSelectedRole(sorted[0].name);
+          }
+        }
+      })
+      .catch(err => console.error("Failed to load roles from database:", err));
+
     userService.getRolePermissions()
       .then(roleMap => setPerms(buildStateFromMap(roleMap)))
       .catch(err => console.error("Failed to load role permissions:", err));
@@ -699,7 +787,7 @@ export function AdminAccessManagement() {
 
   const module = MODULES.find(m => m.id === activeModule)!;
   const modulePerms = perms[activeModule] ?? {};
-  const activeRole = SYSTEM_ROLES.find(r => r.name === selectedRole)!;
+  const activeRole = systemRoles.find(r => r.name === selectedRole) || systemRoles[0] || DEFAULT_SYSTEM_ROLES[0];
 
   const handleToggle = (roleName: string, perm: string) => {
     setPerms(prev => {
@@ -737,7 +825,7 @@ export function AdminAccessManagement() {
     setPerms(prev => {
       const next = { ...prev };
       const emptyModuleRoles: Record<string, Set<string>> = {};
-      SYSTEM_ROLES.forEach(r => { emptyModuleRoles[r.name] = new Set(); });
+      systemRoles.forEach(r => { emptyModuleRoles[r.name] = new Set(); });
       next[activeModule] = emptyModuleRoles;
       return next;
     });
@@ -751,7 +839,7 @@ export function AdminAccessManagement() {
     try {
       const verified = await userService.getRolePermissions();
       setPerms(buildStateFromMap(verified));
-      return SYSTEM_ROLES.map(r => ({
+      return systemRoles.map(r => ({
         name: r.name, label: r.label, color: r.color,
         sent: sentMap[r.name] ?? 0,
         stored: (verified[r.name] ?? []).length,
@@ -770,16 +858,16 @@ export function AdminAccessManagement() {
     setSaveDetails(null);
     try {
       const roleTotals: Record<string, string[]> = {};
-      SYSTEM_ROLES.forEach(r => { roleTotals[r.name] = collectRolePerms(perms, r.name); });
+      systemRoles.forEach(r => { roleTotals[r.name] = collectRolePerms(perms, r.name); });
 
       // allSettled so one role failure never cancels the rest
       const results = await Promise.allSettled(
-        SYSTEM_ROLES.map(r => userService.updateRolePermissions(r.name, roleTotals[r.name]))
+        systemRoles.map(r => userService.updateRolePermissions(r.name, roleTotals[r.name]))
       );
 
       const anyFailed = results.some(r => r.status === "rejected");
       // Show per-role status from what was sent (optimistic; verification updates it)
-      const optimisticDetails: SaveDetail[] = SYSTEM_ROLES.map((r, i) => ({
+      const optimisticDetails: SaveDetail[] = systemRoles.map((r, i) => ({
         name: r.name, label: r.label, color: r.color,
         sent: roleTotals[r.name].length,
         stored: results[i].status === "fulfilled" ? roleTotals[r.name].length : 0,
@@ -790,7 +878,7 @@ export function AdminAccessManagement() {
       if (anyFailed) setSaveError(true);
 
       // Non-blocking re-fetch to confirm real DB state — won't affect saved/error flags
-      const sentMap = Object.fromEntries(SYSTEM_ROLES.map(r => [r.name, roleTotals[r.name].length]));
+      const sentMap = Object.fromEntries(systemRoles.map(r => [r.name, roleTotals[r.name].length]));
       verifyAndRefresh(sentMap)
         .then(details => setSaveDetails(details))
         .catch(() => { /* verification unavailable — keep optimistic view */ });
@@ -815,7 +903,7 @@ export function AdminAccessManagement() {
       const rolePerms = collectRolePerms(perms, roleName);
       await userService.updateRolePermissions(roleName, rolePerms);
 
-      const r = SYSTEM_ROLES.find(sr => sr.name === roleName)!;
+      const r = systemRoles.find(sr => sr.name === roleName) || mapRoleNameToDef(roleName);
       const optimistic: SaveDetail = { name: roleName, label: r.label, color: r.color, sent: rolePerms.length, stored: rolePerms.length, ok: true };
       setSaveDetails([optimistic]);
       setSaved(true);
@@ -848,7 +936,7 @@ export function AdminAccessManagement() {
           <div>
             <h2 className="text-lg font-bold text-slate-800">Access & Roles</h2>
             <p className="text-xs text-slate-400">
-              Configure role-based permissions for every module — {MODULES.length} modules, {SYSTEM_ROLES.length} roles
+              Configure role-based permissions for every module — {MODULES.length} modules, {systemRoles.length} roles
             </p>
           </div>
         </div>
@@ -880,7 +968,7 @@ export function AdminAccessManagement() {
           <Button onClick={handleSave} disabled={saving || !!savingRole}
             className="bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-700 hover:to-violet-600 gap-2 text-sm h-9">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {saving ? `Saving ${SYSTEM_ROLES.length} roles…` : "Save All Roles"}
+            {saving ? `Saving ${systemRoles.length} roles…` : "Save All Roles"}
           </Button>
         </div>
       </div>
@@ -970,7 +1058,7 @@ export function AdminAccessManagement() {
           {viewMode === "matrix" && (
             <AccessMatrixTable
               rows={module.rows}
-              roles={SYSTEM_ROLES}
+              roles={systemRoles}
               perms={modulePerms}
               onToggle={handleToggle}
             />
@@ -982,9 +1070,9 @@ export function AdminAccessManagement() {
               {/* Role picker */}
               <div className="space-y-1.5">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                  Roles ({SYSTEM_ROLES.length})
+                  Roles ({systemRoles.length})
                 </p>
-                {SYSTEM_ROLES.map(r => {
+                {systemRoles.map(r => {
                   const roleSet = modulePerms[r.name] ?? new Set();
                   const allPossible = module.rows
                     .filter(row => !row.isGroupHeader)
@@ -1003,7 +1091,7 @@ export function AdminAccessManagement() {
                       )}>
                       <div className="flex items-center gap-2 mb-1.5">
                         <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${r.color}18` }}>
-                          <r.icon className="w-3.5 h-3.5" style={{ color: r.color }} />
+                          <r.icon className="w-3 h-3" style={{ color: r.color }} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-bold text-slate-800 truncate">{r.label}</p>

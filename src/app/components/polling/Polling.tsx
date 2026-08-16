@@ -3,6 +3,7 @@ import {
   ChevronDown, CircleDot, Minus
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { pollService, type PollResponse, type PollRequest } from "../../../services/polls/pollService";
@@ -23,7 +24,14 @@ function timeAgo(iso: string): string {
 }
 
 export function Polling() {
-  const [tab, setTab] = useState<"active" | "all" | "mine">("active");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = (searchParams.get("tab") as "active" | "all" | "mine") || "active";
+  const setTab = (t: "active" | "all" | "mine") => {
+    setSearchParams((prev) => {
+      prev.set("tab", t);
+      return prev;
+    }, { replace: true });
+  };
   const [polls, setPolls] = useState<PollResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);

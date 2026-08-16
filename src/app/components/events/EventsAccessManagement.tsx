@@ -17,6 +17,8 @@ import {
   EVENT_ROLE_DEFAULTS,
   type EventPermissionRow,
 } from "../../../constants/permissions";
+import { sortRoles } from "../../../utils/roleUtils";
+
 
 /* ─── Types ─── */
 interface RoleConfig {
@@ -33,6 +35,8 @@ interface RoleConfig {
 
 const MENU_ICONS: Record<string, any> = {
   "Dashboard": LayoutDashboard,
+  "Admin Dashboard": Crown,
+  "User Dashboard": Ticket,
   "Events & Schedule": CalendarDays,
   "Registration": Ticket,
   "People & Volunteers": Users,
@@ -60,8 +64,7 @@ const ACTION_ICONS = {
 
 /* ─── Role Presets ─── */
 function buildRoles(): RoleConfig[] {
-  return [
-    // ── System roles ───────────────────────────────────────────────────────
+  const systemRoles: RoleConfig[] = [
     {
       name: "ADMIN", label: "Admin", icon: Crown, color: "#4f46e5",
       description: "Full access to all event features — create, manage, export, notify, manage forms",
@@ -102,8 +105,9 @@ function buildRoles(): RoleConfig[] {
       description: "Basic access — dashboard, gallery, register for events, view forms",
       permissions: new Set(EVENT_ROLE_DEFAULTS.USER),
     },
+  ];
 
-    // ── Suggested event-specific custom roles ──────────────────────────────
+  const suggestedRoles: RoleConfig[] = [
     {
       name: "EVENT_COORDINATOR", label: "Event Coordinator", icon: CalendarClock, color: "#0ea5e9",
       description: "Plans and runs events end-to-end — create, schedule, manage registrations, forms, operations, media",
@@ -141,6 +145,8 @@ function buildRoles(): RoleConfig[] {
       suggested: true,
     },
   ];
+
+  return [...sortRoles(systemRoles), ...sortRoles(suggestedRoles)];
 }
 
 /* ─── Access Matrix Table ─── */

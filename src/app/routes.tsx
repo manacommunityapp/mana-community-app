@@ -13,6 +13,7 @@ import { Jobs } from "./components/jobs/Jobs";
 import { Events } from "./components/events/Events.legacy";
 import { EventsLayout } from "./components/events/EventsLayout";
 import { EventsDashboard } from "./components/events/EventsDashboard";
+import { EventDashboardWrapper } from "./components/events/EventDashboardWrapper";
 import { EventMemberFlow } from "./components/events/EventMemberFlow";
 import { EventsSchedule } from "./components/events/EventsSchedule";
 import { EventsRegistrationHub } from "./components/events/EventsRegistrationHub";
@@ -30,6 +31,7 @@ import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/commons/login/Signup";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
+import { SmartDashboard } from "./components/commons/SmartDashboard";
 import { AdminHub } from "./components/admin/AdminHub";
 import { ExpensesDashboard } from "./components/finance/ExpensesDashboard";
 import { Chat } from "./components/chat/Chat";
@@ -171,7 +173,7 @@ import {
   MANAGE_ROLES, VIEW_MARKETPLACE, CREATE_LISTING, VIEW_JOBS, VIEW_EVENTS, REGISTER_EVENT,
   VIEW_EVENT_DASHBOARD, VIEW_EVENT_SCHEDULE, VIEW_EVENT_REGISTRATION, VIEW_EVENT_PEOPLE,
   VIEW_EVENT_FUNDRAISING, VIEW_EVENT_OPERATIONS, VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY,
-  VIEW_EVENT_REPORTS, CREATE_EVENT, MANAGE_EVENT_DASHBOARD,
+  VIEW_EVENT_REPORTS, CREATE_EVENT, MANAGE_EVENT_DASHBOARD, MANAGE_EVENT_FORMS,
   VIEW_VISITORS,
   VIEW_NOTICES, VIEW_AMENITIES, VIEW_TICKETS, VIEW_POLLS,
   VIEW_VENDOR_MANAGEMENT, MANAGE_VENDORS, BOOK_VENDOR_SERVICE,
@@ -268,6 +270,10 @@ export const router = createBrowserRouter([
           { 
             index: true, 
             element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><AdminHub /></PermissionGuard> 
+          },
+          { 
+            path: "dashboards", 
+            element: <PermissionGuard permission={VIEW_ADMIN} requiredModule="ADMIN_HUB"><SmartDashboard /></PermissionGuard> 
           },
           { 
             path: "create-user", 
@@ -375,11 +381,11 @@ export const router = createBrowserRouter([
         path: "events",
         element: <PermissionGuard requiredModule="EVENTS"><EventsLayout /></PermissionGuard>,
         children: [
-          { index: true, element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_DASHBOARD]}><EventsDashboard /></PermissionGuard> },
-          { path: "member-flow", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, REGISTER_EVENT]}><EventMemberFlow /></PermissionGuard> },
+          { index: true, element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_DASHBOARD]}><EventDashboardWrapper /></PermissionGuard> },
+          { path: "member-flow", element: <PermissionGuard anyPermissions={[MANAGE_EVENT_DASHBOARD]}><EventMemberFlow /></PermissionGuard> },
           { path: "schedule", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_SCHEDULE]}><EventsSchedule /></PermissionGuard> },
           { path: "registration", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_REGISTRATION, REGISTER_EVENT]}><EventsRegistrationHub /></PermissionGuard> },
-          { path: "forms", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_REGISTRATION, REGISTER_EVENT]}><EventsFormsHub /></PermissionGuard> },
+          { path: "forms", element: <PermissionGuard anyPermissions={[MANAGE_EVENT_FORMS]}><EventsFormsHub /></PermissionGuard> },
           { path: "people", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_PEOPLE]}><EventsPeople /></PermissionGuard> },
           { path: "fundraising", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_FUNDRAISING]}><EventsFundraising /></PermissionGuard> },
           { path: "operations", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_OPERATIONS]}><EventsOperations /></PermissionGuard> },

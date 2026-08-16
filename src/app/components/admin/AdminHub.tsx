@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router";
 import {
   LayoutDashboard,
   Users,
@@ -37,6 +38,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigate } from "react-router";
+import { sortRoleStrings } from "../../../utils/roleUtils";
+
 import { showSuccess, showError } from "../../../utils/ToastUtils";
 const toast = {
   success: (msg: string) => showSuccess(msg),
@@ -53,6 +56,7 @@ import { AdminCommunity } from "./AdminCommunity";
 import { AdminDirectory } from "./AdminDirectory";
 import { AdminRoleManagement } from "./AdminRoleManagement";
 import { AdminAccessManagement } from "./AdminAccessManagement";
+import { SmartDashboard } from "../commons/SmartDashboard";
 import { LogsDashboard } from "./LogsDashboard";
 import { AuditTrail } from "./AuditTrail";
 import { AdminSportsMeta } from "./AdminSportsMeta";
@@ -83,6 +87,7 @@ interface AdminOverviewData {
 // ── Tab config ────────────────────────────────────────────────────────────────
 const TAB_ITEMS = [
   { id: "overview",   label: "Overview",      icon: LayoutDashboard },
+  { id: "dashboards", label: "Dashboard Modes", icon: LayoutDashboard },
   { id: "users-roles", label: "Users & Roles", icon: Users },
   { id: "access-roles", label: "Access & Roles", icon: Shield },
   { id: "kyc",        label: "KYC Review",    icon: ShieldCheck },
@@ -391,7 +396,7 @@ function UsersTab({ users, loading }: { users: UserResponse[]; loading: boolean 
   const [filterRole, setFilterRole] = useState("all");
   const [filterKyc, setFilterKyc] = useState("all");
 
-  const roles = ["all", ...Array.from(new Set(users.map((u) => u.role))).sort()];
+  const roles = ["all", ...sortRoleStrings(Array.from(new Set(users.map((u) => u.role))))];
   const kycStatuses = ["all", "APPROVED", "PENDING", "REJECTED"];
 
   const filtered = users.filter((u) => {
@@ -693,8 +698,12 @@ function ModulesTab() {
 
 // ── Main AdminHub Component ───────────────────────────────────────────────────
 export function AdminHub() {
-  const { user, isAdmin, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const { user, isAdmin, isSuperAdmin, isAnyAdmin, hasPermission } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as TabId) || "overview";
+  const setActiveTab = (tab: TabId) => {
+    setSearchParams({ tab }, { replace: true });
+  };
 
   // Overview data
   const [overviewData, setOverviewData] = useState<AdminOverviewData | null>(null);
@@ -705,7 +714,6 @@ export function AdminHub() {
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
 
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const canManageCommunities = isSuperAdmin || hasPermission("Manage Communities");
 
   // ── Fetch all data ──────────────────────────────────────────────────────────
@@ -777,7 +785,7 @@ export function AdminHub() {
     }
   }, [activeTab, fetchOverview]);
 
-  if (!isAdmin) {
+  if (!isAnyAdmin) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="bg-card border border-border rounded-2xl p-8 text-center">
@@ -875,6 +883,7 @@ export function AdminHub() {
             onNavigate={setActiveTab}
           />
         )}
+        {activeTab === "dashboards" && <SmartDashboard />}
         {activeTab === "users-roles" && <AdminRoleManagement />}
         {activeTab === "access-roles" && <AdminAccessManagement />}
         {activeTab === "kyc" && <AdminDashboard />}

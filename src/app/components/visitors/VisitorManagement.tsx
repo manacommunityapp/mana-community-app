@@ -4,6 +4,7 @@ import {
   History, BarChart3, Key, Camera, CheckCircle2, AlertTriangle, Eye
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { visitorService, type VisitorPassResponse, type VisitorPassRequest, type VisitorAuditLog, type VisitorAnalytics } from "../../../services/visitors/visitorService";
@@ -63,7 +64,17 @@ function formatDate(iso: string | null): string {
 }
 
 export function VisitorManagement() {
-  const [portal, setPortal] = useState<PortalView>("resident");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlPortal = searchParams.get("portal") as PortalView | null;
+  const [portalState, setPortalState] = useState<PortalView>(urlPortal || "resident");
+  const portal = urlPortal || portalState;
+  const setPortal = (p: PortalView) => {
+    setPortalState(p);
+    setSearchParams((prev) => {
+      prev.set("portal", p);
+      return prev;
+    }, { replace: true });
+  };
   const [currentUser, setCurrentUser] = useState<UserResponse | null>(null);
   const [residents, setResidents] = useState<UserResponse[]>([]);
   
@@ -94,11 +105,13 @@ export function VisitorManagement() {
         const profile = await userService.getMe();
         setCurrentUser(profile);
         
-        // Auto-switch portal view depending on role
-        if (profile.role === "GUARD" || profile.role === "GATEKEEPER") {
-          setPortal("guard");
-        } else if (profile.role === "ADMIN") {
-          setPortal("admin");
+        // Auto-switch portal view depending on role if not explicitly provided in URL
+        if (!urlPortal) {
+          if (profile.role === "GUARD" || profile.role === "GATEKEEPER") {
+            setPortal("guard");
+          } else if (profile.role === "ADMIN") {
+            setPortal("admin");
+          }
         }
 
         // Search residents for guard walk-in select

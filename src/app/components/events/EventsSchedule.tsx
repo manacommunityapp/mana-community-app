@@ -13,7 +13,8 @@ import {
   AlertCircle, MapPin, Users, Ticket, Globe, Lock,
   Send, Mail, BellRing, Megaphone, MessageSquare,
   ChevronRight, Filter, ArrowUpDown, Plus, ExternalLink, Loader2,
-  CalendarClock, Repeat, Timer, History, Zap, RotateCcw, Pause, Play, X,
+  CalendarClock, Repeat, Timer, History, Zap, RotateCcw, Pause, Play, X, ShieldCheck, Smartphone,
+  Flame, Music, Trophy, UtensilsCrossed
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -24,6 +25,10 @@ import { Switch } from "../ui/switch";
 import { cn } from "../ui/utils";
 import { EventsPlanning } from "./EventsPlanning";
 import { EventsPrograms } from "./EventsPrograms";
+import { EventsFood } from "./EventsFood";
+import { OrganizerDashboard } from "./OrganizerDashboard";
+import { EventDashboardWrapper } from "./EventDashboardWrapper";
+import { PoojaSevaSection, LunchDinnerSection, CulturalEventsSection, CompetitionsSection } from "./EventSubCreatorForms";
 
 /* ─── Types ─── */
 type EventStatus = "upcoming" | "ongoing" | "completed" | "draft" | "cancelled";
@@ -1355,9 +1360,14 @@ function EventsList() {
 
 /* ─── Main Component ─── */
 const TABS = [
-  { id: "events",   label: "Events",          icon: CalendarDays  },
-  { id: "planning", label: "Planning & Tasks", icon: ClipboardList },
-  { id: "programs", label: "Day Programs",     icon: Mic2          },
+  { id: "events",          label: "Events",               icon: CalendarDays  },
+  { id: "organizer",       label: "Organizer Dashboard", icon: ShieldCheck   },
+  { id: "planning",        label: "Planning & Tasks",    icon: ClipboardList },
+  { id: "programs",        label: "Day Programs",         icon: Mic2          },
+  { id: "poojaSeva",       label: "Pooja & Seva",         icon: Flame         },
+  { id: "lunchDinner",     label: "Lunch / Dinner",       icon: UtensilsCrossed },
+  { id: "culturalEvents",  label: "Cultural Events",      icon: Music         },
+  { id: "competitions",     label: "Competitions",         icon: Trophy        },
 ] as const;
 
 export function EventsSchedule() {
@@ -1378,8 +1388,20 @@ export function EventsSchedule() {
         ))}
       </div>
       {tab === "events" && <EventsList />}
+      {tab === "organizer" && <EventDashboardWrapper />}
       {tab === "planning" && <EventsPlanning />}
       {tab === "programs" && <EventsPrograms />}
+      {tab === "poojaSeva" && <PoojaSevaSection />}
+      {tab === "lunchDinner" && (
+        <div className="space-y-8">
+          <LunchDinnerSection />
+          <div className="pt-4 border-t border-border">
+            <EventsFood />
+          </div>
+        </div>
+      )}
+      {tab === "culturalEvents" && <CulturalEventsSection />}
+      {tab === "competitions" && <CompetitionsSection />}
     </div>
   );
 }

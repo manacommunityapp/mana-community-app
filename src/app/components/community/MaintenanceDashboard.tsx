@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import { CalendarDays, Plus, Check, X, ShieldAlert, FileText, IndianRupee, Calendar, User, Search, CheckCircle2, ChevronRight, AlertCircle, Wrench, Clock, PenTool } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { maintenanceService, type MaintenanceRecord } from "../../../services/inventory/maintenanceService";
@@ -18,10 +19,17 @@ const STATUS_CONFIG = {
 };
 
 export function MaintenanceDashboard() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as "schedule" | "orders") || "schedule";
+  const setActiveTab = (tab: "schedule" | "orders") => {
+    setSearchParams((prev) => {
+      prev.set("tab", tab);
+      return prev;
+    }, { replace: true });
+  };
   const [records, setRecords] = useState<MaintenanceRecord[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"schedule" | "orders">("schedule");
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   

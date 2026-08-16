@@ -4,6 +4,7 @@ import {
   CheckCircle, AlertCircle, Timer, Bookmark, ArrowRight, Tag, Percent,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { resourceBookingService } from "../../../services/bookings/bookingService";
@@ -151,7 +152,14 @@ function BookingCardSkeleton() {
 // ---------------------------------------------------------------------------
 
 export function ResourceBookingDashboard() {
-  const [activeTab, setActiveTab] = useState<TabKey>("browse");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as TabKey) || "browse";
+  const setActiveTab = (tab: TabKey) => {
+    setSearchParams((prev) => {
+      prev.set("tab", tab);
+      return prev;
+    }, { replace: true });
+  };
   const [resources, setResources] = useState<Resource[]>([]);
   const [categories, setCategories] = useState<ResourceCategory[]>([]);
   const [myBookings, setMyBookings] = useState<Booking[]>([]);

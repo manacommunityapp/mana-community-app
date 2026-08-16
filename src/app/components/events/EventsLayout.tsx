@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
-  VIEW_EVENTS, REGISTER_EVENT,
+  VIEW_EVENTS, REGISTER_EVENT, MANAGE_EVENT_FORMS, MANAGE_EVENT_DASHBOARD,
   VIEW_EVENT_DASHBOARD, VIEW_EVENT_SCHEDULE, VIEW_EVENT_REGISTRATION,
   VIEW_EVENT_PEOPLE, VIEW_EVENT_FUNDRAISING, VIEW_EVENT_OPERATIONS, VIEW_EVENT_MEDIA,
   VIEW_EVENT_GALLERY,
@@ -16,9 +16,9 @@ import { CreateEventButton } from "./EventsCreate";
 
 const navItems = [
   { to: "/events",              label: "Dashboard",        icon: LayoutDashboard, end: true, permission: VIEW_EVENT_DASHBOARD, altPermission: VIEW_EVENTS },
-  { to: "/events/member-flow",  label: "Member Flow",      icon: UserRound,                  permission: REGISTER_EVENT,       altPermission: VIEW_EVENTS },
+  { to: "/events/member-flow",  label: "Member Flow",      icon: UserRound,       adminOnly: true, permission: MANAGE_EVENT_DASHBOARD },
   { to: "/events/schedule",     label: "Events & Schedule",icon: CalendarDays,              permission: VIEW_EVENT_SCHEDULE },
-  { to: "/events/forms",        label: "Forms",            icon: ClipboardList,             permission: VIEW_EVENT_REGISTRATION, altPermission: REGISTER_EVENT },
+  { to: "/events/forms",        label: "Forms",            icon: ClipboardList,   adminOnly: true, permission: MANAGE_EVENT_FORMS },
   { to: "/events/people",       label: "People",           icon: Users,                     permission: VIEW_EVENT_PEOPLE },
   { to: "/events/fundraising",  label: "Fundraising",      icon: HandHeart,                 permission: VIEW_EVENT_FUNDRAISING },
   { to: "/events/operations",   label: "Operations",       icon: UtensilsCrossed,           permission: VIEW_EVENT_OPERATIONS },

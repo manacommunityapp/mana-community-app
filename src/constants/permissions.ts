@@ -121,6 +121,10 @@ export const REGISTER_EVENT = "Register Event";
 // Dashboard
 export const VIEW_EVENT_DASHBOARD        = "View Event Dashboard";
 export const MANAGE_EVENT_DASHBOARD      = "Manage Event Dashboard";
+export const VIEW_EVENT_ADMIN_DASHBOARD  = "View Event Admin Dashboard";
+export const MANAGE_EVENT_ADMIN_DASHBOARD= "Manage Event Admin Dashboard";
+export const VIEW_EVENT_USER_DASHBOARD   = "View Event User Dashboard";
+export const MANAGE_EVENT_USER_DASHBOARD = "Manage Event User Dashboard";
 // Events & Schedule
 export const VIEW_EVENT_SCHEDULE         = "View Event Schedule";
 export const CREATE_EDIT_EVENT_SCHEDULE  = "Create/Edit Event Schedule";
@@ -168,8 +172,9 @@ export interface EventPermissionRow {
 }
 
 export const EVENT_PERMISSION_MATRIX: EventPermissionRow[] = [
-  { label: "Events Module",        isGroupHeader: true, childIndices: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] },
-  { label: "Dashboard",            view: VIEW_EVENT_DASHBOARD,      createEdit: MANAGE_EVENT_DASHBOARD,                                        isChild: true },
+  { label: "Events Module",        isGroupHeader: true, childIndices: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] },
+  { label: "Admin Dashboard",      view: VIEW_EVENT_ADMIN_DASHBOARD, createEdit: MANAGE_EVENT_ADMIN_DASHBOARD, isChild: true },
+  { label: "User Dashboard",       view: VIEW_EVENT_USER_DASHBOARD,  createEdit: MANAGE_EVENT_USER_DASHBOARD,  isChild: true },
   { label: "Events & Schedule",    view: VIEW_EVENT_SCHEDULE,       createEdit: CREATE_EDIT_EVENT_SCHEDULE,  delete: DELETE_EVENT_SCHEDULE,     isChild: true },
   { label: "Registration",         view: VIEW_EVENT_REGISTRATION,   createEdit: MANAGE_EVENT_REGISTRATION,   delete: EXPORT_EVENT_REGISTRATION, isChild: true },
   { label: "People & Volunteers",  view: VIEW_EVENT_PEOPLE,         createEdit: MANAGE_EVENT_PEOPLE,                                           isChild: true },
@@ -190,6 +195,8 @@ export const EVENT_ROLE_DEFAULTS: Record<string, string[]> = {
   ADMIN: [
     VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT,
     VIEW_EVENT_DASHBOARD, MANAGE_EVENT_DASHBOARD,
+    VIEW_EVENT_ADMIN_DASHBOARD, MANAGE_EVENT_ADMIN_DASHBOARD,
+    VIEW_EVENT_USER_DASHBOARD, MANAGE_EVENT_USER_DASHBOARD,
     VIEW_EVENT_SCHEDULE, CREATE_EDIT_EVENT_SCHEDULE, DELETE_EVENT_SCHEDULE,
     VIEW_EVENT_REGISTRATION, MANAGE_EVENT_REGISTRATION, EXPORT_EVENT_REGISTRATION,
     VIEW_EVENT_PEOPLE, MANAGE_EVENT_PEOPLE,
@@ -202,6 +209,22 @@ export const EVENT_ROLE_DEFAULTS: Record<string, string[]> = {
   COMMUNITY_ADMIN: [
     VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT,
     VIEW_EVENT_DASHBOARD, MANAGE_EVENT_DASHBOARD,
+    VIEW_EVENT_ADMIN_DASHBOARD, MANAGE_EVENT_ADMIN_DASHBOARD,
+    VIEW_EVENT_USER_DASHBOARD, MANAGE_EVENT_USER_DASHBOARD,
+    VIEW_EVENT_SCHEDULE, CREATE_EDIT_EVENT_SCHEDULE, DELETE_EVENT_SCHEDULE,
+    VIEW_EVENT_REGISTRATION, MANAGE_EVENT_REGISTRATION, EXPORT_EVENT_REGISTRATION,
+    VIEW_EVENT_PEOPLE, MANAGE_EVENT_PEOPLE,
+    VIEW_EVENT_FUNDRAISING, MANAGE_EVENT_FUNDRAISING,
+    VIEW_EVENT_OPERATIONS, MANAGE_EVENT_OPERATIONS,
+    VIEW_EVENT_MEDIA, MANAGE_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
+    SEND_EVENT_NOTIFICATIONS, MANAGE_EVENT_NOTIFICATIONS,
+    VIEW_EVENT_FORMS, MANAGE_EVENT_FORMS, DELETE_EVENT_FORMS,
+  ],
+  EVENT_ADMIN: [
+    VIEW_EVENTS, CREATE_EVENT, REGISTER_EVENT,
+    VIEW_EVENT_DASHBOARD, MANAGE_EVENT_DASHBOARD,
+    VIEW_EVENT_ADMIN_DASHBOARD, MANAGE_EVENT_ADMIN_DASHBOARD,
+    VIEW_EVENT_USER_DASHBOARD, MANAGE_EVENT_USER_DASHBOARD,
     VIEW_EVENT_SCHEDULE, CREATE_EDIT_EVENT_SCHEDULE, DELETE_EVENT_SCHEDULE,
     VIEW_EVENT_REGISTRATION, MANAGE_EVENT_REGISTRATION, EXPORT_EVENT_REGISTRATION,
     VIEW_EVENT_PEOPLE, MANAGE_EVENT_PEOPLE,
@@ -214,48 +237,45 @@ export const EVENT_ROLE_DEFAULTS: Record<string, string[]> = {
   SPORTS_ADMIN: [
     VIEW_EVENTS, REGISTER_EVENT,
     VIEW_EVENT_DASHBOARD,
+    VIEW_EVENT_ADMIN_DASHBOARD,
+    VIEW_EVENT_USER_DASHBOARD,
     VIEW_EVENT_SCHEDULE,
-    VIEW_EVENT_REGISTRATION,
-    VIEW_EVENT_PEOPLE,
     VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
-    SEND_EVENT_NOTIFICATIONS,
-    VIEW_EVENT_FORMS,
   ],
   MEMBER: [
     VIEW_EVENTS, REGISTER_EVENT,
     VIEW_EVENT_DASHBOARD,
+    VIEW_EVENT_USER_DASHBOARD, MANAGE_EVENT_USER_DASHBOARD,
     VIEW_EVENT_SCHEDULE,
     VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
-    VIEW_EVENT_FORMS,
   ],
   VENDOR: [
     VIEW_EVENTS, REGISTER_EVENT,
     VIEW_EVENT_DASHBOARD,
+    VIEW_EVENT_USER_DASHBOARD,
     VIEW_EVENT_SCHEDULE,
-    VIEW_EVENT_FORMS,
+    VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
   ],
   CASHIER: [
-    VIEW_EVENTS,
+    VIEW_EVENTS, REGISTER_EVENT,
     VIEW_EVENT_DASHBOARD,
+    VIEW_EVENT_USER_DASHBOARD,
     VIEW_EVENT_SCHEDULE,
-    VIEW_EVENT_REGISTRATION,
-    VIEW_EVENT_FORMS,
+    VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
   ],
   STAFF: [
     VIEW_EVENTS, REGISTER_EVENT,
     VIEW_EVENT_DASHBOARD,
+    VIEW_EVENT_USER_DASHBOARD,
     VIEW_EVENT_SCHEDULE,
-    VIEW_EVENT_REGISTRATION,
-    VIEW_EVENT_PEOPLE,
-    VIEW_EVENT_OPERATIONS,
     VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
-    VIEW_EVENT_FORMS,
   ],
   USER: [
     VIEW_EVENTS, REGISTER_EVENT,
     VIEW_EVENT_DASHBOARD,
-    VIEW_EVENT_GALLERY,
-    VIEW_EVENT_FORMS,
+    VIEW_EVENT_USER_DASHBOARD, MANAGE_EVENT_USER_DASHBOARD,
+    VIEW_EVENT_SCHEDULE,
+    VIEW_EVENT_MEDIA, VIEW_EVENT_GALLERY, VIEW_EVENT_REPORTS,
   ],
 
   // ── Suggested event-specific custom roles (creatable in Admin Hub) ────────
@@ -382,12 +402,14 @@ export const VIEW_FOOD_CLOUD_KITCHENS = "View Food Cloud Kitchens";
 export const MANAGE_FOOD_CLOUD_KITCHENS = "Manage Food Cloud Kitchens";
 
 // ──── ADMIN DASHBOARD ────
-export const VIEW_ADMIN         = "View Admin";
-export const VERIFY_KYC         = "Verify KYC";
-export const BULK_UPLOAD        = "Bulk Upload";
-export const MANAGE_COMMUNITIES = "Manage Communities";
-export const MANAGE_ROLES       = "Manage Roles";
-export const EDIT_VENUE_TIMING  = "Edit Venue Timing";
+export const VIEW_ADMIN            = "View Admin";
+export const VERIFY_KYC            = "Verify KYC";
+export const BULK_UPLOAD           = "Bulk Upload";
+export const MANAGE_COMMUNITIES    = "Manage Communities";
+export const MANAGE_ROLES          = "Manage Roles";
+export const EDIT_VENUE_TIMING     = "Edit Venue Timing";
+export const VIEW_ADMIN_DASHBOARD  = "View Admin Dashboard";
+export const VIEW_USER_DASHBOARD   = "View User Dashboard";
 
 // ──── SERVICE PLATFORM ────
 export const VIEW_SERVICE_CATALOG     = "View Service Catalog";
@@ -548,6 +570,7 @@ export const ROLE_SUPER_ADMIN    = "SUPER_ADMIN";
 export const ROLE_ADMIN          = "ADMIN";
 export const ROLE_COMMUNITY_ADMIN = "COMMUNITY_ADMIN";
 export const ROLE_SPORTS_ADMIN   = "SPORTS_ADMIN";
+export const ROLE_EVENT_ADMIN    = "EVENT_ADMIN";
 export const ROLE_MEMBER         = "MEMBER";
 /** Default role assigned to ALL new registrations. Must be upgraded by an admin. */
 export const ROLE_USER           = "USER";
