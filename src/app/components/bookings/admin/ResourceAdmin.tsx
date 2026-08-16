@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router";
 import { cn } from "../../ui/utils";
 import {
   LayoutDashboard, FolderOpen, Server, CalendarDays, DollarSign, Scale,
@@ -958,7 +959,14 @@ function AnalyticsTab() {
 // Main component
 // ---------------------------------------------------------------------------
 export function ResourceAdmin() {
-  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as TabId) || "dashboard";
+  const setActiveTab = (tab: TabId) => {
+    setSearchParams((prev) => {
+      prev.set("tab", tab);
+      return prev;
+    }, { replace: true });
+  };
 
   const renderTab = () => {
     switch (activeTab) {

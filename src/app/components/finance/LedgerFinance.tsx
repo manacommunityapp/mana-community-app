@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { NavLink } from "react-router";
+import { NavLink, useSearchParams } from "react-router";
 import { type LineItem, emptyLine } from "./ledgerShared";
 import { LEDGER_CSS } from "./ledgerStyles";
 import { DashboardView } from "./invoice/DashboardView";
@@ -31,43 +31,24 @@ import { VendorPaymentsView } from "./expense/VendorPaymentsView";
 import { NewVendorPaymentView } from "./expense/NewVendorPaymentView";
 import { NewPurchaseOrderView } from "./expense/NewPurchaseOrderView";
 import { useAuth } from "../../../contexts/AuthContext";
-import { menuPermissionService } from "../../../services/common/menuPermissionService";
-import type { MenuRolePermissionResponse } from "../../../types/api";
+import { useMenuPermission } from "../../../hooks/useMenuPermission";
 
 type View = "dashboard" | "invoices" | "receipts" | "new-invoice" | "import-invoice" | "new-receipt" | "new-advance-receipt" | "new-other-income" | "estimates" | "new-estimate" | "sales-orders" | "new-sales-order" | "credit-notes" | "new-credit-note" | "customers" | "import-customers" | "business-expenses" | "new-expense" | "stock-purchases" | "new-purchase" | "purchase-orders" | "new-purchase-order" | "debit-notes" | "vendors" | "new-vendor" | "vendor-payments" | "new-vendor-payment" | "new-advance-payment" | "new-other-payment" | "placeholder";
 
 export function LedgerFinance({ section = "invoice" }: { section?: "invoice" | "expense" }) {
   const { user } = useAuth();
-  const [view, setView] = useState<View>(section === "expense" ? "business-expenses" : "dashboard");
-  const [placeholderTitle, setPlaceholderTitle] = useState("Section");
-  const [activeNav, setActiveNav] = useState("dashboard");
-  const [permissions, setPermissions] = useState<MenuRolePermissionResponse[]>([]);
-
-  useEffect(() => {
-    if (user?.roleId) {
-      menuPermissionService.getViewableMenus(user.roleId)
-        .then(setPermissions)
-        .catch((err) => console.error("Failed to load viewable menus:", err));
-    }
-  }, [user?.roleId]);
-
-  const hasMenuPermission = (menuKey: string, action: "view" | "add" | "update" | "delete"): boolean => {
-    if (user?.role === "SUPER_ADMIN") return true;
-    if (permissions.length === 0) {
-      // Fallback: SUPER_ADMIN/ADMIN has full access, MEMBER has view-only on invoices/receipts
-      if (user?.role === "MEMBER") {
-        return action === "view" && ["invoices", "receipts"].includes(menuKey);
-      }
-      return true; // default fallback for admins
-    }
-    const perm = permissions.find((p) => p.menuKey === menuKey);
-    if (!perm) return false;
-    if (action === "view") return perm.canView;
-    if (action === "add") return perm.canAdd;
-    if (action === "update") return perm.canUpdate;
-    if (action === "delete") return perm.canDelete;
-    return false;
+  const { check: hasMenuPermission } = useMenuPermission();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const defaultView = section === "expense" ? "business-expenses" : "dashboard";
+  const view = (searchParams.get("tab") as View) || defaultView;
+  const setView = (v: View) => {
+    setSearchParams((prev) => {
+      prev.set("tab", v);
+      return prev;
+    }, { replace: true });
   };
+  const [placeholderTitle, setPlaceholderTitle] = useState("Section");
+  const [activeNav, setActiveNav] = useState(() => searchParams.get("nav") || "dashboard");
 
   const [invoicesTab, setInvoicesTab] = useState<"invoices" | "refunds">("invoices");
   const [periodTab, setPeriodTab] = useState(0);

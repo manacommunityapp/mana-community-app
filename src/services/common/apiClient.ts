@@ -50,11 +50,14 @@ export interface StoredUser {
   communityId?: number;
   roleId?: number;
   role?: string;
+  /** All assigned roles as an array (backend may return multi-role users). */
+  roles?: string[];
   fullName?: string;
   email?: string;
   dateOfBirth?: string;
   permissions?: string[];
   enabledModules?: string[];
+  menuPermissions?: import("../../types/api").MenuRolePermissionResponse[];
 }
 
 export function getStoredUser(): StoredUser | null {

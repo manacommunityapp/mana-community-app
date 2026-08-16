@@ -17,10 +17,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { SectionHeader, FieldLabel, ToggleRow } from "./shared";
 
 import { cn } from "../ui/utils";
+import { useAuth } from "../../../contexts/AuthContext";
+import { CREATE_EVENT, MANAGE_EVENT_DASHBOARD } from "../../../constants/permissions";
 import { useEventMock } from "./EventMockToggle";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { eventService, type EventRequest } from "../../../services/events/eventService";
-import { DEFAULT_REGISTRATION_FORM_CONFIG, type RegistrationFormConfig, type FormField } from "./EventRegistrationFormBuilder";
+import { DEFAULT_REGISTRATION_FORM_CONFIG, GANESH_CHATURTHI_FORM_CONFIG, type RegistrationFormConfig, type FormField } from "./EventRegistrationFormBuilder";
 import { AgendaNotificationModal } from "./EventsPrograms";
 
 /* ─── Types ─── */
@@ -103,7 +105,7 @@ const INITIAL_FORM_DATA: FormData = {
   requireApproval: false, allowWaitlist: true,
   totalBudget: "", budgetItems: DEFAULT_BUDGET_ITEMS,
   coverImageUrl: "", tags: [],
-  registrationFormConfig: { ...DEFAULT_REGISTRATION_FORM_CONFIG },
+  registrationFormConfig: { ...GANESH_CHATURTHI_FORM_CONFIG },
 };
 
 // shadcn theme tokens: --input-background:#f3f3f5, --border:rgba(0,0,0,0.1), --radius:0.625rem
@@ -797,6 +799,15 @@ interface FormTemplateMeta {
 
 const FORM_TEMPLATES: FormTemplateMeta[] = [
   {
+    id: "tmpl-ganesh",
+    name: "Ganesh Chaturthi Grand Festival 2026",
+    description: "Default Festival Template — Aarti slots, Mahaprasadam passes, cultural programs, volunteer teams & family registration up to 6 members",
+    category: "Grand Festival",
+    fieldsCount: 18,
+    icon: "🪔",
+    config: GANESH_CHATURTHI_FORM_CONFIG,
+  },
+  {
     id: "tmpl-standard",
     name: "Standard Registration",
     description: "Personal info, contact, emergency contact, dietary preferences — works for most events",
@@ -935,7 +946,7 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
 function Step4FormTemplate({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   const [selectedId, setSelectedId] = useState<string>(
     data.registrationFormConfig.fields.length === 0 ? "tmpl-none" :
-    FORM_TEMPLATES.find(t => t.config.fields.length === data.registrationFormConfig.fields.length)?.id ?? "tmpl-custom"
+    FORM_TEMPLATES.find(t => t.config.fields.length === data.registrationFormConfig.fields.length)?.id ?? "tmpl-ganesh"
   );
   const [previewId, setPreviewId] = useState<string | null>(null);
 
@@ -957,27 +968,28 @@ function Step4FormTemplate({ data, update }: { data: FormData; update: (k: keyof
       </div>
 
       {/* Saved Templates from Admin */}
-      <div className="bg-indigo-50/50 rounded-xl border border-indigo-100 p-4 space-y-3">
+      <div className="bg-amber-50/70 rounded-xl border border-amber-200/80 p-4 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-indigo-500" />
-            <h4 className="text-sm font-semibold text-indigo-800">Your Saved Templates</h4>
+            <Sparkles className="w-4 h-4 text-amber-600" />
+            <h4 className="text-sm font-bold text-amber-900">Default Template: Ganesh Chaturthi Grand Festival 2026</h4>
           </div>
-          <Badge variant="outline" className="text-[9px] text-indigo-500 border-indigo-200">
-            Manage in Registration Forms tab
+          <Badge className="text-[9px] bg-amber-500 text-white border-transparent">
+            ⭐ Recommended Default
           </Badge>
         </div>
-        <p className="text-[10px] text-indigo-400">
-          Create custom templates with the Form Builder in Registration Forms, then select them here.
+        <p className="text-xs text-amber-800/90 leading-relaxed">
+          Pre-configured with Aarti time slots, Mahaprasadam meal passes, cultural program sign-ups, volunteer preferences & family gate pass registration up to 6 members.
         </p>
       </div>
 
       {/* Built-in Templates */}
       <div className="space-y-3">
-        <h4 className="text-sm font-semibold text-slate-700">Built-in Templates</h4>
+        <h4 className="text-sm font-semibold text-slate-700">Available Templates</h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {FORM_TEMPLATES.map(tmpl => {
             const isSelected = selectedId === tmpl.id;
+            const isDefault = tmpl.id === "tmpl-ganesh";
             const fieldCount = tmpl.config.fields.filter(f => f.type !== "section").length;
             const reqCount = tmpl.config.fields.filter(f => f.required).length;
             return (
@@ -987,19 +999,26 @@ function Step4FormTemplate({ data, update }: { data: FormData; update: (k: keyof
                 className={cn(
                   "text-left p-4 rounded-xl border-2 transition-all relative group",
                   isSelected
-                    ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200 shadow-sm"
-                    : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50"
+                    ? "border-amber-500 bg-amber-50/70 ring-2 ring-amber-200 shadow-sm"
+                    : "border-slate-200 hover:border-amber-300 hover:bg-slate-50"
                 )}
               >
-                {isSelected && (
+                {isDefault && (
+                  <div className="absolute top-2 right-2">
+                    <Badge className="bg-amber-500 text-white font-bold text-[9px] py-0.5 px-1.5 border-none">
+                      🪔 Default
+                    </Badge>
+                  </div>
+                )}
+                {isSelected && !isDefault && (
                   <div className="absolute top-2 right-2">
                     <CheckCircle2 className="w-5 h-5 text-indigo-500" />
                   </div>
                 )}
                 <div className="flex items-start gap-3 mb-2">
                   <span className="text-2xl">{tmpl.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className={cn("text-sm font-semibold", isSelected ? "text-indigo-700" : "text-slate-800")}>
+                  <div className="flex-1 min-w-0 pr-12">
+                    <p className={cn("text-sm font-semibold", isSelected ? "text-amber-900" : "text-slate-800")}>
                       {tmpl.name}
                     </p>
                     <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-2">{tmpl.description}</p>
@@ -1007,16 +1026,16 @@ function Step4FormTemplate({ data, update }: { data: FormData; update: (k: keyof
                 </div>
                 {tmpl.id !== "tmpl-none" && (
                   <div className="flex items-center gap-3 mt-2">
-                    <span className="text-[10px] text-slate-400">{fieldCount} fields</span>
+                    <span className="text-[10px] text-slate-500 font-medium">{fieldCount} fields</span>
                     <span className="text-[10px] text-slate-400">{reqCount} required</span>
                     {tmpl.config.allowFamilyRegistration && (
-                      <Badge variant="outline" className="text-[8px] py-0 text-violet-500 border-violet-200">Family</Badge>
+                      <Badge variant="outline" className="text-[8px] py-0 text-violet-600 border-violet-200 bg-violet-50">Family</Badge>
                     )}
                     <div className="flex-1" />
                     <button
                       type="button"
                       onClick={e => { e.stopPropagation(); setPreviewId(tmpl.id); }}
-                      className="text-[10px] text-indigo-500 hover:text-indigo-700 font-medium flex items-center gap-0.5"
+                      className="text-[10px] text-amber-700 hover:text-amber-900 font-semibold flex items-center gap-0.5"
                     >
                       <Eye className="w-3 h-3" /> Preview
                     </button>
@@ -1902,7 +1921,24 @@ export function CreateEventDialog({ open, onOpenChange }: { open: boolean; onOpe
 }
 
 export function CreateEventButton({ className }: { className?: string }) {
+  const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
   const [open, setOpen] = useState(false);
+
+  const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
+  const canCreate =
+    isAdmin ||
+    isSuperAdmin ||
+    userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("COMMUNITY_ADMIN") ||
+    userRolesUpper.includes("EVENT_ADMIN") ||
+    userRolesUpper.includes("EVENTS_ADMIN") ||
+    hasPermission(CREATE_EVENT) ||
+    hasPermission(MANAGE_EVENT_DASHBOARD);
+
+  if (!canCreate) {
+    return null;
+  }
+
   return (
     <>
       <button onClick={() => setOpen(true)}

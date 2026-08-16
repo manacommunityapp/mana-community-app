@@ -22,8 +22,11 @@ interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   isSportsAdmin: boolean;
+  isEventsAdmin: boolean;
   isAuctionAdmin: boolean;
+  isAnyAdmin: boolean;
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   logout: () => void;
@@ -33,6 +36,8 @@ interface AuthContextValue {
   hasPermission: (permission: string) => boolean;
   /** Check if user has ANY of the specified permissions. SUPER_ADMIN bypasses. */
   hasAnyPermission: (...permissions: string[]) => boolean;
+  /** Check if the user's role can perform an action on a specific menu item. SUPER_ADMIN bypasses. */
+  hasMenuPermission: (menuKey: string, action: "view" | "add" | "update" | "delete") => boolean;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -67,12 +72,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .then((me) => {
           updateUser({
             role: me.role,
+            roles: me.roles,
             fullName: me.fullName,
             email: me.email,
             communityId: me.communityId,
             roleId: me.roleId,
-            permissions: me.permissions,
+            permissions: me.permissions ?? [],
             enabledModules: me.enabledModules,
+            menuPermissions: me.menuPermissions,
           });
         })
         .catch((err) => {
@@ -96,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: response.email ?? (payload?.email != null ? String(payload.email) : undefined),
       dateOfBirth: response.dateOfBirth,
       enabledModules: response.enabledModules,
+      permissions: [], // guard nav from flash before /users/me resolves
     };
     storeUser(newUser);
     setUser(newUser);
@@ -105,12 +113,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updated = {
         ...newUser,
         role: me.role,
+        roles: me.roles,
         fullName: me.fullName,
         email: me.email,
         communityId: me.communityId,
         roleId: me.roleId,
-        permissions: me.permissions,
+        permissions: me.permissions ?? [],
         enabledModules: me.enabledModules,
+        menuPermissions: me.menuPermissions,
       };
       storeUser(updated);
       setUser(updated);
@@ -133,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: response.email ?? data.email,
       dateOfBirth: response.dateOfBirth,
       enabledModules: response.enabledModules,
+      permissions: [], // guard nav from flash before /users/me resolves
     };
     storeUser(newUser);
     setUser(newUser);
@@ -142,12 +153,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const updated = {
         ...newUser,
         role: me.role,
+        roles: me.roles,
         fullName: me.fullName,
         email: me.email,
         communityId: me.communityId,
         roleId: me.roleId,
-        permissions: me.permissions,
+        permissions: me.permissions ?? [],
         enabledModules: me.enabledModules,
+        menuPermissions: me.menuPermissions,
       };
       storeUser(updated);
       setUser(updated);
@@ -164,32 +177,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.href = "/login";
   }, []);
 
-  // Removed redundant updateUser declaration
+  // Parse all assigned roles from roles array or comma-separated role string.
+  // Must be above hasPermission/hasAnyPermission so they can reference it.
+  const userRoleSet = new Set<string>(
+    user
+      ? (user.roles && user.roles.length > 0
+          ? user.roles
+          : (user.role ?? "").split(",")
+        ).map((r) => r.trim().toUpperCase()).filter(Boolean)
+      : []
+  );
+
+  const isSuperAdmin = userRoleSet.has("SUPER_ADMIN") || userRoleSet.has("SUPERADMIN") || userRoleSet.has("SUPER_ADMINISTRATOR");
 
   const hasPermission = useCallback((permission: string): boolean => {
     if (!user) return false;
-    if (user.role === 'SUPER_ADMIN') return true;
+    if (isSuperAdmin) return true;
     return user.permissions?.includes(permission) ?? false;
-  }, [user]);
+  }, [user, isSuperAdmin]);
 
   const hasAnyPermission = useCallback((...permissions: string[]): boolean => {
     if (!user) return false;
-    if (user.role === 'SUPER_ADMIN') return true;
+    if (isSuperAdmin) return true;
     return permissions.some(p => user.permissions?.includes(p) ?? false);
-  }, [user]);
+  }, [user, isSuperAdmin]);
+
+  const hasMenuPermission = useCallback((menuKey: string, action: "view" | "add" | "update" | "delete"): boolean => {
+    if (!user) return false;
+    if (isSuperAdmin) return true;
+    const perm = user.menuPermissions?.find(p => p.menuKey === menuKey);
+    if (!perm) return false;
+    if (action === "view") return perm.canView;
+    if (action === "add") return perm.canAdd;
+    if (action === "update") return perm.canUpdate;
+    if (action === "delete") return perm.canDelete;
+    return false;
+  }, [user, isSuperAdmin]);
+
+  const isAnyAdmin = isSuperAdmin || Array.from(userRoleSet).some(r => r.includes("ADMIN"));
 
   const value: AuthContextValue = {
     user,
     isAuthenticated: !!user && !!getToken(),
-    isAdmin: user?.role === "ADMIN" || user?.role === "SUPER_ADMIN" || user?.role === "COMMUNITY_ADMIN",
-    isSportsAdmin: user?.role === "SPORTS_ADMIN" || user?.role === "SUPER_ADMIN" || user?.role === "COMMUNITY_ADMIN",
-    isAuctionAdmin: user?.role === "SUPER_ADMIN" || user?.role === "COMMUNITY_ADMIN" || user?.role === "SPORTS_ADMIN" || user?.role === "ADMIN",
+    isAdmin: userRoleSet.has("ADMIN") || isSuperAdmin || userRoleSet.has("COMMUNITY_ADMIN") || userRoleSet.has("COMMUNITYADMIN") || userRoleSet.has("COMMUNITY_ADMINISTRATOR"),
+    isSuperAdmin,
+    isSportsAdmin: userRoleSet.has("SPORTS_ADMIN") || isSuperAdmin || userRoleSet.has("COMMUNITY_ADMIN") || userRoleSet.has("COMMUNITYADMIN") || userRoleSet.has("COMMUNITY_ADMINISTRATOR"),
+    isEventsAdmin: userRoleSet.has("EVENTS_ADMIN") || userRoleSet.has("EVENT_ADMIN") || isSuperAdmin || userRoleSet.has("COMMUNITY_ADMIN") || userRoleSet.has("COMMUNITYADMIN") || userRoleSet.has("COMMUNITY_ADMINISTRATOR"),
+    isAuctionAdmin: isSuperAdmin || userRoleSet.has("COMMUNITY_ADMIN") || userRoleSet.has("SPORTS_ADMIN") || userRoleSet.has("ADMIN"),
+    isAnyAdmin,
     login,
     register,
     logout,
     updateUser,
     hasPermission,
     hasAnyPermission,
+    hasMenuPermission,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

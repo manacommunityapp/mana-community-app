@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router";
 import {
   LayoutDashboard,
   Users,
@@ -37,6 +38,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useNavigate } from "react-router";
+import { sortRoleStrings } from "../../../utils/roleUtils";
+
 import { showSuccess, showError } from "../../../utils/ToastUtils";
 const toast = {
   success: (msg: string) => showSuccess(msg),
@@ -52,7 +55,8 @@ import { AdminVenues } from "./AdminVenues";
 import { AdminCommunity } from "./AdminCommunity";
 import { AdminDirectory } from "./AdminDirectory";
 import { AdminRoleManagement } from "./AdminRoleManagement";
-import { EventsAccessManagement } from "../events/EventsAccessManagement";
+import { AdminAccessManagement } from "./AdminAccessManagement";
+import { SmartDashboard } from "../commons/SmartDashboard";
 import { LogsDashboard } from "./LogsDashboard";
 import { AuditTrail } from "./AuditTrail";
 import { AdminSportsMeta } from "./AdminSportsMeta";
@@ -83,6 +87,7 @@ interface AdminOverviewData {
 // ── Tab config ────────────────────────────────────────────────────────────────
 const TAB_ITEMS = [
   { id: "overview",   label: "Overview",      icon: LayoutDashboard },
+  { id: "dashboards", label: "Dashboard Modes", icon: LayoutDashboard },
   { id: "users-roles", label: "Users & Roles", icon: Users },
   { id: "access-roles", label: "Access & Roles", icon: Shield },
   { id: "kyc",        label: "KYC Review",    icon: ShieldCheck },
@@ -92,7 +97,6 @@ const TAB_ITEMS = [
   { id: "announcements", label: "Announcements", icon: Megaphone },
   { id: "email-gallery", label: "Email Templates", icon: MailOpen },
   { id: "email-templates", label: "Email Builder", icon: Mail },
-  { id: "email-gallery", label: "Email Templates", icon: MailOpen },
   { id: "email-logs", label: "Email Delivery Logs", icon: Clock },
   { id: "directory",  label: "Directory",     icon: Shield },
 ] as const;
@@ -392,7 +396,7 @@ function UsersTab({ users, loading }: { users: UserResponse[]; loading: boolean 
   const [filterRole, setFilterRole] = useState("all");
   const [filterKyc, setFilterKyc] = useState("all");
 
-  const roles = ["all", ...Array.from(new Set(users.map((u) => u.role))).sort()];
+  const roles = ["all", ...sortRoleStrings(Array.from(new Set(users.map((u) => u.role))))];
   const kycStatuses = ["all", "APPROVED", "PENDING", "REJECTED"];
 
   const filtered = users.filter((u) => {
@@ -527,17 +531,15 @@ function ModulesTab() {
   const loadModules = async (communityId: number) => {
     try {
       const modules = await communityService.getCommunityModules(communityId);
-      // A community that was never initialized has no module rows. The backend
-      // access gate treats "no rows" as all-enabled, so mirror that here rather
-      // than showing every module as OFF (which would let a Save mass-disable them).
+      // A community that was never initialized has no module rows.
+      // Feature modules for all module checks should be disabled initially.
       if (modules.length === 0) {
-        setEnabledModules(ALL_MODULES.map((m) => m.key));
+        setEnabledModules([]);
       } else {
         setEnabledModules(modules.filter((m) => m.isEnabled).map((m) => m.moduleKey));
       }
     } catch {
-      const community = communities.find((c) => c.id === communityId);
-      setEnabledModules(community?.enabledModules || []);
+      setEnabledModules([]);
     }
   };
 
@@ -696,8 +698,12 @@ function ModulesTab() {
 
 // ── Main AdminHub Component ───────────────────────────────────────────────────
 export function AdminHub() {
-  const { user, isAdmin, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const { user, isAdmin, isSuperAdmin, isAnyAdmin, hasPermission } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as TabId) || "overview";
+  const setActiveTab = (tab: TabId) => {
+    setSearchParams({ tab }, { replace: true });
+  };
 
   // Overview data
   const [overviewData, setOverviewData] = useState<AdminOverviewData | null>(null);
@@ -708,7 +714,6 @@ export function AdminHub() {
   const [users, setUsers] = useState<UserResponse[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
 
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
   const canManageCommunities = isSuperAdmin || hasPermission("Manage Communities");
 
   // ── Fetch all data ──────────────────────────────────────────────────────────
@@ -780,7 +785,7 @@ export function AdminHub() {
     }
   }, [activeTab, fetchOverview]);
 
-  if (!isAdmin) {
+  if (!isAnyAdmin) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="bg-card border border-border rounded-2xl p-8 text-center">
@@ -878,8 +883,9 @@ export function AdminHub() {
             onNavigate={setActiveTab}
           />
         )}
+        {activeTab === "dashboards" && <SmartDashboard />}
         {activeTab === "users-roles" && <AdminRoleManagement />}
-        {activeTab === "access-roles" && <EventsAccessManagement />}
+        {activeTab === "access-roles" && <AdminAccessManagement />}
         {activeTab === "kyc" && <AdminDashboard />}
         {activeTab === "modules" && <ModulesTab />}
         {activeTab === "bulk" && <AdminBulkUpload />}
@@ -887,7 +893,6 @@ export function AdminHub() {
         {activeTab === "announcements" && <AnnouncementsPlanner />}
         {activeTab === "email-gallery" && <EmailTemplatesTab />}
         {activeTab === "email-templates" && <EmailTemplateBuilder />}
-        {activeTab === "email-gallery" && <EmailTemplatesTab />}
         {activeTab === "email-logs" && <EmailDeliveryLogTab />}
         {activeTab === "directory" && <AdminDirectory />}
       </div>

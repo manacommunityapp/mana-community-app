@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import {
   Receipt,
   Plus,
@@ -58,8 +59,21 @@ export function ExpensesDashboard() {
   const { user, isAdmin } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [activeTab, setActiveTab] = useState<"expenses" | "invoices">("expenses");
-  const [subTab, setSubTab] = useState<"dashboard" | "business-expenses" | "stock-purchases" | "purchase-orders" | "vendor-payments" | "debit-notes" | "vendors">("dashboard");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as "expenses" | "invoices") || "expenses";
+  const setActiveTab = (t: "expenses" | "invoices") => {
+    setSearchParams((prev) => {
+      prev.set("tab", t);
+      return prev;
+    }, { replace: true });
+  };
+  const subTab = (searchParams.get("subTab") as "dashboard" | "business-expenses" | "stock-purchases" | "purchase-orders" | "vendor-payments" | "debit-notes" | "vendors") || "dashboard";
+  const setSubTab = (st: typeof subTab) => {
+    setSearchParams((prev) => {
+      prev.set("subTab", st);
+      return prev;
+    }, { replace: true });
+  };
   const [expenses, setExpenses] = useState<BillingExpense[]>([]);
   const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
   const [loading, setLoading] = useState(true);

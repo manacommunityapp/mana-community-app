@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { safeStorage } from "../../../utils/storage";
-import { useParams } from "react-router";
+import { useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import {
   Gavel,
@@ -79,10 +79,14 @@ export function SportsAuction() {
 
   // Navigation State
   type TabType = 'overview' | 'config' | 'live' | 'teams' | 'players' | 'registrations' | 'results' | 'badminton' | 'football' | 'volleyball' | string;
-  const [activeTab, setActiveTab] = useState<TabType>(() => {
-    if (eventId) return "live";
-    return "overview";
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as TabType) || (eventId ? "live" : "overview");
+  const setActiveTab = (tab: TabType) => {
+    setSearchParams((prev) => {
+      prev.set("tab", tab);
+      return prev;
+    }, { replace: true });
+  };
 
   // Config State
   const [sport, setSport] = useState("cricket");

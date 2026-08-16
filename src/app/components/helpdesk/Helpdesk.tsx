@@ -4,6 +4,7 @@ import {
   ArrowUpDown, CircleDot, ArrowUpRight
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { ticketService, type TicketResponse, type TicketRequest } from "../../../services/helpdesk/ticketService";
@@ -55,7 +56,14 @@ function timeAgo(iso: string): string {
 }
 
 export function Helpdesk() {
-  const [tab, setTab] = useState<"all" | "open" | "mine">("all");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = (searchParams.get("tab") as "all" | "open" | "mine") || "all";
+  const setTab = (t: "all" | "open" | "mine") => {
+    setSearchParams((prev) => {
+      prev.set("tab", t);
+      return prev;
+    }, { replace: true });
+  };
   const [statusFilter, setStatusFilter] = useState("All");
   const [tickets, setTickets] = useState<TicketResponse[]>([]);
   const [loading, setLoading] = useState(true);

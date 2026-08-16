@@ -13,7 +13,8 @@ import {
   AlertCircle, MapPin, Users, Ticket, Globe, Lock,
   Send, Mail, BellRing, Megaphone, MessageSquare,
   ChevronRight, Filter, ArrowUpDown, Plus, ExternalLink, Loader2,
-  CalendarClock, Repeat, Timer, History, Zap, RotateCcw, Pause, Play, X,
+  CalendarClock, Repeat, Timer, History, Zap, RotateCcw, Pause, Play, X, ShieldCheck, Smartphone,
+  Flame, Music, Trophy, UtensilsCrossed
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -22,8 +23,14 @@ import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 import { cn } from "../ui/utils";
+import { useAuth } from "../../../contexts/AuthContext";
+import { CREATE_EVENT, MANAGE_EVENT_DASHBOARD } from "../../../constants/permissions";
 import { EventsPlanning } from "./EventsPlanning";
 import { EventsPrograms } from "./EventsPrograms";
+import { EventsFood } from "./EventsFood";
+import { OrganizerDashboard } from "./OrganizerDashboard";
+import { EventDashboardWrapper } from "./EventDashboardWrapper";
+import { PoojaSevaSection, LunchDinnerSection, CulturalEventsSection, CompetitionsSection } from "./EventSubCreatorForms";
 
 /* ─── Types ─── */
 type EventStatus = "upcoming" | "ongoing" | "completed" | "draft" | "cancelled";
@@ -861,6 +868,18 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
   onNotify: () => void;
   onPreview: () => void;
 }) {
+  const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
+  const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
+  const isEventsAdmin =
+    isAdmin ||
+    isSuperAdmin ||
+    userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("COMMUNITY_ADMIN") ||
+    userRolesUpper.includes("EVENT_ADMIN") ||
+    userRolesUpper.includes("EVENTS_ADMIN") ||
+    hasPermission(CREATE_EVENT) ||
+    hasPermission(MANAGE_EVENT_DASHBOARD);
+
   const s = STATUS_CONFIG[event.status];
   const vis = VISIBILITY_ICON[event.visibility];
   const typeColor = TYPE_COLORS[event.type] ?? "#64748b";
@@ -899,43 +918,45 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
             <h4 className="font-semibold text-slate-800 text-sm sm:text-base line-clamp-1">{event.title}</h4>
           </div>
 
-          <div className="relative">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setMenuOpen(!menuOpen)}>
-              <MoreVertical className="w-4 h-4 text-slate-400" />
-            </Button>
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-9 z-20 bg-white rounded-lg shadow-lg border border-slate-100 py-1 w-48">
-                  <button onClick={() => { onPreview(); setMenuOpen(false); }}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                    <Eye className="w-3.5 h-3.5" /> View Details
-                  </button>
-                  <button onClick={() => { onEdit(); setMenuOpen(false); }}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                    <Pencil className="w-3.5 h-3.5" /> Edit Event
-                  </button>
-                  <button onClick={() => { onNotify(); setMenuOpen(false); }}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                    <Bell className="w-3.5 h-3.5" /> Send Notification
-                  </button>
-                  <button className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                    <Copy className="w-3.5 h-3.5" /> Duplicate Event
-                  </button>
-                  {event.status !== "completed" && (
-                    <button className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                      <ExternalLink className="w-3.5 h-3.5" /> Registration Link
+          {isEventsAdmin && (
+            <div className="relative">
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setMenuOpen(!menuOpen)}>
+                <MoreVertical className="w-4 h-4 text-slate-400" />
+              </Button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 top-9 z-20 bg-white rounded-lg shadow-lg border border-slate-100 py-1 w-48">
+                    <button onClick={() => { onPreview(); setMenuOpen(false); }}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      <Eye className="w-3.5 h-3.5" /> View Details
                     </button>
-                  )}
-                  <hr className="my-1 border-slate-100" />
-                  <button onClick={() => { onDelete(); setMenuOpen(false); }}
-                    className="w-full text-left px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2">
-                    <Trash2 className="w-3.5 h-3.5" /> Delete Event
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+                    <button onClick={() => { onEdit(); setMenuOpen(false); }}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      <Pencil className="w-3.5 h-3.5" /> Edit Event
+                    </button>
+                    <button onClick={() => { onNotify(); setMenuOpen(false); }}
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      <Bell className="w-3.5 h-3.5" /> Send Notification
+                    </button>
+                    <button className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      <Copy className="w-3.5 h-3.5" /> Duplicate Event
+                    </button>
+                    {event.status !== "completed" && (
+                      <button className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                        <ExternalLink className="w-3.5 h-3.5" /> Registration Link
+                      </button>
+                    )}
+                    <hr className="my-1 border-slate-100" />
+                    <button onClick={() => { onDelete(); setMenuOpen(false); }}
+                      className="w-full text-left px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2">
+                      <Trash2 className="w-3.5 h-3.5" /> Delete Event
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Date & Venue */}
@@ -976,15 +997,19 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
 
       {/* Action Bar */}
       <div className="border-t border-slate-100 px-4 sm:px-5 py-2.5 flex items-center gap-1">
-        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-indigo-600" onClick={onEdit}>
-          <Pencil className="w-3 h-3" /> Edit
-        </Button>
-        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-rose-500" onClick={onDelete}>
-          <Trash2 className="w-3 h-3" /> Delete
-        </Button>
-        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-amber-600" onClick={onNotify}>
-          <Bell className="w-3 h-3" /> Notify
-        </Button>
+        {isEventsAdmin && (
+          <>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-indigo-600" onClick={onEdit}>
+              <Pencil className="w-3 h-3" /> Edit
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-rose-500" onClick={onDelete}>
+              <Trash2 className="w-3 h-3" /> Delete
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-amber-600" onClick={onNotify}>
+              <Bell className="w-3 h-3" /> Notify
+            </Button>
+          </>
+        )}
         <div className="flex-1" />
         <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-indigo-600" onClick={onPreview}>
           Details <ChevronRight className="w-3 h-3" />
@@ -994,8 +1019,184 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
   );
 }
 
+/* ─── Edit Event Dialog ─── */
+function EditEventDialog({ event, onClose, onSave }: {
+  event: EventItem; onClose: () => void; onSave: (updated: EventItem) => void;
+}) {
+  const { useMock } = useEventMock();
+  const [title, setTitle] = useState(event.title);
+  const [type, setType] = useState(event.type);
+  const [category, setCategory] = useState(event.category || "Community");
+  const [startDate, setStartDate] = useState(event.startDate);
+  const [endDate, setEndDate] = useState(event.endDate);
+  const [startTime, setStartTime] = useState(event.startTime);
+  const [endTime, setEndTime] = useState(event.endTime);
+  const [venue, setVenue] = useState(event.venue);
+  const [city, setCity] = useState(event.city);
+  const [capacity, setCapacity] = useState(event.capacity);
+  const [status, setStatus] = useState<EventStatus>(event.status);
+  const [visibility, setVisibility] = useState<"public" | "community" | "private">(event.visibility);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    const updated: EventItem = {
+      ...event,
+      title,
+      type,
+      category,
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      venue,
+      city,
+      capacity,
+      status,
+      visibility,
+    };
+
+    if (!useMock) {
+      try {
+        const numId = typeof event.id === "string" ? parseInt(event.id.replace(/\D/g, ""), 10) : Number(event.id);
+        if (!isNaN(numId)) {
+          await eventService.update(numId, {
+            title,
+            type,
+            category,
+            startDate,
+            endDate,
+            startTime,
+            endTime,
+            venue,
+            city,
+            capacity,
+            status,
+          });
+        }
+      } catch (err: any) {
+        setError(err.message || "Failed to update event");
+        setSaving(false);
+        return;
+      }
+    }
+
+    onSave(updated);
+    setSaving(false);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="bg-gradient-to-r from-indigo-600 to-violet-500 px-6 py-4 rounded-t-2xl flex items-center justify-between shrink-0">
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Pencil className="w-5 h-5" /> Edit Event
+          </h3>
+          <button onClick={onClose} className="text-indigo-200 hover:text-white p-1">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mx-6 mt-3 bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs text-rose-700">
+            {error}
+          </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
+          <div>
+            <Label className="text-xs font-bold text-slate-700 block mb-1">Event Title *</Label>
+            <Input value={title} onChange={e => setTitle(e.target.value)} className="h-9 text-xs" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Type</Label>
+              <Input value={type} onChange={e => setType(e.target.value)} className="h-9 text-xs" placeholder="Festival, Sports, etc." />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Category</Label>
+              <Input value={category} onChange={e => setCategory(e.target.value)} className="h-9 text-xs" placeholder="Religious, Cultural, etc." />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Start Date</Label>
+              <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 text-xs" />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">End Date</Label>
+              <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 text-xs" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Start Time</Label>
+              <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="h-9 text-xs" />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">End Time</Label>
+              <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="h-9 text-xs" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Venue</Label>
+              <Input value={venue} onChange={e => setVenue(e.target.value)} className="h-9 text-xs" />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">City</Label>
+              <Input value={city} onChange={e => setCity(e.target.value)} className="h-9 text-xs" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Capacity</Label>
+              <Input type="number" value={capacity} onChange={e => setCapacity(Number(e.target.value))} className="h-9 text-xs" />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Status</Label>
+              <select value={status} onChange={e => setStatus(e.target.value as EventStatus)} className="w-full h-9 px-2 rounded-md border border-slate-200 text-xs bg-white">
+                <option value="upcoming">Upcoming</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="completed">Completed</option>
+                <option value="draft">Draft</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Visibility</Label>
+              <select value={visibility} onChange={e => setVisibility(e.target.value as any)} className="w-full h-9 px-2 rounded-md border border-slate-200 text-xs bg-white">
+                <option value="public">Public</option>
+                <option value="community">Community</option>
+                <option value="private">Private</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 px-6 py-4 flex justify-end gap-2 shrink-0">
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
+            {saving ? "Saving..." : "Update Event"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Events List Sub-tab ─── */
 function EventsList() {
+  const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
   const { useMock } = useEventMock();
   const [events, setEvents] = useState<EventItem[]>(MOCK_EVENTS);
   const [loading, setLoading] = useState(false);
@@ -1004,6 +1205,18 @@ function EventsList() {
   const [sortBy, setSortBy] = useState<"date" | "name" | "registrations">("date");
   const [notifyEvent, setNotifyEvent] = useState<EventItem | null>(null);
   const [deleteEvent, setDeleteEvent] = useState<EventItem | null>(null);
+  const [editEvent, setEditEvent] = useState<EventItem | null>(null);
+
+  const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
+  const isEventsAdmin =
+    isAdmin ||
+    isSuperAdmin ||
+    userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("COMMUNITY_ADMIN") ||
+    userRolesUpper.includes("EVENT_ADMIN") ||
+    userRolesUpper.includes("EVENTS_ADMIN") ||
+    hasPermission(CREATE_EVENT) ||
+    hasPermission(MANAGE_EVENT_DASHBOARD);
 
   useEffect(() => {
     if (useMock) {
@@ -1139,7 +1352,11 @@ function EventsList() {
             {search.trim() ? "No events found" : "No events yet"}
           </h3>
           <p className="text-sm text-slate-400">
-            {search.trim() ? "Try a different search term" : "Create your first event using the 'Create Event' button"}
+            {search.trim()
+              ? "Try a different search term"
+              : isEventsAdmin
+              ? "Create your first event using the 'Create Event' button"
+              : "Events will appear here once scheduled by community organizers."}
           </p>
         </div>
       ) : (
@@ -1148,7 +1365,7 @@ function EventsList() {
             <EventCard
               key={event.id}
               event={event}
-              onEdit={() => {}}
+              onEdit={() => setEditEvent(event)}
               onDelete={() => setDeleteEvent(event)}
               onNotify={() => setNotifyEvent(event)}
               onPreview={() => {}}
@@ -1158,6 +1375,15 @@ function EventsList() {
       )}
 
       {/* Dialogs */}
+      {editEvent && (
+        <EditEventDialog
+          event={editEvent}
+          onClose={() => setEditEvent(null)}
+          onSave={(updated) => {
+            setEvents(prev => prev.map(e => e.id === updated.id ? updated : e));
+          }}
+        />
+      )}
       {notifyEvent && (
         <NotificationDialog event={notifyEvent} onClose={() => setNotifyEvent(null)} />
       )}
@@ -1170,18 +1396,40 @@ function EventsList() {
 
 /* ─── Main Component ─── */
 const TABS = [
-  { id: "events",   label: "Events",          icon: CalendarDays  },
-  { id: "planning", label: "Planning & Tasks", icon: ClipboardList },
-  { id: "programs", label: "Day Programs",     icon: Mic2          },
+  { id: "events",          label: "Events",               icon: CalendarDays  },
+  { id: "organizer",       label: "Organizer Dashboard", icon: ShieldCheck   },
+  { id: "planning",        label: "Planning & Tasks",    icon: ClipboardList },
+  { id: "programs",        label: "Day Programs",         icon: Mic2          },
+  { id: "poojaSeva",       label: "Pooja & Seva",         icon: Flame         },
+  { id: "lunchDinner",     label: "Lunch / Dinner",       icon: UtensilsCrossed },
+  { id: "culturalEvents",  label: "Cultural Events",      icon: Music         },
+  { id: "competitions",     label: "Competitions",         icon: Trophy        },
 ] as const;
 
 export function EventsSchedule() {
+  const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
   const [tab, setTab] = useState<string>("events");
+
+  const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
+  const isEventsAdmin =
+    isAdmin ||
+    isSuperAdmin ||
+    userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("COMMUNITY_ADMIN") ||
+    userRolesUpper.includes("EVENT_ADMIN") ||
+    userRolesUpper.includes("EVENTS_ADMIN") ||
+    hasPermission(CREATE_EVENT) ||
+    hasPermission(MANAGE_EVENT_DASHBOARD);
+
+  const visibleTabs = TABS.filter((t) => {
+    if (t.id === "events" || t.id === "organizer") return true;
+    return isEventsAdmin;
+  });
 
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 bg-white rounded-lg sm:rounded-xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-x-auto hide-scrollbar">
-        {TABS.map(t => (
+        {visibleTabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[10px] sm:text-sm font-semibold transition-all whitespace-nowrap flex-1 sm:flex-none justify-center ${
               tab === t.id
@@ -1193,8 +1441,20 @@ export function EventsSchedule() {
         ))}
       </div>
       {tab === "events" && <EventsList />}
+      {tab === "organizer" && <EventDashboardWrapper />}
       {tab === "planning" && <EventsPlanning />}
       {tab === "programs" && <EventsPrograms />}
+      {tab === "poojaSeva" && <PoojaSevaSection />}
+      {tab === "lunchDinner" && (
+        <div className="space-y-8">
+          <LunchDinnerSection />
+          <div className="pt-4 border-t border-border">
+            <EventsFood />
+          </div>
+        </div>
+      )}
+      {tab === "culturalEvents" && <CulturalEventsSection />}
+      {tab === "competitions" && <CompetitionsSection />}
     </div>
   );
 }

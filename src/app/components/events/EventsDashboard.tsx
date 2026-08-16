@@ -312,7 +312,7 @@ export function EventsDashboard() {
 
   // ── Derived: today's schedule ─────────────────────────────────────────────
   const todaySchedule = useMemo(() => {
-    if (useMock || events.length === 0) return MOCK_ACTIVITIES;
+    if (useMock) return MOCK_ACTIVITIES;
     const today = new Date().toISOString().slice(0, 10);
     const filtered = events.filter(ev =>
       ev.startDate === today ||
@@ -369,7 +369,7 @@ export function EventsDashboard() {
           done: tasksDone[String(t.id)] || t.done,
         }));
     }
-    return MOCK_TASKS;
+    return [];
   }, [useMock, pendingActionItems, tasks, tasksDone]);
 
   // ── Derived: KPI cards ────────────────────────────────────────────────────
@@ -377,49 +377,56 @@ export function EventsDashboard() {
     if (useMock) return MOCK_KPIS;
     const spent = stats?.totalExpenses ?? 0;
     const revenue = stats?.totalRevenue ?? 0;
-    const spentPct = revenue > 0 ? `${Math.round(spent / revenue * 100)}% utilised` : "—";
     const pending = sponsors.filter(s => s.status === "PENDING").length;
     const active  = sponsors.filter(s => ["ACTIVE", "CONFIRMED"].includes(s.status)).length;
+    const spentPct = revenue > 0 ? `${Math.round(spent / revenue * 100)}% utilised` : "—";
+    const hasEvents = useMock || (events && events.length > 0) || (stats && stats.totalEvents > 0);
 
-    const foodPct = stats?.foodPreparedPercentage != null
+    const foodPct = hasEvents && stats?.foodPreparedPercentage != null
       ? `${Math.round(stats.foodPreparedPercentage)}%`
       : "0%";
 
-    const foodPlates = stats?.foodPlatesCount != null
+    const foodPlates = hasEvents && stats?.foodPlatesCount != null
       ? `${stats.foodPlatesCount.toLocaleString()} plates prepared`
       : "0 plates prepared";
+
+    const foodTrend = hasEvents ? "Live tracking" : "No active menu";
 
     const auctionRev = stats?.auctionRevenue != null ? fmtINR(stats.auctionRevenue) : fmtINR(0);
     const auctionItems = stats?.auctionItemCount != null ? `${stats.auctionItemCount} items sold` : "0 items sold";
 
-    const todaysScheduleDutyCount = (stats?.todaysScheduleCount ?? todaySchedule.length) + (stats?.todaysDutyCount ?? (stats?.totalVolunteers ?? 45));
-    const pendingActionsCount = stats?.pendingActionItemsCount ?? (pendingTasks.length + pending);
+    const todaysScheduleDutyCount = hasEvents
+      ? (stats?.todaysScheduleCount ?? todaySchedule.length) + (stats?.todaysDutyCount ?? (stats?.totalVolunteers ?? 0))
+      : 0;
+    const pendingActionsCount = hasEvents
+      ? (stats?.pendingActionItemsCount ?? (pendingTasks.length + pending))
+      : 0;
 
     return [
       {
-        label: "Total Events",    value: stats ? String(stats.totalEvents) : "—",
-        sub: stats ? `${stats.upcomingEvents} upcoming` : "Loading…",
+        label: "Total Events",    value: stats ? String(stats.totalEvents) : "0",
+        sub: stats ? `${stats.upcomingEvents} upcoming` : "0 upcoming",
         icon: CalendarDays, color: "#4F46E5", bg: "rgba(79,70,229,0.12)",
-        trend: stats ? `${stats.upcomingEvents} upcoming` : "…",
+        trend: stats ? `${stats.upcomingEvents} upcoming` : "0 upcoming",
       },
       {
-        label: "Registrations",   value: stats ? stats.totalRegistrations.toLocaleString() : "—",
-        sub: `Across ${stats?.totalEvents ?? "—"} events`,
-        icon: Ticket, color: "#7C3AED", bg: "rgba(124,58,237,0.12)", trend: "Live",
+        label: "Registrations",   value: stats ? stats.totalRegistrations.toLocaleString() : "0",
+        sub: `Across ${stats?.totalEvents ?? 0} events`,
+        icon: Ticket, color: "#7C3AED", bg: "rgba(124,58,237,0.12)", trend: hasEvents ? "Live" : "Inactive",
       },
       {
         label: "Today's Schedule & Duty", value: `${todaysScheduleDutyCount} Items`,
-        sub: `${stats?.todaysScheduleCount ?? todaySchedule.length} events · ${stats?.todaysDutyCount ?? (stats?.totalVolunteers ?? 45)} duty shifts`,
-        icon: Clock, color: "#16A34A", bg: "rgba(22,163,74,0.12)", trend: "Active Today",
+        sub: `${stats?.todaysScheduleCount ?? (hasEvents ? todaySchedule.length : 0)} events · ${stats?.todaysDutyCount ?? (stats?.totalVolunteers ?? 0)} duty shifts`,
+        icon: Clock, color: "#16A34A", bg: "rgba(22,163,74,0.12)", trend: hasEvents ? "Active Today" : "No Shift Today",
       },
       {
         label: "Pending Action Items", value: String(pendingActionsCount),
         sub: `${pendingTasks.length} tasks · ${pending} sponsors pending`,
-        icon: AlertCircle, color: "#F59E0B", bg: "rgba(245,158,11,0.12)", trend: "Action Required",
+        icon: AlertCircle, color: "#F59E0B", bg: "rgba(245,158,11,0.12)", trend: pendingActionsCount > 0 ? "Action Required" : "All Clear",
       },
       {
-        label: "Budget Spent",    value: stats ? fmtINR(spent) : "—",
-        sub: revenue > 0 ? `Revenue: ${fmtINR(revenue)}` : "Loading…",
+        label: "Budget Spent",    value: stats ? fmtINR(spent) : "₹0",
+        sub: revenue > 0 ? `Revenue: ${fmtINR(revenue)}` : "Revenue: ₹0",
         icon: DollarSign, color: "#2563EB", bg: "rgba(37,99,235,0.12)", trend: spentPct,
       },
       {
@@ -431,23 +438,39 @@ export function EventsDashboard() {
       {
         label: "Food Prepared",   value: foodPct,
         sub: foodPlates,
-        icon: Utensils, color: "#8B5CF6", bg: "rgba(139,92,246,0.12)", trend: "Live tracking",
+        icon: Utensils, color: "#8B5CF6", bg: "rgba(139,92,246,0.12)", trend: foodTrend,
       },
       {
         label: "Auction Revenue", value: auctionRev,
         sub: auctionItems,
-        icon: Gavel, color: "#06B6D4", bg: "rgba(6,182,212,0.12)", trend: "Live now",
+        icon: Gavel, color: "#06B6D4", bg: "rgba(6,182,212,0.12)", trend: hasEvents ? "Live now" : "No Active Auction",
       },
     ];
-  }, [useMock, stats, sponsorTotal, sponsors, registrations, todaySchedule, pendingTasks]);
+  }, [useMock, stats, sponsorTotal, sponsors, registrations, todaySchedule, pendingTasks, events]);
 
   // ── Derived: banner items ─────────────────────────────────────────────────
   const bannerItems: BannerItem[] = useMemo(() => {
-    if (useMock || events.length === 0) return MOCK_BANNERS;
-    return events.slice(0, 4).map((ev, i) => eventToBanner(ev, i));
+    if (useMock) return MOCK_BANNERS;
+    if (events.length > 0) {
+      return events.slice(0, 4).map((ev, i) => eventToBanner(ev, i));
+    }
+    return [
+      {
+        id: "empty-db",
+        title: "No Events Created Yet",
+        subtitle: "Create your first community event in the Events module to display it here",
+        location: "Community Center",
+        date: "Upcoming",
+        registered: "0 registered",
+        category: "Community Event",
+        bgGradient: BANNER_GRADIENTS[0],
+        targetDate: new Date().toISOString().slice(0, 10),
+        targetTime: null,
+      }
+    ];
   }, [useMock, events]);
 
-  const currentBanner = bannerItems[Math.min(carouselIndex, bannerItems.length - 1)];
+  const currentBanner = bannerItems[Math.min(carouselIndex, bannerItems.length - 1)] || bannerItems[0];
 
   // ── Derived: registration trend ───────────────────────────────────────────
   const regTrendData = useMemo(() => {
@@ -567,20 +590,30 @@ export function EventsDashboard() {
           {/* Left: Festival Icon + Title + Metadata */}
           <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
             <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-xl shrink-0 shadow-xs">
-              🕉️
+              {(useMock || events.length > 0) ? "🕉️" : "📅"}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap mb-0.5">
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400/20 text-amber-200 border border-amber-300/30 uppercase tracking-wider">
                   🔥 {currentBanner.category}
                 </span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 text-[10px] font-bold border border-emerald-400/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live · {events.length || 1} Event
-                </span>
-                <span className="text-white/60 text-xs hidden sm:inline">·</span>
-                <span className="text-xs font-semibold text-white/80 hidden sm:inline-flex items-center gap-1">
-                  <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {currentBanner.registered}
-                </span>
+                {(useMock || events.length > 0) ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 text-[10px] font-bold border border-emerald-400/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live · {events.length || 1} Event{events.length === 1 ? "" : "s"}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-300 text-[10px] font-bold border border-slate-400/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> 0 Events Available
+                  </span>
+                )}
+                {(useMock || events.length > 0) && (
+                  <>
+                    <span className="text-white/60 text-xs hidden sm:inline">·</span>
+                    <span className="text-xs font-semibold text-white/80 hidden sm:inline-flex items-center gap-1">
+                      <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {currentBanner.registered}
+                    </span>
+                  </>
+                )}
               </div>
               <h2 className="text-lg sm:text-xl font-black text-white leading-tight drop-shadow-md truncate">
                 {currentBanner.title}
@@ -595,43 +628,57 @@ export function EventsDashboard() {
 
           {/* Right: Countdown Ticker & Action Buttons */}
           <div className="flex flex-wrap items-center gap-3 shrink-0 justify-between lg:justify-end border-t lg:border-t-0 pt-2.5 lg:pt-0 border-white/10">
-            {/* Countdown */}
-            <div className="flex items-center gap-1">
-              <span className="text-[9px] font-bold text-white/60 uppercase tracking-wider mr-1">Starts in</span>
-              {[
-                { val: timeLeft.days, unit: "d" },
-                { val: timeLeft.hours, unit: "h" },
-                { val: timeLeft.mins, unit: "m" },
-                { val: timeLeft.secs, unit: "s", amber: true },
-              ].map(({ val, unit, amber }, i) => (
-                <div key={unit} className="flex items-center">
-                  <div className="flex flex-col items-center">
-                    <span
-                      className={`w-7 sm:w-8 text-center px-1 py-0.5 rounded-lg font-mono text-xs font-extrabold leading-none ${
-                        amber ? "bg-amber-500/30 text-amber-200 border border-amber-400/30" : "bg-black/30 text-white"
-                      }`}
-                    >
-                      {String(val).padStart(2, "0")}
-                    </span>
-                    <span className="text-[7.5px] font-bold text-white/50 mt-0.5 uppercase">{unit}</span>
+            {/* Countdown (only if events exist) */}
+            {(useMock || events.length > 0) ? (
+              <div className="flex items-center gap-1">
+                <span className="text-[9px] font-bold text-white/60 uppercase tracking-wider mr-1">Starts in</span>
+                {[
+                  { val: timeLeft.days, unit: "d" },
+                  { val: timeLeft.hours, unit: "h" },
+                  { val: timeLeft.mins, unit: "m" },
+                  { val: timeLeft.secs, unit: "s", amber: true },
+                ].map(({ val, unit, amber }, i) => (
+                  <div key={unit} className="flex items-center">
+                    <div className="flex flex-col items-center">
+                      <span
+                        className={`w-7 sm:w-8 text-center px-1 py-0.5 rounded-lg font-mono text-xs font-extrabold leading-none ${
+                          amber ? "bg-amber-500/30 text-amber-200 border border-amber-400/30" : "bg-black/30 text-white"
+                        }`}
+                      >
+                        {String(val).padStart(2, "0")}
+                      </span>
+                      <span className="text-[7.5px] font-bold text-white/50 mt-0.5 uppercase">{unit}</span>
+                    </div>
+                    {i < 3 && <span className="text-white/40 font-bold text-xs mx-0.5 mb-1.5">:</span>}
                   </div>
-                  {i < 3 && <span className="text-white/40 font-bold text-xs mx-0.5 mb-1.5">:</span>}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-[11px] font-semibold text-white/70 italic">
+                No active timer
+              </div>
+            )}
 
             {/* Buttons */}
-            <div className="flex items-center gap-2">
-              <button onClick={() => setShowQRModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/20 text-xs font-bold transition-all shadow-xs cursor-pointer">
-                <QrCode className="w-3.5 h-3.5 text-amber-300" /> My Pass
-              </button>
-              <button onClick={() => setShowRegisterModal(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-black shadow-md cursor-pointer hover:scale-105 active:scale-95 transition-all"
-                style={{ background: "linear-gradient(135deg, #EA580C, #F97316)", boxShadow: "0 4px 12px rgba(234,88,12,0.35)" }}
-              >
-                <UserPlus className="w-3.5 h-3.5" /> Register
-              </button>
-            </div>
+            {(useMock || events.length > 0) ? (
+              <div className="flex items-center gap-2">
+                <button onClick={() => setShowQRModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/20 text-xs font-bold transition-all shadow-xs cursor-pointer">
+                  <QrCode className="w-3.5 h-3.5 text-amber-300" /> My Pass
+                </button>
+                <button onClick={() => setShowRegisterModal(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-black shadow-md cursor-pointer hover:scale-105 active:scale-95 transition-all"
+                  style={{ background: "linear-gradient(135deg, #EA580C, #F97316)", boxShadow: "0 4px 12px rgba(234,88,12,0.35)" }}
+                >
+                  <UserPlus className="w-3.5 h-3.5" /> Register
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-semibold text-amber-200 bg-amber-400/20 px-3 py-1 rounded-xl border border-amber-300/30">
+                  Create an event in Events module to open registrations
+                </span>
+              </div>
+            )}
           </div>
 
         </div>

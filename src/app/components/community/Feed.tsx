@@ -40,6 +40,7 @@ import {
   Flame,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router";
 import { feedService, type CreatePostRequest } from "../../../services/community/feedService";
 import { engagementService, groupService } from "../../../services/community/engagementService";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -122,7 +123,14 @@ export function Feed() {
   const [eventDate, setEventDate] = useState("");
   const [eventVenue, setEventVenue] = useState("");
 
-  const [activeFilter, setActiveFilter] = useState("ALL");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeFilter = searchParams.get("filter") || "ALL";
+  const setActiveFilter = (filter: string) => {
+    setSearchParams((prev) => {
+      prev.set("filter", filter);
+      return prev;
+    }, { replace: true });
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
 

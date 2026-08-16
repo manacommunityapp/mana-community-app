@@ -7,6 +7,7 @@ import {
 import { GlassCard, TouchButton, BottomSheet } from "./EventDesignSystem";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { userService } from "../../../../services/common/userService";
+import { eventService } from "../../../../services/events/eventService";
 import { useEscapeKey } from "../../../../hooks/useEscapeKey";
 
 export interface TicketCategoryItem {
@@ -80,64 +81,90 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   });
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // ── Load Ticket Categories dynamically from Event Creation details / Props / LocalStorage ──
+  // ── Load Ticket Categories dynamically from Database based on Event Details ONLY ──
   useEffect(() => {
-    let cats: TicketCategoryItem[] = [];
+    let isSubscribed = true;
 
-    // 1. Explicit ticketCategories prop
-    if (ticketCategories && ticketCategories.length > 0) {
-      cats = ticketCategories;
-    }
+    async function loadEventTicketCategories() {
+      let cats: TicketCategoryItem[] = [];
 
-    // 2. Event object ticketTypes or ticketCategories
-    if (cats.length === 0 && event) {
-      if (event.ticketTypes && Array.isArray(event.ticketTypes) && event.ticketTypes.length > 0) {
-        cats = event.ticketTypes;
-      } else if (event.ticketCategories && Array.isArray(event.ticketCategories) && event.ticketCategories.length > 0) {
-        cats = event.ticketCategories;
+      // 1. Explicit ticketCategories prop passed in
+      if (ticketCategories && ticketCategories.length > 0) {
+        cats = ticketCategories;
+      }
+
+      // 2. Fetch fresh event details from database API if event or event.id exists
+      let targetEvent: any = event;
+      if (event && event.id) {
+        try {
+          const dbEvent = await eventService.getById(Number(event.id));
+          if (dbEvent) {
+            targetEvent = dbEvent;
+          }
+        } catch (err) {
+          console.warn("Failed to fetch event by id from database, using provided event details", err);
+        }
+      }
+
+      // If no event object was provided, fetch the primary active event from the database
+      if (!targetEvent) {
+        try {
+          const allEvents = await eventService.getAllEvents();
+          if (allEvents && allEvents.length > 0) {
+            targetEvent = allEvents[0];
+          }
+        } catch (err) {
+          console.warn("Failed to load events from database", err);
+        }
+      }
+
+      // 3. Extract ticket categories directly from the database event object details ONLY
+      if (targetEvent) {
+        if (targetEvent.ticketTypes && Array.isArray(targetEvent.ticketTypes) && targetEvent.ticketTypes.length > 0) {
+          cats = targetEvent.ticketTypes;
+        } else if (targetEvent.ticketCategories && Array.isArray(targetEvent.ticketCategories) && targetEvent.ticketCategories.length > 0) {
+          cats = targetEvent.ticketCategories;
+        } else {
+          // Generate pass category BASED STRICTLY ON THIS EVENT'S DATABASE DETAILS ONLY
+          const evTitle = targetEvent.title || "Event Pass";
+          const evPrice = targetEvent.price != null && Number(targetEvent.price) > 0 ? String(targetEvent.price) : "0";
+          const evQty = targetEvent.capacity || targetEvent.maxAttendees ? String(targetEvent.capacity || targetEvent.maxAttendees) : "1000";
+          const evDesc = targetEvent.description || `All-access pass for ${evTitle}`;
+          cats = [
+            {
+              id: `pass-${targetEvent.id || Date.now()}`,
+              name: `${evTitle} - Standard Pass`,
+              price: evPrice,
+              qty: evQty,
+              description: evDesc,
+            },
+          ];
+        }
+      }
+
+      if (isSubscribed) {
+        setCategories(cats);
+
+        if (cats.length > 0) {
+          const first = cats[0];
+          const idStr = first.id || first.name;
+          setSelectedCatId(idStr);
+          const priceText = formatPrice(first.price);
+          setFormData((prev) => ({
+            ...prev,
+            category: first.name,
+            categoryPrice: priceText,
+            numericPrice: parseNumericPrice(first.price),
+          }));
+        }
       }
     }
 
-    // 3. Saved created/edited event categories from local storage
-    if (cats.length === 0) {
-      try {
-        const saved = localStorage.getItem("mana_created_event_tickets");
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            cats = parsed;
-          }
-        }
-      } catch (e) {}
-    }
+    loadEventTicketCategories();
 
-    // 4. Default fallback category configured for Ganesh Chaturthi Utsav 2026
-    if (!cats || cats.length === 0) {
-      cats = [
-        {
-          id: "ganesh-pass-2026",
-          name: "Ganesh Utsav 2026 Pass",
-          price: "250",
-          qty: "2500",
-          description: "All-access entry pass for Ganesh Chaturthi 2026 Mahotsav rituals, prasadam & cultural programs",
-        },
-      ];
-    }
-
-    setCategories(cats);
-
-    if (cats.length > 0) {
-      const first = cats[0];
-      const idStr = first.id || first.name;
-      setSelectedCatId(idStr);
-      const priceText = formatPrice(first.price);
-      setFormData((prev) => ({
-        ...prev,
-        category: first.name,
-        categoryPrice: priceText,
-        numericPrice: parseNumericPrice(first.price),
-      }));
-    }
+    return () => {
+      isSubscribed = false;
+    };
   }, [event, ticketCategories]);
 
   // ── Dynamically auto-fill logged in user details from database ──

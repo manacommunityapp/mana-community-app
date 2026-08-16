@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "react-router";
 import { LayoutDashboard, CalendarIcon, MapPin, Users, Trophy, Settings, BarChart3 } from "lucide-react";
 import { format } from "date-fns";
 import { showSuccess, showWarning, showError, showInfo } from "../../../../utils/ToastUtils";
@@ -501,7 +502,14 @@ export function useSportsAdminState() {
   // tournament doesn't unlink its events).
   const [editingTournamentId, setEditingTournamentId] = useState<number | null>(null);
   const [editingLinkedEventIds, setEditingLinkedEventIds] = useState<number[]>([]);
-  const [activeTab, setActiveTab] = useState<TabId>("dashboard");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as TabId) || "dashboard";
+  const setActiveTab = (tab: TabId) => {
+    setSearchParams((prev) => {
+      prev.set("tab", tab);
+      return prev;
+    }, { replace: true });
+  };
   const [teamsList, setTeamsList] = useState<any[]>([]);
   const [pendingList, setPendingList] = useState<any[]>([]);
   const [adminSearchQuery, setAdminSearchQuery] = useState("");

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   Shield,
   Users,
@@ -30,9 +30,11 @@ import { toast, Toaster } from "sonner";
 import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { communityService } from "../../../services/community/communityService";
-import { PERMISSION_CATEGORIES, SPORTS_PERMISSION_MATRIX, MANAGE_COMMUNITIES as PERM_MANAGE_COMMUNITIES } from "../../../constants/permissions";
-import type { SportsPermissionRow } from "../../../constants/permissions";
+import { PERMISSION_CATEGORIES, SPORTS_PERMISSION_MATRIX, EVENT_PERMISSION_MATRIX, MANAGE_COMMUNITIES as PERM_MANAGE_COMMUNITIES } from "../../../constants/permissions";
+import type { SportsPermissionRow, EventPermissionRow } from "../../../constants/permissions";
 import type { CommunityResponse, UserResponse } from "../../../types/api";
+import { sortRoles, sortRoleStrings } from "../../../utils/roleUtils";
+
 
 // --- TYPES ---
 interface UserItem {
@@ -41,6 +43,7 @@ interface UserItem {
   email: string;
   contact: string;
   role: string;
+  roles?: string[];
   status: "Active" | "Inactive";
   date: string;
   permissions?: string[];
@@ -57,10 +60,9 @@ const permissionCategories = PERMISSION_CATEGORIES;
 
 export function AdminRoleManagement() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isSuperAdmin, updateUser } = useAuth();
 
-  const canManageCommunities = user?.role === "SUPER_ADMIN" || (user?.permissions || []).includes(PERM_MANAGE_COMMUNITIES);
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
+  const canManageCommunities = isSuperAdmin || (user?.permissions || []).includes(PERM_MANAGE_COMMUNITIES);
 
   // STATE MANAGEMENT
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);
@@ -74,15 +76,25 @@ export function AdminRoleManagement() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<'all' | 'Active' | 'Inactive'>('all');
   const [selectedUser, setSelectedUser] = useState<UserItem | null>(null);
+  const [selectedUserRoles, setSelectedUserRoles] = useState<string[]>([]);
+  const [updatingUserRoles, setUpdatingUserRoles] = useState<boolean>(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
 
   // Custom Roles & Tab States
-  const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("roleTab") as 'users' | 'roles') || 'users';
+  const setActiveTab = (tab: 'users' | 'roles') => {
+    setSearchParams((prev) => {
+      prev.set("roleTab", tab);
+      return prev;
+    }, { replace: true });
+  };
   const [roles, setRoles] = useState<Array<{ id: number; name: string }>>([]);
   const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
   const [newRoleName, setNewRoleName] = useState("");
   const [isCreatingRole, setIsCreatingRole] = useState(false);
   const [loadingEditPerms, setLoadingEditPerms] = useState(false);
+  const [savedRoles, setSavedRoles] = useState<string[] | null>(null);
 
   const loadPermissions = async () => {
     try {
@@ -106,7 +118,10 @@ export function AdminRoleManagement() {
   const loadRoles = async () => {
     try {
       const data = await userService.getRoles();
-      setRoles(data);
+      const filtered = (data || []).filter(
+        (r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r.name.toUpperCase())
+      );
+      setRoles(sortRoles(filtered));
     } catch (err) {
       toast.error("Failed to load security roles from database");
     }
@@ -136,7 +151,7 @@ export function AdminRoleManagement() {
     setIsCreatingRole(true);
     try {
       const created = await userService.createRole(newRoleName);
-      setRoles((prev) => [...prev, created]);
+      setRoles((prev) => sortRoles([...prev, created]));
       
       const normalizedRole = created.name.charAt(0).toUpperCase() + created.name.slice(1).toLowerCase();
       // Initialize empty permissions map for this role
@@ -173,16 +188,28 @@ export function AdminRoleManagement() {
         }
       }
 
-      const mapped = usersList.map((u) => ({
-        id: u.id,
-        name: u.fullName,
-        email: u.email,
-        contact: u.phone,
-        role: u.role ? (u.role.charAt(0).toUpperCase() + u.role.slice(1).toLowerCase()) : "Member",
-        status: u.isActive ? ("Active" as const) : ("Inactive" as const),
-        date: u.dateOfBirth ? new Date(u.dateOfBirth).toLocaleDateString("en-GB", { day: 'numeric', month: 'short', year: 'numeric' }) : "Unknown",
-        permissions: u.permissions,
-      }));
+      const mapped = usersList.map((u) => {
+        const rawRole = u.role || "USER";
+        const rolesList = (u.roles && u.roles.length > 0
+          ? u.roles.map((r) => r.trim().toUpperCase())
+          : rawRole.split(",").map((r) => r.trim().toUpperCase()).filter(Boolean)
+        ).map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r) ? "ADMIN" : r);
+        const displayRole = rawRole.split(",")
+          .map((r) => r.trim().toUpperCase())
+          .map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r) ? "ADMIN" : r)
+          .join(", ");
+        return {
+          id: u.id,
+          name: u.fullName,
+          email: u.email,
+          contact: u.phone,
+          role: displayRole,
+          roles: rolesList,
+          status: u.isActive ? ("Active" as const) : ("Inactive" as const),
+          date: u.dateOfBirth ? new Date(u.dateOfBirth).toLocaleDateString("en-GB", { day: 'numeric', month: 'short', year: 'numeric' }) : "Unknown",
+          permissions: u.permissions,
+        };
+      });
       setUsers(mapped);
     } catch (err) {
       toast.error("Failed to load users from database");
@@ -212,6 +239,99 @@ export function AdminRoleManagement() {
   };
 
   // HANDLERS
+  const openUserDetails = (u: UserItem) => {
+    setSelectedUser(u);
+    const initialRoles = u.roles && u.roles.length > 0
+      ? u.roles.map((r) => r.toUpperCase())
+      : u.role.split(",").map((r) => r.trim().toUpperCase()).filter(Boolean);
+    // Ensure USER base role is always present
+    if (!initialRoles.includes("USER")) initialRoles.push("USER");
+    setSelectedUserRoles(initialRoles);
+  };
+
+  const toggleSelectedRole = (roleName: string) => {
+    const normalized = roleName.toUpperCase();
+    if (normalized === "USER") return; // USER is always assigned
+    setSelectedUserRoles((prev) =>
+      prev.includes(normalized)
+        ? prev.filter((r) => r !== normalized)
+        : [...prev, normalized]
+    );
+  };
+
+  const handleSaveUserRoles = async () => {
+    if (!selectedUser) return;
+    if (selectedUserRoles.length === 0) {
+      toast.error("At least one role must be selected for the user");
+      return;
+    }
+    setUpdatingUserRoles(true);
+    try {
+      // Every user always retains the USER base role
+      const rolesToSend = selectedUserRoles.includes("USER")
+        ? selectedUserRoles
+        : [...selectedUserRoles, "USER"];
+
+      // PUT /api/users/{id}/role — backend reads `roles` array, stores comma-joined,
+      // creates combined permissions, and returns 200 with full UserResponse.
+      const saved = await userService.updateUserRole(selectedUser.id, rolesToSend);
+
+      // Backend returns 200 with role, roles[], and permissions[] populated.
+      // Use response data when available; fall back to what we sent if not.
+      const roleStr = saved?.role ?? rolesToSend.join(", ");
+      const rolesArr = (saved?.roles && saved.roles.length > 0)
+        ? saved.roles.map((r: string) => r.toUpperCase())
+        : rolesToSend.map((r) => r.toUpperCase());
+      const perms = saved?.permissions;
+
+      toast.success(`Roles saved for ${selectedUser.name}: ${rolesArr.join(", ")}`);
+      toast.info(`API response — role: "${saved?.role ?? "(none)"}" | roles: [${saved?.roles?.join(", ") ?? "(none)"}] | type: ${typeof saved}`, { duration: 8000 });
+
+      // Update the users table immediately
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === selectedUser.id
+            ? { ...u, role: roleStr, roles: rolesArr, permissions: perms }
+            : u
+        )
+      );
+
+      // Update the open modal
+      setSelectedUser((prev) =>
+        prev ? { ...prev, role: roleStr, roles: rolesArr, permissions: perms } : null
+      );
+
+      setSavedRoles(rolesArr);
+
+      // Delay the re-sync so the backend has time to persist the write.
+      // The optimistic updates above already show correct data immediately.
+      setTimeout(() => { loadUsers().catch(() => {}); }, 2000);
+
+      // If we changed the logged-in user's own roles, refresh AuthContext so menus update
+      if (user && String(selectedUser.id) === String(user.userId)) {
+        userService.getMe().then((me) => {
+          updateUser({
+            role: me.role,
+            roles: me.roles,
+            permissions: me.permissions ?? [],
+            enabledModules: me.enabledModules,
+          });
+        }).catch(() => {});
+      }
+    } catch (err: any) {
+      let errorMsg = "Failed to update user roles";
+      try {
+        const parsed = JSON.parse(err?.message ?? "");
+        errorMsg = parsed?.message ?? parsed?.error ?? errorMsg;
+      } catch {
+        if (err?.message) errorMsg = err.message;
+      }
+      toast.error(errorMsg);
+    } finally {
+      setUpdatingUserRoles(false);
+    }
+  };
+
   const handleToggleUserStatus = async (userId: number) => {
     try {
       await userService.toggleUserStatus(userId);
@@ -237,6 +357,20 @@ export function AdminRoleManagement() {
     setCurrentView('editRole');
     setLoadingEditPerms(true);
 
+    if (userId) {
+      const targetUser = users.find((u) => u.id === userId);
+      if (targetUser) {
+        const initialRoles = targetUser.roles && targetUser.roles.length > 0
+          ? targetUser.roles.map((r) => r.toUpperCase())
+          : targetUser.role.split(",").map((r) => r.trim().toUpperCase()).filter(Boolean);
+        setSelectedUserRoles(initialRoles);
+      } else {
+        setSelectedUserRoles([roleName.toUpperCase()]);
+      }
+    } else {
+      setSelectedUserRoles([roleName.toUpperCase()]);
+    }
+
     try {
       let permsArray: string[] = [];
 
@@ -245,9 +379,10 @@ export function AdminRoleManagement() {
         const freshUser = await userService.getUserById(userId);
         permsArray = freshUser.permissions ?? [];
       } else {
-        // Fetch fresh role-level permissions from backend
-        const freshRolePerms = await userService.getRolePermissionsByRole(roleName.toUpperCase());
-        permsArray = freshRolePerms ?? [];
+        // Use already-loaded role permissions from state (GET /api/roles/{role}/permissions not supported)
+        const titleCase = roleName.charAt(0).toUpperCase() + roleName.slice(1).toLowerCase();
+        const loadedObj = rolePermissions[roleName] ?? rolePermissions[titleCase] ?? {};
+        permsArray = Object.keys(loadedObj).filter(k => loadedObj[k]);
       }
 
       const permsObj: Record<string, boolean> = {};
@@ -259,12 +394,37 @@ export function AdminRoleManagement() {
       }));
     } catch {
       toast.error("Failed to load permissions from database");
-      // Fall back to whatever is already in state
       if (!rolePermissions[roleName]) {
         setRolePermissions((prev) => ({ ...prev, [roleName]: {} }));
       }
     } finally {
       setLoadingEditPerms(false);
+    }
+  };
+
+  const toggleRoleOnEditView = async (roleKey: string) => {
+    const norm = roleKey.toUpperCase();
+    if (norm === "USER") return; // USER is always assigned
+    const isCurrentlyActive = selectedUserRoles.includes(norm);
+    const updatedRoles = isCurrentlyActive
+      ? selectedUserRoles.filter((r) => r !== norm)
+      : [...selectedUserRoles, norm];
+
+    setSelectedUserRoles(updatedRoles);
+
+    // If adding a role, merge its default permissions into active state from already-loaded data
+    if (!isCurrentlyActive) {
+      const titleCase = norm.charAt(0) + norm.slice(1).toLowerCase();
+      const loadedObj = rolePermissions[norm] ?? rolePermissions[titleCase] ?? {};
+      const rolePerms = Object.keys(loadedObj).filter(k => loadedObj[k]);
+      if (rolePerms.length > 0) {
+        setRolePermissions((prev) => {
+          const currentObj = prev[editingRole] ? { ...prev[editingRole] } : {};
+          rolePerms.forEach((p) => { currentObj[p] = true; });
+          return { ...prev, [editingRole]: currentObj };
+        });
+        toast.info(`Merged permissions from ${norm} role`);
+      }
     }
   };
 
@@ -305,8 +465,34 @@ export function AdminRoleManagement() {
       const rolePermsObj = rolePermissions[editingRole] || {};
       const checkedPerms = Object.keys(rolePermsObj).filter((k) => !!rolePermsObj[k]);
 
-      // Save permissions to database with normalized uppercase role name and optional userId
-      await userService.updateRolePermissions(editingRoleName.toUpperCase(), checkedPerms, editingUserId || undefined);
+      if (editingUserId) {
+        // Save user's multi-role assignment and custom permissions
+        const rawRolesToSave = selectedUserRoles.length > 0 ? selectedUserRoles : [editingRoleName.toUpperCase()];
+        const rolesToSave = rawRolesToSave.includes("USER") ? rawRolesToSave : [...rawRolesToSave, "USER"];
+        const saved = await userService.updateUserRole(editingUserId, rolesToSave);
+        await userService.updateRolePermissions(editingRoleName.toUpperCase(), checkedPerms, editingUserId);
+
+        const roleStr = saved?.role ?? rolesToSave.join(", ");
+        const rolesArr = (saved?.roles && saved.roles.length > 0)
+          ? saved.roles.map((r: string) => r.toUpperCase())
+          : rolesToSave.map((r) => r.toUpperCase());
+        const perms = saved?.permissions;
+
+        toast.success(`Saved assigned roles (${rolesArr.join(", ")}) and permissions for user`);
+
+        // Optimistic update so the table shows new roles immediately
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === editingUserId
+              ? { ...u, role: roleStr, roles: rolesArr, permissions: perms }
+              : u
+          )
+        );
+      } else {
+        // Save role-level permissions
+        await userService.updateRolePermissions(editingRoleName.toUpperCase(), checkedPerms);
+        toast.success(`Updated permissions for ${editingRoleName}`);
+      }
 
       setRolePermissions((prev) => {
         const copy = { ...prev };
@@ -319,13 +505,8 @@ export function AdminRoleManagement() {
         return copy;
       });
 
-      if (editingRoleName !== editingRole) {
-        setUsers((prev) =>
-          prev.map((u) => (u.role === editingRole ? { ...u, role: editingRoleName } : u))
-        );
-      }
-
-      toast.success(`Updated role and permissions for ${editingRoleName}`);
+      // Delay re-sync so the backend has time to persist
+      setTimeout(() => { loadUsers().catch(() => {}); }, 2000);
       setCurrentView('list');
     } catch (err) {
       toast.error("Failed to update role permissions in database");
@@ -549,10 +730,14 @@ export function AdminRoleManagement() {
 
                             {/* Role */}
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                <Shield className="w-3 h-3 text-indigo-500" />
-                                {user.role}
-                              </span>
+                              <div className="flex flex-wrap gap-1 max-w-[240px]">
+                                {(user.roles && user.roles.length > 0 ? user.roles : user.role.split(",")).map((r) => (
+                                  <span key={r} className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-sm">
+                                    <Shield className="w-3 h-3 text-indigo-500" />
+                                    {r.trim().toUpperCase()}
+                                  </span>
+                                ))}
+                              </div>
                             </td>
 
                             {/* Status Toggle */}
@@ -575,9 +760,9 @@ export function AdminRoleManagement() {
                             <td className="px-6 py-4 text-right whitespace-nowrap">
                               <div className="flex items-center justify-end gap-2">
                                 <button
-                                  onClick={() => setSelectedUser(user)}
-                                  className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors border border-slate-200"
-                                  title="View User Details"
+                                  onClick={() => openUserDetails(user)}
+                                  className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors border border-slate-200 cursor-pointer"
+                                  title="View User & Manage Assigned Roles"
                                 >
                                   <Eye className="w-4 h-4" />
                                 </button>
@@ -781,6 +966,56 @@ export function AdminRoleManagement() {
             })()
           )}
 
+          {/* MULTI-ROLE ASSIGNMENT BAR */}
+          <div className="mx-6 mt-6 p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  <Shield className="w-4 h-4 text-indigo-600" />
+                  Assigned Module Access & Security Roles ({selectedUserRoles.length} Active)
+                </h4>
+                <p className="text-slate-500 text-[11px] font-medium mt-0.5">
+                  Toggle multiple roles (e.g. SPORTS_ADMIN + MEMBER + VENDOR) to combine module permissions for access across the community.
+                </p>
+              </div>
+            </div>
+
+            {/* Toggle Pills */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              {sortRoleStrings(Array.from(new Set([
+                "ADMIN", "CASHIER", "EVENT_ADMIN", "MEMBER",
+                "SPORTS_ADMIN", "STAFF", "USER", "VENDOR",
+                ...roles.map((r) => r.name.toUpperCase())
+              ])).filter((r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r.toUpperCase())))
+              .map((roleKey) => {
+                const isSelected = selectedUserRoles.includes(roleKey);
+                const isLocked = roleKey === "USER";
+                return (
+                  <button
+                    key={roleKey}
+                    type="button"
+                    onClick={() => toggleRoleOnEditView(roleKey)}
+                    disabled={isLocked}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border active:scale-95 ${
+                      isLocked
+                        ? "bg-slate-300 text-slate-500 border-slate-300 cursor-not-allowed opacity-70"
+                        : isSelected
+                          ? "bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-500/20 cursor-pointer"
+                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100 cursor-pointer"
+                    }`}
+                  >
+                    <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
+                      isSelected ? "bg-white text-indigo-600 border-white" : "border-slate-300 bg-slate-50"
+                    }`}>
+                      {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                    </div>
+                    {roleKey.replace(/_/g, " ")}{roleKey === "USER" ? " (auto)" : ""}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* ═══════ SPORTS PERMISSION MATRIX ═══════ */}
           <div className={`p-6 space-y-8 bg-slate-50/50 ${loadingEditPerms ? "pointer-events-none opacity-50" : ""}`}>
 
@@ -952,10 +1187,172 @@ export function AdminRoleManagement() {
               </div>
             </div>
 
-            {/* ── OTHER PERMISSION CATEGORIES (non-sports) ── */}
+            {/* ── EVENTS Matrix Table ── */}
+            <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+              <div className="bg-gradient-to-r from-purple-600 to-indigo-700 px-5 py-3.5 flex items-center justify-between">
+                <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Shield className="w-4 h-4" />
+                  EVENTS Permission Matrix
+                </h4>
+                <label className="flex items-center gap-2 text-xs font-semibold text-purple-100 hover:text-white cursor-pointer select-none transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={isCategoryAllSelected(editingRole, 'events')}
+                    onChange={(e) => handleSelectAllCategory(editingRole, 'events', e.target.checked)}
+                    className="rounded border-purple-300 text-white focus:ring-white h-3.5 w-3.5 accent-white"
+                  />
+                  Select All
+                </label>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50">
+                      <th className="px-5 py-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-[40%]">Sub-Menu / Feature</th>
+                      <th className="px-4 py-3 text-xs font-bold text-center text-emerald-700 uppercase tracking-wider">
+                        <div className="flex flex-col items-center gap-0.5"><Eye className="w-3.5 h-3.5" />View</div>
+                      </th>
+                      <th className="px-4 py-3 text-xs font-bold text-center text-amber-700 uppercase tracking-wider">
+                        <div className="flex flex-col items-center gap-0.5"><Edit className="w-3.5 h-3.5" />Create / Edit</div>
+                      </th>
+                      <th className="px-4 py-3 text-xs font-bold text-center text-red-700 uppercase tracking-wider">
+                        <div className="flex flex-col items-center gap-0.5"><XCircle className="w-3.5 h-3.5" />Delete / Export</div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {EVENT_PERMISSION_MATRIX.map((row, idx) => {
+                      const rolePerms = rolePermissions[editingRole] || {};
+
+                      if (row.isGroupHeader && row.childIndices) {
+                        const children = row.childIndices.map(i => EVENT_PERMISSION_MATRIX[i]);
+                        const allChildViewKeys = children.map(c => c.view).filter(Boolean) as string[];
+                        const allChildEditKeys = children.map(c => c.createEdit).filter(Boolean) as string[];
+                        const allChildDeleteKeys = children.map(c => c.delete).filter(Boolean) as string[];
+
+                        const allViewChecked = allChildViewKeys.length > 0 && allChildViewKeys.every(k => !!rolePerms[k]);
+                        const allEditChecked = allChildEditKeys.length > 0 && allChildEditKeys.every(k => !!rolePerms[k]);
+                        const allDeleteChecked = allChildDeleteKeys.length > 0 && allChildDeleteKeys.every(k => !!rolePerms[k]);
+
+                        const toggleColumn = (keys: string[], allChecked: boolean) => {
+                          setRolePermissions(prev => {
+                            const rp = prev[editingRole] ? { ...prev[editingRole] } : {};
+                            keys.forEach(k => { rp[k] = !allChecked; });
+                            return { ...prev, [editingRole]: rp };
+                          });
+                        };
+
+                        return (
+                          <tr key={idx} className="bg-purple-50/30 hover:bg-purple-50/50 transition-colors">
+                            <td className="px-5 py-3">
+                              <span className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                                {row.label}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <label className="inline-flex items-center justify-center cursor-pointer">
+                                <input type="checkbox" checked={allViewChecked}
+                                  onChange={() => toggleColumn(allChildViewKeys, allViewChecked)}
+                                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+                                />
+                              </label>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <label className="inline-flex items-center justify-center cursor-pointer">
+                                <input type="checkbox" checked={allEditChecked}
+                                  onChange={() => toggleColumn(allChildEditKeys, allEditChecked)}
+                                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
+                                />
+                              </label>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <label className="inline-flex items-center justify-center cursor-pointer">
+                                <input type="checkbox" checked={allDeleteChecked}
+                                  onChange={() => toggleColumn(allChildDeleteKeys, allDeleteChecked)}
+                                  className="rounded border-slate-300 text-red-600 focus:ring-red-500 h-4 w-4 cursor-pointer"
+                                />
+                              </label>
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return (
+                        <tr
+                          key={idx}
+                          className={`transition-colors ${
+                            row.isChild ? 'bg-slate-50/40' : 'bg-white hover:bg-slate-50'
+                          }`}
+                        >
+                          <td className="px-5 py-3">
+                            <span
+                              className={`text-sm font-semibold flex items-center gap-1.5 ${
+                                row.isChild ? 'pl-5 text-slate-600' : 'text-slate-900'
+                              }`}
+                            >
+                              {row.isChild && (
+                                <span className="text-slate-300 text-xs">↳</span>
+                              )}
+                              {row.label}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-3 text-center">
+                            {row.view ? (
+                              <label className="inline-flex items-center justify-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={!!rolePerms[row.view]}
+                                  onChange={() => handleTogglePermission(editingRole, row.view!)}
+                                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4 cursor-pointer"
+                                />
+                              </label>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+
+                          <td className="px-4 py-3 text-center">
+                            {row.createEdit ? (
+                              <label className="inline-flex items-center justify-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={!!rolePerms[row.createEdit]}
+                                  onChange={() => handleTogglePermission(editingRole, row.createEdit!)}
+                                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 h-4 w-4 cursor-pointer"
+                                />
+                              </label>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+
+                          <td className="px-4 py-3 text-center">
+                            {row.delete ? (
+                              <label className="inline-flex items-center justify-center cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={!!rolePerms[row.delete]}
+                                  onChange={() => handleTogglePermission(editingRole, row.delete!)}
+                                  className="rounded border-slate-300 text-red-600 focus:ring-red-500 h-4 w-4 cursor-pointer"
+                                />
+                              </label>
+                            ) : (
+                              <span className="text-slate-300">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* ── OTHER PERMISSION CATEGORIES ── */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {permissionCategories
-                .filter((c) => c.id !== 'sports')
+                .filter((c) => c.id !== 'sports' && c.id !== 'events')
                 .map((category) => {
                   const allChecked = isCategoryAllSelected(editingRole, category.id);
                   const rolePerms = rolePermissions[editingRole] || {};
@@ -1101,12 +1498,12 @@ export function AdminRoleManagement() {
 
       {/* VIEW USER DETAILS MODAL */}
       {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => setSelectedUser(null)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => { setSelectedUser(null); setSavedRoles(null); }}>
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-250" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div className="relative bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-5">
               <button
-                onClick={() => setSelectedUser(null)}
+                onClick={() => { setSelectedUser(null); setSavedRoles(null); }}
                 className="absolute top-4 right-4 p-1.5 text-indigo-200 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
               >
                 <X className="w-4.5 h-4.5" />
@@ -1117,10 +1514,17 @@ export function AdminRoleManagement() {
                 </div>
                 <div>
                   <h4 className="text-lg font-bold">{selectedUser.name}</h4>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/20 text-[11px] font-semibold tracking-wider uppercase text-white mt-1">
-                    <Shield className="w-3 h-3" />
-                    {selectedUser.role}
-                  </span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {(selectedUser.roles && selectedUser.roles.length > 0
+                      ? selectedUser.roles
+                      : selectedUser.role.split(",").map((r) => r.trim())
+                    ).filter(Boolean).map((r) => (
+                      <span key={r} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/20 text-[11px] font-semibold tracking-wider uppercase text-white">
+                        <Shield className="w-3 h-3" />
+                        {r.trim().toUpperCase()}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1166,28 +1570,99 @@ export function AdminRoleManagement() {
                   </div>
                 </div>
 
-                <div className="space-y-1 col-span-2 border-t border-slate-100 pt-3">
-                  <span className="text-slate-450 block font-medium">Change Security Role Assignment</span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <select
-                      value={selectedUser.role}
-                      onChange={async (e) => {
-                        const newRole = e.target.value;
-                        try {
-                          await userService.updateUserRole(selectedUser.id, newRole);
-                          toast.success(`Role of ${selectedUser.name} updated to ${newRole}`);
-                          setUsers(prev => prev.map(u => u.id === selectedUser.id ? { ...u, role: newRole } : u));
-                          setSelectedUser(prev => prev ? { ...prev, role: newRole } : null);
-                        } catch (err) {
-                          toast.error("Failed to update user role on database");
-                        }
-                      }}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-indigo-500 outline-none transition-all cursor-pointer"
-                    >
-                      {["Admin", "Cashier", "Staff", "Member", "Vendor"].map(r => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
+                <div className="space-y-2 col-span-2 border-t border-slate-100 pt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-700 block font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
+                      Assigned Module Access &amp; Security Roles
+                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        savedRoles
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-indigo-50 text-indigo-600"
+                      }`}>
+                        {(savedRoles ?? (
+                          selectedUser.roles && selectedUser.roles.length > 0
+                            ? selectedUser.roles
+                            : selectedUser.role.split(",").map(r => r.trim()).filter(Boolean)
+                        )).length} Active
+                      </span>
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-semibold">Select multiple roles to grant access across modules</span>
+                  </div>
+
+                  {/* Multi-role Toggle Grid */}
+                  <div className="flex flex-wrap gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl max-h-48 overflow-y-auto">
+                    {sortRoleStrings(Array.from(new Set([
+                      "USER", "MEMBER", "SPORTS_ADMIN",
+                      "VENDOR", "CASHIER", "STAFF", "ADMIN",
+                      ...roles.map((r) => r.name.toUpperCase())
+                    ])).filter((r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r.toUpperCase())))
+                    .map((roleKey) => {
+                      const isSelected = selectedUserRoles.includes(roleKey);
+                      const isLocked = roleKey === "USER";
+                      return (
+                        <button
+                          key={roleKey}
+                          type="button"
+                          onClick={() => toggleSelectedRole(roleKey)}
+                          disabled={isLocked}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border active:scale-95 ${
+                            isLocked
+                              ? "bg-slate-300 text-slate-500 border-slate-300 cursor-not-allowed opacity-70"
+                              : isSelected
+                                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-500/20 cursor-pointer"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100 cursor-pointer"
+                          }`}
+                        >
+                          <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
+                            isLocked
+                              ? "bg-slate-400 text-white border-slate-400"
+                              : isSelected ? "bg-white text-indigo-600 border-white" : "border-slate-300 bg-slate-50"
+                          }`}>
+                            {(isSelected || isLocked) && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                          </div>
+                          {roleKey.replace(/_/g, " ")}{isLocked ? " (auto)" : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex flex-col gap-2 pt-1">
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleSaveUserRoles}
+                        disabled={updatingUserRoles}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-xs font-bold rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
+                      >
+                        {updatingUserRoles ? (
+                          <>
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-3.5 h-3.5" />
+                            Save Assigned Roles
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    {savedRoles && (
+                      <div className="flex items-start gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-[11px]">
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0" />
+                        <div className="flex flex-col gap-1">
+                          <span className="font-bold text-emerald-700">Roles saved successfully</span>
+                          <div className="flex flex-wrap gap-1">
+                            {savedRoles.map((r) => (
+                              <span key={r} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-200 text-emerald-700 font-semibold">
+                                <Shield className="w-2.5 h-2.5" />
+                                {r}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1196,20 +1671,18 @@ export function AdminRoleManagement() {
               <div className="border-t border-slate-100 pt-4">
                 <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
                   <FileText className="w-4 h-4 text-indigo-500" />
-                  Active Permissions Assigned ({Object.keys(rolePermissions[selectedUser.role] || {}).filter(k => !!rolePermissions[selectedUser.role][k]).length})
+                  Active Permissions ({selectedUser.permissions ? selectedUser.permissions.length : 0})
                 </h5>
-                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-1 bg-slate-50 border border-slate-200 rounded-lg">
-                  {Object.keys(rolePermissions[selectedUser.role] || {}).some(k => !!rolePermissions[selectedUser.role][k]) ? (
-                    Object.keys(rolePermissions[selectedUser.role] || {})
-                      .filter((key) => !!rolePermissions[selectedUser.role][key])
-                      .map((perm) => (
-                        <span key={perm} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-slate-600 shadow-sm">
-                          <CheckCircle className="w-2.5 h-2.5 text-green-500" />
-                          {perm}
-                        </span>
-                      ))
+                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                  {selectedUser.permissions && selectedUser.permissions.length > 0 ? (
+                    selectedUser.permissions.map((perm) => (
+                      <span key={perm} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-slate-700 shadow-sm">
+                        <CheckCircle className="w-2.5 h-2.5 text-emerald-500" />
+                        {perm}
+                      </span>
+                    ))
                   ) : (
-                    <span className="text-xs text-slate-400 p-2 italic w-full text-center">No explicit permissions checked for this role.</span>
+                    <span className="text-xs text-slate-400 p-2 italic w-full text-center">No active permissions loaded.</span>
                   )}
                 </div>
               </div>
@@ -1218,8 +1691,8 @@ export function AdminRoleManagement() {
             {/* Footer */}
             <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
               <button
-                onClick={() => setSelectedUser(null)}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-350 text-slate-700 font-bold text-xs rounded-lg transition-colors shadow-sm"
+                onClick={() => { setSelectedUser(null); setSavedRoles(null); }}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg transition-colors shadow-sm cursor-pointer"
               >
                 Close View
               </button>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import { ClipboardList, Check, X, Plus, Search, Sparkles, IndianRupee, AlertCircle, Calendar, TrendingDown, Activity, User, ShieldAlert, Heart } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -7,10 +8,17 @@ import { assetService, type Asset } from "../../../services/inventory/assetServi
 
 export function AssetAuditDashboard() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as "logs" | "audit" | "depreciation") || "logs";
+  const setActiveTab = (tab: "logs" | "audit" | "depreciation") => {
+    setSearchParams((prev) => {
+      prev.set("tab", tab);
+      return prev;
+    }, { replace: true });
+  };
   const [logs, setLogs] = useState<AssetAuditLog[]>([]);
   const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"logs" | "audit" | "depreciation">("logs");
   const [submitting, setSubmitting] = useState(false);
 
   // Search/Filters

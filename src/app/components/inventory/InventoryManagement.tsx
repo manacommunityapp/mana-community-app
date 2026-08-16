@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { NavLink } from "react-router";
+import { NavLink, useSearchParams } from "react-router";
 import {
   Package,
   Users,
@@ -66,7 +66,14 @@ export function InventoryManagement() {
 
   /* ============================= TABS & VIEW STATE ============================= */
   type TabType = "dashboard" | "products" | "suppliers" | "purchase" | "sales" | "customers";
-  const [activeTab, setActiveTab] = useState<TabType>("dashboard");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as TabType) || "dashboard";
+  const setActiveTab = (tab: TabType) => {
+    setSearchParams((prev) => {
+      prev.set("tab", tab);
+      return prev;
+    }, { replace: true });
+  };
 
   const TABS = [
     { id: "dashboard" as TabType, label: "Dashboard", icon: BarChart3 },

@@ -3,6 +3,7 @@ import {
   AlertTriangle, Wrench, Shield, CalendarDays, Users, BookOpen, ChevronDown
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { noticeService, type NoticeResponse, type NoticeRequest } from "../../../services/notices/noticeService";
@@ -47,7 +48,14 @@ function timeAgo(iso: string): string {
 }
 
 export function NoticeBoard() {
-  const [activeCategory, setActiveCategory] = useState("All");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeCategory = searchParams.get("category") || "All";
+  const setActiveCategory = (cat: string) => {
+    setSearchParams((prev) => {
+      prev.set("category", cat);
+      return prev;
+    }, { replace: true });
+  };
   const [notices, setNotices] = useState<NoticeResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);

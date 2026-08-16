@@ -7,7 +7,7 @@ import { useAuth } from "../../../../contexts/AuthContext";
 import {
   VIEW_FEED, VIEW_SPORTS_MENU, VIEW_MARKETPLACE,
   VIEW_JOBS, VIEW_EVENTS, VIEW_ADMIN, VIEW_VISITORS, VIEW_NOTICES, VIEW_AMENITIES,
-  VIEW_TICKETS, VIEW_POLLS,
+  VIEW_TICKETS, VIEW_POLLS, REGISTER_EVENT, VIEW_EVENT_GALLERY,
 } from "../../../../constants/permissions";
 import { FloatingChat } from "../../chat/FloatingChat";
 import { FloatingChatBot } from "../../chat/FloatingChatBot";
@@ -121,7 +121,7 @@ export function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(() => location.pathname.startsWith("/community"));
   const [isFinanceOpen, setIsFinanceOpen] = useState(() => location.pathname.startsWith("/finance"));
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, isSuperAdmin, isAnyAdmin, logout, hasMenuPermission } = useAuth();
   const navigate = useNavigate();
 
   // Auto expand parent collapsible sub-menus when user is on a child route
@@ -160,7 +160,7 @@ export function Layout() {
 
   // AuthContext fetches /users/me on boot and populates user.permissions
   const permissions = user?.permissions || [];
-  const enabledModules = user?.enabledModules || [];
+  const enabledModules = user?.enabledModules;
   const loadingPermissions = !!user && !user.permissions;
 
   const labelToModule: Record<string, string> = {
@@ -193,10 +193,8 @@ export function Layout() {
     { to: "/events", icon: CalendarDays, label: "Events" },
   ];
 
-  const isSuperAdmin = user?.role === "SUPER_ADMIN";
-
   const adminLinks = [
-    ...(isAdmin ? [{ to: "/admin", icon: ShieldCheck, label: "Admin Hub" }] : []),
+    ...(isAnyAdmin ? [{ to: "/admin", icon: ShieldCheck, label: "Admin Hub" }] : []),
     ...(isSuperAdmin ? [{ to: "/architecture", icon: Layers, label: "Architecture Docs" }] : []),
   ];
 
@@ -205,7 +203,7 @@ export function Layout() {
     if (loadingPermissions) return true;
 
     const moduleKey = labelToModule[link.label];
-    if (moduleKey && (!enabledModules || !enabledModules.includes(moduleKey))) return false;
+    if (moduleKey && enabledModules && !enabledModules.includes(moduleKey)) return false;
 
     if (link.label === "Community Feed") return permissions.includes(VIEW_FEED);
     if (link.label === "Sports") return permissions.includes(VIEW_SPORTS_MENU);
@@ -217,7 +215,7 @@ export function Layout() {
     if (link.label === "Polls") return permissions.includes(VIEW_POLLS);
     if (link.label === "Jobs & Referrals") return permissions.includes(VIEW_JOBS);
     if (link.label === "Professional Network") return permissions.includes(VIEW_JOBS);
-    if (link.label === "Events") return true; // Gallery is accessible to all; EVENTS module gate above already filters by enabledModules
+    if (link.label === "Events") return isAdmin || permissions.includes(VIEW_EVENTS) || permissions.includes(REGISTER_EVENT) || permissions.includes(VIEW_EVENT_GALLERY);
     return true;
   });
 
@@ -344,14 +342,15 @@ export function Layout() {
 
             {isCommunityOpen && (
               <div className="pl-5 space-y-0.5 animate-in slide-in-from-top-1 duration-150">
+                {(isSuperAdmin || hasMenuPermission("inventory", "view")) && (
                 <NavLink
                   to="/community/inventory"
                   onClick={() => setIsSidebarOpen(false)}
                   className={({ isActive }) =>
                     cn(
                       "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                      isActive 
-                        ? "text-white bg-primary border-primary/25 shadow-sm" 
+                      isActive
+                        ? "text-white bg-primary border-primary/25 shadow-sm"
                         : "text-white/50 hover:text-white/85 hover:bg-white/5"
                     )
                   }
@@ -363,15 +362,17 @@ export function Layout() {
                     </>
                   )}
                 </NavLink>
+                )}
 
+                {(isSuperAdmin || hasMenuPermission("inventory-management", "view")) && (
                 <NavLink
                   to="/community/inventory-management"
                   onClick={() => setIsSidebarOpen(false)}
                   className={({ isActive }) =>
                     cn(
                       "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                      isActive 
-                        ? "text-white bg-primary border-primary/25 shadow-sm" 
+                      isActive
+                        ? "text-white bg-primary border-primary/25 shadow-sm"
                         : "text-white/50 hover:text-white/85 hover:bg-white/5"
                     )
                   }
@@ -383,89 +384,94 @@ export function Layout() {
                     </>
                   )}
                 </NavLink>
+                )}
 
-                {isAdmin && (
-                  <>
-                    <NavLink
-                      to="/community/procurement"
-                      onClick={() => setIsSidebarOpen(false)}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                          isActive 
-                            ? "text-white bg-primary border-primary/25 shadow-sm" 
-                            : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                        )
-                      }
-                    >
-                      {({ isActive }) => (
-                        <>
-                          <Truck className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                          Procurement
-                        </>
-                      )}
-                    </NavLink>
+                {(isSuperAdmin || hasMenuPermission("procurement", "view")) && (
+                <NavLink
+                  to="/community/procurement"
+                  onClick={() => setIsSidebarOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                      isActive
+                        ? "text-white bg-primary border-primary/25 shadow-sm"
+                        : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Truck className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                      Procurement
+                    </>
+                  )}
+                </NavLink>
+                )}
 
-                    <NavLink
-                      to="/community/maintenance"
-                      onClick={() => setIsSidebarOpen(false)}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                          isActive 
-                            ? "text-white bg-primary border-primary/25 shadow-sm" 
-                            : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                        )
-                      }
-                    >
-                      {({ isActive }) => (
-                        <>
-                          <CalendarDays className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                          Maintenance
-                        </>
-                      )}
-                    </NavLink>
+                {(isSuperAdmin || hasMenuPermission("maintenance", "view")) && (
+                <NavLink
+                  to="/community/maintenance"
+                  onClick={() => setIsSidebarOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                      isActive
+                        ? "text-white bg-primary border-primary/25 shadow-sm"
+                        : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <CalendarDays className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                      Maintenance
+                    </>
+                  )}
+                </NavLink>
+                )}
 
-                    <NavLink
-                      to="/community/audit"
-                      onClick={() => setIsSidebarOpen(false)}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                          isActive
-                            ? "text-white bg-primary border-primary/25 shadow-sm"
-                            : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                        )
-                      }
-                    >
-                      {({ isActive }) => (
-                        <>
-                          <ClipboardList className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                          Asset Audit
-                        </>
-                      )}
-                    </NavLink>
+                {(isSuperAdmin || hasMenuPermission("audit", "view")) && (
+                <NavLink
+                  to="/community/audit"
+                  onClick={() => setIsSidebarOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                      isActive
+                        ? "text-white bg-primary border-primary/25 shadow-sm"
+                        : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <ClipboardList className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                      Asset Audit
+                    </>
+                  )}
+                </NavLink>
+                )}
 
-                    <NavLink
-                      to="/community/resource-booking"
-                      onClick={() => setIsSidebarOpen(false)}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                          isActive
-                            ? "text-white bg-primary border-primary/25 shadow-sm"
-                            : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                        )
-                      }
-                    >
-                      {({ isActive }) => (
-                        <>
-                          <Server className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                          Resource Booking
-                        </>
-                      )}
-                    </NavLink>
-                  </>
+                {(isSuperAdmin || hasMenuPermission("resource-booking", "view")) && (
+                <NavLink
+                  to="/community/resource-booking"
+                  onClick={() => setIsSidebarOpen(false)}
+                  className={({ isActive }) =>
+                    cn(
+                      "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                      isActive
+                        ? "text-white bg-primary border-primary/25 shadow-sm"
+                        : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                    )
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Server className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                      Resource Booking
+                    </>
+                  )}
+                </NavLink>
                 )}
               </div>
             )}
@@ -473,7 +479,7 @@ export function Layout() {
           )}
 
           {/* Finance Management Collapsible Group */}
-          {isAdmin && (isSuperAdmin || (enabledModules && enabledModules.includes("FINANCE_MGMT"))) && (
+          {(isSuperAdmin || (enabledModules && enabledModules.includes("FINANCE_MGMT"))) && (
             <div className="space-y-1">
               <button
                 onClick={() => setIsFinanceOpen(!isFinanceOpen)}
@@ -490,14 +496,15 @@ export function Layout() {
 
               {isFinanceOpen && (
                 <div className="pl-5 space-y-0.5 animate-in slide-in-from-top-1 duration-150">
+                  {(isSuperAdmin || hasMenuPermission("expenses", "view")) && (
                   <NavLink
                     to="/finance/expenses"
                     onClick={() => setIsSidebarOpen(false)}
                     className={({ isActive }) =>
                       cn(
                         "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                        isActive 
-                          ? "text-white bg-primary border-primary/25 shadow-sm" 
+                        isActive
+                          ? "text-white bg-primary border-primary/25 shadow-sm"
                           : "text-white/50 hover:text-white/85 hover:bg-white/5"
                       )
                     }
@@ -509,15 +516,17 @@ export function Layout() {
                       </>
                     )}
                   </NavLink>
+                  )}
 
+                  {(isSuperAdmin || hasMenuPermission("invoices", "view")) && (
                   <NavLink
                     to="/finance/invoices"
                     onClick={() => setIsSidebarOpen(false)}
                     className={({ isActive }) =>
                       cn(
                         "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                        isActive 
-                          ? "text-white bg-primary border-primary/25 shadow-sm" 
+                        isActive
+                          ? "text-white bg-primary border-primary/25 shadow-sm"
                           : "text-white/50 hover:text-white/85 hover:bg-white/5"
                       )
                     }
@@ -529,15 +538,17 @@ export function Layout() {
                       </>
                     )}
                   </NavLink>
+                  )}
 
+                  {(isSuperAdmin || hasMenuPermission("budget", "view")) && (
                   <NavLink
                     to="/finance/budget"
                     onClick={() => setIsSidebarOpen(false)}
                     className={({ isActive }) =>
                       cn(
                         "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                        isActive 
-                          ? "text-white bg-primary border-primary/25 shadow-sm" 
+                        isActive
+                          ? "text-white bg-primary border-primary/25 shadow-sm"
                           : "text-white/50 hover:text-white/85 hover:bg-white/5"
                       )
                     }
@@ -549,15 +560,17 @@ export function Layout() {
                       </>
                     )}
                   </NavLink>
+                  )}
 
+                  {(isSuperAdmin || hasMenuPermission("reports", "view")) && (
                   <NavLink
                     to="/finance/reports"
                     onClick={() => setIsSidebarOpen(false)}
                     className={({ isActive }) =>
                       cn(
                         "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                        isActive 
-                          ? "text-white bg-primary border-primary/25 shadow-sm" 
+                        isActive
+                          ? "text-white bg-primary border-primary/25 shadow-sm"
                           : "text-white/50 hover:text-white/85 hover:bg-white/5"
                       )
                     }
@@ -569,6 +582,7 @@ export function Layout() {
                       </>
                     )}
                   </NavLink>
+                  )}
                 </div>
               )}
             </div>

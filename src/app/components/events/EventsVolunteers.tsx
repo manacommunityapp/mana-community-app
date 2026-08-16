@@ -723,7 +723,7 @@ export function EventsVolunteers() {
       }
     });
 
-    return computed.length > 0 ? computed : baseList;
+    return computed.length > 0 ? computed : (useMock ? baseList : []);
   }, [volunteers, customDepts, useMock]);
 
   const totalVols    = useMock ? DEPARTMENTS.reduce((a, d) => a + d.total, 0) : volunteers.length;
@@ -781,42 +781,50 @@ export function EventsVolunteers() {
             <Plus className="w-3.5 h-3.5" /> Add Department
           </button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
-          {liveDepartments.map(dept => {
-            const pct = dept.total > 0 ? Math.round((dept.present / dept.total) * 100) : 0;
-            const active = deptFilter === dept.name;
-            return (
-              <div
-                key={dept.name}
-                onClick={() => setDeptFilter(active ? "All" : dept.name)}
-                className={`p-3 sm:p-4 rounded-xl border transition-all cursor-pointer ${
-                  active
-                    ? "border-indigo-300 bg-indigo-50 shadow-md"
-                    : "border-slate-100 bg-slate-50/60 hover:bg-white hover:shadow-md"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center" style={{ background: `${dept.color}18` }}>
-                    <Users className="w-4 h-4" style={{ color: dept.color }} />
+        {liveDepartments.length === 0 ? (
+          <div className="py-8 text-center border-2 border-dashed border-slate-100 rounded-xl bg-slate-50/50">
+            <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" strokeWidth={1.5} />
+            <p className="text-xs font-semibold text-slate-600">No Departments Found in Database</p>
+            <p className="text-[10.5px] text-slate-400 mt-0.5">Click "Add Department" above to create departments or assign volunteers.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4">
+            {liveDepartments.map(dept => {
+              const pct = dept.total > 0 ? Math.round((dept.present / dept.total) * 100) : 0;
+              const active = deptFilter === dept.name;
+              return (
+                <div
+                  key={dept.name}
+                  onClick={() => setDeptFilter(active ? "All" : dept.name)}
+                  className={`p-3 sm:p-4 rounded-xl border transition-all cursor-pointer ${
+                    active
+                      ? "border-indigo-300 bg-indigo-50 shadow-md"
+                      : "border-slate-100 bg-slate-50/60 hover:bg-white hover:shadow-md"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center" style={{ background: `${dept.color}18` }}>
+                      <Users className="w-4 h-4" style={{ color: dept.color }} />
+                    </div>
+                    <span className="text-xs font-black" style={{ color: dept.color }}>{pct}%</span>
                   </div>
-                  <span className="text-xs font-black" style={{ color: dept.color }}>{pct}%</span>
+                  <p className="font-bold text-slate-800 text-xs sm:text-sm">{dept.name}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">Head: {dept.head}</p>
+                  <div className="mt-3 space-y-1.5">
+                    <div className="flex justify-between text-[10px] font-semibold">
+                      <span className="text-slate-500">{dept.present} present</span>
+                      <span className="text-slate-400">of {dept.total}</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full transition-all" style={{ background: dept.color, width: `${pct}%` }} />
+                    </div>
+                  </div>
+                  {active && <p className="text-[9px] font-bold text-indigo-500 mt-2">Filtering by this dept ×</p>}
                 </div>
-                <p className="font-bold text-slate-800 text-xs sm:text-sm">{dept.name}</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Head: {dept.head}</p>
-                <div className="mt-3 space-y-1.5">
-                  <div className="flex justify-between text-[10px] font-semibold">
-                    <span className="text-slate-500">{dept.present} present</span>
-                    <span className="text-slate-400">of {dept.total}</span>
-                  </div>
-                  <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ background: dept.color, width: `${pct}%` }} />
-                  </div>
-                </div>
-                {active && <p className="text-[9px] font-bold text-indigo-500 mt-2">Filtering by this dept ×</p>}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ── Volunteer table ── */}

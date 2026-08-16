@@ -56,9 +56,15 @@ export const userService = {
     return apiClient.put<void>(`/users/${userId}/status`, {});
   },
 
-  /** PUT /api/users/{id}/role */
-  async updateUserRole(userId: number, role: string): Promise<void> {
-    return apiClient.put<void>(`/users/${userId}/role`, { role });
+  /** PUT /api/users/{id}/role
+   *  Backend reads `roles` array first, falls back to splitting `role` string.
+   *  Stores comma-joined in user.role, creates combined permissions, returns 200 UserResponse. */
+  async updateUserRole(userId: number, role: string | string[]): Promise<UserResponse> {
+    const roleValue = Array.isArray(role) ? role.join(", ") : role;
+    const rolesArray = Array.isArray(role)
+      ? role
+      : role.split(",").map((s) => s.trim()).filter(Boolean);
+    return apiClient.put<UserResponse>(`/users/${userId}/role`, { role: roleValue, roles: rolesArray });
   },
 
   /** POST /api/users — admin create-user; maps the create-user form fields. */

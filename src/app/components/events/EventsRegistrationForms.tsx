@@ -5,14 +5,14 @@ import {
   Archive, Globe, Link2, Users, ClipboardList, Calendar,
   ArrowUpDown, TrendingUp, Share2, Settings2,
   AlertCircle, Zap, ListChecks, ChevronRight,
-  LayoutGrid, List, CheckSquare, Square, Timer,
+  LayoutGrid, List, CheckSquare, Square, Timer, Star,
   UserCheck, UserX, Hourglass, ChevronDown, X,
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { cn } from "../ui/utils";
-import { EventRegistrationFormBuilder, DEFAULT_REGISTRATION_FORM_CONFIG, type RegistrationFormConfig } from "./EventRegistrationFormBuilder";
+import { EventRegistrationFormBuilder, DEFAULT_REGISTRATION_FORM_CONFIG, GANESH_CHATURTHI_FORM_CONFIG, type RegistrationFormConfig } from "./EventRegistrationFormBuilder";
 import { FormSettingsPanel } from "./EventsFormEnhancements";
 
 /* ─── Types ─── */
@@ -46,6 +46,7 @@ interface RegistrationForm {
   shareableLink: string;
   conversionRate: number;
   registrationDeadline: string | null;
+  isDefault?: boolean;
   config?: RegistrationFormConfig;
 }
 
@@ -89,6 +90,8 @@ const MOCK_FORMS: RegistrationForm[] = [
     shareableLink: "/event-register/gc-2026",
     conversionRate: 78.4,
     registrationDeadline: "2026-08-20",
+    isDefault: true,
+    config: GANESH_CHATURTHI_FORM_CONFIG,
   },
   {
     id: "FORM-002",
@@ -464,6 +467,11 @@ function FormDetailDrawer({ form, onClose, onEdit, onPreview, onSettings, onView
           {/* Status & Event */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
+              {form.isDefault && (
+                <Badge className="gap-1 bg-amber-500 text-white font-bold text-[10px] shadow-sm">
+                  <Star className="w-3 h-3 fill-current text-white" /> Default Form
+                </Badge>
+              )}
               <Badge className={cn("gap-1", s.bg, s.text)}>
                 <span className={cn("w-1.5 h-1.5 rounded-full", s.dot)} />
                 {s.label}
@@ -638,24 +646,33 @@ function EventSelector({ value, onChange }: { value: string; onChange: (v: strin
 
 /* ─── Create Form Dialog ─── */
 function CreateFormDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (form: Partial<RegistrationForm>) => void }) {
-  const [name, setName] = useState("");
-  const [eventName, setEventName] = useState("");
-  const [deadline, setDeadline] = useState("");
-  const [template, setTemplate] = useState<"blank" | "standard" | "minimal" | "detailed">("standard");
+  const [name, setName] = useState("Ganesh Chaturthi 2026 Registration");
+  const [eventName, setEventName] = useState("Ganesh Chaturthi Grand Festival 2026");
+  const [deadline, setDeadline] = useState("2026-08-20");
+  const [template, setTemplate] = useState<"ganesh" | "blank" | "standard" | "minimal" | "detailed">("ganesh");
 
   const TEMPLATES = [
-    { id: "blank" as const, label: "Blank Form", description: "Start from scratch with no fields", icon: FileText, fields: 0 },
-    { id: "standard" as const, label: "Standard", description: "Personal info, contact, emergency contact, dietary", icon: ClipboardList, fields: 14 },
-    { id: "minimal" as const, label: "Minimal", description: "Just name, email, and phone — quick registration", icon: Zap, fields: 5 },
-    { id: "detailed" as const, label: "Detailed", description: "All fields including ID verification, accessibility, apparel", icon: ListChecks, fields: 22 },
+    { id: "ganesh" as const, label: "Ganesh Festival (Default)", description: "Aarti slots, Mahaprasadam passes, cultural & volunteer preferences", icon: Star, fields: 18, isDefault: true },
+    { id: "standard" as const, label: "Standard", description: "Personal info, contact, emergency contact, dietary", icon: ClipboardList, fields: 14, isDefault: false },
+    { id: "minimal" as const, label: "Minimal", description: "Just name, email, and phone — quick registration", icon: Zap, fields: 5, isDefault: false },
+    { id: "detailed" as const, label: "Detailed", description: "All fields including ID verification, accessibility, apparel", icon: ListChecks, fields: 22, isDefault: false },
+    { id: "blank" as const, label: "Blank Form", description: "Start from scratch with no fields", icon: FileText, fields: 0, isDefault: false },
   ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full mx-4 overflow-hidden" onClick={e => e.stopPropagation()}>
-        <div className="bg-gradient-to-r from-indigo-600 to-violet-500 px-6 py-4">
-          <h3 className="text-lg font-bold text-white">Create Registration Form</h3>
-          <p className="text-indigo-100 text-sm">Set up a new registration form for your event</p>
+        <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-indigo-600 px-6 py-4 flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-bold text-white">Create Registration Form</h3>
+              <Badge className="bg-amber-400/30 text-amber-100 border-amber-300/40 text-[10px]">🪔 Default Template</Badge>
+            </div>
+            <p className="text-amber-100/90 text-xs mt-0.5">Pre-configured with Ganesh Chaturthi Grand Festival 2026 defaults</p>
+          </div>
+          <button onClick={onClose} className="text-white/80 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
@@ -687,27 +704,32 @@ function CreateFormDialog({ onClose, onCreate }: { onClose: () => void; onCreate
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Start with a Template</label>
-            <div className="grid grid-cols-2 gap-2">
+            <label className="text-sm font-medium text-slate-700">Select Template Preset</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {TEMPLATES.map(t => (
                 <button
                   key={t.id}
                   onClick={() => setTemplate(t.id)}
                   className={cn(
-                    "text-left p-3 rounded-xl border-2 transition-all",
+                    "text-left p-3 rounded-xl border-2 transition-all relative",
                     template === t.id
-                      ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-200"
-                      : "border-slate-200 hover:border-indigo-200 hover:bg-slate-50"
+                      ? "border-amber-500 bg-amber-50/60 ring-2 ring-amber-200"
+                      : "border-slate-200 hover:border-amber-200 hover:bg-slate-50"
                   )}
                 >
+                  {t.isDefault && (
+                    <span className="absolute top-2 right-2 text-[9px] font-bold px-1.5 py-0.5 bg-amber-500 text-white rounded-full flex items-center gap-0.5">
+                      <Star className="w-2.5 h-2.5 fill-current" /> Default
+                    </span>
+                  )}
                   <div className="flex items-center gap-2 mb-1">
-                    <t.icon className={cn("w-4 h-4", template === t.id ? "text-indigo-600" : "text-slate-400")} />
-                    <span className={cn("text-sm font-semibold", template === t.id ? "text-indigo-700" : "text-slate-700")}>
+                    <t.icon className={cn("w-4 h-4", template === t.id ? "text-amber-600" : "text-slate-400")} />
+                    <span className={cn("text-xs font-bold", template === t.id ? "text-amber-900" : "text-slate-700")}>
                       {t.label}
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-500">{t.description}</p>
-                  {t.fields > 0 && <p className="text-[10px] text-indigo-400 mt-1">{t.fields} fields</p>}
+                  {t.fields > 0 && <p className="text-[10px] text-amber-600 font-medium mt-1">{t.fields} fields configured</p>}
                 </button>
               ))}
             </div>
@@ -716,14 +738,18 @@ function CreateFormDialog({ onClose, onCreate }: { onClose: () => void; onCreate
           <div className="flex gap-2 pt-2">
             <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
             <Button
-              className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-700 hover:to-violet-600 gap-2"
+              className="flex-1 bg-gradient-to-r from-amber-600 to-indigo-600 hover:from-amber-700 hover:to-indigo-700 text-white gap-2"
               disabled={!name.trim() || !eventName.trim()}
               onClick={() => {
                 onCreate({
                   name: name.trim(),
                   eventName: eventName.trim(),
-                  status: "draft",
+                  status: "active",
                   registrationDeadline: deadline || null,
+                  isDefault: template === "ganesh",
+                  config: template === "ganesh" ? GANESH_CHATURTHI_FORM_CONFIG : undefined,
+                  fieldsCount: template === "ganesh" ? 18 : template === "detailed" ? 22 : template === "standard" ? 14 : template === "minimal" ? 5 : 0,
+                  requiredFieldsCount: template === "ganesh" ? 8 : template === "detailed" ? 10 : template === "standard" ? 6 : template === "minimal" ? 3 : 0,
                 });
                 onClose();
               }}
@@ -783,6 +809,11 @@ function FormCard({ form, selected, onSelect, onView, onPreview, onQR, onEdit, o
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
+              {form.isDefault && (
+                <Badge className="gap-1 text-[10px] bg-amber-500 text-white font-bold border-amber-600 shadow-sm">
+                  <Star className="w-2.5 h-2.5 fill-current" /> Default Form
+                </Badge>
+              )}
               <Badge className={cn("gap-1 text-[10px]", s.bg, s.text)}>
                 <span className={cn("w-1.5 h-1.5 rounded-full", s.dot)} />
                 {s.label}
@@ -945,7 +976,12 @@ function FormTableRow({ form, selected, onSelect, onView, onEdit, onStatusChange
       </td>
       <td className="py-3 pr-3 max-w-xs">
         <button className="text-left" onClick={onView}>
-          <p className="text-sm font-semibold text-slate-800 hover:text-indigo-600 transition-colors truncate max-w-[200px]">{form.name}</p>
+          <div className="flex items-center gap-1.5 truncate max-w-[220px]">
+            <p className="text-sm font-semibold text-slate-800 hover:text-indigo-600 transition-colors truncate">{form.name}</p>
+            {form.isDefault && (
+              <Badge className="text-[8px] py-0 px-1.5 bg-amber-500 text-white font-bold shrink-0">Default</Badge>
+            )}
+          </div>
           <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{form.eventName}</p>
         </button>
       </td>

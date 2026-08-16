@@ -5,6 +5,7 @@ import {
   Clock, MapPin, Mic2, Music, Trophy, Layers, Star, ChevronRight, Loader2, AlertCircle,
   Mail, Bell, Send, Plus, X, Check, Sparkles, Calendar, Zap, RefreshCw, CalendarDays,
   User, CheckCircle2, UserCheck, UtensilsCrossed, Flag, Award, BookOpen, Trash2, FileText,
+  Pencil,
 } from "lucide-react";
 
 function cn(...inputs: ClassValue[]) {
@@ -262,6 +263,135 @@ export function AgendaNotificationModal({
   );
 }
 
+/* ─── Edit Program Modal ─── */
+export function EditProgramModal({
+  isOpen,
+  onClose,
+  program,
+  onSave,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  program: ScheduleItem;
+  onSave: (updated: ScheduleItem) => void;
+}) {
+  const [title, setTitle] = useState(program.title);
+  const [type, setType] = useState(program.type);
+  const [time, setTime] = useState(program.time);
+  const [duration, setDuration] = useState(program.duration);
+  const [venue, setVenue] = useState(program.venue);
+  const [performer, setPerformer] = useState(program.performer || "");
+  const [judge, setJudge] = useState(program.judge || "");
+
+  if (!isOpen) return null;
+
+  const handleSave = () => {
+    const typeInfo = typeIconMap[type] || { icon: Layers, color: "#6366f1" };
+    onSave({
+      ...program,
+      title,
+      type,
+      time,
+      duration,
+      venue,
+      performer: performer || undefined,
+      judge: judge || undefined,
+      icon: typeInfo.icon,
+      color: typeInfo.color,
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 animate-fade-in-up border border-slate-100">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+              <Pencil className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-800">Edit Program / Activity</h3>
+              <p className="text-xs text-slate-400">Update event schedule timing and details</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-3 text-xs">
+          <div>
+            <Label className="text-xs font-bold text-slate-700 block mb-1">Title *</Label>
+            <Input value={title} onChange={e => setTitle(e.target.value)} className="h-9 text-xs" />
+          </div>
+
+          <div>
+            <Label className="text-xs font-bold text-slate-700 block mb-1">Category / Type</Label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              {Object.keys(typeIconMap).map((cat) => {
+                const isSelected = type === cat;
+                const catInfo = typeIconMap[cat];
+                const IconComp = catInfo?.icon || Layers;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setType(cat)}
+                    className={cn(
+                      "p-2 rounded-xl border text-left flex items-center justify-between transition-all cursor-pointer",
+                      isSelected
+                        ? "border-2 border-indigo-600 bg-indigo-50/80 text-indigo-900 shadow-2xs font-bold"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-100"
+                    )}
+                  >
+                    <span className="text-[10px] truncate">{cat}</span>
+                    <IconComp className="w-3.5 h-3.5 shrink-0" style={{ color: catInfo?.color || "#6366f1" }} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Time</Label>
+              <Input value={time} onChange={e => setTime(e.target.value)} className="h-9 text-xs" placeholder="e.g. 10:00 AM" />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Duration</Label>
+              <Input value={duration} onChange={e => setDuration(e.target.value)} className="h-9 text-xs" placeholder="e.g. 1h 30m" />
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs font-bold text-slate-700 block mb-1">Venue / Stage</Label>
+            <Input value={venue} onChange={e => setVenue(e.target.value)} className="h-9 text-xs" />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Performer / Host</Label>
+              <Input value={performer} onChange={e => setPerformer(e.target.value)} className="h-9 text-xs" placeholder="Optional" />
+            </div>
+            <div>
+              <Label className="text-xs font-bold text-slate-700 block mb-1">Judge</Label>
+              <Input value={judge} onChange={e => setJudge(e.target.value)} className="h-9 text-xs" placeholder="Optional" />
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" onClick={handleSave} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5">
+            <Check className="w-4 h-4" /> Save Changes
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function EventsPrograms() {
   const { useMock } = useEventMock();
   const [activeDay, setActiveDay] = useState(days[0]);
@@ -276,6 +406,9 @@ export function EventsPrograms() {
   // Notification state
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [targetActivityTitle, setTargetActivityTitle] = useState<string | undefined>(undefined);
+
+  // Edit Program state
+  const [editingProgram, setEditingProgram] = useState<ScheduleItem | null>(null);
 
   // Quick Add Activity & Multi-Program state
   const [showAddActivityModal, setShowAddActivityModal] = useState(false);
@@ -531,9 +664,16 @@ export function EventsPrograms() {
                           {item.type}
                         </span>
                         <button
+                          onClick={() => setEditingProgram(item)}
+                          title="Edit this program / activity"
+                          className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
+                        >
+                          <Pencil className="w-3 h-3 text-indigo-500" /> Edit
+                        </button>
+                        <button
                           onClick={() => handleOpenNotification(item.title)}
                           title="Send Email Notification for this activity"
-                          className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 flex items-center gap-1 shadow-2xs transition-all"
+                          className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-slate-600 hover:text-indigo-600 hover:border-indigo-200 flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
                         >
                           <Mail className="w-3 h-3 text-indigo-500" /> Notify
                         </button>
@@ -779,6 +919,46 @@ export function EventsPrograms() {
         dayLabel={currentDay}
         activityTitle={targetActivityTitle}
       />
+
+      {/* Edit Program Modal */}
+      {editingProgram && (
+        <EditProgramModal
+          isOpen={!!editingProgram}
+          onClose={() => setEditingProgram(null)}
+          program={editingProgram}
+          onSave={async (updated) => {
+            if (useMock) {
+              setMockCustomSchedule(prev => ({
+                ...prev,
+                [currentDay]: (prev[currentDay] || []).map(p => p.id === updated.id ? updated : p),
+              }));
+            } else if (selectedEventId && updated.id) {
+              const numId = Number(updated.id);
+              if (!isNaN(numId)) {
+                try {
+                  await eventProgramService.update(numId, {
+                    eventId: selectedEventId,
+                    title: updated.title,
+                    programType: updated.type,
+                    startTime: updated.time,
+                    duration: updated.duration,
+                    venue: updated.venue,
+                    performer: updated.performer,
+                    judge: updated.judge,
+                    dayLabel: currentDay,
+                  });
+                  setLiveSchedule(prev => ({
+                    ...prev,
+                    [currentDay]: (prev[currentDay] || []).map(p => p.id === updated.id ? updated : p),
+                  }));
+                } catch (e) {
+                  console.error("Failed to update program live", e);
+                }
+              }
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import { Truck, Plus, Check, X, ShieldAlert, Award, FileText, IndianRupee, Calendar, User, Search, CheckCircle2, ChevronRight, AlertCircle, Sparkles } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -31,7 +32,14 @@ const STATUS_CONFIG = {
 
 export function ProcurementDashboard() {
   const { user } = useAuth();
-  const [activeSubTab, setActiveSubTab] = useState<"requests" | "vendors" | "add-vendor">("requests");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeSubTab = (searchParams.get("tab") as "requests" | "vendors" | "add-vendor") || "requests";
+  const setActiveSubTab = (tab: "requests" | "vendors" | "add-vendor") => {
+    setSearchParams((prev) => {
+      prev.set("tab", tab);
+      return prev;
+    }, { replace: true });
+  };
 
   const [requests, setRequests] = useState<PurchaseRequest[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);

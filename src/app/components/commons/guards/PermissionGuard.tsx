@@ -15,15 +15,13 @@ interface PermissionGuardProps {
 }
 
 export function PermissionGuard({ children, permission, anyPermissions, superAdminOnly, requiredModule }: PermissionGuardProps) {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
 
   if (!user) {
     return <Navigate to="/login" replace />;
   }
 
-  const isSuperAdmin = user.role === "SUPER_ADMIN";
-
-  // SUPER_ADMIN role bypasses all permission constraints
+  // SUPER_ADMIN role bypasses all permission & module constraints
   if (isSuperAdmin) {
     return <>{children}</>;
   }
@@ -32,7 +30,7 @@ export function PermissionGuard({ children, permission, anyPermissions, superAdm
   // If a required module is specified, check the user's enabledModules
   // list (populated from the community_module table via /users/me).
   const enabledModules = user.enabledModules || [];
-  if (requiredModule && enabledModules.length > 0 && !enabledModules.includes(requiredModule)) {
+  if (requiredModule && user.enabledModules !== undefined && !enabledModules.includes(requiredModule)) {
     return renderModuleDisabled(requiredModule);
   }
 
