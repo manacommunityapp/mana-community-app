@@ -32,6 +32,7 @@ import {
   UserPlus,
   Loader2,
   Filter,
+  Trash2,
 } from "lucide-react";
 
 interface FamilyMember {
@@ -67,13 +68,6 @@ interface UserPass {
   status: "CONFIRMED" | "PENDING APPROVAL";
   qrCodeUrl: string;
 }
-
-const INITIAL_FAMILY: FamilyMember[] = [
-  { id: "1", name: "Sandeep Verma", relation: "Myself (Head)", age: 38, avatar: "👤" },
-  { id: "2", name: "Ananya Verma", relation: "Spouse", age: 35, avatar: "👩" },
-  { id: "3", name: "Rahul Verma", relation: "Son", age: 10, avatar: "👦" },
-  { id: "4", name: "Priya Verma", relation: "Daughter", age: 7, avatar: "👧" },
-];
 
 const INITIAL_ACTIVITIES: Activity[] = [
   {
@@ -126,32 +120,7 @@ const INITIAL_ACTIVITIES: Activity[] = [
   },
 ];
 
-const INITIAL_PASSES: UserPass[] = [
-  {
-    id: "pass-1",
-    passType: "Pooja Seva Token",
-    title: "Maha Ganapathi Archana & Silver Shield",
-    participantName: "Sandeep Verma & Family",
-    regId: "MNA-2026-POOJA-0822",
-    date: "22 Aug 2026",
-    time: "08:00 AM - 09:30 AM",
-    venue: "Main Temple Mandap",
-    status: "CONFIRMED",
-    qrCodeUrl: "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=MNA-2026-POOJA-0822",
-  },
-  {
-    id: "pass-2",
-    passType: "Cultural Pass",
-    title: "Kids Classical Fusion Dance",
-    participantName: "Rahul Verma (Son)",
-    regId: "MNA-2026-CULT-1102",
-    date: "23 Aug 2026",
-    time: "05:30 PM",
-    venue: "Auditorium Stage A",
-    status: "PENDING APPROVAL",
-    qrCodeUrl: "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=MNA-2026-CULT-1102",
-  },
-];
+const INITIAL_PASSES: UserPass[] = [];
 
 export function EventMemberView() {
   const { user } = useAuth();
@@ -160,15 +129,16 @@ export function EventMemberView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
-  const [selectedMembers, setSelectedMembers] = useState<string[]>(["1"]);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<"home" | "passes" | "auction">("home");
   const [showQRPass, setShowQRPass] = useState<UserPass | null>(null);
   const [showFamily, setShowFamily] = useState(false);
   const [passesList, setPassesList] = useState<UserPass[]>(() => (useMock ? INITIAL_PASSES : []));
   const [activitiesList, setActivitiesList] = useState<Activity[]>(() => (useMock ? INITIAL_ACTIVITIES : []));
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(INITIAL_FAMILY);
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
   const [loadingApiData, setLoadingApiData] = useState(false);
+  const [loadingFamily, setLoadingFamily] = useState(false);
 
   // Modal State for Adding Dynamic Family Member
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
@@ -307,56 +277,65 @@ export function EventMemberView() {
         });
       }
 
-      const custom: Activity[] = JSON.parse(localStorage.getItem("mana_custom_activities") || "[]");
-      const combined = [...fetchedActivities, ...custom];
-
-      setActivitiesList(combined);
+      setActivitiesList(fetchedActivities);
     } catch (err) {
       console.warn("Failed to fetch live API events:", err);
-      try {
-        const custom: Activity[] = JSON.parse(localStorage.getItem("mana_custom_activities") || "[]");
-        setActivitiesList(custom);
-      } catch {
-        setActivitiesList([]);
-      }
+      setActivitiesList([]);
     } finally {
       setLoadingApiData(false);
     }
   };
 
+  // Load family members dynamically from database / mock
   // Load family members dynamically from database
   const loadFamilyMembers = async () => {
-    if (!useMock) {
-      try {
-        const dbMembers = await eventService.getFamilyMembers();
-        if (Array.isArray(dbMembers) && dbMembers.length > 0) {
-          const mapped: FamilyMember[] = dbMembers.map((m: any) => ({
-            id: String(m.id || m.name),
-            name: m.name,
-            relation: m.relation || "Family",
-            age: m.age || 25,
-            avatar: m.avatar || "👤",
-          }));
-          setFamilyMembers(mapped);
-          return;
-        }
-      } catch (err) {
-        console.warn("Could not fetch family members from database API, falling back:", err);
-      }
-    }
+    setLoadingFamily(true);
 
     try {
-      const stored: FamilyMember[] = JSON.parse(localStorage.getItem("mana_family_members") || "[]");
-      if (stored.length > 0) {
-        const existingIds = new Set(INITIAL_FAMILY.map((f) => f.id));
-        const customOnly = stored.filter((s) => !existingIds.has(s.id));
-        setFamilyMembers([...INITIAL_FAMILY, ...customOnly]);
-      } else {
-        setFamilyMembers(INITIAL_FAMILY);
+      try {
+        localStorage.removeItem("mana_family_members");
+      } catch {}
+
+      const dbMembers = await eventService.getFamilyMembers();
+      if (Array.isArray(dbMembers) && dbMembers.length > 0) {
+        const dummyNames = new Set([
+          "Sunita Sharma", "Aarav Sharma", "Ananya Sharma",
+          "Sandeep Verma", "Ananya Verma", "Rahul Verma", "Priya Verma"
+        ]);
+        const mapped: FamilyMember[] = dbMembers
+          .filter((m: any) => m && m.name && !dummyNames.has(m.name.trim()))
+          .map((m: any) => ({
+            id: String(m.id ?? m.name),
+            name: m.name,
+            relation: m.relation || "Family",
+            age: Number(m.age) || 25,
+            avatar: m.avatar || "👤",
+          }));
+
+        if (mapped.length > 0) {
+          // Ensure "Head / Myself" appears first
+          mapped.sort((a, b) => {
+            const isAHead = a.relation.toLowerCase().includes("myself") || a.relation.toLowerCase().includes("head") || a.relation.toLowerCase().includes("self");
+            const isBHead = b.relation.toLowerCase().includes("myself") || b.relation.toLowerCase().includes("head") || b.relation.toLowerCase().includes("self");
+            if (isAHead && !isBHead) return -1;
+            if (!isAHead && isBHead) return 1;
+            return 0;
+          });
+
+          setFamilyMembers(mapped);
+          setSelectedMembers(mapped.map((m) => m.id));
+          setLoadingFamily(false);
+          return;
+        }
       }
-    } catch {
-      setFamilyMembers(INITIAL_FAMILY);
+    } catch (err) {
+      console.warn("Could not fetch family members from database API:", err);
     }
+
+    // Default to empty details when user has not registered family members yet
+    setFamilyMembers([]);
+    setSelectedMembers([]);
+    setLoadingFamily(false);
   };
 
   // Load User Passes dynamically
@@ -387,7 +366,7 @@ export function EventMemberView() {
       window.removeEventListener("mana_activities_updated", fetchLiveDataFromBackend);
       window.removeEventListener("mana_family_updated", loadFamilyMembers);
     };
-  }, [useMock]);
+  }, [useMock, user]);
 
   // Compute dynamic counters for Quick Actions
   const poojaCount = useMemo(() => activitiesList.filter((a) => a.category === "Pooja").length, [activitiesList]);
@@ -492,6 +471,19 @@ export function EventMemberView() {
     setSelectedMembers((prev) => (prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]));
   };
 
+  const handleDeleteFamilyMember = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!useMock && !id.startsWith("fam-") && id !== "self") {
+      try {
+        await eventService.deleteFamilyMember(Number(id));
+      } catch (err) {
+        console.error("Failed to delete devotee from database:", err);
+      }
+    }
+    setFamilyMembers((prev) => prev.filter((m) => m.id !== id));
+    setSelectedMembers((prev) => prev.filter((mid) => mid !== id));
+  };
+
   const handleAddFamilyMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMember.name.trim()) return;
@@ -527,14 +519,6 @@ export function EventMemberView() {
 
     const updatedList = [...familyMembers, createdMember];
     setFamilyMembers(updatedList);
-
-    try {
-      localStorage.setItem("mana_family_members", JSON.stringify(updatedList));
-      window.dispatchEvent(new Event("mana_family_updated"));
-    } catch (err) {
-      console.warn("Storage save error:", err);
-    }
-
     setSelectedMembers((prev) => [...prev, createdMember.id]);
     setNewMember({ name: "", relation: "Son", age: "", avatar: "👦" });
     setShowAddMemberModal(false);
@@ -547,11 +531,13 @@ export function EventMemberView() {
       .map((f) => f.name)
       .join(", ");
 
+    const attendeeLabel = attendingNames || user?.fullName || (user?.email ? user.email.split("@")[0] : "Devotee");
+
     const newPass: UserPass = {
       id: "pass-" + Date.now(),
       passType: `${selectedActivity.category} Registration Pass`,
       title: selectedActivity.title,
-      participantName: attendingNames || "Sandeep Verma",
+      participantName: attendeeLabel,
       regId: `MNA-2026-${selectedActivity.category.toUpperCase().slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`,
       date: selectedActivity.date,
       time: selectedActivity.time,
@@ -560,7 +546,7 @@ export function EventMemberView() {
       qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=MNA-2026-REG-${Date.now()}`,
     };
     setPassesList((prev) => [newPass, ...prev]);
-    alert(`Success! Registered for ${selectedActivity.title}. E-Pass issued to ${attendingNames}!`);
+    alert(`Success! Registered for ${selectedActivity.title}. E-Pass issued to ${attendeeLabel}!`);
     setSelectedActivity(null);
     setActiveTab("passes");
   };
@@ -721,26 +707,55 @@ export function EventMemberView() {
               </div>
 
               {showFamily && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-border animate-fadeIn">
-                  {familyMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-muted/50 border border-border/70 hover:border-primary/30 transition-all"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-xl shrink-0">{member.avatar}</span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-foreground truncate">{member.name}</p>
-                          <p className="text-[10px] text-muted-foreground font-medium">
-                            {member.relation} • Age {member.age}
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 shrink-0">
-                        Active
-                      </span>
+                <div>
+                  {loadingFamily ? (
+                    <div className="flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground border-t border-border">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      <span>Loading registered family devotees...</span>
                     </div>
-                  ))}
+                  ) : familyMembers.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-muted-foreground border-t border-border">
+                      No registered family devotees yet. Tap{" "}
+                      <strong className="text-primary cursor-pointer underline" onClick={() => setShowAddMemberModal(true)}>
+                        + Add Family Member
+                      </strong>{" "}
+                      to register devotees.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-border animate-fadeIn">
+                      {familyMembers.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between p-2.5 rounded-xl bg-muted/50 border border-border/70 hover:border-primary/30 transition-all"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="text-xl shrink-0">{member.avatar}</span>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-foreground truncate">{member.name}</p>
+                              <p className="text-[10px] text-muted-foreground font-medium">
+                                {member.relation} • Age {member.age}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                              Active
+                            </span>
+                            {member.relation !== "Myself (Head)" && member.id !== "self" && (
+                              <button
+                                type="button"
+                                title="Remove devotee"
+                                onClick={(e) => handleDeleteFamilyMember(member.id, e)}
+                                className="p-1 text-muted-foreground hover:text-rose-500 rounded-md transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1203,29 +1218,71 @@ export function EventMemberView() {
                 </div>
 
                 <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {familyMembers.map((member) => {
-                    const isChecked = selectedMembers.includes(member.id);
-                    return (
-                      <div
-                        key={member.id}
-                        onClick={() => toggleMember(member.id)}
-                        className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${
-                          isChecked
-                            ? "bg-primary/10 border-primary text-primary"
-                            : "bg-background border-border text-foreground hover:border-muted-foreground/30"
-                        }`}
+                  {familyMembers.length === 0 ? (
+                    <div className="p-4 text-center rounded-xl bg-muted/40 border border-dashed border-border space-y-2.5">
+                      <p className="text-xs text-muted-foreground">
+                        No registered family devotees in database yet.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const selfName = user?.fullName || (user?.email ? user.email.split("@")[0] : "Myself (Head)");
+                          const payload = {
+                            name: selfName,
+                            relation: "Myself (Head)",
+                            age: 30,
+                            avatar: "👤",
+                            status: "ACTIVE",
+                          };
+                          let createdId = "fam-" + Date.now();
+                          if (!useMock) {
+                            try {
+                              const saved = await eventService.addFamilyMember(payload);
+                              if (saved && saved.id) createdId = String(saved.id);
+                            } catch (e) {
+                              console.error(e);
+                            }
+                          }
+                          const newMem: FamilyMember = {
+                            id: createdId,
+                            name: payload.name,
+                            relation: payload.relation,
+                            age: payload.age,
+                            avatar: payload.avatar,
+                          };
+                          setFamilyMembers([newMem]);
+                          setSelectedMembers([newMem.id]);
+                        }}
+                        className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
                       >
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-lg">{member.avatar}</span>
-                          <div>
-                            <p className="text-xs font-bold">{member.name}</p>
-                            <p className="text-[10px] opacity-80">{member.relation} (Age {member.age})</p>
+                        <UserPlus className="w-3.5 h-3.5" /> Register as Myself ({user?.fullName || "Self"})
+                      </button>
+                    </div>
+                  ) : (
+                    familyMembers.map((member) => {
+                      const isChecked = selectedMembers.includes(member.id);
+                      return (
+                        <div
+                          key={member.id}
+                          onClick={() => toggleMember(member.id)}
+                          className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${
+                            isChecked
+                              ? "bg-primary/10 border-primary text-primary"
+                              : "bg-background border-border text-foreground hover:border-muted-foreground/30"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-lg">{member.avatar}</span>
+                            <div>
+                              <p className="text-xs font-bold">{member.name}</p>
+                              <p className="text-[10px] opacity-80">{member.relation} (Age {member.age})</p>
+                            </div>
                           </div>
+                          {isChecked && <CheckCircle2 className="w-4 h-4 text-primary" />}
                         </div>
-                        {isChecked && <CheckCircle2 className="w-4 h-4 text-primary" />}
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
