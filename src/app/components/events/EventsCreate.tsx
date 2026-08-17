@@ -52,6 +52,7 @@ interface FormData {
   coverImageUrl: string;
   tags: string[];
   registrationFormConfig: RegistrationFormConfig;
+  paymentModes?: string[];
 }
 
 interface TicketType { id: string; name: string; price: string; qty: string; description: string; }
@@ -106,6 +107,7 @@ const INITIAL_FORM_DATA: FormData = {
   totalBudget: "", budgetItems: DEFAULT_BUDGET_ITEMS,
   coverImageUrl: "", tags: [],
   registrationFormConfig: { ...GANESH_CHATURTHI_FORM_CONFIG },
+  paymentModes: ["UPI", "Card", "Cash"],
 };
 
 // shadcn theme tokens: --input-background:#f3f3f5, --border:rgba(0,0,0,0.1), --radius:0.625rem
@@ -779,6 +781,60 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
               ))}
             </div>
           </div>
+
+          {/* Accepted Payment Modes (Optional) */}
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+            <div>
+              <div className="flex items-center justify-between">
+                <FieldLabel>Accepted Payment Modes</FieldLabel>
+                <span className="text-[10.5px] font-semibold text-slate-400">Optional · Configure for registration</span>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Select which payment modes are permitted for user event pass registration.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {[
+                { id: "UPI", label: "UPI / QR Code", desc: "Instant UPI Scan" },
+                { id: "Card", label: "Cards / NetBanking", desc: "Online Gateway" },
+                { id: "Cash", label: "Cash / Helpdesk", desc: "Pay at Venue" },
+              ].map((mode) => {
+                const currentModes = data.paymentModes || ["UPI", "Card", "Cash"];
+                const isChecked = currentModes.includes(mode.id);
+                return (
+                  <label
+                    key={mode.id}
+                    className={cn(
+                      "flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-all select-none",
+                      isChecked
+                        ? "bg-indigo-50 border-indigo-300 text-indigo-900"
+                        : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
+                    )}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={(e) => {
+                        let next: string[];
+                        if (e.target.checked) {
+                          next = [...currentModes, mode.id];
+                        } else {
+                          next = currentModes.filter((m) => m !== mode.id);
+                        }
+                        update("paymentModes", next);
+                      }}
+                      className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold leading-tight truncate">{mode.label}</p>
+                      <p className="text-[10px] text-slate-400 truncate">{mode.desc}</p>
+                    </div>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -1442,6 +1498,7 @@ function Step6Review({ data }: { data: FormData }) {
         { label: "Status",     value: data.registrationEnabled ? "Enabled" : "Disabled" },
         ...(data.registrationEnabled ? [
           { label: "Categories", value: data.ticketTypes.filter(t => t.name).map(t => `${t.name} (₹${t.price})`).join(", ") || "—" },
+          { label: "Payment Modes", value: data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(", ") : "All Modes (Default)" },
           { label: "Deadline",   value: data.registrationDeadline || "—" },
           { label: "Approval",   value: data.requireApproval ? "Required" : "Auto-approve" },
           { label: "Waitlist",   value: data.allowWaitlist ? "Enabled" : "Disabled" },
@@ -1486,21 +1543,21 @@ function Step6Review({ data }: { data: FormData }) {
         <div key={sec.title} className={cn("rounded-2xl border border-slate-200 overflow-hidden animate-fade-in-up", `stagger-${Math.min(secIdx + 1, 8)}`)}>
           <div className="px-3 sm:px-5 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3 border-b border-slate-100"
             style={{ background: `${sec.color}08` }}>
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${sec.color}15` }}>
-              <sec.icon className="w-3.5 h-3.5" style={{ color: sec.color }} />
-            </div>
-            <p className="text-xs font-black text-slate-600 uppercase tracking-widest">{sec.title}</p>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: `${sec.color}15` }}>
+            <sec.icon className="w-3.5 h-3.5" style={{ color: sec.color }} />
           </div>
-          <div className="divide-y divide-slate-50 bg-white">
-            {sec.rows.map(item => (
-              <div key={item.label} className="flex items-start justify-between gap-3 sm:gap-4 px-3 sm:px-5 py-2 sm:py-3">
-                <span className="text-xs font-semibold text-slate-400 flex-shrink-0 w-28">{item.label}</span>
-                <span className="text-sm font-medium text-slate-800 text-right">{item.value}</span>
-              </div>
-            ))}
-          </div>
+          <p className="text-xs font-black text-slate-600 uppercase tracking-widest">{sec.title}</p>
         </div>
-      ))}
+        <div className="divide-y divide-slate-50 bg-white">
+          {sec.rows.map(item => (
+            <div key={item.label} className="flex items-start justify-between gap-3 sm:gap-4 px-3 sm:px-5 py-2 sm:py-3">
+              <span className="text-xs font-semibold text-slate-400 flex-shrink-0 w-28">{item.label}</span>
+              <span className="text-sm font-medium text-slate-800 text-right">{item.value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    ))}
 
       {data.coverImageUrl && (
         <div className="h-36 rounded-2xl overflow-hidden border border-slate-200 shadow-inner animate-fade-in-up">
@@ -1539,6 +1596,7 @@ function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLISHED"):
     organizerName: undefined,
     organizerContact: undefined,
     ticketTypes: data.ticketTypes,
+    paymentModes: data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(",") : undefined,
     venue: data.venueName || undefined,
     city: data.city || undefined,
     category: data.eventType || undefined,

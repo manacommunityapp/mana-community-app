@@ -39,6 +39,7 @@ export interface EventResponse {
   isRegistered: boolean;
   createdAt: string;
   ticketTypes?: TicketTypeItem[];
+  paymentModes?: string[] | string;
 }
 
 export interface EventVenue {
@@ -83,6 +84,7 @@ export interface EventRequest {
   status?: string;
   maxAttendees?: number;
   ticketTypes?: TicketTypeItem[];
+  paymentModes?: string[] | string;
 }
 
 export interface DashboardStatsResponse {
@@ -148,6 +150,10 @@ export const eventService = {
 
   async getById(id: number): Promise<EventResponse> {
     return apiClient.get<EventResponse>(`/events/${id}`);
+  },
+
+  async getEventById(id: number | string): Promise<EventResponse> {
+    return this.getById(Number(id));
   },
 
   async create(data: EventRequest): Promise<EventResponse> {

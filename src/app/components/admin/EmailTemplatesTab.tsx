@@ -1,25 +1,125 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Mail, Send, RefreshCw, CheckCircle2, Eye, X, AlertTriangle, Zap, Inbox, Upload, Image as ImageIcon, Sparkles, AlertCircle, XCircle, MapPin, FileCheck } from "lucide-react";
-import { emailAdminService, extractApiErrorMessage, type EmailTemplateInfo, type EmailHealthInfo, type TestAllResult } from "../../../services/admin/emailAdminService";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import {
+  Mail,
+  Send,
+  RefreshCw,
+  CheckCircle2,
+  Eye,
+  X,
+  AlertTriangle,
+  Zap,
+  Inbox,
+  Upload,
+  Image as ImageIcon,
+  Sparkles,
+  AlertCircle,
+  XCircle,
+  MapPin,
+  FileCheck,
+  Search,
+  Code2,
+  Smartphone,
+  Monitor,
+  Copy,
+  Check,
+  Layers,
+  HelpCircle,
+  Tag,
+  ChevronRight,
+  ExternalLink,
+} from "lucide-react";
+import {
+  emailAdminService,
+  extractApiErrorMessage,
+  type EmailTemplateInfo,
+  type EmailHealthInfo,
+  type TestAllResult,
+  type DefaultTemplateDetails,
+} from "../../../services/admin/emailAdminService";
+import { EMAIL_TEMPLATES_COLLECTION } from "../../../services/admin/emailTemplatesData";
 import { communityService } from "../../../services/community/communityService";
 import type { CommunityResponse } from "../../../types/api";
 import { useAuth } from "../../../contexts/AuthContext";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 
-// Styled by the backend's broad `category` grouping rather than a per-template
-// lookup table — a new template just needs to fall into one of these six
-// buckets to get sensible styling; it never requires a frontend code change.
-const CATEGORY_STYLES: Record<string, { bg: string; border: string; icon: string; badge: string; gradient: string; emoji: string }> = {
-  REGISTRATION:  { bg: "bg-blue-50/70",    border: "border-blue-200",    icon: "text-blue-500",    badge: "bg-blue-100 text-blue-700",    gradient: "from-blue-600 to-indigo-600",   emoji: "📥" },
-  TOURNAMENT:    { bg: "bg-violet-50/70",  border: "border-violet-200",  icon: "text-violet-500",  badge: "bg-violet-100 text-violet-700", gradient: "from-violet-600 to-purple-600", emoji: "🏆" },
-  MATCH:         { bg: "bg-orange-50/70",  border: "border-orange-200",  icon: "text-orange-500",  badge: "bg-orange-100 text-orange-700", gradient: "from-orange-500 to-amber-600",  emoji: "⏰" },
-  PRIZE:         { bg: "bg-pink-50/70",    border: "border-pink-200",    icon: "text-pink-500",    badge: "bg-pink-100 text-pink-700",     gradient: "from-pink-600 to-rose-600",     emoji: "🎁" },
-  ANNOUNCEMENT:  { bg: "bg-purple-50/70",  border: "border-purple-200",  icon: "text-purple-500",  badge: "bg-purple-100 text-purple-700", gradient: "from-purple-600 to-fuchsia-600",emoji: "📢" },
-  AUTH:          { bg: "bg-cyan-50/70",    border: "border-cyan-200",    icon: "text-cyan-500",    badge: "bg-cyan-100 text-cyan-700",     gradient: "from-cyan-600 to-blue-600",     emoji: "🔐" },
-  EVENT:         { bg: "bg-amber-50/70",   border: "border-amber-200",   icon: "text-amber-500",   badge: "bg-amber-100 text-amber-700",   gradient: "from-amber-500 to-orange-600",  emoji: "🎆" }
+const CATEGORY_STYLES: Record<
+  string,
+  { bg: string; border: string; icon: string; badge: string; gradient: string; emoji: string; label: string }
+> = {
+  REGISTRATION: {
+    bg: "bg-blue-50/70 dark:bg-blue-950/20",
+    border: "border-blue-200 dark:border-blue-900/40",
+    icon: "text-blue-500",
+    badge: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300",
+    gradient: "from-blue-600 to-indigo-600",
+    emoji: "📥",
+    label: "Registration",
+  },
+  TOURNAMENT: {
+    bg: "bg-violet-50/70 dark:bg-violet-950/20",
+    border: "border-violet-200 dark:border-violet-900/40",
+    icon: "text-violet-500",
+    badge: "bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300",
+    gradient: "from-violet-600 to-purple-600",
+    emoji: "🏆",
+    label: "Tournament",
+  },
+  MATCH: {
+    bg: "bg-orange-50/70 dark:bg-orange-950/20",
+    border: "border-orange-200 dark:border-orange-900/40",
+    icon: "text-orange-500",
+    badge: "bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300",
+    gradient: "from-orange-500 to-amber-600",
+    emoji: "⏰",
+    label: "Match & Fixture",
+  },
+  PRIZE: {
+    bg: "bg-pink-50/70 dark:bg-pink-950/20",
+    border: "border-pink-200 dark:border-pink-900/40",
+    icon: "text-pink-500",
+    badge: "bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300",
+    gradient: "from-pink-600 to-rose-600",
+    emoji: "🎁",
+    label: "Prize & Podium",
+  },
+  ANNOUNCEMENT: {
+    bg: "bg-purple-50/70 dark:bg-purple-950/20",
+    border: "border-purple-200 dark:border-purple-900/40",
+    icon: "text-purple-500",
+    badge: "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300",
+    gradient: "from-purple-600 to-fuchsia-600",
+    emoji: "📢",
+    label: "Announcement",
+  },
+  AUTH: {
+    bg: "bg-cyan-50/70 dark:bg-cyan-950/20",
+    border: "border-cyan-200 dark:border-cyan-900/40",
+    icon: "text-cyan-500",
+    badge: "bg-cyan-100 dark:bg-cyan-900/40 text-cyan-700 dark:text-cyan-300",
+    gradient: "from-cyan-600 to-blue-600",
+    emoji: "🔐",
+    label: "Authentication",
+  },
+  EVENT: {
+    bg: "bg-amber-50/70 dark:bg-amber-950/20",
+    border: "border-amber-200 dark:border-amber-900/40",
+    icon: "text-amber-500",
+    badge: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300",
+    gradient: "from-amber-500 to-orange-600",
+    emoji: "🎆",
+    label: "Community Event",
+  },
 };
 
-const DEFAULT_STYLE = { bg: "bg-gray-50", border: "border-gray-200", icon: "text-gray-500", badge: "bg-gray-100 text-gray-700", gradient: "from-slate-600 to-slate-800", emoji: "📧" };
+const DEFAULT_STYLE = {
+  bg: "bg-slate-50 dark:bg-slate-900/30",
+  border: "border-slate-200 dark:border-slate-800",
+  icon: "text-slate-500",
+  badge: "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300",
+  gradient: "from-slate-600 to-slate-800",
+  emoji: "📧",
+  label: "General",
+};
 
 function styleFor(category?: string | null) {
   if (!category) return DEFAULT_STYLE;
@@ -33,13 +133,10 @@ function getTplKey(tpl?: Partial<EmailTemplateInfo> | null): string {
 }
 
 function getTplLabel(tpl?: Partial<EmailTemplateInfo> | null): string {
+  if (tpl?.name) return tpl.name;
   const key = String(getTplKey(tpl) || "");
   if (!key) return "Template";
   return key.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase());
-}
-
-function getTplCategory(tpl?: Partial<EmailTemplateInfo> | null): string {
-  return tpl?.category || "";
 }
 
 export function EmailTemplatesTab() {
@@ -49,6 +146,12 @@ export function EmailTemplatesTab() {
   const [templates, setTemplates] = useState<EmailTemplateInfo[]>([]);
   const [health, setHealth] = useState<EmailHealthInfo | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Filters & Search
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+
+  // Global Config Overrides
   const [toEmail, setToEmail] = useState("");
   const [fromEmail, setFromEmail] = useState("");
   const [fromName, setFromName] = useState("");
@@ -62,13 +165,14 @@ export function EmailTemplatesTab() {
   const [activeTemplate, setActiveTemplate] = useState<EmailTemplateInfo | null>(null);
   const [previewHtml, setPreviewHtml] = useState<string>("");
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<"desktop" | "mobile">("desktop");
 
   // Default Template View Modal State
   const [viewingDefaultTemplate, setViewingDefaultTemplate] = useState<EmailTemplateInfo | null>(null);
-  const [defaultPreviewHtml, setDefaultPreviewHtml] = useState<string>("");
-  const [defaultRawHtml, setDefaultRawHtml] = useState<string>("");
+  const [defaultDetails, setDefaultDetails] = useState<DefaultTemplateDetails | null>(null);
   const [loadingDefaultPreview, setLoadingDefaultPreview] = useState(false);
-  const [defaultViewMode, setDefaultViewMode] = useState<"rendered" | "source">("rendered");
+  const [defaultViewMode, setDefaultViewMode] = useState<"rendered" | "source" | "variables">("rendered");
+  const [copiedCode, setCopiedCode] = useState(false);
 
   const [sendingTemplate, setSendingTemplate] = useState(false);
   const [sendingAll, setSendingAll] = useState(false);
@@ -136,6 +240,9 @@ export function EmailTemplatesTab() {
         const payload = {
           bannerUrl: bannerUrl || undefined,
           sponsorImageUrl: sponsorUrl || undefined,
+          fromEmail: fromEmail || undefined,
+          fromName: fromName || undefined,
+          subject: subjectOverride || undefined,
         };
         const html = await emailAdminService.getPreviewHtml(activeTemplate.key, communityId ?? undefined, payload);
         if (requestId === previewRequestId.current) setPreviewHtml(html);
@@ -149,9 +256,8 @@ export function EmailTemplatesTab() {
     };
 
     fetchPreview();
-  }, [activeTemplate, communityId, bannerUrl, sponsorUrl]);
+  }, [activeTemplate, communityId, bannerUrl, sponsorUrl, fromEmail, fromName, subjectOverride]);
 
-  // Handle File uploads converted to Base64
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: "banner" | "sponsor") => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -169,7 +275,7 @@ export function EmailTemplatesTab() {
         } else {
           setSponsorUrl(reader.result);
         }
-        showSuccess(`${type === "banner" ? "Banner" : "Sponsor"} image loaded successfully. Note: some email clients (e.g. Outlook) may not render embedded images reliably — prefer a hosted image URL for real sends.`);
+        showSuccess(`${type === "banner" ? "Banner" : "Sponsor"} image loaded for preview.`);
       }
     };
     reader.readAsDataURL(file);
@@ -178,10 +284,10 @@ export function EmailTemplatesTab() {
   const openDefaultTemplateView = async (tpl: EmailTemplateInfo) => {
     setViewingDefaultTemplate(tpl);
     setLoadingDefaultPreview(true);
+    setDefaultViewMode("rendered");
     try {
       const res = await emailAdminService.getDefaultTemplate(tpl.key);
-      setDefaultPreviewHtml(res.renderedHtml || "");
-      setDefaultRawHtml(res.rawHtml || "");
+      setDefaultDetails(res);
     } catch (err) {
       showError(extractApiErrorMessage(err, "Failed to load default template HTML"));
     } finally {
@@ -217,9 +323,7 @@ export function EmailTemplatesTab() {
     if (communityId == null) return;
     const target = toEmail || health?.defaultRecipient;
     const confirmed = confirm(
-      `This will send ${templates.length} test emails${target ? ` to ${target}` : ""}${
-        health?.mailEnabled ? " via live SMTP" : " (SMTP is disabled, so nothing will actually be delivered)"
-      }. Continue?`
+      `This will test-send all ${templates.length} system templates${target ? ` to ${target}` : ""}. Continue?`
     );
     if (!confirmed) return;
     setSendingAll(true);
@@ -246,17 +350,45 @@ export function EmailTemplatesTab() {
     }
   };
 
+  const categories = useMemo(() => {
+    const counts: Record<string, number> = { ALL: templates.length };
+    templates.forEach((t) => {
+      const c = t.category || "GENERAL";
+      counts[c] = (counts[c] || 0) + 1;
+    });
+    return counts;
+  }, [templates]);
+
+  const filteredTemplates = useMemo(() => {
+    return templates.filter((tpl) => {
+      const matchesCat = selectedCategory === "ALL" || tpl.category === selectedCategory;
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        tpl.key.toLowerCase().includes(q) ||
+        (tpl.name && tpl.name.toLowerCase().includes(q)) ||
+        tpl.subject.toLowerCase().includes(q) ||
+        tpl.templateFile.toLowerCase().includes(q) ||
+        (tpl.triggerMenuPath && tpl.triggerMenuPath.toLowerCase().includes(q)) ||
+        (tpl.triggerDescription && tpl.triggerDescription.toLowerCase().includes(q));
+
+      return matchesCat && matchesSearch;
+    });
+  }, [templates, selectedCategory, searchQuery]);
+
   const communitySelector = (
-    <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">Community</span>
+    <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 shadow-xs">
+      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider shrink-0">Community</span>
       <select
         value={communityId ?? ""}
-        onChange={e => setCommunityId(e.target.value ? Number(e.target.value) : null)}
-        className="flex-1 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400"
+        onChange={(e) => setCommunityId(e.target.value ? Number(e.target.value) : null)}
+        className="flex-1 border border-border rounded-lg px-2.5 py-1.5 text-xs font-semibold text-foreground bg-[var(--mana-bg-input)] outline-none focus:ring-2 focus:ring-primary/20"
       >
         {communities.length === 0 && <option value="">No communities</option>}
-        {communities.map(c => (
-          <option key={c.id} value={c.id}>{c.name}</option>
+        {communities.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
         ))}
       </select>
     </div>
@@ -266,8 +398,8 @@ export function EmailTemplatesTab() {
     return (
       <div className="space-y-4">
         {communitySelector}
-        <div className="flex items-center justify-center py-16 text-sm text-slate-400">
-          Select a community to manage its email templates.
+        <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+          Select a community to view email templates.
         </div>
       </div>
     );
@@ -277,9 +409,9 @@ export function EmailTemplatesTab() {
     return (
       <div className="space-y-4">
         {communitySelector}
-        <div className="flex items-center justify-center py-20">
-          <RefreshCw className="w-5 h-5 animate-spin text-indigo-500" />
-          <span className="ml-2 text-sm text-slate-500">Loading email templates…</span>
+        <div className="flex items-center justify-center py-20 gap-2">
+          <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+          <span className="text-sm text-muted-foreground font-semibold">Loading system email templates...</span>
         </div>
       </div>
     );
@@ -287,38 +419,50 @@ export function EmailTemplatesTab() {
 
   return (
     <div className="space-y-6">
-
       {communitySelector}
 
       {/* ── Configuration & Global Status ──────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Health System Info */}
         {health && (
-          <div className={`lg:col-span-2 rounded-2xl border p-5 ${health.mailEnabled
-            ? "bg-gradient-to-br from-emerald-50 to-teal-50/30 border-emerald-100"
-            : "bg-gradient-to-br from-amber-50/50 to-yellow-50/20 border-amber-100"}`}
+          <div
+            className={`lg:col-span-2 rounded-2xl border p-5 shadow-xs ${
+              health.mailEnabled
+                ? "bg-gradient-to-br from-emerald-50 to-teal-50/30 dark:from-emerald-950/20 dark:to-teal-950/10 border-emerald-200 dark:border-emerald-800/40"
+                : "bg-gradient-to-br from-amber-50/50 to-yellow-50/20 dark:from-amber-950/20 dark:to-yellow-950/10 border-amber-200 dark:border-amber-800/40"
+            }`}
           >
             <div className="flex items-center gap-2 mb-3">
-              {health.mailEnabled
-                ? <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600" />
-                : <AlertTriangle className="w-4.5 h-4.5 text-amber-600" />
-              }
-              <span className="text-xs font-extrabold text-slate-800 tracking-wide uppercase">Email System Configuration</span>
-              <span className={`ml-auto text-[9px] font-black px-2.5 py-0.5 rounded-full tracking-wide ${health.mailEnabled
-                ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
-                {health.mailEnabled ? "SMTP ACTIVE" : "SMTP INACTIVE"}
+              {health.mailEnabled ? (
+                <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600" />
+              ) : (
+                <AlertTriangle className="w-4.5 h-4.5 text-amber-600" />
+              )}
+              <span className="text-xs font-extrabold text-foreground tracking-wide uppercase">
+                Email Service Engine & SMTP Status
+              </span>
+              <span
+                className={`ml-auto text-[9px] font-black px-2.5 py-0.5 rounded-full tracking-wide ${
+                  health.mailEnabled
+                    ? "bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300"
+                    : "bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300"
+                }`}
+              >
+                {health.mailEnabled ? "LIVE SMTP ACTIVE" : "LOCAL / DEV MODE"}
               </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { label: "Routing Mode", value: health.recipientMode },
-                { label: "Sender (From)", value: health.from },
-                { label: "Default Target", value: health.defaultRecipient || "—" },
-                { label: "Registered Templates", value: String(health.templateCount) },
-              ].map(s => (
+                { label: "Dispatch Mode", value: health.recipientMode },
+                { label: "Default From", value: health.from },
+                { label: "Default Recipient", value: health.defaultRecipient || "—" },
+                { label: "Sample Templates", value: `${templates.length} HTML Files` },
+              ].map((s) => (
                 <div key={s.label}>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">{s.label}</span>
-                  <span className="text-xs font-semibold text-slate-700 truncate block">{s.value}</span>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-0.5">
+                    {s.label}
+                  </span>
+                  <span className="text-xs font-semibold text-foreground truncate block">{s.value}</span>
                 </div>
               ))}
             </div>
@@ -326,532 +470,296 @@ export function EmailTemplatesTab() {
         )}
 
         {/* Global Controls Card */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm space-y-3 flex flex-col justify-between">
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-xs space-y-3 flex flex-col justify-between">
           <div className="space-y-2">
             <div>
-              <label className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block mb-1">Target Test Email</label>
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">
+                Target Test Email
+              </label>
               <input
                 type="email"
                 value={toEmail}
-                onChange={e => setToEmail(e.target.value)}
+                onChange={(e) => setToEmail(e.target.value)}
                 placeholder={health?.defaultRecipient || "admin@example.com"}
-                className="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
+                className="w-full border border-border rounded-xl px-3 py-1.5 text-xs bg-[var(--mana-bg-input)] outline-none focus:ring-2 focus:ring-primary/20 font-semibold"
               />
             </div>
             <div>
-              <label className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block mb-1">Sender Email (From)</label>
-              <input
-                type="email"
-                value={fromEmail}
-                onChange={e => setFromEmail(e.target.value)}
-                placeholder={health?.from || "no-reply@manacommunity.app"}
-                className="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block mb-1">Sender Name (From Name)</label>
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider font-bold block mb-1">
+                Sender Name (From Name)
+              </label>
               <input
                 type="text"
                 value={fromName}
-                onChange={e => setFromName(e.target.value)}
+                onChange={(e) => setFromName(e.target.value)}
                 placeholder="Mana Community"
-                className="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
-              />
-            </div>
-            <div>
-              <label className="text-[10px] text-slate-400 uppercase tracking-wider font-bold block mb-1">Test Subject Override</label>
-              <input
-                type="text"
-                value={subjectOverride}
-                onChange={e => setSubjectOverride(e.target.value)}
-                placeholder="Leave blank to use the default subject"
-                className="w-full border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
+                className="w-full border border-border rounded-xl px-3 py-1.5 text-xs bg-[var(--mana-bg-input)] outline-none focus:ring-2 focus:ring-primary/20 font-semibold"
               />
             </div>
           </div>
           <button
             onClick={handleSendAll}
             disabled={sendingAll}
-            aria-label="Send all email templates as test emails"
-            className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow transition-all cursor-pointer disabled:opacity-50"
+            className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
           >
-            <Zap className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
-            {sendingAll ? "Sending All…" : "Fire All Templates"}
+            <Zap className="w-3.5 h-3.5 text-yellow-300 fill-yellow-300" />
+            {sendingAll ? "Dispatched Templates..." : `Test Dispatch All (${templates.length})`}
           </button>
         </div>
       </div>
 
       {/* ── Last "Send All" Result Breakdown ──────────────────────── */}
       {lastAllResult && (
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3">
-          <div className="flex items-center justify-between border-b pb-3 border-slate-100">
+        <div className="bg-card rounded-2xl border border-border shadow-xs p-5 space-y-3">
+          <div className="flex items-center justify-between border-b pb-3 border-border">
             <div className="flex items-center gap-2">
-              <Inbox className="w-4.5 h-4.5 text-indigo-500" />
-              <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">
-                Last Test-All Result — {lastAllResult.to}
+              <Inbox className="w-4.5 h-4.5 text-primary" />
+              <h3 className="text-xs font-extrabold text-foreground uppercase tracking-wider">
+                Test Result Summary — {lastAllResult.to}
               </h3>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800">{lastAllResult.sent} sent</span>
-              {lastAllResult.failed > 0 && (
-                <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-red-100 text-red-800">{lastAllResult.failed} failed</span>
-              )}
+              <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300">
+                {lastAllResult.sent} sent
+              </span>
               <button
                 onClick={() => setLastAllResult(null)}
-                aria-label="Dismiss result breakdown"
-                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
+                className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-all cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {lastAllResult.results.map(r => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            {lastAllResult.results.map((r) => (
               <div
                 key={r.template}
-                className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs ${
-                  r.status === "SENT" ? "bg-emerald-50/50 border-emerald-100" : "bg-red-50/50 border-red-100"
-                }`}
+                className="flex items-center gap-2 p-2.5 rounded-xl border text-xs bg-muted/20 border-border"
               >
-                {r.status === "SENT" ? (
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
-                ) : (
-                  <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0 mt-0.5" />
-                )}
-                <div className="min-w-0">
-                  <p className="font-bold text-slate-700 truncate">{(r?.template || "").replace(/_/g, " ") || "Template"}</p>
-                  {r?.error && <p className="text-[10px] text-red-500 mt-0.5 break-words">{r.error}</p>}
-                </div>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span className="font-semibold text-foreground truncate">{r.template}</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── Banner and Sponsor Configuration Panel ──────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4">
-        <div className="flex items-center gap-2 border-b pb-3 border-slate-100">
-          <Sparkles className="w-4.5 h-4.5 text-indigo-500" />
-          <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Dynamic Media Insertion (All Templates)</h3>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Banner Selector */}
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
-              <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
-              Email Banner Image
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Paste Image URL..."
-                value={bannerUrl}
-                onChange={e => setBannerUrl(e.target.value)}
-                className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all"
-              />
-              <input
-                type="file"
-                accept="image/*"
-                ref={bannerFileInputRef}
-                onChange={e => handleImageUpload(e, "banner")}
-                className="hidden"
-              />
+      {/* ── Search & Category Filter Toolbar ─────────────────────── */}
+      <div className="bg-card rounded-2xl border border-border p-4 shadow-xs space-y-3">
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          {/* Search Input */}
+          <div className="relative flex-1 w-full">
+            <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by template name, file name (e.g. email-otp.html), subject, or trigger path..."
+              className="w-full pl-9 pr-4 py-2 border border-border rounded-xl text-xs bg-[var(--mana-bg-input)] outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+            />
+            {searchQuery && (
               <button
-                type="button"
-                onClick={() => bannerFileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-600 transition-all cursor-pointer"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
               >
-                <Upload className="w-3.5 h-3.5" />
-                Upload
+                <X className="w-3.5 h-3.5" />
               </button>
-            </div>
-            {bannerUrl && (
-              <div className="flex items-center gap-2 mt-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
-                <span className="text-[10px] text-slate-400 font-mono truncate flex-1">{bannerUrl}</span>
-                <button
-                  onClick={() => setBannerUrl("")}
-                  aria-label="Clear banner image"
-                  className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
             )}
           </div>
 
-          {/* Sponsor Selector */}
-          <div className="space-y-2">
-            <label className="text-[11px] font-bold text-slate-500 flex items-center gap-1">
-              <ImageIcon className="w-3.5 h-3.5 text-slate-400" />
-              Sponsor Logo Image
-            </label>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Paste Logo URL..."
-                value={sponsorUrl}
-                onChange={e => setSponsorUrl(e.target.value)}
-                className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all"
-              />
-              <input
-                type="file"
-                accept="image/*"
-                ref={sponsorFileInputRef}
-                onChange={e => handleImageUpload(e, "sponsor")}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => sponsorFileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold text-slate-600 transition-all cursor-pointer"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                Upload
-              </button>
-            </div>
-            {sponsorUrl && (
-              <div className="flex items-center gap-2 mt-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
-                <span className="text-[10px] text-slate-400 font-mono truncate flex-1">{sponsorUrl}</span>
-                <button
-                  onClick={() => setSponsorUrl("")}
-                  aria-label="Clear sponsor image"
-                  className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-        {(bannerUrl.startsWith("data:") || sponsorUrl.startsWith("data:")) && (
-          <div className="flex items-start gap-2 p-3 bg-amber-50/70 rounded-xl border border-amber-100">
-            <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-            <p className="text-[10px] text-amber-800 leading-tight">
-              An uploaded image is embedded as base64. This previews correctly here, but many email clients
-              (notably Outlook) don't render embedded/base64 images reliably. For real sends, prefer a hosted image URL.
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* ── Template Applicability ──────────────────────────────── */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-100">
-          <FileCheck className="w-4.5 h-4.5 text-indigo-500" />
-          <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Template Applicability</h3>
-          <span className="text-[10px] font-semibold text-slate-400 ml-1">
-            Default HTML file used vs. a community custom template, per email
+          <span className="text-xs font-bold text-muted-foreground whitespace-nowrap">
+            Showing <strong className="text-foreground">{filteredTemplates.length}</strong> of {templates.length} templates
           </span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                <th className="text-left px-5 py-2.5">Template</th>
-                <th className="text-left px-5 py-2.5">Default HTML</th>
-                <th className="text-left px-5 py-2.5">Custom Template</th>
-                <th className="text-left px-5 py-2.5">In Use</th>
-                <th className="text-right px-5 py-2.5">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {templates.map((tpl, idx) => {
-                const key = getTplKey(tpl) || `template-${idx}`;
-                const label = getTplLabel(tpl);
-                return (
-                  <tr key={key} className="hover:bg-slate-50/60">
-                    <td className="px-5 py-2.5 font-bold text-slate-700 whitespace-nowrap">
-                      {label}
-                    </td>
-                    <td className="px-5 py-2.5 font-mono text-[11px] text-slate-500 whitespace-nowrap">{tpl?.templateFile || "—"}</td>
-                    <td className="px-5 py-2.5 text-slate-600">
-                      {tpl?.customTemplateExists ? (
-                        <span className="inline-flex items-center gap-1">
-                          {tpl.customTemplateName}
-                          <span className="text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
-                            {tpl.customTemplateStatus}
-                          </span>
-                        </span>
-                      ) : (
-                        <span className="text-slate-300">— none drafted —</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-2.5">
-                      {tpl?.appliedSource === "CUSTOM" ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
-                          Custom
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                          Default
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-5 py-2.5 text-right">
-                      <button
-                        type="button"
-                        onClick={() => openDefaultTemplateView(tpl)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 shadow-sm transition-all cursor-pointer"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        Default Template View
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
-      {/* ── Templates Card List ─────────────────────────────────── */}
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Inbox className="w-4 h-4 text-indigo-500" />
-          <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Email Templates</h3>
-          <span className="text-[10px] font-black text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{templates.length}</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {templates.map((tpl, idx) => {
-            const key = getTplKey(tpl) || `template-card-${idx}`;
-            const style = styleFor(getTplCategory(tpl));
-            const templateLabel = getTplLabel(tpl);
+        {/* Category Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+          {Object.entries({
+            ALL: "All Templates",
+            EVENT: "Community Events",
+            TOURNAMENT: "Sports Tournaments",
+            MATCH: "Match & Fixtures",
+            REGISTRATION: "Registrations",
+            AUTH: "Auth & OTP",
+            PRIZE: "Prize & Awards",
+            ANNOUNCEMENT: "Announcements",
+          }).map(([catKey, label]) => {
+            const count = categories[catKey] || 0;
+            if (count === 0 && catKey !== "ALL") return null;
+            const isSelected = selectedCategory === catKey;
 
             return (
-              <div
-                key={key}
-                onClick={() => setActiveTemplate(tpl)}
-                className={`group rounded-2xl border bg-white overflow-hidden transition-all duration-200 hover:scale-[1.01] hover:shadow-md cursor-pointer ${style.border}`}
+              <button
+                key={catKey}
+                type="button"
+                onClick={() => setSelectedCategory(catKey)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  isSelected
+                    ? "bg-primary text-white shadow-xs"
+                    : "bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground"
+                }`}
               >
-                <div className={`flex items-center gap-3 p-4 ${style.bg}`}>
-                  <div className="text-xl flex-shrink-0">{style.emoji}</div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-extrabold text-slate-800 group-hover:text-indigo-600 transition-colors">{templateLabel}</div>
-                    <div className="text-[10px] text-slate-400 truncate mt-0.5">{tpl?.subject || ""}</div>
-                  </div>
-                  <div className="flex-shrink-0 text-slate-300 group-hover:text-indigo-400 transition-colors">
-                    <Eye className="w-4.5 h-4.5" />
-                  </div>
-                </div>
-                <div className="px-4 py-2 border-t border-slate-100 bg-white">
-                  {tpl?.triggerWired && tpl?.triggerMenuPath ? (
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 truncate">
-                      <MapPin className="w-3 h-3 shrink-0 text-slate-400" />
-                      <span className="truncate">{tpl.triggerMenuPath}</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5 text-[10px] text-amber-600">
-                      <AlertTriangle className="w-3 h-3 shrink-0" />
-                      Not wired to a live trigger yet
-                    </div>
-                  )}
-                </div>
-              </div>
+                <span>{label}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                    isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
             );
           })}
         </div>
       </div>
 
-      {/* ── Live Template Preview Modal ───────────────────────── */}
-      {activeTemplate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-200">
+      {/* ── Templates Card List ─────────────────────────────────── */}
+      <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredTemplates.map((tpl, idx) => {
+            const key = getTplKey(tpl) || `template-card-${idx}`;
+            const style = styleFor(tpl.category);
+            const templateLabel = getTplLabel(tpl);
 
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200">
-              <div className="flex items-center gap-2.5">
-                <span className="text-2xl">{styleFor(getTplCategory(activeTemplate)).emoji}</span>
-                <div>
-                  <h3 className="text-sm font-black text-slate-800">
-                    {getTplLabel(activeTemplate)}
-                  </h3>
-                  <p className="text-[11px] text-slate-400 font-semibold mt-0.5">{activeTemplate.subject || ""}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setActiveTemplate(null)}
-                aria-label="Close preview"
-                className="p-1.5 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
+            return (
+              <div
+                key={key}
+                className={`group rounded-2xl border bg-card overflow-hidden transition-all duration-200 hover:shadow-md flex flex-col justify-between ${style.border}`}
               >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Content Pane */}
-            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-
-              {/* Left Settings Sidebar */}
-              <div className="w-full md:w-80 bg-white border-r border-slate-200 p-5 overflow-y-auto space-y-5 flex flex-col justify-between">
-                <div className="space-y-4">
-                  {/* Where this fires */}
-                  {activeTemplate.triggerWired ? (
-                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-150 text-[11px] leading-relaxed">
-                      <span className="font-bold text-slate-700 flex items-center gap-1.5 mb-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-indigo-500" />
-                        Where this fires
+                <div>
+                  {/* Card Header */}
+                  <div className={`p-4 border-b border-border/50 ${style.bg}`}>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl shrink-0">{style.emoji}</span>
+                        <div>
+                          <span
+                            className={`text-[9.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${style.badge}`}
+                          >
+                            {style.label}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10.5px] font-mono text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-md truncate max-w-[140px]">
+                        {tpl.templateFile.replace("email/", "")}
                       </span>
-                      {activeTemplate.triggerMenuPath && (
-                        <p className="text-indigo-700 font-semibold mb-1">{activeTemplate.triggerMenuPath}</p>
-                      )}
-                      <p className="text-slate-500">{activeTemplate.triggerDescription}</p>
                     </div>
-                  ) : (
-                    <div className="bg-amber-50/70 p-3 rounded-xl border border-amber-100 text-[11px] leading-relaxed">
-                      <span className="font-bold text-amber-800 flex items-center gap-1.5 mb-1.5">
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        Not wired to a live trigger
-                      </span>
-                      <p className="text-amber-800">{activeTemplate.triggerDescription}</p>
-                    </div>
-                  )}
 
-                  {/* Recipient & Sender Overrides */}
-                  <div className="space-y-3">
-                    <div>
-                      <label className="text-[10px] text-slate-400 uppercase font-black tracking-wider block mb-1">Test Recipient</label>
-                      <input
-                        type="email"
-                        value={toEmail}
-                        onChange={e => setToEmail(e.target.value)}
-                        placeholder={health?.defaultRecipient || "test@example.com"}
-                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-slate-400 uppercase font-black tracking-wider block mb-1">Sender Email (From)</label>
-                      <input
-                        type="email"
-                        value={fromEmail}
-                        onChange={e => setFromEmail(e.target.value)}
-                        placeholder={health?.from || "no-reply@manacommunity.app"}
-                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-slate-400 uppercase font-black tracking-wider block mb-1">Sender Name (From Name)</label>
-                      <input
-                        type="text"
-                        value={fromName}
-                        onChange={e => setFromName(e.target.value)}
-                        placeholder="Mana Community"
-                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-slate-400 uppercase font-black tracking-wider block mb-1">Subject Override</label>
-                      <input
-                        type="text"
-                        value={subjectOverride}
-                        onChange={e => setSubjectOverride(e.target.value)}
-                        placeholder={activeTemplate.subject}
-                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-400 transition-all font-semibold"
-                      />
-                    </div>
+                    <h4 className="text-sm font-black text-foreground group-hover:text-primary transition-colors leading-tight mb-1">
+                      {templateLabel}
+                    </h4>
+                    <p className="text-xs text-muted-foreground line-clamp-1 italic">"{tpl.subject}"</p>
                   </div>
 
-                  {/* Quick toggle indicator */}
-                  {(bannerUrl || sponsorUrl) && (
-                    <div className="p-3 bg-indigo-50/50 rounded-xl border border-indigo-100 flex items-start gap-2">
-                      <AlertCircle className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
-                      <div className="text-[10px] text-indigo-800 leading-tight">
-                        Custom media is active. Both banner and sponsor assets are injected into the HTML.
-                      </div>
+                  {/* Trigger Details */}
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-center gap-1.5 text-xs text-foreground font-semibold">
+                      <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <span className="truncate">{tpl.triggerMenuPath || "Trigger Configured"}</span>
                     </div>
-                  )}
+                    <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
+                      {tpl.triggerDescription}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Send Button */}
-                <button
-                  onClick={handleSendTest}
-                  disabled={sendingTemplate}
-                  className={`w-full py-3 px-4 rounded-xl text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r ${styleFor(activeTemplate.category).gradient}`}
-                >
-                  {sendingTemplate ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                  {sendingTemplate ? "Sending Test..." : "Send Test Email"}
-                </button>
-              </div>
+                {/* Card Actions */}
+                <div className="p-3 border-t border-border bg-muted/20 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTemplate(tpl)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    Preview & Test
+                  </button>
 
-              {/* Right Iframe Preview Pane */}
-              <div className="flex-1 bg-slate-100 flex flex-col">
-                <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex items-center gap-2">
-                  <Eye className="w-3.5 h-3.5 text-slate-400" />
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Live Mail Preview</span>
-                </div>
-                <div className="flex-1 p-6 flex justify-center items-center overflow-y-auto">
-                  {loadingPreview ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
-                      <span className="text-xs text-slate-400 font-semibold">Compiling templates...</span>
-                    </div>
-                  ) : (
-                    <iframe
-                      srcDoc={previewHtml}
-                      className="w-full h-full border border-slate-200 rounded-xl bg-white shadow-xl max-w-xl"
-                      title={`Preview: ${activeTemplate.key}`}
-                      sandbox="allow-same-origin"
-                    />
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => openDefaultTemplateView(tpl)}
+                    className="inline-flex items-center justify-center gap-1 px-3 py-2 bg-muted hover:bg-muted/80 text-foreground text-xs font-bold rounded-xl border border-border transition-all cursor-pointer"
+                    title="View HTML Source & Details"
+                  >
+                    <Code2 className="w-3.5 h-3.5" />
+                    View Details
+                  </button>
                 </div>
               </div>
-
-            </div>
-          </div>
+            );
+          })}
         </div>
-      )}
 
-      {/* ── Default Template View Modal ───────────────────────── */}
-      {viewingDefaultTemplate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-slate-200 text-left">
+        {filteredTemplates.length === 0 && (
+          <div className="py-16 text-center bg-card rounded-2xl border border-border p-8">
+            <Inbox className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+            <h4 className="text-sm font-bold text-foreground mb-1">No email templates matched your criteria</h4>
+            <p className="text-xs text-muted-foreground mb-4">Try adjusting your search query or selecting "All Templates".</p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery("");
+                setSelectedCategory("ALL");
+              }}
+              className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl"
+            >
+              Reset Filters
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Live Template Preview & Test Dispatch Modal ──────────── */}
+      {activeTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-card rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border border-border animate-in zoom-in-95 duration-200">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 flex-shrink-0">
-              <div>
-                <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                  Default Template View: <span className="text-indigo-600 font-extrabold">{getTplLabel(viewingDefaultTemplate)}</span>
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5 font-mono">
-                  Default File: {viewingDefaultTemplate.templateFile || "—"}
-                </p>
+            <div className="flex items-center justify-between px-6 py-4 bg-muted/30 border-b border-border">
+              <div className="flex items-center gap-3">
+                <span className="text-3xl">{styleFor(activeTemplate.category).emoji}</span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-extrabold text-foreground">{getTplLabel(activeTemplate)}</h3>
+                    <span
+                      className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                        styleFor(activeTemplate.category).badge
+                      }`}
+                    >
+                      {styleFor(activeTemplate.category).label}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground font-mono mt-0.5">
+                    File: <strong className="text-foreground">{activeTemplate.templateFile}</strong>
+                  </p>
+                </div>
               </div>
+
+              {/* Viewport Width Toggle */}
               <div className="flex items-center gap-2">
-                <div className="flex items-center bg-slate-200 p-0.5 rounded-lg text-xs font-bold">
+                <div className="flex items-center bg-muted p-0.5 rounded-xl border border-border">
                   <button
                     type="button"
-                    onClick={() => setDefaultViewMode("rendered")}
-                    className={`px-3 py-1 rounded-md transition-all cursor-pointer border-none ${defaultViewMode === "rendered" ? "bg-white text-indigo-600 shadow-sm" : "bg-transparent text-slate-600 hover:text-slate-900"}`}
+                    onClick={() => setPreviewDevice("desktop")}
+                    className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      previewDevice === "desktop" ? "bg-card text-primary shadow-xs" : "text-muted-foreground"
+                    }`}
                   >
-                    Rendered View
+                    <Monitor className="w-3.5 h-3.5" /> Desktop
                   </button>
                   <button
                     type="button"
-                    onClick={() => setDefaultViewMode("source")}
-                    className={`px-3 py-1 rounded-md transition-all cursor-pointer border-none ${defaultViewMode === "source" ? "bg-white text-indigo-600 shadow-sm" : "bg-transparent text-slate-600 hover:text-slate-900"}`}
+                    onClick={() => setPreviewDevice("mobile")}
+                    className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                      previewDevice === "mobile" ? "bg-card text-primary shadow-xs" : "text-muted-foreground"
+                    }`}
                   >
-                    HTML Source
+                    <Smartphone className="w-3.5 h-3.5" /> Mobile
                   </button>
                 </div>
+
                 <button
                   type="button"
-                  onClick={() => {
-                    const contentToCopy = defaultViewMode === "source" ? defaultRawHtml : defaultPreviewHtml;
-                    navigator.clipboard.writeText(contentToCopy);
-                    showSuccess(`${defaultViewMode === "source" ? "Raw HTML File" : "Rendered HTML"} copied to clipboard!`);
-                  }}
-                  className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-bold rounded-lg shadow-sm cursor-pointer transition-colors"
-                >
-                  Copy HTML
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewingDefaultTemplate(null)}
-                  className="p-1.5 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition-colors border-none bg-transparent cursor-pointer"
+                  onClick={() => setActiveTemplate(null)}
+                  className="p-1.5 rounded-xl hover:bg-muted text-muted-foreground hover:text-foreground transition-all cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -859,29 +767,236 @@ export function EmailTemplatesTab() {
             </div>
 
             {/* Modal Body */}
-            <div className="flex-1 p-6 overflow-y-auto bg-slate-100 min-h-[400px]">
-              {loadingDefaultPreview ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-2">
-                  <RefreshCw className="w-6 h-6 animate-spin text-indigo-500" />
-                  <span className="text-xs text-slate-500 font-semibold">Loading default template HTML...</span>
+            <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+              {/* Left Settings Sidebar */}
+              <div className="w-full md:w-88 bg-card border-r border-border p-5 overflow-y-auto space-y-4 flex flex-col justify-between">
+                <div className="space-y-4">
+                  {/* Where this fires */}
+                  <div className="bg-muted/40 p-3 rounded-xl border border-border text-xs space-y-1">
+                    <span className="font-bold text-foreground flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-primary" />
+                      Trigger Location
+                    </span>
+                    <p className="text-primary font-bold">{activeTemplate.triggerMenuPath}</p>
+                    <p className="text-muted-foreground leading-relaxed">{activeTemplate.triggerDescription}</p>
+                  </div>
+
+                  {/* Test Dispatch Form */}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block mb-1">
+                        Test Recipient Email
+                      </label>
+                      <input
+                        type="email"
+                        value={toEmail}
+                        onChange={(e) => setToEmail(e.target.value)}
+                        placeholder={health?.defaultRecipient || "resident@example.com"}
+                        className="w-full border border-border rounded-xl px-3 py-2 text-xs bg-[var(--mana-bg-input)] outline-none focus:ring-2 focus:ring-primary/20 font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block mb-1">
+                        Subject Line
+                      </label>
+                      <input
+                        type="text"
+                        value={subjectOverride}
+                        onChange={(e) => setSubjectOverride(e.target.value)}
+                        placeholder={activeTemplate.subject}
+                        className="w-full border border-border rounded-xl px-3 py-2 text-xs bg-[var(--mana-bg-input)] outline-none focus:ring-2 focus:ring-primary/20 font-semibold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider block mb-1">
+                        Sender Name (From Name)
+                      </label>
+                      <input
+                        type="text"
+                        value={fromName}
+                        onChange={(e) => setFromName(e.target.value)}
+                        placeholder="Mana Community"
+                        className="w-full border border-border rounded-xl px-3 py-2 text-xs bg-[var(--mana-bg-input)] outline-none focus:ring-2 focus:ring-primary/20 font-semibold"
+                      />
+                    </div>
+                  </div>
                 </div>
-              ) : defaultViewMode === "rendered" ? (
-                <iframe
-                  srcDoc={defaultPreviewHtml}
-                  className="w-full h-[55vh] border border-slate-200 rounded-xl bg-white shadow-md"
-                  title={`Default Template Preview: ${viewingDefaultTemplate.key}`}
-                  sandbox="allow-same-origin"
-                />
-              ) : (
-                <pre className="w-full h-[55vh] overflow-auto bg-slate-900 text-emerald-400 p-4 text-xs font-mono rounded-xl leading-relaxed whitespace-pre-wrap">
-                  {defaultRawHtml || defaultPreviewHtml}
-                </pre>
-              )}
+
+                {/* Send Button */}
+                <button
+                  type="button"
+                  onClick={handleSendTest}
+                  disabled={sendingTemplate}
+                  className={`w-full py-3 px-4 rounded-xl text-white text-xs font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer bg-gradient-to-r ${
+                    styleFor(activeTemplate.category).gradient
+                  }`}
+                >
+                  {sendingTemplate ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {sendingTemplate ? "Sending Live Test..." : "Send Test Email"}
+                </button>
+              </div>
+
+              {/* Right Iframe Preview Pane */}
+              <div className="flex-1 bg-muted/60 flex flex-col overflow-hidden">
+                <div className="bg-card px-4 py-2 border-b border-border flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Interactive Mailbox Preview ({previewDevice})
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex-1 p-6 flex justify-center items-center overflow-y-auto">
+                  {loadingPreview ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                      <span className="text-xs text-muted-foreground font-semibold">Rendering email preview...</span>
+                    </div>
+                  ) : (
+                    <iframe
+                      srcDoc={previewHtml}
+                      className={`h-full border border-border rounded-2xl bg-white shadow-2xl transition-all ${
+                        previewDevice === "mobile" ? "w-[380px]" : "w-full max-w-2xl"
+                      }`}
+                      title={`Preview: ${activeTemplate.key}`}
+                      sandbox="allow-same-origin"
+                    />
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* ── Default Template Full Details Modal (HTML Source & Variables) ── */}
+      {viewingDefaultTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-card rounded-2xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-border text-left">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/40 flex-shrink-0">
+              <div>
+                <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                  Template Details:{" "}
+                  <span className="text-primary font-extrabold">{getTplLabel(viewingDefaultTemplate)}</span>
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5 font-mono">
+                  File Path: {viewingDefaultTemplate.templateFile}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-muted p-0.5 rounded-xl border border-border text-xs font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setDefaultViewMode("rendered")}
+                    className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                      defaultViewMode === "rendered" ? "bg-card text-primary shadow-xs" : "text-muted-foreground"
+                    }`}
+                  >
+                    Rendered View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDefaultViewMode("source")}
+                    className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                      defaultViewMode === "source" ? "bg-card text-primary shadow-xs" : "text-muted-foreground"
+                    }`}
+                  >
+                    Thymeleaf HTML
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDefaultViewMode("variables")}
+                    className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                      defaultViewMode === "variables" ? "bg-card text-primary shadow-xs" : "text-muted-foreground"
+                    }`}
+                  >
+                    Variables & Tokens
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const content = defaultViewMode === "source" ? defaultDetails?.rawHtml : defaultDetails?.renderedHtml;
+                    if (content) {
+                      navigator.clipboard.writeText(content);
+                      setCopiedCode(true);
+                      setTimeout(() => setCopiedCode(false), 2000);
+                      showSuccess("Code copied to clipboard!");
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-card border border-border text-foreground text-xs font-bold rounded-xl shadow-xs cursor-pointer hover:bg-muted transition-colors"
+                >
+                  {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  {copiedCode ? "Copied" : "Copy Code"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setViewingDefaultTemplate(null)}
+                  className="p-1.5 hover:bg-muted rounded-xl text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 p-6 overflow-y-auto bg-muted/40 min-h-[450px]">
+              {loadingDefaultPreview ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-2">
+                  <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                  <span className="text-xs text-muted-foreground font-semibold">Loading template details...</span>
+                </div>
+              ) : defaultViewMode === "rendered" ? (
+                <iframe
+                  srcDoc={defaultDetails?.renderedHtml || ""}
+                  className="w-full h-[60vh] border border-border rounded-2xl bg-white shadow-md max-w-2xl mx-auto block"
+                  title={`Default Template Preview: ${viewingDefaultTemplate.key}`}
+                  sandbox="allow-same-origin"
+                />
+              ) : defaultViewMode === "source" ? (
+                <div className="rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
+                  <div className="bg-slate-950 px-4 py-2 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
+                    <span>{viewingDefaultTemplate.templateFile}</span>
+                    <span className="text-[11px] text-emerald-400 font-bold">Thymeleaf Template Format</span>
+                  </div>
+                  <pre className="w-full h-[55vh] overflow-auto bg-slate-900 text-emerald-300 p-5 text-xs font-mono leading-relaxed whitespace-pre-wrap selection:bg-indigo-500 selection:text-white">
+                    {defaultDetails?.rawHtml || "<!-- Source HTML not loaded -->"}
+                  </pre>
+                </div>
+              ) : (
+                <div className="bg-card rounded-2xl border border-border p-6 shadow-sm space-y-4 max-w-3xl mx-auto">
+                  <h3 className="text-sm font-bold text-foreground">Dynamic Template Variables & Tokens</h3>
+                  <p className="text-xs text-muted-foreground">
+                    These variable placeholders are populated dynamically by the backend template engine during email generation.
+                  </p>
+
+                  <div className="divide-y divide-border border border-border rounded-xl overflow-hidden">
+                    {EMAIL_TEMPLATES_COLLECTION.find((t) => t.key === viewingDefaultTemplate.key)?.variables.map((v) => (
+                      <div key={v.name} className="p-3 text-xs flex items-start justify-between gap-4 bg-muted/20">
+                        <div>
+                          <code className="font-bold text-primary bg-primary/10 px-2 py-0.5 rounded font-mono">
+                            {"${" + v.name + "}"}
+                          </code>
+                          <p className="text-muted-foreground mt-1 text-[11px]">{v.description}</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-muted-foreground uppercase font-bold block">Sample Value</span>
+                          <span className="font-semibold text-foreground">{v.sample}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
