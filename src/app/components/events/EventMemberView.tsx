@@ -287,9 +287,19 @@ export function EventMemberView() {
   };
 
   // Load family members dynamically from database / mock
-  // Load family members dynamically from database
+  // Load family members dynamically from database & include logged-in member
   const loadFamilyMembers = async () => {
     setLoadingFamily(true);
+
+    const primaryDevotee: FamilyMember = {
+      id: "self",
+      name: user?.fullName || (user?.email ? user.email.split("@")[0] : "Primary Devotee"),
+      relation: "Myself (Head)",
+      age: user?.dateOfBirth
+        ? Math.max(18, new Date().getFullYear() - new Date(user.dateOfBirth).getFullYear())
+        : 30,
+      avatar: user?.gender === "Female" ? "👩" : "👨",
+    };
 
     try {
       try {
@@ -312,29 +322,27 @@ export function EventMemberView() {
             avatar: m.avatar || "👤",
           }));
 
-        if (mapped.length > 0) {
-          // Ensure "Head / Myself" appears first
-          mapped.sort((a, b) => {
-            const isAHead = a.relation.toLowerCase().includes("myself") || a.relation.toLowerCase().includes("head") || a.relation.toLowerCase().includes("self");
-            const isBHead = b.relation.toLowerCase().includes("myself") || b.relation.toLowerCase().includes("head") || b.relation.toLowerCase().includes("self");
-            if (isAHead && !isBHead) return -1;
-            if (!isAHead && isBHead) return 1;
-            return 0;
-          });
+        // Filter out any duplicate self/primary entries from DB
+        const additionalMembers = mapped.filter(
+          (m) =>
+            m.name.trim().toLowerCase() !== primaryDevotee.name.trim().toLowerCase() &&
+            !m.relation.toLowerCase().includes("myself") &&
+            !m.relation.toLowerCase().includes("head")
+        );
 
-          setFamilyMembers(mapped);
-          setSelectedMembers(mapped.map((m) => m.id));
-          setLoadingFamily(false);
-          return;
-        }
+        const combinedList = [primaryDevotee, ...additionalMembers];
+        setFamilyMembers(combinedList);
+        setSelectedMembers(combinedList.map((m) => m.id));
+        setLoadingFamily(false);
+        return;
       }
     } catch (err) {
       console.warn("Could not fetch family members from database API:", err);
     }
 
-    // Default to empty details when user has not registered family members yet
-    setFamilyMembers([]);
-    setSelectedMembers([]);
+    // Default to the logged-in user as the primary devotee
+    setFamilyMembers([primaryDevotee]);
+    setSelectedMembers([primaryDevotee.id]);
     setLoadingFamily(false);
   };
 
@@ -879,37 +887,56 @@ export function EventMemberView() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-border animate-fadeIn">
-                      {familyMembers.map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex items-center justify-between p-2.5 rounded-xl bg-muted/50 border border-border/70 hover:border-primary/30 transition-all"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="text-xl shrink-0">{member.avatar}</span>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-foreground truncate">{member.name}</p>
-                              <p className="text-[10px] text-muted-foreground font-medium">
-                                {member.relation} • Age {member.age}
-                              </p>
+                      {familyMembers.map((member) => {
+                        const isPrimary = member.id === "self" || member.relation.includes("Myself") || member.relation.includes("Head");
+                        return (
+                          <div
+                            key={member.id}
+                            className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                              isPrimary
+                                ? "bg-primary/5 border-primary/30 shadow-2xs"
+                                : "bg-muted/50 border-border/70 hover:border-primary/30"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="text-xl shrink-0">{member.avatar}</span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs font-bold text-foreground truncate">{member.name}</p>
+                                  {isPrimary && (
+                                    <span className="text-[8.5px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/15 px-1.5 py-0.2 rounded">
+                                      You
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground font-medium truncate">
+                                  {member.relation} • Age {member.age}
+                                  {isPrimary && (user?.flatNo || user?.block) && ` • Flat ${user?.block ? `${user?.block}-` : ""}${user?.flatNo || ""}`}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md border ${
+                                isPrimary
+                                  ? "text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20"
+                                  : "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                              }`}>
+                                {isPrimary ? "Primary Devotee" : "Active"}
+                              </span>
+                              {!isPrimary && (
+                                <button
+                                  type="button"
+                                  title="Remove devotee"
+                                  onClick={(e) => handleDeleteFamilyMember(member.id, e)}
+                                  className="p-1 text-muted-foreground hover:text-rose-500 rounded-md transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                              Active
-                            </span>
-                            {member.relation !== "Myself (Head)" && member.id !== "self" && (
-                              <button
-                                type="button"
-                                title="Remove devotee"
-                                onClick={(e) => handleDeleteFamilyMember(member.id, e)}
-                                className="p-1 text-muted-foreground hover:text-rose-500 rounded-md transition-colors cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
