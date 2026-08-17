@@ -96,16 +96,46 @@ export function EventsLunchDinner() {
     eventService.getAll().then(setEvents).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (useMock) { setMeals(mockLunchDinners); setRegistrations(mockRegistrations); return; }
-    setLoading(true); setError("");
+  const loadData = () => {
+    let localMeals: any[] = [];
+    try {
+      localMeals = JSON.parse(localStorage.getItem("mana_local_lunch_dinners") || "[]");
+    } catch {}
+
+    if (useMock) {
+      const merged = [...localMeals, ...mockLunchDinners];
+      const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
+      setMeals(unique);
+      setRegistrations(mockRegistrations);
+      return;
+    }
+    setLoading(true);
+    setError("");
     Promise.all([eventService.getLunchDinners(), eventService.getAllRegistrations()])
       .then(([m, regs]) => {
-        setMeals(m);
-        setRegistrations(regs.filter((r: any) => r.category === "Meal" || r.activityId?.startsWith("meal-")));
+        const merged = [...localMeals, ...(m || [])];
+        const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
+        setMeals(unique);
+        setRegistrations((regs || []).filter((r: any) => r.category === "Meal" || r.activityId?.startsWith("meal-")));
       })
-      .catch(e => setError(e?.message || "Failed to load meal data"))
+      .catch(e => {
+        if (localMeals.length > 0) {
+          setMeals(localMeals);
+        } else {
+          setError(e?.message || "Failed to load meal data");
+        }
+      })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadData();
+    window.addEventListener("mana_activities_updated", loadData);
+    window.addEventListener("mana_schedule_updated", loadData);
+    return () => {
+      window.removeEventListener("mana_activities_updated", loadData);
+      window.removeEventListener("mana_schedule_updated", loadData);
+    };
   }, [useMock]);
 
   const getRegsForMeal = (meal: LunchDinner) =>
