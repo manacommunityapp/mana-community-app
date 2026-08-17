@@ -120,39 +120,7 @@ const INITIAL_ACTIVITIES: Activity[] = [
   },
 ];
 
-const MOCK_FAMILY: FamilyMember[] = [
-  { id: "mock-1", name: "Sandeep Verma", relation: "Myself (Head)", age: 38, avatar: "👤" },
-  { id: "mock-2", name: "Ananya Verma", relation: "Spouse", age: 35, avatar: "👩" },
-  { id: "mock-3", name: "Rahul Verma", relation: "Son", age: 10, avatar: "👦" },
-  { id: "mock-4", name: "Priya Verma", relation: "Daughter", age: 7, avatar: "👧" },
-];
-
-const INITIAL_PASSES: UserPass[] = [
-  {
-    id: "pass-1",
-    passType: "Pooja Seva Token",
-    title: "Maha Ganapathi Archana & Silver Shield",
-    participantName: "Sandeep Verma & Family",
-    regId: "MNA-2026-POOJA-0822",
-    date: "22 Aug 2026",
-    time: "08:00 AM - 09:30 AM",
-    venue: "Main Temple Mandap",
-    status: "CONFIRMED",
-    qrCodeUrl: "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=MNA-2026-POOJA-0822",
-  },
-  {
-    id: "pass-2",
-    passType: "Cultural Pass",
-    title: "Kids Classical Fusion Dance",
-    participantName: "Rahul Verma (Son)",
-    regId: "MNA-2026-CULT-1102",
-    date: "23 Aug 2026",
-    time: "05:30 PM",
-    venue: "Auditorium Stage A",
-    status: "PENDING APPROVAL",
-    qrCodeUrl: "https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=MNA-2026-CULT-1102",
-  },
-];
+const INITIAL_PASSES: UserPass[] = [];
 
 export function EventMemberView() {
   const { user } = useAuth();
@@ -319,48 +287,52 @@ export function EventMemberView() {
   };
 
   // Load family members dynamically from database / mock
+  // Load family members dynamically from database
   const loadFamilyMembers = async () => {
     setLoadingFamily(true);
 
-    // In Mock Mode: Show full demo family devotees
-    if (useMock) {
-      setFamilyMembers(MOCK_FAMILY);
-      setSelectedMembers(MOCK_FAMILY.map((m) => m.id));
-      setLoadingFamily(false);
-      return;
-    }
-
-    // In Live API Mode: Fetch registered family devotees from database
     try {
+      try {
+        localStorage.removeItem("mana_family_members");
+      } catch {}
+
       const dbMembers = await eventService.getFamilyMembers();
       if (Array.isArray(dbMembers) && dbMembers.length > 0) {
-        const mapped: FamilyMember[] = dbMembers.map((m: any) => ({
-          id: String(m.id ?? m.name),
-          name: m.name,
-          relation: m.relation || "Family",
-          age: Number(m.age) || 25,
-          avatar: m.avatar || "👤",
-        }));
+        const dummyNames = new Set([
+          "Sunita Sharma", "Aarav Sharma", "Ananya Sharma",
+          "Sandeep Verma", "Ananya Verma", "Rahul Verma", "Priya Verma"
+        ]);
+        const mapped: FamilyMember[] = dbMembers
+          .filter((m: any) => m && m.name && !dummyNames.has(m.name.trim()))
+          .map((m: any) => ({
+            id: String(m.id ?? m.name),
+            name: m.name,
+            relation: m.relation || "Family",
+            age: Number(m.age) || 25,
+            avatar: m.avatar || "👤",
+          }));
 
-        // Ensure "Head / Myself" appears first
-        mapped.sort((a, b) => {
-          const isAHead = a.relation.toLowerCase().includes("myself") || a.relation.toLowerCase().includes("head") || a.relation.toLowerCase().includes("self");
-          const isBHead = b.relation.toLowerCase().includes("myself") || b.relation.toLowerCase().includes("head") || b.relation.toLowerCase().includes("self");
-          if (isAHead && !isBHead) return -1;
-          if (!isAHead && isBHead) return 1;
-          return 0;
-        });
+        if (mapped.length > 0) {
+          // Ensure "Head / Myself" appears first
+          mapped.sort((a, b) => {
+            const isAHead = a.relation.toLowerCase().includes("myself") || a.relation.toLowerCase().includes("head") || a.relation.toLowerCase().includes("self");
+            const isBHead = b.relation.toLowerCase().includes("myself") || b.relation.toLowerCase().includes("head") || b.relation.toLowerCase().includes("self");
+            if (isAHead && !isBHead) return -1;
+            if (!isAHead && isBHead) return 1;
+            return 0;
+          });
 
-        setFamilyMembers(mapped);
-        setSelectedMembers((prev) => (prev.length > 0 ? prev : [mapped[0].id]));
-        setLoadingFamily(false);
-        return;
+          setFamilyMembers(mapped);
+          setSelectedMembers(mapped.map((m) => m.id));
+          setLoadingFamily(false);
+          return;
+        }
       }
     } catch (err) {
-      console.warn("Could not fetch family members from database API, using profile fallback:", err);
+      console.warn("Could not fetch family members from database API:", err);
     }
 
-    // In Live API mode: When database has no records yet, show empty details
+    // Default to empty details when user has not registered family members yet
     setFamilyMembers([]);
     setSelectedMembers([]);
     setLoadingFamily(false);
