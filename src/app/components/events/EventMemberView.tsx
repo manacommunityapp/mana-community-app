@@ -39,6 +39,7 @@ import {
   FileText,
   ExternalLink,
 } from "lucide-react";
+import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 
 interface FamilyMember {
   id: string;
@@ -158,6 +159,7 @@ export function EventMemberView() {
 
   // Modal State for Adding Dynamic Family Member
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [mobileQuickActionModal, setMobileQuickActionModal] = useState<any | null>(null);
   const [newMember, setNewMember] = useState({
     name: "",
     relation: "Son",
@@ -846,20 +848,21 @@ export function EventMemberView() {
                   </div>
                   {activitiesList.length > 0 && (
                     <button
+                      type="button"
                       onClick={() => {
-                        const el = document.getElementById("activities-grid-section");
-                        el?.scrollIntoView({ behavior: "smooth" });
+                        setSelectedActivity(activitiesList[0]);
                       }}
-                      className="px-3 py-1 bg-amber-400/25 hover:bg-amber-400/35 text-amber-100 text-[11px] font-bold rounded-xl border border-amber-300/40 shadow-xs transition-all cursor-pointer whitespace-nowrap"
+                      className="px-3.5 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 text-[11px] sm:text-xs font-black rounded-xl shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1.5"
                     >
-                      Book Now ↓
+                      <Ticket className="w-3.5 h-3.5" />
+                      Register
                     </button>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Dynamic Collapsible Family Devotees Section */}
+            {/* Dynamic Collapsible Family Members Section */}
             <div className="bg-card border border-border rounded-2xl p-3 sm:p-4 shadow-xs space-y-3 transition-all">
               <div
                 className="flex items-center justify-between cursor-pointer select-none"
@@ -871,7 +874,7 @@ export function EventMemberView() {
                   </div>
                   <div>
                     <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                      Family Devotees ({familyMembers.length})
+                      Family Members ({familyMembers.length})
                       <span className="text-[10px] text-muted-foreground font-normal hidden sm:inline">
                         ({showFamily ? "Tap to collapse" : "Tap to view"})
                       </span>
@@ -907,15 +910,15 @@ export function EventMemberView() {
                   {loadingFamily ? (
                     <div className="flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground border-t border-border">
                       <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                      <span>Loading registered family devotees...</span>
+                      <span>Loading registered family members...</span>
                     </div>
                   ) : familyMembers.length === 0 ? (
                     <div className="py-6 text-center text-xs text-muted-foreground border-t border-border">
-                      No registered family devotees yet. Tap{" "}
+                      No registered family members yet. Tap{" "}
                       <strong className="text-primary cursor-pointer underline" onClick={() => setShowAddMemberModal(true)}>
                         + Add Family Member
                       </strong>{" "}
-                      to register devotees.
+                      to register members.
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-border animate-fadeIn">
@@ -953,12 +956,12 @@ export function EventMemberView() {
                                   ? "text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20"
                                   : "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                               }`}>
-                                {isPrimary ? "Primary Devotee" : "Active"}
+                                {isPrimary ? "Primary Member" : "Active"}
                               </span>
                               {!isPrimary && (
                                 <button
                                   type="button"
-                                  title="Remove devotee"
+                                  title="Remove family member"
                                   onClick={(e) => handleDeleteFamilyMember(member.id, e)}
                                   className="p-1 text-muted-foreground hover:text-rose-500 rounded-md transition-colors cursor-pointer"
                                 >
@@ -1010,12 +1013,17 @@ export function EventMemberView() {
                     <button
                       key={action.id}
                       onClick={() => {
-                        if (action.action === "passes") {
-                          setActiveTab("passes");
-                        } else if (action.category) {
-                          setSelectedCategoryFilter(
-                            selectedCategoryFilter === action.category ? null : action.category
-                          );
+                        const isMobileScreen = typeof window !== "undefined" && window.innerWidth < 768;
+                        if (isMobileScreen) {
+                          setMobileQuickActionModal(action);
+                        } else {
+                          if (action.action === "passes") {
+                            setActiveTab("passes");
+                          } else if (action.category) {
+                            setSelectedCategoryFilter(
+                              selectedCategoryFilter === action.category ? null : action.category
+                            );
+                          }
                         }
                       }}
                       className={`flex flex-col items-center justify-between p-2.5 sm:p-3 rounded-2xl border transition-all active:scale-95 sm:hover:scale-[1.03] text-center cursor-pointer shadow-2xs group select-none min-h-[95px] sm:min-h-[110px] ${
@@ -1043,8 +1051,8 @@ export function EventMemberView() {
               </div>
             </div>
 
-            {/* Featured Sevas & Events (Dynamic Filtered List) */}
-            <div id="activities-grid-section" className="space-y-3 pt-1">
+            {/* Featured Sevas & Events (Dynamic Filtered List - Hidden on mobile view, shown in Quick Actions modal) */}
+            <div id="activities-grid-section" className="hidden sm:block space-y-3 pt-1">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5 sm:gap-2">
                   <Filter className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -1340,7 +1348,7 @@ export function EventMemberView() {
             <div className="flex items-center justify-between border-b border-border pb-2">
               <h3 className="text-sm font-black text-foreground flex items-center gap-2">
                 <UserPlus className="w-4 h-4 text-primary" />
-                Add Dynamic Family Devotee
+                Add Family Member
               </h3>
               <button
                 type="button"
@@ -1447,217 +1455,35 @@ export function EventMemberView() {
         </div>
       )}
 
-      {/* ─── MEMBER REGISTRATION MODAL (MOBILE BOTTOM-SHEET) ─── */}
+      {/* ─── EVENT REGISTRATION PORTAL WIZARD (MATCHING ADMIN DASHBOARD) ─── */}
       {selectedActivity && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="w-full max-w-md bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto">
-            {/* Mobile Drag Indicator */}
-            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-2 sm:hidden" />
-
-            <div className="flex items-center justify-between border-b border-border pb-3">
-              <div>
-                <span className="text-[10px] font-extrabold uppercase text-primary bg-primary/10 px-2 py-0.5 rounded border border-primary/20">
-                  {selectedActivity.category} Registration
-                </span>
-                <h3 className="text-sm font-black text-foreground mt-1">{selectedActivity.title}</h3>
-              </div>
-              <button onClick={() => setSelectedActivity(null)} className="text-muted-foreground hover:text-foreground cursor-pointer">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div className="p-3 rounded-xl bg-muted/40 border border-border text-xs space-y-1">
-                <p className="font-bold text-foreground">{selectedActivity.description}</p>
-                <p className="text-muted-foreground">📅 {selectedActivity.date} • 🕒 {selectedActivity.time}</p>
-                <p className="text-muted-foreground">📍 {selectedActivity.venue}</p>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-                    Select Attending Devotees ({familyMembers.length})
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowAddMemberModal(true)}
-                    className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="w-3 h-3" /> Add Member
-                  </button>
-                </div>
-
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {familyMembers.length === 0 ? (
-                    <div className="p-4 text-center rounded-xl bg-muted/40 border border-dashed border-border space-y-2.5">
-                      <p className="text-xs text-muted-foreground">
-                        No registered family devotees in database yet.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const selfName = user?.fullName || (user?.email ? user.email.split("@")[0] : "Myself (Head)");
-                          const payload = {
-                            name: selfName,
-                            relation: "Myself (Head)",
-                            age: 30,
-                            avatar: "👤",
-                            status: "ACTIVE",
-                          };
-                          let createdId = "fam-" + Date.now();
-                          if (!useMock) {
-                            try {
-                              const saved = await eventService.addFamilyMember(payload);
-                              if (saved && saved.id) createdId = String(saved.id);
-                            } catch (e) {
-                              console.error(e);
-                            }
-                          }
-                          const newMem: FamilyMember = {
-                            id: createdId,
-                            name: payload.name,
-                            relation: payload.relation,
-                            age: payload.age,
-                            avatar: payload.avatar,
-                          };
-                          setFamilyMembers([newMem]);
-                          setSelectedMembers([newMem.id]);
-                        }}
-                        className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
-                      >
-                        <UserPlus className="w-3.5 h-3.5" /> Register as Myself ({user?.fullName || "Self"})
-                      </button>
-                    </div>
-                  ) : (
-                    familyMembers.map((member) => {
-                      const isChecked = selectedMembers.includes(member.id);
-                      return (
-                        <div
-                          key={member.id}
-                          onClick={() => toggleMember(member.id)}
-                          className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${
-                            isChecked
-                              ? "bg-primary/10 border-primary text-primary"
-                              : "bg-background border-border text-foreground hover:border-muted-foreground/30"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-lg">{member.avatar}</span>
-                            <div>
-                              <p className="text-xs font-bold">{member.name}</p>
-                              <p className="text-[10px] opacity-80">{member.relation} (Age {member.age})</p>
-                            </div>
-                          </div>
-                          {isChecked && <CheckCircle2 className="w-4 h-4 text-primary" />}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-
-              {selectedActivity.fee > 0 && (
-                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <Receipt className="w-3.5 h-3.5 text-primary" /> Payment &amp; Receipt Upload
-                    </span>
-                    <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                      ₹{selectedActivity.fee * Math.max(1, selectedMembers.length)} Required
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {["UPI", "Bank Transfer", "Cash"].map((pm) => (
-                      <button
-                        key={pm}
-                        type="button"
-                        onClick={() => setPaymentMethod(pm)}
-                        className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
-                          paymentMethod === pm
-                            ? "bg-primary text-primary-foreground border-primary shadow-2xs"
-                            : "bg-background text-muted-foreground border-border hover:border-primary/40"
-                        }`}
-                      >
-                        {pm}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                      UPI Reference / Transaction ID (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={transactionId}
-                      onChange={(e) => setTransactionId(e.target.value)}
-                      placeholder="e.g. 42891028472"
-                      className="w-full h-8 px-2.5 rounded-xl border border-border bg-background text-xs text-foreground focus:ring-1 focus:ring-primary focus:outline-hidden font-mono"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-                      Upload Payment Receipt / Screenshot
-                    </label>
-                    {paymentReceiptUrl ? (
-                      <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <img src={paymentReceiptUrl} alt="Receipt Preview" className="w-9 h-9 rounded-lg object-cover border border-emerald-500/40 shrink-0" />
-                          <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 truncate">
-                            Receipt screenshot attached!
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setPaymentReceiptUrl("")}
-                          className="text-[10.5px] font-bold text-rose-600 hover:underline cursor-pointer shrink-0 ml-2"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-bold cursor-pointer transition-colors">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Upload Payment Image / Screenshot</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                setPaymentReceiptUrl(reader.result as string);
-                              };
-                              reader.readAsDataURL(file);
-                            }
-                          }}
-                          className="hidden"
-                        />
-                      </label>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center justify-between pt-3 border-t border-border">
-              <div>
-                <span className="text-[10px] text-muted-foreground font-semibold block">Total Booking Fee</span>
-                <span className="text-sm font-mono font-black text-foreground">
-                  {selectedActivity.fee === 0 ? "FREE" : `₹${selectedActivity.fee * selectedMembers.length}`}
-                </span>
-              </div>
-              <button
-                onClick={handleBookingSubmit}
-                disabled={selectedMembers.length === 0}
-                className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-all shadow-xs cursor-pointer flex items-center gap-2 active:scale-95"
-              >
-                Confirm &amp; Issue E-Pass <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn">
+          <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 min-h-[85vh] sm:min-h-[640px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp">
+            <EventRegistrationWizard
+              event={{
+                id: selectedActivity.id,
+                title: selectedActivity.title,
+                description: selectedActivity.description,
+                category: selectedActivity.category,
+                price: selectedActivity.fee,
+                date: selectedActivity.date,
+                time: selectedActivity.time,
+                venue: selectedActivity.venue,
+                ticketTypes: [
+                  {
+                    id: `pass-${selectedActivity.id}`,
+                    name: `${selectedActivity.title} Pass`,
+                    price: selectedActivity.fee || "0",
+                    qty: selectedActivity.availableSeats || 100,
+                    description: selectedActivity.description || `Entry & seva pass for ${selectedActivity.title}`,
+                  },
+                ],
+              }}
+              onClose={() => {
+                setSelectedActivity(null);
+                fetchLiveDataFromBackend();
+              }}
+            />
           </div>
         </div>
       )}
@@ -1703,6 +1529,161 @@ export function EventMemberView() {
             >
               <Download className="w-4 h-4" /> Download / Save PDF E-Pass
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ─── QUICK ACTION MODAL (MOBILE VIEW ONLY) ─── */}
+      {mobileQuickActionModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xl animate-in slide-in-from-bottom-5 duration-200 max-h-[85vh] flex flex-col">
+            {/* Mobile Drag Indicator */}
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-1 sm:hidden" />
+
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-8 h-8 rounded-xl ${mobileQuickActionModal.color} border flex items-center justify-center shadow-xs shrink-0`}>
+                  {React.createElement(mobileQuickActionModal.icon, { className: "w-4 h-4" })}
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-foreground flex items-center gap-2">
+                    {mobileQuickActionModal.label}
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                      {mobileQuickActionModal.badge}
+                    </span>
+                  </h3>
+                  <p className="text-[10.5px] text-muted-foreground">
+                    {mobileQuickActionModal.action === "passes"
+                      ? "Your booked passes & entry tokens"
+                      : `Available ${mobileQuickActionModal.label} bookings`}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileQuickActionModal(null)}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="overflow-y-auto space-y-2.5 flex-1 pr-0.5 hide-scrollbar">
+              {mobileQuickActionModal.action === "passes" ? (
+                passesList.length === 0 ? (
+                  <div className="py-8 text-center space-y-2 text-xs text-muted-foreground">
+                    <Ticket className="w-8 h-8 mx-auto text-muted-foreground/50" />
+                    <p className="font-bold text-foreground">No active passes yet</p>
+                    <p className="text-[11px]">Book a seva or pooja slot to get your digital pass.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {passesList.map((pass) => (
+                      <div
+                        key={pass.id}
+                        className="bg-muted/40 border border-border/80 rounded-xl p-3 flex items-center justify-between gap-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-foreground truncate">{pass.title}</p>
+                          <p className="text-[10.5px] text-muted-foreground">
+                            {pass.regId} • {pass.date}
+                          </p>
+                          <p className="text-[10px] text-primary font-semibold truncate">
+                            {pass.participantName}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowQRPass(pass);
+                            setMobileQuickActionModal(null);
+                          }}
+                          className="px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 cursor-pointer"
+                        >
+                          <QrCode className="w-3.5 h-3.5" /> View QR
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                (() => {
+                  const matchingActivities = activitiesList.filter(
+                    (a) =>
+                      a.category?.toLowerCase() === mobileQuickActionModal.category?.toLowerCase() ||
+                      a.title?.toLowerCase().includes(mobileQuickActionModal.category?.toLowerCase() || "")
+                  );
+
+                  if (matchingActivities.length === 0) {
+                    return (
+                      <div className="py-8 text-center space-y-2 text-xs text-muted-foreground">
+                        <Calendar className="w-8 h-8 mx-auto text-muted-foreground/50" />
+                        <p className="font-bold text-foreground">
+                          No {mobileQuickActionModal.label} slots available currently
+                        </p>
+                        <p className="text-[11px]">New slots will appear once published by organizers.</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategoryFilter(null);
+                            setMobileQuickActionModal(null);
+                          }}
+                          className="mt-2 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl cursor-pointer"
+                        >
+                          View All Events
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-2.5">
+                      {matchingActivities.map((act) => (
+                        <div
+                          key={act.id}
+                          className="bg-card border border-border/90 rounded-xl p-3 flex gap-3 shadow-2xs hover:border-primary/40 transition-all"
+                        >
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 text-2xl flex items-center justify-center shrink-0 border border-primary/20">
+                            {act.image}
+                          </div>
+                          <div className="flex-1 min-w-0 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="font-black uppercase text-primary bg-primary/10 px-1.5 py-0.2 rounded border border-primary/20">
+                                  {act.category}
+                                </span>
+                                <span className="text-muted-foreground font-semibold">{act.availableSeats} slots</span>
+                              </div>
+                              <h4 className="text-xs font-bold text-foreground mt-0.5 truncate">{act.title}</h4>
+                              <p className="text-[10px] text-muted-foreground">
+                                {act.date} • {act.time}
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-between pt-1.5 mt-1 border-t border-border/60">
+                              <span className="text-xs font-mono font-black text-foreground">
+                                {act.fee === 0 ? "FREE" : `₹${act.fee}`}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedActivity(act);
+                                  setMobileQuickActionModal(null);
+                                }}
+                                className="px-2.5 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                              >
+                                <Ticket className="w-3 h-3" /> Book / Register
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()
+              )}
+            </div>
           </div>
         </div>
       )}

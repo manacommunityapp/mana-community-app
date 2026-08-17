@@ -999,8 +999,8 @@ export function EventsDashboard() {
       <EventAICopilotDrawer isOpen={showAICopilot} onClose={() => setShowAICopilot(false)} />
 
       {showRegisterModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-md overflow-y-auto">
-          <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl p-3.5 sm:p-5 shadow-2xl border border-slate-200 dark:border-slate-800 max-h-[92vh] overflow-y-auto animate-scaleUp">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto">
+          <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 min-h-[85vh] sm:min-h-[640px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp">
             <EventRegistrationWizard
               event={
                 (events && events.length > 0 && events[0]) ? events[0] : {

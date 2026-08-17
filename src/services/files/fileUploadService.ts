@@ -47,6 +47,37 @@ export const fileUploadService = {
     }
   },
 
+  async uploadEventPaymentScreenshot(
+    file: File,
+    meta: {
+      eventId?: string | number;
+      eventName?: string;
+      block?: string;
+      flatNo?: string;
+    }
+  ): Promise<UploadedFileDto> {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (meta.eventId) formData.append("eventId", String(meta.eventId));
+      if (meta.eventName) formData.append("eventName", meta.eventName);
+      if (meta.block) formData.append("block", meta.block);
+      if (meta.flatNo) formData.append("flatNo", meta.flatNo);
+
+      return await apiClient.postForm<UploadedFileDto>("/files/upload/event-payment", formData);
+    } catch (err: any) {
+      console.warn("Server S3 payment screenshot upload failed, using fallback:", err);
+      // Fallback to local object URL or standard upload
+      return {
+        id: null,
+        url: URL.createObjectURL(file),
+        originalName: file.name,
+        contentType: file.type,
+        sizeBytes: file.size,
+      };
+    }
+  },
+
   async deleteFile(id: number | string): Promise<void> {
     if (typeof id === "string") {
       await mediaService.delete(id);
