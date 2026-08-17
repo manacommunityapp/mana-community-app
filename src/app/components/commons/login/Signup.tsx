@@ -301,7 +301,7 @@ export function Signup() {
   const communityCode = watch("communityCode");
 
   const handleSuggestPassword = () => {
-    const suggested = generateStrongPassword(16);
+    const suggested = generateStrongPassword(8);
     setValue("password", suggested, { shouldValidate: true });
     setValue("confirmPassword", suggested, { shouldValidate: true });
     setShowPassword(true);
@@ -1083,15 +1083,24 @@ export function Signup() {
                           <input
                             id="signup-password"
                             type={showPassword ? "text" : "password"}
+                            maxLength={8}
                             {...register("password", {
                               required: "Password is required",
                               minLength: {
                                 value: 4,
                                 message: "Password must be at least 4 characters",
                               },
+                              maxLength: {
+                                value: 8,
+                                message: "Password cannot exceed 8 characters",
+                              },
+                              validate: (val) =>
+                                evaluatePassword(val).acceptable ||
+                                evaluatePassword(val).warning ||
+                                "Password must be 4–8 characters and combine letters & numbers",
                             })}
                             className={`${inputBase} pl-9 sm:pl-10 pr-9`}
-                            placeholder="Min 4 chars"
+                            placeholder="4–8 chars (letters & numbers)"
                           />
                           <button
                             type="button"
