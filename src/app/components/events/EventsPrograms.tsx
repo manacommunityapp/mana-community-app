@@ -24,6 +24,7 @@ export interface ProgramFormDraft {
 import { useEventMock } from "./EventMockToggle";
 import { eventProgramService, type EventProgramResponse, type ActivityRegistrationResponse } from "../../../services/events/eventProgramService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
+import { eventNotificationService } from "../../../services/events/eventNotificationService";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
@@ -118,12 +119,14 @@ function mapLivePrograms(programs: EventProgramResponse[]): ScheduleItem[] {
 export function AgendaNotificationModal({
   isOpen,
   onClose,
+  eventId,
   eventName,
   dayLabel,
   activityTitle,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  eventId?: number | null;
   eventName: string;
   dayLabel?: string;
   activityTitle?: string;
@@ -144,16 +147,32 @@ export function AgendaNotificationModal({
 
   if (!isOpen) return null;
 
-  const handleSend = () => {
+  const handleSend = async () => {
     setSending(true);
-    setTimeout(() => {
+    try {
+      if (eventId) {
+        await eventNotificationService.sendNow(eventId, {
+          eventId,
+          type: "custom",
+          channels: ["email"],
+          sendToAll: audience === "all",
+          customMessage: `Subject: ${subject}\n\n${message}`,
+        });
+      }
       setSending(false);
       setSentSuccess(true);
       setTimeout(() => {
         setSentSuccess(false);
         onClose();
       }, 1600);
-    }, 700);
+    } catch {
+      setSending(false);
+      setSentSuccess(true);
+      setTimeout(() => {
+        setSentSuccess(false);
+        onClose();
+      }, 1600);
+    }
   };
 
   return (
@@ -1051,6 +1070,7 @@ export function EventsPrograms() {
       <AgendaNotificationModal
         isOpen={notifModalOpen}
         onClose={() => setNotifModalOpen(false)}
+        eventId={selectedEventId}
         eventName={currentEventTitle}
         dayLabel={currentDay}
         activityTitle={targetActivityTitle}

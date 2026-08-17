@@ -290,7 +290,11 @@ export function AdminCreateUser() {
     if (form.username.trim() || form.password || form.confirmPassword) {
       if (!form.username.trim()) newErrors.username = "Username is required for logins";
       if (!form.password) newErrors.password = "Password is required";
-      else if (form.password.length < 6) newErrors.password = "Password must be at least 6 characters";
+      else if (form.password.length < 4 || form.password.length > 8) {
+        newErrors.password = "Password must be between 4 and 8 characters";
+      } else if (!/[a-zA-Z]/.test(form.password) || !/[0-9]/.test(form.password)) {
+        newErrors.password = "Password must contain both letters and numbers";
+      }
       
       if (form.password !== form.confirmPassword) {
         newErrors.confirmPassword = "Passwords do not match";
@@ -855,7 +859,8 @@ export function AdminCreateUser() {
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                           <input
                             type={showPassword ? "text" : "password"}
-                            placeholder="Enter password"
+                            maxLength={8}
+                            placeholder="4–8 chars (letters & numbers)"
                             value={form.password}
                             onChange={e => update("password", e.target.value)}
                             className={`w-full pl-9 pr-10 py-2.5 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${
@@ -874,17 +879,13 @@ export function AdminCreateUser() {
                         
                         {/* Strength Meter */}
                         {form.password && (
-                          <div className="mt-2 space-y-1">
-                            <div className="flex justify-between items-center text-[10px] font-semibold">
-                              <span className="text-slate-400">Password Strength:</span>
-                              <span className="text-slate-600 uppercase">{pwdStrength.label}</span>
+                          <div className="mt-2 flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden flex gap-1">
+                              <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.color}`} />
+                              <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 2 ? pwdStrength.color : "bg-slate-200"}`} />
+                              <div className={`h-full flex-1 rounded-full transition-all ${pwdStrength.score >= 3 ? pwdStrength.color : "bg-slate-200"}`} />
                             </div>
-                            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                              <div 
-                                className={`h-full transition-all duration-350 ${pwdStrength.color}`} 
-                                style={{ width: `${(pwdStrength.score / 5) * 100}%` }}
-                              />
-                            </div>
+                            <span className="text-[11px] font-semibold text-slate-500">{pwdStrength.label}</span>
                           </div>
                         )}
                       </div>
@@ -895,6 +896,7 @@ export function AdminCreateUser() {
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                           <input
                             type={showConfirmPassword ? "text" : "password"}
+                            maxLength={8}
                             placeholder="Re-enter password"
                             value={form.confirmPassword}
                             onChange={e => update("confirmPassword", e.target.value)}

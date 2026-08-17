@@ -45,6 +45,7 @@ import {
   Edit3,
 } from "lucide-react";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
+import { PoojaRegistrationModal } from "./PoojaRegistrationModal";
 
 interface FamilyMember {
   id: string;
@@ -69,9 +70,14 @@ interface Activity {
 
 interface UserPass {
   id: string;
+  activityId?: string;
+  eventId?: number | string;
   passType: string;
   title: string;
   participantName: string;
+  devoteeCount?: number;
+  attendingDevotees?: string;
+  gotram?: string;
   regId: string;
   date: string;
   time: string;
@@ -275,10 +281,19 @@ export function EventMemberView() {
             id: `pooja-${p.id || Date.now()}`,
             title: p.name || "Pooja Seva",
             category: "Pooja",
-            date: p.date ? String(p.date) : "Upcoming",
-            time: p.startTime ? `${p.startTime}` : "Morning",
+            date: p.date ? String(p.date) : (p.startDate ? String(p.startDate) : "Upcoming"),
+            startDate: p.startDate || p.date,
+            endDate: p.endDate,
+            isMultiDay: p.isMultiDay,
+            time: p.startTime ? `${p.startTime}` : (p.time || "Morning"),
+            startTime: p.startTime,
+            startTimes: p.startTimes,
             venue: p.mandap || "Main Temple Mandap, Gate 1",
+            mandap: p.mandap,
+            pandit: p.pandit,
+            slots: p.slots,
             fee: p.isFree ? 0 : Number(p.fee || 501),
+            isFree: p.isFree,
             availableSeats: Math.max(0, initialSlots - booked),
             image: "🪔",
             description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || ""}`,
@@ -429,9 +444,14 @@ export function EventMemberView() {
       if (Array.isArray(liveRegs) && liveRegs.length > 0) {
         const mappedPasses: UserPass[] = liveRegs.map((r: any) => ({
           id: String(r.id),
+          activityId: r.activityId ? String(r.activityId) : undefined,
+          eventId: r.eventId ? String(r.eventId) : undefined,
           passType: r.passType || `${r.category || "Event"} Registration Pass`,
-          title: r.activityTitle || "Community Event",
-          participantName: r.participantName || "Devotee",
+          title: r.activityTitle || r.eventName || "Community Event",
+          participantName: r.participantName || r.primaryName || "Devotee",
+          devoteeCount: Number(r.devoteeCount || r.membersCount || 1),
+          attendingDevotees: r.attendingDevotees,
+          gotram: r.gotram,
           regId: r.regCode || `MNA-2026-${r.id}`,
           date: r.eventDate || "Upcoming",
           time: r.eventTime || "Scheduled",
@@ -573,6 +593,39 @@ export function EventMemberView() {
       },
     ];
   }, [poojaCount, foodCount, culturalCount, compCount, passesList.length, useMock, liveStats]);
+
+  const getExistingPassForActivity = (act: Activity): UserPass | undefined => {
+    if (!passesList || passesList.length === 0) return undefined;
+    return passesList.find((p) => {
+      if (p.status === "CANCELLED") return false;
+      // Match by exact ID
+      if (p.activityId && (p.activityId === act.id || String(p.activityId) === String(act.id))) return true;
+      // Match by extracted numeric ID (e.g. pooja-12 vs 12)
+      if (act.id && act.id.includes("-")) {
+        const rawId = act.id.split("-")[1];
+        if (p.activityId && (p.activityId === rawId || p.activityId === act.id)) return true;
+        if (p.eventId && String(p.eventId) === rawId) return true;
+      }
+      // Match by title
+      if (p.title && act.title) {
+        const cleanPassTitle = p.title.trim().toLowerCase();
+        const cleanActTitle = act.title.trim().toLowerCase();
+        if (cleanPassTitle === cleanActTitle) return true;
+        if (cleanPassTitle.replace(/\s+/g, "") === cleanActTitle.replace(/\s+/g, "")) return true;
+        if (cleanPassTitle.includes(cleanActTitle) || cleanActTitle.includes(cleanPassTitle)) return true;
+      }
+      return false;
+    });
+  };
+
+  const handleOpenUpdateRegistration = (act: Activity, existingPass: UserPass) => {
+    setSelectedActivity({
+      ...act,
+      isUpdateMode: true,
+      registrationId: existingPass.id,
+      existingRegistration: existingPass,
+    } as any);
+  };
 
   const toggleMember = (id: string) => {
     setSelectedMembers((prev) => (prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]));
@@ -1279,12 +1332,29 @@ export function EventMemberView() {
                           <span className="text-xs sm:text-sm font-mono font-black text-foreground">
                             {act.fee === 0 ? "FREE" : `₹${act.fee}`}
                           </span>
-                          <button
-                            onClick={() => setSelectedActivity(act)}
-                            className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95"
-                          >
-                            <Ticket className="w-3.5 h-3.5" /> Book / Register
-                          </button>
+                          {(() => {
+                            const existingPass = getExistingPassForActivity(act);
+                            if (existingPass) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenUpdateRegistration(act, existingPass)}
+                                  className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95 border border-emerald-500"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" /> Update Registration
+                                </button>
+                              );
+                            }
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedActivity(act)}
+                                className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95"
+                              >
+                                <Ticket className="w-3.5 h-3.5" /> Book / Register
+                              </button>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -1610,37 +1680,76 @@ export function EventMemberView() {
         </div>
       )}
 
-      {/* ─── EVENT REGISTRATION PORTAL WIZARD (MATCHING ADMIN DASHBOARD) ─── */}
+      {/* ─── EVENT REGISTRATION PORTAL WIZARD / DEDICATED POOJA REGISTRATION MODAL ─── */}
       {selectedActivity && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn">
-          <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 min-h-[85vh] sm:min-h-[640px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp">
-            <EventRegistrationWizard
-              event={{
-                id: selectedActivity.id,
-                title: selectedActivity.title,
-                description: selectedActivity.description,
-                category: selectedActivity.category,
-                price: selectedActivity.fee,
-                date: selectedActivity.date,
-                time: selectedActivity.time,
-                venue: selectedActivity.venue,
-                ticketTypes: [
-                  {
-                    id: `pass-${selectedActivity.id}`,
-                    name: `${selectedActivity.title} Pass`,
-                    price: selectedActivity.fee || "0",
-                    qty: selectedActivity.availableSeats || 100,
-                    description: selectedActivity.description || `Entry & seva pass for ${selectedActivity.title}`,
-                  },
-                ],
-              }}
-              onClose={() => {
-                setSelectedActivity(null);
-                fetchLiveDataFromBackend();
-              }}
-            />
+        selectedActivity.category?.toLowerCase().includes("pooja") || selectedActivity.category?.toLowerCase().includes("seva") ? (
+          <PoojaRegistrationModal
+            event={{
+              id: selectedActivity.id,
+              title: selectedActivity.title,
+              description: selectedActivity.description,
+              category: selectedActivity.category,
+              fee: selectedActivity.fee,
+              isFree: selectedActivity.isFree,
+              date: selectedActivity.date,
+              startDate: selectedActivity.startDate || selectedActivity.date,
+              endDate: selectedActivity.endDate,
+              isMultiDay: selectedActivity.isMultiDay,
+              time: selectedActivity.time,
+              startTime: selectedActivity.startTime,
+              startTimes: selectedActivity.startTimes,
+              venue: selectedActivity.venue,
+              mandap: selectedActivity.mandap || selectedActivity.venue,
+              pandit: selectedActivity.pandit,
+              availableSeats: selectedActivity.availableSeats || 24,
+              slots: selectedActivity.slots,
+              parentEventTitle: "Ganesh Utsav 2026",
+              existingRegistration: (selectedActivity as any)?.existingRegistration,
+              registrationId: (selectedActivity as any)?.registrationId,
+              isUpdateMode: (selectedActivity as any)?.isUpdateMode,
+            }}
+            onClose={() => {
+              setSelectedActivity(null);
+              fetchLiveDataFromBackend();
+            }}
+            onSuccess={() => {
+              fetchLiveDataFromBackend();
+            }}
+          />
+        ) : (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn">
+            <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 min-h-[85vh] sm:min-h-[640px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp">
+              <EventRegistrationWizard
+                event={{
+                  id: selectedActivity.id,
+                  title: selectedActivity.title,
+                  description: selectedActivity.description,
+                  category: selectedActivity.category,
+                  price: selectedActivity.fee,
+                  date: selectedActivity.date,
+                  time: selectedActivity.time,
+                  venue: selectedActivity.venue,
+                  existingRegistration: (selectedActivity as any)?.existingRegistration,
+                  registrationId: (selectedActivity as any)?.registrationId,
+                  isUpdateMode: (selectedActivity as any)?.isUpdateMode,
+                  ticketTypes: [
+                    {
+                      id: `pass-${selectedActivity.id}`,
+                      name: `${selectedActivity.title} Pass`,
+                      price: selectedActivity.fee || "0",
+                      qty: selectedActivity.availableSeats || 100,
+                      description: selectedActivity.description || `Entry & seva pass for ${selectedActivity.title}`,
+                    },
+                  ],
+                }}
+                onClose={() => {
+                  setSelectedActivity(null);
+                  fetchLiveDataFromBackend();
+                }}
+              />
+            </div>
           </div>
-        </div>
+        )
       )}
 
       {/* ─── QR GATE PASS MODAL (DIGITAL PASS WALLET) ─── */}
@@ -1832,16 +1941,35 @@ export function EventMemberView() {
                               <span className="text-xs font-mono font-black text-foreground">
                                 {act.fee === 0 ? "FREE" : `₹${act.fee}`}
                               </span>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedActivity(act);
-                                  setMobileQuickActionModal(null);
-                                }}
-                                className="px-2.5 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1"
-                              >
-                                <Ticket className="w-3 h-3" /> Book / Register
-                              </button>
+                              {(() => {
+                                const existingPass = getExistingPassForActivity(act);
+                                if (existingPass) {
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setMobileQuickActionModal(null);
+                                        handleOpenUpdateRegistration(act, existingPass);
+                                      }}
+                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-emerald-500"
+                                    >
+                                      <Edit3 className="w-3 h-3" /> Update Registration
+                                    </button>
+                                  );
+                                }
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedActivity(act);
+                                      setMobileQuickActionModal(null);
+                                    }}
+                                    className="px-2.5 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                                  >
+                                    <Ticket className="w-3 h-3" /> Book / Register
+                                  </button>
+                                );
+                              })()}
                             </div>
                           </div>
                         </div>

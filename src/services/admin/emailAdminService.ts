@@ -110,23 +110,75 @@ export const emailAdminService = {
   async getTemplates(communityId?: number): Promise<{ count: number; templates: EmailTemplateInfo[] }> {
     const url = communityId != null ? `/admin/email/templates?communityId=${communityId}` : "/admin/email/templates";
     try {
-      const res = await apiClient.get<{ count?: number; templates?: EmailTemplateInfo[] } | EmailTemplateInfo[]>(url);
-      let list: EmailTemplateInfo[] = [];
-      if (Array.isArray(res)) list = res;
-      else if (res && Array.isArray(res.templates)) list = res.templates;
+      const res = await apiClient.get<{ count?: number; templates?: any[] } | any[]>(url);
+      let rawList: any[] = [];
+      if (Array.isArray(res)) rawList = res;
+      else if (res && Array.isArray(res.templates)) rawList = res.templates;
 
-      if (list.length === 0) {
-        return { count: SYSTEM_TEMPLATES_CATALOG.length, templates: SYSTEM_TEMPLATES_CATALOG };
-      }
-      return { count: list.length, templates: list };
+      // Index DB templates by code / key for quick matching
+      const dbMap = new Map<string, any>();
+      rawList.forEach((item: any) => {
+        const k = String(item.key || item.templateCode || item.name || "").trim().toUpperCase();
+        if (k) dbMap.set(k, item);
+      });
+
+      // Always populate the complete system catalog (Events, Sports, Auth, Announcements, etc.)
+      const mergedList: EmailTemplateInfo[] = SYSTEM_TEMPLATES_CATALOG.map((sys) => {
+        const dbItem = dbMap.get(sys.key.toUpperCase());
+        if (dbItem) {
+          return {
+            ...sys,
+            name: dbItem.templateName || sys.name,
+            subject: dbItem.subject || sys.subject,
+            category: dbItem.category || sys.category,
+            customTemplateExists: true,
+            customTemplateId: dbItem.id ?? null,
+            customTemplateName: dbItem.templateName ?? sys.name,
+            customTemplateStatus: dbItem.status ? String(dbItem.status) : null,
+            appliedSource: dbItem.status === "ACTIVE" ? "CUSTOM" : "DEFAULT",
+          };
+        }
+        return sys;
+      });
+
+      // Also append any extra custom templates defined in DB that are not in SYSTEM_TEMPLATES_CATALOG
+      rawList.forEach((item: any) => {
+        const k = String(item.key || item.templateCode || item.name || "").trim().toUpperCase();
+        if (k && !SYSTEM_TEMPLATES_CATALOG.some((s) => s.key.toUpperCase() === k)) {
+          mergedList.push({
+            key: item.templateCode || item.key || k,
+            name: item.templateName || item.name || k,
+            subject: item.subject || "Notification",
+            templateFile: item.templateFile || `email/${k.toLowerCase().replace(/_/g, "-")}.html`,
+            category: item.category || "General",
+            triggerMenuPath: item.triggerMenuPath ?? null,
+            triggerWired: item.triggerWired ?? false,
+            triggerDescription: item.triggerDescription || "Custom Template",
+            customTemplateExists: true,
+            customTemplateId: item.id ?? null,
+            customTemplateName: item.templateName ?? null,
+            customTemplateStatus: item.status ? String(item.status) : null,
+            appliedSource: item.status === "ACTIVE" ? "CUSTOM" : "DEFAULT",
+            variables: item.variables,
+          });
+        }
+      });
+
+      return { count: mergedList.length, templates: mergedList };
     } catch {
       return { count: SYSTEM_TEMPLATES_CATALOG.length, templates: SYSTEM_TEMPLATES_CATALOG };
     }
   },
 
-  async getPreviewHtml(templateKey: string, communityId?: number, customVars?: Record<string, unknown>): Promise<string> {
+  async getPreviewHtml(templateKey?: string, communityId?: number, customVars?: Record<string, unknown>): Promise<string> {
+    const cleanKey = String(templateKey || "").trim();
+    if (!cleanKey || cleanKey === "undefined" || cleanKey === "null") {
+      const fallback = EMAIL_TEMPLATES_COLLECTION[0];
+      return fallback ? renderSampleHtml(fallback, customVars) : "";
+    }
+
     const query = communityId != null ? `?communityId=${communityId}` : "";
-    const url = `/api/admin/email/preview/${templateKey}${query}`;
+    const url = `/api/admin/email/preview/${encodeURIComponent(cleanKey)}${query}`;
     const token = localStorage.getItem("mana_token") || "";
 
     try {
@@ -153,23 +205,41 @@ export const emailAdminService = {
       // Continue to local rendered template fallback
     }
 
-    const tpl = EMAIL_TEMPLATES_COLLECTION.find((t) => t.key === templateKey || t.templateFile.includes(templateKey.toLowerCase().replace(/_/g, "-")));
+    const tpl = EMAIL_TEMPLATES_COLLECTION.find(
+      (t) => t.key.toUpperCase() === cleanKey.toUpperCase() || t.templateFile.toLowerCase().includes(cleanKey.toLowerCase().replace(/_/g, "-"))
+    );
     if (tpl) {
       return renderSampleHtml(tpl, customVars);
     }
 
-    return `<div style="padding:40px;font-family:sans-serif;text-align:center;color:#64748b;"><h3>Template Preview</h3><p>Template '${templateKey}' is ready.</p></div>`;
+    return `<div style="padding:40px;font-family:sans-serif;text-align:center;color:#64748b;"><h3>Template Preview</h3><p>Template '${cleanKey}' is ready.</p></div>`;
   },
 
-  async getDefaultTemplate(templateKey: string): Promise<DefaultTemplateDetails> {
+  async getDefaultTemplate(templateKey?: string): Promise<DefaultTemplateDetails> {
+    const cleanKey = String(templateKey || "").trim();
+    if (!cleanKey || cleanKey === "undefined" || cleanKey === "null") {
+      const fallback = EMAIL_TEMPLATES_COLLECTION[0];
+      return {
+        key: fallback.key,
+        templateName: fallback.name,
+        templateFile: fallback.templateFile,
+        subject: fallback.subject,
+        category: fallback.category,
+        rawHtml: fallback.rawHtml,
+        renderedHtml: renderSampleHtml(fallback),
+      };
+    }
+
     try {
-      const res = await apiClient.get<DefaultTemplateDetails>(`/admin/email/default-template/${templateKey}`);
+      const res = await apiClient.get<DefaultTemplateDetails>(`/admin/email/default-template/${encodeURIComponent(cleanKey)}`);
       if (res && res.rawHtml) return res;
     } catch {
       // Fallback
     }
 
-    const tpl = EMAIL_TEMPLATES_COLLECTION.find((t) => t.key === templateKey || t.templateFile.includes(templateKey.toLowerCase().replace(/_/g, "-")));
+    const tpl = EMAIL_TEMPLATES_COLLECTION.find(
+      (t) => t.key.toUpperCase() === cleanKey.toUpperCase() || t.templateFile.toLowerCase().includes(cleanKey.toLowerCase().replace(/_/g, "-"))
+    );
     if (tpl) {
       return {
         key: tpl.key,
@@ -183,9 +253,9 @@ export const emailAdminService = {
     }
 
     return {
-      key: templateKey,
-      templateName: templateKey,
-      templateFile: `email/${templateKey.toLowerCase().replace(/_/g, "-")}.html`,
+      key: cleanKey,
+      templateName: cleanKey,
+      templateFile: `email/${cleanKey.toLowerCase().replace(/_/g, "-")}.html`,
       subject: "Community Email",
       category: "EVENT",
       rawHtml: "<!-- Template HTML not available -->",

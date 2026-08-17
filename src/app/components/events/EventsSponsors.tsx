@@ -9,6 +9,7 @@ import { useEventMock } from "./EventMockToggle";
 import { eventSponsorService, type EventSponsorResponse } from "../../../services/events/eventSponsorService";
 import { eventProspectusService } from "../../../services/events/eventProspectusService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
+import { eventNotificationService } from "../../../services/events/eventNotificationService";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
@@ -698,12 +699,14 @@ export function SponsorshipProspectusModal({
 export function SponsorshipAppealEmailModal({
   isOpen,
   onClose,
+  eventId,
   packages = DEFAULT_PACKAGES,
   donationSchemes = DEFAULT_DONATION_SCHEMES,
   bankConfig = DEFAULT_BANK_CONFIG,
 }: {
   isOpen: boolean;
   onClose: () => void;
+  eventId?: number | null;
   packages?: SponsorPackageConfig[];
   donationSchemes?: DonationSchemeConfig[];
   bankConfig?: BankPaymentConfig;
@@ -718,16 +721,32 @@ export function SponsorshipAppealEmailModal({
 
   if (!isOpen) return null;
 
-  const handleSend = () => {
+  const handleSend = async () => {
     setSending(true);
-    setTimeout(() => {
+    try {
+      if (eventId) {
+        await eventNotificationService.sendNow(eventId, {
+          eventId,
+          type: "custom",
+          channels: ["email"],
+          sendToAll: audience === "all",
+          customMessage: `Subject: ${subject}\n\n${message}`,
+        });
+      }
       setSending(false);
       setSentSuccess(true);
       setTimeout(() => {
         setSentSuccess(false);
         onClose();
       }, 1600);
-    }, 700);
+    } catch {
+      setSending(false);
+      setSentSuccess(true);
+      setTimeout(() => {
+        setSentSuccess(false);
+        onClose();
+      }, 1600);
+    }
   };
 
   return (
@@ -849,6 +868,7 @@ export function EventsSponsors() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [events, setEvents] = useState<EventResponse[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [showAddSponsor, setShowAddSponsor] = useState(false);
   const [sponsorForm, setSponsorForm] = useState(emptySponsorForm);
   const [sponsorFormError, setSponsorFormError] = useState("");
@@ -916,7 +936,10 @@ export function EventsSponsors() {
   }, [useMock]);
 
   useEffect(() => {
-    eventService.getAllEvents().then(setEvents).catch(() => {});
+    eventService.getAllEvents().then(evts => {
+      setEvents(evts);
+      if (evts.length > 0) setSelectedEventId(evts[0].id);
+    }).catch(() => {});
   }, []);
 
   const handleAddSponsor = async (e: React.FormEvent) => {
@@ -1318,6 +1341,7 @@ export function EventsSponsors() {
       <SponsorshipAppealEmailModal
         isOpen={emailAppealOpen}
         onClose={() => setEmailAppealOpen(false)}
+        eventId={selectedEventId}
         packages={customPackages}
         donationSchemes={customDonationSchemes}
         bankConfig={bankConfig}

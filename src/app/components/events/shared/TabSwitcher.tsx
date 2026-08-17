@@ -1,4 +1,5 @@
-import { useState, type ReactNode, type ElementType } from "react";
+import { useState, useEffect, type ReactNode, type ElementType } from "react";
+import { useSearchParams } from "react-router";
 
 export interface TabDef {
   id: string;
@@ -20,15 +21,41 @@ interface TabSwitcherProps {
 }
 
 export function TabSwitcher({ tabs, defaultTab, className = "", variant = "gradient" }: TabSwitcherProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+
   const visible = tabs.filter(t => !t.hidden);
-  const [active, setActive] = useState(defaultTab ?? visible[0]?.id ?? "");
+  const resolveInitialTab = () => {
+    if (tabParam && tabs.some(t => t.id === tabParam)) {
+      return tabParam;
+    }
+    return defaultTab ?? visible[0]?.id ?? "";
+  };
+
+  const [active, setActive] = useState(resolveInitialTab);
+
+  useEffect(() => {
+    if (tabParam && tabs.some(t => t.id === tabParam)) {
+      setActive(tabParam);
+    }
+  }, [tabParam, tabs]);
+
+  const handleSelect = (id: string) => {
+    setActive(id);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", id);
+      return next;
+    }, { replace: true });
+  };
+
   const current = tabs.find(t => t.id === active) ?? tabs[0];
 
   if (visible.length <= 1) return <div className={className}>{current?.content}</div>;
 
   return (
     <div className={`space-y-5 ${className}`}>
-      <TabBar tabs={visible} active={active} onSelect={setActive} variant={variant} />
+      <TabBar tabs={visible} active={active} onSelect={handleSelect} variant={variant} />
       <div>{current?.content}</div>
     </div>
   );

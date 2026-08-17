@@ -230,7 +230,8 @@ export function EmailTemplatesTab() {
 
   // Load preview when activeTemplate, bannerUrl or sponsorUrl changes
   useEffect(() => {
-    if (!activeTemplate || communityId == null) return;
+    const templateKey = activeTemplate?.key;
+    if (!activeTemplate || !templateKey || templateKey === "undefined" || communityId == null) return;
 
     const requestId = ++previewRequestId.current;
     setLoadingPreview(true);
@@ -244,7 +245,7 @@ export function EmailTemplatesTab() {
           fromName: fromName || undefined,
           subject: subjectOverride || undefined,
         };
-        const html = await emailAdminService.getPreviewHtml(activeTemplate.key, communityId ?? undefined, payload);
+        const html = await emailAdminService.getPreviewHtml(templateKey, communityId ?? undefined, payload);
         if (requestId === previewRequestId.current) setPreviewHtml(html);
       } catch (err) {
         if (requestId === previewRequestId.current) {
@@ -365,10 +366,11 @@ export function EmailTemplatesTab() {
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
-        tpl.key.toLowerCase().includes(q) ||
+        (tpl.key && tpl.key.toLowerCase().includes(q)) ||
         (tpl.name && tpl.name.toLowerCase().includes(q)) ||
-        tpl.subject.toLowerCase().includes(q) ||
-        tpl.templateFile.toLowerCase().includes(q) ||
+        (tpl.subject && tpl.subject.toLowerCase().includes(q)) ||
+        (tpl.templateFile && tpl.templateFile.toLowerCase().includes(q)) ||
+        ((tpl as any).fileName && String((tpl as any).fileName).toLowerCase().includes(q)) ||
         (tpl.triggerMenuPath && tpl.triggerMenuPath.toLowerCase().includes(q)) ||
         (tpl.triggerDescription && tpl.triggerDescription.toLowerCase().includes(q));
 
@@ -641,14 +643,14 @@ export function EmailTemplatesTab() {
                         </div>
                       </div>
                       <span className="text-[10.5px] font-mono text-muted-foreground bg-muted/80 px-2 py-0.5 rounded-md truncate max-w-[140px]">
-                        {tpl.templateFile.replace("email/", "")}
+                        {(tpl.templateFile || (tpl as any).fileName || (tpl as any).templateKey || tpl.key || "template.html").replace("email/", "")}
                       </span>
                     </div>
 
                     <h4 className="text-sm font-black text-foreground group-hover:text-primary transition-colors leading-tight mb-1">
                       {templateLabel}
                     </h4>
-                    <p className="text-xs text-muted-foreground line-clamp-1 italic">"{tpl.subject}"</p>
+                    <p className="text-xs text-muted-foreground line-clamp-1 italic">"{tpl.subject || "No Subject"}"</p>
                   </div>
 
                   {/* Trigger Details */}
@@ -728,7 +730,7 @@ export function EmailTemplatesTab() {
                     </span>
                   </div>
                   <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                    File: <strong className="text-foreground">{activeTemplate.templateFile}</strong>
+                    File: <strong className="text-foreground">{activeTemplate.templateFile || (activeTemplate as any).fileName || activeTemplate.key || "template.html"}</strong>
                   </p>
                 </div>
               </div>
@@ -882,7 +884,7 @@ export function EmailTemplatesTab() {
                   <span className="text-primary font-extrabold">{getTplLabel(viewingDefaultTemplate)}</span>
                 </h2>
                 <p className="text-xs text-muted-foreground mt-0.5 font-mono">
-                  File Path: {viewingDefaultTemplate.templateFile}
+                  File Path: {viewingDefaultTemplate.templateFile || (viewingDefaultTemplate as any).fileName || viewingDefaultTemplate.key || "—"}
                 </p>
               </div>
 
@@ -961,7 +963,7 @@ export function EmailTemplatesTab() {
               ) : defaultViewMode === "source" ? (
                 <div className="rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
                   <div className="bg-slate-950 px-4 py-2 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
-                    <span>{viewingDefaultTemplate.templateFile}</span>
+                    <span>{viewingDefaultTemplate.templateFile || (viewingDefaultTemplate as any).fileName || viewingDefaultTemplate.key || "template.html"}</span>
                     <span className="text-[11px] text-emerald-400 font-bold">Thymeleaf Template Format</span>
                   </div>
                   <pre className="w-full h-[55vh] overflow-auto bg-slate-900 text-emerald-300 p-5 text-xs font-mono leading-relaxed whitespace-pre-wrap selection:bg-indigo-500 selection:text-white">

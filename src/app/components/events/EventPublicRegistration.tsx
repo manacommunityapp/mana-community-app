@@ -101,6 +101,7 @@ interface RegistrationForm {
 }
 
 const STEPS = [
+  { id: 1, label: "Pass Type" },
   { id: 2, label: "Details" },
   { id: 3, label: "Family" },
   { id: 4, label: "Additional" },
@@ -208,9 +209,6 @@ function Step2Details({ form, update }: { form: RegistrationForm; update: (k: ke
     <div className="space-y-4">
       <div className="flex items-center justify-between border-b border-slate-100 pb-2">
         <p className="text-sm font-bold text-slate-700">Primary Registrant Details</p>
-        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-orange-100 text-orange-800 border border-orange-200">
-          Category: Family Pass
-        </span>
       </div>
 
       {/* Personal Information */}
@@ -1044,8 +1042,7 @@ export function EventPublicRegistration() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { isAuthenticated, user: authUser } = useAuth();
-  // Start directly at step 2 (Details) — Step 1 (Type) removed
-  const [step, setStep] = useState(2);
+  const [step, setStep] = useState(1);
   const [isRegistered, setIsRegistered] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [regError, setRegError] = useState("");
@@ -1173,6 +1170,7 @@ export function EventPublicRegistration() {
   const isFirstStep = activeStepIndex === 0;
 
   const canNext = (): boolean => {
+    if (step === 1) return !!form.registrationType;
     if (step === 2) return !!(form.firstName && form.age && form.phone && form.email && form.gender);
     if (step === 3) {
       if (form.registrationType !== "family") return true;
@@ -1438,6 +1436,8 @@ export function EventPublicRegistration() {
                   </div>
                   <Step5Review form={form} event={displayEvent} />
                 </div>
+              ) : step === 1 ? (
+                <Step1Type form={form} update={update} />
               ) : step === 2 ? (
                 <Step2Details form={form} update={update} />
               ) : step === 3 ? (

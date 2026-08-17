@@ -89,6 +89,70 @@ export function EventsFood() {
       .catch(() => {});
   }, [useMock]);
 
+  useEffect(() => {
+    eventService.getAll().then(evts => {
+      setEvents(evts);
+      if (evts.length > 0) setSelectedEventId(evts[0].id);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!selectedEventId || useMock) return;
+    eventProgramService.getUserMeals(selectedEventId)
+      .then(reg => {
+        setExistingMealReg(reg);
+        if (reg) {
+          setDietaryPref(reg.dietaryPref || "VEG");
+          setAllergies(reg.allergies || "");
+          if (reg.meals?.length > 0) setMealDays(reg.meals);
+        }
+      })
+      .catch(() => {});
+  }, [selectedEventId, useMock]);
+
+  const initMealDays = () => {
+    if (mealSummary && mealSummary.days.length > 0) {
+      setMealDays(mealSummary.days.map(d => ({ date: d.date, lunch: true, dinner: true, headCount: 1 })));
+    } else {
+      const today = new Date();
+      const dates = Array.from({ length: 3 }, (_, i) => {
+        const d = new Date(today);
+        d.setDate(d.getDate() + i);
+        return d.toISOString().split("T")[0];
+      });
+      setMealDays(dates.map(date => ({ date, lunch: true, dinner: true, headCount: 1 })));
+    }
+  };
+
+  const handleSaveMealReg = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedEventId && !useMock) return;
+    setSavingMeal(true);
+    try {
+      if (!useMock && selectedEventId) {
+        await eventProgramService.saveMeals(selectedEventId, {
+          eventId: selectedEventId,
+          dietaryPref,
+          allergies: allergies || undefined,
+          meals: mealDays,
+        });
+      }
+      setMealSaved(true);
+      setTimeout(() => { setMealSaved(false); setShowMealReg(false); }, 1500);
+    } catch (err: any) {
+      setError(err?.message || "Failed to save meal preferences");
+    } finally {
+      setSavingMeal(false);
+    }
+  };
+
+  const toggleMealDay = (idx: number, field: "lunch" | "dinner") => {
+    setMealDays(prev => prev.map((d, i) => i === idx ? { ...d, [field]: !d[field] } : d));
+  };
+
+  const updateHeadCount = (idx: number, val: number) => {
+    setMealDays(prev => prev.map((d, i) => i === idx ? { ...d, headCount: Math.max(1, val) } : d));
+  };
 
   const totalPlanned = menuItems.reduce((a, m) => a + m.qty, 0);
   const totalPrepared = menuItems.reduce((a, m) => a + m.prepared, 0);
@@ -249,6 +313,105 @@ export function EventsFood() {
           </div>
         </div>
       )}
+
+      {/* Meal Registration Section */}
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
+        <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50">
+          <h2 className="font-bold text-slate-800 flex items-center gap-2">
+            <UtensilsCrossed className="w-4 h-4 text-emerald-500" /> Meal Preferences & Registration
+          </h2>
+          <button
+            onClick={() => { if (!showMealReg) initMealDays(); setShowMealReg(!showMealReg); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-sm"
+          >
+            {showMealReg ? "Close" : existingMealReg ? "Edit Preferences" : "Register Meals"}
+          </button>
+        </div>
+
+        {existingMealReg && !showMealReg && (
+          <div className="px-3 sm:px-6 py-3 sm:py-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span className="text-sm font-semibold text-emerald-700">Meal preferences registered</span>
+            </div>
+            <p className="text-xs text-slate-500">
+              Diet: {existingMealReg.dietaryPref || "Not set"}
+              {existingMealReg.allergies && ` · Allergies: ${existingMealReg.allergies}`}
+              {existingMealReg.meals && ` · ${existingMealReg.meals.length} day(s)`}
+            </p>
+          </div>
+        )}
+
+        {showMealReg && (
+          <form onSubmit={handleSaveMealReg} className="px-3 sm:px-6 py-4 space-y-4">
+            {mealSaved ? (
+              <div className="py-6 text-center space-y-2">
+                <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+                <p className="font-bold text-slate-800">Meal preferences saved!</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-slate-600">Dietary Preference</span>
+                    <select value={dietaryPref} onChange={e => setDietaryPref(e.target.value)}
+                      className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white">
+                      <option value="VEG">Vegetarian</option>
+                      <option value="VEGAN">Vegan</option>
+                      <option value="JAIN">Jain</option>
+                      <option value="NON_VEG">Non-Vegetarian</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-slate-600">Allergies / Special Needs</span>
+                    <input type="text" value={allergies} onChange={e => setAllergies(e.target.value)}
+                      className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                      placeholder="e.g. Nut allergy, Gluten free" />
+                  </label>
+                </div>
+
+                <div>
+                  <span className="text-xs font-semibold text-slate-600 block mb-2">Meal Days</span>
+                  <div className="space-y-2">
+                    {mealDays.map((day, idx) => (
+                      <div key={day.date} className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-xl border border-slate-100">
+                        <span className="text-xs font-semibold text-slate-700 w-24 flex-shrink-0">
+                          {new Date(day.date + "T00:00").toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" })}
+                        </span>
+                        <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                          <input type="checkbox" checked={day.lunch} onChange={() => toggleMealDay(idx, "lunch")}
+                            className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-300" />
+                          Lunch
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs text-slate-600 cursor-pointer">
+                          <input type="checkbox" checked={day.dinner} onChange={() => toggleMealDay(idx, "dinner")}
+                            className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-300" />
+                          Dinner
+                        </label>
+                        <label className="flex items-center gap-1.5 text-xs text-slate-600 ml-auto">
+                          Heads:
+                          <input type="number" value={day.headCount} onChange={e => updateHeadCount(idx, Number(e.target.value))}
+                            className="w-14 border border-slate-200 rounded-lg px-2 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-emerald-300"
+                            min="1" max="20" />
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setShowMealReg(false)}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
+                  <button type="submit" disabled={savingMeal}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center gap-2">
+                    {savingMeal && <Loader2 className="w-4 h-4 animate-spin" />} Save Meal Preferences
+                  </button>
+                </div>
+              </>
+            )}
+          </form>
+        )}
+      </div>
     </div>
   );
 }

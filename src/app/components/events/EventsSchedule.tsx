@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router";
 import { useEventMock } from "./EventMockToggle";
 import { eventService } from "../../../services/events/eventService";
 import {
@@ -30,7 +31,11 @@ import { EventsPrograms } from "./EventsPrograms";
 import { EventsFood } from "./EventsFood";
 import { OrganizerDashboard } from "./OrganizerDashboard";
 import { EventDashboardWrapper } from "./EventDashboardWrapper";
-import { PoojaSevaSection, LunchDinnerSection, CulturalEventsSection, CompetitionsSection } from "./EventSubCreatorForms";
+import { CompetitionsSection } from "./EventSubCreatorForms";
+import { EventsPoojaSeva } from "./EventsPoojaSeva";
+import { EventsLunchDinner } from "./EventsLunchDinner";
+import { EventsCulturalEvents } from "./EventsCulturalEvents";
+import { EditEventDialog } from "./EventsCreate";
 
 /* ─── Types ─── */
 type EventStatus = "upcoming" | "ongoing" | "completed" | "draft" | "cancelled";
@@ -1041,184 +1046,7 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
   );
 }
 
-/* ─── Edit Event Dialog ─── */
-function EditEventDialog({ event, onClose, onSave }: {
-  event: EventItem; onClose: () => void; onSave: (updated: EventItem) => void;
-}) {
-  const { useMock } = useEventMock();
-  const [title, setTitle] = useState(event.title);
-  const [type, setType] = useState(event.type);
-  const [category, setCategory] = useState(event.category || "Community");
-  const [startDate, setStartDate] = useState(event.startDate);
-  const [endDate, setEndDate] = useState(event.endDate);
-  const [startTime, setStartTime] = useState(event.startTime);
-  const [endTime, setEndTime] = useState(event.endTime);
-  const [venue, setVenue] = useState(event.venue);
-  const [city, setCity] = useState(event.city);
-  const [capacity, setCapacity] = useState(event.capacity);
-  const [status, setStatus] = useState<EventStatus>(event.status);
-  const [visibility, setVisibility] = useState<"public" | "community" | "private">(event.visibility);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const handleSave = async () => {
-    setSaving(true);
-    setError(null);
-    const updated: EventItem = {
-      ...event,
-      title,
-      type,
-      category,
-      startDate,
-      endDate,
-      startTime,
-      endTime,
-      venue,
-      city,
-      capacity,
-      status,
-      visibility,
-    };
-
-    if (!useMock) {
-      try {
-        const numId = typeof event.id === "string" ? parseInt(event.id.replace(/\D/g, ""), 10) : Number(event.id);
-        if (!isNaN(numId)) {
-          await eventService.update(numId, {
-            title,
-            type,
-            category,
-            startDate,
-            endDate,
-            startTime,
-            endTime,
-            venue,
-            city,
-            capacity,
-            status: (status === "upcoming" ? "PUBLISHED" : status.toUpperCase()) as any,
-          });
-          try {
-            window.dispatchEvent(new Event("mana_activities_updated"));
-            window.dispatchEvent(new Event("mana_event_created"));
-          } catch {}
-        }
-      } catch (err: any) {
-        setError(err.message || "Failed to update event");
-        setSaving(false);
-        return;
-      }
-    }
-
-    onSave(updated);
-    setSaving(false);
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="bg-gradient-to-r from-indigo-600 to-violet-500 px-6 py-4 rounded-t-2xl flex items-center justify-between shrink-0">
-          <h3 className="text-lg font-bold text-white flex items-center gap-2">
-            <Pencil className="w-5 h-5" /> Edit Event
-          </h3>
-          <button onClick={onClose} className="text-indigo-200 hover:text-white p-1">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {error && (
-          <div className="mx-6 mt-3 bg-rose-50 border border-rose-200 rounded-lg p-3 text-xs text-rose-700">
-            {error}
-          </div>
-        )}
-
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 text-xs">
-          <div>
-            <Label className="text-xs font-bold text-slate-700 block mb-1">Event Title *</Label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} className="h-9 text-xs" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs font-bold text-slate-700 block mb-1">Type</Label>
-              <Input value={type} onChange={e => setType(e.target.value)} className="h-9 text-xs" placeholder="Festival, Sports, etc." />
-            </div>
-            <div>
-              <Label className="text-xs font-bold text-slate-700 block mb-1">Category</Label>
-              <Input value={category} onChange={e => setCategory(e.target.value)} className="h-9 text-xs" placeholder="Religious, Cultural, etc." />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs font-bold text-slate-700 block mb-1">Start Date</Label>
-              <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="h-9 text-xs" />
-            </div>
-            <div>
-              <Label className="text-xs font-bold text-slate-700 block mb-1">End Date</Label>
-              <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="h-9 text-xs" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs font-bold text-slate-700 block mb-1">Start Time</Label>
-              <Input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="h-9 text-xs" />
-            </div>
-            <div>
-              <Label className="text-xs font-bold text-slate-700 block mb-1">End Time</Label>
-              <Input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="h-9 text-xs" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs font-bold text-slate-700 block mb-1">Venue</Label>
-              <Input value={venue} onChange={e => setVenue(e.target.value)} className="h-9 text-xs" />
-            </div>
-            <div>
-              <Label className="text-xs font-bold text-slate-700 block mb-1">City</Label>
-              <Input value={city} onChange={e => setCity(e.target.value)} className="h-9 text-xs" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <Label className="text-xs font-bold text-slate-700 block mb-1">Capacity</Label>
-              <Input type="number" value={capacity} onChange={e => setCapacity(Number(e.target.value))} className="h-9 text-xs" />
-            </div>
-            <div>
-              <Label className="text-xs font-bold text-slate-700 block mb-1">Status</Label>
-              <select value={status} onChange={e => setStatus(e.target.value as EventStatus)} className="w-full h-9 px-2 rounded-md border border-slate-200 text-xs bg-white">
-                <option value="upcoming">Upcoming</option>
-                <option value="ongoing">Ongoing</option>
-                <option value="completed">Completed</option>
-                <option value="draft">Draft</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-            <div>
-              <Label className="text-xs font-bold text-slate-700 block mb-1">Visibility</Label>
-              <select value={visibility} onChange={e => setVisibility(e.target.value as any)} className="w-full h-9 px-2 rounded-md border border-slate-200 text-xs bg-white">
-                <option value="public">Public</option>
-                <option value="community">Community</option>
-                <option value="private">Private</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-slate-100 px-6 py-4 flex justify-end gap-2 shrink-0">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-          <Button size="sm" onClick={handleSave} disabled={saving} className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
-            {saving ? "Saving..." : "Update Event"}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /* ─── Events List Sub-tab ─── */
 function EventsList() {
@@ -1444,7 +1272,8 @@ const TABS = [
 
 export function EventsSchedule() {
   const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
-  const [tab, setTab] = useState<string>("events");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
 
   const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
   const isEventsAdmin =
@@ -1462,11 +1291,35 @@ export function EventsSchedule() {
     return isEventsAdmin;
   });
 
+  const resolveInitialTab = () => {
+    if (tabParam && visibleTabs.some(t => t.id === tabParam)) {
+      return tabParam;
+    }
+    return "events";
+  };
+
+  const [tab, setTab] = useState<string>(resolveInitialTab);
+
+  useEffect(() => {
+    if (tabParam && visibleTabs.some(t => t.id === tabParam)) {
+      setTab(tabParam);
+    }
+  }, [tabParam, visibleTabs]);
+
+  const handleTabSelect = (tabId: string) => {
+    setTab(tabId);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", tabId);
+      return next;
+    }, { replace: true });
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 bg-white rounded-lg sm:rounded-xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-x-auto hide-scrollbar">
         {visibleTabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
+          <button key={t.id} onClick={() => handleTabSelect(t.id)}
             className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[10px] sm:text-sm font-semibold transition-all whitespace-nowrap flex-1 sm:flex-none justify-center ${
               tab === t.id
                 ? "bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm"
@@ -1480,16 +1333,16 @@ export function EventsSchedule() {
       {tab === "organizer" && <EventDashboardWrapper />}
       {tab === "planning" && <EventsPlanning />}
       {tab === "programs" && <EventsPrograms />}
-      {tab === "poojaSeva" && <PoojaSevaSection />}
+      {tab === "poojaSeva" && <EventsPoojaSeva />}
       {tab === "lunchDinner" && (
         <div className="space-y-8">
-          <LunchDinnerSection />
+          <EventsLunchDinner />
           <div className="pt-4 border-t border-border">
             <EventsFood />
           </div>
         </div>
       )}
-      {tab === "culturalEvents" && <CulturalEventsSection />}
+      {tab === "culturalEvents" && <EventsCulturalEvents />}
       {tab === "competitions" && <CompetitionsSection />}
     </div>
   );

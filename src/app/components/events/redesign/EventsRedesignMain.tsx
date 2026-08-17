@@ -9,6 +9,7 @@ import { EventsExecutiveHome } from "./EventsExecutiveHome";
 import { EventDetailView } from "./EventDetailView";
 import { EventsAnalyticsView } from "./EventsAnalyticsView";
 import { EventRegistrationWizard } from "./EventRegistrationWizard";
+import { PoojaRegistrationModal } from "../PoojaRegistrationModal";
 import { CulturalActivitiesView } from "./CulturalActivitiesView";
 import { VolunteerModuleView } from "./VolunteerModuleView";
 import { FoodModuleView } from "./FoodModuleView";
@@ -176,7 +177,15 @@ export function EventsRedesignMain() {
               {activeTab === "analytics" && <EventsAnalyticsView isDark={isDark} />}
               {activeTab === "registration" && (
                 <div className="max-w-xl mx-auto py-1 sm:py-3">
-                  <EventRegistrationWizard isDark={isDark} event={selectedRegisterEvent} onClose={() => setActiveTab("dashboard")} />
+                  {selectedRegisterEvent?.category?.toLowerCase().includes("pooja") || selectedRegisterEvent?.category?.toLowerCase().includes("seva") ? (
+                    <PoojaRegistrationModal
+                      event={selectedRegisterEvent}
+                      onClose={() => setActiveTab("dashboard")}
+                      onSuccess={() => setActiveTab("dashboard")}
+                    />
+                  ) : (
+                    <EventRegistrationWizard isDark={isDark} event={selectedRegisterEvent} onClose={() => setActiveTab("dashboard")} />
+                  )}
                 </div>
               )}
               {activeTab === "cultural" && <CulturalActivitiesView isDark={isDark} />}

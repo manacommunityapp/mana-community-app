@@ -218,11 +218,34 @@ export function PoojaSevaSection() {
     isMultiDay: false,
     date: "",
     endDate: "",
-    startTime: "", duration: "",
+    startTime: "08:30",
+    startTimes: ["08:30"],
+    duration: "",
     mandap: "", pandit: "", slots: "", fee: "", isFree: true,
     items: ["Coconut", "Flowers", "Bananas"], notes: "", isRecurring: false, recurringDays: "",
   });
   const [toast, setToast] = useState("");
+
+  const handleAddTimeSlot = () => {
+    set("startTimes", [...(form.startTimes || []), ""]);
+  };
+
+  const handleRemoveTimeSlot = (index: number) => {
+    const next = [...(form.startTimes || [])];
+    next.splice(index, 1);
+    const updated = next.length > 0 ? next : [""];
+    set("startTimes", updated);
+    set("startTime", updated[0] || "");
+  };
+
+  const handleTimeSlotChange = (index: number, val: string) => {
+    const next = [...(form.startTimes || [])];
+    next[index] = val;
+    set("startTimes", next);
+    if (index === 0) {
+      set("startTime", val);
+    }
+  };
 
   // Fetch Pooja Types dynamically from backend database
   useEffect(() => {
@@ -278,15 +301,31 @@ export function PoojaSevaSection() {
       return;
     }
 
+    const validStartTimes = (form.startTimes || []).filter(Boolean);
+    const primaryStartTime = validStartTimes[0] || form.startTime || "08:30";
+
     const itemObj = {
       id: "pooja-" + Date.now(),
       title: form.name,
       category: "Pooja",
       type: form.type,
       date: form.isMultiDay && form.endDate ? `${form.date} to ${form.endDate}` : form.date,
-      time: form.startTime ? `${form.startTime} (${form.duration || 60}m)` : "Morning",
+      startDate: form.date,
+      endDate: form.isMultiDay && form.endDate ? form.endDate : undefined,
+      isMultiDay: Boolean(form.isMultiDay),
+      multiDay: Boolean(form.isMultiDay),
+      duration: form.duration || 60,
+      mandap: form.mandap,
+      pandit: form.pandit,
+      slots: form.slots || 20,
+      time: validStartTimes.length > 1
+        ? `${validStartTimes.join(", ")} (${form.duration || 60}m)`
+        : primaryStartTime ? `${primaryStartTime} (${form.duration || 60}m)` : "Morning",
+      startTime: primaryStartTime,
+      startTimes: validStartTimes,
       venue: form.mandap || "Main Temple Mandap",
       fee: form.isFree ? 0 : Number(form.fee || 501),
+      isFree: Boolean(form.isFree),
       availableSeats: Number(form.slots || 20),
       image: "🪔",
       description: `Pandit: ${form.pandit || "Temple Priest"}. Samagri: ${form.items.join(", ")}. ${form.notes || ""}`,
@@ -302,7 +341,8 @@ export function PoojaSevaSection() {
           date: form.date,
           endDate: form.isMultiDay && form.endDate ? form.endDate : undefined,
           multiDay: form.isMultiDay,
-          startTime: form.startTime,
+          startTime: primaryStartTime,
+          startTimes: validStartTimes,
           duration: form.duration,
           mandap: form.mandap,
           pandit: form.pandit,
@@ -421,16 +461,57 @@ export function PoojaSevaSection() {
             </div>
 
             {!form.isMultiDay ? (
-              <Row>
-                <Col>
-                  <Label required>Date</Label>
-                  <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
-                </Col>
-                <Col>
-                  <Label required>Start Time</Label>
-                  <Input type="time" value={form.startTime} onChange={(v) => set("startTime", v)} />
-                </Col>
-              </Row>
+              <div className="space-y-3">
+                <Row>
+                  <Col>
+                    <Label required>Date</Label>
+                    <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+                  </Col>
+                  <Col>
+                    <Label>Duration (Minutes)</Label>
+                    <Input type="number" min="15" value={form.duration} onChange={(v) => set("duration", v)} placeholder="60" />
+                  </Col>
+                  <Col>
+                    <Label>Mandap / Venue Location</Label>
+                    <Input value={form.mandap} onChange={(v) => set("mandap", v)} placeholder="Main Mandap, Gate 1" />
+                  </Col>
+                </Row>
+                <div className="space-y-2 pt-1 border-t border-border/60">
+                  <div className="flex items-center justify-between">
+                    <Label required>Start Time(s) / Daily Sessions</Label>
+                    <button
+                      type="button"
+                      onClick={handleAddTimeSlot}
+                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Time Slot
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {(form.startTimes || ["08:30"]).map((t, idx) => (
+                      <div key={idx} className="flex items-center gap-2 p-2 rounded-xl bg-background border border-border">
+                        <span className="text-[11px] font-bold text-muted-foreground w-12 shrink-0">Slot {idx + 1}:</span>
+                        <Input
+                          type="time"
+                          value={t}
+                          onChange={(v) => handleTimeSlotChange(idx, v)}
+                          className="flex-1"
+                        />
+                        {form.startTimes && form.startTimes.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTimeSlot(idx)}
+                            className="p-1 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer shrink-0"
+                            title="Remove slot"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="space-y-3">
                 <Row>
@@ -445,37 +526,52 @@ export function PoojaSevaSection() {
                 </Row>
                 <Row>
                   <Col>
-                    <Label required>Daily Start Time</Label>
-                    <Input type="time" value={form.startTime} onChange={(v) => set("startTime", v)} />
-                  </Col>
-                  <Col>
                     <Label>Duration (Minutes)</Label>
                     <Input type="number" min="15" value={form.duration} onChange={(v) => set("duration", v)} placeholder="60" />
                   </Col>
+                  <Col>
+                    <Label>Mandap / Venue Location</Label>
+                    <Input value={form.mandap} onChange={(v) => set("mandap", v)} placeholder="Main Mandap, Gate 1" />
+                  </Col>
                 </Row>
+                <div className="space-y-2 pt-1 border-t border-border/60">
+                  <div className="flex items-center justify-between">
+                    <Label required>Daily Start Time(s) / Multi-Session Slots</Label>
+                    <button
+                      type="button"
+                      onClick={handleAddTimeSlot}
+                      className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Time Slot
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {(form.startTimes || ["08:30"]).map((t, idx) => (
+                      <div key={idx} className="flex items-center gap-2 p-2 rounded-xl bg-background border border-border">
+                        <span className="text-[11px] font-bold text-muted-foreground w-12 shrink-0">Slot {idx + 1}:</span>
+                        <Input
+                          type="time"
+                          value={t}
+                          onChange={(v) => handleTimeSlotChange(idx, v)}
+                          className="flex-1"
+                        />
+                        {form.startTimes && form.startTimes.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTimeSlot(idx)}
+                            className="p-1 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer shrink-0"
+                            title="Remove slot"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
-
-          {!form.isMultiDay && (
-            <Row>
-              <Col>
-                <Label>Duration (Minutes)</Label>
-                <Input type="number" min="15" value={form.duration} onChange={(v) => set("duration", v)} placeholder="60" />
-              </Col>
-              <Col>
-                <Label>Mandap / Venue Location</Label>
-                <Input value={form.mandap} onChange={(v) => set("mandap", v)} placeholder="Main Mandap, Gate 1" />
-              </Col>
-            </Row>
-          )}
-
-          {form.isMultiDay && (
-            <Col>
-              <Label>Mandap / Venue Location</Label>
-              <Input value={form.mandap} onChange={(v) => set("mandap", v)} placeholder="Main Mandap, Gate 1" />
-            </Col>
-          )}
         </div>
       </SectionCard>
 
