@@ -173,6 +173,13 @@ export function EventMemberView() {
       try {
         const customActivities: Activity[] = JSON.parse(localStorage.getItem("mana_custom_activities") || "[]");
         const storedEvents: any[] = JSON.parse(localStorage.getItem("mana_events") || "[]");
+        const storedPasses: any[] = JSON.parse(localStorage.getItem("mana_user_passes") || "[]");
+
+        const getMockBookedCount = (actId: string, title?: string) => {
+          return storedPasses
+            .filter((p: any) => p && p.status !== "CANCELLED" && (p.id === actId || (title && p.title === title)))
+            .length;
+        };
 
         const mappedMainEvents: Activity[] = storedEvents.map((ev: any) => ({
           id: `event-${ev.id || Date.now()}`,
@@ -182,12 +189,15 @@ export function EventMemberView() {
           time: ev.startTime || "Morning",
           venue: ev.venue || ev.location || "Main Temple Mandap, Gate 1",
           fee: ev.price ? Number(ev.price) : 0,
-          availableSeats: ev.capacity || 50,
+          availableSeats: Math.max(0, (ev.capacity || 50) - getMockBookedCount(`event-${ev.id}`, ev.title)),
           image: "📅",
           description: ev.description || "Community Parent Event created by Admin",
         }));
 
-        const combinedMock = [...mappedMainEvents, ...customActivities, ...INITIAL_ACTIVITIES];
+        const combinedMock = [...mappedMainEvents, ...customActivities, ...INITIAL_ACTIVITIES].map((act) => ({
+          ...act,
+          availableSeats: Math.max(0, act.availableSeats - getMockBookedCount(act.id, act.title)),
+        }));
         setActivitiesList(combinedMock);
       } catch (e) {
         setActivitiesList(INITIAL_ACTIVITIES);
@@ -197,21 +207,37 @@ export function EventMemberView() {
 
     try {
       setLoadingApiData(true);
-      const [mainEvents, poojas, culturals, comps, meals, stats] = await Promise.all([
+      const [mainEvents, poojas, culturals, comps, meals, stats, allRegistrations] = await Promise.all([
         eventService.getUpcomingEvents().catch(() => []),
         eventService.getPoojaSevas().catch(() => []),
         eventService.getCulturalEvents().catch(() => []),
         eventService.getCompetitions().catch(() => []),
         eventService.getLunchDinners().catch(() => []),
         eventService.getDashboardStats().catch(() => null),
+        eventService.getAllRegistrations().catch(() => []),
       ]);
 
       setLiveStats(stats);
+
+      const getBookedCount = (actId: string, title?: string) => {
+        if (!Array.isArray(allRegistrations)) return 0;
+        return allRegistrations
+          .filter(
+            (r: any) =>
+              r &&
+              r.status !== "CANCELLED" &&
+              (r.activityId === actId ||
+                (title && r.activityTitle && r.activityTitle.trim().toLowerCase() === title.trim().toLowerCase()))
+          )
+          .reduce((acc: number, r: any) => acc + (Number(r.devoteeCount) || 1), 0);
+      };
 
       const fetchedActivities: Activity[] = [];
 
       if (mainEvents && Array.isArray(mainEvents)) {
         mainEvents.forEach((ev: any) => {
+          const initialCapacity = ev.capacity || ev.maxAttendees || 50;
+          const booked = getBookedCount(`event-${ev.id}`, ev.title);
           fetchedActivities.push({
             id: `event-${ev.id}`,
             title: ev.title,
@@ -220,7 +246,7 @@ export function EventMemberView() {
             time: ev.startTime || "Morning",
             venue: ev.venue || ev.location || "Main Temple Mandap, Gate 1",
             fee: ev.price ? Number(ev.price) : 0,
-            availableSeats: ev.capacity || 50,
+            availableSeats: Math.max(0, initialCapacity - booked),
             image: "📅",
             description: ev.description || "Community Parent Event",
           });
@@ -229,6 +255,8 @@ export function EventMemberView() {
 
       if (poojas && Array.isArray(poojas)) {
         poojas.forEach((p: any) => {
+          const initialSlots = p.slots != null ? p.slots : 20;
+          const booked = getBookedCount(`pooja-${p.id}`, p.name);
           fetchedActivities.push({
             id: `pooja-${p.id || Date.now()}`,
             title: p.name || "Pooja Seva",
@@ -237,7 +265,7 @@ export function EventMemberView() {
             time: p.startTime ? `${p.startTime}` : "Morning",
             venue: p.mandap || "Main Temple Mandap, Gate 1",
             fee: p.isFree ? 0 : Number(p.fee || 501),
-            availableSeats: p.slots || 20,
+            availableSeats: Math.max(0, initialSlots - booked),
             image: "🪔",
             description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || ""}`,
           });
@@ -246,6 +274,8 @@ export function EventMemberView() {
 
       if (meals && Array.isArray(meals)) {
         meals.forEach((m: any) => {
+          const initialPlates = m.targetPlates != null ? m.targetPlates : 500;
+          const booked = getBookedCount(`food-${m.id}`, m.name);
           fetchedActivities.push({
             id: `food-${m.id || Date.now()}`,
             title: m.name || "Community Mahaprasadam",
@@ -254,7 +284,7 @@ export function EventMemberView() {
             time: m.startTime && m.endTime ? `${m.startTime} - ${m.endTime}` : (m.startTime || "Afternoon / Evening"),
             venue: m.venue || "Annadanam Dining Hall, Gate 2",
             fee: m.isFree ? 0 : Number(m.fee || 50),
-            availableSeats: m.targetPlates || 500,
+            availableSeats: Math.max(0, initialPlates - booked),
             image: "🍲",
             description: `Meal: ${m.mealType || "Bhojanam"}. Caterer: ${m.caterer || "Food Committee"}. Menu: ${Array.isArray(m.menuItems) ? m.menuItems.join(", ") : ""}. ${m.notes || ""}`,
           });
@@ -263,6 +293,8 @@ export function EventMemberView() {
 
       if (culturals && Array.isArray(culturals)) {
         culturals.forEach((c: any) => {
+          const initialSeats = 30;
+          const booked = getBookedCount(`cult-${c.id}`, c.name);
           fetchedActivities.push({
             id: `cult-${c.id || Date.now()}`,
             title: c.name || "Cultural Performance",
@@ -271,7 +303,7 @@ export function EventMemberView() {
             time: c.startTime || "Evening",
             venue: c.stage || "Auditorium Stage A",
             fee: 0,
-            availableSeats: 30,
+            availableSeats: Math.max(0, initialSeats - booked),
             image: "🎭",
             description: `Category: ${c.category}. Type: ${c.perfType || "Group"}. Age: ${c.ageGroup || "All"}.`,
           });
@@ -280,6 +312,8 @@ export function EventMemberView() {
 
       if (comps && Array.isArray(comps)) {
         comps.forEach((cm: any) => {
+          const initialMax = cm.maxParticipants != null ? cm.maxParticipants : 50;
+          const booked = getBookedCount(`comp-${cm.id}`, cm.name);
           fetchedActivities.push({
             id: `comp-${cm.id || Date.now()}`,
             title: cm.name || "Community Competition",
@@ -288,7 +322,7 @@ export function EventMemberView() {
             time: cm.startTime || "Morning",
             venue: cm.venue || "Clubhouse Activity Hall",
             fee: cm.isFree ? 0 : Number(cm.fee || 100),
-            availableSeats: cm.maxParticipants || 50,
+            availableSeats: Math.max(0, initialMax - booked),
             image: "🏆",
             description: `Category: ${cm.category}. Age Group: ${cm.ageGroup || "Open"}. Rules: ${cm.rules || ""}`,
           });
@@ -411,11 +445,18 @@ export function EventMemberView() {
     loadFamilyMembers();
     loadUserPasses();
 
+    const handleRegUpdate = () => {
+      fetchLiveDataFromBackend();
+      loadUserPasses();
+    };
+
     window.addEventListener("mana_activities_updated", fetchLiveDataFromBackend);
+    window.addEventListener("mana_registrations_updated", handleRegUpdate);
     window.addEventListener("mana_family_updated", loadFamilyMembers);
 
     return () => {
       window.removeEventListener("mana_activities_updated", fetchLiveDataFromBackend);
+      window.removeEventListener("mana_registrations_updated", handleRegUpdate);
       window.removeEventListener("mana_family_updated", loadFamilyMembers);
     };
   }, [useMock, user]);

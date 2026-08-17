@@ -271,10 +271,11 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         paymentReceiptUrl: formData.receiptUrl || undefined,
         transactionId: formData.transactionRef || undefined,
       };
-      await eventService.createRegistration(regPayload);
     } catch (err) {
       console.warn("Could not persist registration to backend API, saved locally:", err);
     }
+    window.dispatchEvent(new Event("mana_activities_updated"));
+    window.dispatchEvent(new Event("mana_registrations_updated"));
     setFormData((prev) => ({ ...prev, paymentMode: selectedMode }));
     setIsSuccess(true);
   };
