@@ -130,6 +130,15 @@ export interface PendingActionItemResponse {
   done: boolean;
 }
 
+function parseNumericId(id: number | string | undefined | null): number | null {
+  if (id === undefined || id === null) return null;
+  if (typeof id === "number") return isNaN(id) || id <= 0 ? null : id;
+  const digitsOnly = String(id).replace(/\D/g, "");
+  if (!digitsOnly) return null;
+  const num = Number(digitsOnly);
+  return isNaN(num) || num <= 0 ? null : num;
+}
+
 export const eventService = {
   async getUpcomingEvents(type?: string): Promise<EventResponse[]> {
     const qs = type && type !== "All" ? `?type=${type}` : "";
@@ -148,32 +157,44 @@ export const eventService = {
     return apiClient.get<EventResponse[]>("/events/mine");
   },
 
-  async getById(id: number): Promise<EventResponse> {
-    return apiClient.get<EventResponse>(`/events/${id}`);
+  async getById(id: number | string): Promise<EventResponse> {
+    const numericId = parseNumericId(id);
+    if (!numericId) {
+      throw new Error(`Invalid event ID: ${id}`);
+    }
+    return apiClient.get<EventResponse>(`/events/${numericId}`);
   },
 
   async getEventById(id: number | string): Promise<EventResponse> {
-    return this.getById(Number(id));
+    return this.getById(id);
   },
 
   async create(data: EventRequest): Promise<EventResponse> {
     return apiClient.post<EventResponse>("/events", data);
   },
 
-  async update(id: number, data: EventRequest): Promise<EventResponse> {
-    return apiClient.put<EventResponse>(`/events/${id}`, data);
+  async update(id: number | string, data: EventRequest): Promise<EventResponse> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid event ID: ${id}`);
+    return apiClient.put<EventResponse>(`/events/${numericId}`, data);
   },
 
-  async deleteEvent(id: number): Promise<void> {
-    await apiClient.delete<void>(`/events/${id}`);
+  async deleteEvent(id: number | string): Promise<void> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid event ID: ${id}`);
+    await apiClient.delete<void>(`/events/${numericId}`);
   },
 
-  async register(id: number): Promise<EventResponse> {
-    return apiClient.post<EventResponse>(`/events/${id}/register`, {});
+  async register(id: number | string): Promise<EventResponse> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid event ID: ${id}`);
+    return apiClient.post<EventResponse>(`/events/${numericId}/register`, {});
   },
 
-  async unregister(id: number): Promise<EventResponse> {
-    return apiClient.delete<EventResponse>(`/events/${id}/register`);
+  async unregister(id: number | string): Promise<EventResponse> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid event ID: ${id}`);
+    return apiClient.delete<EventResponse>(`/events/${numericId}/register`);
   },
 
   async getDashboardStats(): Promise<DashboardStatsResponse> {
@@ -188,16 +209,22 @@ export const eventService = {
     return apiClient.get<PendingActionItemResponse[]>("/events/dashboard/pending-actions");
   },
 
-  async getEventRegistrations(eventId: number): Promise<RegistrationResponse[]> {
-    return apiClient.get<RegistrationResponse[]>(`/events/${eventId}/registrations`);
+  async getEventRegistrations(eventId: number | string): Promise<RegistrationResponse[]> {
+    const numericId = parseNumericId(eventId);
+    if (!numericId) return [];
+    return apiClient.get<RegistrationResponse[]>(`/events/${numericId}/registrations`);
   },
 
-  async confirmRegistration(regId: number): Promise<RegistrationResponse> {
-    return apiClient.put<RegistrationResponse>(`/events/registrations/${regId}/confirm`, {});
+  async confirmRegistration(regId: number | string): Promise<RegistrationResponse> {
+    const numericId = parseNumericId(regId);
+    if (!numericId) throw new Error(`Invalid registration ID: ${regId}`);
+    return apiClient.put<RegistrationResponse>(`/events/registrations/${numericId}/confirm`, {});
   },
 
-  async rejectRegistration(regId: number): Promise<RegistrationResponse> {
-    return apiClient.put<RegistrationResponse>(`/events/registrations/${regId}/reject`, {});
+  async rejectRegistration(regId: number | string): Promise<RegistrationResponse> {
+    const numericId = parseNumericId(regId);
+    if (!numericId) throw new Error(`Invalid registration ID: ${regId}`);
+    return apiClient.put<RegistrationResponse>(`/events/registrations/${numericId}/reject`, {});
   },
 
   async getPoojaTypes(): Promise<{ id: number; name: string; description?: string }[]> {
@@ -374,17 +401,22 @@ export const eventService = {
     return apiClient.get<any[]>(`/events/family-members${qs}`);
   },
 
-  async addFamilyMember(data: any, eventId?: number): Promise<any> {
-    const qs = eventId ? `?eventId=${eventId}` : "";
+  async addFamilyMember(data: any, eventId?: number | string): Promise<any> {
+    const numericEventId = parseNumericId(eventId);
+    const qs = numericEventId ? `?eventId=${numericEventId}` : "";
     return apiClient.post<any>(`/events/family-members${qs}`, data);
   },
 
-  async updateFamilyMember(id: number, data: any): Promise<any> {
-    return apiClient.put<any>(`/events/family-members/${id}`, data);
+  async updateFamilyMember(id: number | string, data: any): Promise<any> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid family member ID: ${id}`);
+    return apiClient.put<any>(`/events/family-members/${numericId}`, data);
   },
 
-  async deleteFamilyMember(id: number): Promise<void> {
-    return apiClient.delete<void>(`/events/family-members/${id}`);
+  async deleteFamilyMember(id: number | string): Promise<void> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid family member ID: ${id}`);
+    return apiClient.delete<void>(`/events/family-members/${numericId}`);
   },
 
   async createRegistration(data: any): Promise<any> {
@@ -399,11 +431,15 @@ export const eventService = {
     return apiClient.get<any[]>("/events/registrations");
   },
 
-  async updateRegistration(id: number, data: any): Promise<any> {
-    return apiClient.put<any>(`/events/registrations/${id}`, data);
+  async updateRegistration(id: number | string, data: any): Promise<any> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
+    return apiClient.put<any>(`/events/registrations/${numericId}`, data);
   },
 
-  async cancelRegistration(id: number): Promise<void> {
-    return apiClient.delete<void>(`/events/registrations/${id}`);
+  async cancelRegistration(id: number | string): Promise<void> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
+    return apiClient.delete<void>(`/events/registrations/${numericId}`);
   },
 };

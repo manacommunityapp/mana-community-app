@@ -1261,7 +1261,6 @@ function EventsList() {
 /* ─── Main Component ─── */
 const TABS = [
   { id: "events",          label: "Events",               icon: CalendarDays  },
-  { id: "organizer",       label: "Organizer Dashboard", icon: ShieldCheck   },
   { id: "planning",        label: "Planning & Tasks",    icon: ClipboardList },
   { id: "programs",        label: "Day Programs",         icon: Mic2          },
   { id: "poojaSeva",       label: "Pooja & Seva",         icon: Flame         },
@@ -1287,7 +1286,7 @@ export function EventsSchedule() {
     hasPermission(MANAGE_EVENT_DASHBOARD);
 
   const visibleTabs = TABS.filter((t) => {
-    if (t.id === "events" || t.id === "organizer") return true;
+    if (t.id === "events") return true;
     return isEventsAdmin;
   });
 
@@ -1330,7 +1329,6 @@ export function EventsSchedule() {
         ))}
       </div>
       {tab === "events" && <EventsList />}
-      {tab === "organizer" && <EventDashboardWrapper />}
       {tab === "planning" && <EventsPlanning />}
       {tab === "programs" && <EventsPrograms />}
       {tab === "poojaSeva" && <EventsPoojaSeva />}
