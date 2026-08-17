@@ -7,6 +7,7 @@ import {
   Shield, UserPlus, Trash2, Heart, Baby, UserCheck, UserCog,
   Sparkles, QrCode, Download, Share2, Ticket, Star,
   Stethoscope, Accessibility, Megaphone, ShieldCheck,
+  CreditCard, Smartphone, Banknote,
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -95,13 +96,15 @@ interface RegistrationForm {
   referralSource: string;
   agreeTerms: boolean;
   agreePhotography: boolean;
+  paymentMethod: string;
+  upiId: string;
 }
 
 const STEPS = [
-  { id: 1, label: "Type" },
   { id: 2, label: "Details" },
   { id: 3, label: "Family" },
   { id: 4, label: "Additional" },
+  { id: 55, label: "Payment" },
   { id: 5, label: "Review" },
 ];
 
@@ -291,20 +294,7 @@ function Step2Details({ form, update }: { form: RegistrationForm; update: (k: ke
             <Input value={form.colonyAddress || form.address} onChange={e => { update("colonyAddress", e.target.value); update("address", e.target.value); }} placeholder="e.g. LE Community, M.G. Road, Miyapur, Hyderabad" className={INPUT_CLS} />
           </div>
 
-          <div>
-            <Label className={LABEL_CLS}>Preferred Pooja Time Slot</Label>
-            <Select value={form.poojaSlot || "Evening Visarjan / Utsav (05:00 PM - 09:00 PM)"} onValueChange={v => update("poojaSlot", v)}>
-              <SelectTrigger className={INPUT_CLS}>
-                <SelectValue placeholder="Select Pooja Time Slot" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Morning Aarti (07:00 AM - 11:00 AM)">Morning Aarti (07:00 AM - 11:00 AM)</SelectItem>
-                <SelectItem value="Afternoon Pooja & Prasad (12:00 PM - 03:00 PM)">Afternoon Pooja & Prasad (12:00 PM - 03:00 PM)</SelectItem>
-                <SelectItem value="Evening Visarjan / Utsav (05:00 PM - 09:00 PM)">Evening Visarjan / Utsav (05:00 PM - 09:00 PM)</SelectItem>
-                <SelectItem value="Late Night Bhajan Sandhya (09:00 PM - 11:30 PM)">Late Night Bhajan Sandhya (09:00 PM - 11:30 PM)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Preferred Pooja Time Slot — hidden per requirement */}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -666,6 +656,77 @@ function Step4Additional({ form, update }: { form: RegistrationForm; update: (k:
   );
 }
 
+/* ─── Step 5.5: Payment ─── */
+function StepPayment({ form, update }: { form: RegistrationForm; update: (k: keyof RegistrationForm, v: any) => void }) {
+  const paymentMethods = [
+    { id: "upi",  label: "UPI / QR Code",      icon: Smartphone, desc: "Pay via any UPI app (GPay, PhonePe, Paytm)" },
+    { id: "card", label: "Card / Net Banking",  icon: CreditCard, desc: "Visa, Mastercard, RuPay, Net Banking" },
+    { id: "cash", label: "Cash at Venue",       icon: Banknote,   desc: "Pay on the day of event at registration desk" },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <p className="text-sm text-slate-500">Select payment method to complete booking.</p>
+
+      <div className="space-y-2.5">
+        {paymentMethods.map(m => (
+          <button
+            key={m.id}
+            onClick={() => update("paymentMethod", m.id)}
+            className={cn(
+              "w-full flex items-center gap-4 p-4 rounded-xl border-2 text-left transition-all",
+              form.paymentMethod === m.id
+                ? "border-indigo-400 bg-indigo-50 shadow-sm"
+                : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/30"
+            )}
+          >
+            <div className={cn(
+              "w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0",
+              form.paymentMethod === m.id ? "bg-indigo-500" : "bg-slate-100"
+            )}>
+              <m.icon className={`w-5 h-5 ${form.paymentMethod === m.id ? "text-white" : "text-slate-500"}`} />
+            </div>
+            <div className="flex-1">
+              <p className={`font-bold text-sm ${form.paymentMethod === m.id ? "text-indigo-700" : "text-slate-800"}`}>
+                {m.label}
+              </p>
+              <p className="text-xs text-slate-400">{m.desc}</p>
+            </div>
+            <div className={cn(
+              "w-4 h-4 rounded-full border-2 flex-shrink-0",
+              form.paymentMethod === m.id ? "border-indigo-500 bg-indigo-500" : "border-slate-300"
+            )}>
+              {form.paymentMethod === m.id && (
+                <div className="w-full h-full rounded-full flex items-center justify-center">
+                  <div className="w-2 h-2 rounded-full bg-white" />
+                </div>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {form.paymentMethod === "upi" && (
+        <div className="animate-fade-in-up p-4 bg-white rounded-2xl border border-slate-200 space-y-3">
+          <p className="text-xs font-bold text-slate-600">UPI ID</p>
+          <input
+            value={form.upiId}
+            onChange={e => update("upiId", e.target.value)}
+            placeholder="yourname@upi"
+            className={INPUT_CLS}
+          />
+          <p className="text-[10px] text-slate-400">Enter your UPI ID or scan QR at venue.</p>
+        </div>
+      )}
+
+      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-2 text-xs text-slate-500">
+        <Shield className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+        Your payment is secure and encrypted. No card data is stored.
+      </div>
+    </div>
+  );
+}
+
 /* ─── Step 5: Review & Confirm ─── */
 function Step5Review({ form, event }: { form: RegistrationForm; event: typeof MOCK_EVENT | EventResponse }) {
   const regId = `REG-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
@@ -983,7 +1044,8 @@ export function EventPublicRegistration() {
   const { eventId } = useParams<{ eventId: string }>();
   const navigate = useNavigate();
   const { isAuthenticated, user: authUser } = useAuth();
-  const [step, setStep] = useState(1);
+  // Start directly at step 2 (Details) — Step 1 (Type) removed
+  const [step, setStep] = useState(2);
   const [isRegistered, setIsRegistered] = useState(false);
   const [registering, setRegistering] = useState(false);
   const [regError, setRegError] = useState("");
@@ -1033,7 +1095,7 @@ export function EventPublicRegistration() {
   const hasDynamicForm = formConfig && formConfig.fields.length > 0;
 
   const [form, setForm] = useState<RegistrationForm>({
-    registrationType: "",
+    registrationType: "individual",
     firstName: "",
     lastName: "",
     age: "",
@@ -1043,7 +1105,7 @@ export function EventPublicRegistration() {
     address: "",
     flatNo: "",
     colonyAddress: "",
-    poojaSlot: "Evening Visarjan / Utsav (05:00 PM - 09:00 PM)",
+    poojaSlot: "",
     city: "",
     pincode: "",
     familyMembers: [],
@@ -1059,6 +1121,8 @@ export function EventPublicRegistration() {
     referralSource: "",
     agreeTerms: false,
     agreePhotography: false,
+    paymentMethod: "",
+    upiId: "",
   });
 
   // ── Auto-fill logged in user details dynamically from database ──
@@ -1098,6 +1162,8 @@ export function EventPublicRegistration() {
   const update = (key: keyof RegistrationForm, value: any) =>
     setForm(prev => ({ ...prev, [key]: value }));
 
+  // Step 1 (Type) is removed — always start at step 2 (Details)
+  // Step 55 is the Payment step inserted before Review (step 5)
   const activeSteps = form.registrationType === "family"
     ? STEPS
     : STEPS.filter(s => s.id !== 3);
@@ -1107,13 +1173,13 @@ export function EventPublicRegistration() {
   const isFirstStep = activeStepIndex === 0;
 
   const canNext = (): boolean => {
-    if (step === 1) return !!form.registrationType;
     if (step === 2) return !!(form.firstName && form.age && form.phone && form.email && form.gender);
     if (step === 3) {
       if (form.registrationType !== "family") return true;
       return form.familyMembers.length > 0 && form.familyMembers.every(m => m.name && m.age && m.relationship && m.gender);
     }
     if (step === 4) return form.agreeTerms;
+    if (step === 55) return !!form.paymentMethod;
     return true;
   };
 
@@ -1372,8 +1438,6 @@ export function EventPublicRegistration() {
                   </div>
                   <Step5Review form={form} event={displayEvent} />
                 </div>
-              ) : step === 1 ? (
-                <Step1Type form={form} update={update} />
               ) : step === 2 ? (
                 <Step2Details form={form} update={update} />
               ) : step === 3 ? (
@@ -1384,6 +1448,8 @@ export function EventPublicRegistration() {
                 ) : (
                   <Step4Additional form={form} update={update} />
                 )
+              ) : step === 55 ? (
+                <StepPayment form={form} update={update} />
               ) : step === 5 ? (
                 <Step5Review form={form} event={displayEvent} />
               ) : null}

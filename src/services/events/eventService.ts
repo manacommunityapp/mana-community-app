@@ -328,6 +328,10 @@ export const eventService = {
     return apiClient.get<any[]>("/events/registrations");
   },
 
+  async updateRegistration(id: number, data: any): Promise<any> {
+    return apiClient.put<any>(`/events/registrations/${id}`, data);
+  },
+
   async cancelRegistration(id: number): Promise<void> {
     return apiClient.delete<void>(`/events/registrations/${id}`);
   },
