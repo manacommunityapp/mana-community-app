@@ -228,11 +228,15 @@ const MOCK_REGISTRATIONS: UnifiedReg[] = [
 ];
 
 /* ─── Main Component ─── */
-export function OrganizerDashboard() {
+export interface OrganizerDashboardProps {
+  initialTab?: 'passes' | 'volunteers' | 'registrations' | 'overview' | 'scanner' | 'gates' | 'prasad';
+}
+
+export function OrganizerDashboard({ initialTab = 'registrations' }: OrganizerDashboardProps = {}) {
   const { useMock } = useEventMock();
 
   // Enabled tabs: 'passes' (Pass Register), 'volunteers' (Volunteer Roster), 'registrations' (Registered Users)
-  const [activeTab, setActiveTab] = useState<'passes' | 'volunteers' | 'registrations' | 'overview' | 'scanner' | 'gates' | 'prasad'>('passes');
+  const [activeTab, setActiveTab] = useState<'passes' | 'volunteers' | 'registrations' | 'overview' | 'scanner' | 'gates' | 'prasad'>(initialTab);
   const [passesList, setPassesList] = useState<PassRecord[]>(INITIAL_PASSES);
   const [gatesList, setGatesList] = useState<GateStatus[]>(INITIAL_GATES);
   const [prasadList, setPrasadList] = useState<PrasadCounter[]>(INITIAL_PRASAD);
@@ -247,40 +251,116 @@ export function OrganizerDashboard() {
   const [regError, setRegError] = useState('');
   const [expandedActivity, setExpandedActivity] = useState<string | null>(null);
 
+  const fetchLiveRegistrations = async () => {
+    setLoadingRegs(true);
+    setRegError('');
+    try {
+      const regs = await eventService.getAllRegistrations();
+      const mapped: UnifiedReg[] = Array.isArray(regs)
+        ? regs.map((r: any) => {
+            const rawCat = (r.category || '').toLowerCase();
+            const cat: RegCategory = rawCat.includes('pooja') || rawCat.includes('seva')
+              ? 'pooja'
+              : rawCat.includes('cult') || rawCat.includes('perform')
+              ? 'cultural'
+              : rawCat.includes('comp')
+              ? 'competition'
+              : 'event';
+
+            const pName = r.participantName || r.primaryName || r.userName || 'Devotee';
+            const extraParts: string[] = [];
+            if (r.gotram) extraParts.push(`Gotram: ${r.gotram}`);
+            if (r.flatNo) extraParts.push(`Unit: ${r.flatNo}`);
+            if (r.ageGroup) extraParts.push(r.ageGroup);
+
+            return {
+              id: r.id,
+              regCode: r.regCode || `MNA-2026-${cat.toUpperCase()}-${r.id}`,
+              category: cat,
+              activityTitle: r.activityTitle || r.eventName || r.eventTitle || 'Community Event',
+              participantName: pName,
+              email: r.email || r.userEmail,
+              phone: r.phone,
+              gotram: r.gotram,
+              ageGroup: r.ageGroup,
+              devoteeCount: Number(r.devoteeCount || r.membersCount || 1),
+              bookingFee: Number(r.bookingFee ?? r.fee ?? 0),
+              paymentStatus: r.paymentStatus || (Number(r.bookingFee) === 0 ? 'FREE' : 'PAID'),
+              status: r.status || 'CONFIRMED',
+              eventDate: r.eventDate || r.startDate || '2026',
+              eventTime: r.eventTime || r.startTime || 'Scheduled',
+              venue: r.venue || r.mandap || 'Community Mandap',
+              extra: extraParts.length > 0 ? extraParts.join(' · ') : undefined,
+              createdAt: r.createdAt || r.registeredAt || new Date().toISOString(),
+            };
+          })
+        : [];
+
+      if (mapped.length > 0) {
+        if (useMock) {
+          // Merge unique by regCode
+          const existingCodes = new Set(mapped.map(m => m.regCode));
+          const uniqueMock = MOCK_REGISTRATIONS.filter(m => !existingCodes.has(m.regCode));
+          setAllRegs([...mapped, ...uniqueMock]);
+        } else {
+          setAllRegs(mapped);
+        }
+
+        // Also populate passesList from live database registrations
+        const mappedPasses: PassRecord[] = Array.isArray(regs)
+          ? regs.map((r: any) => ({
+              id: r.regCode || `MNA-2026-${r.id}`,
+              category: (Number(r.devoteeCount || r.membersCount || 1) > 1 ? 'family' : 'individual') as PassCategory,
+              primaryName: r.participantName || r.primaryName || r.userName || 'Devotee',
+              phone: r.phone || 'N/A',
+              email: r.email || r.userEmail || '',
+              address: r.flatNo ? `Unit ${r.flatNo}` : (r.colonyAddress || 'Community Resident'),
+              city: 'Community',
+              members: [],
+              timeSlot: r.eventTime ? `${r.activityTitle || 'Event'} (${r.eventTime})` : (r.activityTitle || 'Scheduled'),
+              gate: r.venue || 'Gate A (Main Entrance)',
+              totalAmount: Number(r.bookingFee ?? r.fee ?? 0),
+              issueDate: r.createdAt ? new Date(r.createdAt).toISOString().split('T')[0] : '2026-08-28',
+              qrCodeData: `${r.regCode || r.id}|${r.participantName || ''}|${r.activityTitle || ''}`,
+              status: (r.status === 'SCANNED' || r.status === 'CHECKED_IN' ? 'scanned' : 'active') as 'active' | 'scanned' | 'cancelled',
+              specialPerks: [r.category ? `${r.category} Pass` : 'Standard Entry'],
+              prasadCouponsCount: r.category === 'Pooja' ? 2 : 1,
+            }))
+          : [];
+        if (mappedPasses.length > 0) {
+          if (useMock) {
+            const passCodes = new Set(mappedPasses.map(p => p.id));
+            const uniqueMockPasses = INITIAL_PASSES.filter(p => !passCodes.has(p.id));
+            setPassesList([...mappedPasses, ...uniqueMockPasses]);
+          } else {
+            setPassesList(mappedPasses);
+          }
+        }
+      } else {
+        setAllRegs(useMock ? MOCK_REGISTRATIONS : []);
+        if (useMock) setPassesList(INITIAL_PASSES);
+      }
+    } catch (e: any) {
+      console.warn('Could not load registrations from API:', e);
+      if (useMock) {
+        setAllRegs(MOCK_REGISTRATIONS);
+      } else {
+        setRegError(e?.message || 'Failed to load registrations from database');
+      }
+    } finally {
+      setLoadingRegs(false);
+    }
+  };
+
   useEffect(() => {
-    if (activeTab !== 'registrations') return;
-    if (useMock) { setAllRegs(MOCK_REGISTRATIONS); return; }
-    setLoadingRegs(true); setRegError('');
-    eventService.getAllRegistrations()
-      .then(regs => {
-        const mapped: UnifiedReg[] = regs.map((r: any) => ({
-          id: r.id,
-          regCode: r.regCode || `REG-${r.id}`,
-          category: r.category === 'Pooja' ? 'pooja'
-            : r.category === 'Cultural' ? 'cultural'
-            : r.category === 'Competition' ? 'competition'
-            : 'event',
-          activityTitle: r.activityTitle || r.eventTitle || 'Event',
-          participantName: r.participantName || r.userName || 'N/A',
-          email: r.userEmail || r.email,
-          phone: r.phone,
-          gotram: r.gotram,
-          ageGroup: r.ageGroup,
-          devoteeCount: r.devoteeCount || 1,
-          bookingFee: r.bookingFee ?? r.fee ?? 0,
-          paymentStatus: r.paymentStatus || r.status || 'N/A',
-          status: r.status || 'CONFIRMED',
-          eventDate: r.eventDate,
-          eventTime: r.eventTime,
-          venue: r.venue,
-          extra: r.gotram ? `Gotram: ${r.gotram}` : r.ageGroup,
-          createdAt: r.createdAt || r.registeredAt || new Date().toISOString(),
-        }));
-        setAllRegs(mapped);
-      })
-      .catch(e => setRegError(e?.message || 'Failed to load registrations'))
-      .finally(() => setLoadingRegs(false));
-  }, [activeTab, useMock]);
+    fetchLiveRegistrations();
+    window.addEventListener('mana_registrations_updated', fetchLiveRegistrations);
+    window.addEventListener('mana_activities_updated', fetchLiveRegistrations);
+    return () => {
+      window.removeEventListener('mana_registrations_updated', fetchLiveRegistrations);
+      window.removeEventListener('mana_activities_updated', fetchLiveRegistrations);
+    };
+  }, [useMock]);
 
   const filteredRegs = allRegs.filter(r => {
     const matchCat = regCategory === 'all' || r.category === regCategory;
@@ -358,7 +438,7 @@ export function OrganizerDashboard() {
     setNewAlertMsg('');
   };
 
-  // CSV Export
+  // CSV Export for Passes
   const handleExportCSV = () => {
     const headers = ['Pass ID', 'Category', 'Primary Name', 'Phone', 'Email', 'Gate', 'Time Slot', 'Attendees', 'Total Fee', 'Status', 'Issue Date'];
     const rows = passesList.map(p => [
@@ -379,7 +459,39 @@ export function OrganizerDashboard() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Ganesh_Utsav_Committee_Register_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `Ganesh_Utsav_Pass_Register_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // CSV Export for Live Event Registrations
+  const handleExportRegistrationsCSV = () => {
+    const headers = ['Reg Code', 'Category', 'Activity / Event', 'Participant Name', 'Gotram', 'Phone', 'Email', 'Unit/Flat', 'Attendees Count', 'Event Date', 'Event Time', 'Venue', 'Fee (₹)', 'Payment Status', 'Status', 'Registered On'];
+    const rows = filteredRegs.map(r => [
+      r.regCode,
+      r.category.toUpperCase(),
+      `"${r.activityTitle}"`,
+      `"${r.participantName}"`,
+      `"${r.gotram || ''}"`,
+      r.phone || '',
+      r.email || '',
+      `"${(r.extra || '').replace(/"/g, '""')}"`,
+      r.devoteeCount,
+      `"${r.eventDate || ''}"`,
+      `"${r.eventTime || ''}"`,
+      `"${r.venue || ''}"`,
+      r.bookingFee,
+      r.paymentStatus,
+      r.status,
+      r.createdAt
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Mana_Community_Event_Registrations_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -387,151 +499,6 @@ export function OrganizerDashboard() {
 
   return (
     <div className="space-y-5 animate-fadeIn font-sans text-slate-800">
-
-      {/* ─── 1. APPLICATION HEADER & COMMITTEE DESK ACTIONS ─── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3.5">
-        <div>
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-600 mb-0.5">
-            <Shield className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Event Management Console</span>
-          </div>
-          <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0d0d2b] flex items-center gap-2">
-            Organizer Dashboard & Committee Desk
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Active Session
-            </span>
-          </h2>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold transition-all shadow-2xs cursor-pointer"
-          >
-            <Download className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Export CSV</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ─── 2. COMMITTEE BROADCAST BANNER ─── */}
-      {alertsList.length > 0 && (
-        <div className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-between gap-2 shadow-2xs ${
-          alertsList[0].level === 'critical' ? 'bg-rose-50 border-rose-200 text-rose-800' :
-          alertsList[0].level === 'warning' ? 'bg-amber-50 border-amber-200 text-amber-900' :
-          'bg-indigo-50 border-indigo-200 text-indigo-900'
-        }`}>
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-            <span>
-              <strong>Committee Announcement ({alertsList[0].time}):</strong> {alertsList[0].title} — {alertsList[0].message}
-            </span>
-          </div>
-          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-white/80 text-slate-600 border border-slate-200 shrink-0">
-            {alertsList[0].postedBy}
-          </span>
-        </div>
-      )}
-
-      {/* ─── 3. METRICS CARDS TOP DECK (APPLICATION THEME) ─── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
-        <div className="p-4 rounded-xl border border-slate-200/80 bg-white space-y-1 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-          <span className="text-[10px] font-bold uppercase text-slate-400">Total Registered Passes</span>
-          <p className="text-xl sm:text-2xl font-bold text-[#0d0d2b]">{totalPasses}</p>
-          <span className="text-[10px] text-emerald-600 font-semibold">100% Validated</span>
-        </div>
-
-        <div className="p-4 rounded-xl border border-slate-200/80 bg-white space-y-1 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-          <span className="text-[10px] font-bold uppercase text-slate-400">Scanned / Entered</span>
-          <p className="text-xl sm:text-2xl font-bold text-emerald-600">{scannedPasses}</p>
-          <span className="text-[10px] text-slate-400">Inside Pandal Now</span>
-        </div>
-
-        <div className="p-4 rounded-xl border border-slate-200/80 bg-white space-y-1 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-          <span className="text-[10px] font-bold uppercase text-slate-400">Pending Queue</span>
-          <p className="text-xl sm:text-2xl font-bold text-amber-600">{activePasses}</p>
-          <span className="text-[10px] text-slate-400">Active Passes</span>
-        </div>
-
-        <div className="p-4 rounded-xl border border-slate-200/80 bg-white space-y-1 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-          <span className="text-[10px] font-bold uppercase text-slate-400">Pass & Seva Revenue</span>
-          <p className="text-xl sm:text-2xl font-bold text-indigo-600 font-mono">₹{totalRevenue.toLocaleString()}</p>
-          <span className="text-[10px] text-slate-400">Seva & Pass Revenue</span>
-        </div>
-      </div>
-
-      {/* ─── 4. SUB-TAB SWITCHER NAVIGATION (APPLICATION THEME) ─── */}
-      <div className="flex items-center gap-1.5 border-b border-slate-200/80 overflow-x-auto pb-1.5 hide-scrollbar">
-        
-        {/* 1st Menu: Pass Register & Master Table (ENABLED) */}
-        <button
-          onClick={() => setActiveTab('passes')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
-            activeTab === 'passes'
-              ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm'
-              : 'bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/50'
-          }`}
-        >
-          <span>📋 Pass Register & Master Table</span>
-        </button>
-
-        {/* 2nd Menu: Volunteer Roster & Broadcast (ENABLED) */}
-        <button
-          onClick={() => setActiveTab('volunteers')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
-            activeTab === 'volunteers'
-              ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm'
-              : 'bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/50'
-          }`}
-        >
-          <span>🛡️ Volunteer Roster & Broadcast</span>
-        </button>
-
-        {/* 3rd Menu: Registered Users (ENABLED) */}
-        <button
-          onClick={() => setActiveTab('registrations')}
-          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
-            activeTab === 'registrations'
-              ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm'
-              : 'bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/50'
-          }`}
-        >
-          <span>👥 Registered Users</span>
-        </button>
-
-        {/* Disabled Modules */}
-        <button
-          disabled
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap bg-slate-50 border border-slate-200/60 text-slate-400 cursor-not-allowed opacity-60"
-        >
-          <span>📊 Real-Time Overview</span>
-          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-200 text-slate-500">Disabled</span>
-        </button>
-
-        <button
-          disabled
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap bg-slate-50 border border-slate-200/60 text-slate-400 cursor-not-allowed opacity-60"
-        >
-          <span>📷 Gate Scanner Terminal</span>
-          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-200 text-slate-500">Disabled</span>
-        </button>
-
-        <button
-          disabled
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap bg-slate-50 border border-slate-200/60 text-slate-400 cursor-not-allowed opacity-60"
-        >
-          <span>🚪 Gate Controls</span>
-          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-200 text-slate-500">Disabled</span>
-        </button>
-
-        <button
-          disabled
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap bg-slate-50 border border-slate-200/60 text-slate-400 cursor-not-allowed opacity-60"
-        >
-          <span>🪔 Prasad Operations</span>
-          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-slate-200 text-slate-500">Disabled</span>
-        </button>
-      </div>
 
       {/* ─── 5. ACTIVE TAB 1: PASS REGISTER DATA TABLE ─── */}
       {activeTab === 'passes' && (
@@ -754,15 +721,36 @@ export function OrganizerDashboard() {
                 </button>
               ))}
             </div>
-            <div className="relative w-full sm:w-64">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                placeholder="Search name, code, activity..."
-                value={regSearch}
-                onChange={e => setRegSearch(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium text-slate-800 focus:outline-none focus:border-indigo-400"
-              />
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-56">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Search name, code, activity..."
+                  value={regSearch}
+                  onChange={e => setRegSearch(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium text-slate-800 focus:outline-none focus:border-indigo-400"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={fetchLiveRegistrations}
+                disabled={loadingRegs}
+                title="Refresh registrations from database"
+                className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loadingRegs ? 'animate-spin text-indigo-600' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleExportRegistrationsCSV}
+                title="Download registered devotees list as CSV"
+                className="p-1.5 sm:px-2.5 sm:py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Export CSV</span>
+              </button>
             </div>
           </div>
 

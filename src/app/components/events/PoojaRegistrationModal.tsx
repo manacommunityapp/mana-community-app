@@ -224,11 +224,14 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       setDevoteeName((prev) => prev || authUser.fullName || "Devotee");
       setDevoteePhone((prev) => prev || authUser.phone || "");
       setDevoteeFlat((prev) => prev || flat || "Society Resident");
+      if ((authUser as any)?.gotram) {
+        setGotram((prev) => prev || (authUser as any).gotram);
+      }
     }
 
     userService
       .getMe()
-      .then((u) => {
+      .then((u: any) => {
         if (u) {
           const flat = u.flatNo
             ? u.block
@@ -238,6 +241,20 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           setDevoteeName((prev) => prev || u.fullName || "Devotee");
           setDevoteePhone((prev) => prev || u.phone || "");
           setDevoteeFlat((prev) => prev || flat || "Society Resident");
+          if (u.gotram) setGotram((prev) => prev || u.gotram);
+        }
+      })
+      .catch(() => {});
+
+    // Also check saved family members for Gotram
+    eventService
+      .getFamilyMembers()
+      .then((members: any[]) => {
+        if (Array.isArray(members) && members.length > 0) {
+          const withGotram = members.find((m: any) => m.gotram);
+          if (withGotram?.gotram) {
+            setGotram((prev) => prev || withGotram.gotram);
+          }
         }
       })
       .catch(() => {});
@@ -296,7 +313,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       if (existingReg.phone) setDevoteePhone(existingReg.phone);
       if (existingReg.flatNo) setDevoteeFlat(existingReg.flatNo);
     }
-  }, [event, poojaTitle]);
+  }, [event?.id, poojaTitle]);
 
   // Compute numeric fee
   const rawFee = event?.fee ?? event?.price ?? 0;
@@ -311,47 +328,47 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
     : parseFloat(String(rawFee).replace(/[^0-9.]/g, "")) || 0;
 
   // Derive configured start times if available from Pooja event creation
-  const configuredTimes: string[] = Array.isArray((event as any)?.startTimes) && (event as any).startTimes.filter(Boolean).length > 0
-    ? (event as any).startTimes.filter(Boolean)
-    : event?.time && event.time.includes(",")
-    ? event.time.split(",").map((t: string) => t.trim()).filter(Boolean)
-    : event?.startTime
-    ? [event.startTime]
-    : event?.time
-    ? [event.time]
-    : [];
-
-  const defaultSlots: DaySlotOption[] = configuredTimes.length > 0
-    ? configuredTimes.map((t, idx) => {
-        const icon = idx === 0 ? "🌅" : idx === 1 ? "☀️" : idx === 2 ? "🪔" : "✨";
-        const sessionName = configuredTimes.length === 1
-          ? (poojaTitle || "Pooja Seva")
-          : idx === 0
-          ? "Morning Session"
-          : idx === 1
-          ? "Afternoon Session"
-          : idx === 2
-          ? "Evening Session"
-          : `Session #${idx + 1}`;
-        const cleanTime = String(t).replace(/\(.*?\)/g, "").trim();
-        const formattedTime = cleanTime.includes("–") || cleanTime.includes("-") || cleanTime.toLowerCase().includes("am") || cleanTime.toLowerCase().includes("pm")
-          ? cleanTime
-          : `${cleanTime} onwards`;
-        return {
-          icon,
-          time: formattedTime,
-          name: sessionName,
-          left: Math.max(1, Math.floor(totalSlotsCount / configuredTimes.length)),
-        };
-      })
-    : [
-        { icon: "🌅", time: "08:30 AM – 10:00 AM", name: "Morning Homam & Sankalpam", left: Math.max(1, Math.floor(totalSlotsCount * 0.5)) },
-        { icon: "🪔", time: "06:30 PM – 08:00 PM", name: "Sandhya Aarti & Archana", left: Math.max(1, Math.floor(totalSlotsCount * 0.5)) },
-      ];
-
   const scheduleDays = React.useMemo(() => {
+    const configuredTimes: string[] = Array.isArray((event as any)?.startTimes) && (event as any).startTimes.filter(Boolean).length > 0
+      ? (event as any).startTimes.filter(Boolean)
+      : event?.time && event.time.includes(",")
+      ? event.time.split(",").map((t: string) => t.trim()).filter(Boolean)
+      : event?.startTime
+      ? [event.startTime]
+      : event?.time
+      ? [event.time]
+      : [];
+
+    const defaultSlots: DaySlotOption[] = configuredTimes.length > 0
+      ? configuredTimes.map((t, idx) => {
+          const icon = idx === 0 ? "🌅" : idx === 1 ? "☀️" : idx === 2 ? "🪔" : "✨";
+          const sessionName = configuredTimes.length === 1
+            ? (poojaTitle || "Pooja Seva")
+            : idx === 0
+            ? "Morning Session"
+            : idx === 1
+            ? "Afternoon Session"
+            : idx === 2
+            ? "Evening Session"
+            : `Session #${idx + 1}`;
+          const cleanTime = String(t).replace(/\(.*?\)/g, "").trim();
+          const formattedTime = cleanTime.includes("–") || cleanTime.includes("-") || cleanTime.toLowerCase().includes("am") || cleanTime.toLowerCase().includes("pm")
+            ? cleanTime
+            : `${cleanTime} onwards`;
+          return {
+            icon,
+            time: formattedTime,
+            name: sessionName,
+            left: Math.max(1, Math.floor(totalSlotsCount / configuredTimes.length)),
+          };
+        })
+      : [
+          { icon: "🌅", time: "08:30 AM – 10:00 AM", name: "Morning Homam & Sankalpam", left: Math.max(1, Math.floor(totalSlotsCount * 0.5)) },
+          { icon: "🪔", time: "06:30 PM – 08:00 PM", name: "Sandhya Aarti & Archana", left: Math.max(1, Math.floor(totalSlotsCount * 0.5)) },
+        ];
+
     return buildPoojaScheduleDays(event, defaultSlots);
-  }, [event, defaultSlots]);
+  }, [event?.id, event?.startDate, event?.date, event?.endDate, event?.time, poojaTitle, totalSlotsCount]);
 
   // Sync initial selection to first day / first slot of created pooja
   useEffect(() => {
@@ -363,7 +380,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         setSelectedSlotName(firstDay.slots[0].name);
       }
     }
-  }, [scheduleDays]);
+  }, [scheduleDays.length]);
 
   const currentDay = scheduleDays.find((d) => d.id === selectedDayId) || scheduleDays[0];
 
@@ -375,10 +392,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   ];
 
   const handleNext = () => {
-    if (currentStep === 2 && !gotram.trim()) {
-      showWarning("Please enter your Gotram (or 'Kashyapa' / 'Self' if unsure) for Sankalpam chanting.");
-      return;
-    }
     if (currentStep < 4) {
       setCurrentStep((prev) => prev + 1);
     }
@@ -427,19 +440,21 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         showSuccess("🪔 Pooja registration updated successfully!");
       } else {
         try {
+          await eventService.createRegistration(regPayload);
+        } catch (apiErr) {
+          console.warn("Backend createRegistration API note, trying fallback register:", apiErr);
           if (event?.id) {
             const numericEventId = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
             if (!isNaN(numericEventId) && numericEventId > 0) {
-              await eventService.register(numericEventId);
+              await eventService.register(numericEventId).catch(() => {});
             }
           }
-        } catch (apiErr) {
-          console.warn("Backend pooja register API note:", apiErr);
         }
         showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
       }
 
       window.dispatchEvent(new Event("mana_activities_updated"));
+      window.dispatchEvent(new Event("mana_registrations_updated"));
       window.dispatchEvent(new Event("mana_registrations_updated"));
 
       setIsSuccess(true);
@@ -715,16 +730,13 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Gotram Input in Same Line */}
-                  <div className="flex items-center gap-2 w-full sm:w-auto px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 shrink-0">
-                    <label className="text-[11px] font-bold text-primary whitespace-nowrap">Gotram *</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Kashyapa"
-                      value={gotram}
-                      onChange={(e) => setGotram(e.target.value)}
-                      className="bg-transparent text-xs font-bold text-foreground outline-none w-28 border-b border-primary/40 focus:border-primary placeholder:text-muted-foreground pb-0.5"
-                    />
+                  {/* Gotram: Non-editable field sourced directly from user & event registration profile */}
+                  <div className="flex items-center gap-2 w-full sm:w-auto px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 shrink-0 select-none">
+                    <span className="text-[11px] font-bold text-primary whitespace-nowrap">Gotram:</span>
+                    <strong className="text-xs font-bold text-foreground">{gotram || "Kashyapa"}</strong>
+                    <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
+                      Auto-Linked
+                    </span>
                   </div>
                 </div>
 

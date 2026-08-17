@@ -81,6 +81,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   const [currentStep, setCurrentStep] = useState(1);
   const [categories, setCategories] = useState<TicketCategoryItem[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<string>("");
+  const [eventDetails, setEventDetails] = useState<any>(event || null);
 
   // Existing registration / Update mode detection
   const [existingReg, setExistingReg] = useState<any>(() => event?.existingRegistration || null);
@@ -165,7 +166,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     loadSavedFamily();
     window.addEventListener("mana_family_updated", loadSavedFamily);
     return () => window.removeEventListener("mana_family_updated", loadSavedFamily);
-  }, [authUser]);
+  }, [authUser?.id, authUser?.email]);
 
   const applyExistingRegToForm = (reg: any) => {
     let parsedMembers = [];
@@ -199,10 +200,12 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
   // Sync existing registration if user is already registered for this cultural/competition/event
   useEffect(() => {
-    if (!existingReg && event) {
+    let isCancelled = false;
+    if (!existingReg && event?.id) {
       eventService
         .getMyRegistrations()
         .then((regs) => {
+          if (isCancelled) return;
           if (Array.isArray(regs) && regs.length > 0) {
             const found = regs.find((r: any) => {
               if (r.status === "CANCELLED") return false;
@@ -235,7 +238,10 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     } else if (existingReg) {
       applyExistingRegToForm(existingReg);
     }
-  }, [event]);
+    return () => {
+      isCancelled = true;
+    };
+  }, [event?.id, event?.title, (event as any)?.registrationId]);
 
   // ── Auto-fill & synchronize logged in user details including Flat / Unit & Block ──
   useEffect(() => {
@@ -247,6 +253,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         phone: prev.phone || authUser.phone || "",
         email: prev.email || authUser.email || "",
         flatNo: prev.flatNo || flat,
+        gotram: prev.gotram || (authUser as any)?.gotram || "",
         members: prev.members.length > 0 && !prev.members[0].name
           ? [{ ...prev.members[0], name: authUser.fullName || "" }, ...prev.members.slice(1)]
           : prev.members,
@@ -255,7 +262,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
     userService
       .getMe()
-      .then((u) => {
+      .then((u: any) => {
         if (u) {
           const flat = u.flatNo ? (u.block ? `${u.block}-${u.flatNo}` : u.flatNo) : "";
           setFormData((prev) => ({
@@ -264,6 +271,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
             phone: prev.phone || u.phone || "",
             email: prev.email || u.email || "",
             flatNo: prev.flatNo || flat,
+            gotram: prev.gotram || u.gotram || (authUser as any)?.gotram || "",
             members: prev.members.length > 0 && !prev.members[0].name
               ? [{ ...prev.members[0], name: u.fullName || "" }, ...prev.members.slice(1)]
               : prev.members,
@@ -271,7 +279,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         }
       })
       .catch(() => {});
-  }, [authUser]);
+  }, [authUser?.id, authUser?.email]);
 
   // ── Load Ticket Categories dynamically from Event Details ONLY ──
   useEffect(() => {
@@ -285,12 +293,18 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       }
 
       let targetEvent: any = event;
-      if ((!cats || cats.length === 0) && event?.id) {
-        try {
-          const freshEvent = await eventService.getEventById(String(event.id));
-          if (freshEvent) targetEvent = freshEvent;
-        } catch {
-          // Ignore
+      if (event?.id) {
+        const rawDigits = String(event.id).replace(/\D/g, "");
+        if (rawDigits && !isNaN(Number(rawDigits)) && Number(rawDigits) > 0) {
+          try {
+            const freshEvent = await eventService.getEventById(Number(rawDigits));
+            if (freshEvent && isSubscribed) {
+              targetEvent = freshEvent;
+              setEventDetails((prev: any) => ({ ...prev, ...freshEvent }));
+            }
+          } catch {
+            // Ignore
+          }
         }
       }
 
@@ -354,7 +368,29 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     return () => {
       isSubscribed = false;
     };
-  }, [event, ticketCategories]);
+  }, [event?.id]);
+
+  const dynamicUpiId =
+    eventDetails?.upiId ||
+    eventDetails?.paymentUpiId ||
+    eventDetails?.scannerUpiId ||
+    eventDetails?.bankConfig?.upiId ||
+    eventDetails?.registrationFormConfig?.upiId ||
+    event?.upiId ||
+    event?.paymentUpiId ||
+    event?.scannerUpiId ||
+    event?.bankConfig?.upiId;
+
+  const dynamicScannerUrl =
+    eventDetails?.scannerUrl ||
+    eventDetails?.qrCodeUrl ||
+    eventDetails?.paymentQrUrl ||
+    eventDetails?.scannerImage ||
+    eventDetails?.scannerQr ||
+    event?.scannerUrl ||
+    event?.qrCodeUrl ||
+    event?.paymentQrUrl ||
+    event?.scannerImage;
 
   const isFreeEvent =
     event?.isFree === true ||
@@ -499,14 +535,15 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         showSuccess("Registration updated successfully!");
       } else {
         try {
+          await eventService.createRegistration(regPayload);
+        } catch (apiErr) {
+          console.warn("Backend createRegistration API note, trying fallback register:", apiErr);
           if (event?.id) {
             const numericEventId = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
             if (!isNaN(numericEventId) && numericEventId > 0) {
-              await eventService.register(numericEventId);
+              await eventService.register(numericEventId).catch(() => {});
             }
           }
-        } catch (apiErr) {
-          console.warn("Backend register API note:", apiErr);
         }
         showSuccess("Registration completed successfully!");
       }
@@ -1155,23 +1192,57 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                     <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-foreground">Scan & Pay via any UPI App</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText("mana.events@upi");
-                            showSuccess("UPI ID copied!");
-                          }}
-                          className="text-xs font-mono font-bold text-primary flex items-center gap-1 hover:underline cursor-pointer"
-                        >
-                          <Copy className="w-3 h-3" /> mana.events@upi
-                        </button>
+                        {dynamicUpiId ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(dynamicUpiId);
+                              showSuccess("UPI ID copied!");
+                            }}
+                            className="text-xs font-mono font-bold text-primary flex items-center gap-1 hover:underline cursor-pointer"
+                          >
+                            <Copy className="w-3 h-3" /> {dynamicUpiId}
+                          </button>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <span className="font-mono blur-[3px] select-none opacity-40">organizer.upi@bank</span>
+                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                              UPI ID Pending
+                            </span>
+                          </div>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <div className="p-2.5 bg-white rounded-2xl border border-border shrink-0 shadow-sm">
-                          <QrCode className="w-16 h-16 text-slate-900" />
-                        </div>
+                        {dynamicScannerUrl ? (
+                          <div className="p-2 bg-white dark:bg-slate-800 rounded-2xl border border-border shrink-0 shadow-sm w-20 h-20 flex items-center justify-center">
+                            <img src={dynamicScannerUrl} alt="Payment Scanner" className="w-full h-full object-contain rounded-xl" />
+                          </div>
+                        ) : dynamicUpiId ? (
+                          <div className="p-2 bg-white rounded-2xl border border-border shrink-0 shadow-sm w-20 h-20 flex items-center justify-center">
+                            <img
+                              src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=upi://pay?pa=${encodeURIComponent(dynamicUpiId)}&pn=${encodeURIComponent(eventDetails?.title || "Event Registration")}&cu=INR`}
+                              alt="Payment QR Code"
+                              className="w-full h-full object-contain rounded-xl"
+                            />
+                          </div>
+                        ) : (
+                          /* Admin did not upload any scanner / UPI: Show Blurred Scanner Placeholder */
+                          <div className="relative p-2 bg-muted/60 rounded-2xl border border-border shrink-0 shadow-sm w-20 h-20 flex flex-col items-center justify-center overflow-hidden">
+                            <QrCode className="w-14 h-14 text-muted-foreground blur-[4px] opacity-25 select-none" />
+                            <div className="absolute inset-0 bg-background/60 backdrop-blur-[1.5px] flex flex-col items-center justify-center p-1 text-center">
+                              <Lock className="w-4 h-4 text-amber-500 mb-0.5" />
+                              <span className="text-[8px] font-black text-foreground uppercase leading-tight">No Scanner</span>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="flex-1 space-y-2 min-w-0">
+                          {!dynamicUpiId && !dynamicScannerUrl && (
+                            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium leading-tight">
+                              ⚠️ Organizer has not configured a payment scanner for this event yet. Enter transaction ref or pay cash at helpdesk.
+                            </p>
+                          )}
                           <input
                             type="text"
                             placeholder="UPI Reference / UTR ID (Optional)"
