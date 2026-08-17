@@ -234,8 +234,7 @@ function FieldEditor({
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState<FormField>({ ...field, options: [...field.options] });
-  const [optionInput, setOptionInput] = useState("");
-  const meta = FIELD_TYPE_META[draft.type];
+  const meta = FIELD_TYPE_META[draft.type] || FIELD_TYPE_META.text || { label: draft.type || "Text", icon: Type, bg: "#f1f5f9", color: "#64748b" };
   const hasOptions = ["select", "multiselect", "radio"].includes(draft.type);
   const otherFields = allFields.filter(f => f.id !== field.id && f.type !== "section" && f.type !== "family_repeater");
 
@@ -481,7 +480,7 @@ function FieldCard({
   onMove: (dir: "up" | "down") => void;
   onToggleRequired: () => void;
 }) {
-  const meta = FIELD_TYPE_META[field.type];
+  const meta = FIELD_TYPE_META[field.type] || FIELD_TYPE_META.text || { label: field.type || "Text", icon: Type, bg: "#f1f5f9", color: "#64748b" };
   const isSection = field.type === "section";
 
   if (isSection) {

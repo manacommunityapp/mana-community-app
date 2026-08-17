@@ -121,7 +121,14 @@ export function EventsAuction() {
         <div className="lg:col-span-2 space-y-4">
           <h2 className="font-bold text-slate-800 px-1">Auction Items</h2>
           {items.map((item) => {
-            const ss = statusStyle[item.status];
+            const ss = statusStyle[item.status?.toLowerCase()] ||
+              statusStyle[item.status] ||
+              statusStyle.live || {
+                bg: "bg-rose-50",
+                text: "text-rose-600",
+                dot: "bg-rose-500",
+                label: item.status || "Live",
+              };
             const isOpen = bidItem === item.id;
             return (
               <div key={item.id}

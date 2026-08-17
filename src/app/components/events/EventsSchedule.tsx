@@ -114,12 +114,15 @@ const MOCK_EVENTS: EventItem[] = [
   },
 ];
 
-const STATUS_CONFIG: Record<EventStatus, { label: string; icon: any; bg: string; text: string; dot: string }> = {
+const STATUS_CONFIG: Record<string, { label: string; icon: any; bg: string; text: string; dot: string }> = {
   upcoming:  { label: "Upcoming",  icon: Clock,        bg: "bg-blue-50",    text: "text-blue-700",    dot: "bg-blue-500"    },
   ongoing:   { label: "Ongoing",   icon: CheckCircle2, bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
   completed: { label: "Completed", icon: CheckCircle2, bg: "bg-slate-100",  text: "text-slate-600",   dot: "bg-slate-400"   },
   draft:     { label: "Draft",     icon: Clock,        bg: "bg-amber-50",   text: "text-amber-700",   dot: "bg-amber-500"   },
   cancelled: { label: "Cancelled", icon: XCircle,      bg: "bg-rose-50",    text: "text-rose-600",    dot: "bg-rose-400"    },
+  published: { label: "Published", icon: CheckCircle2, bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+  active:    { label: "Active",    icon: CheckCircle2, bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+  live:      { label: "Live",      icon: CheckCircle2, bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
 };
 
 const VISIBILITY_ICON: Record<string, { icon: any; label: string }> = {
@@ -507,7 +510,13 @@ function NotificationDialog({ event, onClose }: { event: EventItem; onClose: () 
               ) : (
                 <div className="space-y-2">
                   {scheduledList.map(sn => {
-                    const sc = SCHEDULE_STATUS_CONFIG[sn.status];
+                    const sc = SCHEDULE_STATUS_CONFIG[sn.status?.toLowerCase() as ScheduleStatus] ||
+                      SCHEDULE_STATUS_CONFIG[sn.status] || {
+                        label: sn.status || "Scheduled",
+                        bg: "bg-slate-100",
+                        text: "text-slate-600",
+                        dot: "bg-slate-400",
+                      };
                     const dt = new Date(sn.scheduledAt);
                     return (
                       <div key={sn.id} className="bg-white rounded-xl border border-slate-100 p-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
@@ -880,8 +889,21 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
     hasPermission(CREATE_EVENT) ||
     hasPermission(MANAGE_EVENT_DASHBOARD);
 
-  const s = STATUS_CONFIG[event.status];
-  const vis = VISIBILITY_ICON[event.visibility];
+  const s = STATUS_CONFIG[event.status?.toLowerCase()] ||
+    STATUS_CONFIG[event.status] ||
+    STATUS_CONFIG.upcoming || {
+      label: event.status || "Upcoming",
+      icon: Clock,
+      bg: "bg-blue-50",
+      text: "text-blue-700",
+      dot: "bg-blue-500",
+    };
+  const vis = VISIBILITY_ICON[event.visibility?.toLowerCase()] ||
+    VISIBILITY_ICON[event.visibility] ||
+    VISIBILITY_ICON.community || {
+      icon: Users,
+      label: event.visibility || "Community",
+    };
   const typeColor = TYPE_COLORS[event.type] ?? "#64748b";
   const [menuOpen, setMenuOpen] = useState(false);
   const capacityPct = Math.round((event.registrations / event.capacity) * 100);

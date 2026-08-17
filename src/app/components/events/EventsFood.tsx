@@ -135,7 +135,7 @@ export function EventsFood() {
           </div>
           <div className="p-3 sm:p-6 space-y-3 sm:space-y-4">
             {menuItems.map((item, i) => {
-              const ss = statusStyle[item.status];
+              const ss = statusStyle[item.status] || { bg: "bg-emerald-50", text: "text-emerald-700" };
               const pct = Math.round((item.prepared / item.qty) * 100);
               return (
                 <div key={item.name} className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)}`}>

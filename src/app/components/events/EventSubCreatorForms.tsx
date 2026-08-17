@@ -219,7 +219,7 @@ export function PoojaSevaSection() {
     date: "",
     endDate: "",
     startTime: "", duration: "",
-    mandap: "", pandit: "", slots: "", fee: "", isFree: false,
+    mandap: "", pandit: "", slots: "", fee: "", isFree: true,
     items: ["Coconut", "Flowers", "Bananas"], notes: "", isRecurring: false, recurringDays: "",
   });
   const [toast, setToast] = useState("");

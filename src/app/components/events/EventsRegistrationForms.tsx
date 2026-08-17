@@ -180,11 +180,13 @@ const MOCK_FORMS: RegistrationForm[] = [
   },
 ];
 
-const STATUS_CONFIG: Record<FormStatus, { label: string; icon: any; bg: string; text: string; dot: string }> = {
-  active:   { label: "Active",   icon: CheckCircle2, bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500" },
-  draft:    { label: "Draft",    icon: Clock,        bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500"   },
-  closed:   { label: "Closed",   icon: XCircle,      bg: "bg-slate-100",   text: "text-slate-600",   dot: "bg-slate-400"   },
-  archived: { label: "Archived", icon: Archive,      bg: "bg-rose-50",     text: "text-rose-600",    dot: "bg-rose-400"    },
+const STATUS_CONFIG: Record<string, { label: string; icon: any; bg: string; text: string; dot: string }> = {
+  active:    { label: "Active",    icon: CheckCircle2, bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+  draft:     { label: "Draft",     icon: Clock,        bg: "bg-amber-50",   text: "text-amber-700",   dot: "bg-amber-500"   },
+  closed:    { label: "Closed",    icon: Lock,         bg: "bg-slate-100",  text: "text-slate-600",   dot: "bg-slate-400"   },
+  archived:  { label: "Archived",  icon: Archive,      bg: "bg-slate-100",  text: "text-slate-500",   dot: "bg-slate-300"   },
+  published: { label: "Published", icon: CheckCircle2, bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+  upcoming:  { label: "Upcoming",  icon: Clock,        bg: "bg-blue-50",    text: "text-blue-700",    dot: "bg-blue-500"    },
 };
 
 const REGISTRANT_STATUS_CONFIG: Record<RegistrantStatus, { label: string; bg: string; text: string; icon: any }> = {
@@ -389,8 +391,14 @@ function SubmissionsDrawer({ form, onClose }: { form: RegistrationForm; onClose:
           ) : (
             <div className="divide-y divide-slate-50">
               {filtered.map(r => {
-                const sc = REGISTRANT_STATUS_CONFIG[r.status];
-                const Icon = sc.icon;
+                const sc = REGISTRANT_STATUS_CONFIG[r.status?.toLowerCase() as RegistrantStatus] ||
+                  REGISTRANT_STATUS_CONFIG[r.status as RegistrantStatus] || {
+                    label: r.status || "Submitted",
+                    bg: "bg-slate-100",
+                    text: "text-slate-600",
+                    icon: Clock,
+                  };
+                const Icon = sc.icon || Clock;
                 return (
                   <div key={r.id} className="px-5 py-3.5 flex items-center gap-3 hover:bg-slate-50 transition-colors">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-violet-400 flex items-center justify-center text-white text-xs font-bold shrink-0">
@@ -448,7 +456,15 @@ function FormDetailDrawer({ form, onClose, onEdit, onPreview, onSettings, onView
   onSettings: () => void;
   onViewSubmissions: () => void;
 }) {
-  const s = STATUS_CONFIG[form.status];
+  const s = STATUS_CONFIG[form.status?.toLowerCase()] ||
+    STATUS_CONFIG[form.status] ||
+    STATUS_CONFIG.active || {
+      label: form.status || "Active",
+      icon: CheckCircle2,
+      bg: "bg-emerald-50",
+      text: "text-emerald-700",
+      dot: "bg-emerald-500",
+    };
   const capacityPct = form.maxCapacity ? Math.round((form.responsesCount / form.maxCapacity) * 100) : null;
   const deadline = getDeadlinePill(form.registrationDeadline);
 
@@ -776,7 +792,15 @@ function FormCard({ form, selected, onSelect, onView, onPreview, onQR, onEdit, o
   onStatusChange: (next: FormStatus) => void;
   onViewSubmissions: () => void;
 }) {
-  const s = STATUS_CONFIG[form.status];
+  const s = STATUS_CONFIG[form.status?.toLowerCase()] ||
+    STATUS_CONFIG[form.status] ||
+    STATUS_CONFIG.active || {
+      label: form.status || "Active",
+      icon: CheckCircle2,
+      bg: "bg-emerald-50",
+      text: "text-emerald-700",
+      dot: "bg-emerald-500",
+    };
   const [menuOpen, setMenuOpen] = useState(false);
   const capacityPct = form.maxCapacity ? Math.round((form.responsesCount / form.maxCapacity) * 100) : null;
   const deadline = getDeadlinePill(form.registrationDeadline);
@@ -960,7 +984,15 @@ function FormTableRow({ form, selected, onSelect, onView, onEdit, onStatusChange
   onStatusChange: (next: FormStatus) => void;
   onViewSubmissions: () => void;
 }) {
-  const s = STATUS_CONFIG[form.status];
+  const s = STATUS_CONFIG[form.status?.toLowerCase()] ||
+    STATUS_CONFIG[form.status] ||
+    STATUS_CONFIG.active || {
+      label: form.status || "Active",
+      icon: CheckCircle2,
+      bg: "bg-emerald-50",
+      text: "text-emerald-700",
+      dot: "bg-emerald-500",
+    };
   const deadline = getDeadlinePill(form.registrationDeadline);
   const nextStatus = getNextStatus(form.status);
 
