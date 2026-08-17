@@ -590,7 +590,7 @@ export function EventsVolunteers() {
   const [selectedEventId, setSelectedEventId] = useState<number>(0);
 
   useEffect(() => {
-    eventService.getAll().then(evts => {
+    eventService.getAllEvents().then((evts: EventResponse[]) => {
       setEvents(evts);
       if (evts.length > 0 && !selectedEventId) setSelectedEventId(evts[0].id);
     }).catch(() => {});

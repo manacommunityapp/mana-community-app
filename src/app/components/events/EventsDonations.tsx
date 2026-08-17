@@ -78,7 +78,7 @@ export function EventsDonations() {
   const [emailAppealOpen, setEmailAppealOpen] = useState(false);
 
   useEffect(() => {
-    eventService.getAll().then(setEvents).catch(() => {});
+    eventService.getAllEvents().then(setEvents).catch(() => {});
   }, []);
 
   useEffect(() => {

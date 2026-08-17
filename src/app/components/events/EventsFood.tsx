@@ -78,8 +78,8 @@ export function EventsFood() {
       })
       .finally(() => setLoading(false));
 
-    eventService.getAll()
-      .then(evts => {
+    eventService.getAllEvents()
+      .then((evts: EventResponse[]) => {
         if (evts.length > 0) {
           eventProgramService.getMealSummary(evts[0].id)
             .then(setMealSummary)

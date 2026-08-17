@@ -147,6 +147,10 @@ export const eventService = {
     return apiClient.get<EventResponse[]>("/events/all");
   },
 
+  async getAll(): Promise<EventResponse[]> {
+    return this.getAllEvents();
+  },
+
   async getMyEvents(): Promise<EventResponse[]> {
     return apiClient.get<EventResponse[]>("/events/mine");
   },
