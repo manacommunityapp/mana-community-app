@@ -154,6 +154,8 @@ const INITIAL_ACTIVITIES: Activity[] = [
   },
 ];
 
+const INITIAL_PASSES: UserPass[] = [];
+
 function countdownFrom(dateStr?: string | null, timeStr?: string | null) {
   if (!dateStr) return { days: 0, hours: 0, mins: 0, secs: 0 };
   const parsedTime = Date.parse(dateStr);
