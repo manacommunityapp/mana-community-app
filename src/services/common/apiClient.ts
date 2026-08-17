@@ -141,7 +141,24 @@ async function handleResponse<T>(res: Response): Promise<T> {
     let message = `Request failed with status ${res.status}`;
     try {
       const text = await res.text();
-      if (text) message = text;
+      if (text) {
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed && typeof parsed === "object") {
+            if (typeof parsed.message === "string" && parsed.message.trim()) {
+              message = parsed.message;
+            } else if (typeof parsed.error === "string" && parsed.error.trim()) {
+              message = parsed.error;
+            } else {
+              message = text;
+            }
+          } else {
+            message = text;
+          }
+        } catch {
+          message = text;
+        }
+      }
     } catch {
       // ignore
     }
@@ -206,7 +223,14 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
     log.warn(`${init.method} ${path} ${res.status} (${duration}ms)`, undefined);
   }
 
-  if (res.status === 401 && !isRetry && path !== "/auth/refresh") {
+  const isAuthEndpoint =
+    path === "/auth/login" ||
+    path === "/auth/register" ||
+    path === "/auth/refresh" ||
+    path.startsWith("/auth/") ||
+    path.startsWith("/api/auth/");
+
+  if (res.status === 401 && !isRetry && !isAuthEndpoint) {
     const refreshed = await ensureRefreshed();
     if (refreshed) {
       return request<T>(path, init, true);
@@ -215,7 +239,7 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
     throw new Error("Session expired — please log in again.");
   }
 
-  if (res.status === 401) {
+  if (res.status === 401 && !isAuthEndpoint) {
     forceLogout();
     throw new Error("Unauthorized — please log in again.");
   }

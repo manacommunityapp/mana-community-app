@@ -245,7 +245,7 @@ const BUDGET_CATEGORIES = ["Venue", "Food & Catering", "Decoration", "Audio / Vi
 
 const DEFAULT_TICKET_TYPES: TicketType[] = [
   { id: "t1", name: "General",   price: "0",   qty: "100", description: "Open for all community members" },
-  { id: "t2", name: "VIP",       price: "500", qty: "20",  description: "Priority seating & welcome kit" },
+  { id: "t2", name: "Volunteer", price: "0",   qty: "50",  description: "Volunteer registration & duty pass" },
 ];
 
 const DEFAULT_BUDGET_ITEMS: BudgetItem[] = [
@@ -255,7 +255,7 @@ const DEFAULT_BUDGET_ITEMS: BudgetItem[] = [
 ];
 
 const INITIAL_FORM_DATA: FormData = {
-  title: "", eventType: "", category: "", description: "",
+  title: "", eventType: "festival", category: "Festival", description: "",
   visibility: "community",
   startDate: "", endDate: "", startTime: "", endTime: "",
   multiDay: false, daySchedules: [], venueName: "", venueAddress: "", city: "", capacity: "",
@@ -1115,7 +1115,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
                     <div>
                       <FieldLabel required>Name</FieldLabel>
                       <Input value={ticket.name} onChange={e => updateTicket(ticket.id, "name", e.target.value)}
-                        placeholder="e.g. Family, VIP" className={INPUT_CLS} />
+                        placeholder="e.g. Family, Volunteer" className={INPUT_CLS} />
                     </div>
                     <div>
                       <FieldLabel>Price (₹)</FieldLabel>
@@ -1992,12 +1992,12 @@ export function fromEventToFormData(ev: any): FormData {
     "community";
 
   const eventTypeLower = (ev.type || ev.category || ev.eventType || "").toLowerCase();
-  const matchedType = EVENT_TYPES.find(t => t.value === eventTypeLower || t.label.toLowerCase() === eventTypeLower)?.value || (eventTypeLower || "community");
+  const matchedType = EVENT_TYPES.find(t => t.value === eventTypeLower || t.label.toLowerCase() === eventTypeLower)?.value || (eventTypeLower || "festival");
 
   return {
     title: ev.title || "",
     eventType: matchedType,
-    category: ev.category || ev.type || "Community",
+    category: ev.category || ev.type || "Festival",
     description: ev.description || "",
     visibility,
     startDate: ev.startDate || "",

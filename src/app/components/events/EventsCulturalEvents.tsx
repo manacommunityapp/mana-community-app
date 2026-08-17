@@ -119,8 +119,20 @@ export function EventsCulturalEvents() {
       .then(([evts, regs, cats, pts]) => {
         const merged = [...localCulturals, ...(evts || [])];
         const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
-        setCulturalEvents(unique);
-        setRegistrations((regs || []).filter((r: any) => r.category === "Cultural" || r.activityId?.startsWith("cultural-")));
+        const cultRegs = (regs || [])
+          .filter((r: any) => r.category === "Cultural" || r.activityId?.startsWith("cultural-"))
+          .map((r: any) => {
+            let count = Number(r.devoteeCount ?? r.membersCount ?? 0);
+            if (!count && r.membersJson) {
+              try {
+                const parsed = JSON.parse(r.membersJson);
+                if (Array.isArray(parsed) && parsed.length > 0) count = parsed.length;
+              } catch {}
+            }
+            if (!count) count = 1;
+            return { ...r, devoteeCount: count };
+          });
+        setRegistrations(cultRegs);
         if (cats?.length > 0) setCategories(cats.map((c: any) => c.name));
         if (pts?.length > 0) setPerfTypes(pts.map((p: any) => p.name));
       })

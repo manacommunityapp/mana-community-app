@@ -105,7 +105,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     receiptUploaded: false,
     receiptUrl: "",
     membersCount: 1,
-    members: [{ name: authUser?.fullName || "", age: 28, gender: authUser?.gender || "Male", relationship: "Self (Head)" }],
+    members: [{ name: authUser?.fullName || "", age: 0, gender: authUser?.gender || "Male", relationship: "Self (Head)" }],
     photoUploaded: false,
     signatureSigned: true,
   });
@@ -409,7 +409,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     setFormData((prev) => ({
       ...prev,
       membersCount: prev.membersCount + 1,
-      members: [...prev.members, { name: "", age: 25, gender: "Male", relationship: "Spouse" }],
+      members: [...prev.members, { name: "", age: 0, gender: "Male", relationship: "Spouse" }],
     }));
   };
 
@@ -457,15 +457,15 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
   const handleNextStep = () => {
     if (currentStep === 2) {
-      if (!formData.fullName.trim()) {
+      if (!formData.fullName?.trim()) {
         showWarning("Please enter your Full Name.");
         return;
       }
-      if (!formData.phone.trim()) {
+      if (!formData.phone?.trim()) {
         showWarning("Please enter your Phone / Mobile Number.");
         return;
       }
-      if (!formData.email.trim()) {
+      if (!formData.email?.trim()) {
         showWarning("Please enter your Email Address.");
         return;
       }
@@ -475,9 +475,26 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       }
     }
     if (currentStep === 3) {
+      if (!formData.members || formData.members.length === 0) {
+        showWarning("Please add at least 1 attendee.");
+        return;
+      }
       for (let i = 0; i < formData.members.length; i++) {
-        if (!formData.members[i].name?.trim()) {
+        const mem = formData.members[i];
+        if (!mem.name?.trim()) {
           showWarning(`Please enter the name for attendee #${i + 1}.`);
+          return;
+        }
+        if (!mem.age || Number(mem.age) <= 0) {
+          showWarning(`Please enter a valid age (> 0) for attendee #${i + 1} (${mem.name || "Member"}).`);
+          return;
+        }
+        if (!mem.gender?.trim()) {
+          showWarning(`Please select a gender for attendee #${i + 1} (${mem.name || "Member"}).`);
+          return;
+        }
+        if (i > 0 && !(mem as any).relationship?.trim()) {
+          showWarning(`Please select a relationship for attendee #${i + 1} (${mem.name || "Member"}).`);
           return;
         }
       }
@@ -509,9 +526,9 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         email: formData.email,
         gotram: formData.gotram || undefined,
         flatNo: formData.flatNo,
-        colonyAddress: formData.colonyAddress,
-        poojaSlot: formData.poojaSlot,
-        membersCount: formData.members.length,
+        membersCount: formData.members.length || 1,
+        devoteeCount: formData.members.length || 1,
+        attendingDevotees: formData.members.map((m) => m.name).filter(Boolean).join(", "),
         membersJson: JSON.stringify(formData.members),
         eventDate: event?.date || "2026",
         eventTime: event?.time || formData.poojaSlot,

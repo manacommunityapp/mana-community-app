@@ -489,28 +489,52 @@ export function EventMemberView() {
     try {
       const liveRegs = await eventService.getMyRegistrations();
       if (Array.isArray(liveRegs) && liveRegs.length > 0) {
-        const mappedPasses: UserPass[] = liveRegs.map((r: any) => ({
-          id: String(r.id),
-          activityId: r.activityId ? String(r.activityId) : undefined,
-          eventId: r.eventId ? String(r.eventId) : undefined,
-          passType: r.passType || `${r.category || "Event"} Registration Pass`,
-          title: r.activityTitle || r.eventName || "Community Event",
-          participantName: r.participantName || r.primaryName || "Devotee",
-          devoteeCount: Number(r.devoteeCount || r.membersCount || 1),
-          attendingDevotees: r.attendingDevotees,
-          gotram: r.gotram,
-          regId: r.regCode || `MNA-2026-${r.id}`,
-          date: r.eventDate || "Upcoming",
-          time: r.eventTime || "Scheduled",
-          venue: r.venue || "Community Venue",
-          status: (r.status === "PENDING APPROVAL" ? "PENDING APPROVAL" : "CONFIRMED"),
-          qrCodeUrl: r.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${r.regCode || r.id}`,
-          bookingFee: r.bookingFee,
-          paymentStatus: r.paymentStatus,
-          paymentReceiptUrl: r.paymentReceiptUrl,
-          transactionId: r.transactionId,
-          paymentMethod: r.paymentMethod,
-        }));
+        const mappedPasses: UserPass[] = liveRegs.map((r: any) => {
+          let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
+          if (!attendeeCount && r.membersJson) {
+            try {
+              const parsed = JSON.parse(r.membersJson);
+              if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
+            } catch {}
+          }
+          if (!attendeeCount && r.attendingDevotees) {
+            try {
+              const parsed = JSON.parse(r.attendingDevotees);
+              if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
+              else if (typeof r.attendingDevotees === 'string') {
+                const parts = r.attendingDevotees.split(',').map((s: string) => s.trim()).filter(Boolean);
+                if (parts.length > 0) attendeeCount = parts.length;
+              }
+            } catch {
+              const parts = String(r.attendingDevotees).split(',').map((s: string) => s.trim()).filter(Boolean);
+              if (parts.length > 0) attendeeCount = parts.length;
+            }
+          }
+          if (!attendeeCount) attendeeCount = 1;
+
+          return {
+            id: String(r.id),
+            activityId: r.activityId ? String(r.activityId) : undefined,
+            eventId: r.eventId ? String(r.eventId) : undefined,
+            passType: r.passType || `${r.category || "Event"} Registration Pass`,
+            title: r.activityTitle || r.eventName || "Community Event",
+            participantName: r.participantName || r.primaryName || "Devotee",
+            devoteeCount: attendeeCount,
+            attendingDevotees: r.attendingDevotees,
+            gotram: r.gotram,
+            regId: r.regCode || `MNA-2026-${r.id}`,
+            date: r.eventDate || "Upcoming",
+            time: r.eventTime || "Scheduled",
+            venue: r.venue || "Community Venue",
+            status: (r.status === "PENDING APPROVAL" ? "PENDING APPROVAL" : "CONFIRMED"),
+            qrCodeUrl: r.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${r.regCode || r.id}`,
+            bookingFee: r.bookingFee,
+            paymentStatus: r.paymentStatus,
+            paymentReceiptUrl: r.paymentReceiptUrl,
+            transactionId: r.transactionId,
+            paymentMethod: r.paymentMethod,
+          };
+        });
         setPassesList(mappedPasses);
         return;
       }

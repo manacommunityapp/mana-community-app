@@ -273,6 +273,28 @@ export function OrganizerDashboard({ initialTab = 'registrations' }: OrganizerDa
             if (r.flatNo) extraParts.push(`Unit: ${r.flatNo}`);
             if (r.ageGroup) extraParts.push(r.ageGroup);
 
+            let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
+            if (!attendeeCount && r.membersJson) {
+              try {
+                const parsed = JSON.parse(r.membersJson);
+                if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
+              } catch {}
+            }
+            if (!attendeeCount && r.attendingDevotees) {
+              try {
+                const parsed = JSON.parse(r.attendingDevotees);
+                if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
+                else if (typeof r.attendingDevotees === 'string') {
+                  const parts = r.attendingDevotees.split(',').map((s: string) => s.trim()).filter(Boolean);
+                  if (parts.length > 0) attendeeCount = parts.length;
+                }
+              } catch {
+                const parts = String(r.attendingDevotees).split(',').map((s: string) => s.trim()).filter(Boolean);
+                if (parts.length > 0) attendeeCount = parts.length;
+              }
+            }
+            if (!attendeeCount) attendeeCount = 1;
+
             return {
               id: r.id,
               regCode: r.regCode || `MNA-2026-${cat.toUpperCase()}-${r.id}`,
@@ -283,7 +305,7 @@ export function OrganizerDashboard({ initialTab = 'registrations' }: OrganizerDa
               phone: r.phone,
               gotram: r.gotram,
               ageGroup: r.ageGroup,
-              devoteeCount: Number(r.devoteeCount || r.membersCount || 1),
+              devoteeCount: attendeeCount,
               bookingFee: Number(r.bookingFee ?? r.fee ?? 0),
               paymentStatus: r.paymentStatus || (Number(r.bookingFee) === 0 ? 'FREE' : 'PAID'),
               status: r.status || 'CONFIRMED',
@@ -856,8 +878,8 @@ export function OrganizerDashboard({ initialTab = 'registrations' }: OrganizerDa
                                 {r.extra && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">{r.extra}</span>}
                               </td>
                               <td className="px-3 sm:px-4 py-2.5">
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">
-                                  <User className="w-3 h-3" /> {r.devoteeCount}
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10.5px] font-bold shadow-2xs">
+                                  <Users className="w-3.5 h-3.5 text-indigo-600" /> {r.devoteeCount} {r.devoteeCount === 1 ? 'Attendee' : 'Attendees'}
                                 </span>
                               </td>
                               <td className="px-3 sm:px-4 py-2.5 text-slate-500 hidden lg:table-cell whitespace-nowrap">

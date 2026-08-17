@@ -115,8 +115,20 @@ export function EventsLunchDinner() {
       .then(([m, regs]) => {
         const merged = [...localMeals, ...(m || [])];
         const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
-        setMeals(unique);
-        setRegistrations((regs || []).filter((r: any) => r.category === "Meal" || r.activityId?.startsWith("meal-")));
+        const mealRegs = (regs || [])
+          .filter((r: any) => r.category === "Meal" || r.activityId?.startsWith("meal-"))
+          .map((r: any) => {
+            let count = Number(r.devoteeCount ?? r.membersCount ?? 0);
+            if (!count && r.membersJson) {
+              try {
+                const parsed = JSON.parse(r.membersJson);
+                if (Array.isArray(parsed) && parsed.length > 0) count = parsed.length;
+              } catch {}
+            }
+            if (!count) count = 1;
+            return { ...r, devoteeCount: count };
+          });
+        setRegistrations(mealRegs);
       })
       .catch(e => {
         if (localMeals.length > 0) {
