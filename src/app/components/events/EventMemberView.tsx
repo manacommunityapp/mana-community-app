@@ -368,17 +368,9 @@ export function EventMemberView() {
       console.warn("Could not fetch family members from database API, using profile fallback:", err);
     }
 
-    // Fallback if no database devotees registered yet: use authenticated user profile
-    const selfName = user?.fullName || (user?.email ? user.email.split("@")[0] : "Myself (Head)");
-    const fallbackMember: FamilyMember = {
-      id: user?.userId ? String(user.userId) : "self",
-      name: selfName,
-      relation: "Myself (Head)",
-      age: 30,
-      avatar: "👤",
-    };
-    setFamilyMembers([fallbackMember]);
-    setSelectedMembers((prev) => (prev.length > 0 ? prev : [fallbackMember.id]));
+    // In Live API mode: When database has no records yet, show empty details
+    setFamilyMembers([]);
+    setSelectedMembers([]);
     setLoadingFamily(false);
   };
 
@@ -1262,29 +1254,71 @@ export function EventMemberView() {
                 </div>
 
                 <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {familyMembers.map((member) => {
-                    const isChecked = selectedMembers.includes(member.id);
-                    return (
-                      <div
-                        key={member.id}
-                        onClick={() => toggleMember(member.id)}
-                        className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${
-                          isChecked
-                            ? "bg-primary/10 border-primary text-primary"
-                            : "bg-background border-border text-foreground hover:border-muted-foreground/30"
-                        }`}
+                  {familyMembers.length === 0 ? (
+                    <div className="p-4 text-center rounded-xl bg-muted/40 border border-dashed border-border space-y-2.5">
+                      <p className="text-xs text-muted-foreground">
+                        No registered family devotees in database yet.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const selfName = user?.fullName || (user?.email ? user.email.split("@")[0] : "Myself (Head)");
+                          const payload = {
+                            name: selfName,
+                            relation: "Myself (Head)",
+                            age: 30,
+                            avatar: "👤",
+                            status: "ACTIVE",
+                          };
+                          let createdId = "fam-" + Date.now();
+                          if (!useMock) {
+                            try {
+                              const saved = await eventService.addFamilyMember(payload);
+                              if (saved && saved.id) createdId = String(saved.id);
+                            } catch (e) {
+                              console.error(e);
+                            }
+                          }
+                          const newMem: FamilyMember = {
+                            id: createdId,
+                            name: payload.name,
+                            relation: payload.relation,
+                            age: payload.age,
+                            avatar: payload.avatar,
+                          };
+                          setFamilyMembers([newMem]);
+                          setSelectedMembers([newMem.id]);
+                        }}
+                        className="px-3.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-bold shadow-xs transition-colors cursor-pointer inline-flex items-center gap-1.5"
                       >
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-lg">{member.avatar}</span>
-                          <div>
-                            <p className="text-xs font-bold">{member.name}</p>
-                            <p className="text-[10px] opacity-80">{member.relation} (Age {member.age})</p>
+                        <UserPlus className="w-3.5 h-3.5" /> Register as Myself ({user?.fullName || "Self"})
+                      </button>
+                    </div>
+                  ) : (
+                    familyMembers.map((member) => {
+                      const isChecked = selectedMembers.includes(member.id);
+                      return (
+                        <div
+                          key={member.id}
+                          onClick={() => toggleMember(member.id)}
+                          className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${
+                            isChecked
+                              ? "bg-primary/10 border-primary text-primary"
+                              : "bg-background border-border text-foreground hover:border-muted-foreground/30"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-lg">{member.avatar}</span>
+                            <div>
+                              <p className="text-xs font-bold">{member.name}</p>
+                              <p className="text-[10px] opacity-80">{member.relation} (Age {member.age})</p>
+                            </div>
                           </div>
+                          {isChecked && <CheckCircle2 className="w-4 h-4 text-primary" />}
                         </div>
-                        {isChecked && <CheckCircle2 className="w-4 h-4 text-primary" />}
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
