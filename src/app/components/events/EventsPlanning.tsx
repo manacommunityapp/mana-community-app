@@ -143,7 +143,7 @@ export function EventsPlanning() {
     setTaskForm({
       eventId: "",
       title: task.title,
-      description: task.description,
+      description: task.description || "",
       phase: task.phase,
       priority: task.priority.toUpperCase(),
       assigneeName: task.assignee === "Unassigned" ? "" : task.assignee,
@@ -161,7 +161,7 @@ export function EventsPlanning() {
       setMockTaskList(prev => prev.map(t => t.id === editingTaskId ? {
         ...t,
         title: taskForm.title,
-        description: taskForm.description,
+        description: taskForm.description || "",
         phase: taskForm.phase || "General",
         priority: taskForm.priority.toLowerCase(),
         assignee: taskForm.assigneeName || "Unassigned",

@@ -20,6 +20,7 @@ export interface EventResponse {
   endTime: string | null;
   locationType: string;
   location: string;
+  venueId?: number | null;
   venue?: string | null;
   city?: string | null;
   visibility?: string | null;
@@ -31,16 +32,6 @@ export interface EventResponse {
   imageUrl: string | null;
   organizerName: string;
   organizerContact: string;
-  venueId?: number | null;
-  venue?: string | null;
-  city?: string | null;
-  visibility?: string | null;
-  status?: string | null;
-  priceType: string;
-  price: number | null;
-  capacity: number | null;
-  maxAttendees?: number | null;
-  imageUrl: string | null;
   createdById: number;
   createdByName: string;
   communityId: number;
