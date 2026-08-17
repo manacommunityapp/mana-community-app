@@ -38,6 +38,11 @@ import {
   Eye,
   FileText,
   ExternalLink,
+  Settings,
+  AlertTriangle,
+  RefreshCw,
+  CheckCircle,
+  Edit3,
 } from "lucide-react";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 
@@ -156,6 +161,15 @@ export function EventMemberView() {
   const [transactionId, setTransactionId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("UPI");
   const [viewReceiptModal, setViewReceiptModal] = useState<string | null>(null);
+
+  // Manage Registration Modal States
+  const [managePassModal, setManagePassModal] = useState<UserPass | null>(null);
+  const [editParticipantName, setEditParticipantName] = useState("");
+  const [editAttendeeCount, setEditAttendeeCount] = useState(1);
+  const [cancelConfirmMode, setCancelConfirmMode] = useState(false);
+  const [isSavingManage, setIsSavingManage] = useState(false);
+  const [manageSuccess, setManageSuccess] = useState<string | null>(null);
+  const [manageError, setManageError] = useState<string | null>(null);
 
   // Modal State for Adding Dynamic Family Member
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
@@ -615,6 +629,98 @@ export function EventMemberView() {
     setSelectedMembers((prev) => [...prev, createdMember.id]);
     setNewMember({ name: "", relation: "Son", age: "", avatar: "👦" });
     setShowAddMemberModal(false);
+  };
+
+  // ── Open Manage Modal ──────────────────────────────────────────────────
+  const openManageModal = (pass: UserPass) => {
+    setManagePassModal(pass);
+    setEditParticipantName(pass.participantName);
+    setEditAttendeeCount(1);
+    setCancelConfirmMode(false);
+    setManageSuccess(null);
+    setManageError(null);
+  };
+
+  // ── Update Registration ─────────────────────────────────────────────────
+  const handleUpdateRegistration = async () => {
+    if (!managePassModal) return;
+    setIsSavingManage(true);
+    setManageError(null);
+    setManageSuccess(null);
+
+    const updatedData = {
+      participantName: editParticipantName.trim() || managePassModal.participantName,
+      devoteeCount: editAttendeeCount,
+    };
+
+    try {
+      if (useMock) {
+        // Update in localStorage
+        const stored: UserPass[] = JSON.parse(localStorage.getItem("mana_user_passes") || "[]");
+        const updated = stored.map((p) =>
+          p.id === managePassModal.id ? { ...p, participantName: updatedData.participantName } : p
+        );
+        localStorage.setItem("mana_user_passes", JSON.stringify(updated));
+      } else {
+        const numericId = parseInt(managePassModal.id, 10);
+        if (!isNaN(numericId)) {
+          await eventService.updateRegistration(numericId, updatedData);
+        }
+      }
+
+      // Optimistically update passes list
+      setPassesList((prev) =>
+        prev.map((p) =>
+          p.id === managePassModal.id
+            ? { ...p, participantName: updatedData.participantName }
+            : p
+        )
+      );
+
+      setManageSuccess("Registration updated successfully!");
+      // Auto-close after 1.5s
+      setTimeout(() => {
+        setManagePassModal(null);
+        setManageSuccess(null);
+      }, 1500);
+    } catch (err) {
+      console.error("Failed to update registration:", err);
+      setManageError("Failed to update registration. Please try again.");
+    } finally {
+      setIsSavingManage(false);
+    }
+  };
+
+  // ── Cancel Registration ─────────────────────────────────────────────────
+  const handleCancelRegistration = async () => {
+    if (!managePassModal) return;
+    setIsSavingManage(true);
+    setManageError(null);
+
+    try {
+      if (useMock) {
+        // Remove from localStorage
+        const stored: UserPass[] = JSON.parse(localStorage.getItem("mana_user_passes") || "[]");
+        const updated = stored.filter((p) => p.id !== managePassModal.id);
+        localStorage.setItem("mana_user_passes", JSON.stringify(updated));
+      } else {
+        const numericId = parseInt(managePassModal.id, 10);
+        if (!isNaN(numericId)) {
+          await eventService.cancelRegistration(numericId);
+        }
+      }
+
+      // Remove from UI
+      setPassesList((prev) => prev.filter((p) => p.id !== managePassModal.id));
+      setManagePassModal(null);
+      setCancelConfirmMode(false);
+      // Refresh data from backend
+      fetchLiveDataFromBackend();
+    } catch (err) {
+      console.error("Failed to cancel registration:", err);
+      setManageError("Failed to cancel registration. Please try again.");
+      setIsSavingManage(false);
+    }
   };
 
   const handleBookingSubmit = async () => {
@@ -1267,12 +1373,20 @@ export function EventMemberView() {
                       )}
                     </div>
 
-                    <button
-                      onClick={() => setShowQRPass(p)}
-                      className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95"
-                    >
-                      <QrCode className="w-4 h-4" /> View Entry QR Pass
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openManageModal(p)}
+                        className="flex-1 py-2.5 bg-muted hover:bg-accent border border-border hover:border-primary/40 text-foreground text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-xs active:scale-95"
+                      >
+                        <Settings className="w-3.5 h-3.5" /> Manage
+                      </button>
+                      <button
+                        onClick={() => setShowQRPass(p)}
+                        className="flex-[2] py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95"
+                      >
+                        <QrCode className="w-4 h-4" /> View QR Pass
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1635,16 +1749,28 @@ export function EventMemberView() {
                             {pass.participantName}
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowQRPass(pass);
-                            setMobileQuickActionModal(null);
-                          }}
-                          className="px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg text-xs font-bold flex items-center gap-1 shrink-0 cursor-pointer"
-                        >
-                          <QrCode className="w-3.5 h-3.5" /> View QR
-                        </button>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              openManageModal(pass);
+                              setMobileQuickActionModal(null);
+                            }}
+                            className="px-2 py-1.5 bg-muted hover:bg-accent border border-border rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer text-foreground"
+                          >
+                            <Settings className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowQRPass(pass);
+                              setMobileQuickActionModal(null);
+                            }}
+                            className="px-2.5 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <QrCode className="w-3.5 h-3.5" /> View QR
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1723,6 +1849,227 @@ export function EventMemberView() {
                     </div>
                   );
                 })()
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MANAGE REGISTRATION MODAL ─── */}
+      {managePassModal && (
+        <div
+          className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200"
+          onClick={() => { if (!isSavingManage) { setManagePassModal(null); setCancelConfirmMode(false); } }}
+        >
+          <div
+            className="w-full max-w-md bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl shadow-2xl animate-in slide-in-from-bottom-6 sm:animate-in sm:zoom-in-95 duration-250 overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag pill (mobile) */}
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/25 mx-auto mt-3 mb-1 sm:hidden shrink-0" />
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-border shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <Edit3 className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black text-foreground">Manage Registration</h3>
+                  <p className="text-[10.5px] text-muted-foreground truncate max-w-[220px]">{managePassModal.title}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setManagePassModal(null); setCancelConfirmMode(false); }}
+                disabled={isSavingManage}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer disabled:opacity-40"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="px-5 py-4 space-y-4 overflow-y-auto max-h-[70vh] hide-scrollbar">
+
+              {/* Registration Info (read-only) */}
+              <div className="bg-muted/50 rounded-xl p-3.5 space-y-2 border border-border/70">
+                <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Registration Details</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+                  <div>
+                    <span className="text-muted-foreground">Reg ID</span>
+                    <p className="font-mono font-bold text-foreground text-[11px] mt-0.5">{managePassModal.regId}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Status</span>
+                    <p className={`font-bold mt-0.5 text-[11px] ${
+                      managePassModal.status === "CONFIRMED" ? "text-emerald-600" : "text-amber-600"
+                    }`}>{managePassModal.status}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Date</span>
+                    <p className="font-bold text-foreground text-[11px] mt-0.5">{managePassModal.date}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Time</span>
+                    <p className="font-bold text-foreground text-[11px] mt-0.5">{managePassModal.time}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Venue</span>
+                    <p className="font-bold text-foreground text-[11px] mt-0.5">{managePassModal.venue}</p>
+                  </div>
+                  {managePassModal.bookingFee && managePassModal.bookingFee > 0 && (
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground">Booking Fee</span>
+                      <p className="font-bold text-foreground text-[11px] mt-0.5">
+                        ₹{managePassModal.bookingFee} · {managePassModal.paymentStatus || "PAID"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Editable fields */}
+              {!cancelConfirmMode && (
+                <div className="space-y-3">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Update Details</p>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Participant / Attendee Name
+                    </label>
+                    <input
+                      type="text"
+                      value={editParticipantName}
+                      onChange={(e) => setEditParticipantName(e.target.value)}
+                      placeholder={managePassModal.participantName}
+                      className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Current: {managePassModal.participantName}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Number of Devotees / Attendees
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setEditAttendeeCount((c) => Math.max(1, c - 1))}
+                        className="w-8 h-8 rounded-xl bg-muted border border-border text-foreground font-black text-base flex items-center justify-center hover:bg-accent transition-colors cursor-pointer"
+                      >
+                        −
+                      </button>
+                      <span className="flex-1 text-center text-sm font-black text-foreground tabular-nums">
+                        {editAttendeeCount}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditAttendeeCount((c) => c + 1)}
+                        className="w-8 h-8 rounded-xl bg-muted border border-border text-foreground font-black text-base flex items-center justify-center hover:bg-accent transition-colors cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Success banner */}
+              {manageSuccess && (
+                <div className="flex items-center gap-2.5 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 text-xs font-bold animate-in fade-in duration-200">
+                  <CheckCircle className="w-4 h-4 shrink-0" />
+                  {manageSuccess}
+                </div>
+              )}
+
+              {/* Error banner */}
+              {manageError && (
+                <div className="flex items-center gap-2.5 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 text-xs font-bold animate-in fade-in duration-200">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  {manageError}
+                </div>
+              )}
+
+              {/* Cancel Confirmation Panel */}
+              {cancelConfirmMode && (
+                <div className="space-y-3 animate-in fade-in duration-200">
+                  <div className="flex items-start gap-2.5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/25">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-black text-rose-700">Cancel This Registration?</p>
+                      <p className="text-[10.5px] text-rose-600/80 mt-1 leading-relaxed">
+                        This will permanently cancel your registration for <strong>{managePassModal.title}</strong>.
+                        {managePassModal.bookingFee && managePassModal.bookingFee > 0 && (
+                          <> Refund of <strong>₹{managePassModal.bookingFee}</strong> (if applicable) will be processed per policy.</>
+                        )}
+                        {" "}This action cannot be undone.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Footer actions */}
+            <div className="px-5 py-4 border-t border-border shrink-0 space-y-2.5">
+              {!cancelConfirmMode ? (
+                <>
+                  {/* Update button */}
+                  <button
+                    type="button"
+                    onClick={handleUpdateRegistration}
+                    disabled={isSavingManage || !!manageSuccess}
+                    className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95"
+                  >
+                    {isSavingManage ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Saving Changes...</>
+                    ) : (
+                      <><RefreshCw className="w-3.5 h-3.5" /> Save Changes</>
+                    )}
+                  </button>
+
+                  {/* Divider */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-px bg-border" />
+                    <span className="text-[10px] text-muted-foreground font-semibold">or</span>
+                    <div className="flex-1 h-px bg-border" />
+                  </div>
+
+                  {/* Cancel trigger */}
+                  <button
+                    type="button"
+                    onClick={() => { setCancelConfirmMode(true); setManageError(null); }}
+                    disabled={isSavingManage}
+                    className="w-full py-2 border border-rose-300/60 bg-rose-500/5 hover:bg-rose-500/10 text-rose-600 text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95 disabled:opacity-40"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Cancel Registration
+                  </button>
+                </>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { setCancelConfirmMode(false); setManageError(null); }}
+                    disabled={isSavingManage}
+                    className="flex-1 py-2.5 border border-border bg-muted hover:bg-accent text-foreground text-xs font-bold rounded-xl transition-all cursor-pointer active:scale-95 disabled:opacity-40"
+                  >
+                    Keep Registration
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelRegistration}
+                    disabled={isSavingManage}
+                    className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+                  >
+                    {isSavingManage ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Cancelling...</>
+                    ) : (
+                      <><Trash2 className="w-3.5 h-3.5" /> Yes, Cancel</>  
+                    )}
+                  </button>
+                </div>
               )}
             </div>
           </div>
