@@ -1609,6 +1609,10 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
       if (!useMock) {
         await eventService.create(toEventRequest(formData, "DRAFT"));
       }
+      try {
+        window.dispatchEvent(new Event("mana_activities_updated"));
+        window.dispatchEvent(new Event("mana_event_created"));
+      } catch {}
       setSubmitType("draft");
       setSubmitted(true);
       onCreated?.();
@@ -1635,6 +1639,10 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
       if (!useMock) {
         await eventService.create(toEventRequest(formData, "PUBLISHED"));
       }
+      try {
+        window.dispatchEvent(new Event("mana_activities_updated"));
+        window.dispatchEvent(new Event("mana_event_created"));
+      } catch {}
       setSubmitType("published");
       setSubmitted(true);
       onCreated?.();
