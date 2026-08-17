@@ -52,6 +52,7 @@ import type {
   TrendingResponse,
   EngagementScoreResponse,
   PostTypeEnum,
+} from "../../../types/api";
 import { toast } from "sonner";
 import { CommunityDirectory } from "./CommunityDirectory";
 import { AlertTicker } from "./AlertTicker";
