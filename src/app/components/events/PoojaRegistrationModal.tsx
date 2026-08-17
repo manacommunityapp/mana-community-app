@@ -67,6 +67,7 @@ interface DaySchedule {
   id: number;
   dayLabel: string;
   dateStr: string;
+  shortDate: string;
   slots: DaySlotOption[];
 }
 
@@ -117,6 +118,7 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
         id: 1,
         dayLabel: "Day 1 (Main Day)",
         dateStr: "Pooja Day",
+        shortDate: "Day 1",
         slots,
       },
     ];
@@ -131,6 +133,7 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
         id: 1,
         dayLabel: "Day 1 (Main Day)",
         dateStr: String(startRaw),
+        shortDate: String(startRaw),
         slots,
       },
     ];
@@ -142,35 +145,39 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
     const cur = new Date(startDate.getTime());
     let count = 1;
     while (cur.getTime() <= endDate.getTime() && count <= 30) {
-      const { dayLabel, dateStr } = formatPoojaDate(cur);
+      const { dayLabel, dateStr, shortDate } = formatPoojaDate(cur);
       days.push({
         id: count,
         dayLabel: `Day ${count} (${dayLabel})`,
         dateStr,
+        shortDate,
         slots,
       });
       cur.setDate(cur.getDate() + 1);
       count++;
     }
+    const startFmt = formatPoojaDate(startDate);
     return days.length > 0
       ? days
       : [
           {
             id: 1,
-            dayLabel: `Day 1 (${formatPoojaDate(startDate).dayLabel})`,
-            dateStr: formatPoojaDate(startDate).dateStr,
+            dayLabel: `Day 1 (${startFmt.dayLabel})`,
+            dateStr: startFmt.dateStr,
+            shortDate: startFmt.shortDate,
             slots,
           },
         ];
   }
 
   // Single Day Pooja
-  const { dayLabel, dateStr } = formatPoojaDate(startDate);
+  const { dayLabel, dateStr, shortDate } = formatPoojaDate(startDate);
   return [
     {
       id: 1,
       dayLabel: `Day 1 (${dayLabel})`,
       dateStr,
+      shortDate,
       slots,
     },
   ];
