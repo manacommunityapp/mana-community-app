@@ -260,24 +260,48 @@ export function EventsDashboard() {
     setLoadingRegs(true);
     eventService.getAllRegistrations()
       .then((regs: any[]) => {
-        setAllUnifiedRegs(regs.map((r: any) => ({
-          id: r.id,
-          regCode: r.regCode || `REG-${r.id}`,
-          category: (r.category === 'Pooja' ? 'pooja' : r.category === 'Cultural' ? 'cultural' : r.category === 'Competition' ? 'competition' : 'event') as RegCat,
-          activityTitle: r.activityTitle || r.eventTitle || 'Event',
-          participantName: r.participantName || r.userName || 'N/A',
-          email: r.userEmail || r.email,
-          phone: r.phone,
-          extra: r.gotram ? `Gotram: ${r.gotram}` : r.ageGroup,
-          devoteeCount: r.devoteeCount || 1,
-          bookingFee: r.bookingFee ?? 0,
-          paymentStatus: r.paymentStatus || 'N/A',
-          status: r.status || 'CONFIRMED',
-          eventDate: r.eventDate,
-          eventTime: r.eventTime,
-          venue: r.venue,
-          createdAt: r.createdAt || new Date().toISOString(),
-        })));
+        setAllUnifiedRegs(regs.map((r: any) => {
+          let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
+          if (!attendeeCount && r.membersJson) {
+            try {
+              const parsed = JSON.parse(r.membersJson);
+              if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
+            } catch {}
+          }
+          if (!attendeeCount && r.attendingDevotees) {
+            try {
+              const parsed = JSON.parse(r.attendingDevotees);
+              if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
+              else if (typeof r.attendingDevotees === 'string') {
+                const parts = r.attendingDevotees.split(',').map((s: string) => s.trim()).filter(Boolean);
+                if (parts.length > 0) attendeeCount = parts.length;
+              }
+            } catch {
+              const parts = String(r.attendingDevotees).split(',').map((s: string) => s.trim()).filter(Boolean);
+              if (parts.length > 0) attendeeCount = parts.length;
+            }
+          }
+          if (!attendeeCount) attendeeCount = 1;
+
+          return {
+            id: r.id,
+            regCode: r.regCode || `REG-${r.id}`,
+            category: (r.category === 'Pooja' ? 'pooja' : r.category === 'Cultural' ? 'cultural' : r.category === 'Competition' ? 'competition' : 'event') as RegCat,
+            activityTitle: r.activityTitle || r.eventTitle || 'Event',
+            participantName: r.participantName || r.userName || 'N/A',
+            email: r.userEmail || r.email,
+            phone: r.phone,
+            extra: r.gotram ? `Gotram: ${r.gotram}` : r.ageGroup,
+            devoteeCount: attendeeCount,
+            bookingFee: r.bookingFee ?? 0,
+            paymentStatus: r.paymentStatus || 'N/A',
+            status: r.status || 'CONFIRMED',
+            eventDate: r.eventDate,
+            eventTime: r.eventTime,
+            venue: r.venue,
+            createdAt: r.createdAt || new Date().toISOString(),
+          };
+        }));
       })
       .catch(() => {})
       .finally(() => setLoadingRegs(false));
@@ -1265,8 +1289,8 @@ export function EventsDashboard() {
                               {r.extra && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">{r.extra}</span>}
                             </td>
                             <td className="px-3 py-2">
-                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">
-                                <User className="w-2.5 h-2.5" /> {r.devoteeCount}
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold shadow-2xs">
+                                <Users className="w-3 h-3 text-indigo-600" /> {r.devoteeCount} {r.devoteeCount === 1 ? 'Attendee' : 'Attendees'}
                               </span>
                             </td>
                             <td className="px-3 py-2 text-slate-500 text-[10px] hidden lg:table-cell whitespace-nowrap">

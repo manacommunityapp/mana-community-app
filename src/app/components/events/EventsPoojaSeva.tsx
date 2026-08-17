@@ -129,8 +129,19 @@ export function EventsPoojaSeva() {
       .then(([sevas, regs, types]) => {
         const merged = [...localPoojas, ...(sevas || [])];
         const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
-        setPoojaSevas(unique);
-        const poojaRegs = (regs || []).filter((r: any) => r.category === "Pooja" || r.activityId?.startsWith("pooja-"));
+        const poojaRegs = (regs || [])
+          .filter((r: any) => r.category === "Pooja" || r.activityId?.startsWith("pooja-"))
+          .map((r: any) => {
+            let count = Number(r.devoteeCount ?? r.membersCount ?? 0);
+            if (!count && r.membersJson) {
+              try {
+                const parsed = JSON.parse(r.membersJson);
+                if (Array.isArray(parsed) && parsed.length > 0) count = parsed.length;
+              } catch {}
+            }
+            if (!count) count = 1;
+            return { ...r, devoteeCount: count };
+          });
         setRegistrations(poojaRegs);
         if (types?.length > 0) setPoojaTypes(types.map((t: any) => t.name));
       })
