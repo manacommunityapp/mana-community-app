@@ -52,11 +52,11 @@ import type {
   TrendingResponse,
   EngagementScoreResponse,
   PostTypeEnum,
-} from "../../../types/api";
 import { toast } from "sonner";
 import { CommunityDirectory } from "./CommunityDirectory";
 import { AlertTicker } from "./AlertTicker";
 import { SportsNotificationCard } from "./SportsNotificationCard";
+import { EventsNotificationCard } from "./EventsNotificationCard";
 
 const REACTION_CONFIG: { type: ReactionTypeEnum; icon: typeof Heart; label: string; color: string; activeColor: string }[] = [
   { type: "LIKE", icon: ThumbsUp, label: "Like", color: "text-blue-500", activeColor: "bg-blue-50 text-blue-600" },
@@ -740,6 +740,7 @@ export function Feed() {
 
         {/* Sidebar */}
         <div className="hidden lg:block sticky top-20 space-y-4">
+          <EventsNotificationCard />
           <TrendingCard trending={trending} onHashtagClick={(tag) => { setSearchQuery(tag); handleSearch(); }} />
           <MyGroupsCard groups={myGroups} />
           <LeaderboardCard leaderboard={leaderboard} getInitials={getInitials} />
