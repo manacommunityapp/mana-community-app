@@ -31,6 +31,16 @@ export interface EventResponse {
   imageUrl: string | null;
   organizerName: string;
   organizerContact: string;
+  venueId?: number | null;
+  venue?: string | null;
+  city?: string | null;
+  visibility?: string | null;
+  status?: string | null;
+  priceType: string;
+  price: number | null;
+  capacity: number | null;
+  maxAttendees?: number | null;
+  imageUrl: string | null;
   createdById: number;
   createdByName: string;
   communityId: number;
@@ -38,6 +48,25 @@ export interface EventResponse {
   isRegistered: boolean;
   createdAt: string;
   ticketTypes?: TicketTypeItem[];
+}
+
+export interface EventVenue {
+  id?: number;
+  name: string;
+  code?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  capacity?: number;
+  amenities?: string;
+  gateInfo?: string;
+  mapCoordinates?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  status?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface EventRequest {
@@ -56,6 +85,7 @@ export interface EventRequest {
   imageUrl?: string;
   organizerName?: string;
   organizerContact?: string;
+  venueId?: number;
   venue?: string;
   city?: string;
   category?: string;
@@ -246,16 +276,35 @@ export const eventService = {
     return apiClient.put<any>(`/events/lunch-dinners/${id}`, data);
   },
 
-  async deleteLunchDinner(id: number): Promise<void> {
-    return apiClient.delete<void>(`/events/lunch-dinners/${id}`);
+  async getVenues(status?: string): Promise<EventVenue[]> {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+    return apiClient.get<EventVenue[]>(`/events/venues${qs}`);
   },
 
-  async getFamilyMembers(): Promise<any[]> {
-    return apiClient.get<any[]>("/events/family-members");
+  async getVenueById(id: number): Promise<EventVenue> {
+    return apiClient.get<EventVenue>(`/events/venues/${id}`);
   },
 
-  async addFamilyMember(data: any): Promise<any> {
-    return apiClient.post<any>("/events/family-members", data);
+  async createVenue(data: Partial<EventVenue>): Promise<EventVenue> {
+    return apiClient.post<EventVenue>("/events/venues", data);
+  },
+
+  async updateVenue(id: number, data: Partial<EventVenue>): Promise<EventVenue> {
+    return apiClient.put<EventVenue>(`/events/venues/${id}`, data);
+  },
+
+  async deleteVenue(id: number): Promise<void> {
+    return apiClient.delete<void>(`/events/venues/${id}`);
+  },
+
+  async getFamilyMembers(eventId?: number): Promise<any[]> {
+    const qs = eventId ? `?eventId=${eventId}` : "";
+    return apiClient.get<any[]>(`/events/family-members${qs}`);
+  },
+
+  async addFamilyMember(data: any, eventId?: number): Promise<any> {
+    const qs = eventId ? `?eventId=${eventId}` : "";
+    return apiClient.post<any>(`/events/family-members${qs}`, data);
   },
 
   async updateFamilyMember(id: number, data: any): Promise<any> {
@@ -264,5 +313,21 @@ export const eventService = {
 
   async deleteFamilyMember(id: number): Promise<void> {
     return apiClient.delete<void>(`/events/family-members/${id}`);
+  },
+
+  async createRegistration(data: any): Promise<any> {
+    return apiClient.post<any>("/events/registrations", data);
+  },
+
+  async getMyRegistrations(): Promise<any[]> {
+    return apiClient.get<any[]>("/events/registrations/my");
+  },
+
+  async getAllRegistrations(): Promise<any[]> {
+    return apiClient.get<any[]>("/events/registrations");
+  },
+
+  async cancelRegistration(id: number): Promise<void> {
+    return apiClient.delete<void>(`/events/registrations/${id}`);
   },
 };

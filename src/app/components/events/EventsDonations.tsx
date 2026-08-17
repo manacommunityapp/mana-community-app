@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { IndianRupee, Package, Plus, Download, Loader2, AlertCircle, FileText, Mail, HandHeart } from "lucide-react";
+import { IndianRupee, Package, Plus, Download, Loader2, AlertCircle, FileText, Mail, HandHeart, Pencil, Trash2 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { eventDonationService, type EventDonationResponse } from "../../../services/events/eventDonationService";
+import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Button } from "../ui/button";
 import { SponsorshipProspectusModal, SponsorshipAppealEmailModal } from "./EventsSponsors";
@@ -13,18 +14,18 @@ const donationTypes = [
   { label: "Material Donations",value: "₹1,15,000", icon: Package,     color: "#d97706", bg: "#fffbeb" },
 ];
 
-const mockDonations = [
-  { id: "DON-001", donor: "Krishnamurthy S.", type: "Cash",       item: "₹25,000",         receipt: "RCP-001", date: "Aug 2" },
-  { id: "DON-002", donor: "Lakshmi Devi",     type: "Gold",       item: "50g Gold coin",   receipt: "RCP-002", date: "Aug 2" },
-  { id: "DON-003", donor: "Raghunath Rao",    type: "UPI",        item: "₹10,000",         receipt: "RCP-003", date: "Aug 1" },
-  { id: "DON-004", donor: "Subhash Reddy",    type: "Rice",       item: "100 kg Basmati",  receipt: "RCP-004", date: "Aug 1" },
-  { id: "DON-005", donor: "Venkatesha M.",    type: "Cash",       item: "₹50,000",         receipt: "RCP-005", date: "Jul 31" },
-  { id: "DON-006", donor: "Annapurna S.",     type: "Milk",       item: "500 litres",      receipt: "RCP-006", date: "Jul 30" },
-  { id: "DON-007", donor: "Tirumala Trust",   type: "Cheque",     item: "₹1,00,000",       receipt: "RCP-007", date: "Jul 28" },
-  { id: "DON-008", donor: "Chandran Pillai",  type: "Vegetables", item: "Mixed vegetables 50kg", receipt: "RCP-008", date: "Jul 27" },
+const mockDonations: DonationRow[] = [
+  { rawId: 1, id: "DON-001", donor: "Krishnamurthy S.", type: "Cash",       item: "₹25,000",         amount: 25000,  receipt: "RCP-001", date: "Aug 2",  email: "krishna@email.com", phone: "+91 98765 12345", note: "", recordedBy: "", anonymous: false },
+  { rawId: 2, id: "DON-002", donor: "Lakshmi Devi",     type: "Gold",       item: "50g Gold coin",   amount: 0,      receipt: "RCP-002", date: "Aug 2",  email: "", phone: "", note: "Gold coin for puja", recordedBy: "", anonymous: false },
+  { rawId: 3, id: "DON-003", donor: "Raghunath Rao",    type: "UPI",        item: "₹10,000",         amount: 10000,  receipt: "RCP-003", date: "Aug 1",  email: "", phone: "", note: "", recordedBy: "", anonymous: false },
+  { rawId: 4, id: "DON-004", donor: "Subhash Reddy",    type: "Rice",       item: "100 kg Basmati",  amount: 0,      receipt: "RCP-004", date: "Aug 1",  email: "", phone: "", note: "Basmati rice for prasadam", recordedBy: "", anonymous: false },
+  { rawId: 5, id: "DON-005", donor: "Venkatesha M.",    type: "Cash",       item: "₹50,000",         amount: 50000,  receipt: "RCP-005", date: "Jul 31", email: "", phone: "", note: "", recordedBy: "", anonymous: false },
+  { rawId: 6, id: "DON-006", donor: "Annapurna S.",     type: "Milk",       item: "500 litres",      amount: 0,      receipt: "RCP-006", date: "Jul 30", email: "", phone: "", note: "", recordedBy: "", anonymous: false },
+  { rawId: 7, id: "DON-007", donor: "Tirumala Trust",   type: "Cheque",     item: "₹1,00,000",       amount: 100000, receipt: "RCP-007", date: "Jul 28", email: "trust@tirumala.org", phone: "", note: "", recordedBy: "", anonymous: false },
+  { rawId: 8, id: "DON-008", donor: "Chandran Pillai",  type: "Vegetables", item: "Mixed vegetables 50kg", amount: 0, receipt: "RCP-008", date: "Jul 27", email: "", phone: "", note: "", recordedBy: "", anonymous: false },
 ];
 
-type DonationRow = { id: string; donor: string; type: string; item: string; receipt: string; date: string };
+type DonationRow = { rawId: number; id: string; donor: string; type: string; item: string; amount: number; receipt: string; date: string; email: string; phone: string; note: string; recordedBy: string; anonymous: boolean };
 
 const typeColors: Record<string, { bg: string; text: string }> = {
   Cash:          { bg: "bg-emerald-50", text: "text-emerald-700" },
@@ -42,24 +43,43 @@ const typeColors: Record<string, { bg: string; text: string }> = {
 
 function mapLiveDonations(data: EventDonationResponse[]): DonationRow[] {
   return data.map(d => ({
+    rawId: d.id,
     id: `DON-${String(d.id).padStart(3, "0")}`,
     donor: d.anonymous ? "Anonymous" : d.donorName,
     type: d.paymentMethod,
     item: `₹${d.amount.toLocaleString("en-IN")}`,
+    amount: d.amount,
     receipt: d.transactionRef ?? "—",
     date: new Date(d.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
+    email: d.donorEmail ?? "",
+    phone: d.donorPhone ?? "",
+    note: d.note ?? "",
+    recordedBy: d.recordedByName ?? "",
+    anonymous: d.anonymous,
   }));
 }
+
+const emptyDonationForm = { eventId: "", donorName: "", donorEmail: "", donorPhone: "", amount: "", paymentMethod: "CASH", transactionRef: "", note: "", anonymous: false };
 
 export function EventsDonations() {
   const { useMock } = useEventMock();
   const [liveDonations, setLiveDonations] = useState<DonationRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [events, setEvents] = useState<EventResponse[]>([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [donationForm, setDonationForm] = useState(emptyDonationForm);
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [editingDonationId, setEditingDonationId] = useState<number | null>(null);
 
   // Modal states
   const [prospectusOpen, setProspectusOpen] = useState(false);
   const [emailAppealOpen, setEmailAppealOpen] = useState(false);
+
+  useEffect(() => {
+    eventService.getAll().then(setEvents).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (useMock) return;
@@ -70,6 +90,133 @@ export function EventsDonations() {
       .catch(e => setError(e.message ?? "Failed to load donations"))
       .finally(() => setLoading(false));
   }, [useMock]);
+
+  const handleAddDonation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!donationForm.donorName.trim() && !donationForm.anonymous) { setFormError("Donor name is required unless anonymous"); return; }
+    if (!donationForm.amount || Number(donationForm.amount) <= 0) { setFormError("Amount must be greater than 0"); return; }
+    if (useMock) {
+      const newRow: DonationRow = {
+        rawId: Date.now(),
+        id: `DON-${String(Date.now()).slice(-3)}`,
+        donor: donationForm.anonymous ? "Anonymous" : donationForm.donorName,
+        type: donationForm.paymentMethod || "Cash",
+        item: `₹${Number(donationForm.amount).toLocaleString("en-IN")}`,
+        amount: Number(donationForm.amount),
+        receipt: donationForm.transactionRef || "—",
+        date: new Date().toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
+        email: donationForm.donorEmail,
+        phone: donationForm.donorPhone,
+        note: donationForm.note,
+        recordedBy: "",
+        anonymous: donationForm.anonymous,
+      };
+      setLiveDonations(prev => [newRow, ...prev]);
+      setShowAddForm(false);
+      setDonationForm(emptyDonationForm);
+      return;
+    }
+    if (!donationForm.eventId) { setFormError("Please select an event"); return; }
+    setSaving(true);
+    setFormError("");
+    try {
+      const resp = await eventDonationService.create({
+        eventId: Number(donationForm.eventId),
+        donorName: donationForm.anonymous ? "Anonymous" : donationForm.donorName,
+        donorEmail: donationForm.donorEmail || undefined,
+        donorPhone: donationForm.donorPhone || undefined,
+        amount: Number(donationForm.amount),
+        paymentMethod: donationForm.paymentMethod || undefined,
+        transactionRef: donationForm.transactionRef || undefined,
+        note: donationForm.note || undefined,
+        anonymous: donationForm.anonymous,
+      });
+      setLiveDonations(prev => [mapLiveDonations([resp])[0], ...prev]);
+      setShowAddForm(false);
+      setDonationForm(emptyDonationForm);
+    } catch (err: any) {
+      setFormError(err?.response?.data?.message || err?.message || "Failed to record donation");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEditDonation = (d: DonationRow) => {
+    setEditingDonationId(d.rawId);
+    setDonationForm({
+      eventId: "",
+      donorName: d.anonymous ? "" : d.donor,
+      donorEmail: d.email,
+      donorPhone: d.phone,
+      amount: String(d.amount),
+      paymentMethod: d.type,
+      transactionRef: d.receipt === "—" ? "" : d.receipt,
+      note: d.note,
+      anonymous: d.anonymous,
+    });
+    setFormError("");
+    setShowAddForm(true);
+  };
+
+  const handleEditDonation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!donationForm.donorName.trim() && !donationForm.anonymous) { setFormError("Donor name is required unless anonymous"); return; }
+    if (!donationForm.amount || Number(donationForm.amount) <= 0) { setFormError("Amount must be greater than 0"); return; }
+    if (useMock) {
+      setLiveDonations(prev => prev.map(d => d.rawId === editingDonationId ? {
+        ...d,
+        donor: donationForm.anonymous ? "Anonymous" : donationForm.donorName,
+        type: donationForm.paymentMethod,
+        item: `₹${Number(donationForm.amount).toLocaleString("en-IN")}`,
+        amount: Number(donationForm.amount),
+        email: donationForm.donorEmail,
+        phone: donationForm.donorPhone,
+        note: donationForm.note,
+        anonymous: donationForm.anonymous,
+        receipt: donationForm.transactionRef || "—",
+      } : d));
+      setShowAddForm(false);
+      setEditingDonationId(null);
+      setDonationForm(emptyDonationForm);
+      return;
+    }
+    setSaving(true);
+    setFormError("");
+    try {
+      const resp = await eventDonationService.update(editingDonationId!, {
+        donorName: donationForm.anonymous ? "Anonymous" : donationForm.donorName,
+        donorEmail: donationForm.donorEmail || undefined,
+        donorPhone: donationForm.donorPhone || undefined,
+        amount: Number(donationForm.amount),
+        paymentMethod: donationForm.paymentMethod || undefined,
+        transactionRef: donationForm.transactionRef || undefined,
+        note: donationForm.note || undefined,
+        anonymous: donationForm.anonymous,
+      });
+      setLiveDonations(prev => prev.map(d => d.rawId === editingDonationId ? mapLiveDonations([resp])[0] : d));
+      setShowAddForm(false);
+      setEditingDonationId(null);
+      setDonationForm(emptyDonationForm);
+    } catch (err: any) {
+      setFormError(err?.response?.data?.message || err?.message || "Failed to update donation");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteDonation = async (d: DonationRow) => {
+    if (!confirm(`Delete donation ${d.id} from ${d.donor}?`)) return;
+    if (useMock) {
+      setLiveDonations(prev => prev.filter(x => x.rawId !== d.rawId));
+      return;
+    }
+    try {
+      await eventDonationService.deleteDonation(d.rawId);
+      setLiveDonations(prev => prev.filter(x => x.rawId !== d.rawId));
+    } catch (err: any) {
+      setError(err?.message || "Failed to delete donation");
+    }
+  };
 
   const donations = useMock ? mockDonations : liveDonations;
   const totalAmount = useMock ? 620000 : liveDonations.reduce((a, d) => a + parseInt(d.item.replace(/[^\d]/g, "") || "0"), 0);
@@ -170,7 +317,9 @@ export function EventsDonations() {
             <button className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">
               <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Export</span>
             </button>
-            <button className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 transition-all shadow-sm">
+            <button
+              onClick={() => { setDonationForm(emptyDonationForm); setFormError(""); setShowAddForm(true); }}
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 transition-all shadow-sm">
               <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Record</span><span className="sm:hidden">Add</span>
             </button>
           </div>
@@ -179,9 +328,9 @@ export function EventsDonations() {
         <Table className="text-sm">
           <TableHeader>
             <TableRow className="bg-slate-50/80 border-b border-slate-100 hover:bg-slate-50/80">
-              {["ID", "Donor Name", "Type", "Item / Amount", "Receipt", "Date", "Actions"].map(h => (
+              {["ID", "Donor Name", "Type", "Item / Amount", "Receipt", "Date", "Note", "Recorded By", "Actions"].map(h => (
                 <TableHead key={h} className={`px-3 sm:px-6 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap h-auto ${
-                  (h === "ID" || h === "Receipt" || h === "Date") ? "hidden sm:table-cell" : ""
+                  (h === "ID" || h === "Receipt" || h === "Date" || h === "Note" || h === "Recorded By") ? "hidden lg:table-cell" : ""
                 }`}>{h}</TableHead>
               ))}
             </TableRow>
@@ -192,17 +341,33 @@ export function EventsDonations() {
               return (
                 <TableRow key={d.id} className="animate-fade-in-up hover:bg-slate-50/60 transition-colors">
                   <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 font-mono text-xs text-slate-400 hidden sm:table-cell">{d.id}</TableCell>
-                  <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 font-semibold text-slate-800 text-xs sm:text-sm">{d.donor}</TableCell>
+                  <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
+                    <p className="font-semibold text-slate-800 text-xs sm:text-sm">{d.donor}</p>
+                    {(d.email || d.phone) && (
+                      <p className="text-[10px] text-slate-400 mt-0.5 hidden sm:block">
+                        {[d.email, d.phone].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                  </TableCell>
                   <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
                     <span className={`px-2 sm:px-2.5 py-1 rounded-full text-[10px] font-bold ${tc.bg} ${tc.text}`}>{d.type}</span>
                   </TableCell>
                   <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 font-semibold text-slate-700 text-xs sm:text-sm">{d.item}</TableCell>
                   <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 font-mono text-xs text-indigo-600 hidden sm:table-cell">{d.receipt}</TableCell>
-                  <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 text-xs text-slate-400 hidden sm:table-cell">{d.date}</TableCell>
+                  <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 text-xs text-slate-400 hidden lg:table-cell">{d.date}</TableCell>
+                  <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 text-xs text-slate-500 hidden lg:table-cell max-w-[150px] truncate">{d.note || "—"}</TableCell>
+                  <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 text-xs text-slate-400 hidden lg:table-cell">{d.recordedBy || "—"}</TableCell>
                   <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
-                    <div className="flex gap-2">
-                      <button className="text-xs font-semibold text-indigo-600 hover:underline">Receipt</button>
-                      <button className="text-xs font-semibold text-violet-600 hover:underline hidden sm:inline">Certificate</button>
+                    <div className="flex items-center gap-1.5">
+                      <button onClick={() => openEditDonation(d)}
+                        className="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors" title="Edit">
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => handleDeleteDonation(d)}
+                        className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors" title="Delete">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <button className="text-xs font-semibold text-indigo-600 hover:underline hidden sm:inline">Receipt</button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -212,6 +377,104 @@ export function EventsDonations() {
         </Table>
         </div>
       </div>
+
+      {/* Add Donation Modal */}
+      {showAddForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-bold text-slate-800">{editingDonationId ? "Edit Donation" : "Record Donation"}</h3>
+              <button onClick={() => { setShowAddForm(false); setEditingDonationId(null); setDonationForm(emptyDonationForm); }} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+            </div>
+            <form onSubmit={editingDonationId ? handleEditDonation : handleAddDonation} className="px-6 py-5 space-y-4">
+              {formError && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" /> {formError}
+                </div>
+              )}
+              {!useMock && (
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Event *</span>
+                  <select value={donationForm.eventId} onChange={e => setDonationForm(f => ({ ...f, eventId: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white" required>
+                    <option value="">Select event</option>
+                    {events.map(ev => <option key={ev.id} value={String(ev.id)}>{ev.title}</option>)}
+                  </select>
+                </label>
+              )}
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                  <input type="checkbox" checked={donationForm.anonymous}
+                    onChange={e => setDonationForm(f => ({ ...f, anonymous: e.target.checked }))}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-300" />
+                  Anonymous donation
+                </label>
+              </div>
+              {!donationForm.anonymous && (
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Donor Name *</span>
+                  <input type="text" value={donationForm.donorName} onChange={e => setDonationForm(f => ({ ...f, donorName: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    placeholder="Full name of donor" required={!donationForm.anonymous} />
+                </label>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Amount (₹) *</span>
+                  <input type="number" value={donationForm.amount} onChange={e => setDonationForm(f => ({ ...f, amount: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    placeholder="0" min="1" required />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Payment Method</span>
+                  <select value={donationForm.paymentMethod} onChange={e => setDonationForm(f => ({ ...f, paymentMethod: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+                    <option value="CASH">Cash</option>
+                    <option value="UPI">UPI / Online</option>
+                    <option value="CHEQUE">Cheque</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Email</span>
+                  <input type="email" value={donationForm.donorEmail} onChange={e => setDonationForm(f => ({ ...f, donorEmail: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    placeholder="donor@email.com" />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Phone</span>
+                  <input type="tel" value={donationForm.donorPhone} onChange={e => setDonationForm(f => ({ ...f, donorPhone: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    placeholder="+91 ..." />
+                </label>
+              </div>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-600">Transaction Reference</span>
+                <input type="text" value={donationForm.transactionRef} onChange={e => setDonationForm(f => ({ ...f, transactionRef: e.target.value }))}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  placeholder="UPI ref / cheque no." />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-600">Note</span>
+                <textarea value={donationForm.note} onChange={e => setDonationForm(f => ({ ...f, note: e.target.value }))}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" rows={2}
+                  placeholder="Optional note" />
+              </label>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => { setShowAddForm(false); setEditingDonationId(null); setDonationForm(emptyDonationForm); }}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
+                <button type="submit" disabled={saving}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2">
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />} {editingDonationId ? "Update Donation" : "Record Donation"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Prospectus Modal */}
       <SponsorshipProspectusModal

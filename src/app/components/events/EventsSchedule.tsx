@@ -1073,8 +1073,12 @@ function EditEventDialog({ event, onClose, onSave }: {
             venue,
             city,
             capacity,
-            status,
+            status: (status === "upcoming" ? "PUBLISHED" : status.toUpperCase()) as any,
           });
+          try {
+            window.dispatchEvent(new Event("mana_activities_updated"));
+            window.dispatchEvent(new Event("mana_event_created"));
+          } catch {}
         }
       } catch (err: any) {
         setError(err.message || "Failed to update event");
@@ -1239,7 +1243,7 @@ function EventsList() {
             endTime: e.endTime || "17:00",
             venue: e.venue || e.location || "Community Center",
             city: e.city || "Local",
-            status: e.startDate && new Date(e.startDate) > new Date() ? "upcoming" : "completed",
+            status: (e.status?.toLowerCase() as EventStatus) || (e.startDate && new Date(e.startDate) > new Date() ? "upcoming" : "completed"),
             visibility: (e.visibility?.toLowerCase() as any) || "community",
             registrations: e.attendees || 0,
             capacity: e.maxAttendees || 100,
@@ -1255,8 +1259,18 @@ function EventsList() {
       } finally {
         setLoading(false);
       }
-    }
+    };
     loadLive();
+
+    const handleReload = () => {
+      loadLive();
+    };
+    window.addEventListener("mana_event_created", handleReload);
+    window.addEventListener("mana_activities_updated", handleReload);
+    return () => {
+      window.removeEventListener("mana_event_created", handleReload);
+      window.removeEventListener("mana_activities_updated", handleReload);
+    };
   }, [useMock]);
 
   const filtered = events

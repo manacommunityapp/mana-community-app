@@ -1521,7 +1521,7 @@ function Step6Review({ data }: { data: FormData }) {
   );
 }
 
-function toEventRequest(data: FormData): EventRequest {
+function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLISHED"): EventRequest {
   return {
     title: data.title,
     description: data.description || undefined,
@@ -1539,6 +1539,10 @@ function toEventRequest(data: FormData): EventRequest {
     organizerName: undefined,
     organizerContact: undefined,
     ticketTypes: data.ticketTypes,
+    venue: data.venueName || undefined,
+    city: data.city || undefined,
+    category: data.eventType || undefined,
+    status: statusOverride || "PUBLISHED",
   };
 }
 
@@ -1603,8 +1607,12 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
     try {
       persistTicketCategoriesLocally(formData.ticketTypes, formData.title);
       if (!useMock) {
-        await eventService.create(toEventRequest(formData));
+        await eventService.create(toEventRequest(formData, "DRAFT"));
       }
+      try {
+        window.dispatchEvent(new Event("mana_activities_updated"));
+        window.dispatchEvent(new Event("mana_event_created"));
+      } catch {}
       setSubmitType("draft");
       setSubmitted(true);
       onCreated?.();
@@ -1629,8 +1637,12 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
     try {
       persistTicketCategoriesLocally(formData.ticketTypes, formData.title);
       if (!useMock) {
-        await eventService.create(toEventRequest(formData));
+        await eventService.create(toEventRequest(formData, "PUBLISHED"));
       }
+      try {
+        window.dispatchEvent(new Event("mana_activities_updated"));
+        window.dispatchEvent(new Event("mana_event_created"));
+      } catch {}
       setSubmitType("published");
       setSubmitted(true);
       onCreated?.();

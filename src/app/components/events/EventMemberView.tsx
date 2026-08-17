@@ -33,6 +33,11 @@ import {
   Loader2,
   Filter,
   Trash2,
+  Upload,
+  Receipt,
+  Eye,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 
 interface FamilyMember {
@@ -67,6 +72,11 @@ interface UserPass {
   venue: string;
   status: "CONFIRMED" | "PENDING APPROVAL";
   qrCodeUrl: string;
+  bookingFee?: number;
+  paymentStatus?: string;
+  paymentReceiptUrl?: string;
+  transactionId?: string;
+  paymentMethod?: string;
 }
 
 const INITIAL_ACTIVITIES: Activity[] = [
@@ -139,6 +149,12 @@ export function EventMemberView() {
   const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
   const [loadingApiData, setLoadingApiData] = useState(false);
   const [loadingFamily, setLoadingFamily] = useState(false);
+
+  // Payment Upload & Verification States
+  const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
+  const [transactionId, setTransactionId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("UPI");
+  const [viewReceiptModal, setViewReceiptModal] = useState<string | null>(null);
 
   // Modal State for Adding Dynamic Family Member
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
@@ -287,9 +303,19 @@ export function EventMemberView() {
   };
 
   // Load family members dynamically from database / mock
-  // Load family members dynamically from database
+  // Load family members dynamically from database & include logged-in member
   const loadFamilyMembers = async () => {
     setLoadingFamily(true);
+
+    const primaryDevotee: FamilyMember = {
+      id: "self",
+      name: user?.fullName || (user?.email ? user.email.split("@")[0] : "Primary Devotee"),
+      relation: "Myself (Head)",
+      age: user?.dateOfBirth
+        ? Math.max(18, new Date().getFullYear() - new Date(user.dateOfBirth).getFullYear())
+        : 30,
+      avatar: user?.gender === "Female" ? "👩" : "👨",
+    };
 
     try {
       try {
@@ -312,46 +338,70 @@ export function EventMemberView() {
             avatar: m.avatar || "👤",
           }));
 
-        if (mapped.length > 0) {
-          // Ensure "Head / Myself" appears first
-          mapped.sort((a, b) => {
-            const isAHead = a.relation.toLowerCase().includes("myself") || a.relation.toLowerCase().includes("head") || a.relation.toLowerCase().includes("self");
-            const isBHead = b.relation.toLowerCase().includes("myself") || b.relation.toLowerCase().includes("head") || b.relation.toLowerCase().includes("self");
-            if (isAHead && !isBHead) return -1;
-            if (!isAHead && isBHead) return 1;
-            return 0;
-          });
+        // Filter out any duplicate self/primary entries from DB
+        const additionalMembers = mapped.filter(
+          (m) =>
+            m.name.trim().toLowerCase() !== primaryDevotee.name.trim().toLowerCase() &&
+            !m.relation.toLowerCase().includes("myself") &&
+            !m.relation.toLowerCase().includes("head")
+        );
 
-          setFamilyMembers(mapped);
-          setSelectedMembers(mapped.map((m) => m.id));
-          setLoadingFamily(false);
-          return;
-        }
+        const combinedList = [primaryDevotee, ...additionalMembers];
+        setFamilyMembers(combinedList);
+        setSelectedMembers(combinedList.map((m) => m.id));
+        setLoadingFamily(false);
+        return;
       }
     } catch (err) {
       console.warn("Could not fetch family members from database API:", err);
     }
 
-    // Default to empty details when user has not registered family members yet
-    setFamilyMembers([]);
-    setSelectedMembers([]);
+    // Default to the logged-in user as the primary devotee
+    setFamilyMembers([primaryDevotee]);
+    setSelectedMembers([primaryDevotee.id]);
     setLoadingFamily(false);
   };
 
-  // Load User Passes dynamically
-  const loadUserPasses = () => {
-    try {
-      const stored: UserPass[] = JSON.parse(localStorage.getItem("mana_user_passes") || "[]");
-      if (useMock) {
-        const existingIds = new Set(INITIAL_PASSES.map((p) => p.id));
-        const customOnly = stored.filter((s) => !existingIds.has(s.id));
-        setPassesList([...INITIAL_PASSES, ...customOnly]);
-      } else {
+  // Load User Passes dynamically from database API / mock
+  const loadUserPasses = async () => {
+    if (useMock) {
+      try {
+        const stored: UserPass[] = JSON.parse(localStorage.getItem("mana_user_passes") || "[]");
         setPassesList(stored);
+      } catch {
+        setPassesList([]);
       }
-    } catch {
-      setPassesList(useMock ? INITIAL_PASSES : []);
+      return;
     }
+
+    try {
+      const liveRegs = await eventService.getMyRegistrations();
+      if (Array.isArray(liveRegs) && liveRegs.length > 0) {
+        const mappedPasses: UserPass[] = liveRegs.map((r: any) => ({
+          id: String(r.id),
+          passType: r.passType || `${r.category || "Event"} Registration Pass`,
+          title: r.activityTitle || "Community Event",
+          participantName: r.participantName || "Devotee",
+          regId: r.regCode || `MNA-2026-${r.id}`,
+          date: r.eventDate || "Upcoming",
+          time: r.eventTime || "Scheduled",
+          venue: r.venue || "Community Venue",
+          status: (r.status === "PENDING APPROVAL" ? "PENDING APPROVAL" : "CONFIRMED"),
+          qrCodeUrl: r.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${r.regCode || r.id}`,
+          bookingFee: r.bookingFee,
+          paymentStatus: r.paymentStatus,
+          paymentReceiptUrl: r.paymentReceiptUrl,
+          transactionId: r.transactionId,
+          paymentMethod: r.paymentMethod,
+        }));
+        setPassesList(mappedPasses);
+        return;
+      }
+    } catch (err) {
+      console.warn("Could not fetch user registrations from API:", err);
+    }
+
+    setPassesList([]);
   };
 
   useEffect(() => {
@@ -524,7 +574,7 @@ export function EventMemberView() {
     setShowAddMemberModal(false);
   };
 
-  const handleBookingSubmit = () => {
+  const handleBookingSubmit = async () => {
     if (!selectedActivity) return;
     const attendingNames = familyMembers
       .filter((f) => selectedMembers.includes(f.id))
@@ -532,23 +582,169 @@ export function EventMemberView() {
       .join(", ");
 
     const attendeeLabel = attendingNames || user?.fullName || (user?.email ? user.email.split("@")[0] : "Devotee");
+    const regCode = `MNA-2026-${(selectedActivity.category || "EVT").toUpperCase().slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const isPaid = (selectedActivity.fee || 0) > 0;
+    const passPayload = {
+      regCode,
+      activityId: selectedActivity.id,
+      activityTitle: selectedActivity.title,
+      category: selectedActivity.category,
+      passType: `${selectedActivity.category} Registration Pass`,
+      participantName: attendeeLabel,
+      attendingDevotees: attendingNames,
+      devoteeCount: Math.max(1, selectedMembers.length),
+      eventDate: selectedActivity.date,
+      eventTime: selectedActivity.time,
+      venue: selectedActivity.venue,
+      bookingFee: (selectedActivity.fee || 0) * Math.max(1, selectedMembers.length),
+      paymentStatus: isPaid ? "PAID" : "FREE",
+      paymentReceiptUrl: isPaid && paymentReceiptUrl ? paymentReceiptUrl : undefined,
+      transactionId: isPaid && transactionId ? transactionId : undefined,
+      paymentMethod: isPaid ? paymentMethod : undefined,
+      status: "CONFIRMED",
+      qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${regCode}`,
+    };
+
+    let createdId = "pass-" + Date.now();
+
+    if (!useMock) {
+      try {
+        const saved = await eventService.createRegistration(passPayload);
+        if (saved && saved.id) {
+          createdId = String(saved.id);
+        }
+      } catch (err) {
+        console.error("Failed to save event registration to database:", err);
+      }
+    }
 
     const newPass: UserPass = {
-      id: "pass-" + Date.now(),
-      passType: `${selectedActivity.category} Registration Pass`,
-      title: selectedActivity.title,
-      participantName: attendeeLabel,
-      regId: `MNA-2026-${selectedActivity.category.toUpperCase().slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`,
-      date: selectedActivity.date,
-      time: selectedActivity.time,
-      venue: selectedActivity.venue,
+      id: createdId,
+      passType: passPayload.passType,
+      title: passPayload.activityTitle,
+      participantName: passPayload.participantName,
+      regId: regCode,
+      date: passPayload.eventDate,
+      time: passPayload.eventTime,
+      venue: passPayload.venue,
       status: "CONFIRMED",
-      qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=MNA-2026-REG-${Date.now()}`,
+      qrCodeUrl: passPayload.qrCodeUrl,
+      bookingFee: passPayload.bookingFee,
+      paymentStatus: passPayload.paymentStatus,
+      paymentReceiptUrl: passPayload.paymentReceiptUrl,
+      transactionId: passPayload.transactionId,
+      paymentMethod: passPayload.paymentMethod,
     };
+
     setPassesList((prev) => [newPass, ...prev]);
     alert(`Success! Registered for ${selectedActivity.title}. E-Pass issued to ${attendeeLabel}!`);
     setSelectedActivity(null);
+    setPaymentReceiptUrl("");
+    setTransactionId("");
     setActiveTab("passes");
+  };
+
+  const handleDownloadPDFPass = (pass: UserPass) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups in your browser to download/print the PDF E-Pass.");
+      return;
+    }
+
+    const passHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>E-Pass Ticket - ${pass.regId}</title>
+  <style>
+    @page { size: A4 portrait; margin: 12mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; padding: 24px; }
+    .ticket-card { max-width: 600px; margin: 0 auto; background: #ffffff; border: 2px solid #4f46e5; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(79, 70, 229, 0.12); }
+    .header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; padding: 28px 24px; text-align: center; position: relative; }
+    .badge { display: inline-block; background: rgba(255,255,255,0.25); color: #ffffff; padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.3); }
+    .header h1 { margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -0.5px; }
+    .header p { margin: 6px 0 0; font-size: 13px; opacity: 0.9; font-weight: 500; }
+    .body-content { padding: 28px 24px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+    .info-box { background: #f8fafc; padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .info-box.full { grid-column: span 2; }
+    .label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .value { font-size: 14px; font-weight: 800; color: #0f172a; word-break: break-word; }
+    .value.highlight { color: #4f46e5; }
+    .qr-container { text-align: center; background: #f1f5f9; padding: 24px; border-radius: 16px; border: 2px dashed #cbd5e1; margin: 10px 0; }
+    .qr-code { width: 170px; height: 170px; margin: 0 auto; display: block; background: #ffffff; padding: 8px; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .reg-code { font-family: monospace; font-size: 14px; font-weight: 900; color: #4f46e5; margin-top: 12px; letter-spacing: 0.5px; }
+    .instructions { font-size: 11px; color: #64748b; margin-top: 6px; font-weight: 600; }
+    .footer { border-top: 1px dashed #e2e8f0; padding: 16px 24px; background: #fafafa; text-align: center; }
+    .status-stamp { font-size: 12px; font-weight: 900; color: #059669; text-transform: uppercase; letter-spacing: 0.5px; }
+    .terms { font-size: 10.5px; color: #94a3b8; margin-top: 4px; }
+    @media print {
+      body { background: #ffffff; padding: 0; }
+      .ticket-card { box-shadow: none; border-color: #000000; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="ticket-card">
+    <div class="header">
+      <div class="badge">OFFICIAL GATE ENTRY E-PASS</div>
+      <h1>Shree Ganesh Utsav 2026</h1>
+      <p>Mana Community Executive Committee • Digital Verification Voucher</p>
+    </div>
+    <div class="body-content">
+      <div class="info-grid">
+        <div class="info-box">
+          <div class="label">Pass Category</div>
+          <div class="value highlight">${pass.passType}</div>
+        </div>
+        <div class="info-box">
+          <div class="label">Event / Program</div>
+          <div class="value">${pass.title}</div>
+        </div>
+        <div class="info-box">
+          <div class="label">Devotee / Attendee</div>
+          <div class="value">${pass.participantName}</div>
+        </div>
+        <div class="info-box">
+          <div class="label">Date & Time</div>
+          <div class="value">${pass.date} • ${pass.time}</div>
+        </div>
+        <div class="info-box full">
+          <div class="label">Assigned Venue & Entry Gate</div>
+          <div class="value">${pass.venue}</div>
+        </div>
+      </div>
+
+      <div class="qr-container">
+        <img src="${pass.qrCodeUrl}" class="qr-code" alt="Gate Verification QR Code" />
+        <div class="reg-code">${pass.regId}</div>
+        <div class="instructions">Present QR Code at Security Scanner Desk for instant entry & prasadam verification</div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="status-stamp">✓ CONFIRMED &amp; VALIDATED PASS</div>
+      <div class="terms">Please keep a digital or printed PDF copy ready at gate entry. Non-transferable.</div>
+    </div>
+  </div>
+  <div class="no-print" style="text-align: center; margin-top: 24px;">
+    <button onclick="window.print()" style="padding: 12px 28px; background: linear-gradient(to right, #4f46e5, #7c3aed); color: #ffffff; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; cursor: pointer; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">
+      🖨️ Print / Save as PDF
+    </button>
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() { window.print(); }, 400);
+    };
+  </script>
+</body>
+</html>
+    `;
+
+    printWindow.document.write(passHtml);
+    printWindow.document.close();
   };
 
   const filteredActivities = activitiesList.filter((a) => {
@@ -723,37 +919,56 @@ export function EventMemberView() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-border animate-fadeIn">
-                      {familyMembers.map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex items-center justify-between p-2.5 rounded-xl bg-muted/50 border border-border/70 hover:border-primary/30 transition-all"
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="text-xl shrink-0">{member.avatar}</span>
-                            <div className="min-w-0">
-                              <p className="text-xs font-bold text-foreground truncate">{member.name}</p>
-                              <p className="text-[10px] text-muted-foreground font-medium">
-                                {member.relation} • Age {member.age}
-                              </p>
+                      {familyMembers.map((member) => {
+                        const isPrimary = member.id === "self" || member.relation.includes("Myself") || member.relation.includes("Head");
+                        return (
+                          <div
+                            key={member.id}
+                            className={`flex items-center justify-between p-2.5 rounded-xl border transition-all ${
+                              isPrimary
+                                ? "bg-primary/5 border-primary/30 shadow-2xs"
+                                : "bg-muted/50 border-border/70 hover:border-primary/30"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="text-xl shrink-0">{member.avatar}</span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-xs font-bold text-foreground truncate">{member.name}</p>
+                                  {isPrimary && (
+                                    <span className="text-[8.5px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/15 px-1.5 py-0.2 rounded">
+                                      You
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground font-medium truncate">
+                                  {member.relation} • Age {member.age}
+                                  {isPrimary && (user?.flatNo || user?.block) && ` • Flat ${user?.block ? `${user?.block}-` : ""}${user?.flatNo || ""}`}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className={`text-[9.5px] font-bold px-2 py-0.5 rounded-md border ${
+                                isPrimary
+                                  ? "text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 border-indigo-500/20"
+                                  : "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                              }`}>
+                                {isPrimary ? "Primary Devotee" : "Active"}
+                              </span>
+                              {!isPrimary && (
+                                <button
+                                  type="button"
+                                  title="Remove devotee"
+                                  onClick={(e) => handleDeleteFamilyMember(member.id, e)}
+                                  className="p-1 text-muted-foreground hover:text-rose-500 rounded-md transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </div>
                           </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
-                              Active
-                            </span>
-                            {member.relation !== "Myself (Head)" && member.id !== "self" && (
-                              <button
-                                type="button"
-                                title="Remove devotee"
-                                onClick={(e) => handleDeleteFamilyMember(member.id, e)}
-                                className="p-1 text-muted-foreground hover:text-rose-500 rounded-md transition-colors cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -963,16 +1178,44 @@ export function EventMemberView() {
                           <span className="text-[10px] font-extrabold text-primary uppercase block">{p.passType}</span>
                           <h4 className="text-xs sm:text-sm font-bold text-foreground">{p.title}</h4>
                         </div>
-                        <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
-                          {p.status}
-                        </span>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                            {p.status}
+                          </span>
+                          {p.bookingFee && p.bookingFee > 0 ? (
+                            <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                              ₹{p.bookingFee} ({p.paymentStatus || "PAID"})
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-slate-500/10 text-slate-600 border border-slate-500/20">
+                              FREE
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="text-xs text-muted-foreground space-y-1">
                         <p>Attendee: <strong className="text-foreground">{p.participantName}</strong></p>
                         <p>Date &amp; Time: <strong className="text-foreground">{p.date} • {p.time}</strong></p>
                         <p className="font-mono text-[10.5px] text-muted-foreground/80">Reg ID: {p.regId}</p>
+                        {p.transactionId && (
+                          <p className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
+                            Txn: {p.transactionId}
+                          </p>
+                        )}
                       </div>
+
+                      {p.paymentReceiptUrl && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setViewReceiptModal(p.paymentReceiptUrl!)}
+                            className="text-[10.5px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer bg-primary/5 px-2 py-1 rounded-lg border border-primary/20 w-fit"
+                          >
+                            <Receipt className="w-3 h-3" /> View Payment Receipt
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <button
@@ -988,6 +1231,33 @@ export function EventMemberView() {
           </div>
         )}
       </div>
+
+      {/* ─── PAYMENT RECEIPT VIEWER MODAL ─── */}
+      {viewReceiptModal && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex items-center justify-center p-4" onClick={() => setViewReceiptModal(null)}>
+          <div className="bg-card border border-border text-card-foreground rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-3 animate-fadeIn relative" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                <Receipt className="w-4 h-4 text-primary" /> Verified Payment Receipt
+              </h3>
+              <button onClick={() => setViewReceiptModal(null)} className="text-muted-foreground hover:text-foreground cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="bg-muted rounded-xl p-2 max-h-[70vh] overflow-auto flex items-center justify-center">
+              <img src={viewReceiptModal} alt="Payment Receipt" className="max-h-[60vh] max-w-full rounded-lg object-contain" />
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setViewReceiptModal(null)}
+                className="px-4 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-xs cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── STICKY MOBILE BOTTOM NAVIGATION BAR ─── */}
       <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-3 py-2 flex items-center justify-around shadow-lg">
@@ -1285,6 +1555,92 @@ export function EventMemberView() {
                   )}
                 </div>
               </div>
+
+              {selectedActivity.fee > 0 && (
+                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Receipt className="w-3.5 h-3.5 text-primary" /> Payment &amp; Receipt Upload
+                    </span>
+                    <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                      ₹{selectedActivity.fee * Math.max(1, selectedMembers.length)} Required
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {["UPI", "Bank Transfer", "Cash"].map((pm) => (
+                      <button
+                        key={pm}
+                        type="button"
+                        onClick={() => setPaymentMethod(pm)}
+                        className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
+                          paymentMethod === pm
+                            ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                            : "bg-background text-muted-foreground border-border hover:border-primary/40"
+                        }`}
+                      >
+                        {pm}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                      UPI Reference / Transaction ID (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={transactionId}
+                      onChange={(e) => setTransactionId(e.target.value)}
+                      placeholder="e.g. 42891028472"
+                      className="w-full h-8 px-2.5 rounded-xl border border-border bg-background text-xs text-foreground focus:ring-1 focus:ring-primary focus:outline-hidden font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                      Upload Payment Receipt / Screenshot
+                    </label>
+                    {paymentReceiptUrl ? (
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <img src={paymentReceiptUrl} alt="Receipt Preview" className="w-9 h-9 rounded-lg object-cover border border-emerald-500/40 shrink-0" />
+                          <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 truncate">
+                            Receipt screenshot attached!
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentReceiptUrl("")}
+                          className="text-[10.5px] font-bold text-rose-600 hover:underline cursor-pointer shrink-0 ml-2"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-bold cursor-pointer transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Payment Image / Screenshot</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setPaymentReceiptUrl(reader.result as string);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between pt-3 border-t border-border">
@@ -1340,12 +1696,12 @@ export function EventMemberView() {
 
             <button
               onClick={() => {
-                alert("E-Pass downloaded to your device gallery!");
+                handleDownloadPDFPass(showQRPass);
                 setShowQRPass(null);
               }}
-              className="w-full py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+              className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95"
             >
-              <Download className="w-4 h-4" /> Download Digital Pass
+              <Download className="w-4 h-4" /> Download / Save PDF E-Pass
             </button>
           </div>
         </div>

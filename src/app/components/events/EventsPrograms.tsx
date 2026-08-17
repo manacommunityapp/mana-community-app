@@ -22,7 +22,7 @@ export interface ProgramFormDraft {
   performer: string;
 }
 import { useEventMock } from "./EventMockToggle";
-import { eventProgramService, type EventProgramResponse } from "../../../services/events/eventProgramService";
+import { eventProgramService, type EventProgramResponse, type ActivityRegistrationResponse } from "../../../services/events/eventProgramService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -36,6 +36,8 @@ type ScheduleItem = {
   id?: string;
   time: string; duration: string; title: string; type: string;
   venue: string; performer?: string; judge?: string; icon: any; color: string;
+  capacity?: number | null; registeredCount?: number; spotsLeft?: number;
+  requiresRegistration?: boolean; slotStatus?: string;
 };
 
 const schedule: Record<string, ScheduleItem[]> = {
@@ -103,6 +105,11 @@ function mapLivePrograms(programs: EventProgramResponse[]): ScheduleItem[] {
       judge: p.judge ?? undefined,
       icon: typeInfo.icon,
       color: typeInfo.color,
+      capacity: p.capacity,
+      registeredCount: p.registeredCount,
+      spotsLeft: p.spotsLeft,
+      requiresRegistration: p.requiresRegistration,
+      slotStatus: p.slotStatus ?? undefined,
     };
   });
 }
@@ -407,6 +414,53 @@ export function EventsPrograms() {
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [targetActivityTitle, setTargetActivityTitle] = useState<string | undefined>(undefined);
 
+  // Activity Registrations state
+  const [regModalOpen, setRegModalOpen] = useState(false);
+  const [regProgramId, setRegProgramId] = useState<number | null>(null);
+  const [regProgramTitle, setRegProgramTitle] = useState("");
+  const [registrations, setRegistrations] = useState<ActivityRegistrationResponse[]>([]);
+  const [regLoading, setRegLoading] = useState(false);
+  const [regError, setRegError] = useState("");
+  const [regActioning, setRegActioning] = useState<number | null>(null);
+
+  const openRegistrations = (item: ScheduleItem) => {
+    const numId = Number(item.id);
+    if (isNaN(numId)) return;
+    setRegProgramId(numId);
+    setRegProgramTitle(item.title);
+    setRegModalOpen(true);
+    setRegLoading(true);
+    setRegError("");
+    eventProgramService.getActivityRegistrations(numId)
+      .then(setRegistrations)
+      .catch(e => setRegError(e?.message || "Failed to load registrations"))
+      .finally(() => setRegLoading(false));
+  };
+
+  const handleApprove = async (regId: number) => {
+    setRegActioning(regId);
+    try {
+      const updated = await eventProgramService.approveActivityRegistration(regId);
+      setRegistrations(prev => prev.map(r => r.id === regId ? updated : r));
+    } catch (e: any) {
+      setRegError(e?.message || "Failed to approve");
+    } finally {
+      setRegActioning(null);
+    }
+  };
+
+  const handleReject = async (regId: number) => {
+    setRegActioning(regId);
+    try {
+      const updated = await eventProgramService.rejectActivityRegistration(regId);
+      setRegistrations(prev => prev.map(r => r.id === regId ? updated : r));
+    } catch (e: any) {
+      setRegError(e?.message || "Failed to reject");
+    } finally {
+      setRegActioning(null);
+    }
+  };
+
   // Edit Program state
   const [editingProgram, setEditingProgram] = useState<ScheduleItem | null>(null);
 
@@ -498,37 +552,90 @@ export function EventsPrograms() {
     setProgramDrafts(prev => prev.filter(d => d.id !== id));
   };
 
+  const handleDeleteProgram = async (item: ScheduleItem) => {
+    if (!confirm(`Delete program "${item.title}"?`)) return;
+    if (useMock) {
+      setMockCustomSchedule(prev => {
+        const updated = { ...prev };
+        for (const day of Object.keys(updated)) {
+          updated[day] = updated[day].filter(p => p.id !== item.id);
+        }
+        return updated;
+      });
+      return;
+    }
+    if (!item.id || isNaN(Number(item.id))) return;
+    try {
+      await eventProgramService.deleteProgram(Number(item.id));
+      setLiveSchedule(prev => {
+        const updated = { ...prev };
+        for (const day of Object.keys(updated)) {
+          updated[day] = updated[day].filter(p => p.id !== item.id);
+        }
+        return updated;
+      });
+    } catch (err: any) {
+      setError(err?.message || "Failed to delete program");
+    }
+  };
+
   /* Save all drafted programs to the selected day */
-  const handleSaveAllActivities = (shouldNotify: boolean = true) => {
+  const handleSaveAllActivities = async (shouldNotify: boolean = true) => {
     const validDrafts = programDrafts.filter(d => d.title.trim().length > 0);
     if (validDrafts.length === 0) return;
 
-    const newItems: ScheduleItem[] = validDrafts.map((d, idx) => {
-      const typeInfo = typeIconMap[d.type] || { icon: Layers, color: "#6366f1" };
-      return {
-        id: `custom_${Date.now()}_${idx}`,
-        time: d.time || "10:00 AM",
-        duration: d.duration || "1h",
-        title: d.title,
-        type: d.type,
-        venue: d.venue || "Main Stage",
-        performer: d.performer || undefined,
-        icon: typeInfo.icon,
-        color: typeInfo.color,
-      };
-    });
+    if (useMock || !selectedEventId) {
+      const newItems: ScheduleItem[] = validDrafts.map((d, idx) => {
+        const typeInfo = typeIconMap[d.type] || { icon: Layers, color: "#6366f1" };
+        return {
+          id: `custom_${Date.now()}_${idx}`,
+          time: d.time || "10:00 AM",
+          duration: d.duration || "1h",
+          title: d.title,
+          type: d.type,
+          venue: d.venue || "Main Stage",
+          performer: d.performer || undefined,
+          icon: typeInfo.icon,
+          color: typeInfo.color,
+        };
+      });
+      setMockCustomSchedule(prev => ({
+        ...prev,
+        [selectedModalDay]: [...(prev[selectedModalDay] || []), ...newItems],
+      }));
+    } else {
+      try {
+        const created: ScheduleItem[] = [];
+        for (const d of validDrafts) {
+          const resp = await eventProgramService.create({
+            eventId: selectedEventId,
+            title: d.title,
+            dayLabel: selectedModalDay,
+            programType: d.type,
+            startTime: d.time || "10:00 AM",
+            duration: d.duration || "1h",
+            venue: d.venue || "Main Stage",
+            performer: d.performer || undefined,
+          });
+          created.push(...mapLivePrograms([resp]));
+        }
+        setLiveSchedule(prev => ({
+          ...prev,
+          [selectedModalDay]: [...(prev[selectedModalDay] || []), ...created],
+        }));
+        if (!liveDays.includes(selectedModalDay)) {
+          setLiveDays(prev => [...prev, selectedModalDay].sort());
+        }
+      } catch (e: any) {
+        setError(e?.response?.data?.message || e?.message || "Failed to save programs");
+        return;
+      }
+    }
 
-    setMockCustomSchedule(prev => ({
-      ...prev,
-      [selectedModalDay]: [...(prev[selectedModalDay] || []), ...newItems],
-    }));
-
-    // Switch active day view to selectedModalDay
     setCurrentDay(selectedModalDay);
     setShowAddActivityModal(false);
 
     if (shouldNotify) {
-      // Trigger notification modal for the added programs
       const summaryTitle = validDrafts.length === 1
         ? validDrafts[0].title
         : `${validDrafts.length} New Programs for ${selectedModalDay}`;
@@ -656,6 +763,19 @@ export function EventsPrograms() {
                               <Star className="w-3 h-3" /> Judge: {item.judge}
                             </span>
                           )}
+                          {item.requiresRegistration && (
+                            <span className="flex items-center gap-1 text-xs text-emerald-600 font-semibold">
+                              <UserCheck className="w-3 h-3" />
+                              {item.registeredCount ?? 0}/{item.capacity ?? "∞"} registered
+                              {item.spotsLeft != null && item.spotsLeft > 0 && ` · ${item.spotsLeft} spots left`}
+                              {item.slotStatus && ` · ${item.slotStatus}`}
+                            </span>
+                          )}
+                          {!item.requiresRegistration && item.capacity != null && item.capacity > 0 && (
+                            <span className="flex items-center gap-1 text-xs text-slate-400">
+                              <User className="w-3 h-3" /> Capacity: {item.capacity}
+                            </span>
+                          )}
                         </div>
                       </div>
 
@@ -677,6 +797,22 @@ export function EventsPrograms() {
                         >
                           <Mail className="w-3 h-3 text-indigo-500" /> Notify
                         </button>
+                        <button
+                          onClick={() => handleDeleteProgram(item)}
+                          title="Delete this program / activity"
+                          className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-slate-600 hover:text-rose-600 hover:border-rose-200 flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
+                        >
+                          <Trash2 className="w-3 h-3 text-rose-400" /> Delete
+                        </button>
+                        {!useMock && item.id && !isNaN(Number(item.id)) && (
+                          <button
+                            onClick={() => openRegistrations(item)}
+                            title="View activity registrations"
+                            className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-slate-600 hover:text-emerald-600 hover:border-emerald-200 flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
+                          >
+                            <UserCheck className="w-3 h-3 text-emerald-500" /> Registrations
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -958,6 +1094,114 @@ export function EventsPrograms() {
             }
           }}
         />
+      )}
+
+      {/* Activity Registrations Modal */}
+      {regModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-800">Activity Registrations</h3>
+                <p className="text-xs text-slate-400 mt-0.5">{regProgramTitle}</p>
+              </div>
+              <button onClick={() => setRegModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+            </div>
+            <div className="px-6 py-4">
+              {regError && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 mb-4">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" /> {regError}
+                </div>
+              )}
+              {regLoading ? (
+                <div className="flex items-center justify-center py-8 text-slate-400">
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading registrations...
+                </div>
+              ) : registrations.length === 0 ? (
+                <div className="text-center py-8 text-slate-400">
+                  <UserCheck className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  <p className="text-sm">No registrations yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 mb-3 text-xs text-slate-500">
+                    <span className="font-semibold">{registrations.length} registrations</span>
+                    <span>·</span>
+                    <span className="text-emerald-600 font-semibold">{registrations.filter(r => r.status === "APPROVED" || r.status === "CONFIRMED").length} approved</span>
+                    <span className="text-amber-600 font-semibold">{registrations.filter(r => r.status === "PENDING").length} pending</span>
+                  </div>
+                  {registrations.map(reg => {
+                    const isPending = reg.status === "PENDING";
+                    const isApproved = reg.status === "APPROVED" || reg.status === "CONFIRMED";
+                    const isRejected = reg.status === "REJECTED" || reg.status === "CANCELLED";
+                    return (
+                      <div key={reg.id} className="flex items-start gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50/60 transition-colors">
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-700 flex-shrink-0">
+                          {(reg.userName || reg.primaryName || "?").charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-800 text-sm">{reg.userName || reg.primaryName || `User #${reg.userId}`}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap text-[10px] text-slate-400">
+                            {reg.userEmail && <span>{reg.userEmail}</span>}
+                            {reg.primaryPhone && <span>· {reg.primaryPhone}</span>}
+                            <span>· {reg.headCount} {reg.headCount === 1 ? "person" : "people"}</span>
+                            {reg.registrationType && <span>· {reg.registrationType}</span>}
+                            <span>· {new Date(reg.registeredAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                          </div>
+                          {reg.waitlistPosition != null && reg.waitlistPosition > 0 && (
+                            <p className="text-[10px] text-amber-600 mt-0.5">Waitlist position: #{reg.waitlistPosition}</p>
+                          )}
+                          {reg.decisionReason && (
+                            <p className="text-[10px] text-slate-500 mt-0.5">Reason: {reg.decisionReason}</p>
+                          )}
+                          {reg.approvedByName && (
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              {isApproved ? "Approved" : "Decided"} by {reg.approvedByName}
+                              {reg.approvedAt && ` on ${new Date(reg.approvedAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}`}
+                            </p>
+                          )}
+                          {reg.participants && reg.participants.length > 0 && (
+                            <div className="mt-1">
+                              <p className="text-[10px] font-semibold text-slate-500">Participants:</p>
+                              {reg.participants.map((p, i) => (
+                                <p key={i} className="text-[10px] text-slate-400 ml-2">{p.fullName}{p.email ? ` (${p.email})` : ""}</p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            isApproved ? "bg-emerald-50 text-emerald-700" :
+                            isPending ? "bg-amber-50 text-amber-700" :
+                            "bg-rose-50 text-rose-700"
+                          }`}>{reg.status}</span>
+                          {isPending && (
+                            <>
+                              <button
+                                onClick={() => handleApprove(reg.id)}
+                                disabled={regActioning === reg.id}
+                                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                              >
+                                {regActioning === reg.id ? "..." : "Approve"}
+                              </button>
+                              <button
+                                onClick={() => handleReject(reg.id)}
+                                disabled={regActioning === reg.id}
+                                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 transition-colors disabled:opacity-50"
+                              >
+                                {regActioning === reg.id ? "..." : "Reject"}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

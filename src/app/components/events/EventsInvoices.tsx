@@ -332,8 +332,10 @@ export function EventsInvoices() {
             <table className="w-full text-xs sm:text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50">
-                  {["Invoice #", "Vendor", "Date", "Amount", "Tax", "Total", "Status", "File", "Actions"].map((h) => (
-                    <th key={h} className="px-3 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  {["Invoice #", "Vendor", "Date", "Due Date", "Category", "Amount", "Tax", "Total", "Status", "Notes", "Created By", "File", "Actions"].map((h) => (
+                    <th key={h} className={`px-3 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wide whitespace-nowrap ${
+                      (h === "Due Date" || h === "Category" || h === "Notes" || h === "Created By") ? "hidden xl:table-cell" : ""
+                    }`}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -345,6 +347,8 @@ export function EventsInvoices() {
                       <td className="px-3 py-3 font-medium text-slate-700 whitespace-nowrap">{inv.invoiceNumber ?? `#${inv.id}`}</td>
                       <td className="px-3 py-3 text-slate-600 max-w-[140px] truncate">{inv.vendorName}</td>
                       <td className="px-3 py-3 text-slate-500 whitespace-nowrap">{inv.invoiceDate ?? "—"}</td>
+                      <td className="px-3 py-3 text-slate-500 whitespace-nowrap hidden xl:table-cell">{inv.dueDate ?? "—"}</td>
+                      <td className="px-3 py-3 text-slate-500 whitespace-nowrap hidden xl:table-cell">{inv.category || "—"}</td>
                       <td className="px-3 py-3 text-slate-700 whitespace-nowrap">{fmtINR(inv.amount)}</td>
                       <td className="px-3 py-3 text-slate-500 whitespace-nowrap">{fmtINR(inv.taxAmount)}</td>
                       <td className="px-3 py-3 font-semibold text-slate-800 whitespace-nowrap">{fmtINR(inv.totalAmount)}</td>
@@ -357,6 +361,8 @@ export function EventsInvoices() {
                           {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                         </select>
                       </td>
+                      <td className="px-3 py-3 text-slate-500 max-w-[120px] truncate hidden xl:table-cell">{inv.notes || "—"}</td>
+                      <td className="px-3 py-3 text-slate-400 whitespace-nowrap hidden xl:table-cell">{inv.createdByName || "—"}</td>
                       <td className="px-3 py-3">
                         {inv.invoiceUrl ? (
                           <a href={inv.invoiceUrl} target="_blank" rel="noopener noreferrer"

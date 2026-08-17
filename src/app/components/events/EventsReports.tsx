@@ -44,7 +44,7 @@ function buildReportCards(r: EventReportResponse) {
   const taskPct = r.totalTasks > 0 ? Math.round((r.completedTasks / r.totalTasks) * 100) : 0;
   return [
     { title: "Registration Report",  desc: `${r.totalRegistrations} registrants`,                              icon: Users,      color: "#6366f1", bg: "#eef2ff", pages: 0 },
-    { title: "Finance Summary",      desc: `Donations ₹${(r.totalDonations / 100000).toFixed(1)}L · Expenses ₹${(r.totalExpenses / 100000).toFixed(1)}L`, icon: DollarSign, color: "#10b981", bg: "#ecfdf5", pages: 0 },
+    { title: "Finance Summary",      desc: `Donations ₹${(r.totalDonations / 100000).toFixed(1)}L · Expenses ₹${(r.totalExpenses / 100000).toFixed(1)}L · Net ₹${(r.netRevenue / 100000).toFixed(1)}L`, icon: DollarSign, color: "#10b981", bg: "#ecfdf5", pages: 0 },
     { title: "Sponsor Report",       desc: `${r.totalSponsorships} sponsors`,                                  icon: TrendingUp, color: "#d97706", bg: "#fffbeb", pages: 0 },
     { title: "Volunteer Report",     desc: `${r.totalVolunteers} volunteers`,                                   icon: Users,      color: "#0891b2", bg: "#ecfeff", pages: 0 },
     { title: "Gallery",              desc: `${r.totalGalleryItems} items`,                                      icon: Package,    color: "#be185d", bg: "#fdf2f8", pages: 0 },

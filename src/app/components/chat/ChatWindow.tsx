@@ -311,9 +311,9 @@ export function ChatWindow({
       </div>
 
       {/* ── Input Area ── */}
-      <footer className="p-3 shrink-0 border-t border-border" style={{ background: "var(--chat-header-bg)" }}>
+      <footer className="p-3 shrink-0 border-t border-border pb-[max(0.75rem,env(safe-area-inset-bottom))]" style={{ background: "var(--chat-header-bg)" }}>
         <div
-          className="flex items-center gap-2 rounded-2xl px-2 py-1.5 chat-input-bar transition-all"
+          className="flex items-center gap-1.5 sm:gap-2 rounded-2xl px-2 py-1.5 chat-input-bar transition-all"
           style={{
             background: "var(--chat-input-bg)",
             border: "1px solid var(--chat-input-border)",

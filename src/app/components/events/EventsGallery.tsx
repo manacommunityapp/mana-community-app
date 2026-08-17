@@ -7,6 +7,8 @@ import {
 
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
+import { useAuth } from "../../../contexts/AuthContext";
+import { MANAGE_EVENT_MEDIA } from "../../../constants/permissions";
 import { FilterChip, FilterChipRow, ErrorBanner, LoadingSpinner, EmptyState } from "./shared";
 import { eventGalleryService, type EventGalleryItemResponse } from "../../../services/events/eventGalleryService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
@@ -540,6 +542,8 @@ function UploadDrawer({
 // ─── Main component ───────────────────────────────────────────────────────────
 export function EventsGallery() {
   const { useMock } = useEventMock();
+  const { hasPermission, isAdmin, isSuperAdmin } = useAuth();
+  const canManageMedia = isSuperAdmin || isAdmin || hasPermission(MANAGE_EVENT_MEDIA);
 
   // Data
   const [events, setEvents] = useState<EventResponse[]>([]);
@@ -992,7 +996,7 @@ export function EventsGallery() {
             console.error(`Error deleting gallery item ${id}:`, e);
             let errMsg = e?.response?.data?.message || e?.message || "Server or network error";
             if (e?.response?.status === 403) {
-              errMsg = "Permission denied — required permission: 'Create Event'";
+              errMsg = "Permission denied — required permission: 'Manage Event Media'";
             } else if (e?.response?.status === 404) {
               errMsg = "Media item not found or already deleted on server";
             }
@@ -1086,7 +1090,7 @@ export function EventsGallery() {
 
           <div className="flex items-center gap-2 flex-wrap">
             {/* Multi-select Actions Bar */}
-            {isSelectMode ? (
+            {canManageMedia && (isSelectMode ? (
               <>
                 <button
                   onClick={() => selectAllFilteredItems(filteredItems)}
@@ -1116,7 +1120,7 @@ export function EventsGallery() {
               >
                 <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" /> Select Items
               </button>
-            )}
+            ))}
 
             {/* View Mode Toggle */}
             <div className="flex rounded-xl border border-slate-200 overflow-hidden bg-slate-50 p-0.5">
@@ -1139,12 +1143,14 @@ export function EventsGallery() {
             </div>
 
             {/* Upload Button */}
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm"
-            >
-              <Upload className="w-3.5 h-3.5" /> Upload Media
-            </button>
+            {canManageMedia && (
+              <button
+                onClick={() => setShowUploadModal(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm"
+              >
+                <Upload className="w-3.5 h-3.5" /> Upload Media
+              </button>
+            )}
           </div>
         </div>
 
@@ -1295,17 +1301,19 @@ export function EventsGallery() {
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => openUploadModalFor({
-                eventName: selectedEventId !== "All" ? availableEvents.find(e => String(e.id) === selectedEventId)?.title : undefined,
-                dayLabel: selectedDay !== "All Days" ? selectedDay : "Day 1",
-                category: selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals",
-              })}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md transition-all shrink-0 active:scale-95"
-            >
-              <Plus className="w-4 h-4" /> Upload More ({selectedDay !== "All Days" ? selectedDay : "Day 1"} • {selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals"})
-            </button>
+            {canManageMedia && (
+              <button
+                type="button"
+                onClick={() => openUploadModalFor({
+                  eventName: selectedEventId !== "All" ? availableEvents.find(e => String(e.id) === selectedEventId)?.title : undefined,
+                  dayLabel: selectedDay !== "All Days" ? selectedDay : "Day 1",
+                  category: selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals",
+                })}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs shadow-md transition-all shrink-0 active:scale-95"
+              >
+                <Plus className="w-4 h-4" /> Upload More ({selectedDay !== "All Days" ? selectedDay : "Day 1"} • {selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals"})
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1327,19 +1335,21 @@ export function EventsGallery() {
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
             No media uploaded yet for {selectedDay !== "All Days" ? selectedDay : "Day 1"} • {selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals"}.
           </p>
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => openUploadModalFor({
-                eventName: selectedEventId !== "All" ? availableEvents.find(e => String(e.id) === selectedEventId)?.title : undefined,
-                dayLabel: selectedDay !== "All Days" ? selectedDay : "Day 1",
-                category: selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals",
-              })}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition-all shadow-sm"
-            >
-              <Plus className="w-4 h-4" /> Upload More ({selectedDay !== "All Days" ? selectedDay : "Day 1"} • {selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals"})
-            </button>
-          </div>
+          {canManageMedia && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => openUploadModalFor({
+                  eventName: selectedEventId !== "All" ? availableEvents.find(e => String(e.id) === selectedEventId)?.title : undefined,
+                  dayLabel: selectedDay !== "All Days" ? selectedDay : "Day 1",
+                  category: selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals",
+                })}
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition-all shadow-sm"
+              >
+                <Plus className="w-4 h-4" /> Upload More ({selectedDay !== "All Days" ? selectedDay : "Day 1"} • {selectedCategory !== "All Media" ? selectedCategory : "Puja & Rituals"})
+              </button>
+            </div>
+          )}
         </div>
       ) : view === "grid" ? (
         /* ── Grid View ── */
@@ -1363,6 +1373,7 @@ export function EventsGallery() {
                 }`}
               >
                 {/* Single Delete Button */}
+                {canManageMedia && (
                 <button
                   onClick={e => {
                     e.stopPropagation();
@@ -1373,6 +1384,7 @@ export function EventsGallery() {
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
+                )}
 
                 {/* Selection Checkbox overlay */}
                 {isSelectMode && (
@@ -1532,23 +1544,25 @@ export function EventsGallery() {
               </div>
 
               <div className="pt-4 border-t border-slate-800 flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const item = activeLightbox;
-                    setActiveLightbox(null);
-                    openUploadModalFor({
-                      eventName: item.eventName,
-                      dayLabel: item.dayTag || "Day 1",
-                      category: item.category || "Puja & Rituals",
-                      album: item.albumName || "General",
-                      title: item.caption || "",
-                    });
-                  }}
-                  className="w-full px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors shadow-md"
-                >
-                  <Plus className="w-4 h-4" /> Upload More ({activeLightbox.dayTag || "Day 1"} • {activeLightbox.category || "General"})
-                </button>
+                {canManageMedia && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const item = activeLightbox;
+                      setActiveLightbox(null);
+                      openUploadModalFor({
+                        eventName: item.eventName,
+                        dayLabel: item.dayTag || "Day 1",
+                        category: item.category || "Puja & Rituals",
+                        album: item.albumName || "General",
+                        title: item.caption || "",
+                      });
+                    }}
+                    className="w-full px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs flex items-center justify-center gap-2 transition-colors shadow-md"
+                  >
+                    <Plus className="w-4 h-4" /> Upload More ({activeLightbox.dayTag || "Day 1"} • {activeLightbox.category || "General"})
+                  </button>
+                )}
                 <div className="flex gap-2">
                   <a
                     href={activeLightbox.url}
@@ -1558,13 +1572,15 @@ export function EventsGallery() {
                   >
                     <Download className="w-3.5 h-3.5" /> Download
                   </a>
-                  <button
-                    onClick={() => setDeleteConfirmTarget([activeLightbox.id])}
-                    className="px-4 py-2.5 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-rose-500/30"
-                    title="Delete this media item"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" /> Delete
-                  </button>
+                  {canManageMedia && (
+                    <button
+                      onClick={() => setDeleteConfirmTarget([activeLightbox.id])}
+                      className="px-4 py-2.5 rounded-xl bg-rose-500/20 text-rose-300 hover:bg-rose-500 hover:text-white font-bold text-xs flex items-center justify-center gap-2 transition-colors border border-rose-500/30"
+                      title="Delete this media item"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

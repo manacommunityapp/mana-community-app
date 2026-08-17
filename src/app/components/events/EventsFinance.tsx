@@ -32,16 +32,16 @@ const mockExpenseData = [
 
 const CATEGORIES = ["Venue", "Food", "Decor", "AV & Tech", "Security", "Marketing", "Printing", "Others"];
 
-type LedgerRow = { id: string; expenseId?: number; desc: string; type: string; amount: number; date: string; cat: string };
+type LedgerRow = { id: string; expenseId?: number; desc: string; type: string; amount: number; date: string; cat: string; vendorName: string; status: string; createdBy: string };
 
 const mockLedger: LedgerRow[] = [
-  { id: "TXN-001", desc: "Stage Booking – Phoenix Events",    type: "expense", amount: -85000,  date: "Aug 2",  cat: "Venue"   },
-  { id: "TXN-002", desc: "Sponsor Collection – TechCorp",     type: "income",  amount: 500000,  date: "Aug 1",  cat: "Sponsor" },
-  { id: "TXN-003", desc: "Catering Advance – Sai Foods",      type: "expense", amount: -60000,  date: "Jul 31", cat: "Food"    },
-  { id: "TXN-004", desc: "Registration Collections",          type: "income",  amount: 184200,  date: "Jul 30", cat: "Registration" },
-  { id: "TXN-005", desc: "LED Display Rental",                type: "expense", amount: -25000,  date: "Jul 28", cat: "AV & Tech" },
-  { id: "TXN-006", desc: "Donations Received (UPI + Cash)",   type: "income",  amount: 175000,  date: "Jul 27", cat: "Donation" },
-  { id: "TXN-007", desc: "Flex & Banner Printing",            type: "expense", amount: -18000,  date: "Jul 25", cat: "Marketing" },
+  { id: "TXN-001", desc: "Stage Booking – Phoenix Events",    type: "expense", amount: -85000,  date: "Aug 2",  cat: "Venue",   vendorName: "Phoenix Events", status: "APPROVED", createdBy: "" },
+  { id: "TXN-002", desc: "Sponsor Collection – TechCorp",     type: "income",  amount: 500000,  date: "Aug 1",  cat: "Sponsor", vendorName: "", status: "", createdBy: "" },
+  { id: "TXN-003", desc: "Catering Advance – Sai Foods",      type: "expense", amount: -60000,  date: "Jul 31", cat: "Food",    vendorName: "Sai Foods", status: "PENDING", createdBy: "" },
+  { id: "TXN-004", desc: "Registration Collections",          type: "income",  amount: 184200,  date: "Jul 30", cat: "Registration", vendorName: "", status: "", createdBy: "" },
+  { id: "TXN-005", desc: "LED Display Rental",                type: "expense", amount: -25000,  date: "Jul 28", cat: "AV & Tech", vendorName: "", status: "APPROVED", createdBy: "" },
+  { id: "TXN-006", desc: "Donations Received (UPI + Cash)",   type: "income",  amount: 175000,  date: "Jul 27", cat: "Donation", vendorName: "", status: "", createdBy: "" },
+  { id: "TXN-007", desc: "Flex & Banner Printing",            type: "expense", amount: -18000,  date: "Jul 25", cat: "Marketing", vendorName: "", status: "APPROVED", createdBy: "" },
 ];
 
 interface ExpenseFormState {
@@ -75,6 +75,9 @@ function mapLiveExpenses(data: EventExpenseResponse[]): { ledger: LedgerRow[]; c
     amount: -e.amount,
     date: e.expenseDate ? new Date(e.expenseDate).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) : new Date(e.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
     cat: e.category ?? "Other",
+    vendorName: e.vendorName ?? "",
+    status: e.status ?? "",
+    createdBy: e.createdByName ?? "",
   }));
 
   const byCategory: Record<string, number> = {};
@@ -310,7 +313,12 @@ export function EventsFinance() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs sm:text-sm font-semibold text-slate-800 truncate">{txn.desc}</p>
-                <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">{txn.cat} · {txn.date}</p>
+                <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">
+                  {txn.cat} · {txn.date}
+                  {txn.vendorName ? ` · ${txn.vendorName}` : ""}
+                  {txn.status ? ` · ${txn.status}` : ""}
+                  {txn.createdBy ? ` · by ${txn.createdBy}` : ""}
+                </p>
               </div>
               <p className={`font-black text-xs sm:text-base tabular-nums flex-shrink-0 ${txn.amount > 0 ? "text-emerald-600" : "text-rose-500"}`}>
                 {txn.amount > 0 ? "+" : ""}₹{Math.abs(txn.amount).toLocaleString()}

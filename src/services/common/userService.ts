@@ -108,6 +108,11 @@ export const userService = {
     return apiClient.get<UserResponse>("/users/me");
   },
 
+  /** PUT /api/users/{id} — update user profile fields */
+  async updateUser(userId: number, payload: Partial<UserResponse>): Promise<UserResponse> {
+    return apiClient.put<UserResponse>(`/users/${userId}`, payload);
+  },
+
   /** PUT /api/users/{id}/kyc */
   async updateUserKycStatus(userId: number, status: "PENDING" | "VERIFIED" | "REJECTED"): Promise<void> {
     return apiClient.put<void>(`/users/${userId}/kyc`, { status });

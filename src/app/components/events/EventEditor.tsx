@@ -927,6 +927,10 @@ export function EventEditor() {
           await eventService.create(payload);
         }
       }
+      try {
+        window.dispatchEvent(new Event("mana_activities_updated"));
+        window.dispatchEvent(new Event("mana_event_created"));
+      } catch {}
       setStatus("draft");
       setDirty(false);
       setLastSaved(new Date());
@@ -956,6 +960,10 @@ export function EventEditor() {
           await eventService.create(payload);
         }
       }
+      try {
+        window.dispatchEvent(new Event("mana_activities_updated"));
+        window.dispatchEvent(new Event("mana_event_created"));
+      } catch {}
       setStatus("published");
       setDirty(false);
       setLastSaved(new Date());
