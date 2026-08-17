@@ -17,7 +17,7 @@ export interface EventSponsorResponse {
 }
 
 export interface EventSponsorRequest {
-  eventId: number;
+  eventId?: number;
   name: string;
   tier?: string;
   amountPledged?: number;

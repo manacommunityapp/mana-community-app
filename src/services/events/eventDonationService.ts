@@ -17,7 +17,7 @@ export interface EventDonationResponse {
 }
 
 export interface EventDonationRequest {
-  eventId: number;
+  eventId?: number;
   donorName: string;
   donorEmail?: string;
   donorPhone?: string;

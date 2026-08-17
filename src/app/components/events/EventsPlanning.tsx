@@ -38,7 +38,7 @@ const priorityColor: Record<string, { bg: string; text: string }> = {
   low:    { bg: "bg-emerald-50", text: "text-emerald-600" },
 };
 
-type TaskItem = { id: number; title: string; description: string; phase: string; priority: string; assignee: string; due: string; done: boolean };
+type TaskItem = { id: number; title: string; description?: string; phase: string; priority: string; assignee: string; due: string; done: boolean };
 
 function mapLiveTasks(tasks: EventTaskResponse[]): TaskItem[] {
   return tasks.map(t => ({
@@ -103,6 +103,7 @@ export function EventsPlanning() {
       const newTask: TaskItem = {
         id: Date.now(),
         title: taskForm.title,
+        description: taskForm.description || "",
         phase: taskForm.phase || "General",
         priority: taskForm.priority.toLowerCase(),
         assignee: taskForm.assigneeName || "Unassigned",

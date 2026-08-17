@@ -916,7 +916,7 @@ export function EventsSponsors() {
   }, [useMock]);
 
   useEffect(() => {
-    eventService.getAll().then(setEvents).catch(() => {});
+    eventService.getAllEvents().then(setEvents).catch(() => {});
   }, []);
 
   const handleAddSponsor = async (e: React.FormEvent) => {
