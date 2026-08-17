@@ -32,6 +32,7 @@ import {
   UserPlus,
   Loader2,
   Filter,
+  Trash2,
 } from "lucide-react";
 
 interface FamilyMember {
@@ -67,13 +68,6 @@ interface UserPass {
   status: "CONFIRMED" | "PENDING APPROVAL";
   qrCodeUrl: string;
 }
-
-const INITIAL_FAMILY: FamilyMember[] = [
-  { id: "1", name: "Sandeep Verma", relation: "Myself (Head)", age: 38, avatar: "👤" },
-  { id: "2", name: "Ananya Verma", relation: "Spouse", age: 35, avatar: "👩" },
-  { id: "3", name: "Rahul Verma", relation: "Son", age: 10, avatar: "👦" },
-  { id: "4", name: "Priya Verma", relation: "Daughter", age: 7, avatar: "👧" },
-];
 
 const INITIAL_ACTIVITIES: Activity[] = [
   {
@@ -131,7 +125,7 @@ const INITIAL_PASSES: UserPass[] = [
     id: "pass-1",
     passType: "Pooja Seva Token",
     title: "Maha Ganapathi Archana & Silver Shield",
-    participantName: "Sandeep Verma & Family",
+    participantName: "Registered Devotee",
     regId: "MNA-2026-POOJA-0822",
     date: "22 Aug 2026",
     time: "08:00 AM - 09:30 AM",
@@ -143,7 +137,7 @@ const INITIAL_PASSES: UserPass[] = [
     id: "pass-2",
     passType: "Cultural Pass",
     title: "Kids Classical Fusion Dance",
-    participantName: "Rahul Verma (Son)",
+    participantName: "Child Devotee",
     regId: "MNA-2026-CULT-1102",
     date: "23 Aug 2026",
     time: "05:30 PM",
@@ -160,15 +154,16 @@ export function EventMemberView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
-  const [selectedMembers, setSelectedMembers] = useState<string[]>(["1"]);
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<"home" | "passes" | "auction">("home");
   const [showQRPass, setShowQRPass] = useState<UserPass | null>(null);
   const [showFamily, setShowFamily] = useState(false);
   const [passesList, setPassesList] = useState<UserPass[]>(() => (useMock ? INITIAL_PASSES : []));
   const [activitiesList, setActivitiesList] = useState<Activity[]>(() => (useMock ? INITIAL_ACTIVITIES : []));
-  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(INITIAL_FAMILY);
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
   const [loadingApiData, setLoadingApiData] = useState(false);
+  const [loadingFamily, setLoadingFamily] = useState(false);
 
   // Modal State for Adding Dynamic Family Member
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
@@ -326,37 +321,39 @@ export function EventMemberView() {
 
   // Load family members dynamically from database
   const loadFamilyMembers = async () => {
+    setLoadingFamily(true);
     if (!useMock) {
       try {
         const dbMembers = await eventService.getFamilyMembers();
         if (Array.isArray(dbMembers) && dbMembers.length > 0) {
           const mapped: FamilyMember[] = dbMembers.map((m: any) => ({
-            id: String(m.id || m.name),
+            id: String(m.id ?? m.name),
             name: m.name,
             relation: m.relation || "Family",
-            age: m.age || 25,
+            age: Number(m.age) || 25,
             avatar: m.avatar || "👤",
           }));
           setFamilyMembers(mapped);
+          setSelectedMembers((prev) => (prev.length > 0 ? prev : [mapped[0].id]));
+          setLoadingFamily(false);
           return;
         }
       } catch (err) {
-        console.warn("Could not fetch family members from database API, falling back:", err);
+        console.warn("Could not fetch family members from database API, using profile:", err);
       }
     }
 
-    try {
-      const stored: FamilyMember[] = JSON.parse(localStorage.getItem("mana_family_members") || "[]");
-      if (stored.length > 0) {
-        const existingIds = new Set(INITIAL_FAMILY.map((f) => f.id));
-        const customOnly = stored.filter((s) => !existingIds.has(s.id));
-        setFamilyMembers([...INITIAL_FAMILY, ...customOnly]);
-      } else {
-        setFamilyMembers(INITIAL_FAMILY);
-      }
-    } catch {
-      setFamilyMembers(INITIAL_FAMILY);
-    }
+    const selfName = user?.fullName || (user?.email ? user.email.split("@")[0] : "Myself (Head)");
+    const fallbackMember: FamilyMember = {
+      id: user?.userId ? String(user.userId) : "self",
+      name: selfName,
+      relation: "Myself (Head)",
+      age: 30,
+      avatar: "👤",
+    };
+    setFamilyMembers([fallbackMember]);
+    setSelectedMembers((prev) => (prev.length > 0 ? prev : [fallbackMember.id]));
+    setLoadingFamily(false);
   };
 
   // Load User Passes dynamically
@@ -387,7 +384,7 @@ export function EventMemberView() {
       window.removeEventListener("mana_activities_updated", fetchLiveDataFromBackend);
       window.removeEventListener("mana_family_updated", loadFamilyMembers);
     };
-  }, [useMock]);
+  }, [useMock, user]);
 
   // Compute dynamic counters for Quick Actions
   const poojaCount = useMemo(() => activitiesList.filter((a) => a.category === "Pooja").length, [activitiesList]);
@@ -492,6 +489,19 @@ export function EventMemberView() {
     setSelectedMembers((prev) => (prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]));
   };
 
+  const handleDeleteFamilyMember = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!useMock && !id.startsWith("fam-") && id !== "self") {
+      try {
+        await eventService.deleteFamilyMember(Number(id));
+      } catch (err) {
+        console.error("Failed to delete devotee from database:", err);
+      }
+    }
+    setFamilyMembers((prev) => prev.filter((m) => m.id !== id));
+    setSelectedMembers((prev) => prev.filter((mid) => mid !== id));
+  };
+
   const handleAddFamilyMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMember.name.trim()) return;
@@ -527,14 +537,6 @@ export function EventMemberView() {
 
     const updatedList = [...familyMembers, createdMember];
     setFamilyMembers(updatedList);
-
-    try {
-      localStorage.setItem("mana_family_members", JSON.stringify(updatedList));
-      window.dispatchEvent(new Event("mana_family_updated"));
-    } catch (err) {
-      console.warn("Storage save error:", err);
-    }
-
     setSelectedMembers((prev) => [...prev, createdMember.id]);
     setNewMember({ name: "", relation: "Son", age: "", avatar: "👦" });
     setShowAddMemberModal(false);
@@ -547,11 +549,13 @@ export function EventMemberView() {
       .map((f) => f.name)
       .join(", ");
 
+    const attendeeLabel = attendingNames || user?.fullName || (user?.email ? user.email.split("@")[0] : "Devotee");
+
     const newPass: UserPass = {
       id: "pass-" + Date.now(),
       passType: `${selectedActivity.category} Registration Pass`,
       title: selectedActivity.title,
-      participantName: attendingNames || "Sandeep Verma",
+      participantName: attendeeLabel,
       regId: `MNA-2026-${selectedActivity.category.toUpperCase().slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`,
       date: selectedActivity.date,
       time: selectedActivity.time,
@@ -559,6 +563,11 @@ export function EventMemberView() {
       status: "CONFIRMED",
       qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=MNA-2026-REG-${Date.now()}`,
     };
+    setPassesList((prev) => [newPass, ...prev]);
+    alert(`Success! Registered for ${selectedActivity.title}. E-Pass issued to ${attendeeLabel}!`);
+    setSelectedActivity(null);
+    setActiveTab("passes");
+  };
     setPassesList((prev) => [newPass, ...prev]);
     alert(`Success! Registered for ${selectedActivity.title}. E-Pass issued to ${attendingNames}!`);
     setSelectedActivity(null);
@@ -721,26 +730,55 @@ export function EventMemberView() {
               </div>
 
               {showFamily && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-border animate-fadeIn">
-                  {familyMembers.map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex items-center justify-between p-2.5 rounded-xl bg-muted/50 border border-border/70 hover:border-primary/30 transition-all"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-xl shrink-0">{member.avatar}</span>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-foreground truncate">{member.name}</p>
-                          <p className="text-[10px] text-muted-foreground font-medium">
-                            {member.relation} • Age {member.age}
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 shrink-0">
-                        Active
-                      </span>
+                <div>
+                  {loadingFamily ? (
+                    <div className="flex items-center justify-center py-6 gap-2 text-xs text-muted-foreground border-t border-border">
+                      <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      <span>Loading registered family devotees...</span>
                     </div>
-                  ))}
+                  ) : familyMembers.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-muted-foreground border-t border-border">
+                      No registered family devotees yet. Tap{" "}
+                      <strong className="text-primary cursor-pointer underline" onClick={() => setShowAddMemberModal(true)}>
+                        + Add Family Member
+                      </strong>{" "}
+                      to register devotees.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-border animate-fadeIn">
+                      {familyMembers.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between p-2.5 rounded-xl bg-muted/50 border border-border/70 hover:border-primary/30 transition-all"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="text-xl shrink-0">{member.avatar}</span>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-foreground truncate">{member.name}</p>
+                              <p className="text-[10px] text-muted-foreground font-medium">
+                                {member.relation} • Age {member.age}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">
+                              Active
+                            </span>
+                            {member.relation !== "Myself (Head)" && member.id !== "self" && (
+                              <button
+                                type="button"
+                                title="Remove devotee"
+                                onClick={(e) => handleDeleteFamilyMember(member.id, e)}
+                                className="p-1 text-muted-foreground hover:text-rose-500 rounded-md transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
