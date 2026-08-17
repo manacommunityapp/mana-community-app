@@ -33,6 +33,11 @@ import {
   Loader2,
   Filter,
   Trash2,
+  Upload,
+  Receipt,
+  Eye,
+  FileText,
+  ExternalLink,
 } from "lucide-react";
 
 interface FamilyMember {
@@ -67,6 +72,11 @@ interface UserPass {
   venue: string;
   status: "CONFIRMED" | "PENDING APPROVAL";
   qrCodeUrl: string;
+  bookingFee?: number;
+  paymentStatus?: string;
+  paymentReceiptUrl?: string;
+  transactionId?: string;
+  paymentMethod?: string;
 }
 
 const INITIAL_ACTIVITIES: Activity[] = [
@@ -139,6 +149,12 @@ export function EventMemberView() {
   const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
   const [loadingApiData, setLoadingApiData] = useState(false);
   const [loadingFamily, setLoadingFamily] = useState(false);
+
+  // Payment Upload & Verification States
+  const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
+  const [transactionId, setTransactionId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("UPI");
+  const [viewReceiptModal, setViewReceiptModal] = useState<string | null>(null);
 
   // Modal State for Adding Dynamic Family Member
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
@@ -372,6 +388,11 @@ export function EventMemberView() {
           venue: r.venue || "Community Venue",
           status: (r.status === "PENDING APPROVAL" ? "PENDING APPROVAL" : "CONFIRMED"),
           qrCodeUrl: r.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${r.regCode || r.id}`,
+          bookingFee: r.bookingFee,
+          paymentStatus: r.paymentStatus,
+          paymentReceiptUrl: r.paymentReceiptUrl,
+          transactionId: r.transactionId,
+          paymentMethod: r.paymentMethod,
         }));
         setPassesList(mappedPasses);
         return;
@@ -563,6 +584,7 @@ export function EventMemberView() {
     const attendeeLabel = attendingNames || user?.fullName || (user?.email ? user.email.split("@")[0] : "Devotee");
     const regCode = `MNA-2026-${(selectedActivity.category || "EVT").toUpperCase().slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
+    const isPaid = (selectedActivity.fee || 0) > 0;
     const passPayload = {
       regCode,
       activityId: selectedActivity.id,
@@ -576,7 +598,10 @@ export function EventMemberView() {
       eventTime: selectedActivity.time,
       venue: selectedActivity.venue,
       bookingFee: (selectedActivity.fee || 0) * Math.max(1, selectedMembers.length),
-      paymentStatus: selectedActivity.fee === 0 ? "FREE" : "PAID",
+      paymentStatus: isPaid ? "PAID" : "FREE",
+      paymentReceiptUrl: isPaid && paymentReceiptUrl ? paymentReceiptUrl : undefined,
+      transactionId: isPaid && transactionId ? transactionId : undefined,
+      paymentMethod: isPaid ? paymentMethod : undefined,
       status: "CONFIRMED",
       qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${regCode}`,
     };
@@ -605,11 +630,18 @@ export function EventMemberView() {
       venue: passPayload.venue,
       status: "CONFIRMED",
       qrCodeUrl: passPayload.qrCodeUrl,
+      bookingFee: passPayload.bookingFee,
+      paymentStatus: passPayload.paymentStatus,
+      paymentReceiptUrl: passPayload.paymentReceiptUrl,
+      transactionId: passPayload.transactionId,
+      paymentMethod: passPayload.paymentMethod,
     };
 
     setPassesList((prev) => [newPass, ...prev]);
     alert(`Success! Registered for ${selectedActivity.title}. E-Pass issued to ${attendeeLabel}!`);
     setSelectedActivity(null);
+    setPaymentReceiptUrl("");
+    setTransactionId("");
     setActiveTab("passes");
   };
 
@@ -1146,16 +1178,44 @@ export function EventMemberView() {
                           <span className="text-[10px] font-extrabold text-primary uppercase block">{p.passType}</span>
                           <h4 className="text-xs sm:text-sm font-bold text-foreground">{p.title}</h4>
                         </div>
-                        <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 shrink-0">
-                          {p.status}
-                        </span>
+                        <div className="flex flex-col items-end gap-1 shrink-0">
+                          <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                            {p.status}
+                          </span>
+                          {p.bookingFee && p.bookingFee > 0 ? (
+                            <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                              ₹{p.bookingFee} ({p.paymentStatus || "PAID"})
+                            </span>
+                          ) : (
+                            <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-slate-500/10 text-slate-600 border border-slate-500/20">
+                              FREE
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       <div className="text-xs text-muted-foreground space-y-1">
                         <p>Attendee: <strong className="text-foreground">{p.participantName}</strong></p>
                         <p>Date &amp; Time: <strong className="text-foreground">{p.date} • {p.time}</strong></p>
                         <p className="font-mono text-[10.5px] text-muted-foreground/80">Reg ID: {p.regId}</p>
+                        {p.transactionId && (
+                          <p className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
+                            Txn: {p.transactionId}
+                          </p>
+                        )}
                       </div>
+
+                      {p.paymentReceiptUrl && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setViewReceiptModal(p.paymentReceiptUrl!)}
+                            className="text-[10.5px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer bg-primary/5 px-2 py-1 rounded-lg border border-primary/20 w-fit"
+                          >
+                            <Receipt className="w-3 h-3" /> View Payment Receipt
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     <button
@@ -1171,6 +1231,33 @@ export function EventMemberView() {
           </div>
         )}
       </div>
+
+      {/* ─── PAYMENT RECEIPT VIEWER MODAL ─── */}
+      {viewReceiptModal && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 flex items-center justify-center p-4" onClick={() => setViewReceiptModal(null)}>
+          <div className="bg-card border border-border text-card-foreground rounded-2xl p-5 max-w-md w-full shadow-2xl space-y-3 animate-fadeIn relative" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-border pb-2">
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                <Receipt className="w-4 h-4 text-primary" /> Verified Payment Receipt
+              </h3>
+              <button onClick={() => setViewReceiptModal(null)} className="text-muted-foreground hover:text-foreground cursor-pointer">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="bg-muted rounded-xl p-2 max-h-[70vh] overflow-auto flex items-center justify-center">
+              <img src={viewReceiptModal} alt="Payment Receipt" className="max-h-[60vh] max-w-full rounded-lg object-contain" />
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setViewReceiptModal(null)}
+                className="px-4 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold shadow-xs cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── STICKY MOBILE BOTTOM NAVIGATION BAR ─── */}
       <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-3 py-2 flex items-center justify-around shadow-lg">
@@ -1468,6 +1555,92 @@ export function EventMemberView() {
                   )}
                 </div>
               </div>
+
+              {selectedActivity.fee > 0 && (
+                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                      <Receipt className="w-3.5 h-3.5 text-primary" /> Payment &amp; Receipt Upload
+                    </span>
+                    <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
+                      ₹{selectedActivity.fee * Math.max(1, selectedMembers.length)} Required
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {["UPI", "Bank Transfer", "Cash"].map((pm) => (
+                      <button
+                        key={pm}
+                        type="button"
+                        onClick={() => setPaymentMethod(pm)}
+                        className={`py-1.5 px-2 rounded-xl text-[10px] font-bold border transition-all cursor-pointer ${
+                          paymentMethod === pm
+                            ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                            : "bg-background text-muted-foreground border-border hover:border-primary/40"
+                        }`}
+                      >
+                        {pm}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                      UPI Reference / Transaction ID (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={transactionId}
+                      onChange={(e) => setTransactionId(e.target.value)}
+                      placeholder="e.g. 42891028472"
+                      className="w-full h-8 px-2.5 rounded-xl border border-border bg-background text-xs text-foreground focus:ring-1 focus:ring-primary focus:outline-hidden font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+                      Upload Payment Receipt / Screenshot
+                    </label>
+                    {paymentReceiptUrl ? (
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <img src={paymentReceiptUrl} alt="Receipt Preview" className="w-9 h-9 rounded-lg object-cover border border-emerald-500/40 shrink-0" />
+                          <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 truncate">
+                            Receipt screenshot attached!
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentReceiptUrl("")}
+                          className="text-[10.5px] font-bold text-rose-600 hover:underline cursor-pointer shrink-0 ml-2"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <label className="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-dashed border-primary/40 bg-primary/5 hover:bg-primary/10 text-primary text-xs font-bold cursor-pointer transition-colors">
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Payment Image / Screenshot</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setPaymentReceiptUrl(reader.result as string);
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center justify-between pt-3 border-t border-border">
