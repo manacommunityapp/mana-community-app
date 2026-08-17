@@ -214,7 +214,11 @@ export function PoojaSevaSection() {
 
   const [form, setForm] = useState({
     mainEventId: "",
-    name: "", type: "", date: "", startTime: "", duration: "",
+    name: "", type: "",
+    isMultiDay: false,
+    date: "",
+    endDate: "",
+    startTime: "", duration: "",
     mandap: "", pandit: "", slots: "", fee: "", isFree: false,
     items: ["Coconut", "Flowers", "Bananas"], notes: "", isRecurring: false, recurringDays: "",
   });
@@ -269,8 +273,8 @@ export function PoojaSevaSection() {
   };
 
   const handleSubmit = async () => {
-    if (!form.mainEventId || !form.name || !form.type || !form.date) {
-      alert("Please select a main event, pooja type, and fill all required fields.");
+    if (!form.mainEventId || !form.name || !form.type || !form.date || (form.isMultiDay && !form.endDate)) {
+      alert("Please select a main event, pooja type, date, and fill all required fields.");
       return;
     }
 
@@ -279,7 +283,7 @@ export function PoojaSevaSection() {
       title: form.name,
       category: "Pooja",
       type: form.type,
-      date: form.date,
+      date: form.isMultiDay && form.endDate ? `${form.date} to ${form.endDate}` : form.date,
       time: form.startTime ? `${form.startTime} (${form.duration || 60}m)` : "Morning",
       venue: form.mandap || "Main Temple Mandap",
       fee: form.isFree ? 0 : Number(form.fee || 501),
@@ -296,6 +300,8 @@ export function PoojaSevaSection() {
           name: form.name,
           type: form.type,
           date: form.date,
+          endDate: form.isMultiDay && form.endDate ? form.endDate : undefined,
+          multiDay: form.isMultiDay,
           startTime: form.startTime,
           duration: form.duration,
           mandap: form.mandap,
@@ -383,26 +389,93 @@ export function PoojaSevaSection() {
               </div>
             </Col>
           </Row>
-          <Row>
-            <Col>
-              <Label required>Date</Label>
-              <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
-            </Col>
-            <Col>
-              <Label required>Start Time</Label>
-              <Input type="time" value={form.startTime} onChange={(v) => set("startTime", v)} />
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <Label>Duration (Minutes)</Label>
-              <Input type="number" min="15" value={form.duration} onChange={(v) => set("duration", v)} placeholder="60" />
-            </Col>
+
+          {/* Date Type Selector: Single Day vs Multi Day */}
+          <div className="p-3.5 bg-muted/40 border border-border rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <Label required>Date * (Single Day or Multi-Day)</Label>
+              <div className="inline-flex rounded-lg border border-border bg-background p-0.5 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => set("isMultiDay", false)}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                    !form.isMultiDay
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Single Day
+                </button>
+                <button
+                  type="button"
+                  onClick={() => set("isMultiDay", true)}
+                  className={`px-3 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                    form.isMultiDay
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Multi-Day
+                </button>
+              </div>
+            </div>
+
+            {!form.isMultiDay ? (
+              <Row>
+                <Col>
+                  <Label required>Date</Label>
+                  <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+                </Col>
+                <Col>
+                  <Label required>Start Time</Label>
+                  <Input type="time" value={form.startTime} onChange={(v) => set("startTime", v)} />
+                </Col>
+              </Row>
+            ) : (
+              <div className="space-y-3">
+                <Row>
+                  <Col>
+                    <Label required>Start Date</Label>
+                    <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+                  </Col>
+                  <Col>
+                    <Label required>End Date</Label>
+                    <Input type="date" value={form.endDate} onChange={(v) => set("endDate", v)} min={form.date} />
+                  </Col>
+                </Row>
+                <Row>
+                  <Col>
+                    <Label required>Daily Start Time</Label>
+                    <Input type="time" value={form.startTime} onChange={(v) => set("startTime", v)} />
+                  </Col>
+                  <Col>
+                    <Label>Duration (Minutes)</Label>
+                    <Input type="number" min="15" value={form.duration} onChange={(v) => set("duration", v)} placeholder="60" />
+                  </Col>
+                </Row>
+              </div>
+            )}
+          </div>
+
+          {!form.isMultiDay && (
+            <Row>
+              <Col>
+                <Label>Duration (Minutes)</Label>
+                <Input type="number" min="15" value={form.duration} onChange={(v) => set("duration", v)} placeholder="60" />
+              </Col>
+              <Col>
+                <Label>Mandap / Venue Location</Label>
+                <Input value={form.mandap} onChange={(v) => set("mandap", v)} placeholder="Main Mandap, Gate 1" />
+              </Col>
+            </Row>
+          )}
+
+          {form.isMultiDay && (
             <Col>
               <Label>Mandap / Venue Location</Label>
               <Input value={form.mandap} onChange={(v) => set("mandap", v)} placeholder="Main Mandap, Gate 1" />
             </Col>
-          </Row>
+          )}
         </div>
       </SectionCard>
 
