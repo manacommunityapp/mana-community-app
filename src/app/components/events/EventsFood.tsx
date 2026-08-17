@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { TrendingDown, Plus, UtensilsCrossed } from "lucide-react";
+import { TrendingDown, Plus, UtensilsCrossed, Loader2, CheckCircle2 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { ErrorBanner, LoadingSpinner } from "./shared";
 import { foodEventService } from "../../../services/food/foodEventService";
-import { eventProgramService, type MealSummaryResponse } from "../../../services/events/eventProgramService";
+import { eventProgramService, type MealSummaryResponse, type MealRegistrationRequest, type MealRegistrationResponse } from "../../../services/events/eventProgramService";
+import { eventService, type EventResponse } from "../../../services/events/eventService";
 
 const menuItems = [
   { name: "Pulihora",         qty: 800,  unit: "plates", prepared: 650, status: "In Progress" },
@@ -50,6 +51,15 @@ export function EventsFood() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mealSummary, setMealSummary] = useState<MealSummaryResponse | null>(null);
+  const [events, setEvents] = useState<EventResponse[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [showMealReg, setShowMealReg] = useState(false);
+  const [dietaryPref, setDietaryPref] = useState("VEG");
+  const [allergies, setAllergies] = useState("");
+  const [mealDays, setMealDays] = useState<{ date: string; lunch: boolean; dinner: boolean; headCount: number }[]>([]);
+  const [savingMeal, setSavingMeal] = useState(false);
+  const [mealSaved, setMealSaved] = useState(false);
+  const [existingMealReg, setExistingMealReg] = useState<MealRegistrationResponse | null>(null);
 
   useEffect(() => {
     if (useMock) {
@@ -68,8 +78,14 @@ export function EventsFood() {
       })
       .finally(() => setLoading(false));
 
-    eventProgramService.getMealSummary(1)
-      .then(setMealSummary)
+    eventService.getAll()
+      .then(evts => {
+        if (evts.length > 0) {
+          eventProgramService.getMealSummary(evts[0].id)
+            .then(setMealSummary)
+            .catch(() => {});
+        }
+      })
       .catch(() => {});
   }, [useMock]);
 

@@ -54,7 +54,12 @@ export interface StoredUser {
   roles?: string[];
   fullName?: string;
   email?: string;
+  phone?: string;
+  gender?: string;
   dateOfBirth?: string;
+  flatNo?: string;
+  block?: string;
+  status?: string;
   permissions?: string[];
   enabledModules?: string[];
   menuPermissions?: import("../../types/api").MenuRolePermissionResponse[];

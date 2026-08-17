@@ -20,6 +20,7 @@ import {
   type EventDepartmentResponse,
   type EventDepartmentRequest,
 } from "../../../services/events/eventDepartmentService";
+import { eventService, type EventResponse } from "../../../services/events/eventService";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "../ui/table";
@@ -129,11 +130,12 @@ interface AssignDialogProps {
   mode: "assign" | "edit";
   initial?: VolunteerRow;
   useMock: boolean;
+  eventId: number;
   onClose: () => void;
   onSaved: (row: VolunteerRow) => void;
 }
 
-function AssignDialog({ mode, initial, useMock, onClose, onSaved }: AssignDialogProps) {
+function AssignDialog({ mode, initial, useMock, eventId, onClose, onSaved }: AssignDialogProps) {
   const { user: currentUser } = useAuth();
   const communityId = currentUser?.communityId ?? 1;
 
@@ -229,7 +231,7 @@ function AssignDialog({ mode, initial, useMock, onClose, onSaved }: AssignDialog
         });
       } else {
         const req: EventVolunteerRequest = {
-          eventId: 0,
+          eventId,
           userId: parseInt(form.userId) || 0,
           role: form.dept,
           shift: form.shift,
@@ -584,6 +586,15 @@ export function EventsVolunteers() {
   const [deptFilter, setDeptFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [actioning, setActioning]   = useState<number | null>(null);
+  const [events, setEvents]         = useState<EventResponse[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<number>(0);
+
+  useEffect(() => {
+    eventService.getAll().then(evts => {
+      setEvents(evts);
+      if (evts.length > 0 && !selectedEventId) setSelectedEventId(evts[0].id);
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (useMock) { setVolunteers([...MOCK_VOLUNTEERS]); return; }
@@ -733,10 +744,10 @@ export function EventsVolunteers() {
     <div className="space-y-3 sm:space-y-6">
       {/* ── Modals ── */}
       {modal?.type === "assign" && (
-        <AssignDialog mode="assign" useMock={useMock} onClose={() => setModal(null)} onSaved={onSaved} />
+        <AssignDialog mode="assign" useMock={useMock} eventId={selectedEventId} onClose={() => setModal(null)} onSaved={onSaved} />
       )}
       {modal?.type === "edit" && (
-        <AssignDialog mode="edit" initial={modal.volunteer} useMock={useMock} onClose={() => setModal(null)} onSaved={onSaved} />
+        <AssignDialog mode="edit" initial={modal.volunteer} useMock={useMock} eventId={selectedEventId} onClose={() => setModal(null)} onSaved={onSaved} />
       )}
       {modal?.type === "delete" && (
         <DeleteConfirm volunteer={modal.volunteer} useMock={useMock} onClose={() => setModal(null)} onDeleted={onDeleted} />

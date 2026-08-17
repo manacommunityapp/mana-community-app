@@ -3,11 +3,12 @@ import {
   Gem, CheckCircle2, Plus, ExternalLink, Loader2, AlertCircle,
   FileText, Share2, Mail, Download, Copy, Check, X, Send,
   Building2, QrCode, CreditCard, Sparkles, HandHeart, ShieldCheck,
-  Phone, User, Home, PlusCircle, Trash2, Settings2, Upload, PhoneCall,
+  Phone, User, Home, PlusCircle, Trash2, Pencil, Settings2, Upload, PhoneCall,
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { eventSponsorService, type EventSponsorResponse } from "../../../services/events/eventSponsorService";
 import { eventProspectusService } from "../../../services/events/eventProspectusService";
+import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
@@ -87,18 +88,18 @@ export const DEFAULT_BANK_CONFIG: BankPaymentConfig = {
   ],
 };
 
-const mockSponsors = [
-  { name: "TechCorp India",    package: "Platinum", amount: "₹5,00,000", status: "Paid",    logo: "TC" },
-  { name: "Sunrise Foods",     package: "Gold",     amount: "₹2,00,000", status: "Paid",    logo: "SF" },
-  { name: "BlueStar Finance",  package: "Gold",     amount: "₹2,00,000", status: "Pending", logo: "BF" },
-  { name: "GreenLeaf Exports", package: "Silver",   amount: "₹75,000",   status: "Paid",    logo: "GL" },
-  { name: "Reliance Retail",   package: "Silver",   amount: "₹75,000",   status: "Paid",    logo: "RR" },
-  { name: "PrimeHealth Clinic",package: "Silver",   amount: "₹75,000",   status: "Pending", logo: "PH" },
-  { name: "Saraswati Textiles",package: "Bronze",   amount: "₹25,000",   status: "Paid",    logo: "ST" },
-  { name: "Kiran AutoWorks",   package: "Bronze",   amount: "₹25,000",   status: "Paid",    logo: "KA" },
+const mockSponsors: SponsorRow[] = [
+  { rawId: 1, name: "TechCorp India",    package: "Platinum", amount: "₹5,00,000", amountReceived: "₹5,00,000", status: "Paid",    logo: "TC", contactName: "Rajesh K.", contactPhone: "+91 98765 00001", contactEmail: "rajesh@techcorp.in" },
+  { rawId: 2, name: "Sunrise Foods",     package: "Gold",     amount: "₹2,00,000", amountReceived: "₹2,00,000", status: "Paid",    logo: "SF", contactName: "Priya M.",  contactPhone: "", contactEmail: "priya@sunrisefoods.com" },
+  { rawId: 3, name: "BlueStar Finance",  package: "Gold",     amount: "₹2,00,000", amountReceived: "₹0",        status: "Pending", logo: "BF", contactName: "Amit S.",   contactPhone: "+91 98765 00003", contactEmail: "" },
+  { rawId: 4, name: "GreenLeaf Exports", package: "Silver",   amount: "₹75,000",   amountReceived: "₹75,000",   status: "Paid",    logo: "GL", contactName: "", contactPhone: "", contactEmail: "" },
+  { rawId: 5, name: "Reliance Retail",   package: "Silver",   amount: "₹75,000",   amountReceived: "₹75,000",   status: "Paid",    logo: "RR", contactName: "", contactPhone: "", contactEmail: "" },
+  { rawId: 6, name: "PrimeHealth Clinic",package: "Silver",   amount: "₹75,000",   amountReceived: "₹0",        status: "Pending", logo: "PH", contactName: "Dr. Neha",  contactPhone: "+91 98765 00006", contactEmail: "clinic@primehealth.in" },
+  { rawId: 7, name: "Saraswati Textiles",package: "Bronze",   amount: "₹25,000",   amountReceived: "₹25,000",   status: "Paid",    logo: "ST", contactName: "", contactPhone: "", contactEmail: "" },
+  { rawId: 8, name: "Kiran AutoWorks",   package: "Bronze",   amount: "₹25,000",   amountReceived: "₹25,000",   status: "Paid",    logo: "KA", contactName: "", contactPhone: "", contactEmail: "" },
 ];
 
-type SponsorRow = { name: string; package: string; amount: string; status: string; logo: string };
+type SponsorRow = { rawId: number; name: string; package: string; amount: string; amountReceived: string; status: string; logo: string; contactName: string; contactPhone: string; contactEmail: string };
 
 const statusStyle: Record<string, { bg: string; text: string }> = {
   Paid:      { bg: "bg-emerald-50", text: "text-emerald-700" },
@@ -126,11 +127,16 @@ function formatAmount(n: number | null): string {
 
 function mapLiveSponsors(data: EventSponsorResponse[]): SponsorRow[] {
   return data.map(s => ({
+    rawId: s.id,
     name: s.name,
     package: s.tier,
     amount: formatAmount(s.amountPledged),
+    amountReceived: formatAmount(s.amountReceived),
     status: s.amountReceived && s.amountReceived >= (s.amountPledged ?? 0) ? "Paid" : "Pending",
     logo: s.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+    contactName: s.contactName ?? "",
+    contactPhone: s.contactPhone ?? "",
+    contactEmail: s.contactEmail ?? "",
   }));
 }
 
@@ -835,11 +841,19 @@ export function SponsorshipAppealEmailModal({
   );
 }
 
+const emptySponsorForm = { eventId: "", name: "", tier: "SILVER", amountPledged: "", contactName: "", contactPhone: "", contactEmail: "", status: "PENDING" };
+
 export function EventsSponsors() {
   const { useMock } = useEventMock();
   const [liveSponsors, setLiveSponsors] = useState<SponsorRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [events, setEvents] = useState<EventResponse[]>([]);
+  const [showAddSponsor, setShowAddSponsor] = useState(false);
+  const [sponsorForm, setSponsorForm] = useState(emptySponsorForm);
+  const [sponsorFormError, setSponsorFormError] = useState("");
+  const [savingSponsor, setSavingSponsor] = useState(false);
+  const [editingSponsorId, setEditingSponsorId] = useState<number | null>(null);
 
   // Dynamic Prospectus Configuration state
   const [customPackages, setCustomPackages] = useState<SponsorPackageConfig[]>(DEFAULT_PACKAGES);
@@ -900,6 +914,127 @@ export function EventsSponsors() {
       .catch(e => setError(e.message ?? "Failed to load sponsors"))
       .finally(() => setLoading(false));
   }, [useMock]);
+
+  useEffect(() => {
+    eventService.getAll().then(setEvents).catch(() => {});
+  }, []);
+
+  const handleAddSponsor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sponsorForm.name.trim()) { setSponsorFormError("Sponsor name is required"); return; }
+    if (useMock) {
+      const newRow: SponsorRow = {
+        rawId: Date.now(),
+        name: sponsorForm.name,
+        package: sponsorForm.tier,
+        amount: sponsorForm.amountPledged ? formatAmount(Number(sponsorForm.amountPledged)) : "₹0",
+        amountReceived: "₹0",
+        status: "Pending",
+        logo: sponsorForm.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+        contactName: sponsorForm.contactName,
+        contactPhone: sponsorForm.contactPhone,
+        contactEmail: sponsorForm.contactEmail,
+      };
+      setLiveSponsors(prev => [newRow, ...prev]);
+      setShowAddSponsor(false);
+      setSponsorForm(emptySponsorForm);
+      return;
+    }
+    if (!sponsorForm.eventId) { setSponsorFormError("Please select an event"); return; }
+    setSavingSponsor(true);
+    setSponsorFormError("");
+    try {
+      const resp = await eventSponsorService.create({
+        eventId: Number(sponsorForm.eventId),
+        name: sponsorForm.name,
+        tier: sponsorForm.tier || undefined,
+        amountPledged: sponsorForm.amountPledged ? Number(sponsorForm.amountPledged) : undefined,
+        contactName: sponsorForm.contactName || undefined,
+        contactPhone: sponsorForm.contactPhone || undefined,
+        contactEmail: sponsorForm.contactEmail || undefined,
+        status: sponsorForm.status || undefined,
+      });
+      setLiveSponsors(prev => [mapLiveSponsors([resp])[0], ...prev]);
+      setShowAddSponsor(false);
+      setSponsorForm(emptySponsorForm);
+    } catch (err: any) {
+      setSponsorFormError(err?.response?.data?.message || err?.message || "Failed to add sponsor");
+    } finally {
+      setSavingSponsor(false);
+    }
+  };
+
+  const openEditSponsor = (s: SponsorRow) => {
+    setEditingSponsorId(s.rawId);
+    setSponsorForm({
+      eventId: "",
+      name: s.name,
+      tier: s.package,
+      amountPledged: String(parseInt(s.amount.replace(/[^\d]/g, "") || "0")),
+      contactName: s.contactName,
+      contactPhone: s.contactPhone,
+      contactEmail: s.contactEmail,
+      status: s.status === "Paid" ? "CONFIRMED" : s.status.toUpperCase(),
+    });
+    setSponsorFormError("");
+    setShowAddSponsor(true);
+  };
+
+  const handleEditSponsor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sponsorForm.name.trim()) { setSponsorFormError("Sponsor name is required"); return; }
+    if (useMock) {
+      setLiveSponsors(prev => prev.map(s => s.rawId === editingSponsorId ? {
+        ...s,
+        name: sponsorForm.name,
+        package: sponsorForm.tier,
+        amount: sponsorForm.amountPledged ? formatAmount(Number(sponsorForm.amountPledged)) : "₹0",
+        contactName: sponsorForm.contactName,
+        contactPhone: sponsorForm.contactPhone,
+        contactEmail: sponsorForm.contactEmail,
+        logo: sponsorForm.name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase(),
+      } : s));
+      setShowAddSponsor(false);
+      setEditingSponsorId(null);
+      setSponsorForm(emptySponsorForm);
+      return;
+    }
+    setSavingSponsor(true);
+    setSponsorFormError("");
+    try {
+      const resp = await eventSponsorService.update(editingSponsorId!, {
+        name: sponsorForm.name,
+        tier: sponsorForm.tier || undefined,
+        amountPledged: sponsorForm.amountPledged ? Number(sponsorForm.amountPledged) : undefined,
+        contactName: sponsorForm.contactName || undefined,
+        contactPhone: sponsorForm.contactPhone || undefined,
+        contactEmail: sponsorForm.contactEmail || undefined,
+        status: sponsorForm.status || undefined,
+      });
+      setLiveSponsors(prev => prev.map(s => s.rawId === editingSponsorId ? mapLiveSponsors([resp])[0] : s));
+      setShowAddSponsor(false);
+      setEditingSponsorId(null);
+      setSponsorForm(emptySponsorForm);
+    } catch (err: any) {
+      setSponsorFormError(err?.response?.data?.message || err?.message || "Failed to update sponsor");
+    } finally {
+      setSavingSponsor(false);
+    }
+  };
+
+  const handleDeleteSponsor = async (s: SponsorRow) => {
+    if (!confirm(`Delete sponsor "${s.name}"?`)) return;
+    if (useMock) {
+      setLiveSponsors(prev => prev.filter(x => x.rawId !== s.rawId));
+      return;
+    }
+    try {
+      await eventSponsorService.deleteSponsor(s.rawId);
+      setLiveSponsors(prev => prev.filter(x => x.rawId !== s.rawId));
+    } catch (err: any) {
+      setError(err?.message || "Failed to delete sponsor");
+    }
+  };
 
   const sponsors = useMock ? mockSponsors : liveSponsors;
 
@@ -1027,6 +1162,12 @@ export function EventsSponsors() {
             >
               <FileText className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> View Prospectus
             </button>
+            <button
+              onClick={() => { setSponsorForm(emptySponsorForm); setSponsorFormError(""); setShowAddSponsor(true); }}
+              className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm"
+            >
+              <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> Add Sponsor
+            </button>
           </div>
         </div>
         <div className="divide-y divide-slate-50">
@@ -1042,17 +1183,125 @@ export function EventsSponsors() {
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-slate-800 text-xs sm:text-sm truncate">{s.name}</p>
                   <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold mt-1 ${pc.bg} ${pc.text}`}>{s.package}</span>
+                  {(s.contactName || s.contactPhone || s.contactEmail) && (
+                    <p className="text-[10px] text-slate-400 mt-0.5 hidden sm:block truncate">
+                      {[s.contactName, s.contactPhone, s.contactEmail].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
                 </div>
-                <p className="font-black text-slate-800 text-xs sm:text-sm tabular-nums">{s.amount}</p>
+                <div className="text-right flex-shrink-0 hidden sm:block">
+                  <p className="font-black text-slate-800 text-xs sm:text-sm tabular-nums">{s.amount}</p>
+                  {s.amountReceived && s.amountReceived !== "₹0" && (
+                    <p className="text-[10px] text-emerald-600 font-semibold">Rcvd: {s.amountReceived}</p>
+                  )}
+                </div>
+                <p className="font-black text-slate-800 text-xs tabular-nums sm:hidden">{s.amount}</p>
                 <span className={`px-2 sm:px-2.5 py-1 rounded-full text-[10px] font-bold flex-shrink-0 ${ss.bg} ${ss.text}`}>{s.status}</span>
-                <button className="text-slate-400 hover:text-indigo-500 transition-colors hidden sm:block">
-                  <ExternalLink className="w-4 h-4" />
-                </button>
+                <div className="hidden sm:flex items-center gap-1">
+                  <button onClick={() => openEditSponsor(s)}
+                    className="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors" title="Edit">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => handleDeleteSponsor(s)}
+                    className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors" title="Delete">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
       </div>
+
+      {/* Add Sponsor Modal */}
+      {showAddSponsor && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-bold text-slate-800">{editingSponsorId ? "Edit Sponsor" : "Add Sponsor"}</h3>
+              <button onClick={() => { setShowAddSponsor(false); setEditingSponsorId(null); setSponsorForm(emptySponsorForm); }} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+            </div>
+            <form onSubmit={editingSponsorId ? handleEditSponsor : handleAddSponsor} className="px-6 py-5 space-y-4">
+              {sponsorFormError && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" /> {sponsorFormError}
+                </div>
+              )}
+              {!useMock && (
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Event *</span>
+                  <select value={sponsorForm.eventId} onChange={e => setSponsorForm(f => ({ ...f, eventId: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white" required>
+                    <option value="">Select event</option>
+                    {events.map(ev => <option key={ev.id} value={String(ev.id)}>{ev.title}</option>)}
+                  </select>
+                </label>
+              )}
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-600">Sponsor Name *</span>
+                <input type="text" value={sponsorForm.name} onChange={e => setSponsorForm(f => ({ ...f, name: e.target.value }))}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  placeholder="Company / Organization name" required />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Tier / Package</span>
+                  <select value={sponsorForm.tier} onChange={e => setSponsorForm(f => ({ ...f, tier: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+                    <option value="PLATINUM">Platinum</option>
+                    <option value="GOLD">Gold</option>
+                    <option value="SILVER">Silver</option>
+                    <option value="BRONZE">Bronze</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Amount Pledged (₹)</span>
+                  <input type="number" value={sponsorForm.amountPledged} onChange={e => setSponsorForm(f => ({ ...f, amountPledged: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    placeholder="0" min="0" />
+                </label>
+              </div>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-600">Contact Person</span>
+                <input type="text" value={sponsorForm.contactName} onChange={e => setSponsorForm(f => ({ ...f, contactName: e.target.value }))}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  placeholder="Contact name" />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Contact Phone</span>
+                  <input type="tel" value={sponsorForm.contactPhone} onChange={e => setSponsorForm(f => ({ ...f, contactPhone: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    placeholder="+91 ..." />
+                </label>
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-600">Contact Email</span>
+                  <input type="email" value={sponsorForm.contactEmail} onChange={e => setSponsorForm(f => ({ ...f, contactEmail: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                    placeholder="email@company.com" />
+                </label>
+              </div>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-600">Status</span>
+                <select value={sponsorForm.status} onChange={e => setSponsorForm(f => ({ ...f, status: e.target.value }))}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white">
+                  <option value="PENDING">Pending</option>
+                  <option value="CONFIRMED">Confirmed / Paid</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+              </label>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => { setShowAddSponsor(false); setEditingSponsorId(null); setSponsorForm(emptySponsorForm); }}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
+                <button type="submit" disabled={savingSponsor}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2">
+                  {savingSponsor && <Loader2 className="w-4 h-4 animate-spin" />} {editingSponsorId ? "Update Sponsor" : "Add Sponsor"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Prospectus Modal */}
       <SponsorshipProspectusModal

@@ -35,6 +35,35 @@ export const communityService = {
   async initializeModules(communityId: number): Promise<void> {
     return apiClient.post<void>(`/community-modules/${communityId}/initialize`);
   },
+
+  /** Checks if a block & flat combination is already registered in the specified community. */
+  async checkUnitExists(communityIdOrCode: number | string, block: string, flatNo: string): Promise<boolean> {
+    try {
+      const query = typeof communityIdOrCode === "number"
+        ? `communityId=${communityIdOrCode}`
+        : `inviteCode=${encodeURIComponent(communityIdOrCode)}`;
+      const res = await apiClient.get<{ exists: boolean }>(
+        `/communities/check-unit?${query}&block=${encodeURIComponent(block.trim())}&flatNo=${encodeURIComponent(flatNo.trim())}`
+      );
+      if (res && typeof res.exists === "boolean") return res.exists;
+    } catch {
+      try {
+        if (typeof communityIdOrCode === "number") {
+          const users = await apiClient.get<any[]>(`/users/community/${communityIdOrCode}`);
+          if (Array.isArray(users)) {
+            return users.some(
+              (u) =>
+                u.block?.toString().trim().toUpperCase() === block.trim().toUpperCase() &&
+                u.flatNo?.toString().trim().toUpperCase() === flatNo.trim().toUpperCase()
+            );
+          }
+        }
+      } catch {
+        // Fallback for public unauthenticated guest
+      }
+    }
+    return false;
+  },
 };
 
 export interface CommunityModuleResponse {
