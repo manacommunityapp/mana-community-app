@@ -106,9 +106,16 @@ export function EventsPoojaSeva() {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => {
+  const loadData = () => {
+    let localPoojas: any[] = [];
+    try {
+      localPoojas = JSON.parse(localStorage.getItem("mana_local_pooja_sevas") || "[]");
+    } catch {}
+
     if (useMock) {
-      setPoojaSevas(mockPoojaSevas);
+      const merged = [...localPoojas, ...mockPoojaSevas];
+      const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
+      setPoojaSevas(unique);
       setRegistrations(mockRegistrations);
       return;
     }
@@ -120,13 +127,31 @@ export function EventsPoojaSeva() {
       eventService.getPoojaTypes(),
     ])
       .then(([sevas, regs, types]) => {
-        setPoojaSevas(sevas);
-        const poojaRegs = regs.filter((r: any) => r.category === "Pooja" || r.activityId?.startsWith("pooja-"));
+        const merged = [...localPoojas, ...(sevas || [])];
+        const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
+        setPoojaSevas(unique);
+        const poojaRegs = (regs || []).filter((r: any) => r.category === "Pooja" || r.activityId?.startsWith("pooja-"));
         setRegistrations(poojaRegs);
         if (types?.length > 0) setPoojaTypes(types.map((t: any) => t.name));
       })
-      .catch(e => setError(e?.message || "Failed to load pooja data"))
+      .catch(e => {
+        if (localPoojas.length > 0) {
+          setPoojaSevas(localPoojas);
+        } else {
+          setError(e?.message || "Failed to load pooja data");
+        }
+      })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadData();
+    window.addEventListener("mana_activities_updated", loadData);
+    window.addEventListener("mana_schedule_updated", loadData);
+    return () => {
+      window.removeEventListener("mana_activities_updated", loadData);
+      window.removeEventListener("mana_schedule_updated", loadData);
+    };
   }, [useMock]);
 
   const getRegistrationsForPooja = (pooja: PoojaSeva) => {

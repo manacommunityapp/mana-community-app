@@ -95,9 +95,21 @@ export function EventsCulturalEvents() {
 
   useEffect(() => { eventService.getAll().then(setEvents).catch(() => {}); }, []);
 
-  useEffect(() => {
-    if (useMock) { setCulturalEvents(mockCulturalEvents); setRegistrations(mockRegistrations); return; }
-    setLoading(true); setError("");
+  const loadData = () => {
+    let localCulturals: any[] = [];
+    try {
+      localCulturals = JSON.parse(localStorage.getItem("mana_local_cultural_events") || "[]");
+    } catch {}
+
+    if (useMock) {
+      const merged = [...localCulturals, ...mockCulturalEvents];
+      const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
+      setCulturalEvents(unique);
+      setRegistrations(mockRegistrations);
+      return;
+    }
+    setLoading(true);
+    setError("");
     Promise.all([
       eventService.getCulturalEvents(),
       eventService.getAllRegistrations(),
@@ -105,13 +117,31 @@ export function EventsCulturalEvents() {
       eventService.getCulturalPerformanceTypes().catch(() => []),
     ])
       .then(([evts, regs, cats, pts]) => {
-        setCulturalEvents(evts);
-        setRegistrations(regs.filter((r: any) => r.category === "Cultural" || r.activityId?.startsWith("cultural-")));
+        const merged = [...localCulturals, ...(evts || [])];
+        const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
+        setCulturalEvents(unique);
+        setRegistrations((regs || []).filter((r: any) => r.category === "Cultural" || r.activityId?.startsWith("cultural-")));
         if (cats?.length > 0) setCategories(cats.map((c: any) => c.name));
         if (pts?.length > 0) setPerfTypes(pts.map((p: any) => p.name));
       })
-      .catch(e => setError(e?.message || "Failed to load cultural events"))
+      .catch(e => {
+        if (localCulturals.length > 0) {
+          setCulturalEvents(localCulturals);
+        } else {
+          setError(e?.message || "Failed to load cultural events");
+        }
+      })
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadData();
+    window.addEventListener("mana_activities_updated", loadData);
+    window.addEventListener("mana_schedule_updated", loadData);
+    return () => {
+      window.removeEventListener("mana_activities_updated", loadData);
+      window.removeEventListener("mana_schedule_updated", loadData);
+    };
   }, [useMock]);
 
   const getRegs = (ce: CulturalEvent) =>

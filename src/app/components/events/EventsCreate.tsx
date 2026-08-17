@@ -57,8 +57,166 @@ interface FormData {
 
 interface TicketType { id: string; name: string; price: string; qty: string; description: string; }
 interface BudgetItem { id: string; category: string; amount: string; }
-interface ScheduleActivity { id: string; name: string; startTime: string; endTime: string; description: string; }
-interface DaySchedule { date: string; activities: ScheduleActivity[]; }
+export interface ScheduleActivity {
+  id: string;
+  categoryType: string; // "Pooja & Seva" | "Lunch" | "Dinner" | "Cultural Events" | "Competitions" | "Other"
+  customType?: string;
+  name: string;
+  needsRegistration: boolean;
+  registrationFee?: string;
+  slots?: string;
+  startTime: string;
+  endTime: string;
+  description: string;
+  venue?: string;
+}
+export interface DaySchedule { date: string; activities: ScheduleActivity[]; }
+
+export const ACTIVITY_CATEGORY_OPTIONS = [
+  { value: "Pooja & Seva",      label: "Pooja & Seva",        icon: "🪔", color: "#f59e0b" },
+  { value: "Lunch",             label: "Lunch",               icon: "🍛", color: "#10b981" },
+  { value: "Dinner",            label: "Dinner",              icon: "🍲", color: "#06b6d4" },
+  { value: "Cultural Events",   label: "Cultural Events",     icon: "🎭", color: "#8b5cf6" },
+  { value: "Competitions",      label: "Competitions",        icon: "🏆", color: "#ec4899" },
+  { value: "Other",             label: "Other / Custom Type", icon: "✨", color: "#64748b" },
+];
+
+export const PRESET_ACTIVITY_TITLES: Record<string, string[]> = {
+  "Pooja & Seva": [
+    "Maha Ganapathi Homam & Sankalpam",
+    "Sahasranama Archana & Deeparadhana",
+    "Rudrabhishekam & Panchamruta Snanam",
+    "Sri Satyanarayana Swamy Vratham",
+    "Navagraha Homam & Shanti Pooja",
+    "Mahamangal Aarti & Prasadam Distribution",
+  ],
+  "Lunch": [
+    "Community Mahaprasadam Lunch (Annadanam)",
+    "Grand Festive Feast Lunch",
+    "Sponsor & VIP Bhojan Lunch",
+    "Temple Kitchen Sattvic Lunch",
+  ],
+  "Dinner": [
+    "Community Mahaprasadam Dinner",
+    "Evening Sandhya Bhojan",
+    "Special Grand Bhoj Dinner",
+    "Prasadam Distribution & Dinner",
+  ],
+  "Cultural Events": [
+    "Bharatanatyam / Classical Dance Recital",
+    "Devotional Bhajan & Kirtan Sandhya",
+    "Carnatic & Hindustani Vocal Ensemble",
+    "Mythological Drama & Natya Mahotsav",
+    "Kids Traditional Fancy Dress & Talent Show",
+    "Folk Dance & Garba Raas Mahotsav",
+  ],
+  "Competitions": [
+    "Eco-Friendly Clay Ganesha Making Contest",
+    "Traditional Rangoli & Kolam Contest",
+    "Devotional Stotram & Shloka Chanting",
+    "Vedic Heritage & Epics Quiz (Youth)",
+    "Drawing & Painting Competition (Kids)",
+    "Classical Vocal Music Contest",
+  ],
+};
+
+export function saveLocalSubmoduleItem(storageKey: string, item: any) {
+  try {
+    const existing = JSON.parse(localStorage.getItem(storageKey) || "[]");
+    const updated = [item, ...existing.filter((x: any) => x.name !== item.name && x.id !== item.id)];
+    localStorage.setItem(storageKey, JSON.stringify(updated));
+  } catch {}
+}
+
+export async function syncActivitiesToScheduleSubmodules(
+  daySchedules: DaySchedule[],
+  mainEventTitle: string,
+  eventId?: number | string
+) {
+  const numericEventId = typeof eventId === "number" ? eventId : Number(String(eventId || "").replace(/\D/g, "")) || 1;
+
+  for (const day of daySchedules) {
+    for (const act of day.activities) {
+      if (!act.name || !act.name.trim()) continue;
+      const cat = act.categoryType || "Other";
+      const feeNum = parseFloat(act.registrationFee || "0") || 0;
+      const slotsNum = parseInt(act.slots || "50", 10) || 50;
+
+      if (cat === "Pooja & Seva") {
+        const payload = {
+          mainEventId: numericEventId,
+          name: act.name,
+          type: "Pooja",
+          date: day.date,
+          startTime: act.startTime || "08:30",
+          mandap: act.description || act.venue || "Main Temple Mandap",
+          slots: String(slotsNum),
+          fee: String(feeNum),
+          isFree: feeNum === 0,
+          items: ["Coconut", "Flowers", "Samagri"],
+          notes: act.description || "",
+        };
+        saveLocalSubmoduleItem("mana_local_pooja_sevas", { id: `pooja-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`, ...payload });
+        try {
+          await eventService.createPoojaSeva(payload);
+        } catch {}
+      } else if (cat === "Lunch" || cat === "Dinner") {
+        const payload = {
+          mainEventId: numericEventId,
+          name: act.name,
+          mealType: cat,
+          date: day.date,
+          startTime: act.startTime || (cat === "Lunch" ? "12:00" : "19:00"),
+          endTime: act.endTime || (cat === "Lunch" ? "14:00" : "21:00"),
+          venue: act.description || act.venue || "Community Dining Hall",
+          targetPlates: slotsNum,
+          dietType: "Vegetarian",
+          fee: feeNum,
+          isFree: feeNum === 0,
+          menuItems: ["Mahaprasadam Meal", "Rice", "Curry", "Sweet"],
+          notes: act.description || "",
+        };
+        saveLocalSubmoduleItem("mana_local_lunch_dinners", { id: `meal-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`, ...payload });
+        try {
+          await eventService.createLunchDinner(payload);
+        } catch {}
+      } else if (cat === "Cultural Events") {
+        const payload = {
+          mainEventId: numericEventId,
+          name: act.name,
+          category: "Classical Dance & Music",
+          date: day.date,
+          startTime: act.startTime || "18:00",
+          stage: act.description || act.venue || "Main Stage",
+          requirements: "Sound system & lighting",
+          fee: feeNum,
+          isFree: feeNum === 0,
+        };
+        saveLocalSubmoduleItem("mana_local_cultural_events", { id: `cult-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`, ...payload });
+        try {
+          await eventService.createCulturalEvent(payload);
+        } catch {}
+      } else if (cat === "Competitions") {
+        const payload = {
+          mainEventId: numericEventId,
+          name: act.name,
+          category: "Art & Talent",
+          ageGroup: "Open",
+          date: day.date,
+          startTime: act.startTime || "10:00",
+          venue: act.description || act.venue || "Auditorium",
+          fee: String(feeNum),
+          isFree: feeNum === 0,
+          maxParticipants: String(slotsNum),
+        };
+        saveLocalSubmoduleItem("mana_local_competitions", { id: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`, ...payload });
+        try {
+          await eventService.createCompetition(payload);
+        } catch {}
+      }
+    }
+  }
+}
 
 /* ─── Constants ─── */
 const EVENT_TYPES = [
@@ -233,13 +391,13 @@ function formatDayLabel(dateStr: string): string {
 }
 
 const FESTIVAL_AGENDA_PLACEHOLDERS: ScheduleActivity[] = [
-  { id: "p1", name: "Ganesh Puja & Morning Aarti Ritual", startTime: "08:00", endTime: "09:00", description: "Traditional inauguration & morning stotram aarti" },
-  { id: "p2", name: "Classical Bharatanatyam Dance & Music", startTime: "09:30", endTime: "11:00", description: "Stage performance by community troupe dancers" },
-  { id: "p3", name: "Cultural Talent Hunt & Singing Competition", startTime: "11:15", endTime: "12:45", description: "Youth & adult singing and elocution competition" },
-  { id: "p4", name: "Prasadam & Grand Community Lunch Feast", startTime: "13:00", endTime: "14:30", description: "Buffet dining & prasadam distribution" },
-  { id: "p5", name: "Youth Sports & Rangoli Art Workshop", startTime: "15:00", endTime: "16:30", description: "Indoor badminton & rangoli competition" },
-  { id: "p6", name: "Chief Guest Speech & Prize Ceremony", startTime: "17:00", endTime: "18:30", description: "Felicitation ceremony & awards distribution" },
-  { id: "p7", name: "Grand Evening Musical Night & Orchestra", startTime: "19:00", endTime: "21:30", description: "Live concert & celebrity music performance" },
+  { id: "p1", categoryType: "Pooja & Seva", name: "Ganesh Puja & Morning Aarti Ritual", needsRegistration: true, registrationFee: "0", slots: "100", startTime: "08:00", endTime: "09:00", description: "Traditional inauguration & morning stotram aarti", venue: "Main Mandap" },
+  { id: "p2", categoryType: "Cultural Events", name: "Classical Bharatanatyam Dance & Music", needsRegistration: false, registrationFee: "0", slots: "200", startTime: "09:30", endTime: "11:00", description: "Stage performance by community troupe dancers", venue: "Main Stage" },
+  { id: "p3", categoryType: "Competitions", name: "Cultural Talent Hunt & Singing Competition", needsRegistration: true, registrationFee: "0", slots: "50", startTime: "11:15", endTime: "12:45", description: "Youth & adult singing and elocution competition", venue: "Auditorium" },
+  { id: "p4", categoryType: "Lunch", name: "Prasadam & Grand Community Lunch Feast", needsRegistration: true, registrationFee: "0", slots: "500", startTime: "13:00", endTime: "14:30", description: "Buffet dining & prasadam distribution", venue: "Dining Hall" },
+  { id: "p5", categoryType: "Competitions", name: "Youth Sports & Rangoli Art Workshop", needsRegistration: true, registrationFee: "0", slots: "60", startTime: "15:00", endTime: "16:30", description: "Indoor badminton & rangoli competition", venue: "Activity Hall" },
+  { id: "p6", categoryType: "Cultural Events", name: "Chief Guest Speech & Prize Ceremony", needsRegistration: false, registrationFee: "0", slots: "300", startTime: "17:00", endTime: "18:30", description: "Felicitation ceremony & awards distribution", venue: "Main Stage" },
+  { id: "p7", categoryType: "Cultural Events", name: "Grand Evening Musical Night & Orchestra", needsRegistration: false, registrationFee: "0", slots: "400", startTime: "19:00", endTime: "21:30", description: "Live concert & celebrity music performance", venue: "Amphitheatre" },
 ];
 
 function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
@@ -249,7 +407,18 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const [notifActivityTitle, setNotifActivityTitle] = useState<string | undefined>(undefined);
 
   const createDefaultSingleActivity = (): ScheduleActivity[] => [
-    { id: `a${Date.now()}-${Math.random()}`, name: "", startTime: "09:00", endTime: "10:00", description: "" }
+    {
+      id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      categoryType: "Pooja & Seva",
+      name: "Maha Ganapathi Homam & Sankalpam",
+      needsRegistration: true,
+      registrationFee: "0",
+      slots: "50",
+      startTime: "08:30",
+      endTime: "10:00",
+      description: "Main Temple Mandap",
+      venue: "Main Temple Mandap",
+    }
   ];
 
   const syncDaySchedules = (start: string, end: string) => {
@@ -322,16 +491,23 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
   const loadFestivalPlaceholders = () => {
     const targetDate = data.startDate || new Date().toISOString().split("T")[0];
+    const placeholders: ScheduleActivity[] = [
+      { id: `a${Date.now()}-1`, categoryType: "Pooja & Seva", name: "Maha Ganapathi Homam & Sankalpam", needsRegistration: true, registrationFee: "0", slots: "100", startTime: "08:30", endTime: "10:30", description: "Main Mandap", venue: "Main Mandap" },
+      { id: `a${Date.now()}-2`, categoryType: "Lunch", name: "Community Mahaprasadam Lunch", needsRegistration: true, registrationFee: "0", slots: "500", startTime: "12:30", endTime: "14:30", description: "Dining Hall", venue: "Dining Hall" },
+      { id: `a${Date.now()}-3`, categoryType: "Competitions", name: "Eco-Friendly Clay Ganesha Making Contest", needsRegistration: true, registrationFee: "0", slots: "50", startTime: "15:30", endTime: "17:00", description: "Auditorium", venue: "Auditorium" },
+      { id: `a${Date.now()}-4`, categoryType: "Cultural Events", name: "Bharatanatyam & Devotional Bhajan Sandhya", needsRegistration: false, registrationFee: "0", slots: "200", startTime: "18:00", endTime: "20:00", description: "Main Stage", venue: "Main Stage" },
+      { id: `a${Date.now()}-5`, categoryType: "Dinner", name: "Evening Prasadam Dinner", needsRegistration: false, registrationFee: "0", slots: "400", startTime: "20:00", endTime: "21:30", description: "Dining Hall", venue: "Dining Hall" },
+    ];
     if (data.daySchedules.length === 0) {
       update("daySchedules", [{
         date: targetDate,
-        activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+        activities: placeholders,
       }]);
       setExpandedDay(targetDate);
     } else {
       const updated = data.daySchedules.map(ds => ({
         ...ds,
-        activities: FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({ ...p, id: `a${Date.now()}-${Math.random()}` })),
+        activities: placeholders.map(p => ({ ...p, id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}` })),
       }));
       update("daySchedules", updated);
     }
@@ -346,7 +522,24 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const addActivity = (date: string) => {
     const updated = data.daySchedules.map(ds =>
       ds.date === date
-        ? { ...ds, activities: [...ds.activities, { id: `a${Date.now()}`, name: "", startTime: "", endTime: "", description: "" }] }
+        ? {
+            ...ds,
+            activities: [
+              ...ds.activities,
+              {
+                id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                categoryType: "Pooja & Seva",
+                name: "",
+                needsRegistration: true,
+                registrationFee: "0",
+                slots: "50",
+                startTime: "09:00",
+                endTime: "10:30",
+                description: "",
+                venue: "",
+              }
+            ]
+          }
         : ds
     );
     update("daySchedules", updated);
@@ -359,7 +552,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     update("daySchedules", updated);
   };
 
-  const updateActivity = (date: string, actId: string, field: keyof ScheduleActivity, value: string) => {
+  const updateActivity = (date: string, actId: string, field: keyof ScheduleActivity, value: any) => {
     const updated = data.daySchedules.map(ds =>
       ds.date === date
         ? { ...ds, activities: ds.activities.map(a => a.id === actId ? { ...a, [field]: value } : a) }
@@ -506,58 +699,221 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
                   {isExpanded && (
                     <div className="px-3 sm:px-4 pb-3 pt-2 bg-white space-y-2.5 animate-fade-in-up">
-                      {day.activities.map((act, actIdx) => (
-                        <div key={act.id}
-                          className="relative p-2.5 sm:p-3 bg-slate-50 rounded-lg border border-slate-100 space-y-2 group">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <div className="w-5 h-5 rounded-full bg-indigo-100 flex items-center justify-center">
-                                <span className="text-[9px] font-black text-indigo-600">{actIdx + 1}</span>
+                      {day.activities.map((act, actIdx) => {
+                        const currentCategory = act.categoryType || "Pooja & Seva";
+                        const suggestions = PRESET_ACTIVITY_TITLES[currentCategory] || [];
+                        const isOtherCategory = currentCategory === "Other";
+
+                        return (
+                          <div
+                            key={act.id}
+                            className="relative p-3 sm:p-4 bg-slate-50/90 rounded-2xl border border-slate-200/90 space-y-3 shadow-2xs group hover:border-indigo-200 transition-all"
+                          >
+                            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-xs">
+                                  <span className="text-[10px] font-black">{actIdx + 1}</span>
+                                </div>
+                                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                                  {act.categoryType || "Activity"}
+                                </span>
+                                {act.needsRegistration && (
+                                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    Registration Required
+                                  </span>
+                                )}
                               </div>
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Activity / Item</span>
+                              <div className="flex items-center gap-1.5">
+                                {act.name && (
+                                  <button
+                                    type="button"
+                                    onClick={() => triggerNotification(`Day ${dayIdx + 1}`, act.name)}
+                                    className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-lg border border-indigo-200 flex items-center gap-1 transition-all cursor-pointer"
+                                  >
+                                    <Mail className="w-3 h-3" /> Notify
+                                  </button>
+                                )}
+                                {day.activities.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeActivity(day.date, act.id)}
+                                    className="opacity-60 group-hover:opacity-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all p-1.5 rounded-lg cursor-pointer"
+                                    title="Remove activity"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              {act.name && (
-                                <button
-                                  type="button"
-                                  onClick={() => triggerNotification(`Day ${dayIdx + 1}`, act.name)}
-                                  className="text-[9px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded border border-indigo-100 flex items-center gap-1 transition-all"
+
+                            {/* Row 1: Category / Type Selection */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                              <div>
+                                <FieldLabel required>Activity Category / Type</FieldLabel>
+                                <select
+                                  value={currentCategory}
+                                  onChange={(e) => {
+                                    const newCat = e.target.value;
+                                    updateActivity(day.date, act.id, "categoryType", newCat);
+                                    if (newCat !== "Other" && PRESET_ACTIVITY_TITLES[newCat]) {
+                                      if (!act.name || Object.values(PRESET_ACTIVITY_TITLES).some((list) => list.includes(act.name))) {
+                                        updateActivity(day.date, act.id, "name", PRESET_ACTIVITY_TITLES[newCat][0]);
+                                      }
+                                    }
+                                  }}
+                                  className={cn(INPUT_CLS, "font-bold text-indigo-900 bg-white cursor-pointer")}
                                 >
-                                  <Mail className="w-2.5 h-2.5" /> Notify
-                                </button>
-                              )}
-                              {day.activities.length > 1 && (
-                                <button onClick={() => removeActivity(day.date, act.id)}
-                                  className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded hover:bg-rose-50">
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
+                                  {ACTIVITY_CATEGORY_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>
+                                      {opt.icon} {opt.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              {isOtherCategory ? (
+                                <div>
+                                  <FieldLabel required>Custom Type Name</FieldLabel>
+                                  <Input
+                                    value={act.customType || ""}
+                                    onChange={(e) => updateActivity(day.date, act.id, "customType", e.target.value)}
+                                    placeholder="e.g. Sports / Workshop / Stage Play"
+                                    className={cn(INPUT_CLS, "bg-white font-medium")}
+                                  />
+                                </div>
+                              ) : (
+                                <div>
+                                  <FieldLabel>Target Schedule Tab</FieldLabel>
+                                  <div className="px-3 py-[7px] rounded-[0.625rem] bg-indigo-50/60 border border-indigo-100 text-[12px] font-semibold text-indigo-700 flex items-center gap-1.5">
+                                    <span>Syncs to:</span>
+                                    <span className="font-bold underline underline-offset-2">
+                                      {currentCategory === "Pooja & Seva"
+                                        ? "Pooja & Seva Tab"
+                                        : currentCategory === "Lunch" || currentCategory === "Dinner"
+                                        ? "Lunch / Dinner Tab"
+                                        : currentCategory === "Cultural Events"
+                                        ? "Cultural Events Tab"
+                                        : currentCategory === "Competitions"
+                                        ? "Competitions Tab"
+                                        : "Programs Tab"}
+                                    </span>
+                                  </div>
+                                </div>
                               )}
                             </div>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
+
+                            {/* Row 2: Title and Times */}
+                            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2.5 items-end">
+                              <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <FieldLabel required>Activity / Event Title</FieldLabel>
+                                  <span className="text-[10px] text-slate-400 font-medium">Select suggestion or type title</span>
+                                </div>
+                                <Input
+                                  list={`preset-titles-${act.id}`}
+                                  value={act.name}
+                                  onChange={(e) => updateActivity(day.date, act.id, "name", e.target.value)}
+                                  placeholder="e.g. Maha Ganapathi Homam / Classical Dance"
+                                  className={cn(INPUT_CLS, "bg-white font-semibold text-slate-900")}
+                                />
+                                <datalist id={`preset-titles-${act.id}`}>
+                                  {suggestions.map((title, i) => (
+                                    <option key={i} value={title} />
+                                  ))}
+                                </datalist>
+
+                                {suggestions.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1.5">
+                                    {suggestions.slice(0, 3).map((title, i) => (
+                                      <button
+                                        key={i}
+                                        type="button"
+                                        onClick={() => updateActivity(day.date, act.id, "name", title)}
+                                        className={cn(
+                                          "text-[9.5px] px-2 py-0.5 rounded-md border transition-all cursor-pointer font-medium",
+                                          act.name === title
+                                            ? "bg-indigo-600 text-white border-indigo-600 font-bold shadow-2xs"
+                                            : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
+                                        )}
+                                      >
+                                        + {title.split(" ")[0]} {title.split(" ")[1] || ""}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="w-full sm:w-28">
+                                <FieldLabel required>From</FieldLabel>
+                                <Input
+                                  type="time"
+                                  value={act.startTime}
+                                  onChange={(e) => updateActivity(day.date, act.id, "startTime", e.target.value)}
+                                  className={cn(INPUT_CLS, "bg-white font-medium")}
+                                />
+                              </div>
+                              <div className="w-full sm:w-28">
+                                <FieldLabel required>To</FieldLabel>
+                                <Input
+                                  type="time"
+                                  value={act.endTime}
+                                  onChange={(e) => updateActivity(day.date, act.id, "endTime", e.target.value)}
+                                  className={cn(INPUT_CLS, "bg-white font-medium")}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Row 3: Registration & Fee Controls */}
+                            <div className="p-2.5 rounded-xl bg-white border border-slate-200/90 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+                              <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-800">
+                                <input
+                                  type="checkbox"
+                                  checked={act.needsRegistration ?? true}
+                                  onChange={(e) => updateActivity(day.date, act.id, "needsRegistration", e.target.checked)}
+                                  className="w-4 h-4 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
+                                />
+                                <span>Requires Member Registration &amp; Pass</span>
+                              </label>
+
+                              {act.needsRegistration && (
+                                <div className="flex items-center gap-3">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[11px] font-bold text-slate-500">Fee (₹):</span>
+                                    <Input
+                                      type="text"
+                                      value={act.registrationFee ?? "0"}
+                                      onChange={(e) => updateActivity(day.date, act.id, "registrationFee", e.target.value)}
+                                      placeholder="0 for Free"
+                                      className="w-24 h-7 text-xs bg-slate-50 font-bold border-slate-200"
+                                    />
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[11px] font-bold text-slate-500">Capacity/Slots:</span>
+                                    <Input
+                                      type="number"
+                                      value={act.slots ?? "50"}
+                                      onChange={(e) => updateActivity(day.date, act.id, "slots", e.target.value)}
+                                      placeholder="50"
+                                      className="w-20 h-7 text-xs bg-slate-50 font-bold border-slate-200"
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Row 4: Description and Location / Venue */}
                             <div>
-                              <FieldLabel required>Activity / Event Title</FieldLabel>
-                              <Input value={act.name} onChange={e => updateActivity(day.date, act.id, "name", e.target.value)}
-                                placeholder="e.g. Aarti / Music Night" className={INPUT_CLS} />
-                            </div>
-                            <div className="w-24">
-                              <FieldLabel required>From</FieldLabel>
-                              <Input type="time" value={act.startTime} onChange={e => updateActivity(day.date, act.id, "startTime", e.target.value)}
-                                className={INPUT_CLS} />
-                            </div>
-                            <div className="w-24">
-                              <FieldLabel required>To</FieldLabel>
-                              <Input type="time" value={act.endTime} onChange={e => updateActivity(day.date, act.id, "endTime", e.target.value)}
-                                className={INPUT_CLS} />
+                              <FieldLabel>Description &amp; Location / Mandap</FieldLabel>
+                              <Input
+                                value={act.description}
+                                onChange={(e) => updateActivity(day.date, act.id, "description", e.target.value)}
+                                placeholder="e.g. Main Temple Mandap / Stage A"
+                                className={cn(INPUT_CLS, "bg-white")}
+                              />
                             </div>
                           </div>
-                          <div>
-                            <FieldLabel>Description & Location</FieldLabel>
-                            <Input value={act.description} onChange={e => updateActivity(day.date, act.id, "description", e.target.value)}
-                              placeholder="e.g. Main Stage" className={INPUT_CLS} />
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                       <button 
                         type="button"
                         onClick={() => addActivity(day.date)}
@@ -1795,8 +2151,12 @@ export function EventCreateWizard({
           if (resp) resultEvent = resp;
         }
       }
+
+      await syncActivitiesToScheduleSubmodules(formData.daySchedules, formData.title, resultEvent.id);
+
       try {
         window.dispatchEvent(new Event("mana_activities_updated"));
+        window.dispatchEvent(new Event("mana_schedule_updated"));
         window.dispatchEvent(new Event("mana_event_created"));
         window.dispatchEvent(new Event("mana_event_updated"));
       } catch {}
@@ -1847,8 +2207,12 @@ export function EventCreateWizard({
           if (resp) resultEvent = resp;
         }
       }
+
+      await syncActivitiesToScheduleSubmodules(formData.daySchedules, formData.title, resultEvent.id);
+
       try {
         window.dispatchEvent(new Event("mana_activities_updated"));
+        window.dispatchEvent(new Event("mana_schedule_updated"));
         window.dispatchEvent(new Event("mana_event_created"));
         window.dispatchEvent(new Event("mana_event_updated"));
       } catch {}

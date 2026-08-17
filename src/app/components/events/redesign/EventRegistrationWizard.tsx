@@ -166,7 +166,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     loadSavedFamily();
     window.addEventListener("mana_family_updated", loadSavedFamily);
     return () => window.removeEventListener("mana_family_updated", loadSavedFamily);
-  }, [authUser?.id, authUser?.email]);
+  }, [authUser?.userId, authUser?.email]);
 
   const applyExistingRegToForm = (reg: any) => {
     let parsedMembers = [];
@@ -279,7 +279,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         }
       })
       .catch(() => {});
-  }, [authUser?.id, authUser?.email]);
+  }, [authUser?.userId, authUser?.email]);
 
   // ── Load Ticket Categories dynamically from Event Details ONLY ──
   useEffect(() => {
