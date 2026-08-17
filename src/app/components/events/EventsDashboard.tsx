@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router";
 import {
   CalendarDays, Users, Ticket, TrendingUp, DollarSign,
   Utensils, Gavel, ClipboardCheck, Star,
   Clock, MapPin, AlertCircle, Loader2,
   Sparkles, QrCode, UserPlus,
   ChevronRight, Download, Bot, RefreshCw,
+  Search, ChevronDown, ChevronUp, User,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -63,14 +65,14 @@ const PIE_COLORS = ["#4F46E5", "#7C3AED", "#16A34A", "#2563EB", "#EC4899", "#F59
 // ── Static mock data (unchanged from original) ────────────────────────────────
 
 const MOCK_KPIS = [
-  { label: "Total Events",    value: "24",     sub: "8 active festivals",  icon: CalendarDays, color: "#4F46E5", bg: "rgba(79,70,229,0.12)",   trend: "+3 this month"  },
-  { label: "Registrations",   value: "1,842",  sub: "↑ 14% vs last week",  icon: Ticket,       color: "#7C3AED", bg: "rgba(124,58,237,0.12)",  trend: "+204 this week" },
-  { label: "Volunteers",      value: "318",    sub: "94% Duty assigned",    icon: Users,        color: "#16A34A", bg: "rgba(22,163,74,0.12)",   trend: "12 Teams"       },
-  { label: "Budget Spent",    value: "₹4.82L", sub: "64% of ₹7.5L total",  icon: DollarSign,   color: "#2563EB", bg: "rgba(37,99,235,0.12)",   trend: "₹2.68L left"    },
-  { label: "Sponsors Raised", value: "₹6.10L", sub: "19 Active partners",   icon: Star,         color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "5 pending"      },
-  { label: "Donations",       value: "₹6.20L", sub: "Cash & Kind",          icon: TrendingUp,   color: "#EC4899", bg: "rgba(236,72,153,0.12)",  trend: "+₹80K today"    },
-  { label: "Food Prepared",   value: "85%",    sub: "4,200 plates est",      icon: Utensils,     color: "#8B5CF6", bg: "rgba(139,92,246,0.12)",  trend: "On schedule"    },
-  { label: "Auction Revenue", value: "₹2.10L", sub: "14 items sold",         icon: Gavel,        color: "#06B6D4", bg: "rgba(6,182,212,0.12)",   trend: "Live now"       },
+  { label: "Total Events",            value: "24",     sub: "8 active festivals",  icon: CalendarDays, color: "#4F46E5", bg: "rgba(79,70,229,0.12)",   trend: "+3 this month",   to: "/events/schedule?tab=events" },
+  { label: "Registrations",           value: "1,842",  sub: "↑ 14% vs last week",  icon: Ticket,       color: "#7C3AED", bg: "rgba(124,58,237,0.12)",  trend: "+204 this week",  to: "/events/registration" },
+  { label: "Budget Spent",            value: "₹4.82L", sub: "64% of ₹7.5L total",  icon: DollarSign,   color: "#2563EB", bg: "rgba(37,99,235,0.12)",   trend: "₹2.68L left",     to: "/events/operations?tab=finance" },
+  { label: "Today's Schedule & Duty", value: "32 Items", sub: "12 programs · 318 duty shifts", icon: Clock, color: "#16A34A", bg: "rgba(22,163,74,0.12)", trend: "Active Today", to: "/events/schedule?tab=programs" },
+  { label: "Pending Action Items",    value: "9",      sub: "4 tasks · 5 sponsors", icon: AlertCircle, color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "Action Required", to: "/events/schedule?tab=planning" },
+  { label: "Sponsors Raised",         value: "₹6.10L", sub: "19 Active partners",   icon: Star,         color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "5 pending",       to: "/events/fundraising?tab=sponsors" },
+  { label: "Food Prepared",           value: "85%",    sub: "4,200 plates est",    icon: Utensils,     color: "#8B5CF6", bg: "rgba(139,92,246,0.12)",  trend: "On schedule",     to: "/events/operations?tab=food" },
+  { label: "Auction Revenue",         value: "₹2.10L", sub: "14 items sold",       icon: Gavel,        color: "#06B6D4", bg: "rgba(6,182,212,0.12)",   trend: "Live now",        to: "/events/fundraising?tab=auction" },
 ];
 
 const MOCK_REG_TREND = [
@@ -188,6 +190,7 @@ const DEFAULT_PENDING_TASKS = [
 ];
 
 export function EventsDashboard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { useMock } = useEventMock();
 
@@ -225,6 +228,73 @@ export function EventsDashboard() {
   const [pendingActionItems, setPendingActionItems] = useState<PendingActionItemResponse[]>([]);
   const [registrations, setRegistrations] = useState<RegistrationResponse[]>([]);
   const [tasksDone, setTasksDone]       = useState<Record<string, boolean>>({});
+
+  // ── Registered Users section state ──
+  type RegCat = 'all' | 'event' | 'pooja' | 'cultural' | 'competition';
+  type UnifiedReg = { id: string|number; regCode: string; category: RegCat; activityTitle: string; participantName: string; email?: string; phone?: string; extra?: string; devoteeCount: number; bookingFee: number; paymentStatus: string; status: string; eventDate?: string; eventTime?: string; venue?: string; createdAt: string; };
+  const MOCK_REGS: UnifiedReg[] = [
+    { id:'e1', regCode:'EVT-5001', category:'event', activityTitle:'Ganesh Utsav 2026 – Main Event', participantName:'Rajesh Sharma', email:'rajesh@example.com', phone:'+91 98765 43210', devoteeCount:4, bookingFee:300, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', venue:'Community Hall', createdAt:'2026-08-10T10:00:00' },
+    { id:'e2', regCode:'EVT-5002', category:'event', activityTitle:'Ganesh Utsav 2026 – Main Event', participantName:'Meera Deshmukh', email:'meera@example.com', phone:'+91 91234 56789', devoteeCount:2, bookingFee:300, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', venue:'Community Hall', createdAt:'2026-08-10T11:30:00' },
+    { id:'e3', regCode:'EVT-5003', category:'event', activityTitle:'Day 2 – Special Program', participantName:'Amit Verma', email:'amit@example.com', phone:'+91 99887 76655', devoteeCount:1, bookingFee:100, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-28', venue:'Temple Grounds', createdAt:'2026-08-11T09:00:00' },
+    { id:'e4', regCode:'EVT-5004', category:'event', activityTitle:'Day 2 – Special Program', participantName:'Sunita Patil', email:'sunita@example.com', phone:'+91 98100 22334', devoteeCount:3, bookingFee:200, paymentStatus:'PENDING', status:'PENDING', eventDate:'2026-08-28', venue:'Temple Grounds', createdAt:'2026-08-12T14:00:00' },
+    { id:'p1', regCode:'POOJA-1001', category:'pooja', activityTitle:'Maha Ganapathi Abhishekam', participantName:'Ramesh Sharma', extra:'Gotram: Bharadwaj', devoteeCount:3, bookingFee:501, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'08:30 AM', venue:'Main Temple Mandap', createdAt:'2026-08-15T10:30:00' },
+    { id:'p2', regCode:'POOJA-1002', category:'pooja', activityTitle:'Maha Ganapathi Abhishekam', participantName:'Lakshmi Devi', extra:'Gotram: Kashyap', devoteeCount:2, bookingFee:501, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'11:00 AM', venue:'Main Temple Mandap', createdAt:'2026-08-15T14:20:00' },
+    { id:'p3', regCode:'POOJA-1003', category:'pooja', activityTitle:'Satyanarayan Puja', participantName:'Subramaniam K.', extra:'Gotram: Vasishta', devoteeCount:5, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-28', eventTime:'09:00 AM', venue:'Community Hall', createdAt:'2026-08-16T11:00:00' },
+    { id:'p4', regCode:'POOJA-1004', category:'pooja', activityTitle:'Navagraha Homam', participantName:'Annapurna Devi', extra:'Gotram: Bharadwaj', devoteeCount:2, bookingFee:1100, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'06:00 AM', venue:'Homa Kund Area', createdAt:'2026-08-17T08:30:00' },
+    { id:'c1', regCode:'CULT-3001', category:'cultural', activityTitle:'Bharatanatyam – Pushpanjali', participantName:'Meenakshi Sundaram', extra:'Solo · Youth (16-25)', devoteeCount:1, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'10:00 AM', venue:'Main Stage', createdAt:'2026-08-14T10:00:00' },
+    { id:'c2', regCode:'CULT-3002', category:'cultural', activityTitle:'Carnatic Vocal Ensemble', participantName:'Ramakrishnan V.', extra:'Ensemble · Open', devoteeCount:4, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'11:00 AM', venue:'Main Stage', createdAt:'2026-08-14T12:00:00' },
+    { id:'c3', regCode:'CULT-3003', category:'cultural', activityTitle:'Bhajan Sandhya', participantName:'Annapurna Group', extra:'Group · Open', devoteeCount:8, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-28', eventTime:'06:00 PM', venue:'Temple Mandap', createdAt:'2026-08-16T15:00:00' },
+    { id:'comp1', regCode:'COMP-4001', category:'competition', activityTitle:'Drawing Competition – Kids', participantName:'Aarav Sharma', extra:'Kids · Drawing', devoteeCount:1, bookingFee:50, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-28', eventTime:'10:00 AM', venue:'Hall – Room A', createdAt:'2026-08-14T09:00:00' },
+    { id:'comp2', regCode:'COMP-4002', category:'competition', activityTitle:'Elocution – Junior', participantName:'Nidhi Kulkarni', extra:'Junior · Elocution', devoteeCount:1, bookingFee:50, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-28', eventTime:'11:30 AM', venue:'Hall – Room B', createdAt:'2026-08-15T11:00:00' },
+    { id:'comp3', regCode:'COMP-4003', category:'competition', activityTitle:'Classical Singing – Open', participantName:'Keertana S.', extra:'Open · Singing', devoteeCount:1, bookingFee:100, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-29', eventTime:'09:00 AM', venue:'Auditorium', createdAt:'2026-08-16T13:00:00' },
+    { id:'comp4', regCode:'COMP-4004', category:'competition', activityTitle:'Quiz – Youth', participantName:'Arjun Verma', extra:'Youth · Quiz (Team)', devoteeCount:2, bookingFee:80, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-29', eventTime:'02:00 PM', venue:'Hall – Room A', createdAt:'2026-08-17T09:30:00' },
+  ];
+  const [regCat, setRegCat] = useState<RegCat>('all');
+  const [regSearch, setRegSearch] = useState('');
+  const [allUnifiedRegs, setAllUnifiedRegs] = useState<UnifiedReg[]>([]);
+  const [loadingRegs, setLoadingRegs] = useState(false);
+  const [expandedActivity, setExpandedActivity] = useState<string|null>(null);
+
+  useEffect(() => {
+    if (useMock) { setAllUnifiedRegs(MOCK_REGS); return; }
+    setLoadingRegs(true);
+    eventService.getAllRegistrations()
+      .then((regs: any[]) => {
+        setAllUnifiedRegs(regs.map((r: any) => ({
+          id: r.id,
+          regCode: r.regCode || `REG-${r.id}`,
+          category: (r.category === 'Pooja' ? 'pooja' : r.category === 'Cultural' ? 'cultural' : r.category === 'Competition' ? 'competition' : 'event') as RegCat,
+          activityTitle: r.activityTitle || r.eventTitle || 'Event',
+          participantName: r.participantName || r.userName || 'N/A',
+          email: r.userEmail || r.email,
+          phone: r.phone,
+          extra: r.gotram ? `Gotram: ${r.gotram}` : r.ageGroup,
+          devoteeCount: r.devoteeCount || 1,
+          bookingFee: r.bookingFee ?? 0,
+          paymentStatus: r.paymentStatus || 'N/A',
+          status: r.status || 'CONFIRMED',
+          eventDate: r.eventDate,
+          eventTime: r.eventTime,
+          venue: r.venue,
+          createdAt: r.createdAt || new Date().toISOString(),
+        })));
+      })
+      .catch(() => {})
+      .finally(() => setLoadingRegs(false));
+  }, [useMock]);
+
+  const filteredUnifiedRegs = allUnifiedRegs.filter(r => {
+    const matchCat = regCat === 'all' || r.category === regCat;
+    const term = regSearch.toLowerCase();
+    return matchCat && (!term || r.participantName.toLowerCase().includes(term) || r.regCode.toLowerCase().includes(term) || r.activityTitle.toLowerCase().includes(term));
+  });
+
+  const groupedRegs = filteredUnifiedRegs.reduce<Record<string, UnifiedReg[]>>((acc, r) => {
+    const key = `${r.category}::${r.activityTitle}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(r);
+    return acc;
+  }, {});
 
   // ── Phase 1: fetch all aggregate data in parallel ──
   function fetchAll() {
@@ -408,42 +478,50 @@ export function EventsDashboard() {
         sub: stats ? `${stats.upcomingEvents} upcoming` : "0 upcoming",
         icon: CalendarDays, color: "#4F46E5", bg: "rgba(79,70,229,0.12)",
         trend: stats ? `${stats.upcomingEvents} upcoming` : "0 upcoming",
+        to: "/events/schedule?tab=events",
       },
       {
         label: "Registrations",   value: stats ? stats.totalRegistrations.toLocaleString() : "0",
         sub: `Across ${stats?.totalEvents ?? 0} events`,
         icon: Ticket, color: "#7C3AED", bg: "rgba(124,58,237,0.12)", trend: hasEvents ? "Live" : "Inactive",
-      },
-      {
-        label: "Today's Schedule & Duty", value: `${todaysScheduleDutyCount} Items`,
-        sub: `${stats?.todaysScheduleCount ?? (hasEvents ? todaySchedule.length : 0)} events · ${stats?.todaysDutyCount ?? (stats?.totalVolunteers ?? 0)} duty shifts`,
-        icon: Clock, color: "#16A34A", bg: "rgba(22,163,74,0.12)", trend: hasEvents ? "Active Today" : "No Shift Today",
-      },
-      {
-        label: "Pending Action Items", value: String(pendingActionsCount),
-        sub: `${pendingTasks.length} tasks · ${pending} sponsors pending`,
-        icon: AlertCircle, color: "#F59E0B", bg: "rgba(245,158,11,0.12)", trend: pendingActionsCount > 0 ? "Action Required" : "All Clear",
+        to: "/events/registration",
       },
       {
         label: "Budget Spent",    value: stats ? fmtINR(spent) : "₹0",
         sub: revenue > 0 ? `Revenue: ${fmtINR(revenue)}` : "Revenue: ₹0",
         icon: DollarSign, color: "#2563EB", bg: "rgba(37,99,235,0.12)", trend: spentPct,
+        to: "/events/operations?tab=finance",
+      },
+      {
+        label: "Today's Schedule & Duty", value: `${todaysScheduleDutyCount} Items`,
+        sub: `${stats?.todaysScheduleCount ?? (hasEvents ? todaySchedule.length : 0)} events · ${stats?.todaysDutyCount ?? (stats?.totalVolunteers ?? 0)} duty shifts`,
+        icon: Clock, color: "#16A34A", bg: "rgba(22,163,74,0.12)", trend: hasEvents ? "Active Today" : "No Shift Today",
+        to: "/events/schedule?tab=programs",
+      },
+      {
+        label: "Pending Action Items", value: String(pendingActionsCount),
+        sub: `${pendingTasks.length} tasks · ${pending} sponsors pending`,
+        icon: AlertCircle, color: "#F59E0B", bg: "rgba(245,158,11,0.12)", trend: pendingActionsCount > 0 ? "Action Required" : "All Clear",
+        to: "/events/schedule?tab=planning",
       },
       {
         label: "Sponsors Raised", value: fmtINR(sponsorTotal),
         sub: `${active} active partners`,
         icon: Star, color: "#F59E0B", bg: "rgba(245,158,11,0.12)",
         trend: pending > 0 ? `${pending} pending` : "All confirmed",
+        to: "/events/fundraising?tab=sponsors",
       },
       {
         label: "Food Prepared",   value: foodPct,
         sub: foodPlates,
         icon: Utensils, color: "#8B5CF6", bg: "rgba(139,92,246,0.12)", trend: foodTrend,
+        to: "/events/operations?tab=food",
       },
       {
         label: "Auction Revenue", value: auctionRev,
         sub: auctionItems,
         icon: Gavel, color: "#06B6D4", bg: "rgba(6,182,212,0.12)", trend: hasEvents ? "Live now" : "No Active Auction",
+        to: "/events/fundraising?tab=auction",
       },
     ];
   }, [useMock, stats, sponsorTotal, sponsors, registrations, todaySchedule, pendingTasks, events]);
@@ -686,28 +764,54 @@ export function EventsDashboard() {
 
       {/* ── KPI Cards Grid ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
-        {kpis.map((kpi, idx) => {
+        {kpis.map((kpi: any, idx) => {
           const Icon = kpi.icon;
           const isLiveCard = !useMock && idx < 6;
           const isSkeleton = isLiveCard && loading;
           return (
-            <div key={idx} className="bg-white rounded-xl border border-indigo-100/60 shadow-[0_2px_12px_rgba(79,70,229,0.05)] p-3 sm:p-3.5 flex flex-col gap-2 hover:-translate-y-0.5 transition-transform cursor-pointer">
-              <div className="flex items-start justify-between">
+            <div
+              key={idx}
+              onClick={() => kpi.to && navigate(kpi.to)}
+              className="group bg-white rounded-xl border border-indigo-100/60 shadow-[0_2px_12px_rgba(79,70,229,0.05)] hover:border-indigo-300 hover:shadow-md p-3 sm:p-3.5 flex flex-col justify-between gap-2 hover:-translate-y-0.5 transition-all cursor-pointer select-none"
+              title={`Click to view ${kpi.label}`}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  if (kpi.to) navigate(kpi.to);
+                }
+              }}
+            >
+              <div className="flex items-start justify-between gap-1.5">
                 <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-transform group-hover:scale-110"
                   style={{ background: kpi.bg, color: kpi.color }}
                 >
                   <Icon className="w-4 h-4" strokeWidth={2} />
                 </div>
-                {isSkeleton
-                  ? <div className="w-14 h-4 bg-slate-100 rounded-full animate-pulse" />
-                  : <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">{kpi.trend}</span>}
+                <div className="flex items-center gap-1">
+                  {isSkeleton ? (
+                    <div className="w-14 h-4 bg-slate-100 rounded-full animate-pulse" />
+                  ) : (
+                    <span className="text-[9.5px] font-bold px-2 py-0.5 rounded-full border bg-emerald-50 text-emerald-700 border-emerald-200">
+                      {kpi.trend}
+                    </span>
+                  )}
+                  <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all shrink-0" />
+                </div>
               </div>
               <div>
-                <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</p>
-                {isSkeleton
-                  ? <div className="mt-1 w-16 h-6 bg-slate-100 rounded animate-pulse" />
-                  : <p className="text-lg font-black text-slate-900 mt-0.5 leading-none">{kpi.value}</p>}
+                <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider group-hover:text-indigo-600 transition-colors">
+                  {kpi.label}
+                </p>
+                {isSkeleton ? (
+                  <div className="mt-1 w-16 h-6 bg-slate-100 rounded animate-pulse" />
+                ) : (
+                  <p className="text-lg font-black text-slate-900 mt-0.5 leading-none group-hover:text-indigo-600 transition-colors">
+                    {kpi.value}
+                  </p>
+                )}
                 <p className="text-[10px] font-medium text-slate-500 mt-0.5 truncate">{kpi.sub}</p>
               </div>
             </div>
@@ -722,13 +826,23 @@ export function EventsDashboard() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">Registration Trend</p>
-              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5">Daily Ticket Registrations</h3>
+              <h3
+                onClick={() => navigate("/events/registration")}
+                className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5 hover:text-indigo-600 cursor-pointer flex items-center gap-1 transition-colors"
+                title="View Registrations"
+              >
+                Daily Ticket Registrations
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              </h3>
             </div>
-            <span className="text-[10.5px] font-bold text-[#4F46E5] bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
+            <button
+              onClick={() => navigate("/events/registration")}
+              className="text-[10.5px] font-bold text-[#4F46E5] bg-indigo-50 hover:bg-indigo-100 px-2.5 py-0.5 rounded-full border border-indigo-200 cursor-pointer transition-colors"
+            >
               {!useMock && stats
-                ? `Total: ${stats.totalRegistrations.toLocaleString()} Passes`
-                : "Total: 1,842 Passes"}
-            </span>
+                ? `Total: ${stats.totalRegistrations.toLocaleString()} Passes →`
+                : "Total: 1,842 Passes →"}
+            </button>
           </div>
           <div className="h-[175px] w-full">
             {!useMock && regTrendData.every((d: any) => d.count === 0 && d.vip === 0) ? (
@@ -762,11 +876,21 @@ export function EventsDashboard() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">Category Breakdown</p>
-              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5">Pass Category Distribution</h3>
+              <h3
+                onClick={() => navigate("/events/registration")}
+                className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5 hover:text-indigo-600 cursor-pointer flex items-center gap-1 transition-colors"
+                title="View Pass Categories"
+              >
+                Pass Category Distribution
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              </h3>
             </div>
-            <span className="text-[10.5px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-              Live Category View
-            </span>
+            <button
+              onClick={() => navigate("/events/registration")}
+              className="text-[10.5px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200 cursor-pointer transition-colors"
+            >
+              View Passes →
+            </button>
           </div>
           <div className="h-[175px] w-full flex items-center">
             {!useMock && pieData.length === 0 ? (
@@ -804,11 +928,21 @@ export function EventsDashboard() {
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">Timeline Analysis</p>
-              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5">Today's Schedule & Duty</h3>
+              <h3
+                onClick={() => navigate("/events/schedule?tab=programs")}
+                className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5 hover:text-indigo-600 cursor-pointer flex items-center gap-1 transition-colors"
+                title="View Schedule & Duty"
+              >
+                Today's Schedule & Duty
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              </h3>
             </div>
-            <span className="text-[10.5px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
-              Today's Slots
-            </span>
+            <button
+              onClick={() => navigate("/events/schedule?tab=programs")}
+              className="text-[10.5px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-0.5 rounded-full border border-indigo-200 cursor-pointer transition-colors"
+            >
+              View Schedule →
+            </button>
           </div>
           <div className="h-[175px] space-y-1.5 overflow-y-auto pr-1">
             {!useMock && scheduleDutyChartData.every((d: any) => d.programs === 0 && d.volunteers === 0) ? (
@@ -836,13 +970,21 @@ export function EventsDashboard() {
           <div className="flex items-start justify-between flex-wrap gap-2">
             <div>
               <p className="text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">Finance Analytics</p>
-              <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5">Budget vs Actual Spend (₹ Lakhs)</h3>
+              <h3
+                onClick={() => navigate("/events/operations?tab=finance")}
+                className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5 hover:text-indigo-600 cursor-pointer flex items-center gap-1 transition-colors"
+                title="View Finance Details"
+              >
+                Budget vs Actual Spend (₹ Lakhs)
+                <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+              </h3>
             </div>
-            {!useMock && stats && (
-              <p className="text-[10.5px] font-bold text-slate-500">
-                Spent: <span className="text-indigo-600">{fmtINR(stats.totalExpenses)}</span>
-              </p>
-            )}
+            <button
+              onClick={() => navigate("/events/operations?tab=finance")}
+              className="text-[10.5px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-0.5 rounded-full border border-indigo-200 cursor-pointer transition-colors"
+            >
+              {!useMock && stats ? `Spent: ${fmtINR(stats.totalExpenses)} →` : "View Budget →"}
+            </button>
           </div>
           <div className="h-[175px] w-full">
             {!useMock && (budgetData.length === 0 || budgetData.every((d: any) => d.budget === 0 && d.spent === 0)) ? (
@@ -881,12 +1023,20 @@ export function EventsDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="bg-white rounded-xl border border-indigo-100/60 shadow-[0_2px_12px_rgba(79,70,229,0.05)] p-3.5 sm:p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+            <h3
+              onClick={() => navigate("/events/schedule?tab=programs")}
+              className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5 hover:text-indigo-600 cursor-pointer transition-colors"
+              title="View All Programs"
+            >
               <Clock className="w-4 h-4 text-indigo-500" /> Today's Schedule & Duty
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
             </h3>
-            <span className="text-[10.5px] font-bold text-indigo-600">
-              {!useMock && !loading ? "Live" : "Live Updates"}
-            </span>
+            <button
+              onClick={() => navigate("/events/schedule?tab=programs")}
+              className="text-[10.5px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+            >
+              Full Schedule →
+            </button>
           </div>
           {loading && !useMock ? (
             <div className="space-y-2">
@@ -900,14 +1050,18 @@ export function EventsDashboard() {
             <div className="relative pl-3.5 space-y-0">
               <div className="absolute left-[5px] top-2 bottom-2 w-px bg-slate-200" />
               {todaySchedule.map((act, idx) => (
-                <div key={idx} className="relative flex gap-2.5 pb-3 last:pb-0">
+                <div
+                  key={idx}
+                  onClick={() => navigate("/events/schedule?tab=programs")}
+                  className="relative flex gap-2.5 pb-3 last:pb-0 cursor-pointer group"
+                >
                   <div
                     className="w-3 h-3 rounded-full flex-shrink-0 mt-0.5 border-2 border-white shadow-xs"
                     style={{ background: act.status === "Live" ? "#7C3AED" : act.status === "Done" ? "#16A34A" : "#4F46E5" }}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-[12px] font-semibold text-slate-800 truncate">{act.title}</p>
+                      <p className="text-[12px] font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors truncate">{act.title}</p>
                       <span className="text-[9.5px] font-mono font-bold text-slate-400 flex-shrink-0">{act.time}</span>
                     </div>
                     <p className="text-[10.5px] text-slate-500 mt-0.5">{act.dept} · {act.count}</p>
@@ -920,12 +1074,20 @@ export function EventsDashboard() {
 
         <div className="bg-white rounded-xl border border-indigo-100/60 shadow-[0_2px_12px_rgba(79,70,229,0.05)] p-3.5 sm:p-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+            <h3
+              onClick={() => navigate("/events/schedule?tab=planning")}
+              className="text-xs sm:text-sm font-extrabold text-slate-900 flex items-center gap-1.5 hover:text-indigo-600 cursor-pointer transition-colors"
+              title="View Action Items & Planning"
+            >
               <ClipboardCheck className="w-4 h-4 text-indigo-500" /> Pending Action Items
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
             </h3>
-            <span className="text-[10.5px] font-bold text-rose-500">
-              {pendingTasks.filter(t => t.priority === "high").length} Critical
-            </span>
+            <button
+              onClick={() => navigate("/events/schedule?tab=planning")}
+              className="text-[10.5px] font-bold text-rose-500 hover:text-rose-700 cursor-pointer"
+            >
+              {pendingTasks.filter(t => t.priority === "high").length} Critical →
+            </button>
           </div>
           {loading && !useMock ? (
             <div className="space-y-2">
@@ -945,7 +1107,7 @@ export function EventsDashboard() {
                   className={`flex items-center justify-between gap-2.5 p-2.5 rounded-xl border transition-all ${
                     tasksDone[t.id]
                       ? "bg-slate-50 border-slate-100 opacity-60"
-                      : "bg-white border-slate-200/80 shadow-2xs"
+                      : "bg-white border-slate-200/80 shadow-2xs hover:border-indigo-300"
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
@@ -961,21 +1123,173 @@ export function EventsDashboard() {
                         </svg>
                       )}
                     </button>
-                    <span className={`text-[11.5px] font-semibold truncate ${tasksDone[t.id] ? "line-through text-slate-400" : "text-slate-800"}`}>
+                    <span
+                      onClick={() => navigate("/events/schedule?tab=planning")}
+                      className={`text-[11.5px] font-semibold truncate cursor-pointer hover:text-indigo-600 transition-colors ${tasksDone[t.id] ? "line-through text-slate-400" : "text-slate-800"}`}
+                    >
                       {t.task}
                     </span>
                   </div>
-                  <span className={`text-[9.5px] font-black px-2 py-0.5 rounded-full border flex-shrink-0 ${
-                    t.due === "Overdue" ? "bg-red-50 text-red-600 border-red-200"
-                    : t.priority === "high" ? "bg-rose-50 text-rose-600 border-rose-200"
-                    : "bg-blue-50 text-blue-600 border-blue-200"
-                  }`}>
+                  <span
+                    onClick={() => navigate("/events/schedule?tab=planning")}
+                    className={`text-[9.5px] font-black px-2 py-0.5 rounded-full border flex-shrink-0 cursor-pointer ${
+                      t.due === "Overdue" ? "bg-red-50 text-red-600 border-red-200"
+                      : t.priority === "high" ? "bg-rose-50 text-rose-600 border-rose-200"
+                      : "bg-blue-50 text-blue-600 border-blue-200"
+                    }`}
+                  >
                     {t.due === "—" ? "—" : `Due ${t.due}`}
                   </span>
                 </div>
               ))}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* ── Registered Users Section ── */}
+      <div className="bg-white rounded-xl border border-indigo-100/60 shadow-[0_2px_12px_rgba(79,70,229,0.05)] overflow-hidden">
+        {/* Section header */}
+        <div className="px-4 sm:px-5 py-3.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <p className="text-[9.5px] uppercase font-bold text-slate-400 tracking-wider">Registrations</p>
+            <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 mt-0.5 flex items-center gap-1.5">
+              <Users className="w-4 h-4 text-indigo-500" /> Registered Users
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 ml-1">
+                {filteredUnifiedRegs.length}
+              </span>
+            </h3>
+          </div>
+          {/* Category filter pills */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {([
+              { value:'all', label:'All', icon:'📋' },
+              { value:'event', label:'Events', icon:'🎉' },
+              { value:'pooja', label:'Pooja', icon:'🔥' },
+              { value:'cultural', label:'Cultural', icon:'🎵' },
+              { value:'competition', label:'Competition', icon:'🏆' },
+            ] as const).map(opt => (
+              <button key={opt.value} onClick={() => { setRegCat(opt.value); setExpandedActivity(null); }}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all border ${
+                  regCat === opt.value ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-slate-50 text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                }`}>
+                <span>{opt.icon}</span> {opt.label}
+                <span className={`ml-0.5 text-[9px] font-bold px-1 py-0.5 rounded-full ${regCat === opt.value ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                  {opt.value === 'all' ? allUnifiedRegs.length : allUnifiedRegs.filter(r => r.category === opt.value).length}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Search + KPIs bar */}
+        <div className="px-4 sm:px-5 py-2.5 border-b border-slate-50 flex flex-col sm:flex-row gap-2.5 items-start sm:items-center justify-between bg-slate-50/50">
+          <div className="flex items-center gap-4 flex-wrap text-xs">
+            {[
+              { label:'Total Users', value: filteredUnifiedRegs.length, color:'#6366f1' },
+              { label:'Attendees', value: filteredUnifiedRegs.reduce((a,r)=>a+r.devoteeCount,0), color:'#10b981' },
+              { label:'Paid', value: filteredUnifiedRegs.filter(r=>r.paymentStatus==='PAID').length, color:'#0891b2' },
+              { label:'Revenue', value:`₹${filteredUnifiedRegs.reduce((a,r)=>a+r.bookingFee,0).toLocaleString('en-IN')}`, color:'#f59e0b' },
+            ].map(s => (
+              <div key={s.label} className="text-center">
+                <span className="font-black text-sm" style={{color:s.color}}>{s.value}</span>
+                <span className="text-[10px] text-slate-400 ml-1">{s.label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="relative w-full sm:w-52">
+            <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-2.5" />
+            <input type="text" placeholder="Search name, code..." value={regSearch}
+              onChange={e => setRegSearch(e.target.value)}
+              className="w-full pl-7 pr-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-medium text-slate-700 focus:outline-none focus:border-indigo-400" />
+          </div>
+        </div>
+
+        {loadingRegs && <div className="py-8 text-center text-xs text-slate-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />Loading...</div>}
+
+        {/* Grouped list */}
+        <div className="divide-y divide-slate-50">
+          {Object.keys(groupedRegs).length === 0 && !loadingRegs && (
+            <div className="py-8 text-center text-xs text-slate-400">No registrations found</div>
+          )}
+          {Object.entries(groupedRegs).map(([key, regs]) => {
+            const [cat, title] = key.split('::');
+            const isOpen = expandedActivity === key;
+            const headcount = regs.reduce((a,r)=>a+r.devoteeCount,0);
+            const revenue = regs.reduce((a,r)=>a+r.bookingFee,0);
+            const catMeta: Record<string,{icon:string;color:string;bg:string}> = {
+              event:{icon:'🎉',color:'text-indigo-700',bg:'bg-indigo-50'},
+              pooja:{icon:'🔥',color:'text-amber-700',bg:'bg-amber-50'},
+              cultural:{icon:'🎵',color:'text-violet-700',bg:'bg-violet-50'},
+              competition:{icon:'🏆',color:'text-emerald-700',bg:'bg-emerald-50'},
+            };
+            const m = catMeta[cat] || catMeta['event'];
+            return (
+              <div key={key}>
+                <button onClick={() => setExpandedActivity(isOpen ? null : key)}
+                  className="w-full px-4 sm:px-5 py-3 flex items-center gap-3 hover:bg-slate-50/60 transition-colors text-left">
+                  <span className={`w-8 h-8 rounded-xl ${m.bg} flex items-center justify-center text-sm flex-shrink-0`}>{m.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-bold text-slate-800 truncate">{title}</p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${m.bg} ${m.color} capitalize`}>{cat}</span>
+                      <span className="text-[10px] text-slate-400">{regs.length} users · {headcount} attendees</span>
+                      {revenue > 0 && <span className="text-[10px] font-semibold text-emerald-600">₹{revenue.toLocaleString('en-IN')}</span>}
+                    </div>
+                  </div>
+                  <div className="text-slate-400 flex-shrink-0 flex items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-indigo-600">{regs.length}</span>
+                    {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </div>
+                </button>
+
+                {isOpen && (
+                  <div className="border-t border-slate-50 overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-slate-50/80 border-b border-slate-100">
+                          {['Reg Code','Participant','Details','Guests','Date/Time','Fee','Payment','Status'].map(h => (
+                            <th key={h} className={`px-3 py-2 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap ${['Date/Time','Details'].includes(h)?'hidden lg:table-cell':''}`}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {regs.map(r => (
+                          <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
+                            <td className="px-3 py-2 font-mono text-[10px] text-indigo-600 font-semibold whitespace-nowrap">{r.regCode}</td>
+                            <td className="px-3 py-2">
+                              <p className="font-semibold text-slate-800 text-[11px] whitespace-nowrap">{r.participantName}</p>
+                              {r.email && <p className="text-[10px] text-slate-400">{r.email}</p>}
+                            </td>
+                            <td className="px-3 py-2 hidden lg:table-cell">
+                              {r.extra && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">{r.extra}</span>}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">
+                                <User className="w-2.5 h-2.5" /> {r.devoteeCount}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-slate-500 text-[10px] hidden lg:table-cell whitespace-nowrap">
+                              {r.eventDate||'—'}{r.eventTime?` · ${r.eventTime}`:''}
+                            </td>
+                            <td className="px-3 py-2 font-semibold text-[11px] text-slate-700 whitespace-nowrap">
+                              {r.bookingFee > 0 ? `₹${r.bookingFee.toLocaleString('en-IN')}` : 'Free'}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${r.paymentStatus==='PAID'?'bg-emerald-50 text-emerald-700':r.paymentStatus==='FREE'?'bg-sky-50 text-sky-700':'bg-amber-50 text-amber-700'}`}>{r.paymentStatus}</span>
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${r.status==='CONFIRMED'?'bg-emerald-50 text-emerald-700':r.status==='CANCELLED'?'bg-rose-50 text-rose-700':'bg-amber-50 text-amber-700'}`}>{r.status}</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

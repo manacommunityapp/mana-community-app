@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router";
 import { useEventMock } from "./EventMockToggle";
 import { eventService } from "../../../services/events/eventService";
 import {
@@ -30,7 +31,10 @@ import { EventsPrograms } from "./EventsPrograms";
 import { EventsFood } from "./EventsFood";
 import { OrganizerDashboard } from "./OrganizerDashboard";
 import { EventDashboardWrapper } from "./EventDashboardWrapper";
-import { PoojaSevaSection, LunchDinnerSection, CulturalEventsSection, CompetitionsSection } from "./EventSubCreatorForms";
+import { CompetitionsSection } from "./EventSubCreatorForms";
+import { EventsPoojaSeva } from "./EventsPoojaSeva";
+import { EventsLunchDinner } from "./EventsLunchDinner";
+import { EventsCulturalEvents } from "./EventsCulturalEvents";
 import { EditEventDialog } from "./EventsCreate";
 
 /* ─── Types ─── */
@@ -1268,7 +1272,8 @@ const TABS = [
 
 export function EventsSchedule() {
   const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
-  const [tab, setTab] = useState<string>("events");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
 
   const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
   const isEventsAdmin =
@@ -1286,11 +1291,35 @@ export function EventsSchedule() {
     return isEventsAdmin;
   });
 
+  const resolveInitialTab = () => {
+    if (tabParam && visibleTabs.some(t => t.id === tabParam)) {
+      return tabParam;
+    }
+    return "events";
+  };
+
+  const [tab, setTab] = useState<string>(resolveInitialTab);
+
+  useEffect(() => {
+    if (tabParam && visibleTabs.some(t => t.id === tabParam)) {
+      setTab(tabParam);
+    }
+  }, [tabParam, visibleTabs]);
+
+  const handleTabSelect = (tabId: string) => {
+    setTab(tabId);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.set("tab", tabId);
+      return next;
+    }, { replace: true });
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 bg-white rounded-lg sm:rounded-xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-x-auto hide-scrollbar">
         {visibleTabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
+          <button key={t.id} onClick={() => handleTabSelect(t.id)}
             className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[10px] sm:text-sm font-semibold transition-all whitespace-nowrap flex-1 sm:flex-none justify-center ${
               tab === t.id
                 ? "bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm"
@@ -1304,16 +1333,16 @@ export function EventsSchedule() {
       {tab === "organizer" && <EventDashboardWrapper />}
       {tab === "planning" && <EventsPlanning />}
       {tab === "programs" && <EventsPrograms />}
-      {tab === "poojaSeva" && <PoojaSevaSection />}
+      {tab === "poojaSeva" && <EventsPoojaSeva />}
       {tab === "lunchDinner" && (
         <div className="space-y-8">
-          <LunchDinnerSection />
+          <EventsLunchDinner />
           <div className="pt-4 border-t border-border">
             <EventsFood />
           </div>
         </div>
       )}
-      {tab === "culturalEvents" && <CulturalEventsSection />}
+      {tab === "culturalEvents" && <EventsCulturalEvents />}
       {tab === "competitions" && <CompetitionsSection />}
     </div>
   );

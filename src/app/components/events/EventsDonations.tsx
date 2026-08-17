@@ -487,6 +487,7 @@ export function EventsDonations() {
       <SponsorshipAppealEmailModal
         isOpen={emailAppealOpen}
         onClose={() => setEmailAppealOpen(false)}
+        eventId={events.length > 0 ? events[0].id : null}
       />
     </div>
   );

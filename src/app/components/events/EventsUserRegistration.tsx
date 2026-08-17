@@ -13,6 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Badge } from "../ui/badge";
 import { cn } from "../ui/utils";
 import { useEventMock } from "./EventMockToggle";
+import { useAuth } from "../../../contexts/AuthContext";
+import { userService } from "../../../services/common/userService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 
 /* ─── Mock event data ─── */
@@ -795,6 +797,7 @@ function Step4Confirm({ form }: { form: RegForm }) {
 
 /* ─── Main component ─── */
 export function EventsUserRegistration() {
+  const { user: authUser } = useAuth();
   const [step, setStep] = useState(1);
   const [isRegistered, setIsRegistered] = useState(false);
   const [registering, setRegistering] = useState(false);
@@ -809,15 +812,62 @@ export function EventsUserRegistration() {
     eventService.getUpcomingEvents().then(setLiveEvents).catch(() => {});
   }, [useMock]);
 
-  const [form, setForm] = useState<RegForm>({
-    category: "", qty: 1,
-    firstName: "", lastName: "", email: "", phone: "", address: "", city: "",
-    tshirtSize: "", volunteering: "",
-    paymentMethod: "", upiId: "",
-    dietaryPref: "VEG", allergies: "",
-    meals: EVENT_DAYS.map(d => ({ date: d.date, lunch: false, dinner: false, headCount: 1 })),
-    selectedActivities: [],
+  const [form, setForm] = useState<RegForm>(() => {
+    const parts = (authUser?.fullName || "").trim().split(" ");
+    const flat = (authUser?.block && authUser?.flatNo) ? `${authUser.block}-${authUser.flatNo}` : (authUser?.flatNo || "");
+    return {
+      category: "",
+      qty: 1,
+      firstName: parts[0] || "",
+      lastName: parts.slice(1).join(" ") || "",
+      email: authUser?.email || "",
+      phone: authUser?.phone || "",
+      address: flat,
+      city: "",
+      tshirtSize: "",
+      volunteering: "",
+      paymentMethod: "",
+      upiId: "",
+      dietaryPref: "VEG",
+      allergies: "",
+      meals: EVENT_DAYS.map(d => ({ date: d.date, lunch: false, dinner: false, headCount: 1 })),
+      selectedActivities: [],
+    };
   });
+
+  // Auto-fill logged in user details dynamically from backend
+  useEffect(() => {
+    if (authUser) {
+      const parts = (authUser.fullName || "").trim().split(" ");
+      const flat = (authUser.block && authUser.flatNo) ? `${authUser.block}-${authUser.flatNo}` : (authUser.flatNo || "");
+      setForm(prev => ({
+        ...prev,
+        firstName: prev.firstName || parts[0] || "",
+        lastName: prev.lastName || parts.slice(1).join(" ") || "",
+        email: prev.email || authUser.email || "",
+        phone: prev.phone || authUser.phone || "",
+        address: prev.address || flat,
+      }));
+    }
+
+    userService
+      .getMe()
+      .then(u => {
+        if (u) {
+          const parts = (u.fullName || "").trim().split(" ");
+          const flat = u.flatNo ? (u.block ? `${u.block}-${u.flatNo}` : u.flatNo) : "";
+          setForm(prev => ({
+            ...prev,
+            firstName: prev.firstName || parts[0] || "",
+            lastName: prev.lastName || parts.slice(1).join(" ") || "",
+            email: prev.email || u.email || "",
+            phone: prev.phone || u.phone || "",
+            address: prev.address || flat,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, [authUser]);
 
   const update = (key: keyof RegForm, value: any) =>
     setForm(prev => ({ ...prev, [key]: value }));

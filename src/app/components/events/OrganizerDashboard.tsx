@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Shield, Search, Filter, Download, CheckCircle2, Clock, XCircle,
   Users, DollarSign, Ticket, RefreshCw, QrCode, AlertTriangle, Sparkles,
-  UserCheck, UtensilsCrossed, Radio, Plus, PhoneCall, Award, Check, Eye, ChevronRight
+  UserCheck, UtensilsCrossed, Radio, Plus, PhoneCall, Award, Check, Eye, ChevronRight,
+  Flame, Music, Trophy, Calendar, ChevronDown, ChevronUp, Loader2, User
 } from 'lucide-react';
+import { useEventMock } from './EventMockToggle';
+import { eventService } from '../../../services/events/eventService';
 
 /* ─── Types & Models ─── */
 export type PassCategory = 'family' | 'individual' | 'volunteer' | 'sponsor';
@@ -172,15 +175,130 @@ const INITIAL_ALERTS: BroadcastAlert[] = [
   { id: 'alt-2', time: '09:15 AM', level: 'info', title: 'VIP Morning Aarti Concluded', message: 'Sanctum stage clear for regular Family & Individual Darshan queues.', postedBy: 'Stage Manager' }
 ];
 
+/* ─── Unified Registration Type ─── */
+export type RegCategory = 'event' | 'pooja' | 'cultural' | 'competition';
+
+export interface UnifiedReg {
+  id: string | number;
+  regCode: string;
+  category: RegCategory;
+  activityTitle: string;
+  participantName: string;
+  email?: string;
+  phone?: string;
+  gotram?: string;
+  ageGroup?: string;
+  devoteeCount: number;
+  bookingFee: number;
+  paymentStatus: string;
+  status: string;
+  eventDate?: string;
+  eventTime?: string;
+  venue?: string;
+  extra?: string;
+  createdAt: string;
+}
+
+const MOCK_REGISTRATIONS: UnifiedReg[] = [
+  // Events
+  { id: 'e1', regCode: 'EVT-5001', category: 'event', activityTitle: 'Ganesh Utsav 2026 – Main Event', participantName: 'Rajesh Sharma', email: 'rajesh@example.com', phone: '+91 98765 43210', devoteeCount: 4, bookingFee: 300, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-27', venue: 'Community Hall', createdAt: '2026-08-10T10:00:00' },
+  { id: 'e2', regCode: 'EVT-5002', category: 'event', activityTitle: 'Ganesh Utsav 2026 – Main Event', participantName: 'Meera Deshmukh', email: 'meera@example.com', phone: '+91 91234 56789', devoteeCount: 2, bookingFee: 300, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-27', venue: 'Community Hall', createdAt: '2026-08-10T11:30:00' },
+  { id: 'e3', regCode: 'EVT-5003', category: 'event', activityTitle: 'Ganesh Utsav 2026 – Main Event', participantName: 'Amit Verma', email: 'amit@example.com', phone: '+91 99887 76655', devoteeCount: 1, bookingFee: 100, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-27', venue: 'Community Hall', createdAt: '2026-08-11T09:00:00' },
+  { id: 'e4', regCode: 'EVT-5004', category: 'event', activityTitle: 'Day 2 – Special Program', participantName: 'Sunita Patil', email: 'sunita@example.com', phone: '+91 98100 22334', devoteeCount: 3, bookingFee: 200, paymentStatus: 'PENDING', status: 'PENDING', eventDate: '2026-08-28', venue: 'Temple Grounds', createdAt: '2026-08-12T14:00:00' },
+  { id: 'e5', regCode: 'EVT-5005', category: 'event', activityTitle: 'Day 2 – Special Program', participantName: 'Vikram Kulkarni', email: 'vikram@example.com', phone: '+91 97600 55443', devoteeCount: 5, bookingFee: 200, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-28', venue: 'Temple Grounds', createdAt: '2026-08-12T16:00:00' },
+  // Pooja
+  { id: 'p1', regCode: 'POOJA-1001', category: 'pooja', activityTitle: 'Maha Ganapathi Abhishekam', participantName: 'Ramesh Sharma', gotram: 'Bharadwaj', devoteeCount: 3, bookingFee: 501, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-27', eventTime: '08:30 AM', venue: 'Main Temple Mandap', extra: 'Gotram: Bharadwaj', createdAt: '2026-08-15T10:30:00' },
+  { id: 'p2', regCode: 'POOJA-1002', category: 'pooja', activityTitle: 'Maha Ganapathi Abhishekam', participantName: 'Lakshmi Devi', gotram: 'Kashyap', devoteeCount: 2, bookingFee: 501, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-27', eventTime: '11:00 AM', venue: 'Main Temple Mandap', extra: 'Gotram: Kashyap', createdAt: '2026-08-15T14:20:00' },
+  { id: 'p3', regCode: 'POOJA-1003', category: 'pooja', activityTitle: 'Maha Ganapathi Abhishekam', participantName: 'Venkatesh Rao', gotram: 'Atri', devoteeCount: 4, bookingFee: 501, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-27', eventTime: '08:30 AM', venue: 'Main Temple Mandap', extra: 'Gotram: Atri', createdAt: '2026-08-16T09:00:00' },
+  { id: 'p4', regCode: 'POOJA-1004', category: 'pooja', activityTitle: 'Satyanarayan Puja', participantName: 'Subramaniam K.', gotram: 'Vasishta', devoteeCount: 5, bookingFee: 0, paymentStatus: 'FREE', status: 'CONFIRMED', eventDate: '2026-08-28', eventTime: '09:00 AM', venue: 'Community Hall', extra: 'Gotram: Vasishta', createdAt: '2026-08-16T11:00:00' },
+  { id: 'p5', regCode: 'POOJA-1005', category: 'pooja', activityTitle: 'Navagraha Homam', participantName: 'Annapurna Devi', gotram: 'Bharadwaj', devoteeCount: 2, bookingFee: 1100, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-27', eventTime: '06:00 AM', venue: 'Homa Kund Area', extra: 'Gotram: Bharadwaj', createdAt: '2026-08-17T08:30:00' },
+  { id: 'p6', regCode: 'POOJA-1006', category: 'pooja', activityTitle: 'Navagraha Homam', participantName: 'Chandrashekar M.', gotram: 'Gautam', devoteeCount: 3, bookingFee: 1100, paymentStatus: 'PENDING', status: 'CONFIRMED', eventDate: '2026-08-28', eventTime: '06:00 AM', venue: 'Homa Kund Area', extra: 'Gotram: Gautam', createdAt: '2026-08-17T10:15:00' },
+  // Cultural
+  { id: 'c1', regCode: 'CULT-3001', category: 'cultural', activityTitle: 'Bharatanatyam – Pushpanjali', participantName: 'Meenakshi Sundaram', ageGroup: 'Youth (16-25)', devoteeCount: 1, bookingFee: 0, paymentStatus: 'FREE', status: 'CONFIRMED', eventDate: '2026-08-27', eventTime: '10:00 AM', venue: 'Main Stage', extra: 'Solo · Youth (16-25)', createdAt: '2026-08-14T10:00:00' },
+  { id: 'c2', regCode: 'CULT-3002', category: 'cultural', activityTitle: 'Carnatic Vocal Ensemble', participantName: 'Ramakrishnan V.', ageGroup: 'Open', devoteeCount: 4, bookingFee: 0, paymentStatus: 'FREE', status: 'CONFIRMED', eventDate: '2026-08-27', eventTime: '11:00 AM', venue: 'Main Stage', extra: 'Ensemble · Open', createdAt: '2026-08-14T12:00:00' },
+  { id: 'c3', regCode: 'CULT-3003', category: 'cultural', activityTitle: 'Kids Fancy Dress', participantName: 'Priya Sharma (parent)', ageGroup: 'Kids (5-10)', devoteeCount: 3, bookingFee: 0, paymentStatus: 'FREE', status: 'CONFIRMED', eventDate: '2026-08-28', eventTime: '09:30 AM', venue: 'Side Stage', extra: 'Group · Kids (5-10)', createdAt: '2026-08-15T09:00:00' },
+  { id: 'c4', regCode: 'CULT-3004', category: 'cultural', activityTitle: 'Bhajan Sandhya', participantName: 'Annapurna Group', ageGroup: 'Open', devoteeCount: 8, bookingFee: 0, paymentStatus: 'FREE', status: 'CONFIRMED', eventDate: '2026-08-28', eventTime: '06:00 PM', venue: 'Temple Mandap', extra: 'Group · Open', createdAt: '2026-08-16T15:00:00' },
+  { id: 'c5', regCode: 'CULT-3005', category: 'cultural', activityTitle: 'Folk Dance – Garba Night', participantName: 'Chandrashekar M.', ageGroup: 'Open', devoteeCount: 6, bookingFee: 0, paymentStatus: 'FREE', status: 'CONFIRMED', eventDate: '2026-08-29', eventTime: '08:00 PM', venue: 'Open Ground', extra: 'Group · Open', createdAt: '2026-08-17T10:00:00' },
+  // Competition
+  { id: 'comp1', regCode: 'COMP-4001', category: 'competition', activityTitle: 'Drawing Competition – Kids', participantName: 'Aarav Sharma', ageGroup: 'Kids (5-10)', devoteeCount: 1, bookingFee: 50, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-28', eventTime: '10:00 AM', venue: 'Community Hall – Room A', extra: 'Age: Kids · Drawing', createdAt: '2026-08-14T09:00:00' },
+  { id: 'comp2', regCode: 'COMP-4002', category: 'competition', activityTitle: 'Elocution – Junior', participantName: 'Nidhi Kulkarni', ageGroup: 'Junior (11-15)', devoteeCount: 1, bookingFee: 50, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-28', eventTime: '11:30 AM', venue: 'Community Hall – Room B', extra: 'Age: Junior · Elocution', createdAt: '2026-08-15T11:00:00' },
+  { id: 'comp3', regCode: 'COMP-4003', category: 'competition', activityTitle: 'Classical Singing – Open', participantName: 'Keertana S.', ageGroup: 'Open', devoteeCount: 1, bookingFee: 100, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-29', eventTime: '09:00 AM', venue: 'Auditorium', extra: 'Age: Open · Singing', createdAt: '2026-08-16T13:00:00' },
+  { id: 'comp4', regCode: 'COMP-4004', category: 'competition', activityTitle: 'Quiz Competition – Youth', participantName: 'Arjun Verma', ageGroup: 'Youth (16-25)', devoteeCount: 2, bookingFee: 80, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-29', eventTime: '02:00 PM', venue: 'Community Hall – Room A', extra: 'Age: Youth · Quiz (Team)', createdAt: '2026-08-17T09:30:00' },
+  { id: 'comp5', regCode: 'COMP-4005', category: 'competition', activityTitle: 'Drawing Competition – Kids', participantName: 'Priya Iyer', ageGroup: 'Kids (5-10)', devoteeCount: 1, bookingFee: 50, paymentStatus: 'PENDING', status: 'PENDING', eventDate: '2026-08-28', eventTime: '10:00 AM', venue: 'Community Hall – Room A', extra: 'Age: Kids · Drawing', createdAt: '2026-08-17T15:00:00' },
+];
+
 /* ─── Main Component ─── */
 export function OrganizerDashboard() {
-  // Enabled tabs: 'passes' (Pass Register) and 'volunteers' (Volunteer Roster)
-  const [activeTab, setActiveTab] = useState<'passes' | 'volunteers' | 'overview' | 'scanner' | 'gates' | 'prasad'>('passes');
+  const { useMock } = useEventMock();
+
+  // Enabled tabs: 'passes' (Pass Register), 'volunteers' (Volunteer Roster), 'registrations' (Registered Users)
+  const [activeTab, setActiveTab] = useState<'passes' | 'volunteers' | 'registrations' | 'overview' | 'scanner' | 'gates' | 'prasad'>('passes');
   const [passesList, setPassesList] = useState<PassRecord[]>(INITIAL_PASSES);
   const [gatesList, setGatesList] = useState<GateStatus[]>(INITIAL_GATES);
   const [prasadList, setPrasadList] = useState<PrasadCounter[]>(INITIAL_PRASAD);
   const [volunteersList, setVolunteersList] = useState<VolunteerShift[]>(INITIAL_VOLUNTEERS);
   const [alertsList, setAlertsList] = useState<BroadcastAlert[]>(INITIAL_ALERTS);
+
+  // Registrations tab state
+  const [regCategory, setRegCategory] = useState<RegCategory | 'all'>('all');
+  const [regSearch, setRegSearch] = useState('');
+  const [allRegs, setAllRegs] = useState<UnifiedReg[]>([]);
+  const [loadingRegs, setLoadingRegs] = useState(false);
+  const [regError, setRegError] = useState('');
+  const [expandedActivity, setExpandedActivity] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== 'registrations') return;
+    if (useMock) { setAllRegs(MOCK_REGISTRATIONS); return; }
+    setLoadingRegs(true); setRegError('');
+    eventService.getAllRegistrations()
+      .then(regs => {
+        const mapped: UnifiedReg[] = regs.map((r: any) => ({
+          id: r.id,
+          regCode: r.regCode || `REG-${r.id}`,
+          category: r.category === 'Pooja' ? 'pooja'
+            : r.category === 'Cultural' ? 'cultural'
+            : r.category === 'Competition' ? 'competition'
+            : 'event',
+          activityTitle: r.activityTitle || r.eventTitle || 'Event',
+          participantName: r.participantName || r.userName || 'N/A',
+          email: r.userEmail || r.email,
+          phone: r.phone,
+          gotram: r.gotram,
+          ageGroup: r.ageGroup,
+          devoteeCount: r.devoteeCount || 1,
+          bookingFee: r.bookingFee ?? r.fee ?? 0,
+          paymentStatus: r.paymentStatus || r.status || 'N/A',
+          status: r.status || 'CONFIRMED',
+          eventDate: r.eventDate,
+          eventTime: r.eventTime,
+          venue: r.venue,
+          extra: r.gotram ? `Gotram: ${r.gotram}` : r.ageGroup,
+          createdAt: r.createdAt || r.registeredAt || new Date().toISOString(),
+        }));
+        setAllRegs(mapped);
+      })
+      .catch(e => setRegError(e?.message || 'Failed to load registrations'))
+      .finally(() => setLoadingRegs(false));
+  }, [activeTab, useMock]);
+
+  const filteredRegs = allRegs.filter(r => {
+    const matchCat = regCategory === 'all' || r.category === regCategory;
+    const term = regSearch.toLowerCase();
+    const matchSearch = !term || r.participantName.toLowerCase().includes(term)
+      || r.regCode.toLowerCase().includes(term)
+      || r.activityTitle.toLowerCase().includes(term)
+      || (r.email || '').toLowerCase().includes(term);
+    return matchCat && matchSearch;
+  });
+
+  // Group by activityTitle for grouped view
+  const groupedRegs = filteredRegs.reduce<Record<string, UnifiedReg[]>>((acc, r) => {
+    const key = `${r.category}::${r.activityTitle}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(r);
+    return acc;
+  }, {});
 
   // Search & Filters
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -367,6 +485,18 @@ export function OrganizerDashboard() {
           }`}
         >
           <span>🛡️ Volunteer Roster & Broadcast</span>
+        </button>
+
+        {/* 3rd Menu: Registered Users (ENABLED) */}
+        <button
+          onClick={() => setActiveTab('registrations')}
+          className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+            activeTab === 'registrations'
+              ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/50'
+          }`}
+        >
+          <span>👥 Registered Users</span>
         </button>
 
         {/* Disabled Modules */}
@@ -588,6 +718,193 @@ export function OrganizerDashboard() {
             </form>
           </div>
 
+        </div>
+      )}
+
+      {/* ─── 7. ACTIVE TAB 3: REGISTERED USERS ─── */}
+      {activeTab === 'registrations' && (
+        <div className="space-y-4">
+
+          {/* Controls Bar */}
+          <div className="bg-white border border-slate-200/80 rounded-xl p-3.5 flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between shadow-2xs">
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Category dropdown */}
+              {[
+                { value: 'all', label: 'All Registrations', icon: '📋' },
+                { value: 'event', label: 'Events', icon: '🎉' },
+                { value: 'pooja', label: 'Pooja & Seva', icon: '🔥' },
+                { value: 'cultural', label: 'Cultural', icon: '🎵' },
+                { value: 'competition', label: 'Competition', icon: '🏆' },
+              ].map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => { setRegCategory(opt.value as any); setExpandedActivity(null); }}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all border ${
+                    regCategory === opt.value
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600'
+                  }`}
+                >
+                  <span>{opt.icon}</span> {opt.label}
+                  <span className={`ml-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    regCategory === opt.value ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'
+                  }`}>
+                    {opt.value === 'all' ? allRegs.length : allRegs.filter(r => r.category === opt.value).length}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="relative w-full sm:w-64">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search name, code, activity..."
+                value={regSearch}
+                onChange={e => setRegSearch(e.target.value)}
+                className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium text-slate-800 focus:outline-none focus:border-indigo-400"
+              />
+            </div>
+          </div>
+
+          {regError && (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {regError}
+            </div>
+          )}
+          {loadingRegs && (
+            <div className="flex items-center justify-center py-8 text-slate-400">
+              <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading registrations...
+            </div>
+          )}
+
+          {/* Summary KPIs */}
+          {!loadingRegs && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Total Users', value: filteredRegs.length, color: '#6366f1' },
+                { label: 'Total Attendees', value: filteredRegs.reduce((a, r) => a + r.devoteeCount, 0), color: '#10b981' },
+                { label: 'Paid', value: filteredRegs.filter(r => r.paymentStatus === 'PAID').length, color: '#0891b2' },
+                { label: 'Revenue', value: `₹${filteredRegs.reduce((a, r) => a + r.bookingFee, 0).toLocaleString('en-IN')}`, color: '#f59e0b' },
+              ].map(s => (
+                <div key={s.label} className="bg-white rounded-xl p-3 sm:p-4 border border-slate-200/80 shadow-2xs text-center">
+                  <p className="text-xl sm:text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
+                  <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5">{s.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Grouped by Activity */}
+          {!loadingRegs && Object.keys(groupedRegs).length === 0 && (
+            <div className="bg-white rounded-xl border border-slate-200 p-8 text-center">
+              <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm font-semibold text-slate-500">No registrations found</p>
+            </div>
+          )}
+
+          {!loadingRegs && Object.entries(groupedRegs).map(([key, regs]) => {
+            const [cat, title] = key.split('::');
+            const isExpanded = expandedActivity === key;
+            const headcount = regs.reduce((a, r) => a + r.devoteeCount, 0);
+            const paidCount = regs.filter(r => r.paymentStatus === 'PAID').length;
+            const revenue = regs.reduce((a, r) => a + r.bookingFee, 0);
+
+            const catMeta: Record<string, { icon: string; color: string; bg: string }> = {
+              event:       { icon: '🎉', color: 'text-indigo-700',  bg: 'bg-indigo-50' },
+              pooja:       { icon: '🔥', color: 'text-amber-700',   bg: 'bg-amber-50' },
+              cultural:    { icon: '🎵', color: 'text-violet-700',  bg: 'bg-violet-50' },
+              competition: { icon: '🏆', color: 'text-emerald-700', bg: 'bg-emerald-50' },
+            };
+            const meta = catMeta[cat] || catMeta['event'];
+
+            return (
+              <div key={key} className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
+                {/* Activity header */}
+                <button
+                  onClick={() => setExpandedActivity(isExpanded ? null : key)}
+                  className="w-full px-4 sm:px-5 py-3.5 flex items-center gap-3 hover:bg-slate-50/60 transition-colors text-left"
+                >
+                  <div className={`w-9 h-9 rounded-xl ${meta.bg} flex items-center justify-center text-base flex-shrink-0`}>
+                    {meta.icon}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-bold text-slate-800 text-sm truncate`}>{title}</p>
+                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${meta.bg} ${meta.color} capitalize`}>{cat}</span>
+                      <span className="text-[10px] text-slate-400">{regs.length} registrations · {headcount} attendees</span>
+                      {revenue > 0 && <span className="text-[10px] font-semibold text-emerald-600">₹{revenue.toLocaleString('en-IN')} collected</span>}
+                      <span className="text-[10px] text-slate-400">{paidCount} paid</span>
+                    </div>
+                  </div>
+                  <div className="text-slate-400 flex-shrink-0">
+                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </div>
+                </button>
+
+                {/* User list */}
+                {isExpanded && (
+                  <div className="border-t border-slate-100">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-slate-50/80 border-b border-slate-100">
+                            {['Reg Code', 'Participant', 'Details', 'Attendees', 'Date / Time', 'Fee', 'Payment', 'Status', 'Registered'].map(h => (
+                              <th key={h} className={`px-3 sm:px-4 py-2.5 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap ${
+                                ['Date / Time', 'Registered'].includes(h) ? 'hidden lg:table-cell' : ''
+                              }`}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50">
+                          {regs.map(r => (
+                            <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
+                              <td className="px-3 sm:px-4 py-2.5 font-mono text-xs text-indigo-600 font-semibold whitespace-nowrap">{r.regCode}</td>
+                              <td className="px-3 sm:px-4 py-2.5">
+                                <p className="font-semibold text-slate-800 whitespace-nowrap">{r.participantName}</p>
+                                {r.email && <p className="text-[10px] text-slate-400 mt-0.5">{r.email}</p>}
+                                {r.phone && <p className="text-[10px] text-slate-400">{r.phone}</p>}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2.5 text-slate-500 whitespace-nowrap">
+                                {r.extra && <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">{r.extra}</span>}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2.5">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">
+                                  <User className="w-3 h-3" /> {r.devoteeCount}
+                                </span>
+                              </td>
+                              <td className="px-3 sm:px-4 py-2.5 text-slate-500 hidden lg:table-cell whitespace-nowrap">
+                                {r.eventDate || '—'}{r.eventTime ? ` · ${r.eventTime}` : ''}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2.5 font-semibold text-slate-700 whitespace-nowrap">
+                                {r.bookingFee > 0 ? `₹${r.bookingFee.toLocaleString('en-IN')}` : 'Free'}
+                              </td>
+                              <td className="px-3 sm:px-4 py-2.5">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
+                                  r.paymentStatus === 'PAID' ? 'bg-emerald-50 text-emerald-700' :
+                                  r.paymentStatus === 'FREE' ? 'bg-sky-50 text-sky-700' :
+                                  'bg-amber-50 text-amber-700'
+                                }`}>{r.paymentStatus}</span>
+                              </td>
+                              <td className="px-3 sm:px-4 py-2.5">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold whitespace-nowrap ${
+                                  r.status === 'CONFIRMED' ? 'bg-emerald-50 text-emerald-700' :
+                                  r.status === 'CANCELLED' ? 'bg-rose-50 text-rose-700' :
+                                  'bg-amber-50 text-amber-700'
+                                }`}>{r.status}</span>
+                              </td>
+                              <td className="px-3 sm:px-4 py-2.5 text-slate-400 hidden lg:table-cell whitespace-nowrap">
+                                {new Date(r.createdAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

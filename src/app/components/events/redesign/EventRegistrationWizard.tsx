@@ -22,10 +22,13 @@ import {
   MapPin,
   Ticket,
   Loader2,
+  RefreshCw,
+  Edit3,
 } from "lucide-react";
 import { GlassCard, TouchButton } from "./EventDesignSystem";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { eventService } from "../../../../services/events/eventService";
+import { userService } from "../../../../services/common/userService";
 import { fileUploadService } from "../../../../services/files/fileUploadService";
 import { useEscapeKey } from "../../../../hooks/useEscapeKey";
 import { showSuccess, showWarning } from "../../../../utils/ToastUtils";
@@ -79,6 +82,11 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   const [categories, setCategories] = useState<TicketCategoryItem[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<string>("");
 
+  // Existing registration / Update mode detection
+  const [existingReg, setExistingReg] = useState<any>(() => event?.existingRegistration || null);
+  const isUpdateMode = Boolean(event?.isUpdateMode || existingReg);
+  const existingRegId = event?.registrationId || existingReg?.id || (event as any)?.regId;
+
   const [formData, setFormData] = useState({
     category: "Standard Pass",
     categoryPrice: "₹0",
@@ -96,13 +104,174 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     receiptUploaded: false,
     receiptUrl: "",
     membersCount: 1,
-    members: [{ name: authUser?.fullName || "", age: 28, diet: "Veg" }],
+    members: [{ name: authUser?.fullName || "", age: 28, gender: authUser?.gender || "Male", relationship: "Self (Head)" }],
     photoUploaded: false,
     signatureSigned: true,
   });
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [passNumber] = useState(() => Math.floor(1000 + Math.random() * 9000));
+  const [savedFamilyMembers, setSavedFamilyMembers] = useState<any[]>([]);
+  const [saveNewMembersToProfile, setSaveNewMembersToProfile] = useState<boolean>(true);
+
+  // ── Load Saved Family Members from User Dashboard database ──
+  const loadSavedFamily = async () => {
+    try {
+      const dbMembers = await eventService.getFamilyMembers();
+      if (Array.isArray(dbMembers) && dbMembers.length > 0) {
+        const dummyNames = new Set([
+          "Sunita Sharma", "Aarav Sharma", "Ananya Sharma",
+          "Sandeep Verma", "Ananya Verma", "Rahul Verma", "Priya Verma"
+        ]);
+        const validMembers = dbMembers.filter((m: any) => m && m.name && !dummyNames.has(m.name.trim()));
+        setSavedFamilyMembers(validMembers);
+
+        // If fresh registration and user hasn't modified members list yet, auto-populate from saved family members!
+        if (!isUpdateMode) {
+          setFormData((prev) => {
+            if (prev.members.length <= 1) {
+              const primaryName = prev.fullName || authUser?.fullName || "Primary Devotee";
+              const primaryMember = {
+                name: primaryName,
+                age: authUser?.dateOfBirth ? Math.max(18, new Date().getFullYear() - new Date(authUser.dateOfBirth).getFullYear()) : 30,
+                gender: authUser?.gender || "Male",
+                relationship: "Self (Head)",
+              };
+              const additional = validMembers
+                .filter((m) => m.name.trim().toLowerCase() !== primaryName.trim().toLowerCase() && !m.relation?.toLowerCase().includes("myself") && !m.relation?.toLowerCase().includes("head"))
+                .map((m) => ({
+                  name: m.name,
+                  age: Number(m.age) || 25,
+                  gender: m.gender || (m.relation?.toLowerCase().includes("wife") || m.relation?.toLowerCase().includes("mother") || m.relation?.toLowerCase().includes("daughter") || m.relation?.toLowerCase().includes("sister") ? "Female" : "Male"),
+                  relationship: m.relation || "Family",
+                }));
+              const allMembers = [primaryMember, ...additional];
+              return {
+                ...prev,
+                membersCount: allMembers.length,
+                members: allMembers,
+              };
+            }
+            return prev;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Could not load family members:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadSavedFamily();
+    window.addEventListener("mana_family_updated", loadSavedFamily);
+    return () => window.removeEventListener("mana_family_updated", loadSavedFamily);
+  }, [authUser]);
+
+  const applyExistingRegToForm = (reg: any) => {
+    let parsedMembers = [];
+    if (reg.membersJson) {
+      try {
+        parsedMembers = JSON.parse(reg.membersJson);
+      } catch {}
+    }
+    if (!parsedMembers || parsedMembers.length === 0) {
+      parsedMembers = [{
+        name: reg.participantName || reg.primaryName || authUser?.fullName || "",
+        age: 28,
+        gender: authUser?.gender || "Male",
+        relationship: "Self (Head)",
+      }];
+    }
+    setFormData((prev) => ({
+      ...prev,
+      fullName: reg.primaryName || reg.participantName || prev.fullName,
+      gotram: reg.gotram || prev.gotram,
+      phone: reg.phone || prev.phone,
+      email: reg.email || prev.email,
+      flatNo: reg.flatNo || prev.flatNo,
+      membersCount: parsedMembers.length,
+      members: parsedMembers,
+      poojaSlot: reg.poojaSlot || reg.eventTime || prev.poojaSlot,
+      paymentMode: reg.paymentMethod || prev.paymentMode,
+      category: reg.category || prev.category,
+    }));
+  };
+
+  // Sync existing registration if user is already registered for this cultural/competition/event
+  useEffect(() => {
+    if (!existingReg && event) {
+      eventService
+        .getMyRegistrations()
+        .then((regs) => {
+          if (Array.isArray(regs) && regs.length > 0) {
+            const found = regs.find((r: any) => {
+              if (r.status === "CANCELLED") return false;
+              if (r.activityId && (r.activityId === event?.id || String(r.activityId) === String(event?.id))) return true;
+              if (event?.id && String(event.id).includes("-")) {
+                const rawId = String(event.id).split("-")[1];
+                if (r.activityId && (r.activityId === rawId || r.activityId === event.id)) return true;
+                if (r.eventId && String(r.eventId) === rawId) return true;
+              }
+              const cleanEventTitle = (event?.title || event?.name || "").trim().toLowerCase();
+              const cleanRegTitle = (r.activityTitle || r.eventName || "").trim().toLowerCase();
+              if (
+                cleanEventTitle &&
+                cleanRegTitle &&
+                (cleanEventTitle === cleanRegTitle ||
+                  cleanEventTitle.includes(cleanRegTitle) ||
+                  cleanRegTitle.includes(cleanEventTitle))
+              ) {
+                return true;
+              }
+              return false;
+            });
+            if (found) {
+              setExistingReg(found);
+              applyExistingRegToForm(found);
+            }
+          }
+        })
+        .catch(() => {});
+    } else if (existingReg) {
+      applyExistingRegToForm(existingReg);
+    }
+  }, [event]);
+
+  // ── Auto-fill & synchronize logged in user details including Flat / Unit & Block ──
+  useEffect(() => {
+    if (authUser) {
+      const flat = (authUser.block && authUser.flatNo) ? `${authUser.block}-${authUser.flatNo}` : (authUser.flatNo || "");
+      setFormData((prev) => ({
+        ...prev,
+        fullName: prev.fullName || authUser.fullName || "",
+        phone: prev.phone || authUser.phone || "",
+        email: prev.email || authUser.email || "",
+        flatNo: prev.flatNo || flat,
+        members: prev.members.length > 0 && !prev.members[0].name
+          ? [{ ...prev.members[0], name: authUser.fullName || "" }, ...prev.members.slice(1)]
+          : prev.members,
+      }));
+    }
+
+    userService
+      .getMe()
+      .then((u) => {
+        if (u) {
+          const flat = u.flatNo ? (u.block ? `${u.block}-${u.flatNo}` : u.flatNo) : "";
+          setFormData((prev) => ({
+            ...prev,
+            fullName: prev.fullName || u.fullName || "",
+            phone: prev.phone || u.phone || "",
+            email: prev.email || u.email || "",
+            flatNo: prev.flatNo || flat,
+            members: prev.members.length > 0 && !prev.members[0].name
+              ? [{ ...prev.members[0], name: u.fullName || "" }, ...prev.members.slice(1)]
+              : prev.members,
+          }));
+        }
+      })
+      .catch(() => {});
+  }, [authUser]);
 
   // ── Load Ticket Categories dynamically from Event Details ONLY ──
   useEffect(() => {
@@ -198,7 +367,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     setFormData((prev) => ({
       ...prev,
       membersCount: prev.membersCount + 1,
-      members: [...prev.members, { name: "", age: 25, diet: "Veg" }],
+      members: [...prev.members, { name: "", age: 25, gender: "Male", relationship: "Spouse" }],
     }));
   };
 
@@ -244,16 +413,56 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     }
   };
 
+  const handleNextStep = () => {
+    if (currentStep === 2) {
+      if (!formData.fullName.trim()) {
+        showWarning("Please enter your Full Name.");
+        return;
+      }
+      if (!formData.phone.trim()) {
+        showWarning("Please enter your Phone / Mobile Number.");
+        return;
+      }
+      if (!formData.email.trim()) {
+        showWarning("Please enter your Email Address.");
+        return;
+      }
+      if (!formData.gotram?.trim()) {
+        showWarning("Gotram / Family Lineage is mandatory for event registration.");
+        return;
+      }
+    }
+    if (currentStep === 3) {
+      for (let i = 0; i < formData.members.length; i++) {
+        if (!formData.members[i].name?.trim()) {
+          showWarning(`Please enter the name for attendee #${i + 1}.`);
+          return;
+        }
+      }
+    }
+    if (currentStep < 4) {
+      setCurrentStep((prev) => prev + 1);
+    }
+  };
+
   const handleComplete = async (modeOverride?: string) => {
+    if (!formData.gotram?.trim()) {
+      showWarning("Gotram / Family Lineage is mandatory for event registration.");
+      setCurrentStep(2);
+      return;
+    }
     const selectedMode = modeOverride || formData.paymentMode || "UPI";
     const paymentStatus = formData.numericPrice === 0 ? "PAID" : selectedMode === "Pay Later" ? "PENDING" : "PAID";
 
     try {
       const regPayload = {
-        eventId: event?.id ? Number(event.id) : 1,
+        eventId: event?.id ? (typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, "")) || 1) : 1,
+        activityId: event?.id ? String(event.id) : undefined,
         eventName: event?.title || "Community Festival",
-        category: formData.category,
+        activityTitle: event?.title || "Community Festival",
+        category: formData.category || event?.category || "Event",
         primaryName: formData.fullName,
+        participantName: formData.fullName,
         phone: formData.phone,
         email: formData.email,
         gotram: formData.gotram || undefined,
@@ -265,14 +474,67 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         eventDate: event?.date || "2026",
         eventTime: event?.time || formData.poojaSlot,
         venue: event?.venue || "Community Mandap",
-        bookingFee: formData.numericPrice * formData.members.length,
+        bookingFee: formData.numericPrice,
         paymentStatus,
         paymentMethod: selectedMode,
         paymentReceiptUrl: formData.receiptUrl || undefined,
         transactionId: formData.transactionRef || undefined,
       };
+
+      if (isUpdateMode && existingRegId) {
+        const numericId = typeof existingRegId === "number" ? existingRegId : Number(String(existingRegId).replace(/\D/g, ""));
+        if (!isNaN(numericId) && numericId > 0) {
+          try {
+            await eventService.updateRegistration(numericId, regPayload);
+          } catch (apiErr) {
+            console.warn("Backend update registration API warning:", apiErr);
+          }
+        }
+        showSuccess("Registration updated successfully!");
+      } else {
+        try {
+          if (event?.id) {
+            const numericEventId = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
+            if (!isNaN(numericEventId) && numericEventId > 0) {
+              await eventService.register(numericEventId);
+            }
+          }
+        } catch (apiErr) {
+          console.warn("Backend register API note:", apiErr);
+        }
+        showSuccess("Registration completed successfully!");
+      }
+
+      // ── Two-way sync: Save new attendees to Family Members profile in Dashboard ──
+      if (saveNewMembersToProfile && Array.isArray(formData.members)) {
+        try {
+          const existingNames = new Set(savedFamilyMembers.map((m) => (m.name || "").trim().toLowerCase()));
+          if (authUser?.fullName) existingNames.add(authUser.fullName.trim().toLowerCase());
+          if (formData.fullName) existingNames.add(formData.fullName.trim().toLowerCase());
+
+          for (let i = 1; i < formData.members.length; i++) {
+            const mem = formData.members[i];
+            if (mem.name && mem.name.trim() && !existingNames.has(mem.name.trim().toLowerCase())) {
+              const avatar = mem.gender === "Female" ? (mem.age < 18 ? "👧" : "👩") : (mem.age < 18 ? "👦" : "👨");
+              await eventService.addFamilyMember({
+                name: mem.name.trim(),
+                relation: (mem as any).relationship || "Family",
+                age: Number(mem.age) || 20,
+                gender: mem.gender || "Male",
+                avatar,
+                status: "ACTIVE",
+              }).catch(() => {});
+              existingNames.add(mem.name.trim().toLowerCase());
+            }
+          }
+          window.dispatchEvent(new Event("mana_family_updated"));
+        } catch (famErr) {
+          console.warn("Family member auto-sync note:", famErr);
+        }
+      }
     } catch (err) {
       console.warn("Could not persist registration to backend API, saved locally:", err);
+      showWarning(isUpdateMode ? "Registration changes saved locally." : "Registration saved locally.");
     }
     window.dispatchEvent(new Event("mana_activities_updated"));
     window.dispatchEvent(new Event("mana_registrations_updated"));
@@ -285,9 +547,18 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       {/* Wizard Header */}
       <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
         <div className="min-w-0 pr-3">
-          <div className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-primary mb-0.5">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Event Registration Portal</span>
+          <div className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider mb-0.5">
+            {isUpdateMode ? (
+              <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                <Edit3 className="w-3 h-3" />
+                <span>Update Registration</span>
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 text-primary">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Event Registration Portal</span>
+              </span>
+            )}
           </div>
           <h2 className="text-base sm:text-xl font-black text-foreground truncate">
             {event?.title || "Ganesh Utsav 2026 Pass"}
@@ -436,14 +707,6 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
             <div className="space-y-3.5 flex-1">
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <h3 className="text-sm font-extrabold text-foreground">Primary Registrant Details</h3>
-                <div className="flex items-center gap-1.5">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-primary/10 text-primary border border-primary/20">
-                    {formData.category}
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                    {formData.categoryPrice}
-                  </span>
-                </div>
               </div>
 
               {/* Full Name */}
@@ -495,10 +758,11 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
-                    Gotram / Family Lineage
+                    Gotram / Family Lineage <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
+                    required
                     placeholder="e.g. Kashyapa, Bharadwaja"
                     value={formData.gotram}
                     onChange={(e) => setFormData({ ...formData, gotram: e.target.value })}
@@ -522,35 +786,18 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                 </div>
               </div>
 
-              {/* Flat / Villa No & Preferred Slot */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
-                    Flat / Unit No
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. A-101 / Villa 402"
-                    value={formData.flatNo}
-                    onChange={(e) => setFormData({ ...formData, flatNo: e.target.value })}
-                    className="w-full h-10 px-3.5 rounded-xl bg-[var(--mana-bg-input)] text-xs sm:text-sm font-semibold border border-border focus:ring-2 focus:ring-primary/20 outline-none text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
-                    Preferred Time Slot
-                  </label>
-                  <select
-                    value={formData.poojaSlot}
-                    onChange={(e) => setFormData({ ...formData, poojaSlot: e.target.value })}
-                    className="w-full h-10 px-3.5 rounded-xl bg-[var(--mana-bg-input)] text-xs sm:text-sm font-semibold border border-border focus:ring-2 focus:ring-primary/20 outline-none text-foreground cursor-pointer"
-                  >
-                    <option value="Morning Aarti (07:00 AM - 11:00 AM)">Morning Slot (07:00 AM - 11:00 AM)</option>
-                    <option value="Afternoon Pooja & Prasad (12:00 PM - 03:00 PM)">Afternoon Slot (12:00 PM - 03:00 PM)</option>
-                    <option value="Evening Visarjan / Utsav (05:00 PM - 09:00 PM)">Evening Slot (05:00 PM - 09:00 PM)</option>
-                    <option value="Late Night Bhajan Sandhya (09:00 PM - 11:30 PM)">Night Slot (09:00 PM - 11:30 PM)</option>
-                  </select>
-                </div>
+              {/* Flat / Villa No */}
+              <div>
+                <label className="text-[10px] uppercase font-bold text-muted-foreground block mb-1">
+                  Flat / Unit No
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. A-101 / Villa 402"
+                  value={formData.flatNo}
+                  onChange={(e) => setFormData({ ...formData, flatNo: e.target.value })}
+                  className="w-full h-10 px-3.5 rounded-xl bg-[var(--mana-bg-input)] text-xs sm:text-sm font-semibold border border-border focus:ring-2 focus:ring-primary/20 outline-none text-foreground"
+                />
               </div>
             </div>
           )}
@@ -573,6 +820,68 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                   + Add Member
                 </button>
               </div>
+
+              {/* ── Quick Add from Saved Family Profile ── */}
+              {savedFamilyMembers.length > 0 && (() => {
+                const currentNames = new Set(formData.members.map((m) => (m.name || "").trim().toLowerCase()));
+                const availableSaved = savedFamilyMembers.filter((m) => m.name && !currentNames.has(m.name.trim().toLowerCase()));
+                if (availableSaved.length === 0) return null;
+                return (
+                  <div className="p-2.5 rounded-xl bg-primary/5 border border-primary/20 space-y-1.5 animate-fadeIn">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10.5px] font-bold text-primary flex items-center gap-1">
+                        <Users className="w-3.5 h-3.5" /> Quick Add from Saved Family Profile:
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newToAdd = availableSaved.map((sm) => ({
+                            name: sm.name,
+                            age: Number(sm.age) || 25,
+                            gender: sm.gender || (sm.relation?.toLowerCase().includes("wife") || sm.relation?.toLowerCase().includes("mother") || sm.relation?.toLowerCase().includes("daughter") || sm.relation?.toLowerCase().includes("sister") ? "Female" : "Male"),
+                            relationship: sm.relation || "Family",
+                          }));
+                          setFormData((prev) => ({
+                            ...prev,
+                            membersCount: prev.members.length + newToAdd.length,
+                            members: [...prev.members, ...newToAdd],
+                          }));
+                        }}
+                        className="text-[10px] font-bold text-primary underline hover:opacity-80 cursor-pointer"
+                      >
+                        + Add All ({availableSaved.length})
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableSaved.map((sm, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            const newMember = {
+                              name: sm.name,
+                              age: Number(sm.age) || 25,
+                              gender: sm.gender || (sm.relation?.toLowerCase().includes("wife") || sm.relation?.toLowerCase().includes("mother") || sm.relation?.toLowerCase().includes("daughter") || sm.relation?.toLowerCase().includes("sister") ? "Female" : "Male"),
+                              relationship: sm.relation || "Family",
+                            };
+                            setFormData((prev) => ({
+                              ...prev,
+                              membersCount: prev.members.length + 1,
+                              members: [...prev.members, newMember],
+                            }));
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-background border border-border hover:border-primary text-foreground text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <span>{sm.avatar || "👤"}</span>
+                          <span>{sm.name}</span>
+                          <span className="text-[9.5px] text-muted-foreground">({sm.relation})</span>
+                          <span className="text-primary font-bold ml-0.5">+</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
                 {formData.members.map((mem, idx) => (
@@ -599,44 +908,112 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                       )}
                     </div>
                     <div className="grid grid-cols-12 gap-2">
-                      <input
-                        type="text"
-                        placeholder={idx === 0 ? "Primary Member Name *" : "Member Name *"}
-                        value={mem.name}
-                        onChange={(e) => {
-                          const updated = [...formData.members];
-                          updated[idx].name = e.target.value;
-                          setFormData({ ...formData, members: updated });
-                        }}
-                        className="col-span-6 h-9 px-3 rounded-xl bg-[var(--mana-bg-input)] text-xs font-semibold border border-border outline-none text-foreground"
-                      />
-                      <input
-                        type="number"
-                        placeholder="Age"
-                        value={mem.age || ""}
-                        onChange={(e) => {
-                          const updated = [...formData.members];
-                          updated[idx].age = parseInt(e.target.value) || 0;
-                          setFormData({ ...formData, members: updated });
-                        }}
-                        className="col-span-3 h-9 px-2.5 rounded-xl bg-[var(--mana-bg-input)] text-xs font-semibold border border-border outline-none text-foreground"
-                      />
-                      <select
-                        value={mem.diet || "Veg"}
-                        onChange={(e) => {
-                          const updated = [...formData.members];
-                          updated[idx].diet = e.target.value;
-                          setFormData({ ...formData, members: updated });
-                        }}
-                        className="col-span-3 h-9 px-2 rounded-xl bg-[var(--mana-bg-input)] text-xs font-semibold border border-border outline-none text-foreground cursor-pointer"
-                      >
-                        <option value="Veg">Veg</option>
-                        <option value="Jain">Jain</option>
-                        <option value="Non-Veg">Non-Veg</option>
-                      </select>
+                      <div className="col-span-12 sm:col-span-4">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                          {idx === 0 ? "Full Name *" : "Name *"}
+                        </label>
+                        <input
+                          type="text"
+                          placeholder={idx === 0 ? "Primary Member Name" : "Member Name"}
+                          value={mem.name}
+                          onChange={(e) => {
+                            const updated = [...formData.members];
+                            updated[idx].name = e.target.value;
+                            setFormData({ ...formData, members: updated });
+                          }}
+                          className="w-full h-9 px-3 rounded-xl bg-[var(--mana-bg-input)] text-xs font-semibold border border-border outline-none text-foreground"
+                        />
+                      </div>
+                      <div className="col-span-12 sm:col-span-3">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                          Relationship *
+                        </label>
+                        {idx === 0 ? (
+                          <input
+                            type="text"
+                            readOnly
+                            value={(mem as any).relationship || "Self (Head)"}
+                            className="w-full h-9 px-2.5 rounded-xl bg-muted/60 text-xs font-semibold border border-border outline-none text-muted-foreground cursor-not-allowed"
+                          />
+                        ) : (
+                          <select
+                            value={(mem as any).relationship || "Spouse"}
+                            onChange={(e) => {
+                              const updated = [...formData.members];
+                              (updated[idx] as any).relationship = e.target.value;
+                              setFormData({ ...formData, members: updated });
+                            }}
+                            className="w-full h-9 px-2 rounded-xl bg-[var(--mana-bg-input)] text-xs font-semibold border border-border outline-none text-foreground cursor-pointer"
+                          >
+                            <option value="Spouse">Spouse</option>
+                            <option value="Child">Child</option>
+                            <option value="Son">Son</option>
+                            <option value="Daughter">Daughter</option>
+                            <option value="Father">Father</option>
+                            <option value="Mother">Mother</option>
+                            <option value="Parent">Parent</option>
+                            <option value="Brother">Brother</option>
+                            <option value="Sister">Sister</option>
+                            <option value="Sibling">Sibling</option>
+                            <option value="Relative">Relative</option>
+                            <option value="Friend">Friend</option>
+                            <option value="Other">Other</option>
+                          </select>
+                        )}
+                      </div>
+                      <div className="col-span-6 sm:col-span-2">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                          Age *
+                        </label>
+                        <input
+                          type="number"
+                          placeholder="Age"
+                          min={1}
+                          max={120}
+                          value={mem.age || ""}
+                          onChange={(e) => {
+                            const updated = [...formData.members];
+                            updated[idx].age = parseInt(e.target.value) || 0;
+                            setFormData({ ...formData, members: updated });
+                          }}
+                          className="w-full h-9 px-2.5 rounded-xl bg-[var(--mana-bg-input)] text-xs font-semibold border border-border outline-none text-foreground"
+                        />
+                      </div>
+                      <div className="col-span-6 sm:col-span-3">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
+                          Gender *
+                        </label>
+                        <select
+                          value={mem.gender || "Male"}
+                          onChange={(e) => {
+                            const updated = [...formData.members];
+                            updated[idx].gender = e.target.value;
+                            setFormData({ ...formData, members: updated });
+                          }}
+                          className="w-full h-9 px-2 rounded-xl bg-[var(--mana-bg-input)] text-xs font-semibold border border-border outline-none text-foreground cursor-pointer"
+                        >
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Auto-sync to User Dashboard Family Profile */}
+              <div className="pt-2 border-t border-border flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="syncFamily"
+                  checked={saveNewMembersToProfile}
+                  onChange={(e) => setSaveNewMembersToProfile(e.target.checked)}
+                  className="w-4 h-4 accent-primary rounded cursor-pointer"
+                />
+                <label htmlFor="syncFamily" className="text-[11px] font-semibold text-muted-foreground cursor-pointer select-none">
+                  Automatically save new attendee(s) to my Family Members profile in User Dashboard
+                </label>
               </div>
             </div>
           )}
@@ -652,7 +1029,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                 <span className="text-xs font-mono font-black text-primary bg-primary/10 px-2.5 py-1 rounded-xl border border-primary/20">
                   {formData.numericPrice === 0
                     ? "FREE PASS"
-                    : `Total: ₹${(formData.numericPrice * formData.members.length).toLocaleString("en-IN")}`}
+                    : `Total: ₹${formData.numericPrice.toLocaleString("en-IN")}`}
                 </span>
               </div>
 
@@ -779,12 +1156,12 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
             )}
 
             {currentStep < 4 ? (
-              <TouchButton variant="primary" size="sm" icon={ArrowRight} onClick={() => setCurrentStep(currentStep + 1)}>
+              <TouchButton variant="primary" size="sm" icon={ArrowRight} onClick={handleNextStep}>
                 Next Step
               </TouchButton>
             ) : (
               <div className="flex items-center gap-2">
-                {formData.numericPrice > 0 && (
+                {formData.numericPrice > 0 && !isUpdateMode && (
                   <button
                     type="button"
                     onClick={() => handleComplete("Pay Later")}
@@ -794,8 +1171,10 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                     Pay Later
                   </button>
                 )}
-                <TouchButton variant="primary" size="sm" icon={CheckCircle2} onClick={() => handleComplete()}>
-                  {formData.numericPrice === 0
+                <TouchButton variant="primary" size="sm" icon={isUpdateMode ? RefreshCw : CheckCircle2} onClick={() => handleComplete()}>
+                  {isUpdateMode
+                    ? "Update Registration"
+                    : formData.numericPrice === 0
                     ? "Complete Free Registration"
                     : `Confirm Registration (${formData.categoryPrice})`}
                 </TouchButton>
@@ -817,7 +1196,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
             <div>
               <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white uppercase tracking-wider">
-                Registration Confirmed 🎉
+                {isUpdateMode ? "Registration Updated 🎉" : "Registration Confirmed 🎉"}
               </span>
               <h3 className="text-lg sm:text-xl font-black text-foreground mt-2.5">
                 Thank you, {formData.fullName}!
@@ -836,10 +1215,6 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Registered Attendees</span>
                 <span className="font-bold text-foreground">{formData.members.length} Member(s)</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Preferred Time Slot</span>
-                <span className="font-bold text-foreground truncate max-w-[200px]">{formData.poojaSlot}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Payment Status</span>
