@@ -795,64 +795,68 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                 )}
                 <TouchButton variant="primary" size="sm" icon={CheckCircle2} onClick={() => handleComplete()}>
                   {formData.numericPrice === 0
-                    ? "Generate Free Pass"
-                    : `Confirm & Generate Pass (${formData.categoryPrice})`}
+                    ? "Complete Free Registration"
+                    : `Confirm Registration (${formData.categoryPrice})`}
                 </TouchButton>
               </div>
             )}
           </div>
         </GlassCard>
       ) : (
-        /* SUCCESS PASS DISPLAY */
+        /* REGISTRATION CONFIRMED SUMMARY (WITHOUT DIGITAL PASS / QR) */
         <GlassCard
           isDark={isDark}
           hoverScale={false}
-          className="flex-1 flex flex-col justify-between p-5 border border-border rounded-2xl text-center space-y-4 animate-scaleUp shadow-md"
+          className="flex-1 flex flex-col justify-between p-5 sm:p-6 border border-border rounded-2xl text-center space-y-4 animate-scaleUp shadow-md"
         >
-          <div className="space-y-3">
-            <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center mx-auto shadow-md">
-              <CheckCircle2 className="w-8 h-8 animate-bounce" />
+          <div className="space-y-3.5 my-auto">
+            <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto shadow-md">
+              <CheckCircle2 className="w-9 h-9" />
             </div>
 
             <div>
               <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-500 text-white uppercase tracking-wider">
                 Registration Confirmed 🎉
               </span>
-              <h3 className="text-lg sm:text-xl font-black text-foreground mt-2">
-                Digital Pass #{passNumber} Issued
+              <h3 className="text-lg sm:text-xl font-black text-foreground mt-2.5">
+                Thank you, {formData.fullName}!
               </h3>
-              <p className="text-xs font-bold text-primary mt-0.5">
-                Category: {formData.category} ({formData.categoryPrice})
+              <p className="text-xs font-bold text-primary mt-1">
+                {event?.title || "Community Event"} • {formData.category} ({formData.categoryPrice})
               </p>
               {formData.gotram && (
                 <p className="text-xs font-semibold text-muted-foreground mt-0.5">
                   Gotram: <strong className="text-foreground">{formData.gotram}</strong>
                 </p>
               )}
-              <p className="text-xs text-muted-foreground mt-1">
-                Pass confirmation sent to <strong className="text-foreground">{formData.email}</strong>.
-              </p>
             </div>
 
-            {/* QR Card */}
-            <div className="p-4 rounded-2xl bg-slate-950 text-white inline-block shadow-xl border border-slate-800">
-              <QrCode className="w-28 h-28 text-white mx-auto" />
-              <p className="text-[10px] font-mono font-bold text-amber-400 mt-2">SCAN AT VENUE GATE FOR ENTRY</p>
+            <div className="p-4 rounded-2xl bg-muted/40 border border-border text-xs text-left space-y-2 max-w-md mx-auto">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Registered Attendees</span>
+                <span className="font-bold text-foreground">{formData.members.length} Member(s)</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Preferred Time Slot</span>
+                <span className="font-bold text-foreground truncate max-w-[200px]">{formData.poojaSlot}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Payment Status</span>
+                <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                  {formData.numericPrice === 0 ? "Free / Complimentary" : formData.paymentMode === "Pay Later" ? "Pay Later at Venue" : "Payment Recorded"}
+                </span>
+              </div>
+              <div className="pt-2 border-t border-border text-center">
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Confirmation details have been sent to <strong className="text-foreground">{formData.email}</strong>.
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="flex gap-2.5 pt-2">
-            <TouchButton
-              variant="primary"
-              size="sm"
-              icon={Download}
-              fullWidth
-              onClick={() => showSuccess("Digital Pass Downloaded!")}
-            >
-              Download Pass PDF
-            </TouchButton>
-            <TouchButton variant="outline" size="sm" fullWidth onClick={onClose}>
-              Done
+          <div className="pt-3 border-t border-border">
+            <TouchButton variant="primary" size="sm" fullWidth onClick={onClose}>
+              Done / Close
             </TouchButton>
           </div>
         </GlassCard>
