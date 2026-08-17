@@ -265,4 +265,20 @@ export const eventService = {
   async deleteFamilyMember(id: number): Promise<void> {
     return apiClient.delete<void>(`/events/family-members/${id}`);
   },
+
+  async createRegistration(data: any): Promise<any> {
+    return apiClient.post<any>("/events/registrations", data);
+  },
+
+  async getMyRegistrations(): Promise<any[]> {
+    return apiClient.get<any[]>("/events/registrations/my");
+  },
+
+  async getAllRegistrations(): Promise<any[]> {
+    return apiClient.get<any[]>("/events/registrations");
+  },
+
+  async cancelRegistration(id: number): Promise<void> {
+    return apiClient.delete<void>(`/events/registrations/${id}`);
+  },
 };

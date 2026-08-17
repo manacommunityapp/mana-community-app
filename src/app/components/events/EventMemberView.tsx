@@ -338,20 +338,41 @@ export function EventMemberView() {
     setLoadingFamily(false);
   };
 
-  // Load User Passes dynamically
-  const loadUserPasses = () => {
-    try {
-      const stored: UserPass[] = JSON.parse(localStorage.getItem("mana_user_passes") || "[]");
-      if (useMock) {
-        const existingIds = new Set(INITIAL_PASSES.map((p) => p.id));
-        const customOnly = stored.filter((s) => !existingIds.has(s.id));
-        setPassesList([...INITIAL_PASSES, ...customOnly]);
-      } else {
+  // Load User Passes dynamically from database API / mock
+  const loadUserPasses = async () => {
+    if (useMock) {
+      try {
+        const stored: UserPass[] = JSON.parse(localStorage.getItem("mana_user_passes") || "[]");
         setPassesList(stored);
+      } catch {
+        setPassesList([]);
       }
-    } catch {
-      setPassesList(useMock ? INITIAL_PASSES : []);
+      return;
     }
+
+    try {
+      const liveRegs = await eventService.getMyRegistrations();
+      if (Array.isArray(liveRegs) && liveRegs.length > 0) {
+        const mappedPasses: UserPass[] = liveRegs.map((r: any) => ({
+          id: String(r.id),
+          passType: r.passType || `${r.category || "Event"} Registration Pass`,
+          title: r.activityTitle || "Community Event",
+          participantName: r.participantName || "Devotee",
+          regId: r.regCode || `MNA-2026-${r.id}`,
+          date: r.eventDate || "Upcoming",
+          time: r.eventTime || "Scheduled",
+          venue: r.venue || "Community Venue",
+          status: (r.status === "PENDING APPROVAL" ? "PENDING APPROVAL" : "CONFIRMED"),
+          qrCodeUrl: r.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${r.regCode || r.id}`,
+        }));
+        setPassesList(mappedPasses);
+        return;
+      }
+    } catch (err) {
+      console.warn("Could not fetch user registrations from API:", err);
+    }
+
+    setPassesList([]);
   };
 
   useEffect(() => {
@@ -524,7 +545,7 @@ export function EventMemberView() {
     setShowAddMemberModal(false);
   };
 
-  const handleBookingSubmit = () => {
+  const handleBookingSubmit = async () => {
     if (!selectedActivity) return;
     const attendingNames = familyMembers
       .filter((f) => selectedMembers.includes(f.id))
@@ -532,23 +553,158 @@ export function EventMemberView() {
       .join(", ");
 
     const attendeeLabel = attendingNames || user?.fullName || (user?.email ? user.email.split("@")[0] : "Devotee");
+    const regCode = `MNA-2026-${(selectedActivity.category || "EVT").toUpperCase().slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const passPayload = {
+      regCode,
+      activityId: selectedActivity.id,
+      activityTitle: selectedActivity.title,
+      category: selectedActivity.category,
+      passType: `${selectedActivity.category} Registration Pass`,
+      participantName: attendeeLabel,
+      attendingDevotees: attendingNames,
+      devoteeCount: Math.max(1, selectedMembers.length),
+      eventDate: selectedActivity.date,
+      eventTime: selectedActivity.time,
+      venue: selectedActivity.venue,
+      bookingFee: (selectedActivity.fee || 0) * Math.max(1, selectedMembers.length),
+      paymentStatus: selectedActivity.fee === 0 ? "FREE" : "PAID",
+      status: "CONFIRMED",
+      qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${regCode}`,
+    };
+
+    let createdId = "pass-" + Date.now();
+
+    if (!useMock) {
+      try {
+        const saved = await eventService.createRegistration(passPayload);
+        if (saved && saved.id) {
+          createdId = String(saved.id);
+        }
+      } catch (err) {
+        console.error("Failed to save event registration to database:", err);
+      }
+    }
 
     const newPass: UserPass = {
-      id: "pass-" + Date.now(),
-      passType: `${selectedActivity.category} Registration Pass`,
-      title: selectedActivity.title,
-      participantName: attendeeLabel,
-      regId: `MNA-2026-${selectedActivity.category.toUpperCase().slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`,
-      date: selectedActivity.date,
-      time: selectedActivity.time,
-      venue: selectedActivity.venue,
+      id: createdId,
+      passType: passPayload.passType,
+      title: passPayload.activityTitle,
+      participantName: passPayload.participantName,
+      regId: regCode,
+      date: passPayload.eventDate,
+      time: passPayload.eventTime,
+      venue: passPayload.venue,
       status: "CONFIRMED",
-      qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=MNA-2026-REG-${Date.now()}`,
+      qrCodeUrl: passPayload.qrCodeUrl,
     };
+
     setPassesList((prev) => [newPass, ...prev]);
     alert(`Success! Registered for ${selectedActivity.title}. E-Pass issued to ${attendeeLabel}!`);
     setSelectedActivity(null);
     setActiveTab("passes");
+  };
+
+  const handleDownloadPDFPass = (pass: UserPass) => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Please allow popups in your browser to download/print the PDF E-Pass.");
+      return;
+    }
+
+    const passHtml = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>E-Pass Ticket - ${pass.regId}</title>
+  <style>
+    @page { size: A4 portrait; margin: 12mm; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; padding: 24px; }
+    .ticket-card { max-width: 600px; margin: 0 auto; background: #ffffff; border: 2px solid #4f46e5; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(79, 70, 229, 0.12); }
+    .header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; padding: 28px 24px; text-align: center; position: relative; }
+    .badge { display: inline-block; background: rgba(255,255,255,0.25); color: #ffffff; padding: 4px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; border: 1px solid rgba(255,255,255,0.3); }
+    .header h1 { margin: 0; font-size: 24px; font-weight: 900; letter-spacing: -0.5px; }
+    .header p { margin: 6px 0 0; font-size: 13px; opacity: 0.9; font-weight: 500; }
+    .body-content { padding: 28px 24px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+    .info-box { background: #f8fafc; padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .info-box.full { grid-column: span 2; }
+    .label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .value { font-size: 14px; font-weight: 800; color: #0f172a; word-break: break-word; }
+    .value.highlight { color: #4f46e5; }
+    .qr-container { text-align: center; background: #f1f5f9; padding: 24px; border-radius: 16px; border: 2px dashed #cbd5e1; margin: 10px 0; }
+    .qr-code { width: 170px; height: 170px; margin: 0 auto; display: block; background: #ffffff; padding: 8px; border-radius: 12px; border: 1px solid #e2e8f0; }
+    .reg-code { font-family: monospace; font-size: 14px; font-weight: 900; color: #4f46e5; margin-top: 12px; letter-spacing: 0.5px; }
+    .instructions { font-size: 11px; color: #64748b; margin-top: 6px; font-weight: 600; }
+    .footer { border-top: 1px dashed #e2e8f0; padding: 16px 24px; background: #fafafa; text-align: center; }
+    .status-stamp { font-size: 12px; font-weight: 900; color: #059669; text-transform: uppercase; letter-spacing: 0.5px; }
+    .terms { font-size: 10.5px; color: #94a3b8; margin-top: 4px; }
+    @media print {
+      body { background: #ffffff; padding: 0; }
+      .ticket-card { box-shadow: none; border-color: #000000; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="ticket-card">
+    <div class="header">
+      <div class="badge">OFFICIAL GATE ENTRY E-PASS</div>
+      <h1>Shree Ganesh Utsav 2026</h1>
+      <p>Mana Community Executive Committee • Digital Verification Voucher</p>
+    </div>
+    <div class="body-content">
+      <div class="info-grid">
+        <div class="info-box">
+          <div class="label">Pass Category</div>
+          <div class="value highlight">${pass.passType}</div>
+        </div>
+        <div class="info-box">
+          <div class="label">Event / Program</div>
+          <div class="value">${pass.title}</div>
+        </div>
+        <div class="info-box">
+          <div class="label">Devotee / Attendee</div>
+          <div class="value">${pass.participantName}</div>
+        </div>
+        <div class="info-box">
+          <div class="label">Date & Time</div>
+          <div class="value">${pass.date} • ${pass.time}</div>
+        </div>
+        <div class="info-box full">
+          <div class="label">Assigned Venue & Entry Gate</div>
+          <div class="value">${pass.venue}</div>
+        </div>
+      </div>
+
+      <div class="qr-container">
+        <img src="${pass.qrCodeUrl}" class="qr-code" alt="Gate Verification QR Code" />
+        <div class="reg-code">${pass.regId}</div>
+        <div class="instructions">Present QR Code at Security Scanner Desk for instant entry & prasadam verification</div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="status-stamp">✓ CONFIRMED &amp; VALIDATED PASS</div>
+      <div class="terms">Please keep a digital or printed PDF copy ready at gate entry. Non-transferable.</div>
+    </div>
+  </div>
+  <div class="no-print" style="text-align: center; margin-top: 24px;">
+    <button onclick="window.print()" style="padding: 12px 28px; background: linear-gradient(to right, #4f46e5, #7c3aed); color: #ffffff; border: none; border-radius: 12px; font-weight: 800; font-size: 13px; cursor: pointer; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);">
+      🖨️ Print / Save as PDF
+    </button>
+  </div>
+  <script>
+    window.onload = function() {
+      setTimeout(function() { window.print(); }, 400);
+    };
+  </script>
+</body>
+</html>
+    `;
+
+    printWindow.document.write(passHtml);
+    printWindow.document.close();
   };
 
   const filteredActivities = activitiesList.filter((a) => {
@@ -1340,12 +1496,12 @@ export function EventMemberView() {
 
             <button
               onClick={() => {
-                alert("E-Pass downloaded to your device gallery!");
+                handleDownloadPDFPass(showQRPass);
                 setShowQRPass(null);
               }}
-              className="w-full py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-95"
+              className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95"
             >
-              <Download className="w-4 h-4" /> Download Digital Pass
+              <Download className="w-4 h-4" /> Download / Save PDF E-Pass
             </button>
           </div>
         </div>
