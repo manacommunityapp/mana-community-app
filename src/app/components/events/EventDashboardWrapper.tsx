@@ -44,11 +44,8 @@ export function EventDashboardWrapper() {
             <LayoutDashboard className="h-4 w-4" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-foreground flex items-center gap-2">
+            <h3 className="text-xs font-bold text-foreground">
               {viewMode === "admin" ? "Event Admin Dashboard" : "User View (Quick Actions)"}
-              <span className="px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase border bg-indigo-500/10 text-indigo-600 border-indigo-500/20">
-                Role: {user?.role || "ADMIN"}
-              </span>
             </h3>
             <p className="text-[11px] text-muted-foreground">
               {viewMode === "admin"
