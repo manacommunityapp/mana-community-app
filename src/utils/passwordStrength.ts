@@ -6,7 +6,7 @@
  * authority and re-validates on register/reset; never trust this alone.
  */
 
-export const MIN_ACCEPTABLE_SCORE = 3;
+export const MIN_ACCEPTABLE_SCORE = 1;
 
 export interface PasswordStrength {
   /** 0 (weakest) … 4 (strongest). */
@@ -17,7 +17,7 @@ export interface PasswordStrength {
   warning: string | null;
   /** Actionable tips. */
   suggestions: string[];
-  /** True when score >= MIN_ACCEPTABLE_SCORE (matches the backend gate). */
+  /** True when password meets basic minimum length (simplified creation policy). */
   acceptable: boolean;
 }
 
@@ -156,68 +156,57 @@ export function evaluatePassword(password: string, userInputs: string[] = []): P
     return { score: 0, label: "Weak", warning: "Password is required.", suggestions: ["Enter a password."], acceptable: false };
   }
 
+  if (password.length < 4) {
+    return { score: 0, label: "Weak", warning: "Password must be at least 4 characters.", suggestions: ["Use at least 4 characters."], acceptable: false };
+  }
+
   const lower = password.toLowerCase();
   const suggestions: string[] = [];
 
   const len = password.length;
   let score = 0;
-  if (len >= 8) score++;
-  if (len >= 12) score++;
-  if (len >= 16) score++;
+  if (len >= 6) score++;
+  if (len >= 10) score++;
+  if (len >= 14) score++;
 
   const classes = characterClassCount(password);
   if (classes >= 3) score++;
   score = Math.min(score, 4);
 
-  if (len < 12) suggestions.push("Use 12 or more characters — length matters most.");
+  if (len < 8) suggestions.push("Consider 8 or more characters for better security.");
   if (classes < 3) suggestions.push("Mix uppercase, lowercase, numbers and symbols.");
 
   let warning: string | null = null;
 
   if (isCommon(lower)) {
-    score = 0;
-    warning = "This is a commonly used password and is easy to guess.";
+    warning = "Common password — you can strengthen it later.";
     suggestions.push("Avoid dictionary words and well-known passwords.");
   }
   if (matchesUserInput(lower, userInputs)) {
-    score = Math.min(score, 1);
-    warning = warning ?? "Avoid using your name, email or other personal details.";
+    warning = warning ?? "Personal info in password — consider changing later.";
     suggestions.push("Don't base your password on personal information.");
   }
   if (containsKeyboardWalk(lower)) {
-    score = Math.min(score, 1);
-    warning = warning ?? 'Keyboard patterns like "qwerty" are easy to guess.';
+    warning = warning ?? 'Keyboard pattern detected.';
     suggestions.push("Avoid keyboard patterns.");
   }
   if (hasSequentialRun(lower, 4)) {
-    score = Math.min(score, 1);
-    warning = warning ?? 'Sequences like "abcd" or "1234" are easy to guess.';
+    warning = warning ?? 'Sequence pattern detected.';
     suggestions.push("Avoid straight sequences of letters or numbers.");
   }
   if (hasRepeats(lower)) {
-    score = Math.min(score, 2);
-    warning = warning ?? "Repeated characters or patterns weaken a password.";
+    warning = warning ?? "Repeated characters detected.";
     suggestions.push("Avoid repeating characters or patterns.");
-  }
-  if (/(19|20)\d{2}/.test(password)) {
-    score = Math.max(score - 1, 0);
-    suggestions.push("Avoid years and dates.");
   }
 
   score = Math.max(0, Math.min(score, 4));
 
-  if (warning === null && score < MIN_ACCEPTABLE_SCORE) {
-    warning = "This password is too easy to guess.";
-  }
-  if (suggestions.length === 0) {
-    suggestions.push("Consider a passphrase of 4+ unrelated words.");
-  }
-
+  // Simple password creation policy: acceptable as long as at least 4 chars
   return {
     score,
     label: LABELS[score],
     warning,
     suggestions: [...new Set(suggestions)],
-    acceptable: score >= MIN_ACCEPTABLE_SCORE,
+    acceptable: password.length >= 4,
   };
 }

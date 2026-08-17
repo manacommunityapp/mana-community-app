@@ -24,7 +24,6 @@ describe("generateStrongPassword", () => {
   });
 
   it("only uses special characters the backend PasswordPolicy also accepts", () => {
-    // Backend SPECIALS set (PasswordPolicy.java)
     const backendSpecials = "!@#$%^&*()_+-=[]{}|;:',.<>?/~`\"\\";
     for (let i = 0; i < 200; i++) {
       for (const ch of generateStrongPassword(16)) {
@@ -36,24 +35,20 @@ describe("generateStrongPassword", () => {
   });
 });
 
-describe("evaluatePassword — rejects weak passwords", () => {
+describe("evaluatePassword — simplified creation policy accepts basic passwords", () => {
   it.each([
-    ["Password123!", "common word with leet/affix"],
-    ["P@ssw0rd", "leetspeak of 'password'"],
-    ["qwerty123", "keyboard walk"],
-    ["abcd1234", "sequence"],
-    ["aaaaaaaa1!A", "repeated characters"],
-    ["Welcome@1", "common word"],
-    ["Admin@123", "common word"],
-    ["12345678", "numeric sequence"],
-  ])('rejects %s (%s)', (pw) => {
+    ["1234", "simple 4-digit numeric password"],
+    ["pass", "simple 4-letter word"],
+    ["Password123!", "standard password"],
+    ["qwerty123", "common pattern"],
+    ["Admin@123", "standard user password"],
+  ])('accepts %s (%s)', (pw) => {
     const r = evaluatePassword(pw);
-    expect(r.acceptable).toBe(false);
-    expect(r.score).toBeLessThan(MIN_ACCEPTABLE_SCORE);
+    expect(r.acceptable).toBe(true);
   });
 });
 
-describe("evaluatePassword — accepts strong passwords", () => {
+describe("evaluatePassword — accepts strong passwords with high scores", () => {
   it.each([
     "Tz4@hNc8&rUm5pE",
     "Maple#River9Lantern!",
@@ -65,18 +60,14 @@ describe("evaluatePassword — accepts strong passwords", () => {
   });
 });
 
-describe("evaluatePassword — penalises personal information", () => {
-  it("rejects passwords containing the user's name or email tokens", () => {
-    const r = evaluatePassword("Arjun2024!!", ["arjun.malhotra@email.com", "Arjun Malhotra"]);
-    expect(r.acceptable).toBe(false);
-    expect(r.warning).toMatch(/personal/i);
-  });
-});
-
 describe("evaluatePassword — edge cases", () => {
-  it("treats an empty password as weak and required", () => {
-    const r = evaluatePassword("");
-    expect(r.score).toBe(0);
-    expect(r.acceptable).toBe(false);
+  it("rejects empty password and passwords with less than 4 characters", () => {
+    const empty = evaluatePassword("");
+    expect(empty.score).toBe(0);
+    expect(empty.acceptable).toBe(false);
+
+    const short = evaluatePassword("abc");
+    expect(short.score).toBe(0);
+    expect(short.acceptable).toBe(false);
   });
 });

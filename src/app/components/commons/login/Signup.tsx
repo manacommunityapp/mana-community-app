@@ -1086,15 +1086,12 @@ export function Signup() {
                             {...register("password", {
                               required: "Password is required",
                               minLength: {
-                                value: 8,
-                                message: "Password must be at least 8 characters",
+                                value: 4,
+                                message: "Password must be at least 4 characters",
                               },
-                              validate: (value) =>
-                                evaluatePassword(value, [email, fullName, phone]).acceptable ||
-                                "Password is too easy to guess — make it stronger.",
                             })}
                             className={`${inputBase} pl-9 sm:pl-10 pr-9`}
-                            placeholder="Min 8 chars"
+                            placeholder="Min 4 chars"
                           />
                           <button
                             type="button"

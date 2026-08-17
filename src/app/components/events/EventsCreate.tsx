@@ -1578,7 +1578,7 @@ function Step6Review({ data }: { data: FormData }) {
   );
 }
 
-function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLISHED"): EventRequest {
+export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLISHED"): EventRequest {
   return {
     title: data.title,
     description: data.description || undefined,
@@ -1604,20 +1604,128 @@ function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLISHED"):
   };
 }
 
+export function fromEventToFormData(ev: any): FormData {
+  if (!ev) return { ...INITIAL_FORM_DATA };
+
+  const parts = (ev.location || "").split(", ");
+  const venueName = ev.venue || ev.venueName || parts[0] || "";
+  const venueAddress = ev.venueAddress || (parts.length > 2 ? parts.slice(1, -1).join(", ") : parts[1] || "");
+  const city = ev.city || (parts.length > 0 ? parts[parts.length - 1] : "") || "";
+
+  const ticketTypes: TicketType[] = Array.isArray(ev.ticketTypes) && ev.ticketTypes.length > 0
+    ? ev.ticketTypes.map((t: any, i: number) => ({
+        id: t.id || `t${i + 1}`,
+        name: t.name || "General",
+        price: String(t.price ?? "0"),
+        qty: String(t.qty || t.capacity || ev.capacity || "100"),
+        description: t.description || "",
+      }))
+    : [
+        {
+          id: "t1",
+          name: "General",
+          price: ev.price !== undefined ? String(ev.price) : "0",
+          qty: ev.capacity ? String(ev.capacity) : "100",
+          description: "Open for all community members",
+        },
+      ];
+
+  const visibility: FormData["visibility"] = 
+    ev.visibility === "public" || ev.locationType === "public" ? "public" :
+    ev.visibility === "invite" || ev.locationType === "invite" || ev.visibility === "private" ? "invite" :
+    "community";
+
+  const eventTypeLower = (ev.type || ev.category || ev.eventType || "").toLowerCase();
+  const matchedType = EVENT_TYPES.find(t => t.value === eventTypeLower || t.label.toLowerCase() === eventTypeLower)?.value || (eventTypeLower || "community");
+
+  return {
+    title: ev.title || "",
+    eventType: matchedType,
+    category: ev.category || ev.type || "Community",
+    description: ev.description || "",
+    visibility,
+    startDate: ev.startDate || "",
+    endDate: ev.endDate || "",
+    startTime: ev.startTime || "09:00",
+    endTime: ev.endTime || "18:00",
+    multiDay: Boolean(ev.endDate && ev.endDate !== ev.startDate),
+    daySchedules: ev.daySchedules || [],
+    venueName,
+    venueAddress,
+    city,
+    capacity: ev.capacity ? String(ev.capacity) : ev.maxAttendees ? String(ev.maxAttendees) : "100",
+    registrationEnabled: ev.registrationEnabled !== undefined ? Boolean(ev.registrationEnabled) : true,
+    registrationDeadline: ev.registrationDeadline || "",
+    ticketTypes,
+    requireApproval: Boolean(ev.requireApproval),
+    allowWaitlist: ev.allowWaitlist !== undefined ? Boolean(ev.allowWaitlist) : true,
+    totalBudget: ev.totalBudget || (ev.budget ? String(ev.budget) : ""),
+    budgetItems: ev.budgetItems && ev.budgetItems.length > 0 ? ev.budgetItems : [...DEFAULT_BUDGET_ITEMS],
+    coverImageUrl: ev.imageUrl || ev.coverImageUrl || ev.coverImage || "",
+    tags: ev.tags || [],
+    registrationFormConfig: ev.registrationFormConfig || { ...GANESH_CHATURTHI_FORM_CONFIG },
+    paymentModes: ev.paymentModes ? (typeof ev.paymentModes === "string" ? ev.paymentModes.split(",") : ev.paymentModes) : ["UPI", "Card", "Cash"],
+  };
+}
+
+export interface EventCreateWizardProps {
+  onClose?: () => void;
+  onCreated?: (event?: any) => void;
+  onSaved?: (updated?: any) => void;
+  initialData?: any;
+  eventId?: string | number | null;
+  isEdit?: boolean;
+}
+
 /* ─── Wizard content (shared between page and dialog) ─── */
-function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCreated?: () => void }) {
+export function EventCreateWizard({
+  onClose,
+  onCreated,
+  onSaved,
+  initialData,
+  eventId,
+  isEdit = false,
+}: EventCreateWizardProps) {
   useEscapeKey(onClose);
+  const isEditing = isEdit || !!eventId || !!initialData;
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
   const [submitType, setSubmitType] = useState<"published" | "draft">("published");
   const [publishing, setPublishing] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [publishError, setPublishError] = useState("");
+  const [loadingEvent, setLoadingEvent] = useState(Boolean(eventId && !initialData));
 
   let useMock = true;
   try { useMock = useEventMock().useMock; } catch {}
 
-  const [formData, setFormData] = useState<FormData>({ ...INITIAL_FORM_DATA });
+  const [formData, setFormData] = useState<FormData>(() => {
+    if (initialData) return fromEventToFormData(initialData);
+    return { ...INITIAL_FORM_DATA };
+  });
+
+  // If eventId provided without full initialData, fetch it
+  useEffect(() => {
+    if (eventId && !initialData && !useMock) {
+      const numId = typeof eventId === "string" ? parseInt(eventId.replace(/\D/g, ""), 10) : Number(eventId);
+      if (!isNaN(numId)) {
+        setLoadingEvent(true);
+        eventService.getById(numId)
+          .then(ev => {
+            setFormData(fromEventToFormData(ev));
+          })
+          .catch(() => {})
+          .finally(() => setLoadingEvent(false));
+      }
+    }
+  }, [eventId, initialData, useMock]);
+
+  // If initialData changes, update form data
+  useEffect(() => {
+    if (initialData) {
+      setFormData(fromEventToFormData(initialData));
+    }
+  }, [initialData]);
 
   // Auto-sync ticket categories to localStorage whenever user edits ticket categories
   useEffect(() => {
@@ -1664,16 +1772,38 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
     setPublishError("");
     try {
       persistTicketCategoriesLocally(formData.ticketTypes, formData.title);
+      const reqPayload = toEventRequest(formData, "DRAFT");
+      let resultEvent: any = {
+        ...(initialData || {}),
+        ...formData,
+        id: eventId || (initialData as any)?.id || "EVT-" + Date.now(),
+        venue: formData.venueName,
+        status: "draft",
+      };
+
       if (!useMock) {
-        await eventService.create(toEventRequest(formData, "DRAFT"));
+        if (isEditing && (eventId || (initialData as any)?.id)) {
+          const numId = typeof (eventId || (initialData as any)?.id) === "string" 
+            ? parseInt(String(eventId || (initialData as any)?.id).replace(/\D/g, ""), 10) 
+            : Number(eventId || (initialData as any)?.id);
+          if (!isNaN(numId)) {
+            const resp = await eventService.update(numId, reqPayload);
+            if (resp) resultEvent = resp;
+          }
+        } else {
+          const resp = await eventService.create(reqPayload);
+          if (resp) resultEvent = resp;
+        }
       }
       try {
         window.dispatchEvent(new Event("mana_activities_updated"));
         window.dispatchEvent(new Event("mana_event_created"));
+        window.dispatchEvent(new Event("mana_event_updated"));
       } catch {}
       setSubmitType("draft");
       setSubmitted(true);
-      onCreated?.();
+      onSaved?.(resultEvent);
+      onCreated?.(resultEvent);
     } catch (e: any) {
       setPublishError(e.message ?? "Failed to save draft");
     } finally {
@@ -1694,18 +1824,40 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
     setPublishError("");
     try {
       persistTicketCategoriesLocally(formData.ticketTypes, formData.title);
+      const reqPayload = toEventRequest(formData, "PUBLISHED");
+      let resultEvent: any = {
+        ...(initialData || {}),
+        ...formData,
+        id: eventId || (initialData as any)?.id || "EVT-" + Date.now(),
+        venue: formData.venueName,
+        status: "upcoming",
+      };
+
       if (!useMock) {
-        await eventService.create(toEventRequest(formData, "PUBLISHED"));
+        if (isEditing && (eventId || (initialData as any)?.id)) {
+          const numId = typeof (eventId || (initialData as any)?.id) === "string" 
+            ? parseInt(String(eventId || (initialData as any)?.id).replace(/\D/g, ""), 10) 
+            : Number(eventId || (initialData as any)?.id);
+          if (!isNaN(numId)) {
+            const resp = await eventService.update(numId, reqPayload);
+            if (resp) resultEvent = resp;
+          }
+        } else {
+          const resp = await eventService.create(reqPayload);
+          if (resp) resultEvent = resp;
+        }
       }
       try {
         window.dispatchEvent(new Event("mana_activities_updated"));
         window.dispatchEvent(new Event("mana_event_created"));
+        window.dispatchEvent(new Event("mana_event_updated"));
       } catch {}
       setSubmitType("published");
       setSubmitted(true);
-      onCreated?.();
+      onSaved?.(resultEvent);
+      onCreated?.(resultEvent);
     } catch (e: any) {
-      setPublishError(e.message ?? "Failed to publish event");
+      setPublishError(e.message ?? "Failed to save event");
     } finally {
       setPublishing(false);
     }
@@ -1724,24 +1876,29 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
           {isDraft ? <Bookmark className="w-10 h-10 sm:w-12 sm:h-12 text-amber-500" /> : <Check className="w-10 h-10 sm:w-12 sm:h-12 text-emerald-500" />}
         </div>
         <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">
-          {isDraft ? "Event Saved as Draft!" : "Event Published!"}
+          {isEditing 
+            ? (isDraft ? "Event Saved as Draft!" : "Event Details Updated!")
+            : (isDraft ? "Event Saved as Draft!" : "Event Published!")}
         </h2>
         <p className="text-slate-500 mb-10 max-w-sm mx-auto">
-          <span className="font-semibold text-slate-700">"{formData.title || "Your event"}"</span> has been {isDraft ? "saved as a draft. You can edit and publish it anytime." : `created and is now ${formData.visibility === "public" ? "publicly visible" : "live for your community"}.`}
+          <span className="font-semibold text-slate-700">"{formData.title || "Your event"}"</span> has been {isEditing ? "successfully updated." : (isDraft ? "saved as a draft. You can edit and publish it anytime." : `created and is now ${formData.visibility === "public" ? "publicly visible" : "live for your community"}.`)}
         </p>
         <div className="flex gap-3 justify-center">
-          <button onClick={() => { setSubmitted(false); setStep(1); setFormData({ ...INITIAL_FORM_DATA }); }}
-            className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition-all">
-            Create Another
-          </button>
-          {onClose ? (
+          {isEditing ? (
+            <button onClick={() => { setSubmitted(false); }}
+              className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition-all">
+              Continue Editing
+            </button>
+          ) : (
+            <button onClick={() => { setSubmitted(false); setStep(1); setFormData({ ...INITIAL_FORM_DATA }); }}
+              className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition-all">
+              Create Another
+            </button>
+          )}
+          {onClose && (
             <button onClick={onClose}
               className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all">
               <Check className="w-4 h-4" /> Done
-            </button>
-          ) : (
-            <button className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all">
-              <Eye className="w-4 h-4" /> View Events
             </button>
           )}
         </div>
@@ -1769,7 +1926,9 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-extrabold text-slate-900">Create new event</h2>
+              <h2 className="text-base font-extrabold text-slate-900">
+                {isEditing ? "Edit event details" : "Create new event"}
+              </h2>
               {formData.title && (
                 <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 border border-purple-100 text-xs font-semibold text-purple-700 max-w-[160px] truncate">
                   <Sparkles className="w-3 h-3 flex-shrink-0 text-purple-600" /> {formData.title}
@@ -1829,12 +1988,12 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
             })}
           </div>
 
-          {/* Draft Status Box */}
+          {/* Status Box */}
           <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-2.5 text-xs shadow-xs mt-4">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+            <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", isEditing ? "bg-indigo-500" : "bg-emerald-500 animate-pulse")}></span>
             <div>
-              <p className="font-bold text-slate-800 text-[11px]">Draft status</p>
-              <p className="text-[10px] text-slate-400 font-medium">Autosaved just now</p>
+              <p className="font-bold text-slate-800 text-[11px]">{isEditing ? "Editing mode" : "Draft status"}</p>
+              <p className="text-[10px] text-slate-400 font-medium">{isEditing ? "Updating live/draft event" : "Autosaved just now"}</p>
             </div>
           </div>
         </div>
@@ -1897,7 +2056,7 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
             <button onClick={handleSaveDraft} disabled={savingDraft || publishing}
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all shadow-xs disabled:opacity-50">
               <Bookmark className="w-3.5 h-3.5 text-amber-500" />
-              <span>{savingDraft ? "Saving…" : "Save Draft"}</span>
+              <span>{savingDraft ? "Saving…" : isEditing ? "Save Draft" : "Save Draft"}</span>
             </button>
             <button onClick={handleNext}
               className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-all">
@@ -1914,12 +2073,95 @@ function EventCreateWizard({ onClose, onCreated }: { onClose?: () => void; onCre
             </button>
             <button onClick={handlePublish} disabled={publishing || savingDraft}
               className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md transition-all disabled:opacity-60">
-              <Check className="w-3.5 h-3.5" /> {publishing ? "Publishing…" : "Publish Event"}
+              <Check className="w-3.5 h-3.5" /> {publishing ? "Saving…" : isEditing ? "Update Event" : "Publish Event"}
             </button>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+/* ─── Edit Event Dialog (full 7-step wizard modal) ─── */
+export function EditEventDialog({
+  open = true,
+  onOpenChange,
+  onClose,
+  event,
+  onSave,
+}: {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onClose?: () => void;
+  event: any;
+  onSave?: (updated: any) => void;
+}) {
+  const close = onClose || (() => onOpenChange?.(false));
+
+  useEffect(() => {
+    if (open) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = prev; };
+    }
+  }, [open]);
+
+  if (!open || !event) return null;
+
+  return createPortal(
+    <>
+      <div
+        onClick={close}
+        style={{
+          position: "fixed", inset: 0, zIndex: 9998,
+          background: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(4px)",
+          WebkitBackdropFilter: "blur(4px)",
+        }}
+      />
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 9999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "0",
+          pointerEvents: "none",
+        }}
+      >
+        <div
+          style={{
+            pointerEvents: "auto",
+            background: "#fff",
+            width: "100%",
+            maxWidth: "54rem",
+            height: "100dvh",
+            maxHeight: "92dvh",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+            boxShadow: "0 0 0 1px rgba(0,0,0,0.06), 0 4px 6px -1px rgba(0,0,0,0.04), 0 20px 50px -12px rgba(79,70,229,0.22)",
+            borderRadius: 0,
+          }}
+          className="sm:rounded-2xl sm:h-[min(90vh,760px)] sm:max-h-[92vh] sm:m-3 md:m-4 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
+          onClick={e => e.stopPropagation()}
+        >
+          <EventCreateWizard
+            initialData={event}
+            eventId={event?.id}
+            isEdit={true}
+            onClose={close}
+            onSaved={(updated) => {
+              onSave?.(updated);
+              close();
+            }}
+          />
+        </div>
+      </div>
+    </>,
+    document.body
   );
 }
 
