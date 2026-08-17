@@ -356,11 +356,17 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     };
   }, [event, ticketCategories]);
 
+  const isFreeEvent =
+    event?.isFree === true ||
+    formData.numericPrice === 0 ||
+    formData.categoryPrice === "Free" ||
+    formData.categoryPrice === "₹0";
+
   const steps = [
     { num: 1, title: "Pass Tier" },
     { num: 2, title: "Resident" },
     { num: 3, title: "Attendees" },
-    { num: 4, title: "Payment" },
+    { num: 4, title: isUpdateMode ? "Update" : isFreeEvent ? "Confirm" : "Payment" },
   ];
 
   const handleAddMember = () => {
@@ -1018,129 +1024,208 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
             </div>
           )}
 
-          {/* STEP 4: Payment Mode & Verification */}
+          {/* STEP 4: Review & Confirmation for Free Events OR Payment for Paid Events */}
           {currentStep === 4 && (
             <div className="space-y-3.5 flex-1">
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <div>
-                  <h3 className="text-sm font-extrabold text-foreground">Payment Mode</h3>
-                  <p className="text-[11px] text-muted-foreground">Select payment method to complete booking</p>
+                  <h3 className="text-sm font-extrabold text-foreground">
+                    {isUpdateMode
+                      ? "Review & Confirm Updates"
+                      : isFreeEvent
+                      ? "Review & Confirmation"
+                      : "Payment Mode"}
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    {isUpdateMode
+                      ? "Verify your attendee details and pass configuration before saving"
+                      : isFreeEvent
+                      ? "Verify your registration details before completing free booking"
+                      : "Select payment method to complete booking"}
+                  </p>
                 </div>
-                <span className="text-xs font-mono font-black text-primary bg-primary/10 px-2.5 py-1 rounded-xl border border-primary/20">
-                  {formData.numericPrice === 0
-                    ? "FREE PASS"
+                <span className={`text-xs font-mono font-black px-2.5 py-1 rounded-xl border ${
+                  isFreeEvent
+                    ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                    : "text-primary bg-primary/10 border-primary/20"
+                }`}>
+                  {isFreeEvent
+                    ? "FREE ADMISSION"
                     : `Total: ₹${formData.numericPrice.toLocaleString("en-IN")}`}
                 </span>
               </div>
 
-              {/* Payment Modes */}
-              <div className="grid grid-cols-3 gap-2">
-                {[
-                  { id: "UPI", label: "UPI / QR Code", desc: "Instant scan & pay", icon: QrCode },
-                  { id: "Card", label: "Cards / NetBanking", desc: "Online gateway", icon: CreditCard },
-                  { id: "Cash", label: "Cash / Counter", desc: "Pay at venue", icon: DollarSign },
-                ].map((mode) => {
-                  const Icon = mode.icon;
-                  const isSelected = (formData.paymentMode || "UPI") === mode.id;
-                  return (
-                    <div
-                      key={mode.id}
-                      onClick={() => setFormData({ ...formData, paymentMode: mode.id })}
-                      className={`p-2.5 rounded-2xl border cursor-pointer transition-all flex flex-col items-center text-center gap-1.5 select-none ${
-                        isSelected
-                          ? "bg-primary/10 border-primary shadow-xs ring-2 ring-primary/20"
-                          : "bg-muted/40 border-border hover:border-primary/40"
-                      }`}
-                    >
-                      <div
-                        className={`p-2 rounded-xl shrink-0 ${
-                          isSelected ? "bg-primary text-white shadow-xs" : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
+              {isFreeEvent ? (
+                /* FREE EVENT: Clean Details Review Summary (NO PAYMENT DETAILS) */
+                <div className="p-4 rounded-2xl bg-card border border-border space-y-3 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Event / Festival</span>
+                      <strong className="text-foreground font-bold text-xs truncate block">{event?.title || "Community Event"}</strong>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Pass Category</span>
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-bold text-xs block truncate">
+                        {formData.category} (Free Entry)
+                      </strong>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Primary Registrant</span>
+                      <strong className="text-foreground font-bold text-xs block truncate">
+                        {formData.fullName} ({formData.flatNo || "Resident"})
+                      </strong>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Gotram / Lineage</span>
+                      <strong className="text-foreground font-bold text-xs block truncate">
+                        {formData.gotram || "N/A"}
+                      </strong>
+                    </div>
+                  </div>
+
+                  {/* Registered Attendees Summary */}
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10.5px] font-bold text-muted-foreground uppercase">
+                        Registered Attendees ({formData.members.length}):
+                      </span>
+                      <span className="text-[10.5px] font-bold text-emerald-600 dark:text-emerald-400">Complimentary Entry</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {formData.members.map((m, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 rounded-lg bg-background border border-border text-[11px] font-medium text-foreground flex items-center gap-1"
+                        >
+                          <span className="text-muted-foreground">{idx + 1}.</span>
+                          <strong className="font-bold">{m.name || `Attendee ${idx + 1}`}</strong>
+                          {(m as any).relationship && <span className="text-muted-foreground text-[10px]">({(m as any).relationship})</span>}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 block">Total Payable Amount</span>
+                      <span className="text-[10.5px] text-muted-foreground">Community-sponsored complimentary entry</span>
+                    </div>
+                    <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 uppercase">₹0 (Free)</span>
+                  </div>
+                </div>
+              ) : (
+                /* PAID EVENT: Payment Modes Selection & Verification */
+                <>
+                  {/* Payment Modes */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: "UPI", label: "UPI / QR Code", desc: "Instant scan & pay", icon: QrCode },
+                      { id: "Card", label: "Cards / NetBanking", desc: "Online gateway", icon: CreditCard },
+                      { id: "Cash", label: "Cash / Counter", desc: "Pay at venue", icon: DollarSign },
+                    ].map((mode) => {
+                      const Icon = mode.icon;
+                      const isSelected = (formData.paymentMode || "UPI") === mode.id;
+                      return (
+                        <div
+                          key={mode.id}
+                          onClick={() => setFormData({ ...formData, paymentMode: mode.id })}
+                          className={`p-2.5 rounded-2xl border cursor-pointer transition-all flex flex-col items-center text-center gap-1.5 select-none ${
+                            isSelected
+                              ? "bg-primary/10 border-primary shadow-xs ring-2 ring-primary/20"
+                              : "bg-muted/40 border-border hover:border-primary/40"
+                          }`}
+                        >
+                          <div
+                            className={`p-2 rounded-xl shrink-0 ${
+                              isSelected ? "bg-primary text-white shadow-xs" : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <p className={`text-xs font-bold truncate ${isSelected ? "text-primary" : "text-foreground"}`}>
+                            {mode.label}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Dynamic Mode Details */}
+                  {(formData.paymentMode === "UPI" || !formData.paymentMode) && (
+                    <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-foreground">Scan & Pay via any UPI App</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText("mana.events@upi");
+                            showSuccess("UPI ID copied!");
+                          }}
+                          className="text-xs font-mono font-bold text-primary flex items-center gap-1 hover:underline cursor-pointer"
+                        >
+                          <Copy className="w-3 h-3" /> mana.events@upi
+                        </button>
                       </div>
-                      <p className={`text-xs font-bold truncate ${isSelected ? "text-primary" : "text-foreground"}`}>
-                        {mode.label}
+
+                      <div className="flex items-center gap-3">
+                        <div className="p-2.5 bg-white rounded-2xl border border-border shrink-0 shadow-sm">
+                          <QrCode className="w-16 h-16 text-slate-900" />
+                        </div>
+                        <div className="flex-1 space-y-2 min-w-0">
+                          <input
+                            type="text"
+                            placeholder="UPI Reference / UTR ID (Optional)"
+                            value={formData.transactionRef || ""}
+                            onChange={(e) => setFormData({ ...formData, transactionRef: e.target.value })}
+                            className="w-full h-9 px-3 rounded-xl bg-[var(--mana-bg-input)] text-xs font-mono border border-border outline-none text-foreground"
+                          />
+                          <label className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer">
+                            {isUploadingReceipt ? (
+                              <>
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+                                <span>Uploading to S3...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="w-3.5 h-3.5" />
+                                <span>{formData.receiptUploaded ? "Receipt Screenshot Attached ✓" : "Upload Payment Screenshot"}</span>
+                              </>
+                            )}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              disabled={isUploadingReceipt}
+                              onChange={handleScreenshotUpload}
+                              className="hidden"
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {formData.paymentMode === "Card" && (
+                    <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-1.5 text-center">
+                      <CreditCard className="w-7 h-7 text-primary mx-auto" />
+                      <p className="text-xs font-bold text-foreground">Secure Payment Gateway</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        You will be redirected to complete payment with 256-bit encryption on submit.
                       </p>
                     </div>
-                  );
-                })}
-              </div>
+                  )}
 
-              {/* Dynamic Mode Details */}
-              {(formData.paymentMode === "UPI" || !formData.paymentMode) && (
-                <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-foreground">Scan & Pay via any UPI App</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        navigator.clipboard.writeText("mana.events@upi");
-                        showSuccess("UPI ID copied!");
-                      }}
-                      className="text-xs font-mono font-bold text-primary flex items-center gap-1 hover:underline cursor-pointer"
-                    >
-                      <Copy className="w-3 h-3" /> mana.events@upi
-                    </button>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-white rounded-2xl border border-border shrink-0 shadow-sm">
-                      <QrCode className="w-16 h-16 text-slate-900" />
+                  {formData.paymentMode === "Cash" && (
+                    <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-1 text-left">
+                      <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <DollarSign className="w-4 h-4 text-emerald-500" /> Pay Cash at Helpdesk
+                      </p>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed">
+                        Your spot is reserved. Please show this registration e-pass and pay cash at the event registration
+                        counter on the day of the event.
+                      </p>
                     </div>
-                    <div className="flex-1 space-y-2 min-w-0">
-                      <input
-                        type="text"
-                        placeholder="UPI Reference / UTR ID (Optional)"
-                        value={formData.transactionRef || ""}
-                        onChange={(e) => setFormData({ ...formData, transactionRef: e.target.value })}
-                        className="w-full h-9 px-3 rounded-xl bg-[var(--mana-bg-input)] text-xs font-mono border border-border outline-none text-foreground"
-                      />
-                      <label className="flex items-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer">
-                        {isUploadingReceipt ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
-                            <span>Uploading to S3...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="w-3.5 h-3.5" />
-                            <span>{formData.receiptUploaded ? "Receipt Screenshot Attached ✓" : "Upload Payment Screenshot"}</span>
-                          </>
-                        )}
-                        <input
-                          type="file"
-                          accept="image/*"
-                          disabled={isUploadingReceipt}
-                          onChange={handleScreenshotUpload}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {formData.paymentMode === "Card" && (
-                <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-1.5 text-center">
-                  <CreditCard className="w-7 h-7 text-primary mx-auto" />
-                  <p className="text-xs font-bold text-foreground">Secure Payment Gateway</p>
-                  <p className="text-[11px] text-muted-foreground">
-                    You will be redirected to complete payment with 256-bit encryption on submit.
-                  </p>
-                </div>
-              )}
-
-              {formData.paymentMode === "Cash" && (
-                <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-1 text-left">
-                  <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <DollarSign className="w-4 h-4 text-emerald-500" /> Pay Cash at Helpdesk
-                  </p>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Your spot is reserved. Please show this registration e-pass and pay cash at the event registration
-                    counter on the day of the event.
-                  </p>
-                </div>
+                  )}
+                </>
               )}
             </div>
           )}

@@ -58,7 +58,7 @@ interface FamilyMember {
 interface Activity {
   id: string;
   title: string;
-  category: "Pooja" | "Cultural" | "Competitions" | "Food" | "Volunteer" | "Donation" | "Auction" | "Other";
+  category: "Pooja" | "Cultural" | "Competitions" | "Food" | "Volunteer" | "Donation" | "Auction" | "Other" | string;
   date: string;
   time: string;
   venue: string;
@@ -66,6 +66,18 @@ interface Activity {
   availableSeats: number;
   image: string;
   description: string;
+  startDate?: string;
+  endDate?: string;
+  isMultiDay?: boolean;
+  startTime?: string;
+  startTimes?: string[];
+  mandap?: string;
+  pandit?: string;
+  slots?: number | string;
+  isFree?: boolean;
+  existingRegistration?: any;
+  registrationId?: string | number;
+  isUpdateMode?: boolean;
 }
 
 interface UserPass {
@@ -82,7 +94,7 @@ interface UserPass {
   date: string;
   time: string;
   venue: string;
-  status: "CONFIRMED" | "PENDING APPROVAL";
+  status: "CONFIRMED" | "PENDING APPROVAL" | "CANCELLED" | string;
   qrCodeUrl: string;
   bookingFee?: number;
   paymentStatus?: string;
@@ -142,7 +154,26 @@ const INITIAL_ACTIVITIES: Activity[] = [
   },
 ];
 
-const INITIAL_PASSES: UserPass[] = [];
+function countdownFrom(dateStr?: string | null, timeStr?: string | null) {
+  if (!dateStr) return { days: 0, hours: 0, mins: 0, secs: 0 };
+  const parsedTime = Date.parse(dateStr);
+  let dt: number;
+  if (!isNaN(parsedTime)) {
+    dt = new Date(`${new Date(parsedTime).toISOString().slice(0, 10)}${timeStr ? "T" + timeStr : "T00:00:00"}`).getTime();
+  } else {
+    dt = new Date(`${dateStr}${timeStr ? "T" + timeStr : "T00:00:00"}`).getTime();
+  }
+  if (isNaN(dt)) {
+    dt = new Date("2026-08-27T00:00:00").getTime();
+  }
+  const diff = Math.max(0, dt - Date.now());
+  return {
+    days: Math.floor(diff / 86400000),
+    hours: Math.floor((diff % 86400000) / 3600000),
+    mins: Math.floor((diff % 3600000) / 60000),
+    secs: Math.floor((diff % 60000) / 1000),
+  };
+}
 
 export function EventMemberView() {
   const { user } = useAuth();
@@ -161,6 +192,20 @@ export function EventMemberView() {
   const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
   const [loadingApiData, setLoadingApiData] = useState(false);
   const [loadingFamily, setLoadingFamily] = useState(false);
+
+  // Live Countdown Ticker
+  const [timeLeft, setTimeLeft] = useState(() => countdownFrom("2026-08-27", null));
+
+  useEffect(() => {
+    const targetDate = activitiesList.length > 0 && activitiesList[0]?.date ? activitiesList[0].date : "2026-08-27";
+    const targetTime = activitiesList.length > 0 && activitiesList[0]?.time ? activitiesList[0].time : null;
+
+    setTimeLeft(countdownFrom(targetDate, targetTime));
+    const interval = setInterval(() => {
+      setTimeLeft(countdownFrom(targetDate, targetTime));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [activitiesList]);
 
   // Payment Upload & Verification States
   const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
@@ -1042,22 +1087,62 @@ export function EventMemberView() {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between lg:justify-end gap-2 border-t lg:border-t-0 pt-2.5 lg:pt-0 border-white/15">
-                  <div className="text-[10.5px] sm:text-[11px] font-semibold text-white/80 italic truncate">
-                    {activitiesList.length > 0 ? "⚡ 2-Tap Booking Active" : "No active timer"}
-                  </div>
-                  {activitiesList.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedActivity(activitiesList[0]);
-                      }}
-                      className="px-3.5 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 text-[11px] sm:text-xs font-black rounded-xl shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1.5"
-                    >
-                      <Ticket className="w-3.5 h-3.5" />
-                      Register
-                    </button>
+                <div className="flex flex-wrap items-center gap-3 shrink-0 justify-between lg:justify-end border-t lg:border-t-0 pt-2.5 lg:pt-0 border-white/15">
+                  {/* Live Countdown Ticker */}
+                  {activitiesList.length > 0 ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] font-bold text-white/70 uppercase tracking-wider mr-1">Starts in</span>
+                      {[
+                        { val: timeLeft.days, unit: "d" },
+                        { val: timeLeft.hours, unit: "h" },
+                        { val: timeLeft.mins, unit: "m" },
+                        { val: timeLeft.secs, unit: "s", amber: true },
+                      ].map(({ val, unit, amber }, i) => (
+                        <div key={unit} className="flex items-center">
+                          <div className="flex flex-col items-center">
+                            <span
+                              className={`w-7 sm:w-8 text-center px-1 py-0.5 rounded-lg font-mono text-xs font-extrabold leading-none shadow-2xs ${
+                                amber ? "bg-amber-400/30 text-amber-200 border border-amber-400/40" : "bg-black/30 text-white border border-white/10"
+                              }`}
+                            >
+                              {String(val).padStart(2, "0")}
+                            </span>
+                            <span className="text-[7.5px] font-bold text-white/60 mt-0.5 uppercase">{unit}</span>
+                          </div>
+                          {i < 3 && <span className="text-white/40 font-bold text-xs mx-0.5 mb-1.5">:</span>}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-[11px] font-semibold text-white/70 italic">
+                      No active timer
+                    </div>
                   )}
+
+                  {activitiesList.length > 0 && (() => {
+                    const act = activitiesList[0];
+                    const existingPass = getExistingPassForActivity(act);
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (existingPass) {
+                            handleOpenUpdateRegistration(act, existingPass);
+                          } else {
+                            setSelectedActivity(act);
+                          }
+                        }}
+                        className={`px-3.5 py-1.5 text-[11px] sm:text-xs font-black rounded-xl shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                          existingPass
+                            ? "bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-400/40"
+                            : "bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950"
+                        }`}
+                      >
+                        {existingPass ? <Edit3 className="w-3.5 h-3.5" /> : <Ticket className="w-3.5 h-3.5" />}
+                        {existingPass ? "Update Registration" : "Book / Register Pass"}
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
