@@ -568,11 +568,6 @@ export function EventMemberView() {
     setSelectedActivity(null);
     setActiveTab("passes");
   };
-    setPassesList((prev) => [newPass, ...prev]);
-    alert(`Success! Registered for ${selectedActivity.title}. E-Pass issued to ${attendingNames}!`);
-    setSelectedActivity(null);
-    setActiveTab("passes");
-  };
 
   const filteredActivities = activitiesList.filter((a) => {
     const matchesSearch =
