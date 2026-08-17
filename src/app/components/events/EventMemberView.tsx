@@ -309,18 +309,10 @@ export function EventMemberView() {
         });
       }
 
-      const custom: Activity[] = JSON.parse(localStorage.getItem("mana_custom_activities") || "[]");
-      const combined = [...fetchedActivities, ...custom];
-
-      setActivitiesList(combined);
+      setActivitiesList(fetchedActivities);
     } catch (err) {
       console.warn("Failed to fetch live API events:", err);
-      try {
-        const custom: Activity[] = JSON.parse(localStorage.getItem("mana_custom_activities") || "[]");
-        setActivitiesList(custom);
-      } catch {
-        setActivitiesList([]);
-      }
+      setActivitiesList([]);
     } finally {
       setLoadingApiData(false);
     }
