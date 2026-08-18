@@ -53,6 +53,8 @@ export interface PoojaRegistrationModalProps {
     slots?: number | string;
     parentEventTitle?: string;
     gotram?: string;
+    notes?: string | null;
+    samagri?: string | null;
     existingRegistration?: any;
     registrationId?: string | number;
     isUpdateMode?: boolean;
@@ -795,37 +797,42 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             )}
 
             {/* ───────────────────────────────────────────────────────── */}
-            {/* STEP 3: MAHAPRASADAM & SAMAGRI NOTES                      */}
+            {/* STEP 3: SAMAGRI & NOTES                                   */}
             {/* ───────────────────────────────────────────────────────── */}
             {currentStep === 3 && (
               <div className="space-y-3.5 flex-1">
                 <div className="border-b border-border pb-2">
-                  <h3 className="text-sm font-extrabold text-foreground">Mahaprasadam &amp; Samagri</h3>
-                  <p className="text-[11px] text-muted-foreground">Review holy samagri arrangements and choose your prasadam pickup preference</p>
+                  <h3 className="text-sm font-extrabold text-foreground">Samagri &amp; Notes</h3>
+                  <p className="text-[11px] text-muted-foreground">Samagri requirements and additional notes for this pooja event</p>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-card border border-border space-y-3 text-xs">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-primary flex items-center gap-1.5 text-sm">
-                      <span>🌾</span> Sacred Samagri Guidelines
+                <div className="space-y-3">
+                  {/* Samagri Required */}
+                  <div className="p-4 rounded-2xl bg-card border border-border space-y-2">
+                    <h4 className="font-bold text-foreground flex items-center gap-1.5 text-xs uppercase tracking-wide">
+                      <span>🌾</span> Samagri Required
                     </h4>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20 text-[11px]">
-                      Temple Kitchen
-                    </span>
+                    {event.samagri || event.description ? (
+                      <p className="text-[13px] text-foreground leading-relaxed whitespace-pre-line">
+                        {event.samagri || event.description}
+                      </p>
+                    ) : (
+                      <p className="text-[12px] text-muted-foreground italic">No samagri details specified for this event.</p>
+                    )}
                   </div>
 
-                  <p className="text-muted-foreground leading-relaxed">
-                    <strong className="text-foreground">Temple provides:</strong> Pure Cow Ghee, Dry Coconuts, Kumkum, Turmeric, Fresh Flowers, Modak &amp; Pulihora.<br />
-                    <strong className="text-foreground">Devotees may optionally bring:</strong> Fresh fruits &amp; Panchamrut items.
-                  </p>
-
-                  <div className="pt-3 border-t border-border">
-                    <div className="p-3 rounded-xl border-2 border-primary bg-primary/10 shadow-xs flex items-center gap-3">
-                      <div>
-                        <strong className="text-foreground block">Collect at Mandap Counter post-Aarti</strong>
-                        <span className="text-[11px] text-muted-foreground">Receive directly from Priest with Seshavastram blessing</span>
-                      </div>
-                    </div>
+                  {/* Notes */}
+                  <div className="p-4 rounded-2xl bg-card border border-border space-y-2">
+                    <h4 className="font-bold text-foreground flex items-center gap-1.5 text-xs uppercase tracking-wide">
+                      <span>📝</span> Notes
+                    </h4>
+                    {event.notes ? (
+                      <p className="text-[13px] text-foreground leading-relaxed whitespace-pre-line">
+                        {event.notes}
+                      </p>
+                    ) : (
+                      <p className="text-[12px] text-muted-foreground italic">No additional notes for this event.</p>
+                    )}
                   </div>
                 </div>
               </div>
