@@ -1006,58 +1006,54 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
         {/* ─── FOOTER NAVIGATION (APP MODULE BUTTONS) ─── */}
         {!isSuccess && (
-          <div className="flex items-center justify-between border-t border-border pt-3 shrink-0">
-            <div>
-              {currentStep > 1 && (
-                <TouchButton
-                  type="button"
-                  onClick={handleBack}
-                  disabled={isSubmitting}
-                  variant="outline"
-                  size="sm"
-                  icon={ArrowLeft}
-                  className="cursor-pointer"
-                >
-                  Back
-                </TouchButton>
-              )}
-            </div>
+          <div className="flex items-center justify-center gap-3 border-t border-border pt-3 shrink-0">
+            {currentStep > 1 && (
+              <TouchButton
+                type="button"
+                onClick={handleBack}
+                disabled={isSubmitting}
+                variant="outline"
+                size="sm"
+                icon={ArrowLeft}
+                className="cursor-pointer"
+              >
+                Back
+              </TouchButton>
+            )}
 
-            <div className="flex items-center gap-2">
-              {currentStep < 4 ? (
-                <TouchButton
-                  type="button"
-                  onClick={handleNext}
-                  variant="primary"
-                  size="sm"
-                  className="cursor-pointer"
-                >
-                  <span>Continue</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </TouchButton>
-              ) : (
-                <TouchButton
-                  type="button"
-                  onClick={() => handleBookingConfirm(isFreeEvent ? "Free Seva" : "UPI")}
-                  disabled={isSubmitting}
-                  variant="primary"
-                  size="sm"
-                  className="cursor-pointer"
-                >
-                  {isUpdateMode ? (
-                    <>
-                      <span>Update Registration</span>
-                      <RefreshCw className="w-3.5 h-3.5" />
-                    </>
-                  ) : (
-                    <>
-                      <span>{isFreeEvent ? "Confirm & Register Pooja" : `Confirm & Book Seva (₹${numericFee})`}</span>
-                      <Flame className="w-3.5 h-3.5" />
-                    </>
-                  )}
-                </TouchButton>
-              )}
-            </div>
+            {currentStep < 4 ? (
+              <TouchButton
+                type="button"
+                onClick={handleNext}
+                variant="primary"
+                size="sm"
+                className="cursor-pointer"
+              >
+                <span>Continue</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </TouchButton>
+            ) : (
+              <TouchButton
+                type="button"
+                onClick={() => handleBookingConfirm(isFreeEvent ? "Free Seva" : "UPI")}
+                disabled={isSubmitting}
+                variant="primary"
+                size="sm"
+                className="cursor-pointer"
+              >
+                {isUpdateMode ? (
+                  <>
+                    <span>Update Registration</span>
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </>
+                ) : (
+                  <>
+                    <span>{isFreeEvent ? "Confirm & Register Pooja" : `Confirm & Book Seva (₹${numericFee})`}</span>
+                    <Flame className="w-3.5 h-3.5" />
+                  </>
+                )}
+              </TouchButton>
+            )}
           </div>
         )}
 
