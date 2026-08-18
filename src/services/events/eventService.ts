@@ -8,6 +8,14 @@ export interface TicketTypeItem {
   description?: string;
 }
 
+export interface EventContactPerson {
+  id?: string;
+  name: string;
+  phone: string;
+  role?: string;
+  email?: string;
+}
+
 export interface EventResponse {
   id: number;
   title: string;
@@ -40,6 +48,13 @@ export interface EventResponse {
   createdAt: string;
   ticketTypes?: TicketTypeItem[];
   paymentModes?: string[] | string;
+  upiId?: string | null;
+  scannerUrl?: string | null;
+  scannerImage?: string | null;
+  notes?: string | null;
+  contactsJson?: string | null;
+  contactDetails?: EventContactPerson[];
+  paymentInstructions?: string | null;
 }
 
 export interface EventVenue {
@@ -85,6 +100,12 @@ export interface EventRequest {
   maxAttendees?: number;
   ticketTypes?: TicketTypeItem[];
   paymentModes?: string[] | string;
+  upiId?: string;
+  scannerUrl?: string;
+  scannerImage?: string;
+  notes?: string;
+  contactsJson?: string;
+  paymentInstructions?: string;
 }
 
 export interface DashboardStatsResponse {

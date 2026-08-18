@@ -7,7 +7,7 @@ import {
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
   Zap, Star, ArrowRight, Trash2, PlusCircle, Link2,
-  Save, Bookmark, XCircle, Mail,
+  Save, Bookmark, XCircle, Mail, CreditCard, QrCode, Phone, User, Info,
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
@@ -22,10 +22,19 @@ import { CREATE_EVENT, MANAGE_EVENT_DASHBOARD } from "../../../constants/permiss
 import { useEventMock } from "./EventMockToggle";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { eventService, type EventRequest } from "../../../services/events/eventService";
+import { fileUploadService } from "../../../services/files/fileUploadService";
 import { DEFAULT_REGISTRATION_FORM_CONFIG, GANESH_CHATURTHI_FORM_CONFIG, type RegistrationFormConfig, type FormField } from "./EventRegistrationFormBuilder";
 import { AgendaNotificationModal } from "./EventsPrograms";
 
 /* ─── Types ─── */
+export interface EventContactItem {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  email?: string;
+}
+
 interface FormData {
   title: string;
   eventType: string;
@@ -53,6 +62,11 @@ interface FormData {
   tags: string[];
   registrationFormConfig: RegistrationFormConfig;
   paymentModes?: string[];
+  upiId: string;
+  scannerUrl: string;
+  notes: string;
+  paymentInstructions: string;
+  contacts: EventContactItem[];
 }
 
 interface TicketType { id: string; name: string; price: string; qty: string; description: string; }
@@ -232,13 +246,14 @@ const EVENT_TYPES = [
 ];
 
 const STEPS = [
-  { id: 1, label: "Basics",       desc: "Name, type & visibility", icon: CalendarDays },
-  { id: 2, label: "Schedule",     desc: "Date, time & venue",      icon: Clock        },
-  { id: 3, label: "Registration", desc: "Tickets & categories",    icon: Ticket       },
-  { id: 4, label: "Reg. Form",    desc: "Select form template",    icon: FileText     },
-  { id: 5, label: "Budget",       desc: "Allocation & breakdown",  icon: DollarSign   },
-  { id: 6, label: "Media",        desc: "Cover image & tags",      icon: Image        },
-  { id: 7, label: "Review",       desc: "Verify & publish",        icon: Eye          },
+  { id: 1, label: "Basics",             desc: "Name, type & visibility",       icon: CalendarDays },
+  { id: 2, label: "Schedule",           desc: "Date, time & venue",            icon: Clock        },
+  { id: 3, label: "Registration",       desc: "Tickets & categories",          icon: Ticket       },
+  { id: 4, label: "Payment & Contacts", desc: "Payment modes, QR & contacts", icon: CreditCard   },
+  { id: 5, label: "Reg. Form",          desc: "Select form template",          icon: FileText     },
+  { id: 6, label: "Budget",             desc: "Allocation & breakdown",        icon: DollarSign   },
+  { id: 7, label: "Media",              desc: "Cover image & tags",            icon: Image        },
+  { id: 8, label: "Review",             desc: "Verify & publish",              icon: Eye          },
 ];
 
 const BUDGET_CATEGORIES = ["Venue", "Food & Catering", "Decoration", "Audio / Visual", "Security", "Marketing", "Transport", "Volunteers", "Medical", "Other"];
@@ -254,6 +269,10 @@ const DEFAULT_BUDGET_ITEMS: BudgetItem[] = [
   { id: "b3", category: "Decoration",       amount: "" },
 ];
 
+const DEFAULT_CONTACTS: EventContactItem[] = [
+  { id: "c1", name: "", phone: "", role: "Event Lead / Main Coordinator", email: "" },
+];
+
 const INITIAL_FORM_DATA: FormData = {
   title: "", eventType: "festival", category: "Festival", description: "",
   visibility: "community",
@@ -266,6 +285,11 @@ const INITIAL_FORM_DATA: FormData = {
   coverImageUrl: "", tags: [],
   registrationFormConfig: { ...GANESH_CHATURTHI_FORM_CONFIG },
   paymentModes: ["UPI", "Card", "Cash"],
+  upiId: "",
+  scannerUrl: "",
+  notes: "",
+  paymentInstructions: "Please scan the QR code using any UPI app (GPay, PhonePe, Paytm) and save the transaction screenshot/UTR.",
+  contacts: DEFAULT_CONTACTS,
 };
 
 // shadcn theme tokens: --input-background:#f3f3f5, --border:rgba(0,0,0,0.1), --radius:0.625rem
@@ -1138,66 +1162,397 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
             </div>
           </div>
 
-          {/* Accepted Payment Modes (Optional) */}
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-            <div>
-              <div className="flex items-center justify-between">
-                <FieldLabel>Accepted Payment Modes</FieldLabel>
-                <span className="text-[10.5px] font-semibold text-slate-400">Optional · Configure for registration</span>
-              </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Select which payment modes are permitted for user event pass registration.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {[
-                { id: "UPI", label: "UPI / QR Code", desc: "Instant UPI Scan" },
-                { id: "Card", label: "Cards / NetBanking", desc: "Online Gateway" },
-                { id: "Cash", label: "Cash / Helpdesk", desc: "Pay at Venue" },
-              ].map((mode) => {
-                const currentModes = data.paymentModes || ["UPI", "Card", "Cash"];
-                const isChecked = currentModes.includes(mode.id);
-                return (
-                  <label
-                    key={mode.id}
-                    className={cn(
-                      "flex items-start gap-2 p-2.5 rounded-xl border cursor-pointer transition-all select-none",
-                      isChecked
-                        ? "bg-indigo-50 border-indigo-300 text-indigo-900"
-                        : "bg-white border-slate-200 text-slate-600 hover:border-slate-300"
-                    )}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={(e) => {
-                        let next: string[];
-                        if (e.target.checked) {
-                          next = [...currentModes, mode.id];
-                        } else {
-                          next = currentModes.filter((m) => m !== mode.id);
-                        }
-                        update("paymentModes", next);
-                      }}
-                      className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold leading-tight truncate">{mode.label}</p>
-                      <p className="text-[10px] text-slate-400 truncate">{mode.desc}</p>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
         </div>
       )}
     </div>
   );
 }
 
-/* ─── Step 4: Form Template Selector ─── */
+/* ─── Step 4: Payment Mode, QR Code, Notes & Contacts ─── */
+function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
+  const [uploadingQr, setUploadingQr] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const paymentModeOptions = [
+    { id: "UPI", label: "UPI & QR", desc: "GPay, PhonePe, Paytm", icon: QrCode, color: "#4f46e5", bg: "#eef2ff" },
+    { id: "Card", label: "Cards", desc: "Visa, Master, RuPay", icon: CreditCard, color: "#0891b2", bg: "#ecfeff" },
+    { id: "NetBanking", label: "NetBanking", desc: "Direct Bank Transfer", icon: Building2, color: "#059669", bg: "#f0fdf4" },
+    { id: "Cash", label: "Cash Desk", desc: "Pay at Venue / Desk", icon: DollarSign, color: "#d97706", bg: "#fef9ee" },
+    { id: "Cheque", label: "Cheque/DD", desc: "Society / Trust A/C", icon: FileText, color: "#7c3aed", bg: "#f5f3ff" },
+  ];
+
+  const currentModes = data.paymentModes || ["UPI", "Card", "Cash"];
+
+  const togglePaymentMode = (modeId: string) => {
+    const next = currentModes.includes(modeId)
+      ? currentModes.filter((m) => m !== modeId)
+      : [...currentModes, modeId];
+    update("paymentModes", next);
+  };
+
+  const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setUploadError("Please select a valid image (PNG, JPG, WEBP).");
+      return;
+    }
+
+    setUploadingQr(true);
+    setUploadError("");
+    try {
+      const res = await fileUploadService.upload(file, "EVENT", "qr-scanner");
+      if (res && res.url) {
+        update("scannerUrl", res.url);
+      }
+    } catch (err: any) {
+      console.warn("QR upload fallback notice:", err);
+      const localUrl = URL.createObjectURL(file);
+      update("scannerUrl", localUrl);
+    } finally {
+      setUploadingQr(false);
+    }
+  };
+
+  const addContact = () => {
+    const newContact: EventContactItem = {
+      id: `c_${Date.now()}`,
+      name: "",
+      phone: "",
+      role: "Event Coordinator",
+      email: "",
+    };
+    update("contacts", [...(data.contacts || []), newContact]);
+  };
+
+  const removeContact = (id: string) => {
+    const next = (data.contacts || []).filter((c) => c.id !== id);
+    update("contacts", next.length > 0 ? next : [{ id: "c1", name: "", phone: "", role: "Event Lead", email: "" }]);
+  };
+
+  const updateContact = (id: string, field: keyof EventContactItem, value: string) => {
+    const next = (data.contacts || []).map((c) => (c.id === id ? { ...c, [field]: value } : c));
+    update("contacts", next);
+  };
+
+  return (
+    <div className="space-y-4 sm:space-y-5 animate-fade-in-up">
+      <SectionHeader
+        icon={CreditCard}
+        title="Payment Mode, QR Scanner, Notes & Contacts"
+        subtitle="Configure accepted payment methods, dynamic UPI QR scanner, guidelines & committee contacts"
+      />
+
+      {/* ── Section 1: Accepted Payment Modes ── */}
+      <div className="p-3.5 sm:p-4 bg-white border border-slate-200/90 rounded-2xl space-y-2.5 shadow-2xs">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <FieldLabel required>Accepted Payment Modes</FieldLabel>
+            <p className="text-[11px] text-slate-400">
+              Select which modes are permitted for pass registration
+            </p>
+          </div>
+          <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+            {currentModes.length} Selected
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+          {paymentModeOptions.map((mode) => {
+            const isChecked = currentModes.includes(mode.id);
+            const Icon = mode.icon;
+            return (
+              <div
+                key={mode.id}
+                onClick={() => togglePaymentMode(mode.id)}
+                className={cn(
+                  "flex items-start gap-2 p-2 sm:p-2.5 rounded-xl border cursor-pointer transition-all select-none",
+                  isChecked
+                    ? "bg-indigo-50/70 border-indigo-300 ring-1.5 ring-indigo-200/70 shadow-xs"
+                    : "bg-slate-50/50 border-slate-200/90 text-slate-600 hover:border-slate-300 hover:bg-slate-100/60"
+                )}
+              >
+                <div
+                  className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 shadow-2xs"
+                  style={{ background: isChecked ? mode.bg : "#f1f5f9", color: isChecked ? mode.color : "#64748b" }}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <p className={cn("text-[11.5px] font-bold truncate leading-tight", isChecked ? "text-indigo-950" : "text-slate-700")}>
+                      {mode.label}
+                    </p>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {}}
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-3.5 h-3.5"
+                    />
+                  </div>
+                  <p className="text-[9.5px] text-slate-400 truncate mt-0.5">{mode.desc}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Section 2: UPI ID & Scanner QR Code Image ── */}
+      <div className="p-3.5 sm:p-4 bg-white border border-slate-200/90 rounded-2xl space-y-3 shadow-2xs">
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+          <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <QrCode className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">UPI ID &amp; Payment QR Code</h3>
+            <p className="text-[10.5px] text-slate-400">Devotees will scan this QR code or use this UPI ID to make payments</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 sm:gap-4 items-start">
+          {/* Left Column: UPI ID + Instructions (7 cols) */}
+          <div className="md:col-span-7 space-y-2.5">
+            <div>
+              <FieldLabel>Event UPI ID (VPA)</FieldLabel>
+              <div className="relative mt-1">
+                <Input
+                  value={data.upiId}
+                  onChange={(e) => update("upiId", e.target.value)}
+                  placeholder="e.g. 9876543210@upi or community@icici"
+                  className={cn(INPUT_CLS, "h-8.5 pl-7.5 font-mono text-xs")}
+                />
+                <span className="absolute left-2.5 top-2 text-xs text-slate-400 font-bold">₹</span>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Leave blank if using cash-only or free passes.
+              </p>
+            </div>
+
+            <div>
+              <FieldLabel>Payment Instructions for Devotees</FieldLabel>
+              <Textarea
+                rows={2}
+                value={data.paymentInstructions}
+                onChange={(e) => update("paymentInstructions", e.target.value)}
+                placeholder="e.g. Please scan QR using GPay/PhonePe and save screenshot with UTR number."
+                className={cn(INPUT_CLS, "resize-none text-xs leading-relaxed")}
+              />
+            </div>
+          </div>
+
+          {/* Right Column: QR Code Scanner Upload (5 cols) */}
+          <div className="md:col-span-5 space-y-2">
+            <FieldLabel>Official Payment Scanner (QR Image)</FieldLabel>
+            
+            {data.scannerUrl ? (
+              <div className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/30 flex items-center gap-3">
+                <div className="w-16 h-16 rounded-lg bg-white border border-emerald-200 p-0.5 flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+                  <img
+                    src={data.scannerUrl}
+                    alt="Event QR Scanner"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-1 text-emerald-700 text-xs font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="truncate">Scanner Linked</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 text-[10.5px] font-semibold hover:bg-slate-50 cursor-pointer shadow-2xs"
+                    >
+                      Replace
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => update("scannerUrl", "")}
+                      className="px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-600 text-[10.5px] font-semibold hover:bg-rose-100 cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/30 rounded-xl py-3 px-3 text-center cursor-pointer transition-all group"
+              >
+                <div className="w-7 h-7 rounded-full bg-white group-hover:bg-indigo-100 text-slate-400 group-hover:text-indigo-600 flex items-center justify-center mx-auto mb-1.5 transition-colors shadow-2xs">
+                  <Upload className="w-3.5 h-3.5" />
+                </div>
+                <p className="text-xs font-bold text-slate-700 group-hover:text-indigo-600 leading-tight">
+                  {uploadingQr ? "Uploading QR..." : "Click to Upload QR Scanner"}
+                </p>
+                <p className="text-[9.5px] text-slate-400 mt-0.5">PNG, JPG, WEBP</p>
+              </div>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleQrUpload}
+            />
+
+            {uploadError && (
+              <p className="text-[11px] text-rose-600 font-semibold">{uploadError}</p>
+            )}
+
+            <div>
+              <Input
+                value={data.scannerUrl}
+                onChange={(e) => update("scannerUrl", e.target.value)}
+                placeholder="Or paste QR image URL (https://...)"
+                className={cn(INPUT_CLS, "h-8 text-[11px]")}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Section 3: Event Notes & Guidelines ── */}
+      <div className="p-3.5 sm:p-4 bg-white border border-slate-200/90 rounded-2xl space-y-2 shadow-2xs">
+        <div className="flex items-center gap-2 border-b border-slate-100 pb-1.5">
+          <div className="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <Info className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Event Notes &amp; Guidelines</h3>
+            <p className="text-[10.5px] text-slate-400">Important instructions, rules, prasadam guidelines and entry details</p>
+          </div>
+        </div>
+
+        <div>
+          <Textarea
+            rows={3}
+            value={data.notes}
+            onChange={(e) => update("notes", e.target.value)}
+            placeholder="e.g. 1. Traditional dress code encouraged.&#10;2. Mahaprasadam coupons at Dining Hall Gate 2.&#10;3. Free parking at South Gate."
+            className={cn(INPUT_CLS, "resize-none text-xs leading-relaxed")}
+          />
+          <p className="text-[10px] text-slate-400 mt-1">
+            Displayed on event overview, registration confirmation pass, and devotee schedule views.
+          </p>
+        </div>
+      </div>
+
+      {/* ── Section 4: Multiple Committee & Organizer Contact Numbers ── */}
+      <div className="p-3.5 sm:p-4 bg-white border border-slate-200/90 rounded-2xl space-y-3 shadow-2xs">
+        <div className="flex flex-row items-center justify-between gap-2 border-b border-slate-100 pb-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <Phone className="w-3.5 h-3.5" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider truncate">
+                Committee Contacts ({data.contacts?.length || 1})
+              </h3>
+              <p className="text-[10.5px] text-slate-400 truncate hidden sm:block">
+                Coordinators, emergency desk, food in-charge, and volunteer lead numbers
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={addContact}
+            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-bold transition-all cursor-pointer shadow-2xs shrink-0"
+          >
+            <Plus className="w-3 h-3" />
+            <span>+ Add Contact</span>
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          {(data.contacts || []).map((contact, idx) => (
+            <div
+              key={contact.id || idx}
+              className="p-2.5 sm:p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 hover:border-slate-300 transition-all space-y-2"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1">
+                  <User className="w-3 h-3 text-indigo-600" />
+                  Contact #{idx + 1}
+                </span>
+                {(data.contacts?.length || 0) > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeContact(contact.id)}
+                    className="text-rose-500 hover:text-rose-700 text-[11px] font-bold flex items-center gap-1 cursor-pointer hover:underline"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Remove</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                <div>
+                  <label className="text-[9.5px] font-bold uppercase text-slate-500 block mb-0.5">
+                    Full Name <span className="text-rose-500">*</span>
+                  </label>
+                  <Input
+                    value={contact.name}
+                    onChange={(e) => updateContact(contact.id, "name", e.target.value)}
+                    placeholder="e.g. Ramesh Sharma"
+                    className={cn(INPUT_CLS, "h-8 text-xs py-1 px-2.5")}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[9.5px] font-bold uppercase text-slate-500 block mb-0.5">
+                    Phone / Mobile <span className="text-rose-500">*</span>
+                  </label>
+                  <Input
+                    value={contact.phone}
+                    onChange={(e) => updateContact(contact.id, "phone", e.target.value)}
+                    placeholder="+91 98765 43210"
+                    className={cn(INPUT_CLS, "h-8 text-xs font-mono py-1 px-2.5")}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[9.5px] font-bold uppercase text-slate-500 block mb-0.5">
+                    Role / Committee
+                  </label>
+                  <Input
+                    value={contact.role}
+                    onChange={(e) => updateContact(contact.id, "role", e.target.value)}
+                    placeholder="e.g. Coordinator, Food Lead"
+                    className={cn(INPUT_CLS, "h-8 text-xs py-1 px-2.5")}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[9.5px] font-bold uppercase text-slate-500 block mb-0.5">
+                    Email (Optional)
+                  </label>
+                  <Input
+                    type="email"
+                    value={contact.email || ""}
+                    onChange={(e) => updateContact(contact.id, "email", e.target.value)}
+                    placeholder="contact@community.com"
+                    className={cn(INPUT_CLS, "h-8 text-xs py-1 px-2.5")}
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Step 5: Form Template Selector ─── */
 
 interface FormTemplateMeta {
   id: string;
@@ -1355,7 +1710,7 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   radio: "Radio", checkbox: "Checkbox", file: "File", section: "Section", family_repeater: "Family",
 };
 
-function Step4FormTemplate({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
+function Step5FormTemplate({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   const [selectedId, setSelectedId] = useState<string>(
     data.registrationFormConfig.fields.length === 0 ? "tmpl-none" :
     FORM_TEMPLATES.find(t => t.config.fields.length === data.registrationFormConfig.fields.length)?.id ?? "tmpl-ganesh"
@@ -1556,8 +1911,8 @@ function Step4FormTemplate({ data, update }: { data: FormData; update: (k: keyof
   );
 }
 
-/* ─── Step 5: Budget ─── */
-function Step4Budget({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
+/* ─── Step 6: Budget ─── */
+function Step6Budget({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   const addItem = () => update("budgetItems", [...data.budgetItems, { id: `b${Date.now()}`, category: "", amount: "" }]);
   const removeItem = (id: string) => update("budgetItems", data.budgetItems.filter(b => b.id !== id));
   const updateItem = (id: string, field: keyof BudgetItem, value: string) =>
@@ -1647,8 +2002,8 @@ function Step4Budget({ data, update }: { data: FormData; update: (k: keyof FormD
   );
 }
 
-/* ─── Step 5: Media ─── */
-function Step5Media({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
+/* ─── Step 7: Media ─── */
+function Step7Media({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   const [tagInput, setTagInput] = useState("");
   const [imageMode, setImageMode] = useState<"upload" | "url">(data.coverImageUrl && !data.coverImageUrl.startsWith("data:") ? "url" : "upload");
   const [dragOver, setDragOver] = useState(false);
@@ -1808,8 +2163,8 @@ function Step5Media({ data, update }: { data: FormData; update: (k: keyof FormDa
   );
 }
 
-/* ─── Step 6: Review ─── */
-function Step6Review({ data }: { data: FormData }) {
+/* ─── Step 8: Review ─── */
+function Step8Review({ data }: { data: FormData }) {
   const eventType = EVENT_TYPES.find(t => t.value === data.eventType);
   const totalBudget = parseFloat(data.totalBudget) || 0;
   const totalAllocated = data.budgetItems.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
@@ -1849,16 +2204,30 @@ function Step6Review({ data }: { data: FormData }) {
       })),
     }] : []),
     {
-      icon: Ticket, title: "Registration", color: "#059669",
+      icon: Ticket, title: "Registration Passes", color: "#059669",
       rows: [
         { label: "Status",     value: data.registrationEnabled ? "Enabled" : "Disabled" },
         ...(data.registrationEnabled ? [
           { label: "Categories", value: data.ticketTypes.filter(t => t.name).map(t => `${t.name} (₹${t.price})`).join(", ") || "—" },
-          { label: "Payment Modes", value: data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(", ") : "All Modes (Default)" },
           { label: "Deadline",   value: data.registrationDeadline || "—" },
           { label: "Approval",   value: data.requireApproval ? "Required" : "Auto-approve" },
           { label: "Waitlist",   value: data.allowWaitlist ? "Enabled" : "Disabled" },
         ] : []),
+      ],
+    },
+    {
+      icon: CreditCard, title: "Payment Mode, QR & Contacts", color: "#0891b2",
+      rows: [
+        { label: "Payment Modes", value: data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(", ") : "All Modes (Default)" },
+        { label: "UPI ID", value: data.upiId || "Not configured" },
+        { label: "QR Scanner", value: data.scannerUrl ? "Linked & Active" : "No scanner image uploaded" },
+        ...(data.notes ? [{ label: "Notes", value: data.notes }] : []),
+        {
+          label: "Contacts",
+          value: data.contacts && data.contacts.filter(c => c.name || c.phone).length > 0
+            ? data.contacts.filter(c => c.name || c.phone).map(c => `${c.name} (${c.phone}${c.role ? ` · ${c.role}` : ""})`).join(" | ")
+            : "—",
+        },
       ],
     },
     {
@@ -1935,6 +2304,7 @@ function Step6Review({ data }: { data: FormData }) {
 }
 
 export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLISHED"): EventRequest {
+  const primaryContact = data.contacts?.[0];
   return {
     title: data.title,
     description: data.description || undefined,
@@ -1949,10 +2319,16 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
     price: data.ticketTypes.length > 0 ? parseFloat(data.ticketTypes[0].price) || undefined : undefined,
     capacity: data.capacity ? parseInt(data.capacity) : undefined,
     imageUrl: data.coverImageUrl && !data.coverImageUrl.startsWith("data:") ? data.coverImageUrl : undefined,
-    organizerName: undefined,
-    organizerContact: undefined,
+    organizerName: primaryContact?.name || undefined,
+    organizerContact: primaryContact?.phone || undefined,
     ticketTypes: data.ticketTypes,
     paymentModes: data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(",") : undefined,
+    upiId: data.upiId || undefined,
+    scannerUrl: data.scannerUrl || undefined,
+    scannerImage: data.scannerUrl || undefined,
+    notes: data.notes || undefined,
+    contactsJson: data.contacts && data.contacts.length > 0 ? JSON.stringify(data.contacts) : undefined,
+    paymentInstructions: data.paymentInstructions || undefined,
     venue: data.venueName || undefined,
     city: data.city || undefined,
     category: data.eventType || undefined,
@@ -1994,6 +2370,37 @@ export function fromEventToFormData(ev: any): FormData {
   const eventTypeLower = (ev.type || ev.category || ev.eventType || "").toLowerCase();
   const matchedType = EVENT_TYPES.find(t => t.value === eventTypeLower || t.label.toLowerCase() === eventTypeLower)?.value || (eventTypeLower || "festival");
 
+  let contacts: EventContactItem[] = [];
+  if (ev.contactsJson) {
+    try {
+      const parsed = JSON.parse(ev.contactsJson);
+      if (Array.isArray(parsed) && parsed.length > 0) contacts = parsed;
+    } catch {}
+  }
+  if (contacts.length === 0 && Array.isArray(ev.contactDetails) && ev.contactDetails.length > 0) {
+    contacts = ev.contactDetails.map((c: any, i: number) => ({
+      id: c.id || `c${i + 1}`,
+      name: c.name || "",
+      phone: c.phone || "",
+      role: c.role || "Organizer",
+      email: c.email || "",
+    }));
+  }
+  if (contacts.length === 0 && (ev.organizerName || ev.organizerContact)) {
+    contacts = [
+      {
+        id: "c1",
+        name: ev.organizerName || "",
+        phone: ev.organizerContact || "",
+        role: "Event Lead / Organizer",
+        email: "",
+      },
+    ];
+  }
+  if (contacts.length === 0) {
+    contacts = [...DEFAULT_CONTACTS];
+  }
+
   return {
     title: ev.title || "",
     eventType: matchedType,
@@ -2021,6 +2428,11 @@ export function fromEventToFormData(ev: any): FormData {
     tags: ev.tags || [],
     registrationFormConfig: ev.registrationFormConfig || { ...GANESH_CHATURTHI_FORM_CONFIG },
     paymentModes: ev.paymentModes ? (typeof ev.paymentModes === "string" ? ev.paymentModes.split(",") : ev.paymentModes) : ["UPI", "Card", "Cash"],
+    upiId: ev.upiId || "",
+    scannerUrl: ev.scannerUrl || ev.scannerImage || "",
+    notes: ev.notes || "",
+    paymentInstructions: ev.paymentInstructions || "Please scan the QR code using any UPI app (GPay, PhonePe, Paytm) and save the transaction screenshot/UTR.",
+    contacts,
   };
 }
 
@@ -2261,8 +2673,8 @@ export function EventCreateWizard({
           )}
           {onClose && (
             <button onClick={onClose}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-sm shadow-md hover:shadow-lg transition-all">
-              <Check className="w-4 h-4" /> Done
+              className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-all shadow-md">
+              View All Events
             </button>
           )}
         </div>
@@ -2274,10 +2686,11 @@ export function EventCreateWizard({
     1: <Step1Basics data={formData} update={update} />,
     2: <Step2Schedule data={formData} update={update} />,
     3: <Step3Registration data={formData} update={update} />,
-    4: <Step4FormTemplate data={formData} update={update} />,
-    5: <Step4Budget data={formData} update={update} />,
-    6: <Step5Media data={formData} update={update} />,
-    7: <Step6Review data={formData} />,
+    4: <Step4PaymentAndContacts data={formData} update={update} />,
+    5: <Step5FormTemplate data={formData} update={update} />,
+    6: <Step6Budget data={formData} update={update} />,
+    7: <Step7Media data={formData} update={update} />,
+    8: <Step8Review data={formData} />,
   };
 
   return (

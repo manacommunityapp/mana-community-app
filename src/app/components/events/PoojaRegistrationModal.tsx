@@ -12,6 +12,9 @@ import {
   CheckCircle2,
   RefreshCw,
   Edit3,
+  Loader2,
+  ShieldCheck,
+  Database,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { userService } from "../../../services/common/userService";
@@ -49,6 +52,7 @@ export interface PoojaRegistrationModalProps {
     availableSeats?: number;
     slots?: number | string;
     parentEventTitle?: string;
+    gotram?: string;
     existingRegistration?: any;
     registrationId?: string | number;
     isUpdateMode?: boolean;
@@ -197,7 +201,11 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [selectedDayId, setSelectedDayId] = useState<number>(1);
   const [selectedSlotTime, setSelectedSlotTime] = useState<string>("08:30 AM – 10:00 AM");
   const [selectedSlotName, setSelectedSlotName] = useState<string>("Morning Homam");
-  const [gotram, setGotram] = useState<string>("");
+  const [gotram, setGotram] = useState<string>(
+    () => event?.gotram || event?.existingRegistration?.gotram || ""
+  );
+  const [isGotramLoading, setIsGotramLoading] = useState<boolean>(!event?.gotram && !event?.existingRegistration?.gotram);
+  const [isGotramFromDb, setIsGotramFromDb] = useState<boolean>(Boolean(event?.gotram || event?.existingRegistration?.gotram));
   const [prasadamMode, setPrasadamMode] = useState<"mandap" | "doorstep">("mandap");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
@@ -214,7 +222,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [devoteePhone, setDevoteePhone] = useState<string>("");
   const [devoteeFlat, setDevoteeFlat] = useState<string>("");
 
-  // Sync profile details
+  // Sync profile details for name/phone/flat only
   useEffect(() => {
     if (authUser) {
       const flat =
@@ -224,9 +232,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       setDevoteeName((prev) => prev || authUser.fullName || "Devotee");
       setDevoteePhone((prev) => prev || authUser.phone || "");
       setDevoteeFlat((prev) => prev || flat || "Society Resident");
-      if ((authUser as any)?.gotram) {
-        setGotram((prev) => prev || (authUser as any).gotram);
-      }
     }
 
     userService
@@ -241,20 +246,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           setDevoteeName((prev) => prev || u.fullName || "Devotee");
           setDevoteePhone((prev) => prev || u.phone || "");
           setDevoteeFlat((prev) => prev || flat || "Society Resident");
-          if (u.gotram) setGotram((prev) => prev || u.gotram);
-        }
-      })
-      .catch(() => {});
-
-    // Also check saved family members for Gotram
-    eventService
-      .getFamilyMembers()
-      .then((members: any[]) => {
-        if (Array.isArray(members) && members.length > 0) {
-          const withGotram = members.find((m: any) => m.gotram);
-          if (withGotram?.gotram) {
-            setGotram((prev) => prev || withGotram.gotram);
-          }
         }
       })
       .catch(() => {});
@@ -267,52 +258,73 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const priestName = event?.pandit || event?.priestName || "Pt. Ramachandra Sharma";
   const totalSlotsCount = Number(event?.availableSeats || event?.slots || 24);
 
-  // Sync existing registration details if user is already registered
+  // Fetch Gotram and registration strictly from backend database event registrations (/api/events/registrations/my)
   useEffect(() => {
-    if (!existingReg) {
-      eventService
-        .getMyRegistrations()
-        .then((regs) => {
-          if (Array.isArray(regs) && regs.length > 0) {
-            const found = regs.find((r: any) => {
-              if (r.status === "CANCELLED") return false;
-              if (r.activityId && (r.activityId === event?.id || String(r.activityId) === String(event?.id))) return true;
-              if (event?.id && String(event.id).includes("-")) {
-                const rawId = String(event.id).split("-")[1];
-                if (r.activityId && (r.activityId === rawId || r.activityId === event.id)) return true;
-                if (r.eventId && String(r.eventId) === rawId) return true;
-              }
-              const cleanPoojaTitle = (poojaTitle || "").trim().toLowerCase();
-              const cleanRegTitle = (r.activityTitle || r.eventName || "").trim().toLowerCase();
-              if (
-                cleanPoojaTitle &&
-                cleanRegTitle &&
-                (cleanPoojaTitle === cleanRegTitle ||
-                  cleanPoojaTitle.includes(cleanRegTitle) ||
-                  cleanRegTitle.includes(cleanPoojaTitle))
-              ) {
-                return true;
-              }
-              return false;
-            });
-            if (found) {
-              setExistingReg(found);
-              if (found.gotram) setGotram(found.gotram);
-              if (found.prasadamMode) setPrasadamMode(found.prasadamMode);
-              if (found.participantName || found.primaryName) setDevoteeName(found.participantName || found.primaryName);
-              if (found.phone) setDevoteePhone(found.phone);
-              if (found.flatNo) setDevoteeFlat(found.flatNo);
+    setIsGotramLoading(true);
+    eventService
+      .getMyRegistrations()
+      .then((regs) => {
+        if (Array.isArray(regs) && regs.length > 0) {
+          const activeRegs = regs.filter((r: any) => r.status !== "CANCELLED");
+
+          const currentEventReg = activeRegs.find((r: any) => {
+            if (r.activityId && (r.activityId === event?.id || String(r.activityId) === String(event?.id))) return true;
+            if (event?.id && String(event.id).includes("-")) {
+              const rawId = String(event.id).split("-")[1];
+              if (r.activityId && (r.activityId === rawId || r.activityId === event.id)) return true;
+              if (r.eventId && String(r.eventId) === rawId) return true;
             }
+            const cleanPoojaTitle = (poojaTitle || "").trim().toLowerCase();
+            const cleanRegTitle = (r.activityTitle || r.eventName || "").trim().toLowerCase();
+            if (
+              cleanPoojaTitle &&
+              cleanRegTitle &&
+              (cleanPoojaTitle === cleanRegTitle ||
+                cleanPoojaTitle.includes(cleanRegTitle) ||
+                cleanRegTitle.includes(cleanPoojaTitle))
+            ) {
+              return true;
+            }
+            return false;
+          });
+
+          // Gotram from database event registration
+          const dbGotram =
+            currentEventReg?.gotram ||
+            currentEventReg?.formData?.gotram ||
+            currentEventReg?.attendees?.[0]?.gotram ||
+            activeRegs.find((r: any) => r.gotram && String(r.gotram).trim())?.gotram ||
+            activeRegs.find((r: any) => r.formData?.gotram && String(r.formData.gotram).trim())?.formData?.gotram ||
+            activeRegs.find((r: any) => r.attendees?.[0]?.gotram && String(r.attendees[0].gotram).trim())?.attendees?.[0]?.gotram;
+
+          if (dbGotram && String(dbGotram).trim()) {
+            setGotram(String(dbGotram).trim());
+            setIsGotramFromDb(true);
+          } else {
+            setGotram("");
+            setIsGotramFromDb(false);
           }
-        })
-        .catch(() => {});
-    } else {
-      if (existingReg.gotram) setGotram(existingReg.gotram);
-      if (existingReg.prasadamMode) setPrasadamMode(existingReg.prasadamMode);
-      if (existingReg.participantName || existingReg.primaryName) setDevoteeName(existingReg.participantName || existingReg.primaryName);
-      if (existingReg.phone) setDevoteePhone(existingReg.phone);
-      if (existingReg.flatNo) setDevoteeFlat(existingReg.flatNo);
-    }
+
+          if (currentEventReg) {
+            setExistingReg(currentEventReg);
+            if (currentEventReg.prasadamMode) setPrasadamMode(currentEventReg.prasadamMode);
+            if (currentEventReg.participantName || currentEventReg.primaryName) {
+              setDevoteeName(currentEventReg.participantName || currentEventReg.primaryName);
+            }
+            if (currentEventReg.phone) setDevoteePhone(currentEventReg.phone);
+            if (currentEventReg.flatNo) setDevoteeFlat(currentEventReg.flatNo);
+          }
+        } else {
+          setGotram("");
+          setIsGotramFromDb(false);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch database event registrations for Gotram:", err);
+      })
+      .finally(() => {
+        setIsGotramLoading(false);
+      });
   }, [event?.id, poojaTitle]);
 
   // Compute numeric fee
@@ -416,7 +428,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         participantName: devoteeName,
         phone: devoteePhone,
         email: authUser?.email || "",
-        gotram: gotram || "Kashyapa",
+        gotram: gotram ? gotram.trim() : undefined,
         flatNo: devoteeFlat,
         poojaSlot: `${currentDay.dateStr} • ${selectedSlotTime} (${selectedSlotName})`,
         eventDate: currentDay.dateStr,
@@ -730,13 +742,27 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Gotram: Non-editable field sourced directly from user & event registration profile */}
+                  {/* Gotram: Non-editable field sourced strictly from event registration in backend database */}
                   <div className="flex items-center gap-2 w-full sm:w-auto px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 shrink-0 select-none">
                     <span className="text-[11px] font-bold text-primary whitespace-nowrap">Gotram:</span>
-                    <strong className="text-xs font-bold text-foreground">{gotram || "Kashyapa"}</strong>
-                    <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
-                      Auto-Linked
-                    </span>
+                    {isGotramLoading ? (
+                      <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
+                        <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                        <span>Fetching DB...</span>
+                      </span>
+                    ) : gotram ? (
+                      <>
+                        <strong className="text-xs font-black text-foreground font-mono">{gotram}</strong>
+                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20 flex items-center gap-0.5">
+                          <Database className="w-2.5 h-2.5" />
+                          <span>DB Verified</span>
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                        Not in Event Pass (DB)
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -859,7 +885,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
                       <span className="text-[10px] text-muted-foreground uppercase font-bold block">Yajaman &amp; Gotram</span>
                       <strong className="text-foreground font-bold text-xs block truncate">
-                        {devoteeName} ({gotram || "Kashyapa"})
+                        {devoteeName} {gotram ? `(${gotram})` : ""}
                       </strong>
                     </div>
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
@@ -929,7 +955,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 </div>
                 <div>
                   <span className="text-muted-foreground block">Yajaman &amp; Gotram:</span>
-                  <strong className="text-foreground">{devoteeName} ({gotram || "Kashyapa"})</strong>
+                  <strong className="text-foreground">{devoteeName} {gotram ? `(${gotram})` : ""}</strong>
                 </div>
                 <div>
                   <span className="text-muted-foreground block">Prasadam Collection:</span>

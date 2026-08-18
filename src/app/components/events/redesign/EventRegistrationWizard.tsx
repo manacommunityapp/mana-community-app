@@ -231,6 +231,14 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
             if (found) {
               setExistingReg(found);
               applyExistingRegToForm(found);
+            } else {
+              const regWithGotram = regs.find((r: any) => r.gotram && String(r.gotram).trim() && r.status !== "CANCELLED");
+              if (regWithGotram?.gotram) {
+                setFormData((prev) => ({
+                  ...prev,
+                  gotram: prev.gotram || regWithGotram.gotram,
+                }));
+              }
             }
           }
         })

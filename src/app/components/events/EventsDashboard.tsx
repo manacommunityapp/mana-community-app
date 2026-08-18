@@ -262,23 +262,24 @@ export function EventsDashboard() {
       .then((regs: any[]) => {
         setAllUnifiedRegs(regs.map((r: any) => {
           let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
-          if (!attendeeCount && r.membersJson) {
+          // Always recompute from member arrays so that self + family members are included
+          if (r.membersJson) {
             try {
               const parsed = JSON.parse(r.membersJson);
-              if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
+              if (Array.isArray(parsed) && parsed.length > attendeeCount) attendeeCount = parsed.length;
             } catch {}
           }
-          if (!attendeeCount && r.attendingDevotees) {
+          if (r.attendingDevotees) {
             try {
               const parsed = JSON.parse(r.attendingDevotees);
-              if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
+              if (Array.isArray(parsed) && parsed.length > attendeeCount) attendeeCount = parsed.length;
               else if (typeof r.attendingDevotees === 'string') {
                 const parts = r.attendingDevotees.split(',').map((s: string) => s.trim()).filter(Boolean);
-                if (parts.length > 0) attendeeCount = parts.length;
+                if (parts.length > attendeeCount) attendeeCount = parts.length;
               }
             } catch {
               const parts = String(r.attendingDevotees).split(',').map((s: string) => s.trim()).filter(Boolean);
-              if (parts.length > 0) attendeeCount = parts.length;
+              if (parts.length > attendeeCount) attendeeCount = parts.length;
             }
           }
           if (!attendeeCount) attendeeCount = 1;
