@@ -237,38 +237,7 @@ export function EventMemberView() {
   // Fetch activities & main events & dashboard metrics from live REST API
   const fetchLiveDataFromBackend = async () => {
     if (useMock) {
-      try {
-        const customActivities: Activity[] = JSON.parse(localStorage.getItem("mana_custom_activities") || "[]");
-        const storedEvents: any[] = JSON.parse(localStorage.getItem("mana_events") || "[]");
-        const storedPasses: any[] = JSON.parse(localStorage.getItem("mana_user_passes") || "[]");
-
-        const getMockBookedCount = (actId: string, title?: string) => {
-          return storedPasses
-            .filter((p: any) => p && p.status !== "CANCELLED" && (p.id === actId || (title && p.title === title)))
-            .length;
-        };
-
-        const mappedMainEvents: Activity[] = storedEvents.map((ev: any) => ({
-          id: `event-${ev.id || Date.now()}`,
-          title: ev.title || ev.name || "Community Parent Event",
-          category: ev.category || ev.type || "Pooja",
-          date: ev.startDate ? String(ev.startDate) : "Upcoming",
-          time: ev.startTime || "Morning",
-          venue: ev.venue || ev.location || "Main Temple Mandap, Gate 1",
-          fee: ev.price ? Number(ev.price) : 0,
-          availableSeats: Math.max(0, (ev.capacity || 50) - getMockBookedCount(`event-${ev.id}`, ev.title)),
-          image: "📅",
-          description: ev.description || "Community Parent Event created by Admin",
-        }));
-
-        const combinedMock = [...mappedMainEvents, ...customActivities, ...INITIAL_ACTIVITIES].map((act) => ({
-          ...act,
-          availableSeats: Math.max(0, act.availableSeats - getMockBookedCount(act.id, act.title)),
-        }));
-        setActivitiesList(combinedMock);
-      } catch (e) {
-        setActivitiesList(INITIAL_ACTIVITIES);
-      }
+      setActivitiesList(INITIAL_ACTIVITIES);
       return;
     }
 
@@ -430,10 +399,6 @@ export function EventMemberView() {
     };
 
     try {
-      try {
-        localStorage.removeItem("mana_family_members");
-      } catch {}
-
       const dbMembers = await eventService.getFamilyMembers();
       if (Array.isArray(dbMembers) && dbMembers.length > 0) {
         const dummyNames = new Set([
@@ -474,67 +439,64 @@ export function EventMemberView() {
     setLoadingFamily(false);
   };
 
-  // Load User Passes dynamically from database API / mock
+  // Load User Passes dynamically from database API
   const loadUserPasses = async () => {
     if (useMock) {
-      try {
-        const stored: UserPass[] = JSON.parse(localStorage.getItem("mana_user_passes") || "[]");
-        setPassesList(stored);
-      } catch {
-        setPassesList([]);
-      }
+      setPassesList(INITIAL_PASSES);
       return;
     }
 
     try {
       const liveRegs = await eventService.getMyRegistrations();
       if (Array.isArray(liveRegs) && liveRegs.length > 0) {
-        const mappedPasses: UserPass[] = liveRegs.map((r: any) => {
-          let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
-          if (!attendeeCount && r.membersJson) {
-            try {
-              const parsed = JSON.parse(r.membersJson);
-              if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
-            } catch {}
-          }
-          if (!attendeeCount && r.attendingDevotees) {
-            try {
-              const parsed = JSON.parse(r.attendingDevotees);
-              if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
-              else if (typeof r.attendingDevotees === 'string') {
-                const parts = r.attendingDevotees.split(',').map((s: string) => s.trim()).filter(Boolean);
+        const mappedPasses: UserPass[] = liveRegs
+          .filter((r: any) => r.status !== "CANCELLED")
+          .map((r: any) => {
+            let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
+            if (!attendeeCount && r.membersJson) {
+              try {
+                const parsed = JSON.parse(r.membersJson);
+                if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
+              } catch {}
+            }
+            if (!attendeeCount && r.attendingDevotees) {
+              try {
+                const parsed = JSON.parse(r.attendingDevotees);
+                if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
+                else if (typeof r.attendingDevotees === 'string') {
+                  const parts = r.attendingDevotees.split(',').map((s: string) => s.trim()).filter(Boolean);
+                  if (parts.length > 0) attendeeCount = parts.length;
+                }
+              } catch {
+                const parts = String(r.attendingDevotees).split(',').map((s: string) => s.trim()).filter(Boolean);
                 if (parts.length > 0) attendeeCount = parts.length;
               }
-            } catch {
-              const parts = String(r.attendingDevotees).split(',').map((s: string) => s.trim()).filter(Boolean);
-              if (parts.length > 0) attendeeCount = parts.length;
             }
-          }
-          if (!attendeeCount) attendeeCount = 1;
+            if (!attendeeCount) attendeeCount = 1;
 
-          return {
-            id: String(r.id),
-            activityId: r.activityId ? String(r.activityId) : undefined,
-            eventId: r.eventId ? String(r.eventId) : undefined,
-            passType: r.passType || `${r.category || "Event"} Registration Pass`,
-            title: r.activityTitle || r.eventName || "Community Event",
-            participantName: r.participantName || r.primaryName || "Devotee",
-            devoteeCount: attendeeCount,
-            attendingDevotees: r.attendingDevotees,
-            gotram: r.gotram,
-            regId: r.regCode || `MNA-2026-${r.id}`,
-            date: r.eventDate || "Upcoming",
-            time: r.eventTime || "Scheduled",
-            venue: r.venue || "Community Venue",
-            status: (r.status === "PENDING APPROVAL" ? "PENDING APPROVAL" : "CONFIRMED"),
-            qrCodeUrl: r.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${r.regCode || r.id}`,
-            bookingFee: r.bookingFee,
-            paymentStatus: r.paymentStatus,
-            paymentReceiptUrl: r.paymentReceiptUrl,
-            transactionId: r.transactionId,
-            paymentMethod: r.paymentMethod,
-          };
-        });
+            return {
+              id: String(r.id),
+              activityId: r.activityId ? String(r.activityId) : undefined,
+              eventId: r.eventId ? String(r.eventId) : undefined,
+              passType: r.passType || `${r.category || "Event"} Registration Pass`,
+              title: r.activityTitle || r.eventName || "Community Event",
+              participantName: r.participantName || r.primaryName || "Devotee",
+              devoteeCount: attendeeCount,
+              attendingDevotees: r.attendingDevotees,
+              gotram: r.gotram,
+              regId: r.regCode || `MNA-2026-${r.id}`,
+              date: r.eventDate || "Upcoming",
+              time: r.eventTime || "Scheduled",
+              venue: r.venue || "Community Venue",
+              status: (r.status === "PENDING APPROVAL" ? "PENDING APPROVAL" : "CONFIRMED"),
+              qrCodeUrl: r.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${r.regCode || r.id}`,
+              bookingFee: r.bookingFee,
+              paymentStatus: r.paymentStatus,
+              paymentReceiptUrl: r.paymentReceiptUrl,
+              transactionId: r.transactionId,
+              paymentMethod: r.paymentMethod,
+            };
+          });
         setPassesList(mappedPasses);
         return;
       }
@@ -778,18 +740,9 @@ export function EventMemberView() {
     };
 
     try {
-      if (useMock) {
-        // Update in localStorage
-        const stored: UserPass[] = JSON.parse(localStorage.getItem("mana_user_passes") || "[]");
-        const updated = stored.map((p) =>
-          p.id === managePassModal.id ? { ...p, participantName: updatedData.participantName } : p
-        );
-        localStorage.setItem("mana_user_passes", JSON.stringify(updated));
-      } else {
-        const numericId = parseInt(managePassModal.id, 10);
-        if (!isNaN(numericId)) {
-          await eventService.updateRegistration(numericId, updatedData);
-        }
+      const numericId = parseInt(managePassModal.id, 10);
+      if (!isNaN(numericId)) {
+        await eventService.updateRegistration(numericId, updatedData);
       }
 
       // Optimistically update passes list
@@ -801,7 +754,7 @@ export function EventMemberView() {
         )
       );
 
-      setManageSuccess("Registration updated successfully!");
+      setManageSuccess("Registration updated successfully in Database!");
       // Auto-close after 1.5s
       setTimeout(() => {
         setManagePassModal(null);
@@ -822,16 +775,9 @@ export function EventMemberView() {
     setManageError(null);
 
     try {
-      if (useMock) {
-        // Remove from localStorage
-        const stored: UserPass[] = JSON.parse(localStorage.getItem("mana_user_passes") || "[]");
-        const updated = stored.filter((p) => p.id !== managePassModal.id);
-        localStorage.setItem("mana_user_passes", JSON.stringify(updated));
-      } else {
-        const numericId = parseInt(managePassModal.id, 10);
-        if (!isNaN(numericId)) {
-          await eventService.cancelRegistration(numericId);
-        }
+      const numericId = parseInt(managePassModal.id, 10);
+      if (!isNaN(numericId)) {
+        await eventService.cancelRegistration(numericId);
       }
 
       // Remove from UI

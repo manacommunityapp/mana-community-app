@@ -96,15 +96,8 @@ export function EventsCulturalEvents() {
   useEffect(() => { eventService.getAll().then(setEvents).catch(() => {}); }, []);
 
   const loadData = () => {
-    let localCulturals: any[] = [];
-    try {
-      localCulturals = JSON.parse(localStorage.getItem("mana_local_cultural_events") || "[]");
-    } catch {}
-
     if (useMock) {
-      const merged = [...localCulturals, ...mockCulturalEvents];
-      const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
-      setCulturalEvents(unique);
+      setCulturalEvents(mockCulturalEvents);
       setRegistrations(mockRegistrations);
       return;
     }
@@ -117,8 +110,7 @@ export function EventsCulturalEvents() {
       eventService.getCulturalPerformanceTypes().catch(() => []),
     ])
       .then(([evts, regs, cats, pts]) => {
-        const merged = [...localCulturals, ...(evts || [])];
-        const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
+        setCulturalEvents(evts || []);
         const cultRegs = (regs || [])
           .filter((r: any) => r.category === "Cultural" || r.activityId?.startsWith("cultural-"))
           .map((r: any) => {
@@ -137,11 +129,7 @@ export function EventsCulturalEvents() {
         if (pts?.length > 0) setPerfTypes(pts.map((p: any) => p.name));
       })
       .catch(e => {
-        if (localCulturals.length > 0) {
-          setCulturalEvents(localCulturals);
-        } else {
-          setError(e?.message || "Failed to load cultural events");
-        }
+        setError(e?.message || "Failed to load cultural events from database");
       })
       .finally(() => setLoading(false));
   };

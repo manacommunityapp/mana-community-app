@@ -116,20 +116,7 @@ const T_SHIRT_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 const VOLUNTEER_ROLES = ["Food & Kitchen", "Registration", "Security", "Decoration", "Audio/Visual", "Medical Support", "Guest Management"];
 
 function getDynamicCategories(liveEvent?: EventResponse | null): EventCategoryItem[] {
-  let cats: any[] = [];
-  if (liveEvent?.ticketTypes && liveEvent.ticketTypes.length > 0) {
-    cats = liveEvent.ticketTypes;
-  } else {
-    try {
-      const saved = localStorage.getItem("mana_created_event_tickets");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          cats = parsed;
-        }
-      }
-    } catch {}
-  }
+  const cats: any[] = liveEvent?.ticketTypes && liveEvent.ticketTypes.length > 0 ? liveEvent.ticketTypes : [];
 
   if (cats.length > 0) {
     return cats.map((c, i) => {

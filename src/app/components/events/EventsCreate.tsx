@@ -135,14 +135,6 @@ export const PRESET_ACTIVITY_TITLES: Record<string, string[]> = {
   ],
 };
 
-export function saveLocalSubmoduleItem(storageKey: string, item: any) {
-  try {
-    const existing = JSON.parse(localStorage.getItem(storageKey) || "[]");
-    const updated = [item, ...existing.filter((x: any) => x.name !== item.name && x.id !== item.id)];
-    localStorage.setItem(storageKey, JSON.stringify(updated));
-  } catch {}
-}
-
 export async function syncActivitiesToScheduleSubmodules(
   daySchedules: DaySchedule[],
   mainEventTitle: string,
@@ -171,10 +163,11 @@ export async function syncActivitiesToScheduleSubmodules(
           items: ["Coconut", "Flowers", "Samagri"],
           notes: act.description || "",
         };
-        saveLocalSubmoduleItem("mana_local_pooja_sevas", { id: `pooja-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`, ...payload });
         try {
           await eventService.createPoojaSeva(payload);
-        } catch {}
+        } catch (e) {
+          console.warn("Database save pooja notice:", e);
+        }
       } else if (cat === "Lunch" || cat === "Dinner") {
         const payload = {
           mainEventId: numericEventId,
@@ -191,10 +184,11 @@ export async function syncActivitiesToScheduleSubmodules(
           menuItems: ["Mahaprasadam Meal", "Rice", "Curry", "Sweet"],
           notes: act.description || "",
         };
-        saveLocalSubmoduleItem("mana_local_lunch_dinners", { id: `meal-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`, ...payload });
         try {
           await eventService.createLunchDinner(payload);
-        } catch {}
+        } catch (e) {
+          console.warn("Database save meal notice:", e);
+        }
       } else if (cat === "Cultural Events") {
         const payload = {
           mainEventId: numericEventId,
@@ -207,10 +201,11 @@ export async function syncActivitiesToScheduleSubmodules(
           fee: feeNum,
           isFree: feeNum === 0,
         };
-        saveLocalSubmoduleItem("mana_local_cultural_events", { id: `cult-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`, ...payload });
         try {
           await eventService.createCulturalEvent(payload);
-        } catch {}
+        } catch (e) {
+          console.warn("Database save cultural notice:", e);
+        }
       } else if (cat === "Competitions") {
         const payload = {
           mainEventId: numericEventId,
@@ -224,10 +219,11 @@ export async function syncActivitiesToScheduleSubmodules(
           isFree: feeNum === 0,
           maxParticipants: String(slotsNum),
         };
-        saveLocalSubmoduleItem("mana_local_competitions", { id: `comp-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`, ...payload });
         try {
           await eventService.createCompetition(payload);
-        } catch {}
+        } catch (e) {
+          console.warn("Database save competition notice:", e);
+        }
       }
     }
   }
@@ -2601,16 +2597,6 @@ export function EventCreateWizard({
     }
   }, [initialData]);
 
-  // Auto-sync ticket categories to localStorage whenever user edits ticket categories
-  useEffect(() => {
-    if (formData.ticketTypes && formData.ticketTypes.length > 0) {
-      try {
-        localStorage.setItem("mana_created_event_tickets", JSON.stringify(formData.ticketTypes));
-        localStorage.setItem("mana_last_event_title", formData.title);
-      } catch (err) {}
-    }
-  }, [formData.ticketTypes, formData.title]);
-
   const update = (key: keyof FormData, value: any) =>
     setFormData(prev => ({ ...prev, [key]: value }));
 
@@ -2630,13 +2616,6 @@ export function EventCreateWizard({
     setStep(s => Math.min(STEPS.length, s + 1));
   };
 
-  const persistTicketCategoriesLocally = (tickets: TicketType[], title: string) => {
-    try {
-      localStorage.setItem("mana_created_event_tickets", JSON.stringify(tickets));
-      localStorage.setItem("mana_last_event_title", title);
-    } catch {}
-  };
-
   const handleSaveDraft = async () => {
     if (!formData.title.trim()) {
       setPublishError("Please enter an event title before saving as draft.");
@@ -2645,7 +2624,6 @@ export function EventCreateWizard({
     setSavingDraft(true);
     setPublishError("");
     try {
-      persistTicketCategoriesLocally(formData.ticketTypes, formData.title);
       const reqPayload = toEventRequest(formData, "DRAFT");
       let resultEvent: any = {
         ...(initialData || {}),
@@ -2701,7 +2679,6 @@ export function EventCreateWizard({
     setPublishing(true);
     setPublishError("");
     try {
-      persistTicketCategoriesLocally(formData.ticketTypes, formData.title);
       const reqPayload = toEventRequest(formData, "PUBLISHED");
       let resultEvent: any = {
         ...(initialData || {}),

@@ -357,11 +357,9 @@ export function PoojaSevaSection() {
       console.warn("Backend save notice:", e);
     }
 
-    const existing = JSON.parse(localStorage.getItem("mana_custom_activities") || "[]");
-    localStorage.setItem("mana_custom_activities", JSON.stringify([itemObj, ...existing]));
     window.dispatchEvent(new Event("mana_activities_updated"));
 
-    setToast(`Pooja / Seva "${form.name}" published to Admin & Member Dashboard!`);
+    setToast(`Pooja / Seva "${form.name}" saved to Database & published!`);
     setTimeout(() => setToast(""), 3500);
   };
 
@@ -828,11 +826,9 @@ export function CulturalEventsSection() {
       console.warn("Backend save notice:", e);
     }
 
-    const existing = JSON.parse(localStorage.getItem("mana_custom_activities") || "[]");
-    localStorage.setItem("mana_custom_activities", JSON.stringify([itemObj, ...existing]));
     window.dispatchEvent(new Event("mana_activities_updated"));
 
-    setToast(`Cultural Event "${form.name}" published to Admin & Member Dashboard!`);
+    setToast(`Cultural Event "${form.name}" saved to Database & published!`);
     setTimeout(() => setToast(""), 3500);
   };
 
@@ -1224,11 +1220,9 @@ export function CompetitionsSection() {
       console.warn("Backend save notice:", e);
     }
 
-    const existing = JSON.parse(localStorage.getItem("mana_custom_activities") || "[]");
-    localStorage.setItem("mana_custom_activities", JSON.stringify([itemObj, ...existing]));
     window.dispatchEvent(new Event("mana_activities_updated"));
 
-    setToast(`Competition "${form.name}" published to Admin & Member Dashboard!`);
+    setToast(`Competition "${form.name}" saved to Database & published!`);
     setTimeout(() => setToast(""), 3500);
   };
 
@@ -1580,11 +1574,9 @@ export function LunchDinnerSection() {
       console.warn("Backend save notice:", e);
     }
 
-    const existing = JSON.parse(localStorage.getItem("mana_custom_activities") || "[]");
-    localStorage.setItem("mana_custom_activities", JSON.stringify([itemObj, ...existing]));
     window.dispatchEvent(new Event("mana_activities_updated"));
 
-    setToast(`Lunch / Dinner "${form.name}" published to Admin & Member Dashboard!`);
+    setToast(`Lunch / Dinner "${form.name}" saved to Database & published!`);
     setTimeout(() => setToast(""), 3500);
   };
 
