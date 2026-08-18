@@ -49,6 +49,7 @@ export interface PoojaRegistrationModalProps {
     availableSeats?: number;
     slots?: number | string;
     parentEventTitle?: string;
+    gotram?: string;
     existingRegistration?: any;
     registrationId?: string | number;
     isUpdateMode?: boolean;
@@ -197,7 +198,9 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [selectedDayId, setSelectedDayId] = useState<number>(1);
   const [selectedSlotTime, setSelectedSlotTime] = useState<string>("08:30 AM – 10:00 AM");
   const [selectedSlotName, setSelectedSlotName] = useState<string>("Morning Homam");
-  const [gotram, setGotram] = useState<string>("");
+  const [gotram, setGotram] = useState<string>(
+    () => event?.gotram || event?.existingRegistration?.gotram || ""
+  );
   const [prasadamMode, setPrasadamMode] = useState<"mandap" | "doorstep">("mandap");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
@@ -216,6 +219,9 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
   // Sync profile details
   useEffect(() => {
+    if (event?.gotram) {
+      setGotram((prev) => prev || event.gotram || "");
+    }
     if (authUser) {
       const flat =
         authUser.block && authUser.flatNo
@@ -258,7 +264,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         }
       })
       .catch(() => {});
-  }, [authUser]);
+  }, [authUser, event?.gotram]);
 
   // Build day schedule from event details
   const poojaTitle = event?.title || event?.name || "Maha Ganapathi Homam & Sahasranama Archana";
@@ -302,6 +308,12 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               if (found.participantName || found.primaryName) setDevoteeName(found.participantName || found.primaryName);
               if (found.phone) setDevoteePhone(found.phone);
               if (found.flatNo) setDevoteeFlat(found.flatNo);
+            }
+
+            // Also auto-fetch Gotram from ANY prior event registration if not yet set
+            const regWithGotram = regs.find((r: any) => r.gotram && String(r.gotram).trim() && r.status !== "CANCELLED");
+            if (regWithGotram?.gotram) {
+              setGotram((prev) => prev || regWithGotram.gotram);
             }
           }
         })
@@ -416,7 +428,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         participantName: devoteeName,
         phone: devoteePhone,
         email: authUser?.email || "",
-        gotram: gotram || "Kashyapa",
+        gotram: gotram ? gotram.trim() : undefined,
         flatNo: devoteeFlat,
         poojaSlot: `${currentDay.dateStr} • ${selectedSlotTime} (${selectedSlotName})`,
         eventDate: currentDay.dateStr,
@@ -733,10 +745,12 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                   {/* Gotram: Non-editable field sourced directly from user & event registration profile */}
                   <div className="flex items-center gap-2 w-full sm:w-auto px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 shrink-0 select-none">
                     <span className="text-[11px] font-bold text-primary whitespace-nowrap">Gotram:</span>
-                    <strong className="text-xs font-bold text-foreground">{gotram || "Kashyapa"}</strong>
-                    <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
-                      Auto-Linked
-                    </span>
+                    <strong className="text-xs font-bold text-foreground">{gotram || "—"}</strong>
+                    {gotram ? (
+                      <span className="text-[9px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20">
+                        Auto-Linked
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
@@ -859,7 +873,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
                       <span className="text-[10px] text-muted-foreground uppercase font-bold block">Yajaman &amp; Gotram</span>
                       <strong className="text-foreground font-bold text-xs block truncate">
-                        {devoteeName} ({gotram || "Kashyapa"})
+                        {devoteeName} {gotram ? `(${gotram})` : ""}
                       </strong>
                     </div>
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
@@ -929,7 +943,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 </div>
                 <div>
                   <span className="text-muted-foreground block">Yajaman &amp; Gotram:</span>
-                  <strong className="text-foreground">{devoteeName} ({gotram || "Kashyapa"})</strong>
+                  <strong className="text-foreground">{devoteeName} {gotram ? `(${gotram})` : ""}</strong>
                 </div>
                 <div>
                   <span className="text-muted-foreground block">Prasadam Collection:</span>
