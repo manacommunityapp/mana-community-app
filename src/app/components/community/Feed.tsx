@@ -102,7 +102,8 @@ const FEED_FILTERS = [
 ];
 
 export function Feed() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isEventsAdmin } = useAuth();
+  const canPost = isAdmin || isEventsAdmin;
   const [posts, setPosts] = useState<PostResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -510,6 +511,7 @@ export function Feed() {
           </div>
 
           {/* Create Post Composer */}
+          {canPost ? (
           <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 transition-all hover:shadow-md">
             <div className="flex gap-3">
               <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-sm">
@@ -675,6 +677,14 @@ export function Feed() {
               </div>
             </div>
           </div>
+          ) : (
+          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-3 text-slate-400">
+            <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+              <Megaphone className="w-5 h-5" />
+            </div>
+            <p className="text-sm text-slate-500">Only admins and event admins can create posts in the community feed.</p>
+          </div>
+          )}
 
           {/* Feed Items */}
           <div className="space-y-4">
