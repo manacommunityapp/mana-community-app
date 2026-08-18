@@ -147,17 +147,28 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
 
   // Multi-day Pooja with multiple sequential calendar days
   if ((isMultiDay || (endDate && endDate.getTime() > startDate.getTime())) && endDate && endDate.getTime() >= startDate.getTime()) {
+    const timeSlotConfig: { slotDate: string | null; startTime: string; slotCount: number }[] =
+      Array.isArray(event?.timeSlotConfig) ? event.timeSlotConfig : [];
     const days: DaySchedule[] = [];
     const cur = new Date(startDate.getTime());
     let count = 1;
     while (cur.getTime() <= endDate.getTime() && count <= 30) {
       const { dayLabel, dateStr, shortDate } = formatPoojaDate(cur);
+      const dateKey = cur.toISOString().split("T")[0];
+      const dayConfigs = timeSlotConfig.filter(e => e.slotDate === dateKey);
+      const daySpecificSlots: DaySlotOption[] = dayConfigs.length > 0
+        ? slots.map(s => {
+            const rawTime = String(s.time).split(" ")[0]; // "08:30" from "08:30 AM – 10:00 AM"
+            const match = dayConfigs.find(e => s.time.includes(e.startTime) || e.startTime === rawTime);
+            return match ? { ...s, left: match.slotCount } : s;
+          })
+        : slots;
       days.push({
         id: count,
         dayLabel: `Day ${count} (${dayLabel})`,
         dateStr,
         shortDate,
-        slots,
+        slots: daySpecificSlots,
       });
       cur.setDate(cur.getDate() + 1);
       count++;
@@ -178,13 +189,22 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
 
   // Single Day Pooja
   const { dayLabel, dateStr, shortDate } = formatPoojaDate(startDate);
+  const singleDayConfigs: { slotDate: string | null; startTime: string; slotCount: number }[] =
+    Array.isArray(event?.timeSlotConfig) ? event.timeSlotConfig.filter((e: any) => !e.slotDate) : [];
+  const singleDaySlots: DaySlotOption[] = singleDayConfigs.length > 0
+    ? slots.map(s => {
+        const rawTime = String(s.time).split(" ")[0];
+        const match = singleDayConfigs.find(e => s.time.includes(e.startTime) || e.startTime === rawTime);
+        return match ? { ...s, left: match.slotCount } : s;
+      })
+    : slots;
   return [
     {
       id: 1,
       dayLabel: `Day 1 (${dayLabel})`,
       dateStr,
       shortDate,
-      slots,
+      slots: singleDaySlots,
     },
   ];
 }
@@ -403,7 +423,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         ];
 
     return buildPoojaScheduleDays(event, defaultSlots);
-  }, [event?.id, event?.startDate, event?.date, event?.endDate, event?.time, poojaTitle, totalSlotsCount]);
+  }, [event?.id, event?.startDate, event?.date, event?.endDate, event?.time, poojaTitle, totalSlotsCount, event?.timeSlotConfig]);
 
   // Sync initial selection to first day / first slot of created pooja
   useEffect(() => {
