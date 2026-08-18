@@ -6,6 +6,8 @@ import {
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 
+type DaySlotEntry = { slotDate: string; slotCount: number };
+
 type PoojaSeva = {
   id: number;
   name: string;
@@ -19,6 +21,7 @@ type PoojaSeva = {
   mandap?: string;
   pandit?: string;
   slots?: number;
+  daySlots?: DaySlotEntry[];
   fee?: number;
   isFree?: boolean;
   items?: string[];
@@ -78,6 +81,7 @@ const emptyPoojaForm = {
   mandap: "",
   pandit: "",
   slots: "20",
+  daySlots: [] as DaySlotEntry[],
   fee: "501",
   isFree: true,
   items: ["Coconut", "Flowers", "Bananas"],
@@ -190,6 +194,7 @@ export function EventsPoojaSeva() {
       mandap: p.mandap || "",
       pandit: p.pandit || "",
       slots: String(p.slots || 20),
+      daySlots: p.daySlots || [],
       fee: String(p.fee || 0),
       isFree: p.isFree || false,
       items: p.items || ["Coconut", "Flowers", "Bananas"],
@@ -206,6 +211,7 @@ export function EventsPoojaSeva() {
     if (!poojaForm.date) { setFormError("Date is required"); return; }
 
     const validStartTimes = poojaForm.startTimes.filter(Boolean);
+    const isMultiDayWithDaySlots = poojaForm.isMultiDay && poojaForm.daySlots.length > 0;
     const payload = {
       mainEventId: poojaForm.mainEventId || undefined,
       name: poojaForm.name,
@@ -219,6 +225,9 @@ export function EventsPoojaSeva() {
       mandap: poojaForm.mandap || undefined,
       pandit: poojaForm.pandit || undefined,
       slots: poojaForm.slots ? Number(poojaForm.slots) : undefined,
+      daySlots: isMultiDayWithDaySlots
+        ? poojaForm.daySlots.map(d => ({ slotDate: d.slotDate, slotCount: d.slotCount }))
+        : undefined,
       fee: poojaForm.isFree ? 0 : Number(poojaForm.fee || 0),
       isFree: poojaForm.isFree,
       items: poojaForm.items.filter(Boolean),
@@ -287,6 +296,45 @@ export function EventsPoojaSeva() {
     next[idx] = val;
     set("items", next);
   };
+
+  const getDayRange = (startDate: string, endDate: string): string[] => {
+    if (!startDate || !endDate) return [];
+    const days: string[] = [];
+    const cur = new Date(startDate + "T00:00:00");
+    const end = new Date(endDate + "T00:00:00");
+    let limit = 0;
+    while (cur <= end && limit < 30) {
+      days.push(cur.toISOString().split("T")[0]);
+      cur.setDate(cur.getDate() + 1);
+      limit++;
+    }
+    return days;
+  };
+
+  const updateDaySlotCount = (slotDate: string, slotCount: number) => {
+    setPoojaForm(f => ({
+      ...f,
+      daySlots: f.daySlots.map(d => d.slotDate === slotDate ? { ...d, slotCount } : d),
+    }));
+  };
+
+  // Sync daySlots entries when multiDay dates change
+  useEffect(() => {
+    if (!poojaForm.isMultiDay || !poojaForm.date || !poojaForm.endDate) {
+      if (!poojaForm.isMultiDay) set("daySlots", []);
+      return;
+    }
+    const range = getDayRange(poojaForm.date, poojaForm.endDate);
+    setPoojaForm(f => {
+      const existing = f.daySlots;
+      const defaultCount = Number(f.slots) || 20;
+      const synced = range.map(date => {
+        const found = existing.find(d => d.slotDate === date);
+        return found ?? { slotDate: date, slotCount: defaultCount };
+      });
+      return { ...f, daySlots: synced };
+    });
+  }, [poojaForm.isMultiDay, poojaForm.date, poojaForm.endDate]);
 
   const totalRegisteredDevotees = registrations.reduce((a, r) => a + (r.devoteeCount || 1), 0);
 
@@ -612,13 +660,51 @@ export function EventsPoojaSeva() {
                 </label>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              {/* Slots — single field for single-day, per-day fields for multi-day */}
+              {poojaForm.isMultiDay ? (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                      <Users className="w-3.5 h-3.5" /> Available Slots (per day)
+                    </span>
+                    {poojaForm.daySlots.length === 0 && (
+                      <span className="text-[10px] text-slate-400">Set start & end dates above</span>
+                    )}
+                  </div>
+                  {poojaForm.daySlots.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {poojaForm.daySlots.map(d => {
+                        const dateObj = new Date(d.slotDate + "T00:00:00");
+                        const label = dateObj.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+                        return (
+                          <label key={d.slotDate} className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-slate-500">{label}</span>
+                            <input
+                              type="number"
+                              value={d.slotCount}
+                              onChange={e => updateDaySlotCount(d.slotDate, Number(e.target.value))}
+                              className="border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                              placeholder="20"
+                              min="1"
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-400 italic">Per-day slot fields will appear once start and end dates are set.</p>
+                  )}
+                </div>
+              ) : (
                 <label className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-600">Available Slots</span>
                   <input type="number" value={poojaForm.slots} onChange={e => set("slots", e.target.value)}
                     className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
                     placeholder="20" min="1" />
                 </label>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-600">Free?</span>
                   <div className="flex items-center gap-2 h-[38px]">

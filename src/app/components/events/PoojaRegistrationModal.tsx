@@ -147,17 +147,23 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
 
   // Multi-day Pooja with multiple sequential calendar days
   if ((isMultiDay || (endDate && endDate.getTime() > startDate.getTime())) && endDate && endDate.getTime() >= startDate.getTime()) {
+    const perDaySlots: { slotDate: string; slotCount: number }[] = Array.isArray(event?.daySlots) ? event.daySlots : [];
     const days: DaySchedule[] = [];
     const cur = new Date(startDate.getTime());
     let count = 1;
     while (cur.getTime() <= endDate.getTime() && count <= 30) {
       const { dayLabel, dateStr, shortDate } = formatPoojaDate(cur);
+      const dateKey = cur.toISOString().split("T")[0];
+      const dayEntry = perDaySlots.find(d => d.slotDate === dateKey);
+      const daySpecificSlots: DaySlotOption[] = dayEntry != null
+        ? slots.map(s => ({ ...s, left: Math.max(1, Math.floor(dayEntry.slotCount / Math.max(1, slots.length))) }))
+        : slots;
       days.push({
         id: count,
         dayLabel: `Day ${count} (${dayLabel})`,
         dateStr,
         shortDate,
-        slots,
+        slots: daySpecificSlots,
       });
       cur.setDate(cur.getDate() + 1);
       count++;
@@ -403,7 +409,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         ];
 
     return buildPoojaScheduleDays(event, defaultSlots);
-  }, [event?.id, event?.startDate, event?.date, event?.endDate, event?.time, poojaTitle, totalSlotsCount]);
+  }, [event?.id, event?.startDate, event?.date, event?.endDate, event?.time, poojaTitle, totalSlotsCount, event?.daySlots]);
 
   // Sync initial selection to first day / first slot of created pooja
   useEffect(() => {
