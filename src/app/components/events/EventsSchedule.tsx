@@ -1143,10 +1143,23 @@ function EventsList() {
     drafts: events.filter(e => e.status === "draft").length,
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteEvent) return;
-    setEvents(prev => prev.filter(e => e.id !== deleteEvent.id));
-    setDeleteEvent(null);
+    const targetId = deleteEvent.id;
+    try {
+      const numericId = parseInt(targetId, 10);
+      if (!isNaN(numericId)) {
+        await eventService.deleteEvent(numericId);
+      }
+      setEvents(prev => prev.filter(e => e.id !== targetId));
+      window.dispatchEvent(new Event("mana_event_created"));
+      window.dispatchEvent(new Event("mana_activities_updated"));
+    } catch (err: any) {
+      console.error("Failed to delete event from database:", err);
+      alert(err?.response?.data?.message || err?.message || "Failed to delete event from database.");
+    } finally {
+      setDeleteEvent(null);
+    }
   };
 
   return (
