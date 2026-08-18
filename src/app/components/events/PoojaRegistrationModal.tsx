@@ -206,7 +206,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   );
   const [isGotramLoading, setIsGotramLoading] = useState<boolean>(!event?.gotram && !event?.existingRegistration?.gotram);
   const [isGotramFromDb, setIsGotramFromDb] = useState<boolean>(Boolean(event?.gotram || event?.existingRegistration?.gotram));
-  const [prasadamMode, setPrasadamMode] = useState<"mandap" | "doorstep">("mandap");
+  const [prasadamMode, setPrasadamMode] = useState<"mandap">("mandap");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [passNumber] = useState<number>(() => Math.floor(1000 + Math.random() * 9000));
@@ -819,52 +819,12 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     <strong className="text-foreground">Devotees may optionally bring:</strong> Fresh fruits &amp; Panchamrut items.
                   </p>
 
-                  <div className="pt-3 border-t border-border space-y-2">
-                    <span className="font-bold text-foreground block">Prasadam Collection Mode:</span>
-                    <div className="space-y-2">
-                      <label
-                        onClick={() => setPrasadamMode("mandap")}
-                        className={`p-3 rounded-xl border-2 flex items-center gap-3 cursor-pointer transition-all ${
-                          prasadamMode === "mandap"
-                            ? "border-primary bg-primary/10 shadow-xs"
-                            : "border-border bg-background"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="prasadamMode"
-                          value="mandap"
-                          checked={prasadamMode === "mandap"}
-                          onChange={() => {}}
-                          className="accent-primary"
-                        />
-                        <div>
-                          <strong className="text-foreground block">Collect at Mandap Counter post-Aarti</strong>
-                          <span className="text-[11px] text-muted-foreground">Receive directly from Priest with Seshavastram blessing</span>
-                        </div>
-                      </label>
-
-                      <label
-                        onClick={() => setPrasadamMode("doorstep")}
-                        className={`p-3 rounded-xl border-2 flex items-center gap-3 cursor-pointer transition-all ${
-                          prasadamMode === "doorstep"
-                            ? "border-primary bg-primary/10 shadow-xs"
-                            : "border-border bg-background"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="prasadamMode"
-                          value="doorstep"
-                          checked={prasadamMode === "doorstep"}
-                          onChange={() => {}}
-                          className="accent-primary"
-                        />
-                        <div>
-                          <strong className="text-foreground block">Deliver to Doorstep ({devoteeFlat || "Your Flat"})</strong>
-                          <span className="text-[11px] text-muted-foreground">Delivered by volunteer committee after Aarti concludes</span>
-                        </div>
-                      </label>
+                  <div className="pt-3 border-t border-border">
+                    <div className="p-3 rounded-xl border-2 border-primary bg-primary/10 shadow-xs flex items-center gap-3">
+                      <div>
+                        <strong className="text-foreground block">Collect at Mandap Counter post-Aarti</strong>
+                        <span className="text-[11px] text-muted-foreground">Receive directly from Priest with Seshavastram blessing</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -912,7 +872,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
                       <span className="text-[10px] text-muted-foreground uppercase font-bold block">Prasadam Delivery</span>
                       <strong className="text-emerald-600 dark:text-emerald-400 font-bold text-xs block truncate">
-                        {prasadamMode === "mandap" ? "Mandap Counter Collection" : `Doorstep Delivery (${devoteeFlat || "Registered Flat"})`}
+                        Mandap Counter Collection
                       </strong>
                     </div>
                   </div>
@@ -981,7 +941,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 <div>
                   <span className="text-muted-foreground block">Prasadam Collection:</span>
                   <strong className="text-emerald-600 dark:text-emerald-400">
-                    {prasadamMode === "mandap" ? "Mandap Counter post-Aarti" : `Doorstep (${devoteeFlat})`}
+                    Mandap Counter post-Aarti
                   </strong>
                 </div>
                 <div>
