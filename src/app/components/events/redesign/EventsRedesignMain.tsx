@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   Smartphone, Monitor, Moon, Sun, Search, Sparkles, X, QrCode,
-  Ticket, Calendar, ShieldCheck, Utensils, DollarSign, Award, Image
+  Ticket, Calendar, ShieldCheck, Utensils, IndianRupee, Award, Image
 } from "lucide-react";
 import { EventMobileDock } from "./EventMobileDock";
 import { EventAICopilotDrawer } from "./EventAICopilotDrawer";

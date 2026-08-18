@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
-  CalendarDays, MapPin, Users, DollarSign, Image,
+  CalendarDays, MapPin, Users, IndianRupee, Image,
   CheckCircle2, ChevronRight, ChevronLeft, Sparkles, Clock,
   Globe, Lock, Building2, Heart, Music, Utensils,
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
@@ -61,6 +61,7 @@ interface FormData {
   coverImageUrl: string;
   tags: string[];
   registrationFormConfig: RegistrationFormConfig;
+  enableOnlinePayment: boolean;
   paymentModes?: string[];
   upiId: string;
   scannerUrl: string;
@@ -251,7 +252,7 @@ const STEPS = [
   { id: 3, label: "Registration",       desc: "Tickets & categories",          icon: Ticket       },
   { id: 4, label: "Payment & Contacts", desc: "Payment modes, QR & contacts", icon: CreditCard   },
   { id: 5, label: "Reg. Form",          desc: "Select form template",          icon: FileText     },
-  { id: 6, label: "Budget",             desc: "Allocation & breakdown",        icon: DollarSign   },
+  { id: 6, label: "Budget",             desc: "Allocation & breakdown",        icon: IndianRupee   },
   { id: 7, label: "Media",              desc: "Cover image & tags",            icon: Image        },
   { id: 8, label: "Review",             desc: "Verify & publish",              icon: Eye          },
 ];
@@ -284,6 +285,7 @@ const INITIAL_FORM_DATA: FormData = {
   totalBudget: "", budgetItems: DEFAULT_BUDGET_ITEMS,
   coverImageUrl: "", tags: [],
   registrationFormConfig: { ...GANESH_CHATURTHI_FORM_CONFIG },
+  enableOnlinePayment: true,
   paymentModes: ["UPI", "Card", "Cash"],
   upiId: "",
   scannerUrl: "",
@@ -1178,7 +1180,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
     { id: "UPI", label: "UPI & QR", desc: "GPay, PhonePe, Paytm", icon: QrCode, color: "#4f46e5", bg: "#eef2ff" },
     { id: "Card", label: "Cards", desc: "Visa, Master, RuPay", icon: CreditCard, color: "#0891b2", bg: "#ecfeff" },
     { id: "NetBanking", label: "NetBanking", desc: "Direct Bank Transfer", icon: Building2, color: "#059669", bg: "#f0fdf4" },
-    { id: "Cash", label: "Cash Desk", desc: "Pay at Venue / Desk", icon: DollarSign, color: "#d97706", bg: "#fef9ee" },
+    { id: "Cash", label: "Cash Desk", desc: "Pay at Venue / Desk", icon: IndianRupee, color: "#d97706", bg: "#fef9ee" },
     { id: "Cheque", label: "Cheque/DD", desc: "Society / Trust A/C", icon: FileText, color: "#7c3aed", bg: "#f5f3ff" },
   ];
 
@@ -1237,6 +1239,8 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
     update("contacts", next);
   };
 
+  const isOnlinePayment = data.enableOnlinePayment !== false;
+
   return (
     <div className="space-y-4 sm:space-y-5 animate-fade-in-up">
       <SectionHeader
@@ -1245,178 +1249,266 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
         subtitle="Configure accepted payment methods, dynamic UPI QR scanner, guidelines & committee contacts"
       />
 
-      {/* ── Section 1: Accepted Payment Modes ── */}
-      <div className="p-3.5 sm:p-4 bg-white border border-slate-200/90 rounded-2xl space-y-2.5 shadow-2xs">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <FieldLabel required>Accepted Payment Modes</FieldLabel>
-            <p className="text-[11px] text-slate-400">
-              Select which modes are permitted for pass registration
-            </p>
-          </div>
-          <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
-            {currentModes.length} Selected
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-          {paymentModeOptions.map((mode) => {
-            const isChecked = currentModes.includes(mode.id);
-            const Icon = mode.icon;
-            return (
-              <div
-                key={mode.id}
-                onClick={() => togglePaymentMode(mode.id)}
-                className={cn(
-                  "flex items-start gap-2 p-2 sm:p-2.5 rounded-xl border cursor-pointer transition-all select-none",
-                  isChecked
-                    ? "bg-indigo-50/70 border-indigo-300 ring-1.5 ring-indigo-200/70 shadow-xs"
-                    : "bg-slate-50/50 border-slate-200/90 text-slate-600 hover:border-slate-300 hover:bg-slate-100/60"
-                )}
-              >
-                <div
-                  className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 shadow-2xs"
-                  style={{ background: isChecked ? mode.bg : "#f1f5f9", color: isChecked ? mode.color : "#64748b" }}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-1">
-                    <p className={cn("text-[11.5px] font-bold truncate leading-tight", isChecked ? "text-indigo-950" : "text-slate-700")}>
-                      {mode.label}
-                    </p>
-                    <input
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => {}}
-                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-3.5 h-3.5"
-                    />
-                  </div>
-                  <p className="text-[9.5px] text-slate-400 truncate mt-0.5">{mode.desc}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ── Section 2: UPI ID & Scanner QR Code Image ── */}
+      {/* ── Section 0: Payment Collection Setup (Online vs Manual) ── */}
       <div className="p-3.5 sm:p-4 bg-white border border-slate-200/90 rounded-2xl space-y-3 shadow-2xs">
-        <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-          <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-            <QrCode className="w-3.5 h-3.5" />
-          </div>
-          <div>
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">UPI ID &amp; Payment QR Code</h3>
-            <p className="text-[10.5px] text-slate-400">Devotees will scan this QR code or use this UPI ID to make payments</p>
-          </div>
+        <div>
+          <FieldLabel required>Payment Collection Setup</FieldLabel>
+          <p className="text-[11px] text-slate-400">
+            Choose whether to enable digital online UPI / QR scanner payment or accept manual payment / cash at helpdesk only
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 sm:gap-4 items-start">
-          {/* Left Column: UPI ID + Instructions (7 cols) */}
-          <div className="md:col-span-7 space-y-2.5">
-            <div>
-              <FieldLabel>Event UPI ID (VPA)</FieldLabel>
-              <div className="relative mt-1">
-                <Input
-                  value={data.upiId}
-                  onChange={(e) => update("upiId", e.target.value)}
-                  placeholder="e.g. 9876543210@upi or community@icici"
-                  className={cn(INPUT_CLS, "h-8.5 pl-7.5 font-mono text-xs")}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <div
+            onClick={() => update("enableOnlinePayment", true)}
+            className={cn(
+              "p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 select-none",
+              isOnlinePayment
+                ? "bg-indigo-50/80 border-indigo-300 ring-2 ring-indigo-200/80 shadow-xs"
+                : "bg-slate-50 border-slate-200/90 hover:border-slate-300 opacity-70 hover:opacity-100"
+            )}
+          >
+            <div className="p-2 rounded-lg bg-indigo-600 text-white shrink-0 shadow-2xs mt-0.5">
+              <QrCode className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <strong className="text-xs font-bold text-slate-900">Online UPI &amp; Dynamic QR Scanner</strong>
+                <input
+                  type="radio"
+                  checked={isOnlinePayment}
+                  onChange={() => update("enableOnlinePayment", true)}
+                  className="accent-indigo-600 cursor-pointer"
                 />
-                <span className="absolute left-2.5 top-2 text-xs text-slate-400 font-bold">₹</span>
               </div>
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                Leave blank if using cash-only or free passes.
+              <p className="text-[10.5px] text-slate-500 mt-0.5 leading-tight">
+                Configure UPI ID, QR scanner image, accepted digital modes (GPay, PhonePe, Cards, NetBanking)
               </p>
             </div>
-
-            <div>
-              <FieldLabel>Payment Instructions for Devotees</FieldLabel>
-              <Textarea
-                rows={2}
-                value={data.paymentInstructions}
-                onChange={(e) => update("paymentInstructions", e.target.value)}
-                placeholder="e.g. Please scan QR using GPay/PhonePe and save screenshot with UTR number."
-                className={cn(INPUT_CLS, "resize-none text-xs leading-relaxed")}
-              />
-            </div>
           </div>
 
-          {/* Right Column: QR Code Scanner Upload (5 cols) */}
-          <div className="md:col-span-5 space-y-2">
-            <FieldLabel>Official Payment Scanner (QR Image)</FieldLabel>
-            
-            {data.scannerUrl ? (
-              <div className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/30 flex items-center gap-3">
-                <div className="w-16 h-16 rounded-lg bg-white border border-emerald-200 p-0.5 flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
-                  <img
-                    src={data.scannerUrl}
-                    alt="Event QR Scanner"
-                    className="w-full h-full object-contain"
-                  />
-                </div>
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center gap-1 text-emerald-700 text-xs font-bold">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <span className="truncate">Scanner Linked</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 pt-0.5">
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 text-[10.5px] font-semibold hover:bg-slate-50 cursor-pointer shadow-2xs"
-                    >
-                      Replace
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => update("scannerUrl", "")}
-                      className="px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-600 text-[10.5px] font-semibold hover:bg-rose-100 cursor-pointer"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/30 rounded-xl py-3 px-3 text-center cursor-pointer transition-all group"
-              >
-                <div className="w-7 h-7 rounded-full bg-white group-hover:bg-indigo-100 text-slate-400 group-hover:text-indigo-600 flex items-center justify-center mx-auto mb-1.5 transition-colors shadow-2xs">
-                  <Upload className="w-3.5 h-3.5" />
-                </div>
-                <p className="text-xs font-bold text-slate-700 group-hover:text-indigo-600 leading-tight">
-                  {uploadingQr ? "Uploading QR..." : "Click to Upload QR Scanner"}
-                </p>
-                <p className="text-[9.5px] text-slate-400 mt-0.5">PNG, JPG, WEBP</p>
-              </div>
+          <div
+            onClick={() => {
+              update("enableOnlinePayment", false);
+              update("paymentModes", ["Cash"]);
+            }}
+            className={cn(
+              "p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 select-none",
+              !isOnlinePayment
+                ? "bg-emerald-50/80 border-emerald-300 ring-2 ring-emerald-200/80 shadow-xs"
+                : "bg-slate-50 border-slate-200/90 hover:border-slate-300 opacity-70 hover:opacity-100"
             )}
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleQrUpload}
-            />
-
-            {uploadError && (
-              <p className="text-[11px] text-rose-600 font-semibold">{uploadError}</p>
-            )}
-
-            <div>
-              <Input
-                value={data.scannerUrl}
-                onChange={(e) => update("scannerUrl", e.target.value)}
-                placeholder="Or paste QR image URL (https://...)"
-                className={cn(INPUT_CLS, "h-8 text-[11px]")}
-              />
+          >
+            <div className="p-2 rounded-lg bg-emerald-600 text-white shrink-0 shadow-2xs mt-0.5">
+              <IndianRupee className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <strong className="text-xs font-bold text-slate-900">Manual Payment / Cash</strong>
+                <input
+                  type="radio"
+                  checked={!isOnlinePayment}
+                  onChange={() => {
+                    update("enableOnlinePayment", false);
+                    update("paymentModes", ["Cash"]);
+                  }}
+                  className="accent-emerald-600 cursor-pointer"
+                />
+              </div>
+              <p className="text-[10.5px] text-slate-500 mt-0.5 leading-tight">
+                Devotees pay cash at counter / free pass. Bypasses and disables online UPI &amp; QR scanner details.
+              </p>
             </div>
           </div>
         </div>
+
+        {!isOnlinePayment && (
+          <div className="p-2.5 rounded-xl bg-amber-50/90 border border-amber-200/90 text-amber-900 text-xs flex items-center gap-2 animate-fadeIn">
+            <Info className="w-4 h-4 text-amber-600 shrink-0" />
+            <span className="text-[11.5px] leading-relaxed">
+              <strong>Manual Payment / Cash Enabled:</strong> Accepted payment modes, UPI ID, and QR scanner upload below are bypassed and disabled. You can proceed directly to Notes &amp; Committee Contacts.
+            </span>
+          </div>
+        )}
       </div>
+
+      {/* ── Section 1 & 2: Online Payment Modes & QR Scanner (Shown ONLY when Online Payment is selected) ── */}
+      {isOnlinePayment && (
+        <div className="space-y-4 sm:space-y-5 animate-fade-in-up">
+          {/* ── Section 1: Accepted Payment Modes ── */}
+          <div className="p-3.5 sm:p-4 bg-white border border-slate-200/90 rounded-2xl space-y-2.5 shadow-2xs">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <FieldLabel required>Accepted Payment Modes</FieldLabel>
+                <p className="text-[11px] text-slate-400">
+                  Select which modes are permitted for pass registration
+                </p>
+              </div>
+              <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                {currentModes.length} Selected
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {paymentModeOptions.map((mode) => {
+                const isChecked = currentModes.includes(mode.id);
+                const Icon = mode.icon;
+                return (
+                  <div
+                    key={mode.id}
+                    onClick={() => togglePaymentMode(mode.id)}
+                    className={cn(
+                      "flex items-start gap-2 p-2 sm:p-2.5 rounded-xl border cursor-pointer transition-all select-none",
+                      isChecked
+                        ? "bg-indigo-50/70 border-indigo-300 ring-1.5 ring-indigo-200/70 shadow-xs"
+                        : "bg-slate-50/50 border-slate-200/90 text-slate-600 hover:border-slate-300 hover:bg-slate-100/60"
+                    )}
+                  >
+                    <div
+                      className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5 shadow-2xs"
+                      style={{ background: isChecked ? mode.bg : "#f1f5f9", color: isChecked ? mode.color : "#64748b" }}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-1">
+                        <p className={cn("text-[11.5px] font-bold truncate leading-tight", isChecked ? "text-indigo-950" : "text-slate-700")}>
+                          {mode.label}
+                        </p>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {}}
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-3.5 h-3.5"
+                        />
+                      </div>
+                      <p className="text-[9.5px] text-slate-400 truncate mt-0.5">{mode.desc}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── Section 2: UPI ID & Scanner QR Code Image ── */}
+          <div className="p-3.5 sm:p-4 bg-white border border-slate-200/90 rounded-2xl space-y-3 shadow-2xs">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+              <div className="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <QrCode className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">UPI ID &amp; Payment QR Code</h3>
+                <p className="text-[10.5px] text-slate-400">Devotees will scan this QR code or use this UPI ID to make payments</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 sm:gap-4 items-start">
+              {/* Left Column: UPI ID + Instructions (7 cols) */}
+              <div className="md:col-span-7 space-y-2.5">
+                <div>
+                  <FieldLabel>Event UPI ID (VPA)</FieldLabel>
+                  <div className="relative mt-1">
+                    <Input
+                      value={data.upiId}
+                      onChange={(e) => update("upiId", e.target.value)}
+                      placeholder="e.g. 9876543210@upi or community@icici"
+                      className={cn(INPUT_CLS, "h-8.5 pl-7.5 font-mono text-xs")}
+                    />
+                    <span className="absolute left-2.5 top-2 text-xs text-slate-400 font-bold">₹</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Optional. Leave blank if using cash-only or free passes.
+                  </p>
+                </div>
+
+                <div>
+                  <FieldLabel>Payment Instructions for Devotees</FieldLabel>
+                  <Textarea
+                    rows={2}
+                    value={data.paymentInstructions}
+                    onChange={(e) => update("paymentInstructions", e.target.value)}
+                    placeholder="e.g. Please scan QR using GPay/PhonePe and save screenshot with UTR number."
+                    className={cn(INPUT_CLS, "resize-none text-xs leading-relaxed")}
+                  />
+                </div>
+              </div>
+
+              {/* Right Column: QR Code Scanner Upload (5 cols) */}
+              <div className="md:col-span-5 space-y-2">
+                <FieldLabel>Official Payment Scanner (QR Image)</FieldLabel>
+                
+                {data.scannerUrl ? (
+                  <div className="p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/30 flex items-center gap-3">
+                    <div className="w-16 h-16 rounded-lg bg-white border border-emerald-200 p-0.5 flex items-center justify-center shrink-0 shadow-2xs overflow-hidden">
+                      <img
+                        src={data.scannerUrl}
+                        alt="Event QR Scanner"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-center gap-1 text-emerald-700 text-xs font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="truncate">Scanner Linked</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-700 text-[10.5px] font-semibold hover:bg-slate-50 cursor-pointer shadow-2xs"
+                        >
+                          Replace
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => update("scannerUrl", "")}
+                          className="px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-600 text-[10.5px] font-semibold hover:bg-rose-100 cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-200 hover:border-indigo-400 bg-slate-50/50 hover:bg-indigo-50/30 rounded-xl py-3 px-3 text-center cursor-pointer transition-all group"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-white group-hover:bg-indigo-100 text-slate-400 group-hover:text-indigo-600 flex items-center justify-center mx-auto mb-1.5 transition-colors shadow-2xs">
+                      <Upload className="w-3.5 h-3.5" />
+                    </div>
+                    <p className="text-xs font-bold text-slate-700 group-hover:text-indigo-600 leading-tight">
+                      {uploadingQr ? "Uploading QR..." : "Click to Upload QR Scanner"}
+                    </p>
+                    <p className="text-[9.5px] text-slate-400 mt-0.5">PNG, JPG, WEBP</p>
+                  </div>
+                )}
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleQrUpload}
+                />
+
+                {uploadError && (
+                  <p className="text-[11px] text-rose-600 font-semibold">{uploadError}</p>
+                )}
+
+                <div>
+                  <Input
+                    value={data.scannerUrl}
+                    onChange={(e) => update("scannerUrl", e.target.value)}
+                    placeholder="Or paste QR image URL (https://...)"
+                    className={cn(INPUT_CLS, "h-8 text-[11px]")}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Section 3: Event Notes & Guidelines ── */}
       <div className="p-3.5 sm:p-4 bg-white border border-slate-200/90 rounded-2xl space-y-2 shadow-2xs">
@@ -1925,7 +2017,7 @@ function Step6Budget({ data, update }: { data: FormData; update: (k: keyof FormD
 
   return (
     <div className="space-y-4 sm:space-y-7">
-      <SectionHeader icon={DollarSign} title="Budget Planning" subtitle="Set a budget and allocate across categories" />
+      <SectionHeader icon={IndianRupee} title="Budget Planning" subtitle="Set a budget and allocate across categories" />
 
       <div>
         <FieldLabel>Total Event Budget</FieldLabel>
@@ -2218,9 +2310,15 @@ function Step8Review({ data }: { data: FormData }) {
     {
       icon: CreditCard, title: "Payment Mode, QR & Contacts", color: "#0891b2",
       rows: [
-        { label: "Payment Modes", value: data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(", ") : "All Modes (Default)" },
-        { label: "UPI ID", value: data.upiId || "Not configured" },
-        { label: "QR Scanner", value: data.scannerUrl ? "Linked & Active" : "No scanner image uploaded" },
+        { label: "Payment Setup", value: data.enableOnlinePayment ? "Online UPI & Dynamic QR Scanner" : "Manual Payment / Cash" },
+        ...(data.enableOnlinePayment ? [
+          { label: "Payment Modes", value: data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(", ") : "All Modes (Default)" },
+          { label: "UPI ID", value: data.upiId || "Not configured" },
+          { label: "QR Scanner", value: data.scannerUrl ? "Linked & Active" : "No scanner image uploaded" },
+        ] : [
+          { label: "Payment Modes", value: "Cash / Manual" },
+          { label: "UPI & Scanner", value: "Bypassed / Disabled (Manual Payment)" },
+        ]),
         ...(data.notes ? [{ label: "Notes", value: data.notes }] : []),
         {
           label: "Contacts",
@@ -2239,7 +2337,7 @@ function Step8Review({ data }: { data: FormData }) {
       ],
     },
     {
-      icon: DollarSign, title: "Budget", color: "#d97706",
+      icon: IndianRupee, title: "Budget", color: "#d97706",
       rows: [
         { label: "Total Budget",    value: totalBudget ? `₹${totalBudget.toLocaleString()}` : "—" },
         { label: "Allocated",       value: totalAllocated ? `₹${totalAllocated.toLocaleString()}` : "—" },
@@ -2322,13 +2420,13 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
     organizerName: primaryContact?.name || undefined,
     organizerContact: primaryContact?.phone || undefined,
     ticketTypes: data.ticketTypes,
-    paymentModes: data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(",") : undefined,
-    upiId: data.upiId || undefined,
-    scannerUrl: data.scannerUrl || undefined,
-    scannerImage: data.scannerUrl || undefined,
+    paymentModes: data.enableOnlinePayment ? (data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(",") : undefined) : "Cash",
+    upiId: data.enableOnlinePayment ? (data.upiId || undefined) : undefined,
+    scannerUrl: data.enableOnlinePayment ? (data.scannerUrl || undefined) : undefined,
+    scannerImage: data.enableOnlinePayment ? (data.scannerUrl || undefined) : undefined,
     notes: data.notes || undefined,
     contactsJson: data.contacts && data.contacts.length > 0 ? JSON.stringify(data.contacts) : undefined,
-    paymentInstructions: data.paymentInstructions || undefined,
+    paymentInstructions: data.enableOnlinePayment ? (data.paymentInstructions || undefined) : undefined,
     venue: data.venueName || undefined,
     city: data.city || undefined,
     category: data.eventType || undefined,
@@ -2401,6 +2499,13 @@ export function fromEventToFormData(ev: any): FormData {
     contacts = [...DEFAULT_CONTACTS];
   }
 
+  const isManualOnly = ev.paymentModes && typeof ev.paymentModes === "string" && ev.paymentModes.trim().toLowerCase() === "cash";
+  const enableOnlinePayment = ev.enableOnlinePayment !== undefined
+    ? Boolean(ev.enableOnlinePayment)
+    : isManualOnly
+    ? false
+    : Boolean(ev.upiId || ev.scannerUrl || ev.scannerImage || (ev.paymentModes && !String(ev.paymentModes).toLowerCase().includes("cash only")));
+
   return {
     title: ev.title || "",
     eventType: matchedType,
@@ -2427,6 +2532,7 @@ export function fromEventToFormData(ev: any): FormData {
     coverImageUrl: ev.imageUrl || ev.coverImageUrl || ev.coverImage || "",
     tags: ev.tags || [],
     registrationFormConfig: ev.registrationFormConfig || { ...GANESH_CHATURTHI_FORM_CONFIG },
+    enableOnlinePayment,
     paymentModes: ev.paymentModes ? (typeof ev.paymentModes === "string" ? ev.paymentModes.split(",") : ev.paymentModes) : ["UPI", "Card", "Cash"],
     upiId: ev.upiId || "",
     scannerUrl: ev.scannerUrl || ev.scannerImage || "",

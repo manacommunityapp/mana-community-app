@@ -5,7 +5,7 @@ import {
   HandHeart, UtensilsCrossed, ImageIcon, Bell, UserCheck, Lock,
   Unlock, RotateCcw, Save, Loader2, Crown,
   Briefcase, Banknote, Wrench, Camera, ClipboardList,
-  CalendarClock, HeartHandshake, ScanLine, DollarSign, Flame,
+  CalendarClock, HeartHandshake, ScanLine, IndianRupee, Flame,
   Plus, Sparkles, ShieldAlert,
 } from "lucide-react";
 import { Button } from "../ui/button";
@@ -133,7 +133,7 @@ function buildRoles(): RoleConfig[] {
       suggested: true,
     },
     {
-      name: "FUNDRAISING_MANAGER", label: "Fundraising Manager", icon: DollarSign, color: "#059669",
+      name: "FUNDRAISING_MANAGER", label: "Fundraising Manager", icon: IndianRupee, color: "#059669",
       description: "Oversees donations, sponsors and financial goals; views fundraising reports",
       permissions: new Set(EVENT_ROLE_DEFAULTS.FUNDRAISING_MANAGER),
       suggested: true,
@@ -486,7 +486,7 @@ function AccessSuggestions() {
       why: "Minimal read-only access tailored for on-ground entry verification without any management capability.",
     },
     {
-      role: "Fundraising Manager", icon: DollarSign, color: "#059669",
+      role: "Fundraising Manager", icon: IndianRupee, color: "#059669",
       access: "Manages donations, sponsors, and financial goals; views fundraising reports and donation forms.",
       menus: ["Dashboard", "Events & Schedule", "Registration (view)", "Fundraising (manage)", "Reports (view)", "Forms (view)"],
       why: "Gives financial ownership without event creation or people management access.",

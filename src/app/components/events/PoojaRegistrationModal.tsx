@@ -222,30 +222,51 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [devoteePhone, setDevoteePhone] = useState<string>("");
   const [devoteeFlat, setDevoteeFlat] = useState<string>("");
 
-  // Sync profile details for name/phone/flat only
+  // Helper to extract flat number from user profile objects
+  const resolveUserFlat = (u: any): string => {
+    if (!u) return "";
+    const block = u.block || u.tower || u.wing || "";
+    const rawFlat = u.flatNo || u.flatNumber || u.flat || u.unit || u.unitNo || u.apartmentNo || "";
+    if (block && rawFlat) {
+      if (String(rawFlat).toUpperCase().startsWith(String(block).toUpperCase())) {
+        return String(rawFlat);
+      }
+      return `${block}-${rawFlat}`;
+    }
+    return rawFlat || (block ? `Block ${block}` : "");
+  };
+
+  // Sync profile details for name/phone/flat from logged in user details
   useEffect(() => {
+    // 1. Check AuthContext user
     if (authUser) {
-      const flat =
-        authUser.block && authUser.flatNo
-          ? `${authUser.block}-${authUser.flatNo}`
-          : authUser.flatNo || "";
-      setDevoteeName((prev) => prev || authUser.fullName || "Devotee");
-      setDevoteePhone((prev) => prev || authUser.phone || "");
-      setDevoteeFlat((prev) => prev || flat || "Society Resident");
+      const flat = resolveUserFlat(authUser);
+      if (authUser.fullName || authUser.name) setDevoteeName(authUser.fullName || authUser.name);
+      if (authUser.phone || authUser.mobile) setDevoteePhone(authUser.phone || authUser.mobile);
+      if (flat) setDevoteeFlat(flat);
     }
 
+    // 2. Check localStorage cached profile
+    try {
+      const cached = localStorage.getItem("mana_user") || localStorage.getItem("mana_user_profile");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const flat = resolveUserFlat(parsed);
+        if (parsed.fullName || parsed.name) setDevoteeName((prev) => prev || parsed.fullName || parsed.name);
+        if (parsed.phone || parsed.mobile) setDevoteePhone((prev) => prev || parsed.phone || parsed.mobile);
+        if (flat) setDevoteeFlat((prev) => prev || flat);
+      }
+    } catch {}
+
+    // 3. Fetch latest from userService.getMe()
     userService
       .getMe()
       .then((u: any) => {
         if (u) {
-          const flat = u.flatNo
-            ? u.block
-              ? `${u.block}-${u.flatNo}`
-              : u.flatNo
-            : "";
-          setDevoteeName((prev) => prev || u.fullName || "Devotee");
-          setDevoteePhone((prev) => prev || u.phone || "");
-          setDevoteeFlat((prev) => prev || flat || "Society Resident");
+          const flat = resolveUserFlat(u);
+          if (u.fullName || u.name) setDevoteeName(u.fullName || u.name);
+          if (u.phone || u.mobile) setDevoteePhone(u.phone || u.mobile);
+          if (flat) setDevoteeFlat(flat);
         }
       })
       .catch(() => {});
@@ -738,7 +759,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     </div>
                     <div>
                       <span className="text-muted-foreground font-medium">Flat:</span>
-                      <strong className="text-foreground ml-1 font-bold">{devoteeFlat}</strong>
+                      <strong className="text-foreground ml-1 font-bold">{devoteeFlat || "Flat Pending"}</strong>
                     </div>
                   </div>
 
@@ -840,7 +861,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                           className="accent-primary"
                         />
                         <div>
-                          <strong className="text-foreground block">Deliver to Doorstep ({devoteeFlat})</strong>
+                          <strong className="text-foreground block">Deliver to Doorstep ({devoteeFlat || "Your Flat"})</strong>
                           <span className="text-[11px] text-muted-foreground">Delivered by volunteer committee after Aarti concludes</span>
                         </div>
                       </label>
@@ -891,7 +912,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
                       <span className="text-[10px] text-muted-foreground uppercase font-bold block">Prasadam Delivery</span>
                       <strong className="text-emerald-600 dark:text-emerald-400 font-bold text-xs block truncate">
-                        {prasadamMode === "mandap" ? "Mandap Counter Collection" : `Doorstep Delivery (${devoteeFlat})`}
+                        {prasadamMode === "mandap" ? "Mandap Counter Collection" : `Doorstep Delivery (${devoteeFlat || "Registered Flat"})`}
                       </strong>
                     </div>
                   </div>

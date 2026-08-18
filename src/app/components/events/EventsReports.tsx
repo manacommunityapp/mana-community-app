@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BarChart3, Download, TrendingUp, Users, DollarSign, Package, FileText } from "lucide-react";
+import { BarChart3, Download, TrendingUp, Users, IndianRupee, Package, FileText } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { ErrorBanner, LoadingSpinner } from "./shared";
 import { eventReportService, type EventReportResponse } from "../../../services/events/eventReportService";
@@ -11,7 +11,7 @@ import {
 
 const mockReportCards = [
   { title: "Registration Report",  desc: "1,842 registrants across 8 categories", icon: Users,      color: "#6366f1", bg: "#eef2ff", pages: 12 },
-  { title: "Finance Summary",      desc: "Income ₹9.24L · Expenses ₹4.82L",       icon: DollarSign, color: "#10b981", bg: "#ecfdf5", pages: 8  },
+  { title: "Finance Summary",      desc: "Income ₹9.24L · Expenses ₹4.82L",       icon: IndianRupee, color: "#10b981", bg: "#ecfdf5", pages: 8  },
   { title: "Sponsor ROI Report",   desc: "19 sponsors · ₹12.4L collected",          icon: TrendingUp, color: "#d97706", bg: "#fffbeb", pages: 6  },
   { title: "Volunteer Attendance", desc: "318 volunteers · 94% attendance",          icon: Users,      color: "#0891b2", bg: "#ecfeff", pages: 5  },
   { title: "Food & Inventory",     desc: "4,200 plates · 6 menu items tracked",      icon: Package,    color: "#be185d", bg: "#fdf2f8", pages: 7  },
@@ -44,7 +44,7 @@ function buildReportCards(r: EventReportResponse) {
   const taskPct = r.totalTasks > 0 ? Math.round((r.completedTasks / r.totalTasks) * 100) : 0;
   return [
     { title: "Registration Report",  desc: `${r.totalRegistrations} registrants`,                              icon: Users,      color: "#6366f1", bg: "#eef2ff", pages: 0 },
-    { title: "Finance Summary",      desc: `Donations ₹${(r.totalDonations / 100000).toFixed(1)}L · Expenses ₹${(r.totalExpenses / 100000).toFixed(1)}L · Net ₹${(r.netRevenue / 100000).toFixed(1)}L`, icon: DollarSign, color: "#10b981", bg: "#ecfdf5", pages: 0 },
+    { title: "Finance Summary",      desc: `Donations ₹${(r.totalDonations / 100000).toFixed(1)}L · Expenses ₹${(r.totalExpenses / 100000).toFixed(1)}L · Net ₹${(r.netRevenue / 100000).toFixed(1)}L`, icon: IndianRupee, color: "#10b981", bg: "#ecfdf5", pages: 0 },
     { title: "Sponsor Report",       desc: `${r.totalSponsorships} sponsors`,                                  icon: TrendingUp, color: "#d97706", bg: "#fffbeb", pages: 0 },
     { title: "Volunteer Report",     desc: `${r.totalVolunteers} volunteers`,                                   icon: Users,      color: "#0891b2", bg: "#ecfeff", pages: 0 },
     { title: "Gallery",              desc: `${r.totalGalleryItems} items`,                                      icon: Package,    color: "#be185d", bg: "#fdf2f8", pages: 0 },

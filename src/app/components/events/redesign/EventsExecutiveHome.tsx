@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Sparkles, Bell, Search, QrCode, UserPlus, Utensils,
   CalendarDays, ChevronRight, TrendingUp, Clock, MapPin,
-  Ticket, ShieldCheck, Heart, Award, ArrowUpRight, DollarSign,
+  Ticket, ShieldCheck, Heart, Award, ArrowUpRight, IndianRupee,
   Flame, CheckCircle2, ChevronLeft, Plus, BarChart3
 } from "lucide-react";
 import { GlassCard, TouchButton, StatusChip } from "./EventDesignSystem";
@@ -94,7 +94,7 @@ export const EventsExecutiveHome: React.FC<EventsExecutiveHomeProps> = ({
     { id: "volunteer", label: "Volunteers OS", icon: ShieldCheck, count: "318 Active", color: "#16A34A" },
     { id: "food", label: "Kitchen & Food", icon: Utensils, count: "4,200 Meals", color: "#2563EB" },
     { id: "inventory", label: "Inventory", icon: CalendarDays, count: "82 Equipments", color: "#F59E0B" },
-    { id: "finance", label: "Finance & Sponsors", icon: DollarSign, count: "₹18.5L Budget", color: "#EC4899" },
+    { id: "finance", label: "Finance & Sponsors", icon: IndianRupee, count: "₹18.5L Budget", color: "#EC4899" },
     { id: "cultural", label: "Cultural Contest", icon: Sparkles, count: "10 Categories", color: "#8B5CF6" },
     { id: "gallery", label: "Media Gallery", icon: Award, count: "240 Photos", color: "#06B6D4" },
     { id: "reports", label: "Reports", icon: BarChart3, count: "Export & PDF", color: "#6366F1" },

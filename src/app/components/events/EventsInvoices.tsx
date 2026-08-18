@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   FileText, Upload, CheckCircle, Clock, XCircle, AlertCircle,
-  Plus, Trash2, ExternalLink, Loader2, DollarSign, TrendingDown, Tag, X,
+  Plus, Trash2, ExternalLink, Loader2, IndianRupee, TrendingDown, Tag, X,
 } from "lucide-react";
 import { ErrorBanner, LoadingSpinner } from "./shared";
 import {
@@ -303,7 +303,7 @@ export function EventsInvoices() {
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
         {[
-          { label: "Total Invoiced", value: fmtINR(totalAmount), icon: DollarSign, color: "#6366f1", bg: "#eef2ff" },
+          { label: "Total Invoiced", value: fmtINR(totalAmount), icon: IndianRupee, color: "#6366f1", bg: "#eef2ff" },
           { label: "Pending",        value: String(pendingCount), icon: Clock,      color: "#d97706", bg: "#fffbeb" },
           { label: "Total Paid",     value: fmtINR(paidAmount),  icon: TrendingDown,color: "#10b981", bg: "#ecfdf5" },
         ].map((s, i) => (

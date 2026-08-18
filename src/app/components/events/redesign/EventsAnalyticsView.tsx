@@ -4,7 +4,7 @@ import {
   Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend
 } from "recharts";
 import {
-  TrendingUp, Users, Ticket, DollarSign, Star, Utensils,
+  TrendingUp, Users, Ticket, IndianRupee, Star, Utensils,
   Gavel, ClipboardCheck, ArrowUpRight, Download, Filter, Sparkles
 } from "lucide-react";
 import { GlassCard, TouchButton } from "./EventDesignSystem";
@@ -19,7 +19,7 @@ export const EventsAnalyticsView: React.FC<EventsAnalyticsViewProps> = ({ isDark
   const kpis = [
     { label: "Registrations", value: "1,842", sub: "↑ 14% vs last week", icon: Ticket, color: "#FF6B00", bg: "rgba(255, 107, 0, 0.1)" },
     { label: "Sponsors Raised", value: "₹6.10 Lakhs", sub: "19 Active sponsors", icon: Star, color: "#4F46E5", bg: "rgba(79, 70, 229, 0.1)" },
-    { label: "Budget Spent", value: "₹4.82 Lakhs", sub: "64% of ₹7.5L total", icon: DollarSign, color: "#16A34A", bg: "rgba(22, 163, 74, 0.1)" },
+    { label: "Budget Spent", value: "₹4.82 Lakhs", sub: "64% of ₹7.5L total", icon: IndianRupee, color: "#16A34A", bg: "rgba(22, 163, 74, 0.1)" },
     { label: "Volunteers", value: "318", sub: "94% Duty assigned", icon: Users, color: "#2563EB", bg: "rgba(37, 99, 235, 0.1)" },
     { label: "Food Meals Prepared", value: "85%", sub: "4,200 plates est", icon: Utensils, color: "#EC4899", bg: "rgba(236, 72, 153, 0.1)" },
     { label: "Auction Revenue", value: "₹2.10 Lakhs", sub: "14 items sold live", icon: Gavel, color: "#F59E0B", bg: "rgba(245, 158, 11, 0.1)" },

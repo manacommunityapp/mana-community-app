@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { Landmark, TrendingUp, TrendingDown, DollarSign, Plus, Download, Loader2, AlertCircle, Trash2, Pencil } from "lucide-react";
+import { Landmark, TrendingUp, TrendingDown, IndianRupee, Plus, Download, Loader2, AlertCircle, Trash2, Pencil } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { ErrorBanner, LoadingSpinner } from "./shared";
 import { eventExpenseService, type EventExpenseResponse, type EventExpenseRequest } from "../../../services/events/eventExpenseService";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 const mockSummary = [
-  { label: "Total Budget",  value: "₹7,10,000", icon: DollarSign,  color: "#6366f1", bg: "#eef2ff" },
+  { label: "Total Budget",  value: "₹7,10,000", icon: IndianRupee,  color: "#6366f1", bg: "#eef2ff" },
   { label: "Total Income",  value: "₹9,24,000", icon: TrendingUp,  color: "#10b981", bg: "#ecfdf5" },
   { label: "Total Expenses",value: "₹4,82,000", icon: TrendingDown,color: "#ef4444", bg: "#fff1f2" },
   { label: "Net Balance",   value: "₹4,42,000", icon: Landmark,    color: "#4f46e5", bg: "#eef2ff" },
@@ -206,7 +206,7 @@ export function EventsFinance() {
   const summary = useMock
     ? mockSummary
     : [
-        { label: "Total Budget",  value: "—",                                            icon: DollarSign,  color: "#6366f1", bg: "#eef2ff" },
+        { label: "Total Budget",  value: "—",                                            icon: IndianRupee,  color: "#6366f1", bg: "#eef2ff" },
         { label: "Total Income",  value: "—",                                            icon: TrendingUp,  color: "#10b981", bg: "#ecfdf5" },
         { label: "Total Expenses",value: `₹${liveTotal.toLocaleString("en-IN")}`,        icon: TrendingDown,color: "#ef4444", bg: "#fff1f2" },
         { label: "Net Balance",   value: "—",                                            icon: Landmark,    color: "#4f46e5", bg: "#eef2ff" },
