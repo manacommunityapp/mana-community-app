@@ -107,15 +107,8 @@ export function EventsPoojaSeva() {
   }, []);
 
   const loadData = () => {
-    let localPoojas: any[] = [];
-    try {
-      localPoojas = JSON.parse(localStorage.getItem("mana_local_pooja_sevas") || "[]");
-    } catch {}
-
     if (useMock) {
-      const merged = [...localPoojas, ...mockPoojaSevas];
-      const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
-      setPoojaSevas(unique);
+      setPoojaSevas(mockPoojaSevas);
       setRegistrations(mockRegistrations);
       return;
     }
@@ -127,8 +120,7 @@ export function EventsPoojaSeva() {
       eventService.getPoojaTypes(),
     ])
       .then(([sevas, regs, types]) => {
-        const merged = [...localPoojas, ...(sevas || [])];
-        const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
+        setPoojaSevas(sevas || []);
         const poojaRegs = (regs || [])
           .filter((r: any) => r.category === "Pooja" || r.activityId?.startsWith("pooja-"))
           .map((r: any) => {
@@ -146,11 +138,7 @@ export function EventsPoojaSeva() {
         if (types?.length > 0) setPoojaTypes(types.map((t: any) => t.name));
       })
       .catch(e => {
-        if (localPoojas.length > 0) {
-          setPoojaSevas(localPoojas);
-        } else {
-          setError(e?.message || "Failed to load pooja data");
-        }
+        setError(e?.message || "Failed to load pooja data from database");
       })
       .finally(() => setLoading(false));
   };

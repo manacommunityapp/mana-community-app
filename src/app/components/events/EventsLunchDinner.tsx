@@ -97,15 +97,8 @@ export function EventsLunchDinner() {
   }, []);
 
   const loadData = () => {
-    let localMeals: any[] = [];
-    try {
-      localMeals = JSON.parse(localStorage.getItem("mana_local_lunch_dinners") || "[]");
-    } catch {}
-
     if (useMock) {
-      const merged = [...localMeals, ...mockLunchDinners];
-      const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
-      setMeals(unique);
+      setMeals(mockLunchDinners);
       setRegistrations(mockRegistrations);
       return;
     }
@@ -113,8 +106,7 @@ export function EventsLunchDinner() {
     setError("");
     Promise.all([eventService.getLunchDinners(), eventService.getAllRegistrations()])
       .then(([m, regs]) => {
-        const merged = [...localMeals, ...(m || [])];
-        const unique = merged.filter((item, index, self) => index === self.findIndex((t) => t.name === item.name));
+        setMeals(m || []);
         const mealRegs = (regs || [])
           .filter((r: any) => r.category === "Meal" || r.activityId?.startsWith("meal-"))
           .map((r: any) => {
@@ -131,11 +123,7 @@ export function EventsLunchDinner() {
         setRegistrations(mealRegs);
       })
       .catch(e => {
-        if (localMeals.length > 0) {
-          setMeals(localMeals);
-        } else {
-          setError(e?.message || "Failed to load meal data");
-        }
+        setError(e?.message || "Failed to load meal data from database");
       })
       .finally(() => setLoading(false));
   };
