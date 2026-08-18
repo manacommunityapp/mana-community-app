@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Shield, Search, Filter, Download, CheckCircle2, Clock, XCircle,
-  Users, DollarSign, Ticket, RefreshCw, QrCode, AlertTriangle, Sparkles,
+  Users, IndianRupee, Ticket, RefreshCw, QrCode, AlertTriangle, Sparkles,
   UserCheck, UtensilsCrossed, Radio, Plus, PhoneCall, Award, Check, Eye, ChevronRight,
   Flame, Music, Trophy, Calendar, ChevronDown, ChevronUp, Loader2, User
 } from 'lucide-react';

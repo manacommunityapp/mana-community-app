@@ -1,7 +1,7 @@
 import {
   CalendarDays, MapPin, Users, Plus, X, Loader2, Clock, Search,
   Building2, BookOpen, Heart, GlassWater, Music, Trophy, MessageSquare,
-  Video, ChevronDown, CheckCircle, Globe, DollarSign, Trash2
+  Video, ChevronDown, CheckCircle, Globe, IndianRupee, Trash2
 } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { clsx, type ClassValue } from "clsx";

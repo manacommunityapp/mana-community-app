@@ -914,7 +914,7 @@ function AnalyticsTab() {
 
   const metrics = [
     { label: "Avg. Occupancy", value: "73.5%" },
-    { label: "Total Revenue", value: "$42,500" },
+    { label: "Total Revenue", value: "₹42,500" },
     { label: "Bookings This Period", value: "186" },
     { label: "Cancellation Rate", value: "4.2%" },
   ];

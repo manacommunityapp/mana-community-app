@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Bot, Mic, Send, Sparkles, X, User, ArrowRight, ShieldCheck, PieChart, Users, DollarSign } from "lucide-react";
+import { Bot, Mic, Send, Sparkles, X, User, ArrowRight, ShieldCheck, PieChart, Users, IndianRupee } from "lucide-react";
 import { GlassCard, TouchButton } from "./EventDesignSystem";
 import { useEscapeKey } from "../../../../hooks/useEscapeKey";
 

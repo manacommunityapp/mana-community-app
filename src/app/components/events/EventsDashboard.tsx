@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
-  CalendarDays, Users, Ticket, TrendingUp, DollarSign,
+  CalendarDays, Users, Ticket, TrendingUp, IndianRupee,
   Utensils, Gavel, ClipboardCheck, Star,
   Clock, MapPin, AlertCircle, Loader2,
   Sparkles, QrCode, UserPlus,
@@ -67,7 +67,7 @@ const PIE_COLORS = ["#4F46E5", "#7C3AED", "#16A34A", "#2563EB", "#EC4899", "#F59
 const MOCK_KPIS = [
   { label: "Total Events",            value: "24",     sub: "8 active festivals",  icon: CalendarDays, color: "#4F46E5", bg: "rgba(79,70,229,0.12)",   trend: "+3 this month",   to: "/events/schedule?tab=events" },
   { label: "Registrations",           value: "1,842",  sub: "↑ 14% vs last week",  icon: Ticket,       color: "#7C3AED", bg: "rgba(124,58,237,0.12)",  trend: "+204 this week",  to: "/events/registration" },
-  { label: "Budget Spent",            value: "₹4.82L", sub: "64% of ₹7.5L total",  icon: DollarSign,   color: "#2563EB", bg: "rgba(37,99,235,0.12)",   trend: "₹2.68L left",     to: "/events/operations?tab=finance" },
+  { label: "Budget Spent",            value: "₹4.82L", sub: "64% of ₹7.5L total",  icon: IndianRupee,   color: "#2563EB", bg: "rgba(37,99,235,0.12)",   trend: "₹2.68L left",     to: "/events/operations?tab=finance" },
   { label: "Today's Schedule & Duty", value: "32 Items", sub: "12 programs · 318 duty shifts", icon: Clock, color: "#16A34A", bg: "rgba(22,163,74,0.12)", trend: "Active Today", to: "/events/schedule?tab=programs" },
   { label: "Pending Action Items",    value: "9",      sub: "4 tasks · 5 sponsors", icon: AlertCircle, color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "Action Required", to: "/events/schedule?tab=planning" },
   { label: "Sponsors Raised",         value: "₹6.10L", sub: "19 Active partners",   icon: Star,         color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "5 pending",       to: "/events/fundraising?tab=sponsors" },
@@ -514,7 +514,7 @@ export function EventsDashboard() {
       {
         label: "Budget Spent",    value: stats ? fmtINR(spent) : "₹0",
         sub: revenue > 0 ? `Revenue: ${fmtINR(revenue)}` : "Revenue: ₹0",
-        icon: DollarSign, color: "#2563EB", bg: "rgba(37,99,235,0.12)", trend: spentPct,
+        icon: IndianRupee, color: "#2563EB", bg: "rgba(37,99,235,0.12)", trend: spentPct,
         to: "/events/operations?tab=finance",
       },
       {
@@ -1014,7 +1014,7 @@ export function EventsDashboard() {
           <div className="h-[175px] w-full">
             {!useMock && (budgetData.length === 0 || budgetData.every((d: any) => d.budget === 0 && d.spent === 0)) ? (
               <div className="h-full w-full flex flex-col items-center justify-center text-center gap-1.5 rounded-xl border-2 border-dashed border-slate-100 bg-slate-50/50">
-                <DollarSign className="w-6 h-6 text-slate-300" strokeWidth={1.5} />
+                <IndianRupee className="w-6 h-6 text-slate-300" strokeWidth={1.5} />
                 <p className="text-[11.5px] font-semibold text-slate-500">No Financial Expense Data</p>
                 <p className="text-[10.5px] text-slate-400 max-w-[200px] leading-snug">No category budget or actual spend recorded in database yet</p>
               </div>

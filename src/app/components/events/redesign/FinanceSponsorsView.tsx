@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { DollarSign, TrendingUp, Star, Award, Plus, ArrowUpRight, Sparkles, Building, PhoneCall } from "lucide-react";
+import { IndianRupee, TrendingUp, Star, Award, Plus, ArrowUpRight, Sparkles, Building, PhoneCall } from "lucide-react";
 import { GlassCard, TouchButton, StatusChip } from "./EventDesignSystem";
 
 interface FinanceSponsorsViewProps {

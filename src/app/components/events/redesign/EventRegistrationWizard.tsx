@@ -14,7 +14,7 @@ import {
   Download,
   Check,
   Lock,
-  DollarSign,
+  IndianRupee,
   Calendar,
   X,
   Clock,
@@ -67,7 +67,7 @@ const getCategoryIcon = (name: string) => {
   if (lower.includes("vip") || lower.includes("sponsor") || lower.includes("premium") || lower.includes("gold") || lower.includes("platinum")) return Sparkles;
   if (lower.includes("student") || lower.includes("child") || lower.includes("kid")) return Heart;
   if (lower.includes("individual") || lower.includes("single") || lower.includes("person") || lower.includes("general")) return User;
-  return DollarSign;
+  return IndianRupee;
 };
 
 export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = ({
@@ -1183,7 +1183,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                     {[
                       { id: "UPI", label: "UPI / QR Code", desc: "Instant scan & pay", icon: QrCode },
                       { id: "Card", label: "Cards / NetBanking", desc: "Online gateway", icon: CreditCard },
-                      { id: "Cash", label: "Cash / Counter", desc: "Pay at venue", icon: DollarSign },
+                      { id: "Cash", label: "Cash / Counter", desc: "Pay at venue", icon: IndianRupee },
                     ].map((mode) => {
                       const Icon = mode.icon;
                       const isSelected = (formData.paymentMode || "UPI") === mode.id;
@@ -1313,7 +1313,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                   {formData.paymentMode === "Cash" && (
                     <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-1 text-left">
                       <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                        <DollarSign className="w-4 h-4 text-emerald-500" /> Pay Cash at Helpdesk
+                        <IndianRupee className="w-4 h-4 text-emerald-500" /> Pay Cash at Helpdesk
                       </p>
                       <p className="text-[11px] text-muted-foreground leading-relaxed">
                         Your spot is reserved. Please show this registration e-pass and pay cash at the event registration
