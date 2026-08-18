@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import {
   Smartphone, Monitor, Moon, Sun, Search, Sparkles, X, QrCode,
-  Ticket, Calendar, ShieldCheck, Utensils, IndianRupee, Award, Image
+  Ticket, Calendar, ShieldCheck, Utensils, IndianRupee, Award, Image,
+  Heart, Users, CheckCircle2
 } from "lucide-react";
 import { EventMobileDock } from "./EventMobileDock";
 import { EventAICopilotDrawer } from "./EventAICopilotDrawer";
@@ -28,6 +29,7 @@ export function EventsRedesignMain() {
   const [showAICopilot, setShowAICopilot] = useState(false);
   const [showSearchCmd, setShowSearchCmd] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeFeatureModal, setActiveFeatureModal] = useState<string | null>(null);
 
   useEscapeKey(() => setShowSearchCmd(false), showSearchCmd);
   useEscapeKey(() => setShowAICopilot(false), showAICopilot);
@@ -165,6 +167,7 @@ export function EventsRedesignMain() {
                   onNavigate={(v) => setActiveTab(v)}
                   onOpenQRScanner={handleOpenQRPass}
                   onOpenRegisterModal={handleOpenRegister}
+                  onOpenFeatureModal={(key) => setActiveFeatureModal(key)}
                 />
               )}
               {activeTab === "details" && (
@@ -201,6 +204,7 @@ export function EventsRedesignMain() {
                   onNavigate={(v) => setActiveTab(v)}
                   onOpenQRScanner={handleOpenQRPass}
                   onOpenRegisterModal={handleOpenRegister}
+                  onOpenFeatureModal={(key) => setActiveFeatureModal(key)}
                 />
               )}
               {activeTab === "calendar" && (
@@ -209,6 +213,7 @@ export function EventsRedesignMain() {
                   onNavigate={(v) => setActiveTab(v)}
                   onOpenQRScanner={handleOpenQRPass}
                   onOpenRegisterModal={handleOpenRegister}
+                  onOpenFeatureModal={(key) => setActiveFeatureModal(key)}
                 />
               )}
               {activeTab === "profile" && <ProfileNotificationsView isDark={isDark} activeSubView="profile" />}
@@ -232,6 +237,133 @@ export function EventsRedesignMain() {
         onClose={() => setShowAICopilot(false)}
         isDark={isDark}
       />
+
+      {/* Member Services Feature Modal */}
+      {activeFeatureModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center p-4 bg-black/50 backdrop-blur-sm sm:items-center"
+          onClick={() => setActiveFeatureModal(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-[24px] bg-white shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100"
+              style={{
+                background: activeFeatureModal === "pooja" ? "linear-gradient(135deg,#F59E0B,#D97706)"
+                  : activeFeatureModal === "meals" ? "linear-gradient(135deg,#059669,#10B981)"
+                  : activeFeatureModal === "passes" ? "linear-gradient(135deg,#7C3AED,#6366F1)"
+                  : "linear-gradient(135deg,#0369A1,#0EA5E9)"
+              }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-2xl bg-white/20 flex items-center justify-center text-white">
+                  {activeFeatureModal === "pooja" && <Heart className="w-5 h-5" />}
+                  {activeFeatureModal === "meals" && <Utensils className="w-5 h-5" />}
+                  {activeFeatureModal === "passes" && <Ticket className="w-5 h-5" />}
+                  {activeFeatureModal === "family" && <Users className="w-5 h-5" />}
+                </div>
+                <div>
+                  <h2 className="text-sm font-black text-white">
+                    {activeFeatureModal === "pooja" && "Pooja Registration"}
+                    {activeFeatureModal === "meals" && "Lunch / Dinner"}
+                    {activeFeatureModal === "passes" && "Event Passes"}
+                    {activeFeatureModal === "family" && "Family Members"}
+                  </h2>
+                  <p className="text-[10px] text-white/75 font-semibold">
+                    {activeFeatureModal === "pooja" && "Seva bookings & rituals"}
+                    {activeFeatureModal === "meals" && "Meal preferences"}
+                    {activeFeatureModal === "passes" && "Entry & access"}
+                    {activeFeatureModal === "family" && "Household details"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActiveFeatureModal(null)}
+                className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-5 py-5 space-y-4">
+              {activeFeatureModal === "pooja" && (
+                <>
+                  <p className="text-xs text-slate-500">Register for Pooja ceremonies. Select a seva type and submit for your family.</p>
+                  <div className="rounded-2xl border border-amber-100 bg-amber-50 p-4 space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-amber-700">Available Poojas</p>
+                    {["Ganesh Abhishekam", "Lakshmi Pooja", "Satyanarayan Puja", "Havan Ceremony"].map((p) => (
+                      <div key={p} className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                        <CheckCircle2 className="h-4 w-4 shrink-0 text-amber-500" />{p}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-500">
+                    No registration submitted yet. Contact the event committee to register.
+                  </div>
+                </>
+              )}
+              {activeFeatureModal === "meals" && (
+                <>
+                  <p className="text-xs text-slate-500">Select meal preferences for lunch and dinner sessions.</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {["Lunch – Day 1","Dinner – Day 1","Lunch – Day 2","Dinner – Day 2"].map((m) => (
+                      <div key={m} className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
+                        <Utensils className="w-4 h-4 text-emerald-600 mb-1" />
+                        <p className="text-[10px] font-bold text-emerald-800">{m}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">Veg &amp; Non-Veg</p>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              {activeFeatureModal === "passes" && (
+                <>
+                  <p className="text-xs text-slate-500">Your event passes grant access to specific venues and sessions.</p>
+                  <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4 space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-violet-700">Pass Types</p>
+                    {["General Entry Pass","VIP Access Pass","Programme Entry","Dining Pass"].map((p) => (
+                      <div key={p} className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+                        <Ticket className="h-4 w-4 shrink-0 text-violet-500" />{p}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="rounded-2xl bg-slate-50 border border-slate-100 p-3 text-xs text-slate-500">
+                    Passes are issued after event registration is complete.
+                  </div>
+                </>
+              )}
+              {activeFeatureModal === "family" && (
+                <>
+                  <p className="text-xs text-slate-500">Family members registered under your flat for this event.</p>
+                  <div className="rounded-2xl border border-sky-100 bg-sky-50 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-sky-700">Registered Members</p>
+                      <span className="rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-bold text-white">0</span>
+                    </div>
+                    <p className="text-xs text-slate-500">No family members added yet. Go to the Family Members section to add them.</p>
+                  </div>
+                </>
+              )}
+              <button
+                onClick={() => setActiveFeatureModal(null)}
+                className="w-full py-3 rounded-2xl text-xs font-black text-white transition-all active:scale-95"
+                style={{
+                  background: activeFeatureModal === "pooja" ? "linear-gradient(135deg,#F59E0B,#D97706)"
+                    : activeFeatureModal === "meals" ? "linear-gradient(135deg,#059669,#10B981)"
+                    : activeFeatureModal === "passes" ? "linear-gradient(135deg,#7C3AED,#6366F1)"
+                    : "linear-gradient(135deg,#0369A1,#0EA5E9)"
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Global Command Search Sheet */}
       <BottomSheet
