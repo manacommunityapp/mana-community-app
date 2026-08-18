@@ -1846,7 +1846,7 @@ export default function AppFlowChatbot({ isFloating }: { isFloating?: boolean })
     const isUser = msg.role === "user";
     if (msg.type === "steps") {
       return (
-        <div key={msg.id} style={{ margin: "8px 0", maxWidth: "88%" }}>
+        <div key={msg.id} style={{ margin: "8px 0", maxWidth: "92%" }}>
           {msg.content.map((step: any, i: number) => (
             <StepCard key={i} step={step} isActive={i === 0} />
           ))}
@@ -1854,14 +1854,21 @@ export default function AppFlowChatbot({ isFloating }: { isFloating?: boolean })
       );
     }
     return (
-      <div key={msg.id} style={{ display: "flex", justifyContent: isUser ? "flex-end" : "flex-start", margin: "6px 0" }}>
+      <div key={msg.id} style={{ display: "flex", alignItems: "flex-end", justifyContent: isUser ? "flex-end" : "flex-start", margin: "5px 0", gap: 7 }}>
+        {!isUser && (
+          <div style={{ width: 27, height: 27, borderRadius: "50%", background: "#eef2ff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, marginBottom: 2, border: "1px solid #e0e7ff" }}>
+            🤖
+          </div>
+        )}
         <div
           style={{
-            maxWidth: "82%", padding: "10px 14px",
-            borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-            background: isUser ? "#6366f1" : "#f1f5f9",
+            maxWidth: "78%", padding: "10px 13px",
+            borderRadius: isUser ? "18px 18px 4px 18px" : "18px 18px 18px 4px",
+            background: isUser ? "linear-gradient(135deg, #6366f1, #4f46e5)" : "#fff",
             color: isUser ? "#fff" : "#1e293b",
-            fontSize: 14, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", textAlign: "left",
+            fontSize: 13.5, lineHeight: 1.6, whiteSpace: "pre-wrap", wordBreak: "break-word", textAlign: "left",
+            border: isUser ? "none" : "1px solid #e5e7eb",
+            boxShadow: isUser ? "0 3px 10px rgba(99,102,241,0.3)" : "0 1px 4px rgba(0,0,0,0.06)",
           }}
         >
           {msg.content.split("**").map((part: string, i: number) =>
@@ -1880,160 +1887,186 @@ export default function AppFlowChatbot({ isFloating }: { isFloating?: boolean })
   const visibleModules = MODULE_CATEGORIES.find(c => c.id === activeCategory)?.modules || [];
 
   return (
-    <div
-      style={{
-        display: "flex", flexDirection: "column",
-        height: isFloating ? "100%" : "100vh",
-        background: "#ffffff",
-        fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
-        maxWidth: isFloating ? "100%" : 560,
-        margin: "0 auto",
-        borderLeft: isFloating ? "none" : "1px solid #e2e8f0",
-        borderRight: isFloating ? "none" : "1px solid #e2e8f0",
-      }}
-    >
-      {/* Header */}
-      <div style={{ background: "linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)", padding: "16px 18px", color: "#fff", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 12, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
-            🏠
-          </div>
-          <div style={{ textAlign: "left" }}>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>Mana Community</div>
-            <div style={{ fontSize: 11, opacity: 0.85 }}>Your community management assistant</div>
+    <>
+      <style>{`
+        .afc-scroll-row { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .afc-scroll-row::-webkit-scrollbar { display: none; }
+        .afc-tab-btn { transition: all 0.15s; flex-shrink: 0; white-space: nowrap; cursor: pointer; }
+        .afc-tab-btn:active { transform: scale(0.95); }
+        .afc-chip-btn { transition: all 0.15s; flex-shrink: 0; white-space: nowrap; cursor: pointer; display: flex; align-items: center; }
+        .afc-chip-btn:active { transform: scale(0.95); }
+        .afc-send-btn:not(:disabled):active { transform: scale(0.9); }
+        .afc-msg-area { scrollbar-width: thin; scrollbar-color: #d1d5db transparent; }
+        .afc-msg-area::-webkit-scrollbar { width: 4px; }
+        .afc-msg-area::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+      `}</style>
+      <div
+        style={{
+          display: "flex", flexDirection: "column",
+          height: isFloating ? "100%" : "100vh",
+          background: "#F8F9FC",
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+          maxWidth: isFloating ? "100%" : 560,
+          margin: "0 auto",
+          borderLeft: isFloating ? "none" : "1px solid #e2e8f0",
+          borderRight: isFloating ? "none" : "1px solid #e2e8f0",
+          overflow: "hidden",
+        }}
+      >
+        {/* Header */}
+        <div style={{ background: "linear-gradient(135deg, #4f46e5 0%, #6366f1 50%, #7c3aed 100%)", padding: "14px 16px", color: "#fff", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 38, height: 38, borderRadius: 12, overflow: "hidden", flexShrink: 0, boxShadow: "0 2px 10px rgba(0,0,0,0.25), 0 0 0 2px rgba(255,255,255,0.2)" }}>
+              <img src="/chat-bot-img-1.gif" alt="Help Bot" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </div>
+            <div style={{ textAlign: "left", flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 15, letterSpacing: "-0.01em" }}>Mana Help Center</div>
+              <div style={{ fontSize: 11, opacity: 0.85, display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", display: "inline-block", boxShadow: "0 0 6px #4ade80" }} />
+                Step-by-step guides · 120+ topics
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Category Tabs */}
-      <div style={{ display: "flex", gap: 4, padding: "10px 14px", borderBottom: "1px solid #e2e8f0", background: "#fafbfc", flexShrink: 0, overflowX: "auto" }}>
-        {MODULE_CATEGORIES.map((cat) => (
-          <button
-            key={cat.id}
-            onClick={() => { setActiveCategory(cat.id); setSelectedModule(null); setSelectedFlow(null); }}
-            style={{
-              padding: "7px 14px", borderRadius: 20,
-              border: activeCategory === cat.id ? "2px solid #6366f1" : "1.5px solid #d1d5db",
-              background: activeCategory === cat.id ? "rgba(99,102,241,0.06)" : "#fff",
-              color: activeCategory === cat.id ? "#6366f1" : "#64748b",
-              fontWeight: 600, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s",
-            }}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Module Selector */}
-      <div style={{ display: "flex", gap: 6, padding: "10px 14px", borderBottom: "1px solid #e2e8f0", background: "#fff", flexShrink: 0, overflowX: "auto" }}>
-        {visibleModules.map((key) => {
-          const mod = MODULES[key];
-          if (!mod) return null;
-          return (
+        {/* Category Tabs */}
+        <div className="afc-scroll-row" style={{ display: "flex", gap: 6, padding: "9px 12px", borderBottom: "1px solid #e5e7eb", background: "#fff", flexShrink: 0 }}>
+          {MODULE_CATEGORIES.map((cat) => (
             <button
-              key={key}
-              onClick={() => handleModuleSelect(key)}
+              key={cat.id}
+              className="afc-tab-btn"
+              onClick={() => { setActiveCategory(cat.id); setSelectedModule(null); setSelectedFlow(null); }}
               style={{
-                padding: "6px 12px", borderRadius: 16,
-                border: selectedModule === key ? "1.5px solid #6366f1" : "1px solid #e2e8f0",
-                background: selectedModule === key ? "#eef2ff" : "#f8fafc",
-                color: selectedModule === key ? "#4338ca" : "#64748b",
-                fontSize: 12, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap",
-                transition: "all 0.15s", display: "flex", alignItems: "center", gap: 4,
+                padding: "7px 15px", borderRadius: 20, minHeight: 36, fontSize: 12.5, fontWeight: 600,
+                border: activeCategory === cat.id ? "2px solid #6366f1" : "1.5px solid #e5e7eb",
+                background: activeCategory === cat.id ? "#eef2ff" : "#f9fafb",
+                color: activeCategory === cat.id ? "#4f46e5" : "#6b7280",
               }}
             >
-              {mod.icon} {mod.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Flow Selector (when module is selected) */}
-      {selectedModule && MODULES[selectedModule] && (
-        <div style={{ display: "flex", gap: 6, padding: "8px 14px", borderBottom: "1px solid #e2e8f0", background: "#fafbfc", flexShrink: 0, overflowX: "auto", flexWrap: "wrap" }}>
-          {MODULES[selectedModule].flows.map((flow) => (
-            <button
-              key={flow.id}
-              onClick={() => handleFlowSelect(flow.id)}
-              style={{
-                padding: "5px 10px", borderRadius: 14,
-                border: selectedFlow === flow.id ? "1.5px solid #6366f1" : "1px solid #e2e8f0",
-                background: selectedFlow === flow.id ? "#eef2ff" : "#fff",
-                color: selectedFlow === flow.id ? "#4338ca" : "#64748b",
-                fontSize: 11, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap",
-                transition: "all 0.15s", display: "flex", alignItems: "center", gap: 3,
-              }}
-            >
-              {flow.icon} {flow.label}
+              {cat.label}
             </button>
           ))}
         </div>
-      )}
 
-      {/* Chat Area */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "14px", display: "flex", flexDirection: "column" }}>
-        {messages.map(renderMessage)}
-        {(typing || apiLoading) && (
-          <div style={{ display: "flex", margin: "6px 0" }}>
-            <div style={{ padding: "10px 14px", background: "#f1f5f9", borderRadius: "16px 16px 16px 4px" }}>
-              <TypingIndicator />
-            </div>
+        {/* Module Selector */}
+        <div className="afc-scroll-row" style={{ display: "flex", gap: 6, padding: "8px 12px", borderBottom: "1px solid #f1f5f9", background: "#fafbfc", flexShrink: 0 }}>
+          {visibleModules.map((key) => {
+            const mod = MODULES[key];
+            if (!mod) return null;
+            return (
+              <button
+                key={key}
+                className="afc-chip-btn"
+                onClick={() => handleModuleSelect(key)}
+                style={{
+                  padding: "6px 12px", borderRadius: 16, minHeight: 33, gap: 5, fontSize: 12, fontWeight: 500,
+                  border: selectedModule === key ? "1.5px solid #6366f1" : "1px solid #e5e7eb",
+                  background: selectedModule === key ? "#eef2ff" : "#fff",
+                  color: selectedModule === key ? "#4338ca" : "#6b7280",
+                }}
+              >
+                <span style={{ fontSize: 13 }}>{mod.icon}</span> {mod.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Flow Selector */}
+        {selectedModule && MODULES[selectedModule] && (
+          <div className="afc-scroll-row" style={{ display: "flex", gap: 5, padding: "7px 12px", borderBottom: "1px solid #f1f5f9", background: "#fff", flexShrink: 0, flexWrap: "wrap" }}>
+            {MODULES[selectedModule].flows.map((flow) => (
+              <button
+                key={flow.id}
+                className="afc-chip-btn"
+                onClick={() => handleFlowSelect(flow.id)}
+                style={{
+                  padding: "5px 10px", borderRadius: 14, minHeight: 30, gap: 4, fontSize: 11.5, fontWeight: 500,
+                  border: selectedFlow === flow.id ? "1.5px solid #6366f1" : "1px solid #e5e7eb",
+                  background: selectedFlow === flow.id ? "#eef2ff" : "#f9fafb",
+                  color: selectedFlow === flow.id ? "#4338ca" : "#6b7280",
+                }}
+              >
+                {flow.icon} {flow.label}
+              </button>
+            ))}
           </div>
         )}
-        <div ref={chatEndRef} />
-      </div>
 
-      {/* Quick Replies */}
-      <div style={{ display: "flex", gap: 6, padding: "8px 14px", overflowX: "auto", flexShrink: 0, borderTop: "1px solid #f1f5f9" }}>
-        {quickReplies.map((reply) => (
-          <button
-            key={reply}
-            onClick={() => handleQuickReply(reply)}
-            disabled={typing || apiLoading}
-            style={{
-              padding: "6px 12px", borderRadius: 14, border: "1px solid #d1d5db",
-              background: "#fff", color: "#4b5563", fontSize: 12,
-              cursor: typing || apiLoading ? "not-allowed" : "pointer",
-              whiteSpace: "nowrap", opacity: typing || apiLoading ? 0.5 : 1, transition: "all 0.15s",
-            }}
-          >
-            {reply}
-          </button>
-        ))}
-      </div>
+        {/* Chat Area */}
+        <div className="afc-msg-area" style={{ flex: 1, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column" }}>
+          {messages.map(renderMessage)}
+          {(typing || apiLoading) && (
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 7, margin: "5px 0" }}>
+              <div style={{ width: 27, height: 27, borderRadius: "50%", background: "#eef2ff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, border: "1px solid #e0e7ff" }}>🤖</div>
+              <div style={{ padding: "10px 14px", background: "#fff", borderRadius: "18px 18px 18px 4px", border: "1px solid #e5e7eb", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+                <TypingIndicator />
+              </div>
+            </div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
 
-      {/* Input */}
-      <div style={{ padding: "10px 14px 14px", borderTop: "1px solid #e2e8f0", background: "#fff", flexShrink: 0, display: "flex", gap: 8 }}>
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-          placeholder="Ask anything — e.g. 'How do I register for a tournament?'"
-          disabled={typing || apiLoading}
-          style={{
-            flex: 1, padding: "10px 14px", borderRadius: 20,
-            border: "1.5px solid #d1d5db", fontSize: 14, outline: "none",
-            background: "#f8fafc", color: "#1e293b", transition: "border-color 0.15s",
-          }}
-          onFocus={(e) => (e.target.style.borderColor = "#6366f1")}
-          onBlur={(e) => (e.target.style.borderColor = "#d1d5db")}
-        />
-        <button
-          onClick={handleSend}
-          disabled={!input.trim() || typing || apiLoading}
-          style={{
-            width: 40, height: 40, borderRadius: "50%", border: "none",
-            background: input.trim() && !typing ? "#6366f1" : "#e2e8f0",
-            color: "#fff", fontSize: 18,
-            cursor: input.trim() && !typing ? "pointer" : "not-allowed",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "all 0.15s", flexShrink: 0,
-          }}
-        >
-          ↑
-        </button>
+        {/* Quick Replies */}
+        <div className="afc-scroll-row" style={{ display: "flex", gap: 6, padding: "8px 12px", flexShrink: 0, borderTop: "1px solid #f1f5f9", background: "#fff" }}>
+          {quickReplies.map((reply) => (
+            <button
+              key={reply}
+              className="afc-chip-btn"
+              onClick={() => handleQuickReply(reply)}
+              disabled={typing || apiLoading}
+              style={{
+                padding: "7px 12px", borderRadius: 16, minHeight: 33, fontSize: 12,
+                border: "1px solid #e2e8f0", background: "#f8fafc", color: "#374151",
+                cursor: typing || apiLoading ? "not-allowed" : "pointer",
+                opacity: typing || apiLoading ? 0.5 : 1,
+              }}
+            >
+              {reply}
+            </button>
+          ))}
+        </div>
+
+        {/* Input */}
+        <div style={{
+          padding: "10px 12px",
+          paddingBottom: "max(10px, env(safe-area-inset-bottom))",
+          borderTop: "1px solid #e5e7eb", background: "#fff", flexShrink: 0,
+        }}>
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8,
+            background: "#f3f4f6", borderRadius: 24, padding: "3px 3px 3px 14px",
+            border: "2px solid transparent", transition: "border-color 0.2s, background 0.2s",
+          }}>
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+              placeholder="Ask anything…"
+              disabled={typing || apiLoading}
+              style={{ flex: 1, border: "none", background: "transparent", outline: "none", fontSize: 13.5, color: "#1e293b", padding: "7px 0", minWidth: 0 }}
+              onFocus={(e) => { const p = e.target.parentElement!; p.style.borderColor = "#6366f1"; p.style.background = "#fff"; }}
+              onBlur={(e) => { const p = e.target.parentElement!; p.style.borderColor = "transparent"; p.style.background = "#f3f4f6"; }}
+            />
+            <button
+              className="afc-send-btn"
+              onClick={handleSend}
+              disabled={!input.trim() || typing || apiLoading}
+              style={{
+                width: 34, height: 34, borderRadius: "50%", border: "none",
+                background: input.trim() && !typing ? "linear-gradient(135deg, #6366f1, #7c3aed)" : "#e2e8f0",
+                color: "#fff", fontSize: 16, cursor: input.trim() && !typing ? "pointer" : "not-allowed",
+                display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s", flexShrink: 0,
+              }}
+            >
+              ↑
+            </button>
+          </div>
+          <div style={{ textAlign: "center", fontSize: 10, color: "#9ca3af", marginTop: 5 }}>
+            Pick a category above or type your question
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -1777,6 +1777,8 @@ export function EventMemberView() {
               slots: selectedActivity.slots,
               parentEventTitle: "Ganesh Utsav 2026",
               gotram: passesList.find((p) => p.gotram)?.gotram || (selectedActivity as any)?.gotram || (selectedActivity as any)?.existingRegistration?.gotram,
+              notes: (selectedActivity as any)?.notes,
+              samagri: (selectedActivity as any)?.samagri,
               existingRegistration: (selectedActivity as any)?.existingRegistration,
               registrationId: (selectedActivity as any)?.registrationId,
               isUpdateMode: (selectedActivity as any)?.isUpdateMode,
