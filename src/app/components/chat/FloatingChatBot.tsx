@@ -38,7 +38,7 @@ export function FloatingChatBot() {
         />
       )}
 
-      <div className="fixed bottom-16 right-4 sm:bottom-6 sm:right-24 z-50 font-sans">
+      <div className="fixed bottom-28 right-4 sm:bottom-6 sm:right-24 z-50 font-sans">
         {/* Panel */}
         {isOpen && (
           <div
