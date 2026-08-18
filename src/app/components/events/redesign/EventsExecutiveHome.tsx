@@ -3,7 +3,7 @@ import {
   Sparkles, Bell, Search, QrCode, UserPlus, Utensils,
   CalendarDays, ChevronRight, TrendingUp, Clock, MapPin,
   Ticket, ShieldCheck, Heart, Award, ArrowUpRight, IndianRupee,
-  Flame, CheckCircle2, ChevronLeft, Plus, BarChart3
+  Flame, CheckCircle2, ChevronLeft, Plus, BarChart3, Users
 } from "lucide-react";
 import { GlassCard, TouchButton, StatusChip } from "./EventDesignSystem";
 
@@ -12,12 +12,14 @@ interface EventsExecutiveHomeProps {
   onNavigate: (view: string) => void;
   onOpenQRScanner: () => void;
   onOpenRegisterModal: () => void;
+  onOpenFeatureModal?: (key: string) => void;
 }
 
 export const EventsExecutiveHome: React.FC<EventsExecutiveHomeProps> = ({
   isDark = false,
   onNavigate,
   onOpenQRScanner,
+  onOpenFeatureModal,
   onOpenRegisterModal,
 }) => {
   // Live ticking countdown state for Ganesh Utsav 2026
@@ -341,6 +343,38 @@ export const EventsExecutiveHome: React.FC<EventsExecutiveHomeProps> = ({
               </GlassCard>
             );
           })}
+        </div>
+      </div>
+
+      {/* Member Services — Pooja / Meals / Passes / Family */}
+      <div>
+        <h3 className="text-sm font-extrabold text-slate-900 dark:text-white mb-3 flex items-center justify-between">
+          <span>Member Services</span>
+          <span className="text-[11px] text-[#FF6B00] font-bold">Tap to view details</span>
+        </h3>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { key: "pooja",  label: "Pooja Registration", sub: "Seva & rituals",    bg: "linear-gradient(135deg, #F59E0B, #D97706)", icon: Heart },
+            { key: "meals",  label: "Lunch / Dinner",     sub: "Meal preferences",  bg: "linear-gradient(135deg, #059669, #10B981)", icon: Utensils },
+            { key: "passes", label: "Event Passes",        sub: "Entry & access",    bg: "linear-gradient(135deg, #7C3AED, #6366F1)", icon: Ticket },
+            { key: "family", label: "Family Members",      sub: "Household details", bg: "linear-gradient(135deg, #0369A1, #0EA5E9)", icon: Users },
+          ].map(({ key, label, sub, bg, icon: Icon }) => (
+            <GlassCard
+              key={key}
+              isDark={isDark}
+              onClick={() => onOpenFeatureModal?.(key)}
+              className="p-4 border text-left group cursor-pointer hover:border-[#FF6B00] transition-colors"
+            >
+              <div
+                style={{ background: bg }}
+                className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-md mb-2.5 group-hover:scale-110 transition-transform"
+              >
+                <Icon className="w-5 h-5" />
+              </div>
+              <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">{label}</h4>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{sub}</p>
+            </GlassCard>
+          ))}
         </div>
       </div>
     </div>
