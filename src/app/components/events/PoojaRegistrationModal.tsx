@@ -241,8 +241,8 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
     // 1. Check AuthContext user
     if (authUser) {
       const flat = resolveUserFlat(authUser);
-      if (authUser.fullName || authUser.name) setDevoteeName(authUser.fullName || authUser.name);
-      if (authUser.phone || authUser.mobile) setDevoteePhone(authUser.phone || authUser.mobile);
+      if (authUser.fullName) setDevoteeName(authUser.fullName);
+      if (authUser.phone) setDevoteePhone(authUser.phone);
       if (flat) setDevoteeFlat(flat);
     }
 
