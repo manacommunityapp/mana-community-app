@@ -43,18 +43,21 @@ export function FloatingChatBot() {
         {isOpen && (
           <div
             ref={panelRef}
-            className={`fixed inset-x-2.5 bottom-3 top-10 sm:absolute sm:inset-auto sm:bottom-16 sm:right-0 ${
+            className={`fixed inset-x-0 bottom-0 top-12 sm:absolute sm:inset-auto sm:bottom-16 sm:right-0 ${
               AI_AGENT_CHATBOT_ENABLED
                 ? "sm:w-[400px] sm:h-[620px] sm:max-h-[80vh]"
                 : "sm:w-[520px] sm:h-[900px] sm:max-h-[85vh]"
-            } flex flex-col rounded-2xl sm:rounded-3xl border border-slate-200/80 shadow-2xl overflow-hidden transition-all duration-300 animate-in fade-in zoom-in-95 slide-in-from-bottom-4 bg-white`}
+            } flex flex-col sm:rounded-3xl rounded-t-[24px] border border-slate-200/60 shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300 bg-white`}
             style={{
-              boxShadow: "0 20px 60px rgba(15,23,42,0.25), 0 0 0 1px rgba(99,102,241,0.1)",
+              boxShadow: "0 -8px 40px rgba(15,23,42,0.18), 0 20px 60px rgba(15,23,42,0.25), 0 0 0 1px rgba(99,102,241,0.12)",
             }}
           >
             {/* Mobile Sheet Handle Bar */}
-            <div className="sm:hidden flex items-center justify-center pt-2 pb-1 bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-600">
-              <div className="w-10 h-1 rounded-full bg-white/40" />
+            <div className="sm:hidden flex flex-col items-center pt-3 pb-2 bg-gradient-to-r from-indigo-600 via-indigo-600 to-purple-600 gap-1">
+              <div className="w-9 h-1 rounded-full bg-white/50" />
+              <span className="text-[10px] font-semibold text-white/70 tracking-wide uppercase">
+                {AI_AGENT_CHATBOT_ENABLED ? "Mana AI" : "Help Center"}
+              </span>
             </div>
 
             {AI_AGENT_CHATBOT_ENABLED ? (
