@@ -2655,6 +2655,8 @@ export function EventCreateWizard({
         window.dispatchEvent(new Event("mana_schedule_updated"));
         window.dispatchEvent(new Event("mana_event_created"));
         window.dispatchEvent(new Event("mana_event_updated"));
+        window.dispatchEvent(new Event("mana_dashboard_updated"));
+        window.dispatchEvent(new Event("mana_registrations_updated"));
       } catch {}
       setSubmitType("draft");
       setSubmitted(true);
@@ -2710,6 +2712,8 @@ export function EventCreateWizard({
         window.dispatchEvent(new Event("mana_schedule_updated"));
         window.dispatchEvent(new Event("mana_event_created"));
         window.dispatchEvent(new Event("mana_event_updated"));
+        window.dispatchEvent(new Event("mana_dashboard_updated"));
+        window.dispatchEvent(new Event("mana_registrations_updated"));
       } catch {}
       setSubmitType("published");
       setSubmitted(true);
@@ -2956,7 +2960,18 @@ export function EditEventDialog({
   event: any;
   onSave?: (updated: any) => void;
 }) {
-  const close = onClose || (() => onOpenChange?.(false));
+  const close = () => {
+    try {
+      window.dispatchEvent(new Event("mana_event_created"));
+      window.dispatchEvent(new Event("mana_event_updated"));
+      window.dispatchEvent(new Event("mana_activities_updated"));
+      window.dispatchEvent(new Event("mana_schedule_updated"));
+      window.dispatchEvent(new Event("mana_dashboard_updated"));
+      window.dispatchEvent(new Event("mana_registrations_updated"));
+    } catch {}
+    if (onClose) onClose();
+    else onOpenChange?.(false);
+  };
 
   useEffect(() => {
     if (open) {
@@ -3082,8 +3097,25 @@ export function CreateEventDialog({ open, onOpenChange }: { open: boolean; onOpe
           onClick={e => e.stopPropagation()}
         >
           <EventCreateWizard
-            onClose={() => onOpenChange(false)}
-            onCreated={() => {}}
+            onClose={() => {
+              onOpenChange(false);
+              try {
+                window.dispatchEvent(new Event("mana_event_created"));
+                window.dispatchEvent(new Event("mana_activities_updated"));
+                window.dispatchEvent(new Event("mana_schedule_updated"));
+                window.dispatchEvent(new Event("mana_dashboard_updated"));
+                window.dispatchEvent(new Event("mana_registrations_updated"));
+              } catch {}
+            }}
+            onCreated={() => {
+              try {
+                window.dispatchEvent(new Event("mana_event_created"));
+                window.dispatchEvent(new Event("mana_activities_updated"));
+                window.dispatchEvent(new Event("mana_schedule_updated"));
+                window.dispatchEvent(new Event("mana_dashboard_updated"));
+                window.dispatchEvent(new Event("mana_registrations_updated"));
+              } catch {}
+            }}
           />
         </div>
       </div>

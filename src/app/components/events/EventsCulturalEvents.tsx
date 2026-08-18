@@ -138,9 +138,13 @@ export function EventsCulturalEvents() {
     loadData();
     window.addEventListener("mana_activities_updated", loadData);
     window.addEventListener("mana_schedule_updated", loadData);
+    window.addEventListener("mana_event_created", loadData);
+    window.addEventListener("mana_event_updated", loadData);
     return () => {
       window.removeEventListener("mana_activities_updated", loadData);
       window.removeEventListener("mana_schedule_updated", loadData);
+      window.removeEventListener("mana_event_created", loadData);
+      window.removeEventListener("mana_event_updated", loadData);
     };
   }, [useMock]);
 

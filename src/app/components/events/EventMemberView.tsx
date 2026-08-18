@@ -518,11 +518,17 @@ export function EventMemberView() {
     };
 
     window.addEventListener("mana_activities_updated", fetchLiveDataFromBackend);
+    window.addEventListener("mana_event_created", fetchLiveDataFromBackend);
+    window.addEventListener("mana_event_updated", fetchLiveDataFromBackend);
+    window.addEventListener("mana_dashboard_updated", fetchLiveDataFromBackend);
     window.addEventListener("mana_registrations_updated", handleRegUpdate);
     window.addEventListener("mana_family_updated", loadFamilyMembers);
 
     return () => {
       window.removeEventListener("mana_activities_updated", fetchLiveDataFromBackend);
+      window.removeEventListener("mana_event_created", fetchLiveDataFromBackend);
+      window.removeEventListener("mana_event_updated", fetchLiveDataFromBackend);
+      window.removeEventListener("mana_dashboard_updated", fetchLiveDataFromBackend);
       window.removeEventListener("mana_registrations_updated", handleRegUpdate);
       window.removeEventListener("mana_family_updated", loadFamilyMembers);
     };
@@ -1044,22 +1050,22 @@ export function EventMemberView() {
                       ? (activitiesList[0]?.title || "Maha Ganapathi Archana & Silver Shield Pooja")
                       : "No Events Created Yet"}
                   </h2>
-                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5 text-[11px] font-medium text-white/90">
+                  <div className="flex items-center gap-1.5 sm:gap-2.5 text-[11px] font-medium text-white/90 overflow-hidden">
                     <span className="flex items-center gap-1 shrink-0">
                       <Calendar className="w-3 h-3 text-amber-300 shrink-0" />
-                      <span>{activitiesList.length > 0 ? (activitiesList[0]?.date || "22 Aug 2026") : "Upcoming"}</span>
+                      <span className="whitespace-nowrap">{activitiesList.length > 0 ? (activitiesList[0]?.date || "22 Aug 2026") : "Upcoming"}</span>
                     </span>
-                    <span className="text-white/40">·</span>
-                    <span className="flex items-center gap-1 truncate max-w-[170px] sm:max-w-none">
+                    <span className="text-white/40 shrink-0">·</span>
+                    <span className="flex items-center gap-1 truncate max-w-[140px] sm:max-w-[220px]">
                       <MapPin className="w-3 h-3 text-indigo-200 shrink-0" />
                       <span className="truncate">{activitiesList.length > 0 ? (activitiesList[0]?.venue || "Main Mandap, Gate 1") : "Community Center"}</span>
                     </span>
                     {activitiesList.length > 0 && activitiesList[0]?.time && (
                       <>
-                        <span className="text-white/40">·</span>
-                        <span className="flex items-center gap-1 shrink-0">
+                        <span className="text-white/40 shrink-0">·</span>
+                        <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                           <Clock className="w-3 h-3 text-amber-300 shrink-0" />
-                          <span>{activitiesList[0]?.time}</span>
+                          <span className="whitespace-nowrap">{activitiesList[0]?.time}</span>
                         </span>
                       </>
                     )}
@@ -1067,14 +1073,14 @@ export function EventMemberView() {
                 </div>
 
                 {/* ── Line 3: Start Time & Registration Button in a Single Line ── */}
-                <div className="flex items-center justify-between gap-2 pt-0.5">
-                  {/* Left: Start Time / Countdown Ticker (Label above, time below) */}
+                <div className="flex items-center justify-between gap-3 sm:gap-4 pt-1">
+                  {/* Left: Start Time / Countdown Ticker in single clean row */}
                   {activitiesList.length > 0 ? (
-                    <div className="flex flex-col items-start gap-1 min-w-0">
-                      <span className="text-[8.5px] sm:text-[9.5px] font-bold text-white/75 uppercase tracking-wider leading-none">
-                        Starts in
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap sm:flex-nowrap">
+                      <span className="text-[9px] sm:text-[10px] font-bold text-white/80 uppercase tracking-wider whitespace-nowrap">
+                        Starts in:
                       </span>
-                      <div className="flex items-center gap-0.5">
+                      <div className="flex items-center gap-0.5 sm:gap-1 whitespace-nowrap">
                         {[
                           { val: timeLeft.days, unit: "d" },
                           { val: timeLeft.hours, unit: "h" },
@@ -1086,7 +1092,7 @@ export function EventMemberView() {
                               <span className={`font-mono text-xs sm:text-sm font-black leading-none tracking-tight ${amber ? "text-amber-300 drop-shadow-xs" : "text-white"}`}>
                                 {String(val).padStart(2, "0")}
                               </span>
-                              <span className="text-[8.5px] sm:text-[9px] font-extrabold text-white/70 uppercase leading-none">{unit}</span>
+                              <span className="text-[8px] sm:text-[9px] font-extrabold text-white/70 uppercase leading-none">{unit}</span>
                             </div>
                             {i < 3 && <span className="text-white/60 font-black text-xs mx-0.5 mb-0.5">:</span>}
                           </div>
@@ -1099,7 +1105,7 @@ export function EventMemberView() {
                     </div>
                   )}
 
-                  {/* Right: Registration / Pass Button */}
+                  {/* Right: Registration / Pass Button moved to right */}
                   {activitiesList.length > 0 && (() => {
                     const act = activitiesList[0];
                     const existingPass = getExistingPassForActivity(act);
@@ -1113,7 +1119,7 @@ export function EventMemberView() {
                             setSelectedActivity(act);
                           }
                         }}
-                        className={`px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-black rounded-xl shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                        className={`ml-auto px-3.5 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-black rounded-xl shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                           existingPass
                             ? "bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-400/40"
                             : "bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950"

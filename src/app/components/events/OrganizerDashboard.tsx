@@ -379,9 +379,15 @@ export function OrganizerDashboard({ initialTab = 'registrations' }: OrganizerDa
     fetchLiveRegistrations();
     window.addEventListener('mana_registrations_updated', fetchLiveRegistrations);
     window.addEventListener('mana_activities_updated', fetchLiveRegistrations);
+    window.addEventListener('mana_event_created', fetchLiveRegistrations);
+    window.addEventListener('mana_event_updated', fetchLiveRegistrations);
+    window.addEventListener('mana_dashboard_updated', fetchLiveRegistrations);
     return () => {
       window.removeEventListener('mana_registrations_updated', fetchLiveRegistrations);
       window.removeEventListener('mana_activities_updated', fetchLiveRegistrations);
+      window.removeEventListener('mana_event_created', fetchLiveRegistrations);
+      window.removeEventListener('mana_event_updated', fetchLiveRegistrations);
+      window.removeEventListener('mana_dashboard_updated', fetchLiveRegistrations);
     };
   }, [useMock]);
 

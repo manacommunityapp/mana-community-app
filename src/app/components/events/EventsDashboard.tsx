@@ -255,14 +255,13 @@ export function EventsDashboard() {
   const [loadingRegs, setLoadingRegs] = useState(false);
   const [expandedActivity, setExpandedActivity] = useState<string|null>(null);
 
-  useEffect(() => {
+  const fetchLiveRegistrations = () => {
     if (useMock) { setAllUnifiedRegs(MOCK_REGS); return; }
     setLoadingRegs(true);
     eventService.getAllRegistrations()
       .then((regs: any[]) => {
         setAllUnifiedRegs(regs.map((r: any) => {
           let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
-          // Always recompute from member arrays so that self + family members are included
           if (r.membersJson) {
             try {
               const parsed = JSON.parse(r.membersJson);
@@ -306,6 +305,10 @@ export function EventsDashboard() {
       })
       .catch(() => {})
       .finally(() => setLoadingRegs(false));
+  };
+
+  useEffect(() => {
+    fetchLiveRegistrations();
   }, [useMock]);
 
   const filteredUnifiedRegs = allUnifiedRegs.filter(r => {
@@ -381,7 +384,30 @@ export function EventsDashboard() {
     }).finally(() => setLoading(false));
   }
 
-  useEffect(() => { fetchAll(); }, [useMock]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    fetchAll();
+
+    const handleRefresh = () => {
+      fetchAll();
+      fetchLiveRegistrations();
+    };
+
+    window.addEventListener("mana_event_created", handleRefresh);
+    window.addEventListener("mana_event_updated", handleRefresh);
+    window.addEventListener("mana_activities_updated", handleRefresh);
+    window.addEventListener("mana_schedule_updated", handleRefresh);
+    window.addEventListener("mana_dashboard_updated", handleRefresh);
+    window.addEventListener("mana_registrations_updated", handleRefresh);
+
+    return () => {
+      window.removeEventListener("mana_event_created", handleRefresh);
+      window.removeEventListener("mana_event_updated", handleRefresh);
+      window.removeEventListener("mana_activities_updated", handleRefresh);
+      window.removeEventListener("mana_schedule_updated", handleRefresh);
+      window.removeEventListener("mana_dashboard_updated", handleRefresh);
+      window.removeEventListener("mana_registrations_updated", handleRefresh);
+    };
+  }, [useMock]);
 
   // ── Phase 2: fetch registrations for the trend chart (needs eventId) ──
   useEffect(() => {
