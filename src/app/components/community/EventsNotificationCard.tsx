@@ -1,17 +1,7 @@
 import { useEffect, useState } from "react";
 import {
-  Calendar,
-  MapPin,
-  ChevronRight,
-  Loader2,
-  Sparkles,
-  Flame,
-  Utensils,
-  Music,
-  Trophy,
-  Ticket,
-  Clock,
-  ArrowRight,
+  Calendar, MapPin, ChevronRight, Loader2, Flame,
+  Utensils, Music, Trophy, Ticket, Clock, ArrowRight,
 } from "lucide-react";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { useNavigate } from "react-router";
@@ -23,21 +13,20 @@ function formatEventDate(dateStr?: string) {
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
-function getCategoryIcon(typeOrCat?: string | null) {
+function getCategoryMeta(typeOrCat?: string | null): {
+  icon: React.ReactNode;
+  dot: string;
+} {
   const c = (typeOrCat || "").toLowerCase();
-  if (c.includes("pooja") || c.includes("festival") || c.includes("religious")) {
-    return <Flame className="w-3.5 h-3.5 text-amber-600" />;
-  }
-  if (c.includes("food") || c.includes("meal") || c.includes("prasadam")) {
-    return <Utensils className="w-3.5 h-3.5 text-orange-600" />;
-  }
-  if (c.includes("cultural") || c.includes("music") || c.includes("dance")) {
-    return <Music className="w-3.5 h-3.5 text-purple-600" />;
-  }
-  if (c.includes("comp") || c.includes("contest") || c.includes("sport")) {
-    return <Trophy className="w-3.5 h-3.5 text-blue-600" />;
-  }
-  return <Calendar className="w-3.5 h-3.5 text-indigo-600" />;
+  if (c.includes("pooja") || c.includes("festival") || c.includes("religious"))
+    return { icon: <Flame className="w-3 h-3" />, dot: "bg-amber-400" };
+  if (c.includes("food") || c.includes("meal") || c.includes("prasadam"))
+    return { icon: <Utensils className="w-3 h-3" />, dot: "bg-orange-400" };
+  if (c.includes("cultural") || c.includes("music") || c.includes("dance"))
+    return { icon: <Music className="w-3 h-3" />, dot: "bg-purple-400" };
+  if (c.includes("comp") || c.includes("contest") || c.includes("sport"))
+    return { icon: <Trophy className="w-3 h-3" />, dot: "bg-blue-400" };
+  return { icon: <Calendar className="w-3 h-3" />, dot: "bg-indigo-400" };
 }
 
 export function EventsNotificationCard() {
@@ -53,13 +42,8 @@ export function EventsNotificationCard() {
         eventService.getUpcomingEvents().catch(() => []),
         eventService.getMyRegistrations().catch(() => []),
       ]);
-
-      if (Array.isArray(allUpcoming)) {
-        setEvents(allUpcoming.slice(0, 4));
-      }
-      if (Array.isArray(myPasses)) {
-        setMyPassCount(myPasses.length);
-      }
+      if (Array.isArray(allUpcoming)) setEvents(allUpcoming.slice(0, 4));
+      if (Array.isArray(myPasses)) setMyPassCount(myPasses.length);
     } catch {
       setEvents([]);
     } finally {
@@ -69,123 +53,135 @@ export function EventsNotificationCard() {
 
   useEffect(() => {
     loadEventsData();
-
-    const handleReload = () => {
-      loadEventsData();
-    };
-
-    window.addEventListener("mana_activities_updated", handleReload);
-    window.addEventListener("mana_event_created", handleReload);
-
+    const reload = () => loadEventsData();
+    window.addEventListener("mana_activities_updated", reload);
+    window.addEventListener("mana_event_created", reload);
     return () => {
-      window.removeEventListener("mana_activities_updated", handleReload);
-      window.removeEventListener("mana_event_created", handleReload);
+      window.removeEventListener("mana_activities_updated", reload);
+      window.removeEventListener("mana_event_created", reload);
     };
   }, []);
 
   return (
-    <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-4 space-y-3">
+    <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
-            <Calendar className="w-4 h-4" />
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-100">
+        <div className="flex items-center gap-1.5">
+          <div className="w-5 h-5 rounded-md bg-indigo-600 flex items-center justify-center">
+            <Calendar className="w-3 h-3 text-white" />
           </div>
-          <div>
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <span>Events &amp; Notifications</span>
-              {events.length > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full text-[9px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100">
-                  {events.length}
-                </span>
-              )}
-            </h4>
-          </div>
+          <span className="text-[11px] font-black text-slate-800 tracking-wide uppercase">
+            Events
+          </span>
+          {events.length > 0 && (
+            <span className="px-1.5 py-px rounded-full text-[9px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100 leading-none">
+              {events.length}
+            </span>
+          )}
         </div>
         <button
           type="button"
           onClick={() => navigate("/events")}
-          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-0.5 cursor-pointer"
+          className="flex items-center gap-0.5 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 transition-colors cursor-pointer"
         >
-          View All <ChevronRight className="w-3 h-3" />
+          All <ChevronRight className="w-3 h-3" />
         </button>
       </div>
 
-      {/* User Pass Badge banner */}
+      {/* Pass badge — compact strip */}
       {myPassCount > 0 && (
-        <div
+        <button
+          type="button"
           onClick={() => navigate("/events")}
-          className="p-2.5 rounded-lg bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-100 flex items-center justify-between cursor-pointer hover:border-indigo-300 transition-all group"
+          className="w-full flex items-center justify-between px-3 py-1.5 bg-gradient-to-r from-indigo-50 to-violet-50 border-b border-indigo-100 hover:from-indigo-100 hover:to-violet-100 transition-colors group cursor-pointer"
         >
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-md bg-indigo-600 text-white flex items-center justify-center shadow-2xs">
-              <Ticket className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-1.5">
+            <div className="w-5 h-5 rounded-md bg-indigo-600 text-white flex items-center justify-center">
+              <Ticket className="w-3 h-3" />
             </div>
-            <div>
-              <p className="text-[11px] font-bold text-indigo-900 leading-tight">
-                {myPassCount} Active E-Pass{myPassCount > 1 ? "es" : ""}
-              </p>
-              <p className="text-[9px] text-indigo-600 font-medium">Tap to view your QR Gate Passes</p>
-            </div>
+            <span className="text-[10px] font-bold text-indigo-800">
+              {myPassCount} active e-pass{myPassCount > 1 ? "es" : ""}
+            </span>
           </div>
-          <ArrowRight className="w-3.5 h-3.5 text-indigo-600 group-hover:translate-x-0.5 transition-transform" />
-        </div>
+          <ArrowRight className="w-3 h-3 text-indigo-400 group-hover:translate-x-0.5 transition-transform" />
+        </button>
       )}
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex items-center justify-center py-4 text-xs text-slate-400 gap-2">
-          <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
-          <span>Loading events...</span>
-        </div>
-      ) : events.length === 0 ? (
-        <div className="text-center py-4 space-y-1">
-          <p className="text-xs font-semibold text-slate-600">No Upcoming Events</p>
-          <p className="text-[10px] text-slate-400">Check back soon for new community activities.</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {events.map((ev) => (
-            <button
-              key={ev.id}
-              type="button"
-              onClick={() => navigate("/events")}
-              className="w-full text-left flex items-start gap-2.5 p-2 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-indigo-50/40 hover:border-indigo-200 transition-all group cursor-pointer"
-            >
-              <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0 mt-0.5 group-hover:border-indigo-300 transition-colors shadow-2xs">
-                {getCategoryIcon(ev.category || ev.type)}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1">
-                  <h5 className="text-[11px] font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
-                    {ev.title}
-                  </h5>
-                  <span className="text-[8.5px] font-bold px-1.5 py-0.2 rounded shrink-0 bg-emerald-50 text-emerald-700 border border-emerald-200">
+      {/* Body */}
+      <div className="px-3 py-2">
+        {loading ? (
+          <div className="flex items-center justify-center py-3 gap-1.5 text-[10px] text-slate-400">
+            <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+            Loading…
+          </div>
+        ) : events.length === 0 ? (
+          <div className="text-center py-3">
+            <p className="text-[10px] font-semibold text-slate-500">No upcoming events</p>
+            <p className="text-[9px] text-slate-400 mt-0.5">Check back soon.</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-50">
+            {events.map((ev) => {
+              const { icon, dot } = getCategoryMeta(ev.category || ev.type);
+              return (
+                <button
+                  key={ev.id}
+                  type="button"
+                  onClick={() => navigate("/events")}
+                  className="w-full text-left flex items-center gap-2 py-2 hover:bg-slate-50 rounded-lg px-1 -mx-1 transition-colors group cursor-pointer"
+                >
+                  {/* Color dot + icon */}
+                  <div className="relative shrink-0">
+                    <div className="w-6 h-6 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 group-hover:border-indigo-200 group-hover:text-indigo-600 transition-colors">
+                      {icon}
+                    </div>
+                    <span className={`absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full ${dot} ring-1 ring-white`} />
+                  </div>
+
+                  {/* Text */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10.5px] font-bold text-slate-800 truncate group-hover:text-indigo-600 transition-colors leading-tight">
+                      {ev.title}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="flex items-center gap-0.5 text-[9px] text-slate-400">
+                        <Clock className="w-2 h-2" />
+                        {formatEventDate(ev.startDate)}
+                        {ev.startTime && ` · ${ev.startTime}`}
+                      </span>
+                      {ev.venue && (
+                        <span className="flex items-center gap-0.5 text-[9px] text-slate-400 truncate max-w-[80px]">
+                          <MapPin className="w-2 h-2 shrink-0" />
+                          {ev.venue}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Price badge */}
+                  <span className={`shrink-0 text-[8.5px] font-black px-1.5 py-0.5 rounded-full ${
+                    ev.price && ev.price > 0
+                      ? "bg-slate-100 text-slate-600"
+                      : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  }`}>
                     {ev.price && ev.price > 0 ? `₹${ev.price}` : "FREE"}
                   </span>
-                </div>
-                <div className="flex items-center gap-2 text-[9.5px] text-slate-500 mt-0.5 flex-wrap">
-                  <span className="flex items-center gap-0.5">
-                    <Calendar className="w-2.5 h-2.5 text-slate-400" />
-                    {formatEventDate(ev.startDate)}
-                  </span>
-                  {ev.startTime && (
-                    <span className="flex items-center gap-0.5">
-                      <Clock className="w-2.5 h-2.5 text-slate-400" />
-                      {ev.startTime}
-                    </span>
-                  )}
-                  {ev.venue && (
-                    <span className="flex items-center gap-0.5 truncate max-w-[100px]">
-                      <MapPin className="w-2.5 h-2.5 text-slate-400" />
-                      {ev.venue}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Footer CTA */}
+      {!loading && events.length > 0 && (
+        <button
+          type="button"
+          onClick={() => navigate("/events")}
+          className="w-full flex items-center justify-center gap-1 py-2 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 border-t border-slate-100 transition-colors cursor-pointer"
+        >
+          View all events <ChevronRight className="w-3 h-3" />
+        </button>
       )}
     </div>
   );
