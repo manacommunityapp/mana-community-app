@@ -1079,65 +1079,73 @@ export function EventMemberView() {
                   transform: "translate(20%, -20%)",
                 }}
               />
-              <div className="relative z-10 p-4 sm:p-5 text-white flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
-                <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
-                  <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-2xl shrink-0 shadow-xs">
-                    🪔
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap mb-1">
-                      <span className="px-2.5 py-0.5 rounded-full text-[9.5px] sm:text-[10px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs">
-                        🔥 Community Event
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/30 text-slate-200 text-[9.5px] sm:text-[10px] font-bold border border-white/15 backdrop-blur-xs">
-                        <span className={`w-1.5 h-1.5 rounded-full ${activitiesList.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
-                        {activitiesList.length > 0 ? `${activitiesList.length} Events Available` : "0 Events Available"}
-                      </span>
-                    </div>
-                    <h2 className="text-base sm:text-xl font-black text-white leading-snug drop-shadow-md truncate">
-                      {activitiesList.length > 0
-                        ? (activitiesList[0]?.title || "Maha Ganapathi Archana & Silver Shield Pooja")
-                        : "No Events Created Yet"}
-                    </h2>
-                    <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-[11px] font-medium text-white/80 mt-1">
-                      <span className="flex items-center gap-1 truncate max-w-[200px] sm:max-w-none">
-                        <MapPin className="w-3 h-3 text-amber-300 shrink-0" />
-                        <span className="truncate">{activitiesList.length > 0 ? (activitiesList[0]?.venue || "Main Temple Mandap, Gate 1") : "Community Center"}</span>
-                      </span>
-                      <span className="text-white/40">·</span>
-                      <span className="flex items-center gap-1 shrink-0">
-                        <Calendar className="w-3 h-3 text-indigo-200 shrink-0" />
-                        {activitiesList.length > 0 ? (activitiesList[0]?.date || "22 Aug 2026") : "Upcoming"}
-                      </span>
-                    </div>
+              <div className="relative z-10 p-3.5 sm:p-5 text-white space-y-2.5 sm:space-y-3">
+                {/* ── Line 1: 🔥 Community Event & Events Available in a single line ── */}
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap overflow-x-auto hide-scrollbar">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-[10.5px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs whitespace-nowrap shrink-0">
+                    🔥 Community Event
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[10px] sm:text-[10.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
+                    <span className={`w-1.5 h-1.5 rounded-full ${activitiesList.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
+                    <span>{activitiesList.length > 0 ? `${activitiesList.length} Events Available` : "0 Events Available"}</span>
+                  </span>
+                </div>
+
+                {/* ── Line 2: Event name and date and other event details wrapped in a single div ── */}
+                <div className="min-w-0 bg-white/5 border border-white/10 rounded-xl p-2.5 sm:p-3 space-y-1">
+                  <h2 className="text-sm sm:text-lg font-black text-white leading-snug drop-shadow-md truncate">
+                    {activitiesList.length > 0
+                      ? (activitiesList[0]?.title || "Maha Ganapathi Archana & Silver Shield Pooja")
+                      : "No Events Created Yet"}
+                  </h2>
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2.5 text-[11px] font-medium text-white/90">
+                    <span className="flex items-center gap-1 shrink-0">
+                      <Calendar className="w-3 h-3 text-amber-300 shrink-0" />
+                      <span>{activitiesList.length > 0 ? (activitiesList[0]?.date || "22 Aug 2026") : "Upcoming"}</span>
+                    </span>
+                    <span className="text-white/40">·</span>
+                    <span className="flex items-center gap-1 truncate max-w-[170px] sm:max-w-none">
+                      <MapPin className="w-3 h-3 text-indigo-200 shrink-0" />
+                      <span className="truncate">{activitiesList.length > 0 ? (activitiesList[0]?.venue || "Main Mandap, Gate 1") : "Community Center"}</span>
+                    </span>
+                    {activitiesList.length > 0 && activitiesList[0]?.time && (
+                      <>
+                        <span className="text-white/40">·</span>
+                        <span className="flex items-center gap-1 shrink-0">
+                          <Clock className="w-3 h-3 text-amber-300 shrink-0" />
+                          <span>{activitiesList[0]?.time}</span>
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 shrink-0 justify-between lg:justify-end border-t lg:border-t-0 pt-2.5 lg:pt-0 border-white/15">
-                  {/* Live Countdown Ticker */}
+                {/* ── Line 3: Start Time & Registration Button in a Single Line ── */}
+                <div className="flex items-center justify-between gap-2 pt-0.5">
+                  {/* Left: Start Time / Countdown Ticker (Label above, time below) */}
                   {activitiesList.length > 0 ? (
-                    <div className="flex items-center gap-1">
-                      <span className="text-[9px] font-bold text-white/70 uppercase tracking-wider mr-1">Starts in</span>
-                      {[
-                        { val: timeLeft.days, unit: "d" },
-                        { val: timeLeft.hours, unit: "h" },
-                        { val: timeLeft.mins, unit: "m" },
-                        { val: timeLeft.secs, unit: "s", amber: true },
-                      ].map(({ val, unit, amber }, i) => (
-                        <div key={unit} className="flex items-center">
-                          <div className="flex flex-col items-center">
-                            <span
-                              className={`w-7 sm:w-8 text-center px-1 py-0.5 rounded-lg font-mono text-xs font-extrabold leading-none shadow-2xs ${
-                                amber ? "bg-amber-400/30 text-amber-200 border border-amber-400/40" : "bg-black/30 text-white border border-white/10"
-                              }`}
-                            >
-                              {String(val).padStart(2, "0")}
-                            </span>
-                            <span className="text-[7.5px] font-bold text-white/60 mt-0.5 uppercase">{unit}</span>
+                    <div className="flex flex-col items-start gap-1 min-w-0">
+                      <span className="text-[8.5px] sm:text-[9.5px] font-bold text-white/75 uppercase tracking-wider leading-none">
+                        Starts in
+                      </span>
+                      <div className="flex items-center gap-0.5">
+                        {[
+                          { val: timeLeft.days, unit: "d" },
+                          { val: timeLeft.hours, unit: "h" },
+                          { val: timeLeft.mins, unit: "m" },
+                          { val: timeLeft.secs, unit: "s", amber: true },
+                        ].map(({ val, unit, amber }, i) => (
+                          <div key={unit} className="flex items-center">
+                            <div className="flex items-baseline gap-0.5 bg-black/40 border border-white/15 px-1.5 py-0.5 rounded-lg shadow-sm">
+                              <span className={`font-mono text-xs sm:text-sm font-black leading-none tracking-tight ${amber ? "text-amber-300 drop-shadow-xs" : "text-white"}`}>
+                                {String(val).padStart(2, "0")}
+                              </span>
+                              <span className="text-[8.5px] sm:text-[9px] font-extrabold text-white/70 uppercase leading-none">{unit}</span>
+                            </div>
+                            {i < 3 && <span className="text-white/60 font-black text-xs mx-0.5 mb-0.5">:</span>}
                           </div>
-                          {i < 3 && <span className="text-white/40 font-bold text-xs mx-0.5 mb-1.5">:</span>}
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
                   ) : (
                     <div className="text-[11px] font-semibold text-white/70 italic">
@@ -1145,6 +1153,7 @@ export function EventMemberView() {
                     </div>
                   )}
 
+                  {/* Right: Registration / Pass Button */}
                   {activitiesList.length > 0 && (() => {
                     const act = activitiesList[0];
                     const existingPass = getExistingPassForActivity(act);
@@ -1158,14 +1167,14 @@ export function EventMemberView() {
                             setSelectedActivity(act);
                           }
                         }}
-                        className={`px-3.5 py-1.5 text-[11px] sm:text-xs font-black rounded-xl shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                        className={`px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-black rounded-xl shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                           existingPass
                             ? "bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-400/40"
                             : "bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950"
                         }`}
                       >
                         {existingPass ? <Edit3 className="w-3.5 h-3.5" /> : <Ticket className="w-3.5 h-3.5" />}
-                        {existingPass ? "Update Registration" : "Book / Register Pass"}
+                        <span>{existingPass ? "Update Pass" : "Register Pass"}</span>
                       </button>
                     );
                   })()}
