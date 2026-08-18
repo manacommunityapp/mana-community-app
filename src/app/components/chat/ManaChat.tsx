@@ -253,7 +253,9 @@ export default function ManaChat({ onClose, auctionConfigId = 1 }: ManaChatProps
         {/* ── Header ── */}
         <div className="mana-header">
           <div className="mana-header-left">
-            <div className="mana-header-avatar">🏏</div>
+            <div className="mana-header-avatar" style={{ overflow: "hidden", padding: 0 }}>
+              <img src="/ganesha-login-banner.jpg" alt="Mana AI" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </div>
             <div className="mana-header-info">
               <h3>Mana AI Assistant</h3>
               <span>{isLoading ? "Thinking..." : "Online"}</span>
@@ -275,7 +277,9 @@ export default function ManaChat({ onClose, auctionConfigId = 1 }: ManaChatProps
         <div className="mana-body">
           {messages.length === 0 ? (
             <div className="mana-welcome">
-              <div className="mana-welcome-icon">🏆</div>
+              <div className="mana-welcome-icon" style={{ width: 56, height: 56, borderRadius: 16, overflow: "hidden", margin: "0 auto 4px", boxShadow: "0 4px 12px rgba(245,158,11,0.25)" }}>
+                <img src="/ganesha-login-banner.jpg" alt="Lord Ganesha" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
               <h4>Mana AI Assistant</h4>
               <p>I can help you with player searches, team budgets, stats comparisons, tournament overviews, and more. Ask me anything!</p>
               <div className="mana-prompts">

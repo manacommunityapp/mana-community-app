@@ -83,14 +83,57 @@ export function Login() {
       {/* Subtle radial glow behind the card */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
 
+      <style>{`
+        @keyframes ganeshMobileFloat {
+          0%, 100% {
+            transform: translateY(0px) rotate(0deg) scale(1);
+          }
+          25% {
+            transform: translateY(-5px) rotate(-1.5deg) scale(1.02);
+          }
+          50% {
+            transform: translateY(-9px) rotate(0deg) scale(1.04);
+          }
+          75% {
+            transform: translateY(-4px) rotate(1.5deg) scale(1.02);
+          }
+        }
+        @keyframes ganeshAuraPulse {
+          0%, 100% {
+            box-shadow: 0 10px 25px -4px rgba(245, 158, 11, 0.4), 0 0 15px rgba(245, 158, 11, 0.3);
+          }
+          50% {
+            box-shadow: 0 16px 36px -2px rgba(245, 158, 11, 0.6), 0 0 28px rgba(239, 68, 68, 0.4);
+          }
+        }
+        .ganesh-login-float {
+          animation: ganeshMobileFloat 3.6s ease-in-out infinite, ganeshAuraPulse 3s ease-in-out infinite;
+        }
+      `}</style>
+
       <Toaster position="top-center" richColors />
       <div className="w-full max-w-md relative z-10">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center bg-primary p-3 rounded-2xl mb-4 shadow-lg shadow-primary/20">
+        {/* Mobile View Devotional Ganesha Banner - Tap to open Event Dashboard */}
+        <div className="sm:hidden mb-5 text-center flex flex-col items-center animate-fade-in">
+          <Link
+            to="/events"
+            title="Open Events Dashboard"
+            className="ganesh-login-float relative w-32 h-32 rounded-3xl overflow-hidden border-2 border-amber-400/70 p-0.5 bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-500 hover:scale-105 active:scale-95 transition-all cursor-pointer block"
+          >
+            <img
+              src="/ganesha-login-banner.jpg"
+              alt="Events Dashboard"
+              className="w-full h-full object-cover rounded-[22px]"
+            />
+          </Link>
+        </div>
+
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="hidden sm:inline-flex items-center justify-center bg-primary p-3 rounded-2xl mb-4 shadow-lg shadow-primary/20">
             <ShieldCheck className="h-10 w-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Welcome Back</h1>
-          <p className="text-muted-foreground">Sign in to your Mana Community</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">Welcome Back</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">Sign in to your Mana Community</p>
         </div>
 
         {eventContext && (

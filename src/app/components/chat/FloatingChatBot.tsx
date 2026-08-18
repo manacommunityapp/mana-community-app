@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { Link } from "react-router";
 import { X } from "lucide-react";
 import AppFlowChatbot from "./AppFlowChatbot";
 import ManaChat from "./ManaChat";
@@ -80,11 +81,54 @@ export function FloatingChatBot() {
           </div>
         )}
 
+      <style>{`
+        @keyframes ganeshFloatAnim {
+          0%, 100% {
+            transform: translateY(0px) rotate(0deg) scale(1);
+          }
+          25% {
+            transform: translateY(-5px) rotate(-2deg) scale(1.03);
+          }
+          50% {
+            transform: translateY(-9px) rotate(0deg) scale(1.05);
+          }
+          75% {
+            transform: translateY(-4px) rotate(2deg) scale(1.02);
+          }
+        }
+        @keyframes divineHaloSpin {
+          0% { filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.6)) hue-rotate(0deg); }
+          50% { filter: drop-shadow(0 0 14px rgba(245, 158, 11, 0.8)) hue-rotate(15deg); }
+          100% { filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.6)) hue-rotate(0deg); }
+        }
+        .ganesh-animated-idol {
+          animation: ganeshFloatAnim 3.4s ease-in-out infinite, divineHaloSpin 4s linear infinite;
+        }
+      `}</style>
+
+      {/* Floating devotional Ganesha button above AI Chatbot */}
+      {!isOpen && (
+        <Link
+          to="/events"
+          title="Open Events Dashboard"
+          className="ganesh-animated-idol absolute -top-14 right-0 sm:-top-18 sm:right-0.5 flex items-center justify-center h-10 w-10 sm:h-14 sm:w-14 rounded-full overflow-hidden shadow-2xl border-2 border-amber-400/90 p-0.5 bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-500 hover:scale-110 active:scale-95 transition-all cursor-pointer z-50"
+          style={{
+            boxShadow: "0 6px 20px rgba(245, 158, 11, 0.55)",
+          }}
+        >
+          <img
+            src="/ganesha-login-banner.jpg"
+            alt="Events Dashboard"
+            className="w-full h-full rounded-full object-cover scale-110 transition-transform duration-300"
+          />
+        </Link>
+      )}
+
       {/* Trigger Button displaying the GIF */}
       <button
         id="floating-chatbot-toggle"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="h-10 w-10 sm:h-14 sm:w-14 rounded-full overflow-hidden shadow-lg sm:shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer border sm:border-2 border-indigo-500/20 bg-white"
+        className="h-10 w-10 sm:h-14 sm:w-14 rounded-full overflow-hidden shadow-lg sm:shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer border sm:border-2 border-indigo-500/20 bg-white relative"
         style={{
           boxShadow: "0 4px 14px rgba(99,102,241,0.25)",
         }}
