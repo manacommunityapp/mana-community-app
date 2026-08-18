@@ -147,74 +147,88 @@ export default function ManaChat({ onClose, auctionConfigId = 1 }: ManaChatProps
         }
 
         .mana-header {
-          padding: 14px 18px;
-          background: linear-gradient(135deg, #4F46E5, #7C3AED);
+          padding: 13px 16px;
+          background: linear-gradient(135deg, #4F46E5, #6366F1 60%, #7C3AED);
           color: white;
           display: flex; align-items: center; justify-content: space-between;
           flex-shrink: 0;
         }
         .mana-header-left { display: flex; align-items: center; gap: 10px; }
         .mana-header-avatar {
-          width: 34px; height: 34px; border-radius: 50%;
+          width: 36px; height: 36px; border-radius: 12px;
           background: rgba(255,255,255,0.2);
           display: flex; align-items: center; justify-content: center;
-          font-size: 17px;
+          font-size: 17px; box-shadow: 0 2px 8px rgba(0,0,0,0.2), 0 0 0 2px rgba(255,255,255,0.15);
+          overflow: hidden; padding: 0;
         }
-        .mana-header-info h3 { font-size: 14.5px; font-weight: 600; margin: 0; }
-        .mana-header-info span { font-size: 11px; opacity: 0.85; }
+        .mana-header-info h3 { font-size: 14.5px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+        .mana-header-info .mana-status {
+          font-size: 11px; opacity: 0.9; display: flex; align-items: center; gap: 5px; margin-top: 2px;
+        }
+        .mana-status-dot {
+          width: 6px; height: 6px; border-radius: 50%; background: #4ade80;
+          box-shadow: 0 0 6px #4ade80; display: inline-block; flex-shrink: 0;
+        }
         .mana-header-actions { display: flex; gap: 6px; }
         .mana-header-btn {
           background: rgba(255,255,255,0.15); border: none; color: white;
-          width: 30px; height: 30px; border-radius: 8px; cursor: pointer;
+          width: 32px; height: 32px; border-radius: 9px; cursor: pointer;
           display: flex; align-items: center; justify-content: center;
           transition: background 0.2s;
         }
         .mana-header-btn:hover { background: rgba(255,255,255,0.28); }
+        .mana-header-btn:active { transform: scale(0.93); }
 
         .mana-body {
-          flex: 1; overflow-y: auto; padding: 14px;
-          display: flex; flex-direction: column; gap: 10px;
+          flex: 1; overflow-y: auto; padding: 14px 12px;
+          display: flex; flex-direction: column; gap: 8px;
         }
-        .mana-body::-webkit-scrollbar { width: 5px; }
+        .mana-body::-webkit-scrollbar { width: 4px; }
         .mana-body::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }
 
         .mana-welcome {
           text-align: center; padding: 16px 8px; margin: auto 0;
-          display: flex; flex-direction: column; align-items: center; gap: 12px;
+          display: flex; flex-direction: column; align-items: center; gap: 10px;
         }
-        .mana-welcome-icon { font-size: 36px; }
-        .mana-welcome h4 { font-size: 16px; font-weight: 600; color: #1F2937; margin: 0; }
-        .mana-welcome p { font-size: 12.5px; color: #6B7280; line-height: 1.45; max-width: 290px; margin: 0; }
+        .mana-welcome h4 { font-size: 16px; font-weight: 700; color: #1F2937; margin: 0; letter-spacing: -0.01em; }
+        .mana-welcome p { font-size: 12.5px; color: #6B7280; line-height: 1.5; max-width: 270px; margin: 0; }
 
-        .mana-prompts { display: flex; flex-direction: column; gap: 6px; width: 100%; max-width: 320px; }
-        @media (min-width: 480px) {
-          .mana-prompts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        }
+        .mana-prompts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%; max-width: 340px; }
         .mana-prompt-btn {
-          background: white; border: 1px solid #E5E7EB; border-radius: 10px; padding: 8px 12px;
+          background: white; border: 1px solid #E5E7EB; border-radius: 12px; padding: 10px 11px;
           cursor: pointer; text-align: left; transition: all 0.2s; font-size: 12px; color: #374151;
-          display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+          display: flex; align-items: center; gap: 8px;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.05); font-weight: 500;
         }
-        .mana-prompt-btn:hover { border-color: #4F46E5; background: #EEF2FF; }
-        .mana-prompt-btn > span { font-size: 14px; }
+        .mana-prompt-btn:hover { border-color: #4F46E5; background: #EEF2FF; color: #4338CA; }
+        .mana-prompt-btn:active { transform: scale(0.97); }
+        .mana-prompt-btn > span { font-size: 15px; flex-shrink: 0; }
 
-        .mana-msg { display: flex; gap: 8px; max-width: 92%; animation: manaMsgIn 0.3s ease; }
+        .mana-msg { display: flex; gap: 7px; max-width: 92%; animation: manaMsgIn 0.25s ease; }
         .mana-msg.user { align-self: flex-end; flex-direction: row-reverse; }
-        @keyframes manaMsgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes manaMsgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
         .mana-msg-avatar {
-          width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+          width: 27px; height: 27px; border-radius: 50%; flex-shrink: 0;
           display: flex; align-items: center; justify-content: center; font-size: 13px; margin-top: 2px;
         }
-        .mana-msg.assistant .mana-msg-avatar { background: #EEF2FF; }
-        .mana-msg.user .mana-msg-avatar { background: #DBEAFE; }
+        .mana-msg.assistant .mana-msg-avatar { background: #EEF2FF; border: 1px solid #E0E7FF; }
+        .mana-msg.user .mana-msg-avatar { background: #DBEAFE; border: 1px solid #BFDBFE; }
 
         .mana-msg-bubble {
-          padding: 9px 13px; border-radius: 15px; font-size: 13px; line-height: 1.5;
+          padding: 10px 13px; border-radius: 16px; font-size: 13.5px; line-height: 1.55;
           white-space: pre-wrap; word-break: break-word;
         }
-        .mana-msg.assistant .mana-msg-bubble { background: white; color: #1F2937; border: 1px solid #E5E7EB; border-bottom-left-radius: 4px; }
-        .mana-msg.user .mana-msg-bubble { background: linear-gradient(135deg, #4F46E5, #6366F1); color: white; border-bottom-right-radius: 4px; }
+        .mana-msg.assistant .mana-msg-bubble {
+          background: white; color: #1F2937;
+          border: 1px solid #E5E7EB; border-bottom-left-radius: 4px;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+        .mana-msg.user .mana-msg-bubble {
+          background: linear-gradient(135deg, #4F46E5, #6366F1); color: white;
+          border-bottom-right-radius: 4px;
+          box-shadow: 0 3px 10px rgba(99,102,241,0.3);
+        }
         .mana-msg-time { font-size: 10px; color: #9CA3AF; margin-top: 3px; padding: 0 4px; }
         .mana-msg.user .mana-msg-time { text-align: right; }
 
@@ -225,49 +239,55 @@ export default function ManaChat({ onClose, auctionConfigId = 1 }: ManaChatProps
         @keyframes manaDotPulse { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
 
         .mana-input-area {
-          padding: 10px 14px;
-          padding-bottom: max(10px, env(safe-area-inset-bottom));
+          padding: 10px 12px;
+          padding-bottom: max(12px, env(safe-area-inset-bottom));
           border-top: 1px solid #E5E7EB;
           background: white;
           flex-shrink: 0;
         }
         .mana-input-row {
-          display: flex; align-items: center; gap: 6px; background: #F3F4F6; border-radius: 24px;
+          display: flex; align-items: center; gap: 6px; background: #F3F4F6; border-radius: 26px;
           padding: 3px 3px 3px 14px; border: 2px solid transparent; transition: border-color 0.2s, background 0.2s;
         }
         .mana-input-row:focus-within { border-color: #4F46E5; background: white; }
-        .mana-input-row input { flex: 1; border: none; background: transparent; outline: none; font-size: 13.5px; color: #1F2937; padding: 7px 0; min-width: 0; }
+        .mana-input-row input { flex: 1; border: none; background: transparent; outline: none; font-size: 13.5px; color: #1F2937; padding: 8px 0; min-width: 0; }
         .mana-input-row input::placeholder { color: #9CA3AF; }
         .mana-send-btn {
-          width: 32px; height: 32px; border-radius: 50%; border: none;
+          width: 34px; height: 34px; border-radius: 50%; border: none;
           background: linear-gradient(135deg, #4F46E5, #7C3AED); color: white; cursor: pointer;
           display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0;
         }
-        .mana-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .mana-send-btn:disabled { opacity: 0.35; cursor: not-allowed; }
         .mana-send-btn:not(:disabled):hover { transform: scale(1.08); }
+        .mana-send-btn:not(:disabled):active { transform: scale(0.93); }
         .mana-send-btn svg { width: 16px; height: 16px; }
-        .mana-disclaimer { text-align: center; font-size: 9.5px; color: #9CA3AF; padding: 4px 0 1px; letter-spacing: 0.01em; }
+        .mana-disclaimer { text-align: center; font-size: 9.5px; color: #9CA3AF; padding: 5px 0 1px; letter-spacing: 0.01em; }
       `}</style>
 
       <div className="mana-chat">
         {/* ── Header ── */}
         <div className="mana-header">
           <div className="mana-header-left">
-            <div className="mana-header-avatar" style={{ overflow: "hidden", padding: 0 }}>
+            <div className="mana-header-avatar">
               <img src="/ganesha-login-banner.jpg" alt="Mana AI" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
             <div className="mana-header-info">
               <h3>Mana AI Assistant</h3>
-              <span>{isLoading ? "Thinking..." : "Online"}</span>
+              <div className="mana-status">
+                {isLoading
+                  ? <><span style={{ width: 6, height: 6, borderRadius: "50%", background: "#fbbf24", display: "inline-block" }} /> Thinking…</>
+                  : <><span className="mana-status-dot" /> Online &amp; ready</>
+                }
+              </div>
             </div>
           </div>
           <div className="mana-header-actions">
             <button className="mana-header-btn" onClick={startNewChat} title="New conversation">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M12 5v14M5 12h14" /></svg>
             </button>
             {onClose && (
               <button className="mana-header-btn" onClick={onClose} title="Close">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M18 6L6 18M6 6l12 12" /></svg>
               </button>
             )}
           </div>
@@ -277,11 +297,11 @@ export default function ManaChat({ onClose, auctionConfigId = 1 }: ManaChatProps
         <div className="mana-body">
           {messages.length === 0 ? (
             <div className="mana-welcome">
-              <div className="mana-welcome-icon" style={{ width: 56, height: 56, borderRadius: 16, overflow: "hidden", margin: "0 auto 4px", boxShadow: "0 4px 12px rgba(245,158,11,0.25)" }}>
-                <img src="/ganesha-login-banner.jpg" alt="Lord Ganesha" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <div style={{ width: 60, height: 60, borderRadius: 18, overflow: "hidden", boxShadow: "0 6px 20px rgba(245,158,11,0.3), 0 0 0 3px rgba(245,158,11,0.2)" }}>
+                <img src="/ganesha-login-banner.jpg" alt="Mana AI" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               </div>
               <h4>Mana AI Assistant</h4>
-              <p>I can help you with player searches, team budgets, stats comparisons, tournament overviews, and more. Ask me anything!</p>
+              <p>Ask about players, budgets, match schedules, team stats, tournament overviews, and more.</p>
               <div className="mana-prompts">
                 {SUGGESTED_PROMPTS.map((p, i) => (
                   <button key={i} className="mana-prompt-btn" onClick={() => sendMessage(p.full)}>

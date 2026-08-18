@@ -53,6 +53,8 @@ export interface PoojaRegistrationModalProps {
     slots?: number | string;
     parentEventTitle?: string;
     gotram?: string;
+    notes?: string | null;
+    samagri?: string | null;
     existingRegistration?: any;
     registrationId?: string | number;
     isUpdateMode?: boolean;
@@ -206,7 +208,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   );
   const [isGotramLoading, setIsGotramLoading] = useState<boolean>(!event?.gotram && !event?.existingRegistration?.gotram);
   const [isGotramFromDb, setIsGotramFromDb] = useState<boolean>(Boolean(event?.gotram || event?.existingRegistration?.gotram));
-  const [prasadamMode, setPrasadamMode] = useState<"mandap" | "doorstep">("mandap");
+  const [prasadamMode, setPrasadamMode] = useState<"mandap">("mandap");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [passNumber] = useState<number>(() => Math.floor(1000 + Math.random() * 9000));
@@ -795,77 +797,42 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             )}
 
             {/* ───────────────────────────────────────────────────────── */}
-            {/* STEP 3: MAHAPRASADAM & SAMAGRI NOTES                      */}
+            {/* STEP 3: SAMAGRI & NOTES                                   */}
             {/* ───────────────────────────────────────────────────────── */}
             {currentStep === 3 && (
               <div className="space-y-3.5 flex-1">
                 <div className="border-b border-border pb-2">
-                  <h3 className="text-sm font-extrabold text-foreground">Mahaprasadam &amp; Samagri</h3>
-                  <p className="text-[11px] text-muted-foreground">Review holy samagri arrangements and choose your prasadam pickup preference</p>
+                  <h3 className="text-sm font-extrabold text-foreground">Samagri &amp; Notes</h3>
+                  <p className="text-[11px] text-muted-foreground">Samagri requirements and additional notes for this pooja event</p>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-card border border-border space-y-3 text-xs">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-primary flex items-center gap-1.5 text-sm">
-                      <span>🌾</span> Sacred Samagri Guidelines
+                <div className="space-y-3">
+                  {/* Samagri Required */}
+                  <div className="p-4 rounded-2xl bg-card border border-border space-y-2">
+                    <h4 className="font-bold text-foreground flex items-center gap-1.5 text-xs uppercase tracking-wide">
+                      <span>🌾</span> Samagri Required
                     </h4>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20 text-[11px]">
-                      Temple Kitchen
-                    </span>
+                    {event.samagri || event.description ? (
+                      <p className="text-[13px] text-foreground leading-relaxed whitespace-pre-line">
+                        {event.samagri || event.description}
+                      </p>
+                    ) : (
+                      <p className="text-[12px] text-muted-foreground italic">No samagri details specified for this event.</p>
+                    )}
                   </div>
 
-                  <p className="text-muted-foreground leading-relaxed">
-                    <strong className="text-foreground">Temple provides:</strong> Pure Cow Ghee, Dry Coconuts, Kumkum, Turmeric, Fresh Flowers, Modak &amp; Pulihora.<br />
-                    <strong className="text-foreground">Devotees may optionally bring:</strong> Fresh fruits &amp; Panchamrut items.
-                  </p>
-
-                  <div className="pt-3 border-t border-border space-y-2">
-                    <span className="font-bold text-foreground block">Prasadam Collection Mode:</span>
-                    <div className="space-y-2">
-                      <label
-                        onClick={() => setPrasadamMode("mandap")}
-                        className={`p-3 rounded-xl border-2 flex items-center gap-3 cursor-pointer transition-all ${
-                          prasadamMode === "mandap"
-                            ? "border-primary bg-primary/10 shadow-xs"
-                            : "border-border bg-background"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="prasadamMode"
-                          value="mandap"
-                          checked={prasadamMode === "mandap"}
-                          onChange={() => {}}
-                          className="accent-primary"
-                        />
-                        <div>
-                          <strong className="text-foreground block">Collect at Mandap Counter post-Aarti</strong>
-                          <span className="text-[11px] text-muted-foreground">Receive directly from Priest with Seshavastram blessing</span>
-                        </div>
-                      </label>
-
-                      <label
-                        onClick={() => setPrasadamMode("doorstep")}
-                        className={`p-3 rounded-xl border-2 flex items-center gap-3 cursor-pointer transition-all ${
-                          prasadamMode === "doorstep"
-                            ? "border-primary bg-primary/10 shadow-xs"
-                            : "border-border bg-background"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="prasadamMode"
-                          value="doorstep"
-                          checked={prasadamMode === "doorstep"}
-                          onChange={() => {}}
-                          className="accent-primary"
-                        />
-                        <div>
-                          <strong className="text-foreground block">Deliver to Doorstep ({devoteeFlat || "Your Flat"})</strong>
-                          <span className="text-[11px] text-muted-foreground">Delivered by volunteer committee after Aarti concludes</span>
-                        </div>
-                      </label>
-                    </div>
+                  {/* Notes */}
+                  <div className="p-4 rounded-2xl bg-card border border-border space-y-2">
+                    <h4 className="font-bold text-foreground flex items-center gap-1.5 text-xs uppercase tracking-wide">
+                      <span>📝</span> Notes
+                    </h4>
+                    {event.notes ? (
+                      <p className="text-[13px] text-foreground leading-relaxed whitespace-pre-line">
+                        {event.notes}
+                      </p>
+                    ) : (
+                      <p className="text-[12px] text-muted-foreground italic">No additional notes for this event.</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -912,7 +879,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
                       <span className="text-[10px] text-muted-foreground uppercase font-bold block">Prasadam Delivery</span>
                       <strong className="text-emerald-600 dark:text-emerald-400 font-bold text-xs block truncate">
-                        {prasadamMode === "mandap" ? "Mandap Counter Collection" : `Doorstep Delivery (${devoteeFlat || "Registered Flat"})`}
+                        Mandap Counter Collection
                       </strong>
                     </div>
                   </div>
@@ -981,7 +948,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 <div>
                   <span className="text-muted-foreground block">Prasadam Collection:</span>
                   <strong className="text-emerald-600 dark:text-emerald-400">
-                    {prasadamMode === "mandap" ? "Mandap Counter post-Aarti" : `Doorstep (${devoteeFlat})`}
+                    Mandap Counter post-Aarti
                   </strong>
                 </div>
                 <div>
@@ -1006,58 +973,54 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
         {/* ─── FOOTER NAVIGATION (APP MODULE BUTTONS) ─── */}
         {!isSuccess && (
-          <div className="flex items-center justify-between border-t border-border pt-3 shrink-0">
-            <div>
-              {currentStep > 1 && (
-                <TouchButton
-                  type="button"
-                  onClick={handleBack}
-                  disabled={isSubmitting}
-                  variant="outline"
-                  size="sm"
-                  icon={ArrowLeft}
-                  className="cursor-pointer"
-                >
-                  Back
-                </TouchButton>
-              )}
-            </div>
+          <div className="flex items-center justify-center gap-3 border-t border-border pt-3 shrink-0">
+            {currentStep > 1 && (
+              <TouchButton
+                type="button"
+                onClick={handleBack}
+                disabled={isSubmitting}
+                variant="outline"
+                size="sm"
+                icon={ArrowLeft}
+                className="cursor-pointer"
+              >
+                Back
+              </TouchButton>
+            )}
 
-            <div className="flex items-center gap-2">
-              {currentStep < 4 ? (
-                <TouchButton
-                  type="button"
-                  onClick={handleNext}
-                  variant="primary"
-                  size="sm"
-                  className="cursor-pointer"
-                >
-                  <span>Continue</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </TouchButton>
-              ) : (
-                <TouchButton
-                  type="button"
-                  onClick={() => handleBookingConfirm(isFreeEvent ? "Free Seva" : "UPI")}
-                  disabled={isSubmitting}
-                  variant="primary"
-                  size="sm"
-                  className="cursor-pointer"
-                >
-                  {isUpdateMode ? (
-                    <>
-                      <span>Update Registration</span>
-                      <RefreshCw className="w-3.5 h-3.5" />
-                    </>
-                  ) : (
-                    <>
-                      <span>{isFreeEvent ? "Confirm & Register Pooja" : `Confirm & Book Seva (₹${numericFee})`}</span>
-                      <Flame className="w-3.5 h-3.5" />
-                    </>
-                  )}
-                </TouchButton>
-              )}
-            </div>
+            {currentStep < 4 ? (
+              <TouchButton
+                type="button"
+                onClick={handleNext}
+                variant="primary"
+                size="sm"
+                className="cursor-pointer"
+              >
+                <span>Continue</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </TouchButton>
+            ) : (
+              <TouchButton
+                type="button"
+                onClick={() => handleBookingConfirm(isFreeEvent ? "Free Seva" : "UPI")}
+                disabled={isSubmitting}
+                variant="primary"
+                size="sm"
+                className="cursor-pointer"
+              >
+                {isUpdateMode ? (
+                  <>
+                    <span>Update Registration</span>
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </>
+                ) : (
+                  <>
+                    <span>{isFreeEvent ? "Confirm & Register Pooja" : `Confirm & Book Seva (₹${numericFee})`}</span>
+                    <Flame className="w-3.5 h-3.5" />
+                  </>
+                )}
+              </TouchButton>
+            )}
           </div>
         )}
 
