@@ -8,6 +8,16 @@ import type {
   PaginatedResponse,
 } from "../../types/api";
 
+export interface UpdatePostRequest {
+  content?: string;
+  title?: string;
+  imageUrl?: string;
+  eventDate?: string;
+  eventVenue?: string;
+  location?: string;
+  price?: number;
+}
+
 export interface CreatePostRequest {
   content: string;
   title?: string;
@@ -52,6 +62,10 @@ export const feedService = {
 
   async createPost(request: CreatePostRequest): Promise<PostResponse> {
     return apiClient.post<PostResponse>("/posts", request);
+  },
+
+  async updatePost(id: number, request: UpdatePostRequest): Promise<PostResponse> {
+    return apiClient.patch<PostResponse>(`/posts/${id}`, request);
   },
 
   async deletePost(id: number): Promise<void> {

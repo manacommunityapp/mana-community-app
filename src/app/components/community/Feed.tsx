@@ -4,6 +4,7 @@ import {
   Share2,
   Image as ImageIcon,
   Upload,
+  Pencil,
   CheckCircle,
   Trash2,
   Send,
@@ -42,7 +43,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router";
-import { feedService, type CreatePostRequest } from "../../../services/community/feedService";
+import { feedService, type CreatePostRequest, type UpdatePostRequest } from "../../../services/community/feedService";
 import { engagementService, groupService } from "../../../services/community/engagementService";
 import { mediaService } from "../../../services/files/mediaService";
 import { useAuth } from "../../../contexts/AuthContext";
@@ -104,8 +105,9 @@ const FEED_FILTERS = [
 ];
 
 export function Feed() {
-  const { user, isAdmin, isEventsAdmin } = useAuth();
+  const { user, isAdmin, isEventsAdmin, isSportsAdmin, isSuperAdmin } = useAuth();
   const canPost = isAdmin || isEventsAdmin;
+  const canEdit = isAdmin || isEventsAdmin || isSportsAdmin || isSuperAdmin;
   const [posts, setPosts] = useState<PostResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -310,6 +312,16 @@ export function Feed() {
       toast.success("Post deleted.");
     } catch (error: any) {
       toast.error("Failed to delete post: " + error.message);
+    }
+  };
+
+  const handleUpdatePost = async (postId: number, updates: UpdatePostRequest) => {
+    try {
+      const updated = await feedService.updatePost(postId, updates);
+      setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
+      toast.success("Post updated.");
+    } catch (error: any) {
+      toast.error("Failed to update post: " + error.message);
     }
   };
 
@@ -737,6 +749,7 @@ export function Feed() {
                   post={post}
                   user={user}
                   isAdmin={isAdmin}
+                  canEdit={canEdit}
                   commentsOpen={commentsOpen[post.id]}
                   comments={comments[post.id] || []}
                   loadingComments={loadingComments[post.id]}
@@ -746,6 +759,7 @@ export function Feed() {
                   showReactionPicker={showReactionPicker === post.id}
                   reactionPickerRef={reactionPickerRef}
                   onDeletePost={handleDeletePost}
+                  onUpdatePost={handleUpdatePost}
                   onReaction={handleReaction}
                   onBookmark={handleBookmark}
                   onVote={handleVote}
@@ -806,9 +820,9 @@ export function Feed() {
 
 /* ─── Post Card Component ─── */
 function PostCard({
-  post, user, isAdmin, commentsOpen, comments, loadingComments, newCommentText,
+  post, user, isAdmin, canEdit, commentsOpen, comments, loadingComments, newCommentText,
   submittingComment, replyingTo, showReactionPicker, reactionPickerRef,
-  onDeletePost, onReaction, onBookmark, onVote, onToggleComments, onAddComment,
+  onDeletePost, onUpdatePost, onReaction, onBookmark, onVote, onToggleComments, onAddComment,
   onDeleteComment, onSetCommentText, onSetReplyingTo, onShowReactionPicker,
   getInitials, formatTimeAgo, getPostTypeConfig, getReactionIcon,
 }: any) {
@@ -816,6 +830,61 @@ function PostCard({
   const typeConfig = getPostTypeConfig(post.postType);
   const currentReaction = getReactionIcon(post.currentUserReaction);
   const totalReactions = post.reactionCounts ? Object.values(post.reactionCounts as Record<string, number>).reduce((a: number, b: number) => a + b, 0) : post.likesCount;
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(post.content || "");
+  const [editTitle, setEditTitle] = useState(post.title || "");
+  const [editImageUrl, setEditImageUrl] = useState(post.imageUrl || "");
+  const [editEventDate, setEditEventDate] = useState(post.eventDate ? post.eventDate.slice(0, 16) : "");
+  const [editEventVenue, setEditEventVenue] = useState(post.eventVenue || "");
+  const [editLocation, setEditLocation] = useState(post.location || "");
+  const [editPrice, setEditPrice] = useState(post.price != null ? String(post.price) : "");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const editImageInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
+
+  const canEditThisPost = canEdit || (user?.userId === String(post.authorId));
+
+  const handleEditImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.communityId) return;
+    if (!file.type.startsWith("image/")) { toast.error("Please select an image."); return; }
+    setIsUploadingEditImage(true);
+    try {
+      const media = await mediaService.upload(file, {
+        module: "COMMUNITY",
+        moduleId: String(user.communityId),
+        communityId: user.communityId,
+        subContext: "feed_post_edit",
+      });
+      setEditImageUrl(media.url);
+      toast.success("Image uploaded!");
+    } catch (err: any) {
+      toast.error("Upload failed: " + err.message);
+    } finally {
+      setIsUploadingEditImage(false);
+      if (editImageInputRef.current) editImageInputRef.current.value = "";
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editContent.trim()) { toast.error("Content cannot be empty."); return; }
+    setIsSavingEdit(true);
+    try {
+      await onUpdatePost(post.id, {
+        content: editContent.trim(),
+        title: editTitle.trim() || undefined,
+        imageUrl: editImageUrl.trim() || undefined,
+        eventDate: editEventDate || undefined,
+        eventVenue: editEventVenue.trim() || undefined,
+        location: editLocation.trim() || undefined,
+        price: editPrice ? parseFloat(editPrice) : undefined,
+      });
+      setIsEditing(false);
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
 
   return (
     <div className={`bg-white rounded-xl shadow-sm border p-4 sm:p-5 transition-all hover:shadow-md ${
@@ -872,6 +941,24 @@ function PostCard({
           <button onClick={() => onBookmark(post.id)} className={`p-1.5 rounded-full transition-all ${post.bookmarkedByCurrentUser ? "text-indigo-600 bg-indigo-50" : "text-slate-400 hover:text-indigo-500 hover:bg-slate-50"}`}>
             {post.bookmarkedByCurrentUser ? <BookmarkCheck className="w-4 h-4" /> : <Bookmark className="w-4 h-4" />}
           </button>
+          {canEditThisPost && !isEditing && (
+            <button
+              onClick={() => {
+                setEditContent(post.content || "");
+                setEditTitle(post.title || "");
+                setEditImageUrl(post.imageUrl || "");
+                setEditEventDate(post.eventDate ? post.eventDate.slice(0, 16) : "");
+                setEditEventVenue(post.eventVenue || "");
+                setEditLocation(post.location || "");
+                setEditPrice(post.price != null ? String(post.price) : "");
+                setIsEditing(true);
+              }}
+              className="p-1.5 text-slate-400 hover:text-indigo-500 hover:bg-indigo-50 rounded-full transition-all"
+              title="Edit Post"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
           {(user?.userId === String(post.authorId) || isAdmin) && (
             <button onClick={() => onDeletePost(post.id)} className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all" title="Delete Post">
               <Trash2 className="w-4 h-4" />
@@ -886,9 +973,92 @@ function PostCard({
         </div>
       )}
 
-      {post.title && <h3 className="text-base font-bold text-slate-900 mb-2 text-left">{post.title}</h3>}
+      {/* ── Inline Edit Form ── */}
+      {isEditing && (
+        <div className="mb-4 bg-indigo-50/40 border border-indigo-100 rounded-xl p-4 space-y-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-bold text-indigo-700 uppercase tracking-wider">Edit Post</span>
+            <button onClick={() => setIsEditing(false)} className="p-1 text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
+          </div>
 
-      <p className="text-slate-800 text-sm mb-3 whitespace-pre-line leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: post.content.replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>').replace(/@(\w+)/g, '<span class="text-blue-600 font-semibold">@$1</span>') }} />
+          {(post.postType === "ARTICLE" || post.postType === "ANNOUNCEMENT") && (
+            <input
+              type="text"
+              placeholder="Title..."
+              className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-400"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+            />
+          )}
+
+          <textarea
+            className="w-full bg-white border border-slate-200 rounded-lg p-3 text-sm outline-none focus:ring-2 focus:ring-indigo-400 resize-none"
+            rows={4}
+            value={editContent}
+            onChange={(e) => setEditContent(e.target.value)}
+          />
+
+          {post.postType === "EVENT" && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Event Date</label>
+                <input type="datetime-local" className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" value={editEventDate} onChange={(e) => setEditEventDate(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Venue</label>
+                <input type="text" className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" value={editEventVenue} onChange={(e) => setEditEventVenue(e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          {post.postType === "CLASSIFIED" && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Price</label>
+                <input type="number" className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Location</label>
+                <input type="text" className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" value={editLocation} onChange={(e) => setEditLocation(e.target.value)} />
+              </div>
+            </div>
+          )}
+
+          {/* Image section */}
+          {editImageUrl && (
+            <div className="relative inline-block">
+              <img src={editImageUrl} alt="Post image" className="h-24 w-36 object-cover rounded-lg border border-slate-200 shadow-sm" />
+              <button onClick={() => setEditImageUrl("")} className="absolute -top-1.5 -right-1.5 p-1 bg-red-500 text-white rounded-full shadow"><X className="w-3 h-3" /></button>
+            </div>
+          )}
+
+          <input ref={editImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleEditImageSelect} />
+
+          <div className="flex items-center justify-between pt-1">
+            <button
+              onClick={() => editImageInputRef.current?.click()}
+              disabled={isUploadingEditImage}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50"
+            >
+              {isUploadingEditImage ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...</> : <><ImageIcon className="w-3.5 h-3.5" /> {editImageUrl ? "Change Photo" : "Add Photo"}</>}
+            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setIsEditing(false)} className="px-4 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all">Cancel</button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={isSavingEdit || !editContent.trim()}
+                className="px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isSavingEdit ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...</> : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isEditing && post.title && <h3 className="text-base font-bold text-slate-900 mb-2 text-left">{post.title}</h3>}
+
+      {!isEditing && <p className="text-slate-800 text-sm mb-3 whitespace-pre-line leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: post.content.replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>').replace(/@(\w+)/g, '<span class="text-blue-600 font-semibold">@$1</span>') }} />
 
       {/* Hashtags display */}
       {post.hashtags && (
