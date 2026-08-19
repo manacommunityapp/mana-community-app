@@ -226,7 +226,8 @@ export function Feed() {
 
   const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user?.communityId) return;
+    if (!file) return;
+    if (!user?.communityId) { toast.error("Community not found — cannot upload image."); return; }
     if (!file.type.startsWith("image/")) { toast.error("Please select an image file."); return; }
     if (file.size > 10 * 1024 * 1024) { toast.error("Image must be under 10MB."); return; }
 
@@ -235,13 +236,15 @@ export function Feed() {
       const media = await mediaService.upload(file, {
         module: "COMMUNITY",
         moduleId: String(user.communityId),
-        communityId: user.communityId,
+        communityId: Number(user.communityId),
         subContext: "feed_post",
       });
-      setNewPostImageUrl(media.url);
-      toast.success("Image uploaded successfully!");
+      const uploadedUrl = media.url || media.compressedUrl || media.mediumUrl;
+      if (!uploadedUrl) throw new Error("Server did not return an image URL.");
+      setNewPostImageUrl(uploadedUrl);
+      toast.success("Image uploaded!");
     } catch (error: any) {
-      toast.error("Image upload failed: " + (error.message || "Unknown error"));
+      toast.error("Image upload failed: " + (error.message || "Please try again."));
     } finally {
       setIsUploadingImage(false);
       if (imageFileInputRef.current) imageFileInputRef.current.value = "";
@@ -719,9 +722,9 @@ export function Feed() {
                     className={`px-5 py-2 text-white text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
                       composerType === "EMERGENCY" ? "bg-red-600 hover:bg-red-700" : "bg-indigo-600 hover:bg-indigo-700"
                     } disabled:opacity-50`}
-                    disabled={isPosting || !newPostContent.trim()}
+                    disabled={isPosting || isUploadingImage || !newPostContent.trim()}
                   >
-                    {isPosting ? <><Loader2 className="w-4 h-4 animate-spin" /> Publishing...</> : "Publish"}
+                    {isPosting ? <><Loader2 className="w-4 h-4 animate-spin" /> Publishing...</> : isUploadingImage ? "Uploading photo..." : "Publish"}
                   </button>
                 </div>
               </div>
@@ -847,20 +850,24 @@ function PostCard({
 
   const handleEditImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user?.communityId) return;
+    if (!file) return;
+    if (!user?.communityId) { toast.error("Community not found — cannot upload image."); return; }
     if (!file.type.startsWith("image/")) { toast.error("Please select an image."); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error("Image must be under 10MB."); return; }
     setIsUploadingEditImage(true);
     try {
       const media = await mediaService.upload(file, {
         module: "COMMUNITY",
         moduleId: String(user.communityId),
-        communityId: user.communityId,
+        communityId: Number(user.communityId),
         subContext: "feed_post_edit",
       });
-      setEditImageUrl(media.url);
+      const uploadedUrl = media.url || media.compressedUrl || media.mediumUrl;
+      if (!uploadedUrl) throw new Error("Server did not return an image URL.");
+      setEditImageUrl(uploadedUrl);
       toast.success("Image uploaded!");
     } catch (err: any) {
-      toast.error("Upload failed: " + err.message);
+      toast.error("Upload failed: " + (err.message || "Please try again."));
     } finally {
       setIsUploadingEditImage(false);
       if (editImageInputRef.current) editImageInputRef.current.value = "";
@@ -1165,7 +1172,18 @@ function PostCard({
 
       {post.imageUrl && (!post.media || post.media.length === 0) && (
         <div className="mb-3 overflow-hidden rounded-xl border border-slate-100 max-h-96 bg-slate-50 flex items-center justify-center">
-          <img src={post.imageUrl} alt="" className="w-full object-cover" onError={(e) => { (e.target as HTMLElement).style.display = "none"; }} />
+          <img
+            src={post.imageUrl}
+            alt=""
+            className="w-full object-cover"
+            loading="lazy"
+            onError={(e) => {
+              const el = e.currentTarget;
+              el.style.display = "none";
+              const parent = el.parentElement;
+              if (parent) parent.style.display = "none";
+            }}
+          />
         </div>
       )}
 
