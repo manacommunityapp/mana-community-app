@@ -45,7 +45,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { feedService, type CreatePostRequest, type UpdatePostRequest } from "../../../services/community/feedService";
 import { engagementService, groupService } from "../../../services/community/engagementService";
+import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { mediaService } from "../../../services/files/mediaService";
+import { validateMediaFile } from "../../../utils/mediaValidator";
 import { useAuth } from "../../../contexts/AuthContext";
 import type {
   PostResponse,
@@ -61,6 +63,17 @@ import { CommunityDirectory } from "./CommunityDirectory";
 import { AlertTicker } from "./AlertTicker";
 import { SportsNotificationCard } from "./SportsNotificationCard";
 import { EventsNotificationCard } from "./EventsNotificationCard";
+
+type FeedMediaAttachment = {
+  mediaUrl: string;
+  mediaType: "IMAGE" | "VIDEO";
+  thumbnailUrl?: string;
+  altText?: string;
+  sortOrder: number;
+};
+
+const FEED_MEDIA_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/avif,image/bmp,video/mp4,video/webm,video/quicktime,video/x-msvideo,video/3gpp,video/ogg";
+const MAX_FEED_ATTACHMENTS = 4;
 
 const REACTION_CONFIG: { type: ReactionTypeEnum; icon: typeof Heart; label: string; color: string; activeColor: string }[] = [
   { type: "LIKE", icon: ThumbsUp, label: "Like", color: "text-blue-500", activeColor: "bg-blue-50 text-blue-600" },
@@ -104,6 +117,79 @@ const FEED_FILTERS = [
   { id: "BOOKMARKED", label: "Bookmarked", shortLabel: "Saved" },
 ];
 
+function isVideoMedia(mediaType?: string, mediaUrl?: string): boolean {
+  const type = (mediaType || "").toLowerCase();
+  const url = (mediaUrl || "").toLowerCase().split("?")[0];
+  return type.includes("video") || /\.(mp4|webm|mov|avi|3gp|ogg|mkv)$/.test(url);
+}
+
+async function uploadFeedMedia(file: File, communityId: number, subContext: string): Promise<Omit<FeedMediaAttachment, "sortOrder">> {
+  const validation = await validateMediaFile(file);
+  if (!validation.valid) throw new Error(validation.error || `File '${file.name}' failed validation.`);
+  if ((file.type || "").toLowerCase() === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg")) {
+    throw new Error("SVG files are not allowed in the community feed. Please upload JPG, PNG, WebP, GIF, or a supported video file.");
+  }
+
+  const mediaType = validation.mediaType === "video" ? "VIDEO" : "IMAGE";
+  const uploadRequest = {
+    module: "COMMUNITY" as const,
+    moduleId: String(communityId),
+    communityId,
+    subContext,
+    caption: file.name,
+    altText: file.name,
+  };
+
+  const media = mediaType === "VIDEO"
+    ? await mediaService.uploadDirectToS3(file, { ...uploadRequest, mediaType: "VIDEO" })
+    : await mediaService.upload(file, uploadRequest);
+
+  return {
+    mediaUrl: media.url,
+    mediaType,
+    thumbnailUrl: media.thumbnailUrl,
+    altText: file.name,
+  };
+}
+
+function eventStartToDateTimeLocal(event: EventResponse): string {
+  const datePart = event.startDate?.slice(0, 10);
+  if (!datePart) return "";
+
+  const timePart = event.startTime?.slice(0, 5) || (event.startDate.includes("T") ? event.startDate.slice(11, 16) : "00:00");
+  return `${datePart}T${timePart || "00:00"}`;
+}
+
+function eventVenueLabel(event: EventResponse): string {
+  return event.venue || event.location || event.city || "";
+}
+
+function eventOptionLabel(event: EventResponse): string {
+  const datePart = event.startDate?.slice(0, 10);
+  const timePart = event.startTime?.slice(0, 5);
+  const when = [datePart, timePart].filter(Boolean).join(" ");
+  return when ? `${event.title} - ${when}` : event.title;
+}
+
+function postMediaToAttachments(post: any): FeedMediaAttachment[] {
+  if (post.media?.length) {
+    return post.media.map((media: any, index: number) => ({
+      mediaUrl: media.mediaUrl,
+      mediaType: isVideoMedia(media.mediaType, media.mediaUrl) ? "VIDEO" : "IMAGE",
+      thumbnailUrl: media.thumbnailUrl,
+      altText: media.altText,
+      sortOrder: media.sortOrder ?? index,
+    }));
+  }
+
+  return post.imageUrl ? [{
+    mediaUrl: post.imageUrl,
+    mediaType: "IMAGE",
+    altText: "Post image",
+    sortOrder: 0,
+  }] : [];
+}
+
 export function Feed() {
   const { user, isAdmin, isEventsAdmin, isSportsAdmin, isSuperAdmin } = useAuth();
   const canPost = isAdmin || isEventsAdmin;
@@ -116,10 +202,12 @@ export function Feed() {
   const [newPostContent, setNewPostContent] = useState("");
   const [newPostTitle, setNewPostTitle] = useState("");
   const [newPostImageUrl, setNewPostImageUrl] = useState("");
+  const [newPostMedia, setNewPostMedia] = useState<FeedMediaAttachment[]>([]);
   const [showImageUrlInput, setShowImageUrlInput] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const imageFileInputRef = useRef<HTMLInputElement>(null);
-  const [isPosting, setIsPosting] = useState(false);
+  const [postingAction, setPostingAction] = useState<"publish" | "notify" | null>(null);
+  const isPosting = postingAction !== null;
   const [composerType, setComposerType] = useState<PostTypeEnum>("GENERAL");
   const [showComposerTypes, setShowComposerTypes] = useState(false);
   const [classifiedPrice, setClassifiedPrice] = useState("");
@@ -128,6 +216,9 @@ export function Feed() {
   const [pollOptions, setPollOptions] = useState<string[]>(["", ""]);
   const [lostFoundType, setLostFoundType] = useState<"LOST" | "FOUND">("LOST");
   const [lostFoundLocation, setLostFoundLocation] = useState("");
+  const [createdEvents, setCreatedEvents] = useState<EventResponse[]>([]);
+  const [loadingCreatedEvents, setLoadingCreatedEvents] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventVenue, setEventVenue] = useState("");
 
@@ -184,6 +275,27 @@ export function Feed() {
   }, [user?.communityId]);
 
   useEffect(() => {
+    if (!user?.communityId || !canPost) return;
+
+    let active = true;
+    setLoadingCreatedEvents(true);
+    eventService.getAllEvents()
+      .then((events) => {
+        if (!active) return;
+        const sorted = [...events].sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
+        setCreatedEvents(sorted);
+      })
+      .catch(() => {
+        if (active) setCreatedEvents([]);
+      })
+      .finally(() => {
+        if (active) setLoadingCreatedEvents(false);
+      });
+
+    return () => { active = false; };
+  }, [user?.communityId, canPost]);
+
+  useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (reactionPickerRef.current && !reactionPickerRef.current.contains(e.target as Node)) {
         setShowReactionPicker(null);
@@ -225,37 +337,70 @@ export function Feed() {
   };
 
   const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user?.communityId) return;
-    if (!file.type.startsWith("image/")) { toast.error("Please select an image file."); return; }
-    if (file.size > 10 * 1024 * 1024) { toast.error("Image must be under 10MB."); return; }
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0 || !user?.communityId) return;
+
+    const remainingSlots = MAX_FEED_ATTACHMENTS - newPostMedia.length;
+    if (remainingSlots <= 0) {
+      toast.error(`You can attach up to ${MAX_FEED_ATTACHMENTS} media files.`);
+      if (imageFileInputRef.current) imageFileInputRef.current.value = "";
+      return;
+    }
+
+    const selectedFiles = files.slice(0, remainingSlots);
+    if (files.length > remainingSlots) {
+      toast.warning(`Only ${remainingSlots} more media file${remainingSlots === 1 ? "" : "s"} can be added.`);
+    }
 
     setIsUploadingImage(true);
     try {
-      const media = await mediaService.upload(file, {
-        module: "COMMUNITY",
-        moduleId: String(user.communityId),
-        communityId: user.communityId,
-        subContext: "feed_post",
-      });
-      setNewPostImageUrl(media.url);
-      toast.success("Image uploaded successfully!");
+      const uploaded: FeedMediaAttachment[] = [];
+      for (const file of selectedFiles) {
+        const media = await uploadFeedMedia(file, user.communityId, "feed_post");
+        uploaded.push({
+          ...media,
+          sortOrder: newPostMedia.length + uploaded.length,
+        });
+      }
+
+      setNewPostMedia((prev) => [...prev, ...uploaded].map((item, index) => ({ ...item, sortOrder: index })));
+      if (!newPostImageUrl) {
+        const firstImage = uploaded.find((item) => item.mediaType === "IMAGE");
+        if (firstImage) setNewPostImageUrl(firstImage.mediaUrl);
+      }
+      toast.success(`${uploaded.length} media file${uploaded.length === 1 ? "" : "s"} uploaded successfully!`);
     } catch (error: any) {
-      toast.error("Image upload failed: " + (error.message || "Unknown error"));
+      toast.error("Media upload failed: " + (error.message || "Unknown error"));
     } finally {
       setIsUploadingImage(false);
       if (imageFileInputRef.current) imageFileInputRef.current.value = "";
     }
   };
 
-  const handleCreatePost = async () => {
+  const handleSelectedEventChange = (eventId: string) => {
+    setSelectedEventId(eventId);
+    const selectedEvent = createdEvents.find((event) => String(event.id) === eventId);
+    if (!selectedEvent) return;
+
+    setEventDate(eventStartToDateTimeLocal(selectedEvent));
+    setEventVenue(eventVenueLabel(selectedEvent));
+  };
+
+  const handleCreatePost = async (notify = false) => {
     if (!newPostContent.trim()) { toast.error("Post content cannot be empty."); return; }
 
     const request: CreatePostRequest = {
       content: newPostContent,
       title: newPostTitle || undefined,
-      imageUrl: newPostImageUrl.trim() || undefined,
+      imageUrl: newPostImageUrl.trim() || newPostMedia.find((item) => item.mediaType === "IMAGE")?.mediaUrl || undefined,
       type: composerType,
+      mediaAttachments: newPostMedia.length > 0 ? newPostMedia.map(({ mediaUrl, mediaType, thumbnailUrl, altText, sortOrder }) => ({
+        mediaUrl,
+        mediaType,
+        thumbnailUrl,
+        altText,
+        sortOrder,
+      })) : undefined,
     };
 
     if (composerType === "CLASSIFIED") {
@@ -273,19 +418,24 @@ export function Feed() {
       if (!lostFoundLocation.trim()) { toast.error("Please enter a location."); return; }
       request.location = `${lostFoundType}: ${lostFoundLocation.trim()}`;
     } else if (composerType === "EVENT") {
+      const linkedEventId = Number(selectedEventId);
+      if (selectedEventId && !Number.isNaN(linkedEventId)) request.eventId = linkedEventId;
       request.eventDate = eventDate || undefined;
       request.eventVenue = eventVenue || undefined;
     } else if (composerType === "EMERGENCY") {
       request.priority = "EMERGENCY";
     }
 
-    setIsPosting(true);
+    if (notify) request.notify = true;
+
+    setPostingAction(notify ? "notify" : "publish");
     try {
       const newPost = await feedService.createPost(request);
       setPosts((prev) => [newPost, ...prev]);
       setNewPostContent("");
       setNewPostTitle("");
       setNewPostImageUrl("");
+      setNewPostMedia([]);
       setShowImageUrlInput(false);
       setComposerType("GENERAL");
       setClassifiedPrice("");
@@ -293,14 +443,15 @@ export function Feed() {
       setPollQuestion("");
       setPollOptions(["", ""]);
       setLostFoundLocation("");
+      setSelectedEventId("");
       setEventDate("");
       setEventVenue("");
       setShowComposerTypes(false);
-      toast.success("Post published!");
+      toast.success(notify ? "Post published and notification sent!" : "Post published!");
     } catch (error: any) {
       toast.error("Failed to publish post: " + error.message);
     } finally {
-      setIsPosting(false);
+      setPostingAction(null);
     }
   };
 
@@ -508,26 +659,28 @@ export function Feed() {
           <AlertTicker />
 
           {/* Search Bar */}
-          <div className="flex items-center gap-2">
-            <div className={`flex-1 flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 transition-all ${showSearch ? "ring-2 ring-indigo-500" : ""}`}>
-              <Search className="w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search posts, hashtags, people..."
-                className="flex-1 bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onFocus={() => setShowSearch(true)}
-                onBlur={() => setTimeout(() => setShowSearch(false), 200)}
-                onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
-              />
-              {searchQuery && (
-                <button onClick={() => { setSearchQuery(""); setActiveFilter("ALL"); }} className="text-slate-400 hover:text-slate-600">
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+          {canEdit && (
+            <div className="flex items-center gap-2">
+              <div className={`flex-1 flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 transition-all ${showSearch ? "ring-2 ring-indigo-500" : ""}`}>
+                <Search className="w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search posts, hashtags, people..."
+                  className="flex-1 bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => setShowSearch(true)}
+                  onBlur={() => setTimeout(() => setShowSearch(false), 200)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
+                />
+                {searchQuery && (
+                  <button onClick={() => { setSearchQuery(""); setActiveFilter("ALL"); }} className="text-slate-400 hover:text-slate-600">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Filter Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-1">
@@ -552,17 +705,17 @@ export function Feed() {
 
           {/* Create Post Composer */}
           {canPost ? (
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 transition-all hover:shadow-md">
-            <div className="flex gap-3">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-sm">
+          <div className="bg-white p-3 rounded-lg shadow-sm border border-slate-200/90 transition-all hover:shadow-md">
+            <div className="flex gap-2.5">
+              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs shadow-sm">
                 {getInitials(user.fullName)}
               </div>
-              <div className="flex-1 space-y-3">
+              <div className="flex-1 min-w-0 space-y-2">
                 {/* Post Type Selector */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={() => setShowComposerTypes(!showComposerTypes)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${composerTypeConfig.color}`}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${composerTypeConfig.color}`}
                   >
                     <span>{composerTypeConfig.icon}</span>
                     <span>{composerTypeConfig.label}</span>
@@ -576,12 +729,12 @@ export function Feed() {
                 </div>
 
                 {showComposerTypes && (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5 p-2 bg-slate-50 rounded-lg border border-slate-100">
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 p-1.5 bg-slate-50 rounded-md border border-slate-100">
                     {POST_TYPE_CONFIG.map((type) => (
                       <button
                         key={type.id}
                         onClick={() => { setComposerType(type.id); setShowComposerTypes(false); }}
-                        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-md text-[10px] font-semibold transition-all ${
+                        className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold transition-all ${
                           composerType === type.id ? type.color + " ring-1 ring-offset-1" : "bg-white hover:bg-slate-100 text-slate-600 border border-slate-100"
                         }`}
                       >
@@ -596,14 +749,14 @@ export function Feed() {
                   <input
                     type="text"
                     placeholder="Title..."
-                    className="w-full bg-slate-50 border border-slate-100 rounded-lg px-3 py-2 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full bg-slate-50 border border-slate-100 rounded-md px-2.5 py-1.5 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
                     value={newPostTitle}
                     onChange={(e) => setNewPostTitle(e.target.value)}
                   />
                 )}
 
                 <textarea
-                  className="w-full bg-slate-50 border border-slate-100 rounded-lg p-3 text-sm focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none transition-all"
+                  className="w-full min-h-[52px] bg-slate-50 border border-slate-100 rounded-md px-2.5 py-2 text-[13px] leading-5 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none transition-all"
                   placeholder={
                     composerType === "POLL" ? "Provide context about this poll..."
                     : composerType === "QUESTION" ? "Ask your community a question..."
@@ -614,7 +767,7 @@ export function Feed() {
                     : composerType === "EVENT" ? "Describe the event..."
                     : "Share an update with your community... Use #hashtags to categorize"
                   }
-                  rows={3}
+                  rows={2}
                   value={newPostContent}
                   onChange={(e) => setNewPostContent(e.target.value)}
                   disabled={isPosting}
@@ -622,29 +775,29 @@ export function Feed() {
 
                 {/* Type-specific inputs */}
                 {composerType === "CLASSIFIED" && (
-                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2 rounded-md border border-slate-100">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase">Price</label>
-                      <input type="number" placeholder="Enter price..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={classifiedPrice} onChange={(e) => setClassifiedPrice(e.target.value)} />
+                      <input type="number" placeholder="Enter price..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={classifiedPrice} onChange={(e) => setClassifiedPrice(e.target.value)} />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase">Location</label>
-                      <input type="text" placeholder="e.g. Block A..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={classifiedLocation} onChange={(e) => setClassifiedLocation(e.target.value)} />
+                      <input type="text" placeholder="e.g. Block A..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={classifiedLocation} onChange={(e) => setClassifiedLocation(e.target.value)} />
                     </div>
                   </div>
                 )}
 
                 {composerType === "POLL" && (
-                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-2">
-                    <input type="text" placeholder="Poll question..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 font-semibold" value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} />
-                    <div className="space-y-1.5">
+                  <div className="bg-slate-50 p-2 rounded-md border border-slate-100 space-y-1.5">
+                    <input type="text" placeholder="Poll question..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500 font-semibold" value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} />
+                    <div className="space-y-1">
                       <div className="flex items-center justify-between">
                         <label className="text-[10px] font-bold text-slate-500 uppercase">Options</label>
                         <button type="button" onClick={() => setPollOptions((prev) => [...prev, ""])} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800">+ Add</button>
                       </div>
                       {pollOptions.map((opt, idx) => (
                         <div key={idx} className="flex gap-1.5 items-center">
-                          <input type="text" placeholder={`Option ${idx + 1}...`} className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={opt} onChange={(e) => { const updated = [...pollOptions]; updated[idx] = e.target.value; setPollOptions(updated); }} />
+                          <input type="text" placeholder={`Option ${idx + 1}...`} className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={opt} onChange={(e) => { const updated = [...pollOptions]; updated[idx] = e.target.value; setPollOptions(updated); }} />
                           {pollOptions.length > 2 && (
                             <button onClick={() => setPollOptions((prev) => prev.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-red-500 text-xs px-1">
                               <X className="w-3 h-3" />
@@ -657,39 +810,75 @@ export function Feed() {
                 )}
 
                 {composerType === "LOST_FOUND" && (
-                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2 rounded-md border border-slate-100">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase">Status</label>
-                      <select className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none" value={lostFoundType} onChange={(e) => setLostFoundType(e.target.value as "LOST" | "FOUND")}>
+                      <select className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none" value={lostFoundType} onChange={(e) => setLostFoundType(e.target.value as "LOST" | "FOUND")}>
                         <option value="LOST">Lost Item</option>
                         <option value="FOUND">Found Item</option>
                       </select>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase">Location</label>
-                      <input type="text" placeholder="e.g. Garden Park..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={lostFoundLocation} onChange={(e) => setLostFoundLocation(e.target.value)} />
+                      <input type="text" placeholder="e.g. Garden Park..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={lostFoundLocation} onChange={(e) => setLostFoundLocation(e.target.value)} />
                     </div>
                   </div>
                 )}
 
                 {composerType === "EVENT" && (
-                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-2 rounded-md border border-slate-100">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase">Event Date</label>
-                      <input type="datetime-local" className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                      <input type="datetime-local" className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Created Event</label>
+                      <select
+                        className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
+                        value={selectedEventId}
+                        onChange={(e) => handleSelectedEventChange(e.target.value)}
+                        disabled={loadingCreatedEvents}
+                      >
+                        <option value="">{loadingCreatedEvents ? "Loading events..." : "Select event"}</option>
+                        {createdEvents.map((event) => (
+                          <option key={event.id} value={event.id}>
+                            {eventOptionLabel(event)}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase">Venue</label>
-                      <input type="text" placeholder="e.g. Community Hall..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={eventVenue} onChange={(e) => setEventVenue(e.target.value)} />
+                      <input type="text" placeholder="e.g. Community Hall..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={eventVenue} onChange={(e) => setEventVenue(e.target.value)} />
                     </div>
                   </div>
                 )}
 
-                {/* Image preview */}
-                {newPostImageUrl && (
-                  <div className="relative inline-block">
-                    <img src={newPostImageUrl} alt="Preview" className="h-28 w-44 object-cover rounded-xl border border-slate-200 shadow-sm" />
-                    <button onClick={() => setNewPostImageUrl("")} className="absolute -top-1.5 -right-1.5 p-1 bg-red-500 text-white rounded-full shadow"><X className="w-3 h-3" /></button>
+                {/* Media preview */}
+                {newPostMedia.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {newPostMedia.map((item, index) => (
+                      <div key={`${item.mediaUrl}-${index}`} className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-sm aspect-video">
+                        {isVideoMedia(item.mediaType, item.mediaUrl) ? (
+                          <video src={item.mediaUrl} className="w-full h-full object-cover" muted preload="metadata" />
+                        ) : (
+                          <img src={item.mediaUrl} alt={item.altText || "Attachment preview"} className="w-full h-full object-cover" />
+                        )}
+                        <span className="absolute left-1.5 bottom-1.5 px-1.5 py-0.5 rounded bg-black/55 text-white text-[9px] font-bold uppercase">
+                          {isVideoMedia(item.mediaType, item.mediaUrl) ? "Video" : "Image"}
+                        </span>
+                        <button
+                          onClick={() => {
+                            const next = newPostMedia.filter((_, i) => i !== index).map((media, sortOrder) => ({ ...media, sortOrder }));
+                            setNewPostMedia(next);
+                            setNewPostImageUrl(next.find((media) => media.mediaType === "IMAGE")?.mediaUrl || "");
+                          }}
+                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full shadow"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -697,32 +886,42 @@ export function Feed() {
                 <input
                   ref={imageFileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept={FEED_MEDIA_ACCEPT}
+                  multiple
                   className="hidden"
                   onChange={handleImageFileSelect}
                 />
 
-                <div className="flex items-center justify-between pt-1">
+                <div className="flex items-center justify-between pt-0.5">
                   <button
                     onClick={() => imageFileInputRef.current?.click()}
                     disabled={isUploadingImage}
-                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium ${newPostImageUrl ? "text-indigo-600 bg-indigo-50" : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"} disabled:opacity-50`}
+                    className={`px-2 py-1.5 rounded-md transition-colors flex items-center gap-1.5 text-xs font-medium ${newPostMedia.length > 0 ? "text-indigo-600 bg-indigo-50" : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"} disabled:opacity-50`}
                   >
                     {isUploadingImage ? (
                       <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</>
                     ) : (
-                      <><ImageIcon className="w-4 h-4" /> Photo</>
+                      <><ImageIcon className="w-4 h-4" /> Media</>
                     )}
                   </button>
-                  <button
-                    onClick={handleCreatePost}
-                    className={`px-5 py-2 text-white text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
-                      composerType === "EMERGENCY" ? "bg-red-600 hover:bg-red-700" : "bg-indigo-600 hover:bg-indigo-700"
-                    } disabled:opacity-50`}
-                    disabled={isPosting || !newPostContent.trim()}
-                  >
-                    {isPosting ? <><Loader2 className="w-4 h-4 animate-spin" /> Publishing...</> : "Publish"}
-                  </button>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <button
+                      onClick={() => handleCreatePost(false)}
+                      className={`px-3 py-1.5 text-white text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
+                        composerType === "EMERGENCY" ? "bg-red-600 hover:bg-red-700" : "bg-indigo-600 hover:bg-indigo-700"
+                      } disabled:opacity-50`}
+                      disabled={isPosting || isUploadingImage || !newPostContent.trim()}
+                    >
+                      {postingAction === "publish" ? <><Loader2 className="w-4 h-4 animate-spin" /> Publishing...</> : "Publish"}
+                    </button>
+                    <button
+                      onClick={() => handleCreatePost(true)}
+                      className="px-3 py-1.5 text-white text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+                      disabled={isPosting || isUploadingImage || !newPostContent.trim()}
+                    >
+                      {postingAction === "notify" ? <><Loader2 className="w-4 h-4 animate-spin" /> Notifying...</> : <><Megaphone className="w-4 h-4" /> Publish & Notify</>}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -835,6 +1034,7 @@ function PostCard({
   const [editContent, setEditContent] = useState(post.content || "");
   const [editTitle, setEditTitle] = useState(post.title || "");
   const [editImageUrl, setEditImageUrl] = useState(post.imageUrl || "");
+  const [editMedia, setEditMedia] = useState<FeedMediaAttachment[]>(postMediaToAttachments(post));
   const [editEventDate, setEditEventDate] = useState(post.eventDate ? post.eventDate.slice(0, 16) : "");
   const [editEventVenue, setEditEventVenue] = useState(post.eventVenue || "");
   const [editLocation, setEditLocation] = useState(post.location || "");
@@ -846,19 +1046,38 @@ function PostCard({
   const canEditThisPost = canEdit || (user?.userId === String(post.authorId));
 
   const handleEditImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user?.communityId) return;
-    if (!file.type.startsWith("image/")) { toast.error("Please select an image."); return; }
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0 || !user?.communityId) return;
+
+    const remainingSlots = MAX_FEED_ATTACHMENTS - editMedia.length;
+    if (remainingSlots <= 0) {
+      toast.error(`You can attach up to ${MAX_FEED_ATTACHMENTS} media files.`);
+      if (editImageInputRef.current) editImageInputRef.current.value = "";
+      return;
+    }
+
+    const selectedFiles = files.slice(0, remainingSlots);
+    if (files.length > remainingSlots) {
+      toast.warning(`Only ${remainingSlots} more media file${remainingSlots === 1 ? "" : "s"} can be added.`);
+    }
+
     setIsUploadingEditImage(true);
     try {
-      const media = await mediaService.upload(file, {
-        module: "COMMUNITY",
-        moduleId: String(user.communityId),
-        communityId: user.communityId,
-        subContext: "feed_post_edit",
-      });
-      setEditImageUrl(media.url);
-      toast.success("Image uploaded!");
+      const uploaded: FeedMediaAttachment[] = [];
+      for (const file of selectedFiles) {
+        const media = await uploadFeedMedia(file, user.communityId, "feed_post_edit");
+        uploaded.push({
+          ...media,
+          sortOrder: editMedia.length + uploaded.length,
+        });
+      }
+
+      setEditMedia((prev) => [...prev, ...uploaded].map((item, index) => ({ ...item, sortOrder: index })));
+      if (!editImageUrl) {
+        const firstImage = uploaded.find((item) => item.mediaType === "IMAGE");
+        if (firstImage) setEditImageUrl(firstImage.mediaUrl);
+      }
+      toast.success(`${uploaded.length} media file${uploaded.length === 1 ? "" : "s"} uploaded!`);
     } catch (err: any) {
       toast.error("Upload failed: " + err.message);
     } finally {
@@ -874,7 +1093,14 @@ function PostCard({
       await onUpdatePost(post.id, {
         content: editContent.trim(),
         title: editTitle.trim() || undefined,
-        imageUrl: editImageUrl.trim() || undefined,
+        imageUrl: editImageUrl.trim() || editMedia.find((item) => item.mediaType === "IMAGE")?.mediaUrl || undefined,
+        mediaAttachments: editMedia.length > 0 ? editMedia.map(({ mediaUrl, mediaType, thumbnailUrl, altText, sortOrder }) => ({
+          mediaUrl,
+          mediaType,
+          thumbnailUrl,
+          altText,
+          sortOrder,
+        })) : undefined,
         eventDate: editEventDate || undefined,
         eventVenue: editEventVenue.trim() || undefined,
         location: editLocation.trim() || undefined,
@@ -947,6 +1173,7 @@ function PostCard({
                 setEditContent(post.content || "");
                 setEditTitle(post.title || "");
                 setEditImageUrl(post.imageUrl || "");
+                setEditMedia(postMediaToAttachments(post));
                 setEditEventDate(post.eventDate ? post.eventDate.slice(0, 16) : "");
                 setEditEventVenue(post.eventVenue || "");
                 setEditLocation(post.location || "");
@@ -1024,15 +1251,35 @@ function PostCard({
             </div>
           )}
 
-          {/* Image section */}
-          {editImageUrl && (
-            <div className="relative inline-block">
-              <img src={editImageUrl} alt="Post image" className="h-24 w-36 object-cover rounded-lg border border-slate-200 shadow-sm" />
-              <button onClick={() => setEditImageUrl("")} className="absolute -top-1.5 -right-1.5 p-1 bg-red-500 text-white rounded-full shadow"><X className="w-3 h-3" /></button>
+          {/* Media section */}
+          {editMedia.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {editMedia.map((item, index) => (
+                <div key={`${item.mediaUrl}-${index}`} className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-sm aspect-video">
+                  {isVideoMedia(item.mediaType, item.mediaUrl) ? (
+                    <video src={item.mediaUrl} className="w-full h-full object-cover" muted preload="metadata" />
+                  ) : (
+                    <img src={item.mediaUrl} alt={item.altText || "Post media"} className="w-full h-full object-cover" />
+                  )}
+                  <span className="absolute left-1.5 bottom-1.5 px-1.5 py-0.5 rounded bg-black/55 text-white text-[9px] font-bold uppercase">
+                    {isVideoMedia(item.mediaType, item.mediaUrl) ? "Video" : "Image"}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const next = editMedia.filter((_, i) => i !== index).map((media, sortOrder) => ({ ...media, sortOrder }));
+                      setEditMedia(next);
+                      setEditImageUrl(next.find((media) => media.mediaType === "IMAGE")?.mediaUrl || "");
+                    }}
+                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full shadow"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
 
-          <input ref={editImageInputRef} type="file" accept="image/*" className="hidden" onChange={handleEditImageSelect} />
+          <input ref={editImageInputRef} type="file" accept={FEED_MEDIA_ACCEPT} multiple className="hidden" onChange={handleEditImageSelect} />
 
           <div className="flex items-center justify-between pt-1">
             <button
@@ -1040,13 +1287,13 @@ function PostCard({
               disabled={isUploadingEditImage}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-50"
             >
-              {isUploadingEditImage ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...</> : <><ImageIcon className="w-3.5 h-3.5" /> {editImageUrl ? "Change Photo" : "Add Photo"}</>}
+              {isUploadingEditImage ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Uploading...</> : <><ImageIcon className="w-3.5 h-3.5" /> {editMedia.length > 0 ? "Add More Media" : "Add Media"}</>}
             </button>
             <div className="flex items-center gap-2">
               <button onClick={() => setIsEditing(false)} className="px-4 py-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all">Cancel</button>
               <button
                 onClick={handleSaveEdit}
-                disabled={isSavingEdit || !editContent.trim()}
+                disabled={isSavingEdit || isUploadingEditImage || !editContent.trim()}
                 className="px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-all disabled:opacity-50 flex items-center gap-1.5"
               >
                 {isSavingEdit ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...</> : "Save Changes"}
@@ -1058,7 +1305,7 @@ function PostCard({
 
       {!isEditing && post.title && <h3 className="text-base font-bold text-slate-900 mb-2 text-left">{post.title}</h3>}
 
-      {!isEditing && <p className="text-slate-800 text-sm mb-3 whitespace-pre-line leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: post.content.replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>').replace(/@(\w+)/g, '<span class="text-blue-600 font-semibold">@$1</span>') }} />
+      {!isEditing && <p className="text-slate-800 text-sm mb-3 whitespace-pre-line leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: post.content.replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>').replace(/@(\w+)/g, '<span class="text-blue-600 font-semibold">@$1</span>') }} />}
 
       {/* Hashtags display */}
       {post.hashtags && (
@@ -1156,8 +1403,18 @@ function PostCard({
       {post.media && post.media.length > 0 && (
         <div className={`mb-3 gap-1 rounded-xl overflow-hidden ${post.media.length === 1 ? "" : "grid grid-cols-2"}`}>
           {post.media.slice(0, 4).map((m: any, idx: number) => (
-            <div key={m.id} className={`overflow-hidden bg-slate-100 ${post.media.length === 1 ? "max-h-96" : "max-h-48"} ${idx === 0 && post.media.length === 3 ? "row-span-2" : ""}`}>
-              <img src={m.mediaUrl} alt={m.altText || ""} className="w-full h-full object-cover" />
+            <div key={m.id || `${m.mediaUrl}-${idx}`} className={`overflow-hidden bg-slate-100 ${post.media.length === 1 ? "max-h-96" : "aspect-video max-h-48"} ${idx === 0 && post.media.length === 3 ? "row-span-2" : ""}`}>
+              {isVideoMedia(m.mediaType, m.mediaUrl) ? (
+                <video
+                  src={m.mediaUrl}
+                  poster={m.thumbnailUrl}
+                  controls
+                  preload="metadata"
+                  className={post.media.length === 1 ? "w-full max-h-96 object-contain bg-black" : "w-full h-full object-cover bg-black"}
+                />
+              ) : (
+                <img src={m.mediaUrl} alt={m.altText || ""} className="w-full h-full object-cover" />
+              )}
             </div>
           ))}
         </div>
