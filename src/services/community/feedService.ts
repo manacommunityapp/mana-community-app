@@ -12,6 +12,8 @@ export interface UpdatePostRequest {
   content?: string;
   title?: string;
   imageUrl?: string;
+  mediaAttachments?: { mediaUrl: string; mediaType: string; thumbnailUrl?: string; altText?: string; sortOrder?: number }[];
+  eventId?: number;
   eventDate?: string;
   eventVenue?: string;
   location?: string;
@@ -35,9 +37,11 @@ export interface CreatePostRequest {
   hashtags?: string;
   mentions?: string;
   linkUrl?: string;
+  eventId?: number;
   eventDate?: string;
   eventEndDate?: string;
   eventVenue?: string;
+  notify?: boolean;
   mediaAttachments?: { mediaUrl: string; mediaType: string; thumbnailUrl?: string; altText?: string; sortOrder?: number }[];
 }
 

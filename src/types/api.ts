@@ -746,6 +746,7 @@ export interface PostResponse {
   linkTitle?: string;
   linkDescription?: string;
   linkImage?: string;
+  eventId?: number;
   eventDate?: string;
   eventEndDate?: string;
   eventVenue?: string;
