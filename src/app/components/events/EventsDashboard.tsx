@@ -718,12 +718,12 @@ export function EventsDashboard() {
         <div className="absolute right-0 top-0 w-64 h-full rounded-full opacity-15 blur-3xl pointer-events-none z-0"
           style={{ background: "radial-gradient(circle, #FEF3C7 0%, transparent 70%)", transform: "translate(20%,-20%)" }} />
 
-        <div className="relative z-10 px-4 py-3 sm:px-5 sm:py-3.5 text-white flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          
+        <div className="relative z-10 px-3.5 py-2.5 sm:px-4 sm:py-3 text-white flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+
           {/* Left: Festival Icon + Title + Metadata */}
-          <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
-            <div className="relative w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-xl shrink-0 shadow-xs overflow-hidden">
-              <span className="text-xl">{(useMock || events.length > 0) ? "🕉️" : "📅"}</span>
+          <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+            <div className="relative w-9 h-9 rounded-xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-lg shrink-0 shadow-xs overflow-hidden">
+              <span className="text-lg">{(useMock || events.length > 0) ? "🕉️" : "📅"}</span>
               {currentBanner.image && (
                 <img
                   src={currentBanner.image}
@@ -737,7 +737,7 @@ export function EventsDashboard() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400/20 text-amber-200 border border-amber-300/30 uppercase tracking-wider">
+                <span className="px-2 py-0.5 rounded-full text-[9.5px] font-semibold bg-amber-400/20 text-amber-200 border border-amber-300/30 uppercase tracking-wider">
                   🔥 {currentBanner.category}
                 </span>
                 {(useMock || events.length > 0) ? (
@@ -758,10 +758,10 @@ export function EventsDashboard() {
                   </>
                 )}
               </div>
-              <h2 className="text-lg sm:text-xl font-black text-white leading-tight drop-shadow-md truncate">
+              <h2 className="text-base sm:text-lg font-bold text-white leading-tight drop-shadow-sm truncate">
                 {currentBanner.title}
               </h2>
-              <div className="flex flex-wrap items-center gap-3 text-[11px] font-medium text-white/75 mt-0.5">
+              <div className="flex flex-wrap items-center gap-2.5 text-[10.5px] font-normal text-white/75 mt-0.5">
                 <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-amber-300" /> {currentBanner.location}</span>
                 <span className="text-white/30">·</span>
                 <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3 text-indigo-200" /> {currentBanner.date}</span>
