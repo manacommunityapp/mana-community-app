@@ -1248,12 +1248,13 @@ export function EventsDashboard() {
               </div>
             ))}
           </div>
-          <div className="relative w-full sm:w-52">
+          {/* Search bar hidden as of now */}
+          {/* <div className="relative w-full sm:w-52">
             <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-2.5" />
             <input type="text" placeholder="Search name, code..." value={regSearch}
               onChange={e => setRegSearch(e.target.value)}
               className="w-full pl-7 pr-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-medium text-slate-700 focus:outline-none focus:border-indigo-400" />
-          </div>
+          </div> */}
         </div>
 
         {loadingRegs && <div className="py-8 text-center text-xs text-slate-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />Loading...</div>}

@@ -132,15 +132,15 @@ export const EventsExecutiveHome: React.FC<EventsExecutiveHomeProps> = ({
         </div>
       </div>
 
-      {/* Global Search Bar */}
-      <div className="relative">
+      {/* Global Search Bar - hidden as of now */}
+      {/* <div className="relative">
         <input
           type="text"
           placeholder="Search events, passes, volunteers, sponsors or food coupons..."
           className="w-full h-13 pl-11 pr-4 rounded-2xl bg-white dark:bg-slate-800 text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 border border-slate-200 dark:border-slate-700 focus:border-[#FF6B00] shadow-sm outline-none transition-colors"
         />
         <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
-      </div>
+      </div> */}
 
       {/* Event Hero Banner Carousel */}
       <div className="relative overflow-hidden rounded-[28px] shadow-2xl transition-all duration-500">
