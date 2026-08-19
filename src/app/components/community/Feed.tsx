@@ -144,8 +144,11 @@ async function uploadFeedMedia(file: File, communityId: number, subContext: stri
     ? await mediaService.uploadDirectToS3(file, { ...uploadRequest, mediaType: "VIDEO" })
     : await mediaService.upload(file, uploadRequest);
 
+  const resolvedUrl = media.url || media.compressedUrl || media.mediumUrl;
+  if (!resolvedUrl) throw new Error(`Upload succeeded but the server returned no URL for '${file.name}'.`);
+
   return {
-    mediaUrl: media.url,
+    mediaUrl: resolvedUrl,
     mediaType,
     thumbnailUrl: media.thumbnailUrl,
     altText: file.name,
@@ -338,7 +341,8 @@ export function Feed() {
 
   const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length === 0 || !user?.communityId) return;
+    if (files.length === 0) return;
+    if (!user?.communityId) { toast.error("No community assigned — cannot upload media."); return; }
 
     const remainingSlots = MAX_FEED_ATTACHMENTS - newPostMedia.length;
     if (remainingSlots <= 0) {
@@ -1047,7 +1051,8 @@ function PostCard({
 
   const handleEditImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    if (files.length === 0 || !user?.communityId) return;
+    if (files.length === 0) return;
+    if (!user?.communityId) { toast.error("No community assigned — cannot upload media."); return; }
 
     const remainingSlots = MAX_FEED_ATTACHMENTS - editMedia.length;
     if (remainingSlots <= 0) {
