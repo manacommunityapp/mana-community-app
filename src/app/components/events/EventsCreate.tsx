@@ -32,6 +32,7 @@ export interface EventContactItem {
   name: string;
   phone: string;
   role: string;
+  notes?: string;
   email?: string;
 }
 
@@ -267,7 +268,7 @@ const DEFAULT_BUDGET_ITEMS: BudgetItem[] = [
 ];
 
 const DEFAULT_CONTACTS: EventContactItem[] = [
-  { id: "c1", name: "", phone: "", role: "Event Lead / Main Coordinator", email: "" },
+  { id: "c1", name: "", phone: "", role: "Event Lead / Main Coordinator", notes: "" },
 ];
 
 const INITIAL_FORM_DATA: FormData = {
@@ -277,7 +278,7 @@ const INITIAL_FORM_DATA: FormData = {
   multiDay: false, daySchedules: [], venueName: "", venueAddress: "", city: "", capacity: "",
   registrationEnabled: true, registrationDeadline: "",
   ticketTypes: DEFAULT_TICKET_TYPES,
-  requireApproval: false, allowWaitlist: true,
+  requireApproval: false, allowWaitlist: false,
   totalBudget: "", budgetItems: DEFAULT_BUDGET_ITEMS,
   coverImageUrl: "", tags: [],
   registrationFormConfig: { ...GANESH_CHATURTHI_FORM_CONFIG },
@@ -299,6 +300,12 @@ function hexRgba(hex: string, alpha: number): string {
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function persistedMediaUrl(url?: string | null): string | undefined {
+  const trimmed = (url || "").trim();
+  if (!trimmed || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) return undefined;
+  return trimmed;
 }
 
 
@@ -1201,14 +1208,16 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
     setUploadingQr(true);
     setUploadError("");
     try {
-      const res = await fileUploadService.upload(file, "EVENT", "qr-scanner");
+      const res = await fileUploadService.upload(file, "EVENT", "event-create", undefined, "qr-scanner");
       if (res && res.url) {
         update("scannerUrl", res.url);
+      } else {
+        throw new Error("Upload completed without a QR image URL.");
       }
     } catch (err: any) {
-      console.warn("QR upload fallback notice:", err);
-      const localUrl = URL.createObjectURL(file);
-      update("scannerUrl", localUrl);
+      console.warn("QR upload failed:", err);
+      setUploadError(err?.message || "QR upload failed. Please try again or paste a stored image URL.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } finally {
       setUploadingQr(false);
     }
@@ -1220,14 +1229,14 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
       name: "",
       phone: "",
       role: "Event Coordinator",
-      email: "",
+      notes: "",
     };
     update("contacts", [...(data.contacts || []), newContact]);
   };
 
   const removeContact = (id: string) => {
     const next = (data.contacts || []).filter((c) => c.id !== id);
-    update("contacts", next.length > 0 ? next : [{ id: "c1", name: "", phone: "", role: "Event Lead", email: "" }]);
+    update("contacts", next.length > 0 ? next : [{ id: "c1", name: "", phone: "", role: "Event Lead", notes: "" }]);
   };
 
   const updateContact = (id: string, field: keyof EventContactItem, value: string) => {
@@ -1621,13 +1630,12 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
 
                 <div>
                   <label className="text-[9.5px] font-bold uppercase text-slate-500 block mb-0.5">
-                    Email (Optional)
+                    Notes
                   </label>
                   <Input
-                    type="email"
-                    value={contact.email || ""}
-                    onChange={(e) => updateContact(contact.id, "email", e.target.value)}
-                    placeholder="contact@community.com"
+                    value={contact.notes || ""}
+                    onChange={(e) => updateContact(contact.id, "notes", e.target.value)}
+                    placeholder="e.g. Available at helpdesk after 6 PM"
                     className={cn(INPUT_CLS, "h-8 text-xs py-1 px-2.5")}
                   />
                 </div>
@@ -1792,6 +1800,10 @@ const FORM_TEMPLATES: FormTemplateMeta[] = [
   },
 ];
 
+const DEFAULT_FORM_TEMPLATE_ID = "tmpl-ganesh";
+const VISIBLE_FORM_TEMPLATE_IDS = [DEFAULT_FORM_TEMPLATE_ID, "tmpl-standard"];
+const VISIBLE_FORM_TEMPLATES = FORM_TEMPLATES.filter((tmpl) => VISIBLE_FORM_TEMPLATE_IDS.includes(tmpl.id));
+
 const FIELD_TYPE_LABELS: Record<string, string> = {
   text: "Text", textarea: "Long Text", number: "Number", email: "Email",
   phone: "Phone", date: "Date", select: "Dropdown", multiselect: "Multi Select",
@@ -1799,18 +1811,16 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
 };
 
 function Step5FormTemplate({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
-  const [selectedId, setSelectedId] = useState<string>(
-    data.registrationFormConfig.fields.length === 0 ? "tmpl-none" :
-    FORM_TEMPLATES.find(t => t.config.fields.length === data.registrationFormConfig.fields.length)?.id ?? "tmpl-ganesh"
-  );
+  const [selectedId, setSelectedId] = useState<string>(DEFAULT_FORM_TEMPLATE_ID);
   const [previewId, setPreviewId] = useState<string | null>(null);
 
   const selectTemplate = (tmpl: FormTemplateMeta) => {
+    if (tmpl.id !== DEFAULT_FORM_TEMPLATE_ID) return;
     setSelectedId(tmpl.id);
     update("registrationFormConfig", { ...tmpl.config });
   };
 
-  const previewTemplate = previewId ? FORM_TEMPLATES.find(t => t.id === previewId) : null;
+  const previewTemplate = previewId ? VISIBLE_FORM_TEMPLATES.find(t => t.id === previewId) : null;
 
   return (
     <div className="space-y-6">
@@ -1842,26 +1852,37 @@ function Step5FormTemplate({ data, update }: { data: FormData; update: (k: keyof
       <div className="space-y-3">
         <h4 className="text-sm font-semibold text-slate-700">Available Templates</h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {FORM_TEMPLATES.map(tmpl => {
+          {VISIBLE_FORM_TEMPLATES.map(tmpl => {
             const isSelected = selectedId === tmpl.id;
-            const isDefault = tmpl.id === "tmpl-ganesh";
+            const isDefault = tmpl.id === DEFAULT_FORM_TEMPLATE_ID;
+            const isLocked = !isDefault;
             const fieldCount = tmpl.config.fields.filter(f => f.type !== "section").length;
             const reqCount = tmpl.config.fields.filter(f => f.required).length;
             return (
               <button
                 key={tmpl.id}
+                type="button"
+                aria-disabled={isLocked}
                 onClick={() => selectTemplate(tmpl)}
                 className={cn(
                   "text-left p-4 rounded-xl border-2 transition-all relative group",
                   isSelected
                     ? "border-amber-500 bg-amber-50/70 ring-2 ring-amber-200 shadow-sm"
-                    : "border-slate-200 hover:border-amber-300 hover:bg-slate-50"
+                    : "border-slate-200 hover:border-amber-300 hover:bg-slate-50",
+                  isLocked && "opacity-60 cursor-not-allowed hover:border-slate-200 hover:bg-white"
                 )}
               >
                 {isDefault && (
                   <div className="absolute top-2 right-2">
                     <Badge className="bg-amber-500 text-white font-bold text-[9px] py-0.5 px-1.5 border-none">
                       🪔 Default
+                    </Badge>
+                  </div>
+                )}
+                {isLocked && (
+                  <div className="absolute top-2 right-2">
+                    <Badge className="bg-slate-100 text-slate-500 font-bold text-[9px] py-0.5 px-1.5 border border-slate-200">
+                      Locked
                     </Badge>
                   </div>
                 )}
@@ -1987,9 +2008,10 @@ function Step5FormTemplate({ data, update }: { data: FormData; update: (k: keyof
               </Button>
               <Button
                 className="flex-1 bg-gradient-to-r from-indigo-600 to-violet-500 hover:from-indigo-700 hover:to-violet-600 gap-1"
+                disabled={previewTemplate.id !== DEFAULT_FORM_TEMPLATE_ID}
                 onClick={() => { selectTemplate(previewTemplate); setPreviewId(null); }}
               >
-                <CheckCircle2 className="w-4 h-4" /> Use This Template
+                <CheckCircle2 className="w-4 h-4" /> {previewTemplate.id === DEFAULT_FORM_TEMPLATE_ID ? "Use This Template" : "Selection Disabled"}
               </Button>
             </div>
           </div>
@@ -2096,18 +2118,32 @@ function Step7Media({ data, update }: { data: FormData; update: (k: keyof FormDa
   const [imageMode, setImageMode] = useState<"upload" | "url">(data.coverImageUrl && !data.coverImageUrl.startsWith("data:") ? "url" : "upload");
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = (file: File) => {
+  const handleFile = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
     setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        update("coverImageUrl", reader.result);
+    setUploadingImage(true);
+    setImageUploadError("");
+
+    try {
+      const res = await fileUploadService.upload(file, "EVENT", "event-create", undefined, "cover-image");
+      if (res?.url) {
+        update("coverImageUrl", res.url);
+        setImageMode("url");
+      } else {
+        throw new Error("Upload completed without an image URL.");
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      console.warn("Cover image upload failed:", err);
+      setImageUploadError("Cover image upload failed. Please try again or paste an image URL.");
+      setFileName("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
@@ -2120,6 +2156,7 @@ function Step7Media({ data, update }: { data: FormData; update: (k: keyof FormDa
   const clearImage = () => {
     update("coverImageUrl", "");
     setFileName("");
+    setImageUploadError("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -2163,11 +2200,15 @@ function Step7Media({ data, update }: { data: FormData; update: (k: keyof FormDa
 
         {imageMode === "url" ? (
           <Input value={data.coverImageUrl.startsWith("data:") ? "" : data.coverImageUrl}
-            onChange={e => { update("coverImageUrl", e.target.value); setFileName(""); }}
+            onChange={e => { update("coverImageUrl", e.target.value); setFileName(""); setImageUploadError(""); }}
             placeholder="https://images.unsplash.com/…" className={INPUT_CLS} />
         ) : (
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+        )}
+
+        {imageUploadError && (
+          <p className="text-[11px] text-rose-600 font-semibold mt-2">{imageUploadError}</p>
         )}
 
         {/* Preview / drop zone */}
@@ -2207,7 +2248,8 @@ function Step7Media({ data, update }: { data: FormData; update: (k: keyof FormDa
               {imageMode === "upload" ? (
                 <>
                   <p className="text-sm text-slate-500 font-medium">
-                    <span className="text-indigo-600 font-bold">Click to upload</span> or drag & drop
+                    <span className="text-indigo-600 font-bold">{uploadingImage ? "Uploading..." : "Click to upload"}</span>
+                    {!uploadingImage && " or drag & drop"}
                   </p>
                   <p className="text-[10px] text-slate-400 mt-1">PNG, JPG, WEBP up to 5MB</p>
                 </>
@@ -2399,6 +2441,15 @@ function Step8Review({ data }: { data: FormData }) {
 
 export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLISHED"): EventRequest {
   const primaryContact = data.contacts?.[0];
+  const coverImageUrl = persistedMediaUrl(data.coverImageUrl);
+  const scannerImageUrl = persistedMediaUrl(data.scannerUrl);
+  const contactPayload = (data.contacts || []).map(({ id, name, phone, role, notes }) => ({
+    id,
+    name,
+    phone,
+    role,
+    notes,
+  }));
   return {
     title: data.title,
     description: data.description || undefined,
@@ -2412,16 +2463,16 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
     priceType: data.ticketTypes.some(t => parseFloat(t.price) > 0) ? "PAID" : "FREE",
     price: data.ticketTypes.length > 0 ? parseFloat(data.ticketTypes[0].price) || undefined : undefined,
     capacity: data.capacity ? parseInt(data.capacity) : undefined,
-    imageUrl: data.coverImageUrl && !data.coverImageUrl.startsWith("data:") ? data.coverImageUrl : undefined,
+    imageUrl: coverImageUrl,
     organizerName: primaryContact?.name || undefined,
     organizerContact: primaryContact?.phone || undefined,
     ticketTypes: data.ticketTypes,
     paymentModes: data.enableOnlinePayment ? (data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(",") : undefined) : "Cash",
     upiId: data.enableOnlinePayment ? (data.upiId || undefined) : undefined,
-    scannerUrl: data.enableOnlinePayment ? (data.scannerUrl || undefined) : undefined,
-    scannerImage: data.enableOnlinePayment ? (data.scannerUrl || undefined) : undefined,
+    scannerUrl: data.enableOnlinePayment ? scannerImageUrl : undefined,
+    scannerImage: data.enableOnlinePayment ? scannerImageUrl : undefined,
     notes: data.notes || undefined,
-    contactsJson: data.contacts && data.contacts.length > 0 ? JSON.stringify(data.contacts) : undefined,
+    contactsJson: contactPayload.length > 0 ? JSON.stringify(contactPayload) : undefined,
     paymentInstructions: data.enableOnlinePayment ? (data.paymentInstructions || undefined) : undefined,
     venue: data.venueName || undefined,
     city: data.city || undefined,
@@ -2468,7 +2519,15 @@ export function fromEventToFormData(ev: any): FormData {
   if (ev.contactsJson) {
     try {
       const parsed = JSON.parse(ev.contactsJson);
-      if (Array.isArray(parsed) && parsed.length > 0) contacts = parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        contacts = parsed.map((c: any, i: number) => ({
+          id: c.id || `c${i + 1}`,
+          name: c.name || "",
+          phone: c.phone || "",
+          role: c.role || "Organizer",
+          notes: c.notes || "",
+        }));
+      }
     } catch {}
   }
   if (contacts.length === 0 && Array.isArray(ev.contactDetails) && ev.contactDetails.length > 0) {
@@ -2477,7 +2536,7 @@ export function fromEventToFormData(ev: any): FormData {
       name: c.name || "",
       phone: c.phone || "",
       role: c.role || "Organizer",
-      email: c.email || "",
+      notes: c.notes || "",
     }));
   }
   if (contacts.length === 0 && (ev.organizerName || ev.organizerContact)) {
@@ -2487,7 +2546,7 @@ export function fromEventToFormData(ev: any): FormData {
         name: ev.organizerName || "",
         phone: ev.organizerContact || "",
         role: "Event Lead / Organizer",
-        email: "",
+        notes: "",
       },
     ];
   }
@@ -2522,7 +2581,7 @@ export function fromEventToFormData(ev: any): FormData {
     registrationDeadline: ev.registrationDeadline || "",
     ticketTypes,
     requireApproval: Boolean(ev.requireApproval),
-    allowWaitlist: ev.allowWaitlist !== undefined ? Boolean(ev.allowWaitlist) : true,
+    allowWaitlist: ev.allowWaitlist !== undefined ? Boolean(ev.allowWaitlist) : false,
     totalBudget: ev.totalBudget || (ev.budget ? String(ev.budget) : ""),
     budgetItems: ev.budgetItems && ev.budgetItems.length > 0 ? ev.budgetItems : [...DEFAULT_BUDGET_ITEMS],
     coverImageUrl: ev.imageUrl || ev.coverImageUrl || ev.coverImage || "",

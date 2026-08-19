@@ -13,6 +13,7 @@ export interface EventContactPerson {
   name: string;
   phone: string;
   role?: string;
+  notes?: string;
   email?: string;
 }
 
@@ -38,6 +39,8 @@ export interface EventResponse {
   capacity: number | null;
   maxAttendees?: number | null;
   imageUrl: string | null;
+  coverImageUrl?: string | null;
+  coverImage?: string | null;
   organizerName: string;
   organizerContact: string;
   createdById: number;

@@ -38,7 +38,7 @@ export function FloatingChatBot() {
         />
       )}
 
-      <div className="fixed bottom-28 right-4 sm:bottom-6 sm:right-24 z-50 font-sans">
+      <div className="fixed bottom-36 right-4 sm:bottom-24 sm:right-6 z-50 font-sans">
         {/* Panel */}
         {isOpen && (
           <div
@@ -119,10 +119,13 @@ export function FloatingChatBot() {
             boxShadow: "0 6px 20px rgba(245, 158, 11, 0.55)",
           }}
         >
-          <img
-            src="/ganesha-login-banner.jpg"
-            alt="Events Dashboard"
-            className="w-full h-full rounded-full object-cover scale-110 transition-transform duration-300"
+          <video
+            src="/ganesh-animated.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="w-full h-full rounded-full object-cover scale-110"
           />
         </Link>
       )}

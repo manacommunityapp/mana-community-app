@@ -105,6 +105,7 @@ const MOCK_BANNERS = [
     location: "Main Community Grounds, Sector 4", date: "Aug 27 - Sep 06, 2026",
     registered: "1,842 passes issued", category: "Grand Festival",
     bgGradient: BANNER_GRADIENTS[0], targetDate: "2026-08-27", targetTime: null as string | null,
+    image: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
   },
   {
     id: "ev-2", title: "Annual Sports Olympiad 2026",
@@ -112,6 +113,7 @@ const MOCK_BANNERS = [
     location: "Central Sports Arena", date: "Sep 14 - Sep 18, 2026",
     registered: "412 athletes registered", category: "Sports Championship",
     bgGradient: BANNER_GRADIENTS[1], targetDate: "2026-09-14", targetTime: null as string | null,
+    image: "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80",
   },
 ];
 
@@ -134,6 +136,7 @@ interface BannerItem {
   id: string; title: string; subtitle: string; location: string;
   date: string; registered: string; category: string;
   bgGradient: string; targetDate: string; targetTime: string | null;
+  image?: string | null;
 }
 
 function eventToBanner(ev: EventResponse, idx: number): BannerItem {
@@ -148,6 +151,7 @@ function eventToBanner(ev: EventResponse, idx: number): BannerItem {
     bgGradient: BANNER_GRADIENTS[idx % BANNER_GRADIENTS.length],
     targetDate: ev.startDate,
     targetTime: ev.startTime,
+    image: ev.imageUrl || ev.coverImageUrl || ev.coverImage || null,
   };
 }
 
@@ -718,8 +722,18 @@ export function EventsDashboard() {
           
           {/* Left: Festival Icon + Title + Metadata */}
           <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
-            <div className="w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-xl shrink-0 shadow-xs">
-              {(useMock || events.length > 0) ? "🕉️" : "📅"}
+            <div className="relative w-10 h-10 rounded-xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-xl shrink-0 shadow-xs overflow-hidden">
+              <span className="text-xl">{(useMock || events.length > 0) ? "🕉️" : "📅"}</span>
+              {currentBanner.image && (
+                <img
+                  src={currentBanner.image}
+                  alt={currentBanner.title}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              )}
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap mb-0.5">

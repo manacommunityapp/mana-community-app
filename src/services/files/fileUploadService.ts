@@ -1,4 +1,4 @@
-import { apiClient } from "../common/apiClient";
+import { apiClient, getStoredUser } from "../common/apiClient";
 import { mediaService, type MediaModule } from "./mediaService";
 
 export interface UploadedFileDto {
@@ -12,20 +12,22 @@ export interface UploadedFileDto {
 export const fileUploadService = {
   /**
    * Uploads a file to AWS S3 via the centralized Media Service (/api/media/upload).
-   * Falls back to legacy /files/upload if needed.
+   * Returns only persisted URLs that can safely be saved on feature records.
    */
   async upload(
     file: File,
     module: MediaModule = "EVENT",
     moduleId: string = "1",
-    communityId: number = 1001
+    communityId?: number,
+    subContext = "gallery"
   ): Promise<UploadedFileDto> {
     try {
+      const resolvedCommunityId = communityId ?? getStoredUser()?.communityId ?? 1001;
       const media = await mediaService.upload(file, {
         module,
         moduleId,
-        communityId,
-        subContext: "gallery",
+        communityId: resolvedCommunityId,
+        subContext,
       });
       return {
         id: media.id,
