@@ -3,6 +3,7 @@ import {
   Heart,
   Share2,
   Image as ImageIcon,
+  Upload,
   CheckCircle,
   Trash2,
   Send,
@@ -40,9 +41,10 @@ import {
   Flame,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
 import { feedService, type CreatePostRequest } from "../../../services/community/feedService";
 import { engagementService, groupService } from "../../../services/community/engagementService";
+import { mediaService } from "../../../services/files/mediaService";
 import { useAuth } from "../../../contexts/AuthContext";
 import type {
   PostResponse,
@@ -113,6 +115,8 @@ export function Feed() {
   const [newPostTitle, setNewPostTitle] = useState("");
   const [newPostImageUrl, setNewPostImageUrl] = useState("");
   const [showImageUrlInput, setShowImageUrlInput] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const imageFileInputRef = useRef<HTMLInputElement>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [composerType, setComposerType] = useState<PostTypeEnum>("GENERAL");
   const [showComposerTypes, setShowComposerTypes] = useState(false);
@@ -215,6 +219,30 @@ export function Feed() {
       toast.error("Search failed: " + error.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user?.communityId) return;
+    if (!file.type.startsWith("image/")) { toast.error("Please select an image file."); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error("Image must be under 10MB."); return; }
+
+    setIsUploadingImage(true);
+    try {
+      const media = await mediaService.upload(file, {
+        module: "COMMUNITY",
+        moduleId: String(user.communityId),
+        communityId: user.communityId,
+        subContext: "feed_post",
+      });
+      setNewPostImageUrl(media.url);
+      toast.success("Image uploaded successfully!");
+    } catch (error: any) {
+      toast.error("Image upload failed: " + (error.message || "Unknown error"));
+    } finally {
+      setIsUploadingImage(false);
+      if (imageFileInputRef.current) imageFileInputRef.current.value = "";
     }
   };
 
@@ -645,24 +673,34 @@ export function Feed() {
                   </div>
                 )}
 
-                {showImageUrlInput && (
-                  <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                    <LinkIcon className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    <input type="text" placeholder="Paste image URL..." className="bg-transparent border-none text-xs w-full outline-none" value={newPostImageUrl} onChange={(e) => setNewPostImageUrl(e.target.value)} />
-                    {newPostImageUrl && <button onClick={() => setNewPostImageUrl("")} className="text-slate-400 hover:text-slate-600"><X className="w-3.5 h-3.5" /></button>}
-                  </div>
-                )}
-
+                {/* Image preview */}
                 {newPostImageUrl && (
                   <div className="relative inline-block">
-                    <img src={newPostImageUrl} alt="Preview" className="h-20 w-32 object-cover rounded-lg border border-slate-200" onError={() => toast.error("Invalid image URL.")} />
-                    <button onClick={() => setNewPostImageUrl("")} className="absolute -top-1.5 -right-1.5 p-1 bg-red-500 text-white rounded-full"><X className="w-3 h-3" /></button>
+                    <img src={newPostImageUrl} alt="Preview" className="h-28 w-44 object-cover rounded-xl border border-slate-200 shadow-sm" />
+                    <button onClick={() => setNewPostImageUrl("")} className="absolute -top-1.5 -right-1.5 p-1 bg-red-500 text-white rounded-full shadow"><X className="w-3 h-3" /></button>
                   </div>
                 )}
 
+                {/* Hidden file input */}
+                <input
+                  ref={imageFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageFileSelect}
+                />
+
                 <div className="flex items-center justify-between pt-1">
-                  <button onClick={() => setShowImageUrlInput(!showImageUrlInput)} className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium ${showImageUrlInput ? "text-indigo-600 bg-indigo-50" : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"}`}>
-                    <ImageIcon className="w-4 h-4" /> Media
+                  <button
+                    onClick={() => imageFileInputRef.current?.click()}
+                    disabled={isUploadingImage}
+                    className={`p-2 rounded-lg transition-colors flex items-center gap-1.5 text-xs font-medium ${newPostImageUrl ? "text-indigo-600 bg-indigo-50" : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"} disabled:opacity-50`}
+                  >
+                    {isUploadingImage ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</>
+                    ) : (
+                      <><ImageIcon className="w-4 h-4" /> Photo</>
+                    )}
                   </button>
                   <button
                     onClick={handleCreatePost}
@@ -774,6 +812,7 @@ function PostCard({
   onDeleteComment, onSetCommentText, onSetReplyingTo, onShowReactionPicker,
   getInitials, formatTimeAgo, getPostTypeConfig, getReactionIcon,
 }: any) {
+  const navigate = useNavigate();
   const typeConfig = getPostTypeConfig(post.postType);
   const currentReaction = getReactionIcon(post.currentUserReaction);
   const totalReactions = post.reactionCounts ? Object.values(post.reactionCounts as Record<string, number>).reduce((a: number, b: number) => a + b, 0) : post.likesCount;
@@ -862,20 +901,29 @@ function PostCard({
         </div>
       )}
 
-      {/* Event details */}
-      {post.postType === "EVENT" && (post.eventDate || post.eventVenue) && (
-        <div className="flex flex-wrap gap-2 mb-3 text-left">
-          {post.eventDate && (
-            <span className="bg-pink-50 text-pink-700 border border-pink-100 rounded-lg px-3 py-1.5 text-xs font-bold flex items-center gap-1">
-              <Calendar className="w-3 h-3" /> {new Date(post.eventDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
-            </span>
-          )}
-          {post.eventVenue && (
-            <span className="bg-slate-50 text-slate-600 border border-slate-100 rounded-lg px-3 py-1.5 text-xs font-bold flex items-center gap-1">
-              <MapPin className="w-3 h-3" /> {post.eventVenue}
-            </span>
-          )}
-        </div>
+      {/* Event details – click to go to event dashboard */}
+      {post.postType === "EVENT" && (
+        <button
+          onClick={() => navigate("/events")}
+          className="w-full mb-3 text-left bg-pink-50/60 border border-pink-100 rounded-xl p-3 hover:bg-pink-50 hover:border-pink-200 hover:shadow-sm transition-all cursor-pointer group"
+        >
+          <div className="flex flex-wrap gap-2">
+            {post.eventDate && (
+              <span className="bg-white text-pink-700 border border-pink-100 rounded-lg px-3 py-1.5 text-xs font-bold flex items-center gap-1 shadow-xs">
+                <Calendar className="w-3 h-3" /> {new Date(post.eventDate).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+              </span>
+            )}
+            {post.eventVenue && (
+              <span className="bg-white text-slate-600 border border-slate-100 rounded-lg px-3 py-1.5 text-xs font-bold flex items-center gap-1 shadow-xs">
+                <MapPin className="w-3 h-3" /> {post.eventVenue}
+              </span>
+            )}
+          </div>
+          <div className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-pink-600 group-hover:text-pink-700">
+            <span>View Event Dashboard</span>
+            <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+          </div>
+        </button>
       )}
 
       {/* Classified details */}
