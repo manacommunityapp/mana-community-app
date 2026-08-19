@@ -211,6 +211,10 @@ export function EventsPoojaSeva() {
     if (!poojaForm.date) { setFormError("Date is required"); return; }
 
     const validStartTimes = poojaForm.startTimes.filter(Boolean);
+    const calculatedTotalSlots = poojaForm.isMultiDay && poojaForm.timeSlotConfig.length > 0
+      ? poojaForm.timeSlotConfig.reduce((acc, curr) => acc + (Number(curr.slotCount) || 0), 0)
+      : poojaForm.slots ? Number(poojaForm.slots) : 20;
+
     const payload = {
       mainEventId: poojaForm.mainEventId || undefined,
       name: poojaForm.name,
@@ -223,12 +227,12 @@ export function EventsPoojaSeva() {
       duration: poojaForm.duration ? Number(poojaForm.duration) : undefined,
       mandap: poojaForm.mandap || undefined,
       pandit: poojaForm.pandit || undefined,
-      slots: poojaForm.slots ? Number(poojaForm.slots) : undefined,
+      slots: calculatedTotalSlots,
       timeSlotConfig: poojaForm.timeSlotConfig.length > 0
         ? poojaForm.timeSlotConfig.map(e => ({
             slotDate: e.slotDate || null,
             startTime: e.startTime,
-            slotCount: e.slotCount,
+            slotCount: Number(e.slotCount) || 20,
           }))
         : undefined,
       fee: poojaForm.isFree ? 0 : Number(poojaForm.fee || 0),
@@ -681,91 +685,121 @@ export function EventsPoojaSeva() {
                 </label>
               </div>
 
-              {/* Slots per session — time-wise (and day-wise for multi-day) */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-amber-500" />
-                    {poojaForm.isMultiDay ? "Session Slots (day × time)" : "Session Slots (per time)"}
-                  </span>
-                  <span className="text-[10px] text-slate-400">
-                    {poojaForm.timeSlotConfig.length === 0
-                      ? poojaForm.isMultiDay ? "Set dates & times above" : "Add start times above"
-                      : `${poojaForm.timeSlotConfig.length} session${poojaForm.timeSlotConfig.length > 1 ? "s" : ""} configured`}
-                  </span>
-                </div>
+              {/* Slots Configuration: Available Slots for Single Day vs Per-Time Slot for Multi-Day */}
+              {!poojaForm.isMultiDay ? (
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-amber-500" />
+                      Available Slots (Capacity) *
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={poojaForm.slots}
+                        onChange={e => {
+                          const val = e.target.value;
+                          set("slots", val);
+                          const num = Number(val) || 20;
+                          setPoojaForm(f => ({
+                            ...f,
+                            slots: val,
+                            timeSlotConfig: f.timeSlotConfig.map(ts => ({ ...ts, slotCount: num })),
+                          }));
+                        }}
+                        className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+                        placeholder="e.g. 20 Families / Devotees"
+                        min="1"
+                        required
+                      />
+                      <span className="text-xs text-slate-500 font-medium whitespace-nowrap">Families / Devotees</span>
+                    </div>
+                  </label>
 
-                {poojaForm.timeSlotConfig.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 italic">
-                    {poojaForm.isMultiDay
-                      ? "Per-session slot fields will appear once start/end dates and session times are set."
-                      : "Per-session slot fields will appear once session times are added above."}
-                  </p>
-                ) : poojaForm.isMultiDay ? (
-                  /* Multi-day: group by date, show time rows inside each day */
-                  <div className="space-y-2.5">
-                    {Array.from(new Set(poojaForm.timeSlotConfig.map(e => e.slotDate as string))).map(date => {
-                      const dateObj = new Date(date + "T00:00:00");
-                      const dayLabel = dateObj.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
-                      const dayEntries = poojaForm.timeSlotConfig.filter(e => e.slotDate === date);
-                      return (
-                        <div key={date} className="bg-white rounded-lg border border-slate-200 p-2.5">
-                          <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wide mb-2">{dayLabel}</p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {dayEntries.map(e => (
-                              <label key={e.startTime} className="flex flex-col gap-0.5">
-                                <span className="text-[10px] font-semibold text-slate-500">{e.startTime}</span>
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    type="number"
-                                    value={e.slotCount}
-                                    onChange={ev => updateTimeSlotCount(date, e.startTime, Number(ev.target.value))}
-                                    className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-                                    placeholder="20" min="1"
-                                  />
-                                  <span className="text-[9px] text-slate-400 whitespace-nowrap">slots</span>
-                                </div>
-                              </label>
-                            ))}
+                  {poojaForm.startTimes.filter(Boolean).length > 1 && (
+                    <div className="pt-2 border-t border-slate-200/70 space-y-2">
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                        <span>Slots for each Time Slot:</span>
+                        <span className="text-slate-400 font-normal">Defaults to {poojaForm.slots || 20}</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {poojaForm.timeSlotConfig.map(e => (
+                          <label key={e.startTime} className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-semibold text-slate-500">⏰ {e.startTime}</span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={e.slotCount}
+                                onChange={ev => updateTimeSlotCount(null, e.startTime, Number(ev.target.value))}
+                                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+                                placeholder="20"
+                                min="1"
+                              />
+                              <span className="text-[9px] text-slate-400 whitespace-nowrap">slots</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-amber-500" />
+                      Multi-Day Slots (for each Day &amp; Time Slot)
+                    </span>
+                    <span className="text-[11px] font-extrabold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200 shadow-2xs">
+                      Total Capacity: {poojaForm.timeSlotConfig.reduce((acc, curr) => acc + (Number(curr.slotCount) || 0), 0)} Slots
+                    </span>
+                  </div>
+
+                  {poojaForm.timeSlotConfig.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic">
+                      Please enter Start Date, End Date, and at least one Start Time above to configure slots for each multi-day session.
+                    </p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {Array.from(new Set(poojaForm.timeSlotConfig.map(e => e.slotDate as string))).map(date => {
+                        const dateObj = new Date(date + "T00:00:00");
+                        const dayLabel = dateObj.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+                        const dayEntries = poojaForm.timeSlotConfig.filter(e => e.slotDate === date);
+                        const dayTotal = dayEntries.reduce((a, c) => a + (Number(c.slotCount) || 0), 0);
+                        return (
+                          <div key={date} className="bg-white rounded-xl border border-slate-200 p-2.5 shadow-2xs">
+                            <div className="flex items-center justify-between mb-2 pb-1 border-b border-slate-100">
+                              <p className="text-[11px] font-extrabold text-amber-700 uppercase tracking-wide">
+                                📅 {dayLabel} ({date})
+                              </p>
+                              <span className="text-[10px] text-slate-500 font-semibold">
+                                {dayTotal} slots this day
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {dayEntries.map(e => (
+                                <label key={e.startTime} className="flex flex-col gap-0.5">
+                                  <span className="text-[10px] font-semibold text-slate-600">⏰ {e.startTime}</span>
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      value={e.slotCount}
+                                      onChange={ev => updateTimeSlotCount(date, e.startTime, Number(ev.target.value))}
+                                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-slate-50/50"
+                                      placeholder="20" min="1"
+                                    />
+                                    <span className="text-[9px] text-slate-400 whitespace-nowrap">slots</span>
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  /* Single-day: flat time → slot count list */
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {poojaForm.timeSlotConfig.map(e => (
-                      <label key={e.startTime} className="flex flex-col gap-0.5">
-                        <span className="text-[10px] font-semibold text-slate-500">{e.startTime}</span>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            value={e.slotCount}
-                            onChange={ev => updateTimeSlotCount(null, e.startTime, Number(ev.target.value))}
-                            className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-                            placeholder="20" min="1"
-                          />
-                          <span className="text-[9px] text-slate-400 whitespace-nowrap">slots</span>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                )}
-
-                {/* Total / default fallback slot count */}
-                <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                  <span className="text-[10px] text-slate-500 font-semibold">Default / Total Slots:</span>
-                  <input
-                    type="number"
-                    value={poojaForm.slots}
-                    onChange={e => set("slots", e.target.value)}
-                    className="w-20 border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-amber-300"
-                    placeholder="20" min="1"
-                  />
-                  <span className="text-[10px] text-slate-400">(used as fallback when no session config)</span>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1">

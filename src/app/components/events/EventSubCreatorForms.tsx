@@ -221,7 +221,8 @@ export function PoojaSevaSection() {
     startTime: "08:30",
     startTimes: ["08:30"],
     duration: "",
-    mandap: "", pandit: "", slots: "", fee: "", isFree: true,
+    mandap: "", pandit: "", slots: "20", fee: "", isFree: true,
+    timeSlotConfig: [] as { slotDate: string | null; startTime: string; slotCount: number }[],
     items: ["Coconut", "Flowers", "Bananas"], notes: "", isRecurring: false, recurringDays: "",
   });
   const [toast, setToast] = useState("");
@@ -246,6 +247,54 @@ export function PoojaSevaSection() {
       set("startTime", val);
     }
   };
+
+  const updateTimeSlotCount = (slotDate: string | null, startTime: string, slotCount: number) => {
+    setForm((f) => ({
+      ...f,
+      timeSlotConfig: (f.timeSlotConfig || []).map((e) =>
+        e.slotDate === slotDate && e.startTime === startTime ? { ...e, slotCount } : e
+      ),
+    }));
+  };
+
+  // Sync multi-day slot config
+  useEffect(() => {
+    const times = (form.startTimes || []).filter(Boolean);
+    if (times.length === 0) {
+      set("timeSlotConfig", []);
+      return;
+    }
+
+    if (form.isMultiDay && form.date && form.endDate) {
+      const days: string[] = [];
+      const cur = new Date(form.date + "T00:00:00");
+      const end = new Date(form.endDate + "T00:00:00");
+      let limit = 0;
+      while (cur <= end && limit < 30) {
+        days.push(cur.toISOString().split("T")[0]);
+        cur.setDate(cur.getDate() + 1);
+        limit++;
+      }
+      const existing = form.timeSlotConfig || [];
+      const defaultCount = Number(form.slots) || 20;
+      const synced: { slotDate: string | null; startTime: string; slotCount: number }[] = [];
+      for (const date of days) {
+        for (const time of times) {
+          const found = existing.find((e) => e.slotDate === date && e.startTime === time);
+          synced.push(found ?? { slotDate: date, startTime: time, slotCount: defaultCount });
+        }
+      }
+      set("timeSlotConfig", synced);
+    } else {
+      const existing = form.timeSlotConfig || [];
+      const defaultCount = Number(form.slots) || 20;
+      const synced = times.map((time) => {
+        const found = existing.find((e) => e.slotDate === null && e.startTime === time);
+        return found ?? { slotDate: null, startTime: time, slotCount: defaultCount };
+      });
+      set("timeSlotConfig", synced);
+    }
+  }, [form.isMultiDay, form.date, form.endDate, (form.startTimes || []).filter(Boolean).join(",")]);
 
   // Fetch Pooja Types dynamically from backend database
   useEffect(() => {
@@ -303,6 +352,9 @@ export function PoojaSevaSection() {
 
     const validStartTimes = (form.startTimes || []).filter(Boolean);
     const primaryStartTime = validStartTimes[0] || form.startTime || "08:30";
+    const calculatedTotalSlots = form.isMultiDay && form.timeSlotConfig && form.timeSlotConfig.length > 0
+      ? form.timeSlotConfig.reduce((acc, curr) => acc + (Number(curr.slotCount) || 0), 0)
+      : Number(form.slots || 20);
 
     const itemObj = {
       id: "pooja-" + Date.now(),
@@ -317,7 +369,8 @@ export function PoojaSevaSection() {
       duration: form.duration || 60,
       mandap: form.mandap,
       pandit: form.pandit,
-      slots: form.slots || 20,
+      slots: calculatedTotalSlots,
+      timeSlotConfig: form.timeSlotConfig && form.timeSlotConfig.length > 0 ? form.timeSlotConfig : undefined,
       time: validStartTimes.length > 1
         ? `${validStartTimes.join(", ")} (${form.duration || 60}m)`
         : primaryStartTime ? `${primaryStartTime} (${form.duration || 60}m)` : "Morning",
@@ -326,7 +379,7 @@ export function PoojaSevaSection() {
       venue: form.mandap || "Main Temple Mandap",
       fee: form.isFree ? 0 : Number(form.fee || 501),
       isFree: Boolean(form.isFree),
-      availableSeats: Number(form.slots || 20),
+      availableSeats: calculatedTotalSlots,
       image: "🪔",
       description: `Pandit: ${form.pandit || "Temple Priest"}. Samagri: ${form.items.join(", ")}. ${form.notes || ""}`,
       mainEventId: form.mainEventId,
@@ -346,7 +399,8 @@ export function PoojaSevaSection() {
           duration: form.duration,
           mandap: form.mandap,
           pandit: form.pandit,
-          slots: form.slots,
+          slots: calculatedTotalSlots,
+          timeSlotConfig: form.timeSlotConfig && form.timeSlotConfig.length > 0 ? form.timeSlotConfig : undefined,
           fee: form.fee,
           isFree: form.isFree,
           items: form.items,
@@ -581,11 +635,99 @@ export function PoojaSevaSection() {
               <Label>Pandit / Priest Name</Label>
               <Input value={form.pandit} onChange={(v) => set("pandit", v)} placeholder="Pandit Suresh Sharma" />
             </Col>
-            <Col>
-              <Label>Available Slots (Capacity)</Label>
-              <Input type="number" min="1" value={form.slots} onChange={(v) => set("slots", v)} placeholder="20 Families" />
-            </Col>
+            {!form.isMultiDay ? (
+              <Col>
+                <Label required>Available Slots (Capacity)</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={form.slots}
+                  onChange={(v) => {
+                    set("slots", v);
+                    const num = Number(v) || 20;
+                    setForm((f) => ({
+                      ...f,
+                      slots: v,
+                      timeSlotConfig: (f.timeSlotConfig || []).map((ts) => ({ ...ts, slotCount: num })),
+                    }));
+                  }}
+                  placeholder="20 Families"
+                />
+              </Col>
+            ) : (
+              <Col>
+                <Label>Total Multi-Day Capacity</Label>
+                <div className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs font-bold text-amber-700 dark:text-amber-300">
+                  {((form.timeSlotConfig || []).reduce((acc, curr) => acc + (Number(curr.slotCount) || 0), 0))} Total Slots Configured
+                </div>
+              </Col>
+            )}
           </Row>
+
+          {/* Multi-Day Detailed Slots Allocation */}
+          {form.isMultiDay && (
+            <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-amber-500" />
+                  Multi-Day Slots (for each Day &amp; Time Slot)
+                </span>
+                <span className="text-[10px] text-muted-foreground font-semibold">
+                  Configure capacity per session
+                </span>
+              </div>
+
+              {(!form.timeSlotConfig || form.timeSlotConfig.length === 0) ? (
+                <p className="text-xs text-muted-foreground italic">
+                  Set Start Date, End Date, and at least 1 Time Slot above to configure slots.
+                </p>
+              ) : (
+                <div className="space-y-2.5">
+                  {Array.from(new Set((form.timeSlotConfig || []).map((e) => e.slotDate as string))).map((date) => {
+                    const dateObj = new Date(date + "T00:00:00");
+                    const dayLabel = dateObj.toLocaleDateString("en-IN", {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                    });
+                    const dayEntries = (form.timeSlotConfig || []).filter((e) => e.slotDate === date);
+                    const dayTotal = dayEntries.reduce((a, c) => a + (Number(c.slotCount) || 0), 0);
+                    return (
+                      <div key={date} className="bg-card rounded-xl border border-border p-2.5 shadow-2xs">
+                        <div className="flex items-center justify-between mb-2 pb-1 border-b border-border/60">
+                          <p className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wide">
+                            📅 {dayLabel} ({date})
+                          </p>
+                          <span className="text-[10px] text-muted-foreground font-semibold">
+                            {dayTotal} slots this day
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {dayEntries.map((e) => (
+                            <label key={e.startTime} className="flex flex-col gap-0.5">
+                              <span className="text-[10px] font-semibold text-muted-foreground">⏰ {e.startTime}</span>
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  value={e.slotCount}
+                                  onChange={(ev) => updateTimeSlotCount(date, e.startTime, Number(ev.target.value))}
+                                  className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                  placeholder="20"
+                                  min="1"
+                                />
+                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">slots</span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           <Row>
             <Col>
               <Toggle checked={form.isFree} onChange={(v) => set("isFree", v)} label="This seva is free of charge" />

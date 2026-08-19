@@ -120,9 +120,12 @@ export function Login() {
             title="Open Events Dashboard"
             className="ganesh-login-float relative w-32 h-32 rounded-3xl overflow-hidden border-2 border-amber-400/70 p-0.5 bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-500 hover:scale-105 active:scale-95 transition-all cursor-pointer block"
           >
-            <img
-              src="/ganesha-login-banner.jpg"
-              alt="Events Dashboard"
+            <video
+              src="/ganesh-animated.mp4"
+              autoPlay
+              loop
+              muted
+              playsInline
               className="w-full h-full object-cover rounded-[22px]"
             />
           </Link>

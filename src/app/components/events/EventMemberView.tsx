@@ -987,8 +987,8 @@ export function EventMemberView() {
       <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6">
         {activeTab === "home" && (
           <>
-            {/* Search & Filter Bar on Mobile */}
-            <div className="md:hidden space-y-2">
+            {/* Search & Filter Bar on Mobile - hidden as of now */}
+            {/* <div className="md:hidden space-y-2">
               <div className="relative">
                 <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
@@ -1007,7 +1007,7 @@ export function EventMemberView() {
                   </button>
                 )}
               </div>
-            </div>
+            </div> */}
 
             {/* Hero Community Event Banner (Interactive Mobile Optimized) */}
             <div

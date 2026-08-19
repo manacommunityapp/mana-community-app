@@ -13,6 +13,7 @@ export interface EventContactPerson {
   name: string;
   phone: string;
   role?: string;
+  notes?: string;
   email?: string;
 }
 
@@ -38,6 +39,8 @@ export interface EventResponse {
   capacity: number | null;
   maxAttendees?: number | null;
   imageUrl: string | null;
+  coverImageUrl?: string | null;
+  coverImage?: string | null;
   organizerName: string;
   organizerContact: string;
   createdById: number;
@@ -140,6 +143,40 @@ export interface RegistrationResponse {
   userEmail: string;
   status: string;
   registeredAt: string;
+}
+
+export interface PoojaRegistrationRequest {
+  eventId: number;
+  activityId?: string;
+  eventName: string;
+  activityTitle: string;
+  category: "Pooja";
+  primaryName: string;
+  participantName: string;
+  phone?: string;
+  email?: string;
+  gotram?: string;
+  flatNo?: string;
+  devoteeCount: 1;
+  passType?: string;
+  poojaSlot: string;
+  poojaSlotDate: string;
+  poojaSlotTime: string;
+  poojaSlotName: string;
+  slotDate: string;
+  slotTime: string;
+  timeSlot: string;
+  timeSlotName: string;
+  eventDate: string;
+  eventDateDisplay: string;
+  eventTime: string;
+  eventTimeDisplay: string;
+  venue?: string;
+  bookingFee: number;
+  paymentStatus: "FREE" | "PAID" | "PENDING";
+  paymentMethod?: string;
+  prasadamMode?: string;
+  status?: string;
 }
 
 export interface PendingActionItemResponse {
@@ -444,6 +481,10 @@ export const eventService = {
     return apiClient.post<any>("/events/registrations", data);
   },
 
+  async createPoojaRegistration(data: PoojaRegistrationRequest): Promise<any> {
+    return apiClient.post<any>("/events/registrations", data);
+  },
+
   async getMyRegistrations(): Promise<any[]> {
     return apiClient.get<any[]>("/events/registrations/my");
   },
@@ -453,6 +494,12 @@ export const eventService = {
   },
 
   async updateRegistration(id: number | string, data: any): Promise<any> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
+    return apiClient.put<any>(`/events/registrations/${numericId}`, data);
+  },
+
+  async updatePoojaRegistration(id: number | string, data: PoojaRegistrationRequest): Promise<any> {
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
     return apiClient.put<any>(`/events/registrations/${numericId}`, data);

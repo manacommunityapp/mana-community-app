@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { userService } from "../../../services/common/userService";
-import { eventService } from "../../../services/events/eventService";
+import { eventService, type PoojaRegistrationRequest } from "../../../services/events/eventService";
 import { showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { GlassCard, TouchButton } from "./redesign/EventDesignSystem";
@@ -58,6 +58,7 @@ export interface PoojaRegistrationModalProps {
     existingRegistration?: any;
     registrationId?: string | number;
     isUpdateMode?: boolean;
+    timeSlotConfig?: any;
   };
   onSuccess?: () => void;
 }
@@ -74,6 +75,7 @@ interface DaySchedule {
   dayLabel: string;
   dateStr: string;
   shortDate: string;
+  dateValue?: string;
   slots: DaySlotOption[];
 }
 
@@ -102,6 +104,25 @@ function formatPoojaDate(d: Date): { dayLabel: string; dateStr: string; shortDat
   return { dayLabel: dayOfWeek, dateStr, shortDate };
 }
 
+function formatDateKey(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeSlotStartTime(time: string): string {
+  return String(time || "")
+    .replace(/\(.*?\)/g, "")
+    .split(/[–-]/)[0]
+    .trim();
+}
+
+function makeSlotSelectionKey(day: DaySchedule | undefined, slot: DaySlotOption | undefined): string {
+  if (!day || !slot) return "";
+  return `${day.dateValue || day.dateStr}__${normalizeSlotStartTime(slot.time)}__${slot.name}`;
+}
+
 function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule[] {
   let startRaw = event?.startDate || event?.date;
   let endRaw = event?.endDate;
@@ -125,6 +146,7 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
         dayLabel: "Day 1 (Main Day)",
         dateStr: "Pooja Day",
         shortDate: "Day 1",
+        dateValue: undefined,
         slots,
       },
     ];
@@ -140,6 +162,7 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
         dayLabel: "Day 1 (Main Day)",
         dateStr: String(startRaw),
         shortDate: String(startRaw),
+        dateValue: String(startRaw),
         slots,
       },
     ];
@@ -154,11 +177,11 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
     let count = 1;
     while (cur.getTime() <= endDate.getTime() && count <= 30) {
       const { dayLabel, dateStr, shortDate } = formatPoojaDate(cur);
-      const dateKey = cur.toISOString().split("T")[0];
+      const dateKey = formatDateKey(cur);
       const dayConfigs = timeSlotConfig.filter(e => e.slotDate === dateKey);
       const daySpecificSlots: DaySlotOption[] = dayConfigs.length > 0
         ? slots.map(s => {
-            const rawTime = String(s.time).split(" ")[0]; // "08:30" from "08:30 AM – 10:00 AM"
+            const rawTime = normalizeSlotStartTime(s.time);
             const match = dayConfigs.find(e => s.time.includes(e.startTime) || e.startTime === rawTime);
             return match ? { ...s, left: match.slotCount } : s;
           })
@@ -168,6 +191,7 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
         dayLabel: `Day ${count} (${dayLabel})`,
         dateStr,
         shortDate,
+        dateValue: dateKey,
         slots: daySpecificSlots,
       });
       cur.setDate(cur.getDate() + 1);
@@ -182,6 +206,7 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
             dayLabel: `Day 1 (${startFmt.dayLabel})`,
             dateStr: startFmt.dateStr,
             shortDate: startFmt.shortDate,
+            dateValue: formatDateKey(startDate),
             slots,
           },
         ];
@@ -189,11 +214,12 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
 
   // Single Day Pooja
   const { dayLabel, dateStr, shortDate } = formatPoojaDate(startDate);
+  const dateKey = formatDateKey(startDate);
   const singleDayConfigs: { slotDate: string | null; startTime: string; slotCount: number }[] =
     Array.isArray(event?.timeSlotConfig) ? event.timeSlotConfig.filter((e: any) => !e.slotDate) : [];
   const singleDaySlots: DaySlotOption[] = singleDayConfigs.length > 0
     ? slots.map(s => {
-        const rawTime = String(s.time).split(" ")[0];
+        const rawTime = normalizeSlotStartTime(s.time);
         const match = singleDayConfigs.find(e => s.time.includes(e.startTime) || e.startTime === rawTime);
         return match ? { ...s, left: match.slotCount } : s;
       })
@@ -204,6 +230,7 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
       dayLabel: `Day 1 (${dayLabel})`,
       dateStr,
       shortDate,
+      dateValue: dateKey,
       slots: singleDaySlots,
     },
   ];
@@ -223,6 +250,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [selectedDayId, setSelectedDayId] = useState<number>(1);
   const [selectedSlotTime, setSelectedSlotTime] = useState<string>("08:30 AM – 10:00 AM");
   const [selectedSlotName, setSelectedSlotName] = useState<string>("Morning Homam");
+  const [selectedSlotKey, setSelectedSlotKey] = useState<string>("");
   const [gotram, setGotram] = useState<string>(
     () => event?.gotram || event?.existingRegistration?.gotram || ""
   );
@@ -394,6 +422,9 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       ? [event.time]
       : [];
 
+    const timeSlotConfigs: { slotDate: string | null; startTime: string; slotCount: number }[] =
+      Array.isArray((event as any)?.timeSlotConfig) ? (event as any).timeSlotConfig : [];
+
     const defaultSlots: DaySlotOption[] = configuredTimes.length > 0
       ? configuredTimes.map((t, idx) => {
           const icon = idx === 0 ? "🌅" : idx === 1 ? "☀️" : idx === 2 ? "🪔" : "✨";
@@ -407,19 +438,27 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             ? "Evening Session"
             : `Session #${idx + 1}`;
           const cleanTime = String(t).replace(/\(.*?\)/g, "").trim();
+          const rawTime = cleanTime.split(" ")[0];
           const formattedTime = cleanTime.includes("–") || cleanTime.includes("-") || cleanTime.toLowerCase().includes("am") || cleanTime.toLowerCase().includes("pm")
             ? cleanTime
             : `${cleanTime} onwards`;
+
+          const matchedSingleConfig = timeSlotConfigs.find(
+            c => (!c.slotDate || c.slotDate === event?.startDate || c.slotDate === event?.date) &&
+                 (c.startTime === cleanTime || c.startTime === rawTime)
+          );
+          const slotLeft = matchedSingleConfig ? matchedSingleConfig.slotCount : totalSlotsCount;
+
           return {
             icon,
             time: formattedTime,
             name: sessionName,
-            left: Math.max(1, Math.floor(totalSlotsCount / configuredTimes.length)),
+            left: Math.max(1, slotLeft),
           };
         })
       : [
-          { icon: "🌅", time: "08:30 AM – 10:00 AM", name: "Morning Homam & Sankalpam", left: Math.max(1, Math.floor(totalSlotsCount * 0.5)) },
-          { icon: "🪔", time: "06:30 PM – 08:00 PM", name: "Sandhya Aarti & Archana", left: Math.max(1, Math.floor(totalSlotsCount * 0.5)) },
+          { icon: "🌅", time: "08:30 AM – 10:00 AM", name: "Morning Homam & Sankalpam", left: Math.max(1, totalSlotsCount) },
+          { icon: "🪔", time: "06:30 PM – 08:00 PM", name: "Sandhya Aarti & Archana", left: Math.max(1, totalSlotsCount) },
         ];
 
     return buildPoojaScheduleDays(event, defaultSlots);
@@ -431,13 +470,24 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       const firstDay = scheduleDays[0];
       setSelectedDayId(firstDay.id);
       if (firstDay.slots.length > 0) {
-        setSelectedSlotTime(firstDay.slots[0].time);
-        setSelectedSlotName(firstDay.slots[0].name);
+        const firstSlot = firstDay.slots[0];
+        setSelectedSlotTime(firstSlot.time);
+        setSelectedSlotName(firstSlot.name);
+        setSelectedSlotKey(makeSlotSelectionKey(firstDay, firstSlot));
       }
     }
-  }, [scheduleDays.length]);
+  }, [scheduleDays]);
 
   const currentDay = scheduleDays.find((d) => d.id === selectedDayId) || scheduleDays[0];
+  const selectedSlot =
+    currentDay?.slots.find((s) => makeSlotSelectionKey(currentDay, s) === selectedSlotKey) ||
+    currentDay?.slots.find((s) => s.time === selectedSlotTime && s.name === selectedSlotName) ||
+    currentDay?.slots[0];
+  const selectedSlotDisplayTime = selectedSlot?.time || selectedSlotTime;
+  const selectedSlotDisplayName = selectedSlot?.name || selectedSlotName;
+  const selectedSlotStartTime = normalizeSlotStartTime(selectedSlotDisplayTime);
+  const selectedDateValue = currentDay?.dateValue || currentDay?.dateStr || "";
+  const selectedDateDisplay = currentDay?.dateStr || selectedDateValue || baseDate;
 
   const steps = [
     { num: 1, title: "Date & Slot" },
@@ -447,6 +497,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   ];
 
   const handleNext = () => {
+    if (currentStep === 1 && (!currentDay || !selectedSlot)) {
+      showWarning("Please select one pooja date and one time slot.");
+      return;
+    }
     if (currentStep < 4) {
       setCurrentStep((prev) => prev + 1);
     }
@@ -459,9 +513,14 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   };
 
   const handleBookingConfirm = async (paymentMode: string = "UPI") => {
+    if (!currentDay || !selectedSlot) {
+      showWarning("Please select one pooja date and one time slot.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      const regPayload = {
+      const regPayload: PoojaRegistrationRequest = {
         eventId: event?.id ? (typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, "")) || 1) : 1,
         activityId: event?.id ? String(event.id) : undefined,
         eventName: poojaTitle,
@@ -473,21 +532,33 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         email: authUser?.email || "",
         gotram: gotram ? gotram.trim() : undefined,
         flatNo: devoteeFlat,
-        poojaSlot: `${currentDay.dateStr} • ${selectedSlotTime} (${selectedSlotName})`,
-        eventDate: currentDay.dateStr,
-        eventTime: selectedSlotTime,
+        devoteeCount: 1,
+        passType: "Pooja Registration Pass",
+        poojaSlot: `${selectedDateDisplay} • ${selectedSlotDisplayTime} (${selectedSlotDisplayName})`,
+        poojaSlotDate: selectedDateValue,
+        poojaSlotTime: selectedSlotStartTime,
+        poojaSlotName: selectedSlotDisplayName,
+        slotDate: selectedDateValue,
+        slotTime: selectedSlotStartTime,
+        timeSlot: selectedSlotDisplayTime,
+        timeSlotName: selectedSlotDisplayName,
+        eventDate: selectedDateValue,
+        eventDateDisplay: selectedDateDisplay,
+        eventTime: selectedSlotStartTime,
+        eventTimeDisplay: selectedSlotDisplayTime,
         venue: venueName,
         bookingFee: numericFee,
-        paymentStatus: numericFee === 0 ? "PAID" : "PAID",
+        paymentStatus: numericFee === 0 ? "FREE" : "PAID",
         paymentMethod: numericFee === 0 ? "Free Seva" : paymentMode,
         prasadamMode,
+        status: "CONFIRMED",
       };
 
       if (isUpdateMode && existingRegId) {
         const numericId = typeof existingRegId === "number" ? existingRegId : Number(String(existingRegId).replace(/\D/g, ""));
         if (!isNaN(numericId) && numericId > 0) {
           try {
-            await eventService.updateRegistration(numericId, regPayload);
+            await eventService.updatePoojaRegistration(numericId, regPayload);
           } catch (apiErr) {
             console.warn("Backend pooja update API note:", apiErr);
           }
@@ -495,7 +566,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         showSuccess("🪔 Pooja registration updated successfully!");
       } else {
         try {
-          await eventService.createRegistration(regPayload);
+          await eventService.createPoojaRegistration(regPayload);
         } catch (apiErr) {
           console.warn("Backend createRegistration API note, trying fallback register:", apiErr);
           if (event?.id) {
@@ -682,8 +753,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                         onClick={() => {
                           setSelectedDayId(d.id);
                           if (d.slots && d.slots.length > 0) {
-                            setSelectedSlotTime(d.slots[0].time);
-                            setSelectedSlotName(d.slots[0].name);
+                            const firstSlot = d.slots[0];
+                            setSelectedSlotTime(firstSlot.time);
+                            setSelectedSlotName(firstSlot.name);
+                            setSelectedSlotKey(makeSlotSelectionKey(d, firstSlot));
                           }
                         }}
                         className={`p-3 rounded-2xl border-2 transition-all cursor-pointer select-none text-left ${
@@ -715,13 +788,15 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                     {currentDay.slots.map((s) => {
-                      const isSlotSelected = selectedSlotTime === s.time;
+                      const slotKey = makeSlotSelectionKey(currentDay, s);
+                      const isSlotSelected = selectedSlotKey === slotKey;
                       return (
                         <div
-                          key={s.time}
+                          key={slotKey}
                           onClick={() => {
                             setSelectedSlotTime(s.time);
                             setSelectedSlotName(s.name);
+                            setSelectedSlotKey(slotKey);
                           }}
                           className={`p-3 rounded-2xl cursor-pointer flex items-center justify-between transition-all border-2 ${
                             isSlotSelected
@@ -887,7 +962,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
                       <span className="text-[10px] text-muted-foreground uppercase font-bold block">Selected Session</span>
                       <strong className="text-primary font-bold text-xs block truncate">
-                        {currentDay.dateStr} • {selectedSlotTime}
+                        {selectedDateDisplay} • {selectedSlotDisplayTime}
                       </strong>
                     </div>
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
@@ -959,7 +1034,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div>
                   <span className="text-muted-foreground block">Date &amp; Session:</span>
-                  <strong className="text-foreground">{currentDay.dateStr} • {selectedSlotTime}</strong>
+                  <strong className="text-foreground">{selectedDateDisplay} • {selectedSlotDisplayTime}</strong>
                 </div>
                 <div>
                   <span className="text-muted-foreground block">Yajaman &amp; Gotram:</span>
