@@ -997,6 +997,90 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       </div>
 
       {/* Agenda Notification Modal */}
+      <AgendaNotificationModal
+        isOpen={notifModalOpen}
+        onClose={() => setNotifModalOpen(false)}
+        eventName={data.title || "Community Event"}
+        dayLabel={notifDayLabel}
+        activityTitle={notifActivityTitle}
+      />
+    </div>
+  );
+}
+
+/* ─── Step 3: Registration ─── */
+function Step3Registration({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
+  const addTicket = () => {
+    const newTicket: TicketType = { id: `t${Date.now()}`, name: "", price: "0", qty: "", description: "" };
+    update("ticketTypes", [...data.ticketTypes, newTicket]);
+  };
+  const removeTicket = (id: string) => update("ticketTypes", data.ticketTypes.filter(t => t.id !== id));
+  const updateTicket = (id: string, field: keyof TicketType, value: string) =>
+    update("ticketTypes", data.ticketTypes.map(t => t.id === id ? { ...t, [field]: value } : t));
+
+  const isDeadlineInvalid = Boolean(
+    data.registrationEnabled &&
+    data.registrationDeadline &&
+    data.startDate &&
+    new Date(data.registrationDeadline) >= new Date(data.startDate)
+  );
+
+  const maxDeadlineDate = data.startDate
+    ? new Date(new Date(data.startDate).getTime() - 86400000).toISOString().split("T")[0]
+    : undefined;
+
+  return (
+    <div className="space-y-4 sm:space-y-7">
+      <SectionHeader icon={Ticket} title="Registration Settings" subtitle="Configure how attendees can register for your event" />
+
+      <ToggleRow checked={data.registrationEnabled} onChange={v => update("registrationEnabled", v)}
+        label="Enable event registration" description="Allow attendees to register for this event" />
+
+      {data.registrationEnabled && (
+        <div className="space-y-6 animate-fade-in-up">
+          <div>
+            <FieldLabel hint={data.startDate ? `Must be before ${data.startDate}` : undefined}>
+              Registration Deadline
+            </FieldLabel>
+            <Input
+              type="date"
+              value={data.registrationDeadline}
+              max={maxDeadlineDate}
+              onChange={e => update("registrationDeadline", e.target.value)}
+              className={cn(
+                INPUT_CLS,
+                isDeadlineInvalid && "border-rose-500 focus-visible:ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+              )}
+            />
+            {isDeadlineInvalid && (
+              <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                Registration deadline must be before the event start date ({data.startDate}).
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <ToggleRow checked={data.requireApproval} onChange={v => update("requireApproval", v)}
+              label="Require approval" description="Admin must approve each registration" />
+            <ToggleRow checked={data.allowWaitlist} onChange={v => update("allowWaitlist", v)}
+              label="Enable waitlist" description="When tickets are full" />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h4 className="text-sm font-bold text-slate-700">Ticket Categories</h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">Define different registration tiers for your event</p>
+              </div>
+              <button onClick={addTicket}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-all">
+                <Plus className="w-3.5 h-3.5" /> Add Category
+              </button>
+            </div>
+            <div className="space-y-3">
+              {data.ticketTypes.map((ticket, i) => (
+                <div key={ticket.id}
                   className="p-3 sm:p-5 bg-white rounded-xl border border-slate-200 space-y-3 sm:space-y-4 hover:border-slate-300 transition-colors group animate-fade-in-up">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
