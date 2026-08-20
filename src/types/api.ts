@@ -697,6 +697,7 @@ export interface PostMediaResponse {
   thumbnailUrl?: string;
   altText?: string;
   sortOrder: number;
+  mediaObjectId?: string;
 }
 
 export interface PostGroupSummary {
@@ -746,6 +747,7 @@ export interface PostResponse {
   linkTitle?: string;
   linkDescription?: string;
   linkImage?: string;
+  eventId?: number;
   eventDate?: string;
   eventEndDate?: string;
   eventVenue?: string;
