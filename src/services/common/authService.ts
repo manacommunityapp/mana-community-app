@@ -1,5 +1,12 @@
 import { apiClient } from "./apiClient";
-import type { AuthResponse, LoginRequest, RegisterRequest, KycRequest } from "../../types/api";
+import type {
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest,
+  KycRequest,
+  ResetPasswordRequest,
+  ResetPasswordResponse,
+} from "../../types/api";
 
 export const authService = {
   /** POST /api/auth/login */
@@ -10,6 +17,16 @@ export const authService = {
   /** POST /api/auth/register */
   async register(data: RegisterRequest): Promise<AuthResponse> {
     return apiClient.post<AuthResponse>("/auth/register", data);
+  },
+
+  /** POST /api/auth/forgot-password — send 6-digit OTP to user's registered email */
+  async sendPasswordResetOtp(email: string): Promise<ResetPasswordResponse> {
+    return apiClient.post<ResetPasswordResponse>("/auth/forgot-password", { email });
+  },
+
+  /** POST /api/auth/reset-password — verify OTP and update user password */
+  async resetPassword(data: ResetPasswordRequest): Promise<ResetPasswordResponse> {
+    return apiClient.post<ResetPasswordResponse>("/auth/reset-password", data);
   },
 
   /**
@@ -40,3 +57,4 @@ export const authService = {
     }
   },
 };
+

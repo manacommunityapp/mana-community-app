@@ -199,7 +199,7 @@ function postMediaToAttachments(post: any): FeedMediaAttachment[] {
 
 export function Feed() {
   const { user, isAdmin, isEventsAdmin, isSportsAdmin, isSuperAdmin } = useAuth();
-  const canPost = isAdmin || isEventsAdmin;
+  const canPost = isAdmin || isEventsAdmin || isSuperAdmin;
   const canEdit = isAdmin || isEventsAdmin || isSportsAdmin || isSuperAdmin;
   const [posts, setPosts] = useState<PostResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -718,133 +718,174 @@ export function Feed() {
           </div>
 
           {/* Facebook-style Short Composer Trigger Bar */}
-          {canPost ? (
-            <div className="bg-white rounded-xl shadow-xs border border-slate-200/90 p-2.5 sm:p-3.5 sm:space-y-3 transition-all hover:border-slate-300">
-              {/* Main row: Mobile shows avatar + button + action symbols; Desktop shows avatar + full button */}
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs sm:text-sm shadow-xs">
-                  {getInitials(user?.fullName)}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="flex-1 min-w-0 bg-slate-100/90 hover:bg-slate-200/70 text-slate-500 hover:text-slate-700 rounded-full px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-left transition-colors cursor-pointer border border-slate-200/50 truncate"
-                >
-                  <span className="hidden sm:inline">What's on your mind, {user?.fullName ? user.fullName.split(" ")[0] : "Resident"}?</span>
-                  <span className="sm:hidden inline">Post update...</span>
-                </button>
-
-                {/* Mobile view only: symbols beside the feed button */}
-                <div className="flex sm:hidden items-center gap-0.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCreateModalOpen(true);
-                      setTimeout(() => imageFileInputRef.current?.click(), 150);
-                    }}
-                    className="p-1.5 rounded-full hover:bg-slate-100 text-emerald-600 transition-colors cursor-pointer"
-                    title="Photo / Video"
-                  >
-                    <ImageIcon className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setComposerType("POLL");
-                      setIsCreateModalOpen(true);
-                    }}
-                    className="p-1.5 rounded-full hover:bg-slate-100 text-indigo-600 transition-colors cursor-pointer"
-                    title="Poll"
-                  >
-                    <BarChart3 className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setComposerType("EVENT");
-                      setIsCreateModalOpen(true);
-                    }}
-                    className="p-1.5 rounded-full hover:bg-slate-100 text-amber-600 transition-colors cursor-pointer"
-                    title="Event"
-                  >
-                    <Calendar className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setComposerType("ANNOUNCEMENT");
-                      setIsCreateModalOpen(true);
-                    }}
-                    className="p-1.5 rounded-full hover:bg-slate-100 text-rose-600 transition-colors cursor-pointer"
-                    title="Announcement"
-                  >
-                    <Megaphone className="w-4 h-4" />
-                  </button>
-                </div>
+          <div className="bg-white rounded-xl shadow-xs border border-slate-200/90 p-2.5 sm:p-3.5 sm:space-y-3 transition-all hover:border-slate-300">
+            {/* Main row: Mobile shows avatar + button + action symbols; Desktop shows avatar + full button */}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs sm:text-sm shadow-xs">
+                {getInitials(user?.fullName)}
               </div>
+              <button
+                type="button"
+                disabled={!canPost}
+                onClick={() => canPost && setIsCreateModalOpen(true)}
+                className={`flex-1 min-w-0 bg-slate-100/90 text-slate-500 rounded-full px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-left transition-colors border border-slate-200/50 truncate ${
+                  canPost
+                    ? "hover:bg-slate-200/70 hover:text-slate-700 cursor-pointer"
+                    : "cursor-not-allowed"
+                }`}
+                title={!canPost ? "Posting is restricted to administrators" : undefined}
+              >
+                <span className="hidden sm:inline">What's on your mind, {user?.fullName ? user.fullName.split(" ")[0] : "Resident"}?</span>
+                <span className="sm:hidden inline">Post update...</span>
+              </button>
 
-              {/* Website / Desktop view: bottom row with symbols + labels */}
-              <div className="hidden sm:flex border-t border-slate-100 pt-2 items-center justify-between gap-1 text-slate-600 text-xs font-semibold">
+              {/* Mobile view only: symbols beside the feed button */}
+              <div className="flex sm:hidden items-center gap-0.5 shrink-0">
                 <button
                   type="button"
+                  disabled={!canPost}
                   onClick={() => {
+                    if (!canPost) return;
                     setIsCreateModalOpen(true);
                     setTimeout(() => imageFileInputRef.current?.click(), 150);
                   }}
-                  className="flex-1 py-1.5 px-2 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 text-slate-600 hover:text-emerald-600 transition-colors cursor-pointer"
+                  className={`p-1.5 rounded-full transition-colors text-emerald-600 ${
+                    canPost ? "hover:bg-slate-100 cursor-pointer" : "cursor-not-allowed"
+                  }`}
+                  title={canPost ? "Photo / Video" : "Posting restricted to administrators"}
                 >
-                  <ImageIcon className="w-4 h-4 text-emerald-500" />
-                  <span>Photo / Video</span>
+                  <ImageIcon className="w-4 h-4 text-emerald-600" />
                 </button>
 
                 <button
                   type="button"
+                  disabled={!canPost}
                   onClick={() => {
+                    if (!canPost) return;
                     setComposerType("POLL");
                     setIsCreateModalOpen(true);
                   }}
-                  className="flex-1 py-1.5 px-2 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer"
+                  className={`p-1.5 rounded-full transition-colors text-indigo-600 ${
+                    canPost ? "hover:bg-slate-100 cursor-pointer" : "cursor-not-allowed"
+                  }`}
+                  title={canPost ? "Poll" : "Posting restricted to administrators"}
                 >
-                  <BarChart3 className="w-4 h-4 text-indigo-500" />
-                  <span>Poll</span>
+                  <BarChart3 className="w-4 h-4 text-indigo-600" />
                 </button>
 
                 <button
                   type="button"
+                  disabled={!canPost}
                   onClick={() => {
+                    if (!canPost) return;
                     setComposerType("EVENT");
                     setIsCreateModalOpen(true);
                   }}
-                  className="flex-1 py-1.5 px-2 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 text-slate-600 hover:text-amber-600 transition-colors cursor-pointer"
+                  className={`p-1.5 rounded-full transition-colors text-amber-600 ${
+                    canPost ? "hover:bg-slate-100 cursor-pointer" : "cursor-not-allowed"
+                  }`}
+                  title={canPost ? "Event" : "Posting restricted to administrators"}
                 >
-                  <Calendar className="w-4 h-4 text-amber-500" />
-                  <span>Event</span>
+                  <Calendar className="w-4 h-4 text-amber-600" />
                 </button>
 
                 <button
                   type="button"
+                  disabled={!canPost}
                   onClick={() => {
+                    if (!canPost) return;
                     setComposerType("ANNOUNCEMENT");
                     setIsCreateModalOpen(true);
                   }}
-                  className="flex-1 py-1.5 px-2 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 text-slate-600 hover:text-rose-600 transition-colors cursor-pointer"
+                  className={`p-1.5 rounded-full transition-colors text-rose-600 ${
+                    canPost ? "hover:bg-slate-100 cursor-pointer" : "cursor-not-allowed"
+                  }`}
+                  title={canPost ? "Announcement" : "Posting restricted to administrators"}
                 >
-                  <Megaphone className="w-4 h-4 text-rose-500" />
-                  <span>Announcement</span>
+                  <Megaphone className="w-4 h-4 text-rose-600" />
                 </button>
               </div>
             </div>
-          ) : (
-            <div className="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex items-center gap-3 text-slate-400">
-              <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                <Megaphone className="w-5 h-5 text-slate-400" />
-              </div>
-              <p className="text-xs sm:text-sm text-slate-500">Only admins and event admins can create posts in the community feed.</p>
+
+            {/* Website / Desktop view: bottom row with symbols + labels */}
+            <div className="hidden sm:flex border-t border-slate-100 pt-2 items-center justify-between gap-1 text-slate-600 text-xs font-semibold">
+              <button
+                type="button"
+                disabled={!canPost}
+                onClick={() => {
+                  if (!canPost) return;
+                  setIsCreateModalOpen(true);
+                  setTimeout(() => imageFileInputRef.current?.click(), 150);
+                }}
+                className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 text-slate-600 transition-colors ${
+                  canPost
+                    ? "hover:bg-slate-50 hover:text-emerald-600 cursor-pointer"
+                    : "cursor-not-allowed"
+                }`}
+                title={!canPost ? "Posting restricted to administrators" : undefined}
+              >
+                <ImageIcon className="w-4 h-4 text-emerald-500" />
+                <span>Photo / Video</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={!canPost}
+                onClick={() => {
+                  if (!canPost) return;
+                  setComposerType("POLL");
+                  setIsCreateModalOpen(true);
+                }}
+                className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 text-slate-600 transition-colors ${
+                  canPost
+                    ? "hover:bg-slate-50 hover:text-indigo-600 cursor-pointer"
+                    : "cursor-not-allowed"
+                }`}
+                title={!canPost ? "Posting restricted to administrators" : undefined}
+              >
+                <BarChart3 className="w-4 h-4 text-indigo-500" />
+                <span>Poll</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={!canPost}
+                onClick={() => {
+                  if (!canPost) return;
+                  setComposerType("EVENT");
+                  setIsCreateModalOpen(true);
+                }}
+                className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 text-slate-600 transition-colors ${
+                  canPost
+                    ? "hover:bg-slate-50 hover:text-amber-600 cursor-pointer"
+                    : "cursor-not-allowed"
+                }`}
+                title={!canPost ? "Posting restricted to administrators" : undefined}
+              >
+                <Calendar className="w-4 h-4 text-amber-500" />
+                <span>Event</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={!canPost}
+                onClick={() => {
+                  if (!canPost) return;
+                  setComposerType("ANNOUNCEMENT");
+                  setIsCreateModalOpen(true);
+                }}
+                className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 text-slate-600 transition-colors ${
+                  canPost
+                    ? "hover:bg-slate-50 hover:text-rose-600 cursor-pointer"
+                    : "cursor-not-allowed"
+                }`}
+                title={!canPost ? "Posting restricted to administrators" : undefined}
+              >
+                <Megaphone className="w-4 h-4 text-rose-500" />
+                <span>Announcement</span>
+              </button>
             </div>
-          )}
+          </div>
 
           {/* ── Facebook-Style Create Post Modal ── */}
           {isCreateModalOpen && (

@@ -19,6 +19,21 @@ export interface RegisterRequest {
   block?: string;
 }
 
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  email: string;
+  otpCode: string;
+  newPassword: string;
+}
+
+export interface ResetPasswordResponse {
+  success: boolean;
+  message: string;
+}
+
 export interface AuthResponse {
   userId: string;
   message: string;

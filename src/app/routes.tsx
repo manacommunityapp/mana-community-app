@@ -29,6 +29,7 @@ import { EventEditor } from "./components/events/EventEditor";
 import { EventPublicRegistration } from "./components/events/EventPublicRegistration";
 import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/commons/login/Signup";
+import { ForgotPassword } from "./components/commons/login/ForgotPassword";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { SmartDashboard } from "./components/commons/SmartDashboard";
@@ -196,6 +197,10 @@ export const router = createBrowserRouter([
   {
     path: "/signup",
     Component: Signup,
+  },
+  {
+    path: "/forgot-password",
+    Component: ForgotPassword,
   },
   {
     path: "/kyc-verification",
