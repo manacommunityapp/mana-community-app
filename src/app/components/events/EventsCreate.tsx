@@ -1018,7 +1018,6 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
   const updateTicket = (id: string, field: keyof TicketType, value: string) =>
     update("ticketTypes", data.ticketTypes.map(t => t.id === id ? { ...t, [field]: value } : t));
 
-  const totalSeats = data.ticketTypes.reduce((s, t) => s + (parseInt(t.qty) || 0), 0);
   const isDeadlineInvalid = Boolean(
     data.registrationEnabled &&
     data.registrationDeadline &&
@@ -1039,68 +1038,26 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
 
       {data.registrationEnabled && (
         <div className="space-y-6 animate-fade-in-up">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <FieldLabel hint={data.startDate ? `Must be before ${data.startDate}` : undefined}>
-                Registration Deadline
-              </FieldLabel>
-              <Input
-                type="date"
-                value={data.registrationDeadline}
-                max={maxDeadlineDate}
-                onChange={e => update("registrationDeadline", e.target.value)}
-                className={cn(
-                  INPUT_CLS,
-                  isDeadlineInvalid && "border-rose-500 focus-visible:ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
-                )}
-              />
-              {isDeadlineInvalid && (
-                <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                  Registration deadline must be before the event start date ({data.startDate}).
-                </p>
+          <div>
+            <FieldLabel hint={data.startDate ? `Must be before ${data.startDate}` : undefined}>
+              Registration Deadline
+            </FieldLabel>
+            <Input
+              type="date"
+              value={data.registrationDeadline}
+              max={maxDeadlineDate}
+              onChange={e => update("registrationDeadline", e.target.value)}
+              className={cn(
+                INPUT_CLS,
+                isDeadlineInvalid && "border-rose-500 focus-visible:ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
               )}
-            </div>
-            <div className="flex items-end pb-1">
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-50 border border-indigo-100">
-                <Users className="w-4 h-4 text-indigo-500" />
-                <input
-                  type="number"
-                  value={totalSeats || ""}
-                  onChange={e => {
-                    const newTotal = parseInt(e.target.value) || 0;
-                    if (newTotal < 0) return;
-                    const tickets = data.ticketTypes;
-                    if (tickets.length === 0) return;
-                    const oldTotal = totalSeats;
-                    if (oldTotal === 0) {
-                      const perTicket = Math.floor(newTotal / tickets.length);
-                      const remainder = newTotal % tickets.length;
-                      update("ticketTypes", tickets.map((t, i) => ({
-                        ...t,
-                        qty: String(perTicket + (i < remainder ? 1 : 0)),
-                      })));
-                    } else {
-                      const ratio = newTotal / oldTotal;
-                      let distributed = 0;
-                      const updated = tickets.map((t, i) => {
-                        const oldQty = parseInt(t.qty) || 0;
-                        const isLast = i === tickets.length - 1;
-                        const newQty = isLast
-                          ? newTotal - distributed
-                          : Math.round(oldQty * ratio);
-                        distributed += isLast ? 0 : newQty;
-                        return { ...t, qty: String(Math.max(0, newQty)) };
-                      });
-                      update("ticketTypes", updated);
-                    }
-                  }}
-                  placeholder="0"
-                  className="w-16 bg-transparent text-sm font-bold text-indigo-700 outline-none text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                />
-                <span className="text-sm font-bold text-indigo-700">total seats</span>
-              </div>
-            </div>
+            />
+            {isDeadlineInvalid && (
+              <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                Registration deadline must be before the event start date ({data.startDate}).
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -7,8 +7,10 @@ export interface AdminCreateUserPayload {
   lastName: string;
   email: string;
   phone: string;
-  dateOfBirth: string;      // yyyy-MM-dd
-  gender: string;           // Male / Female / Other / Prefer not to say
+  dateOfBirth?: string;     // yyyy-MM-dd (optional)
+  gender?: string;          // Male / Female / Other / Prefer not to say (optional)
+  govtIdType?: string;      // Aadhaar Card, PAN Card, Passport, etc.
+  govtIdNumber?: string;    // ID document number
   profilePic?: string;      // URL or base64 data-URI
   employeeId?: string;
   isActive?: boolean;
