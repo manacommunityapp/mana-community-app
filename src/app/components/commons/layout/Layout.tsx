@@ -1,6 +1,6 @@
 import { Outlet, NavLink, useNavigate, useLocation } from "react-router";
 import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -113,6 +113,192 @@ function AppHeaderBreadcrumb() {
         );
       })}
     </nav>
+  );
+}
+
+/* ── Merged User Profile & Account Dropdown Menu ── */
+function UserProfileMenu({
+  user,
+  isAdmin,
+  isSuperAdmin,
+  isAnyAdmin,
+  onLogout,
+}: {
+  user: any;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  isAnyAdmin: boolean;
+  onLogout: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && open) {
+        setOpen(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [open]);
+
+  const initials = user?.fullName
+    ? user.fullName
+        .split(" ")
+        .map((n: string) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
+    : "ME";
+
+  const firstName = user?.fullName?.split(" ")[0] ?? "Member";
+  const roleLabel =
+    user?.role === "SUPER_ADMIN"
+      ? "Super Admin"
+      : user?.role === "COMMUNITY_ADMIN"
+      ? "Community Admin"
+      : isAdmin
+      ? "Admin"
+      : user?.role === "VENDOR"
+      ? "Vendor"
+      : "Verified Member";
+
+  return (
+    <div className="relative" ref={menuRef}>
+      {/* Trigger Button: Merged Profile & Account Toggle */}
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex items-center gap-1.5 sm:gap-2.5 pl-1.5 pr-2 sm:pr-3 py-1.5 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/25 transition-all shadow-sm cursor-pointer active:scale-95 group select-none"
+        title="Profile & Account Menu"
+        aria-expanded={open}
+      >
+        <div className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-black bg-primary group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0">
+          {initials}
+        </div>
+        <span className="hidden sm:block text-xs font-extrabold text-foreground max-w-[100px] truncate">
+          {firstName}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 shrink-0",
+            open && "rotate-180 text-foreground"
+          )}
+        />
+      </button>
+
+      {/* Merged Dropdown Menu */}
+      {open && (
+        <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 bg-card border border-border rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150 flex flex-col">
+          {/* User Info Header */}
+          <div className="px-4 py-3.5 border-b border-border bg-muted/30 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl flex items-center justify-center text-white text-sm font-black bg-primary shadow-sm shrink-0">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-foreground truncate">
+                {user?.fullName ?? "Community Member"}
+              </p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                {user?.email ?? user?.phone ?? ""}
+              </p>
+              <span className="inline-block text-[10px] font-semibold px-2 py-0.5 mt-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                {roleLabel}
+              </span>
+            </div>
+          </div>
+
+          {/* Navigation & Action Links */}
+          <div className="p-1.5 space-y-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                navigate("/profile");
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted/60 transition-colors cursor-pointer text-left"
+            >
+              <UserCircle className="h-4 w-4 text-primary shrink-0" />
+              <div>
+                <span className="block text-foreground">My Profile</span>
+                <span className="block text-[10px] text-muted-foreground font-normal">Account settings & personal info</span>
+              </div>
+            </button>
+
+            {isAnyAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  navigate("/admin");
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted/60 transition-colors cursor-pointer text-left"
+              >
+                <ShieldCheck className="h-4 w-4 text-indigo-500 shrink-0" />
+                <div>
+                  <span className="block text-foreground">Admin Hub</span>
+                  <span className="block text-[10px] text-muted-foreground font-normal">Platform management</span>
+                </div>
+              </button>
+            )}
+
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(false);
+                  navigate("/architecture");
+                }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted/60 transition-colors cursor-pointer text-left"
+              >
+                <Layers className="h-4 w-4 text-purple-500 shrink-0" />
+                <div>
+                  <span className="block text-foreground">Architecture Docs</span>
+                  <span className="block text-[10px] text-muted-foreground font-normal">System documentation</span>
+                </div>
+              </button>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-border my-0.5" />
+
+          {/* Logout Action */}
+          <div className="p-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onLogout();
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-destructive hover:bg-destructive/10 transition-colors cursor-pointer text-left"
+            >
+              <LogOut className="h-4 w-4 text-destructive shrink-0" />
+              <div>
+                <span className="block text-destructive font-bold">Logout</span>
+                <span className="block text-[10px] text-destructive/70 font-normal">End your current session</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -659,27 +845,14 @@ export function Layout() {
             <MobileHeaderActions />
             <NotificationBell />
 
-            {/* Profile badge */}
-            <NavLink
-              to="/profile"
-              className="flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/25 transition-all shadow-sm"
-            >
-              <div className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-black bg-primary">
-                {user?.fullName ? user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() : "ME"}
-              </div>
-              <span className="hidden sm:block text-xs font-extrabold text-foreground">
-                {user?.fullName?.split(" ")[0] ?? "Member"}
-              </span>
-            </NavLink>
-
-            {/* Logout button */}
-            <button
-              onClick={handleLogout}
-              className="p-2 text-destructive hover:text-destructive hover:bg-destructive/10 border border-border bg-card hover:border-destructive/25 transition-all shadow-sm flex items-center justify-center cursor-pointer"
-              title="Logout"
-            >
-              <LogOut className="h-4.5 w-4.5" />
-            </button>
+            {/* Merged Profile & Logout Menu */}
+            <UserProfileMenu
+              user={user}
+              isAdmin={isAdmin}
+              isSuperAdmin={isSuperAdmin}
+              isAnyAdmin={isAnyAdmin}
+              onLogout={handleLogout}
+            />
           </div>
         </header>
 

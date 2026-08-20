@@ -40,6 +40,7 @@ import {
   Award,
   Crown,
   Flame,
+  BarChart3,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router";
@@ -217,6 +218,7 @@ export function Feed() {
   const isPosting = postingAction !== null;
   const [composerType, setComposerType] = useState<PostTypeEnum>("GENERAL");
   const [showComposerTypes, setShowComposerTypes] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [classifiedPrice, setClassifiedPrice] = useState("");
   const [classifiedLocation, setClassifiedLocation] = useState("");
   const [pollQuestion, setPollQuestion] = useState("");
@@ -458,6 +460,7 @@ export function Feed() {
       setEventDate("");
       setEventVenue("");
       setShowComposerTypes(false);
+      setIsCreateModalOpen(false);
       toast.success(notify ? "Post published and notification sent!" : "Post published!");
     } catch (error: any) {
       toast.error("Failed to publish post: " + error.message);
@@ -669,9 +672,9 @@ export function Feed() {
         <div className="lg:col-span-3 space-y-4 sm:space-y-5">
           <AlertTicker />
 
-          {/* Search Bar */}
+          {/* Search Bar (Hidden on Mobile) */}
           {canEdit && (
-            <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2">
               <div className={`flex-1 flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 transition-all ${showSearch ? "ring-2 ring-indigo-500" : ""}`}>
                 <Search className="w-4 h-4 text-slate-400" />
                 <input
@@ -714,238 +717,478 @@ export function Feed() {
             })}
           </div>
 
-          {/* Create Post Composer */}
+          {/* Facebook-style Short Composer Trigger Bar */}
           {canPost ? (
-          <div className="bg-white p-3 rounded-lg shadow-sm border border-slate-200/90 transition-all hover:shadow-md">
-            <div className="flex gap-2.5">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs shadow-sm">
-                {getInitials(user.fullName)}
-              </div>
-              <div className="flex-1 min-w-0 space-y-2">
-                {/* Post Type Selector */}
-                <div className="flex items-center gap-2 flex-wrap">
+            <div className="bg-white rounded-xl shadow-xs border border-slate-200/90 p-2.5 sm:p-3.5 sm:space-y-3 transition-all hover:border-slate-300">
+              {/* Main row: Mobile shows avatar + button + action symbols; Desktop shows avatar + full button */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs sm:text-sm shadow-xs">
+                  {getInitials(user?.fullName)}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="flex-1 min-w-0 bg-slate-100/90 hover:bg-slate-200/70 text-slate-500 hover:text-slate-700 rounded-full px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-left transition-colors cursor-pointer border border-slate-200/50 truncate"
+                >
+                  <span className="hidden sm:inline">What's on your mind, {user?.fullName ? user.fullName.split(" ")[0] : "Resident"}?</span>
+                  <span className="sm:hidden inline">Post update...</span>
+                </button>
+
+                {/* Mobile view only: symbols beside the feed button */}
+                <div className="flex sm:hidden items-center gap-0.5 shrink-0">
                   <button
-                    onClick={() => setShowComposerTypes(!showComposerTypes)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${composerTypeConfig.color}`}
+                    type="button"
+                    onClick={() => {
+                      setIsCreateModalOpen(true);
+                      setTimeout(() => imageFileInputRef.current?.click(), 150);
+                    }}
+                    className="p-1.5 rounded-full hover:bg-slate-100 text-emerald-600 transition-colors cursor-pointer"
+                    title="Photo / Video"
                   >
-                    <span>{composerTypeConfig.icon}</span>
-                    <span>{composerTypeConfig.label}</span>
-                    {showComposerTypes ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    <ImageIcon className="w-4 h-4" />
                   </button>
-                  {composerType !== "GENERAL" && (
-                    <button onClick={() => setComposerType("GENERAL")} className="text-slate-400 hover:text-slate-600 text-xs">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setComposerType("POLL");
+                      setIsCreateModalOpen(true);
+                    }}
+                    className="p-1.5 rounded-full hover:bg-slate-100 text-indigo-600 transition-colors cursor-pointer"
+                    title="Poll"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setComposerType("EVENT");
+                      setIsCreateModalOpen(true);
+                    }}
+                    className="p-1.5 rounded-full hover:bg-slate-100 text-amber-600 transition-colors cursor-pointer"
+                    title="Event"
+                  >
+                    <Calendar className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setComposerType("ANNOUNCEMENT");
+                      setIsCreateModalOpen(true);
+                    }}
+                    className="p-1.5 rounded-full hover:bg-slate-100 text-rose-600 transition-colors cursor-pointer"
+                    title="Announcement"
+                  >
+                    <Megaphone className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Website / Desktop view: bottom row with symbols + labels */}
+              <div className="hidden sm:flex border-t border-slate-100 pt-2 items-center justify-between gap-1 text-slate-600 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreateModalOpen(true);
+                    setTimeout(() => imageFileInputRef.current?.click(), 150);
+                  }}
+                  className="flex-1 py-1.5 px-2 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 text-slate-600 hover:text-emerald-600 transition-colors cursor-pointer"
+                >
+                  <ImageIcon className="w-4 h-4 text-emerald-500" />
+                  <span>Photo / Video</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setComposerType("POLL");
+                    setIsCreateModalOpen(true);
+                  }}
+                  className="flex-1 py-1.5 px-2 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 text-slate-600 hover:text-indigo-600 transition-colors cursor-pointer"
+                >
+                  <BarChart3 className="w-4 h-4 text-indigo-500" />
+                  <span>Poll</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setComposerType("EVENT");
+                    setIsCreateModalOpen(true);
+                  }}
+                  className="flex-1 py-1.5 px-2 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 text-slate-600 hover:text-amber-600 transition-colors cursor-pointer"
+                >
+                  <Calendar className="w-4 h-4 text-amber-500" />
+                  <span>Event</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setComposerType("ANNOUNCEMENT");
+                    setIsCreateModalOpen(true);
+                  }}
+                  className="flex-1 py-1.5 px-2 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 text-slate-600 hover:text-rose-600 transition-colors cursor-pointer"
+                >
+                  <Megaphone className="w-4 h-4 text-rose-500" />
+                  <span>Announcement</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white p-4 rounded-xl shadow-xs border border-slate-200 flex items-center gap-3 text-slate-400">
+              <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                <Megaphone className="w-5 h-5 text-slate-400" />
+              </div>
+              <p className="text-xs sm:text-sm text-slate-500">Only admins and event admins can create posts in the community feed.</p>
+            </div>
+          )}
+
+          {/* ── Facebook-Style Create Post Modal ── */}
+          {isCreateModalOpen && (
+            <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+              <div
+                className="fixed inset-0"
+                onClick={() => {
+                  if (!isPosting && !isUploadingImage) setIsCreateModalOpen(false);
+                }}
+              />
+
+              <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] z-10 animate-in zoom-in-95 duration-200">
+                {/* Modal Header */}
+                <div className="px-4 py-3.5 border-b border-slate-100 flex items-center justify-between relative bg-white shrink-0">
+                  <div className="w-8" />
+                  <h3 className="text-base font-bold text-slate-900 text-center flex-1">Create Post</h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isPosting && !isUploadingImage) setIsCreateModalOpen(false);
+                    }}
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors cursor-pointer shrink-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
 
-                {showComposerTypes && (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-1 p-1.5 bg-slate-50 rounded-md border border-slate-100">
-                    {POST_TYPE_CONFIG.map((type) => (
-                      <button
-                        key={type.id}
-                        onClick={() => { setComposerType(type.id); setShowComposerTypes(false); }}
-                        className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold transition-all ${
-                          composerType === type.id ? type.color + " ring-1 ring-offset-1" : "bg-white hover:bg-slate-100 text-slate-600 border border-slate-100"
-                        }`}
-                      >
-                        <span>{type.icon}</span>
-                        <span className="truncate">{type.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {(composerType === "ARTICLE" || composerType === "ANNOUNCEMENT") && (
-                  <input
-                    type="text"
-                    placeholder="Title..."
-                    className="w-full bg-slate-50 border border-slate-100 rounded-md px-2.5 py-1.5 text-sm font-semibold focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                    value={newPostTitle}
-                    onChange={(e) => setNewPostTitle(e.target.value)}
-                  />
-                )}
-
-                <textarea
-                  className="w-full min-h-[52px] bg-slate-50 border border-slate-100 rounded-md px-2.5 py-2 text-[13px] leading-5 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none transition-all"
-                  placeholder={
-                    composerType === "POLL" ? "Provide context about this poll..."
-                    : composerType === "QUESTION" ? "Ask your community a question..."
-                    : composerType === "ANNOUNCEMENT" ? "Write your announcement..."
-                    : composerType === "EMERGENCY" ? "Describe the emergency situation..."
-                    : composerType === "APPRECIATION" ? "Share your appreciation..."
-                    : composerType === "SUGGESTION" ? "Share your suggestion..."
-                    : composerType === "EVENT" ? "Describe the event..."
-                    : "Share an update with your community... Use #hashtags to categorize"
-                  }
-                  rows={2}
-                  value={newPostContent}
-                  onChange={(e) => setNewPostContent(e.target.value)}
-                  disabled={isPosting}
-                />
-
-                {/* Type-specific inputs */}
-                {composerType === "CLASSIFIED" && (
-                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2 rounded-md border border-slate-100">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Price</label>
-                      <input type="number" placeholder="Enter price..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={classifiedPrice} onChange={(e) => setClassifiedPrice(e.target.value)} />
+                {/* Modal Body (Scrollable) */}
+                <div className="p-4 overflow-y-auto space-y-3.5 flex-1">
+                  {/* User Profile Header & Post Type Selector */}
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-sm shadow-xs">
+                      {getInitials(user?.fullName)}
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Location</label>
-                      <input type="text" placeholder="e.g. Block A..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={classifiedLocation} onChange={(e) => setClassifiedLocation(e.target.value)} />
-                    </div>
-                  </div>
-                )}
-
-                {composerType === "POLL" && (
-                  <div className="bg-slate-50 p-2 rounded-md border border-slate-100 space-y-1.5">
-                    <input type="text" placeholder="Poll question..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500 font-semibold" value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} />
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Options</label>
-                        <button type="button" onClick={() => setPollOptions((prev) => [...prev, ""])} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800">+ Add</button>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-slate-900 text-sm leading-tight truncate">
+                        {user?.fullName || "Community Member"}
                       </div>
-                      {pollOptions.map((opt, idx) => (
-                        <div key={idx} className="flex gap-1.5 items-center">
-                          <input type="text" placeholder={`Option ${idx + 1}...`} className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={opt} onChange={(e) => { const updated = [...pollOptions]; updated[idx] = e.target.value; setPollOptions(updated); }} />
-                          {pollOptions.length > 2 && (
-                            <button onClick={() => setPollOptions((prev) => prev.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-red-500 text-xs px-1">
-                              <X className="w-3 h-3" />
-                            </button>
+                      {/* Category Pill Dropdown */}
+                      <div className="inline-block mt-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowComposerTypes(true)}
+                          className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold transition-all border shadow-2xs cursor-pointer ${composerTypeConfig.color}`}
+                        >
+                          <span>{composerTypeConfig.icon}</span>
+                          <span>{composerTypeConfig.label}</span>
+                          <ChevronDown className="w-3 h-3 opacity-70" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Title input (for Articles / Announcements) */}
+                  {(composerType === "ARTICLE" || composerType === "ANNOUNCEMENT") && (
+                    <input
+                      type="text"
+                      placeholder="Post title..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                      value={newPostTitle}
+                      onChange={(e) => setNewPostTitle(e.target.value)}
+                      autoFocus
+                    />
+                  )}
+
+                  {/* Main Content Area */}
+                  <textarea
+                    className="w-full min-h-[110px] bg-transparent border-0 text-slate-900 placeholder:text-slate-400 text-sm sm:text-base leading-relaxed focus:ring-0 outline-none resize-none"
+                    placeholder={
+                      composerType === "POLL" ? "Provide context or details about this poll..."
+                      : composerType === "QUESTION" ? "Ask your community a question..."
+                      : composerType === "ANNOUNCEMENT" ? "Write your official announcement details..."
+                      : composerType === "EMERGENCY" ? "Describe the emergency situation and action needed..."
+                      : composerType === "APPRECIATION" ? "Share who and what you are appreciating..."
+                      : composerType === "SUGGESTION" ? "Share your idea or suggestion..."
+                      : composerType === "EVENT" ? "Describe what this event is about..."
+                      : `What's on your mind, ${user?.fullName ? user.fullName.split(" ")[0] : "Resident"}? Use #hashtags to categorize`
+                    }
+                    rows={4}
+                    value={newPostContent}
+                    onChange={(e) => setNewPostContent(e.target.value)}
+                    disabled={isPosting}
+                    autoFocus={composerType !== "ARTICLE" && composerType !== "ANNOUNCEMENT"}
+                  />
+
+                  {/* Dynamic Type-specific inputs */}
+                  {composerType === "CLASSIFIED" && (
+                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Price (₹)</label>
+                        <input type="number" placeholder="Enter price..." className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={classifiedPrice} onChange={(e) => setClassifiedPrice(e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Location / Flat</label>
+                        <input type="text" placeholder="e.g. Block A-402..." className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={classifiedLocation} onChange={(e) => setClassifiedLocation(e.target.value)} />
+                      </div>
+                    </div>
+                  )}
+
+                  {composerType === "POLL" && (
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-600 uppercase">Poll Question *</label>
+                        <input type="text" placeholder="Ask a question..." className="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 font-semibold" value={pollQuestion} onChange={(e) => setPollQuestion(e.target.value)} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold text-slate-600 uppercase">Options</label>
+                          <button type="button" onClick={() => setPollOptions((prev) => [...prev, ""])} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer">+ Add Option</button>
+                        </div>
+                        {pollOptions.map((opt, idx) => (
+                          <div key={idx} className="flex gap-1.5 items-center">
+                            <input type="text" placeholder={`Option ${idx + 1}...`} className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={opt} onChange={(e) => { const updated = [...pollOptions]; updated[idx] = e.target.value; setPollOptions(updated); }} />
+                            {pollOptions.length > 2 && (
+                              <button type="button" onClick={() => setPollOptions((prev) => prev.filter((_, i) => i !== idx))} className="text-slate-400 hover:text-red-500 p-1 cursor-pointer">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {composerType === "LOST_FOUND" && (
+                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Item Status</label>
+                        <select className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none" value={lostFoundType} onChange={(e) => setLostFoundType(e.target.value as "LOST" | "FOUND")}>
+                          <option value="LOST">Lost Item 🔍</option>
+                          <option value="FOUND">Found Item 🎁</option>
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Location / Area</label>
+                        <input type="text" placeholder="e.g. Clubhouse park..." className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={lostFoundLocation} onChange={(e) => setLostFoundLocation(e.target.value)} />
+                      </div>
+                    </div>
+                  )}
+
+                  {composerType === "EVENT" && (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Event Date & Time</label>
+                        <input type="datetime-local" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Link Created Event</label>
+                        <select
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
+                          value={selectedEventId}
+                          onChange={(e) => handleSelectedEventChange(e.target.value)}
+                          disabled={loadingCreatedEvents}
+                        >
+                          <option value="">{loadingCreatedEvents ? "Loading events..." : "Select event"}</option>
+                          {createdEvents.map((event) => (
+                            <option key={event.id} value={event.id}>
+                              {eventOptionLabel(event)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Venue</label>
+                        <input type="text" placeholder="e.g. Amphitheatre..." className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={eventVenue} onChange={(e) => setEventVenue(e.target.value)} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Media Attachments Preview Grid */}
+                  {newPostMedia.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                      {newPostMedia.map((item, index) => (
+                        <div key={`${item.mediaUrl}-${index}`} className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-xs aspect-video">
+                          {isVideoMedia(item.mediaType, item.mediaUrl) ? (
+                            <video src={item.mediaUrl} className="w-full h-full object-cover" muted preload="metadata" />
+                          ) : (
+                            <img src={item.mediaUrl} alt={item.altText || "Attachment preview"} className="w-full h-full object-cover" />
                           )}
+                          <span className="absolute left-1.5 bottom-1.5 px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold uppercase">
+                            {isVideoMedia(item.mediaType, item.mediaUrl) ? "Video" : "Image"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = newPostMedia.filter((_, i) => i !== index).map((media, sortOrder) => ({ ...media, sortOrder }));
+                              setNewPostMedia(next);
+                              setNewPostImageUrl(next.find((media) => media.mediaType === "IMAGE")?.mediaUrl || "");
+                            }}
+                            className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full shadow hover:bg-red-600 transition-colors cursor-pointer"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  )}
 
-                {composerType === "LOST_FOUND" && (
-                  <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2 rounded-md border border-slate-100">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Status</label>
-                      <select className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none" value={lostFoundType} onChange={(e) => setLostFoundType(e.target.value as "LOST" | "FOUND")}>
-                        <option value="LOST">Lost Item</option>
-                        <option value="FOUND">Found Item</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Location</label>
-                      <input type="text" placeholder="e.g. Garden Park..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={lostFoundLocation} onChange={(e) => setLostFoundLocation(e.target.value)} />
-                    </div>
-                  </div>
-                )}
+                  {/* Hidden File Input */}
+                  <input
+                    ref={imageFileInputRef}
+                    type="file"
+                    accept={FEED_MEDIA_ACCEPT}
+                    multiple
+                    className="hidden"
+                    onChange={handleImageFileSelect}
+                  />
 
-                {composerType === "EVENT" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-2 rounded-md border border-slate-100">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Event Date</label>
-                      <input type="datetime-local" className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Created Event</label>
-                      <select
-                        className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
-                        value={selectedEventId}
-                        onChange={(e) => handleSelectedEventChange(e.target.value)}
-                        disabled={loadingCreatedEvents}
+                  {/* "Add to your post" Facebook-style Action Toolbar */}
+                  <div className="p-3 border border-slate-200 rounded-xl bg-white flex items-center justify-between shadow-2xs">
+                    <span className="text-xs font-bold text-slate-700">Add to your post</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => imageFileInputRef.current?.click()}
+                        disabled={isUploadingImage || newPostMedia.length >= MAX_FEED_ATTACHMENTS}
+                        className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors cursor-pointer disabled:opacity-40"
+                        title="Add Photos / Videos"
                       >
-                        <option value="">{loadingCreatedEvents ? "Loading events..." : "Select event"}</option>
-                        {createdEvents.map((event) => (
-                          <option key={event.id} value={event.id}>
-                            {eventOptionLabel(event)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Venue</label>
-                      <input type="text" placeholder="e.g. Community Hall..." className="w-full bg-white border border-slate-200 rounded px-2.5 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={eventVenue} onChange={(e) => setEventVenue(e.target.value)} />
+                        {isUploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-5 h-5" />}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setComposerType(composerType === "POLL" ? "GENERAL" : "POLL")}
+                        className={`p-2 rounded-full transition-colors cursor-pointer ${
+                          composerType === "POLL" ? "text-indigo-600 bg-indigo-50" : "text-indigo-500 hover:bg-indigo-50"
+                        }`}
+                        title="Create Poll"
+                      >
+                        <BarChart3 className="w-5 h-5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setComposerType(composerType === "EVENT" ? "GENERAL" : "EVENT")}
+                        className={`p-2 rounded-full transition-colors cursor-pointer ${
+                          composerType === "EVENT" ? "text-amber-600 bg-amber-50" : "text-amber-500 hover:bg-amber-50"
+                        }`}
+                        title="Add Event Details"
+                      >
+                        <Calendar className="w-5 h-5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setComposerType(composerType === "ANNOUNCEMENT" ? "GENERAL" : "ANNOUNCEMENT")}
+                        className={`p-2 rounded-full transition-colors cursor-pointer ${
+                          composerType === "ANNOUNCEMENT" ? "text-rose-600 bg-rose-50" : "text-rose-500 hover:bg-rose-50"
+                        }`}
+                        title="Announcement"
+                      >
+                        <Megaphone className="w-5 h-5" />
+                      </button>
                     </div>
                   </div>
-                )}
+                </div>
 
-                {/* Media preview */}
-                {newPostMedia.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                    {newPostMedia.map((item, index) => (
-                      <div key={`${item.mediaUrl}-${index}`} className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-sm aspect-video">
-                        {isVideoMedia(item.mediaType, item.mediaUrl) ? (
-                          <video src={item.mediaUrl} className="w-full h-full object-cover" muted preload="metadata" />
-                        ) : (
-                          <img src={item.mediaUrl} alt={item.altText || "Attachment preview"} className="w-full h-full object-cover" />
-                        )}
-                        <span className="absolute left-1.5 bottom-1.5 px-1.5 py-0.5 rounded bg-black/55 text-white text-[9px] font-bold uppercase">
-                          {isVideoMedia(item.mediaType, item.mediaUrl) ? "Video" : "Image"}
-                        </span>
-                        <button
-                          onClick={() => {
-                            const next = newPostMedia.filter((_, i) => i !== index).map((media, sortOrder) => ({ ...media, sortOrder }));
-                            setNewPostMedia(next);
-                            setNewPostImageUrl(next.find((media) => media.mediaType === "IMAGE")?.mediaUrl || "");
-                          }}
-                          className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full shadow"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Hidden file input */}
-                <input
-                  ref={imageFileInputRef}
-                  type="file"
-                  accept={FEED_MEDIA_ACCEPT}
-                  multiple
-                  className="hidden"
-                  onChange={handleImageFileSelect}
-                />
-
-                <div className="flex items-center justify-between pt-0.5">
+                {/* Modal Footer (Publish Buttons) */}
+                <div className="p-3.5 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row gap-2 shrink-0">
                   <button
-                    onClick={() => imageFileInputRef.current?.click()}
-                    disabled={isUploadingImage}
-                    className={`px-2 py-1.5 rounded-md transition-colors flex items-center gap-1.5 text-xs font-medium ${newPostMedia.length > 0 ? "text-indigo-600 bg-indigo-50" : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"} disabled:opacity-50`}
+                    type="button"
+                    onClick={() => handleCreatePost(false)}
+                    className={`w-full flex-1 py-2.5 text-white text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer ${
+                      composerType === "EMERGENCY" ? "bg-red-600 hover:bg-red-700" : "bg-indigo-600 hover:bg-indigo-700"
+                    } disabled:opacity-50`}
+                    disabled={isPosting || isUploadingImage || !newPostContent.trim()}
                   >
-                    {isUploadingImage ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</>
-                    ) : (
-                      <><ImageIcon className="w-4 h-4" /> Media</>
-                    )}
+                    {postingAction === "publish" ? <><Loader2 className="w-4 h-4 animate-spin" /> Publishing...</> : "Publish Post"}
                   </button>
 
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <button
-                      onClick={() => handleCreatePost(false)}
-                      className={`px-3 py-1.5 text-white text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 ${
-                        composerType === "EMERGENCY" ? "bg-red-600 hover:bg-red-700" : "bg-indigo-600 hover:bg-indigo-700"
-                      } disabled:opacity-50`}
-                      disabled={isPosting || isUploadingImage || !newPostContent.trim()}
-                    >
-                      {postingAction === "publish" ? <><Loader2 className="w-4 h-4 animate-spin" /> Publishing...</> : "Publish"}
-                    </button>
-                    <button
-                      onClick={() => handleCreatePost(true)}
-                      className="px-3 py-1.5 text-white text-xs font-semibold rounded-md transition-all flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
-                      disabled={isPosting || isUploadingImage || !newPostContent.trim()}
-                    >
-                      {postingAction === "notify" ? <><Loader2 className="w-4 h-4 animate-spin" /> Notifying...</> : <><Megaphone className="w-4 h-4" /> Publish & Notify</>}
-                    </button>
-                  </div>
-
+                  <button
+                    type="button"
+                    onClick={() => handleCreatePost(true)}
+                    className="py-2.5 px-4 text-white text-xs sm:text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-xs cursor-pointer disabled:opacity-50 shrink-0"
+                    disabled={isPosting || isUploadingImage || !newPostContent.trim()}
+                  >
+                    {postingAction === "notify" ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Notifying...</>
+                    ) : (
+                      <><Megaphone className="w-4 h-4" /> Publish & Notify</>
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
-          </div>
-          ) : (
-          <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 flex items-center gap-3 text-slate-400">
-            <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-              <Megaphone className="w-5 h-5" />
+          )}
+
+          {/* ── Centered Post Type Selection Modal (Fits mobile & desktop screens perfectly) ── */}
+          {showComposerTypes && (
+            <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3.5 sm:p-4 overflow-y-auto animate-in fade-in duration-150">
+              <div
+                className="fixed inset-0"
+                onClick={() => setShowComposerTypes(false)}
+              />
+
+              <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm sm:max-w-md overflow-hidden flex flex-col z-10 animate-in zoom-in-95 duration-150">
+                {/* Header */}
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <div>
+                    <h4 className="text-sm sm:text-base font-bold text-slate-900">Select Post Type</h4>
+                    <p className="text-[11px] text-slate-500">Choose the format that best fits your post</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowComposerTypes(false)}
+                    className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Grid of types */}
+                <div className="p-3 sm:p-4 grid grid-cols-2 gap-2 max-h-[65vh] overflow-y-auto">
+                  {POST_TYPE_CONFIG.map((type) => {
+                    const isSelected = composerType === type.id;
+                    return (
+                      <button
+                        key={type.id}
+                        type="button"
+                        onClick={() => {
+                          setComposerType(type.id);
+                          setShowComposerTypes(false);
+                        }}
+                        className={`flex items-center gap-2.5 p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? "bg-indigo-50/90 border-indigo-300 ring-2 ring-indigo-500/20 shadow-xs"
+                            : "bg-white border-slate-200 hover:bg-slate-50 hover:border-slate-300"
+                        }`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0 shadow-2xs ${type.color}`}>
+                          {type.icon}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className={`text-xs font-bold truncate ${isSelected ? "text-indigo-950" : "text-slate-800"}`}>
+                            {type.label}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-            <p className="text-sm text-slate-500">Only admins and event admins can create posts in the community feed.</p>
-          </div>
           )}
 
           {/* Feed Items */}
@@ -1165,8 +1408,10 @@ function PostCard({
                 </span>
               )}
             </div>
-            <div className="flex items-center text-xs text-slate-500 gap-1.5">
-              <span className={post.official ? "text-indigo-600 font-semibold" : "font-medium"}>{post.authorRole}</span>
+            <div className="flex items-center text-xs text-slate-500 gap-1.5 flex-wrap">
+              <span className={post.official || (post.authorRole && post.authorRole !== "Verified Member") ? "text-indigo-600 font-semibold" : "font-medium"}>
+                {post.authorRole || "Verified Member"}
+              </span>
               <span>·</span>
               <span>{formatTimeAgo(post.createdAt)}</span>
               {post.group && (
@@ -1584,8 +1829,13 @@ function CommentItem({ comment, allComments, postId, user, isAdmin, getInitials,
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
               <span className="text-xs font-bold text-slate-800 truncate">{comment.authorName}</span>
+              {comment.authorRole && comment.authorRole !== "Verified Member" && (
+                <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
+                  {comment.authorRole}
+                </span>
+              )}
               {comment.pinned && <Pin className="w-3 h-3 text-indigo-500 flex-shrink-0" />}
               {comment.acceptedAnswer && <Check className="w-3 h-3 text-green-500 flex-shrink-0" />}
             </div>

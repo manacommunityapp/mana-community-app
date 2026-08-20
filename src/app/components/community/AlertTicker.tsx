@@ -38,16 +38,70 @@ const ICONS: Record<string, React.FC<{ className?: string }>> = {
   SPORTS:      Trophy,
 };
 
-const DEFAULT_ALERTS: AlertTickerItem[] = [
-  { id: 1, category: "NOTICE",      message: "Annual General Meeting scheduled for Sunday, 20 Jul at 10:00 AM in Club House." },
-  { id: 2, category: "MAINTENANCE", message: "Water supply interrupted on Blocks B & C from 9 AM to 1 PM on Saturday. Plan accordingly." },
-  { id: 3, category: "SECURITY",    message: "Visitor gate hours updated: Entry allowed 6 AM to 10 PM only. Please inform your guests." },
-  { id: 4, category: "SPORTS",      message: "Badminton tournament registrations now open! Register at the Sports Desk before 18 Jul." },
-  { id: 5, category: "SPORTS",      message: "Cricket matches scheduled for this Saturday at the main ground. All players report by 7 AM." },
-  { id: 6, category: "NOTICE",      message: "Maintenance fee for Q3 is now due. Please pay before 31 Jul to avoid late charges." },
-  { id: 7, category: "MAINTENANCE", message: "Lift #2 (Block A) under repair from Mon to Wed. Please use the alternate lift during this period." },
-  { id: 8, category: "SPORTS",      message: "Swimming pool timings updated: Morning 6-9 AM, Evening 5-8 PM. Weekends open all day." },
+import { eventService, type EventResponse } from "../../../services/events/eventService";
+
+const VINAYAKA_CHAVITHI_DEFAULT_ALERTS: AlertTickerItem[] = [
+  {
+    id: 101,
+    category: "EVENT",
+    message: "🕉️ Upcoming Grand Festival: Vinayaka Chavithi (Ganesh Chaturthi) on September 14, 2026. Join the community celebrations!",
+  },
+  {
+    id: 102,
+    category: "EVENT",
+    message: "🙏 Vinayaka Chavithi Special Pooja & Maha Ganapathi Seva bookings opening for September 14.",
+  },
+  {
+    id: 103,
+    category: "EVENT",
+    message: "🎭 Vinayaka Chavithi Cultural Programs, Bhajans & Competitions scheduled for September 14. Registrations open soon!",
+  },
+  {
+    id: 104,
+    category: "NOTICE",
+    message: "📢 Community Ganesh Utsav 2026: Mandap setup and volunteer registrations commence for September 14.",
+  },
 ];
+
+function formatDisplayDate(dateStr?: string | null, timeStr?: string | null): string {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const formatted = d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+      return timeStr ? `${formatted} at ${timeStr}` : formatted;
+    }
+  } catch {}
+  return timeStr ? `${dateStr} at ${timeStr}` : dateStr;
+}
+
+function mapEventToAlert(ev: EventResponse, idx: number): AlertTickerItem {
+  const isSports = (ev.type || "").toUpperCase().includes("SPORT") || (ev.category || "").toUpperCase().includes("SPORT");
+  const isPooja = (ev.type || "").toUpperCase().includes("POOJA") || (ev.category || "").toUpperCase().includes("POOJA") || (ev.title || "").toLowerCase().includes("puja") || (ev.title || "").toLowerCase().includes("pooja");
+  
+  const dateFormatted = formatDisplayDate(ev.startDate, ev.startTime);
+  const location = ev.venue || ev.location || "";
+  const locationStr = location ? ` at ${location}` : "";
+  const prefix = isPooja ? "🙏 " : isSports ? "🏆 " : "🎉 ";
+  
+  return {
+    id: ev.id ? Number(ev.id) : 200 + idx,
+    category: isSports ? "SPORTS" : "EVENT",
+    message: `${prefix}${ev.title}${dateFormatted ? ` • ${dateFormatted}` : ""}${locationStr}${ev.priceType === "FREE" ? " (Free Entry)" : ""}`,
+  };
+}
+
+function mapPoojaSevaToAlert(seva: any, idx: number): AlertTickerItem {
+  const dateFormatted = formatDisplayDate(seva.date || seva.slotDate, seva.startTime || seva.slotTime);
+  const mandapStr = seva.mandap ? ` at ${seva.mandap}` : "";
+  const feeStr = seva.fee ? ` • Fee: ₹${seva.fee}` : seva.isFree ? " • Free Seva" : "";
+  
+  return {
+    id: seva.id ? 3000 + Number(seva.id) : 300 + idx,
+    category: "EVENT",
+    message: `🙏 Pooja Seva: ${seva.name || seva.type || "Pooja"}${dateFormatted ? ` • ${dateFormatted}` : ""}${mandapStr}${feeStr}`,
+  };
+}
 
 function mapNotificationToAlert(n: NotificationItem, idx: number): AlertTickerItem {
   const cat = (n.category || "").toUpperCase();
@@ -90,26 +144,69 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
   const pausedRef   = useRef<boolean>(false);
   const lastTsRef   = useRef<number | null>(null);
 
-  const [alerts, setAlerts] = useState<AlertTickerItem[]>(DEFAULT_ALERTS);
+  const [alerts, setAlerts] = useState<AlertTickerItem[]>(VINAYAKA_CHAVITHI_DEFAULT_ALERTS);
   const [dismissed, setDismissed]     = useState(false);
   const [activeAlert, setActiveAlert] = useState<AlertTickerItem | null>(null);
 
-  // Fetch live notifications from the backend
+  // Fetch live events, pooja sevas, and notifications from the backend
   useEffect(() => {
-    notificationService.getNotifications(0, 15)
-      .then(page => {
-        if (page.content.length > 0) {
-          const live = page.content.map(mapNotificationToAlert);
-          setAlerts(live);
+    let isMounted = true;
+
+    async function loadAlerts() {
+      try {
+        const [noticesRes, eventsRes, poojaRes] = await Promise.allSettled([
+          notificationService.getNotifications(0, 10),
+          eventService.getAllEvents(),
+          eventService.getPoojaSevas(),
+        ]);
+
+        const combinedAlerts: AlertTickerItem[] = [];
+
+        // 1. Add Live Events from Events Module
+        if (eventsRes.status === "fulfilled" && Array.isArray(eventsRes.value) && eventsRes.value.length > 0) {
+          const eventAlerts = eventsRes.value.map(mapEventToAlert);
+          combinedAlerts.push(...eventAlerts);
         }
-      })
-      .catch(() => {/* keep defaults */});
+
+        // 2. Add Pooja Sevas from Events Module
+        if (poojaRes.status === "fulfilled" && Array.isArray(poojaRes.value) && poojaRes.value.length > 0) {
+          const poojaAlerts = poojaRes.value.map(mapPoojaSevaToAlert);
+          combinedAlerts.push(...poojaAlerts);
+        }
+
+        // 3. Add Live Notifications/Notices
+        if (noticesRes.status === "fulfilled" && noticesRes.value?.content && noticesRes.value.content.length > 0) {
+          const noticeAlerts = noticesRes.value.content.map(mapNotificationToAlert);
+          combinedAlerts.push(...noticeAlerts);
+        }
+
+        if (isMounted) {
+          if (combinedAlerts.length > 0) {
+            setAlerts(combinedAlerts);
+          } else {
+            // Fallback to upcoming Vinayaka Chavithi on September 14
+            setAlerts(VINAYAKA_CHAVITHI_DEFAULT_ALERTS);
+          }
+        }
+      } catch {
+        if (isMounted) {
+          setAlerts(VINAYAKA_CHAVITHI_DEFAULT_ALERTS);
+        }
+      }
+    }
+
+    loadAlerts();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const dominantCat = alerts.find(a => a.category === "EMERGENCY")?.category
+                   ?? alerts.find(a => a.category === "EVENT")?.category
                    ?? alerts.find(a => a.category === "SECURITY")?.category
                    ?? alerts[0]?.category
-                   ?? "NOTICE";
+                   ?? "EVENT";
   const dominant = CATEGORY_CONFIG[dominantCat];
   const DomIcon  = ICONS[dominantCat];
 

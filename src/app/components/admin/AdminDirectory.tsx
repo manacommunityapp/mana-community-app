@@ -37,6 +37,13 @@ export function AdminDirectory() {
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
+  // Dynamic Official Designations from Database
+  const [designations, setDesignations] = useState<string[]>(DESIGNATIONS);
+  const [loadingDesignations, setLoadingDesignations] = useState(false);
+  const [isAddingNewDesignation, setIsAddingNewDesignation] = useState(false);
+  const [newDesignationName, setNewDesignationName] = useState("");
+  const [addingDesignationSaving, setAddingDesignationSaving] = useState(false);
+
   // User search for the "Add Leader" picker
   const [userQuery, setUserQuery] = useState("");
   const [userResults, setUserResults] = useState<UserResponse[]>([]);
@@ -44,6 +51,22 @@ export function AdminDirectory() {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const loadDesignations = useCallback(async () => {
+    setLoadingDesignations(true);
+    try {
+      const res = await communityDirectoryService.getDesignations();
+      if (Array.isArray(res) && res.length > 0) {
+        const names = res.map((d) => (typeof d === "string" ? d : d.name)).filter(Boolean);
+        const combined = Array.from(new Set([...names, ...DESIGNATIONS]));
+        setDesignations(combined);
+      }
+    } catch (err) {
+      console.error("Failed to load designations:", err);
+    } finally {
+      setLoadingDesignations(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,7 +81,10 @@ export function AdminDirectory() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    loadDesignations();
+  }, [load, loadDesignations]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -108,6 +134,8 @@ export function AdminDirectory() {
   const openCreate = () => {
     setForm({ ...emptyForm });
     setUserQuery("");
+    setIsAddingNewDesignation(false);
+    setNewDesignationName("");
     setModal("create");
   };
 
@@ -122,11 +150,46 @@ export function AdminDirectory() {
       _userName: l.fullName,
     });
     setUserQuery(l.fullName);
+    setIsAddingNewDesignation(false);
+    setNewDesignationName("");
     setModal(l);
   };
 
   const closeModal = () => {
-    if (!saving) setModal(null);
+    if (!saving && !addingDesignationSaving) {
+      setIsAddingNewDesignation(false);
+      setNewDesignationName("");
+      setModal(null);
+    }
+  };
+
+  const handleAddNewDesignation = async () => {
+    const trimmed = newDesignationName.trim();
+    if (!trimmed) {
+      showError("Please enter a designation name");
+      return;
+    }
+    if (designations.some((d) => d.toLowerCase() === trimmed.toLowerCase())) {
+      showError("This designation already exists");
+      setForm((prev) => ({ ...prev, designation: trimmed }));
+      setIsAddingNewDesignation(false);
+      setNewDesignationName("");
+      return;
+    }
+    setAddingDesignationSaving(true);
+    try {
+      const res = await communityDirectoryService.addDesignation(trimmed);
+      const savedName = res?.name || trimmed;
+      setDesignations((prev) => Array.from(new Set([...prev, savedName])));
+      setForm((prev) => ({ ...prev, designation: savedName }));
+      showSuccess(`Added official designation "${savedName}"`);
+      setIsAddingNewDesignation(false);
+      setNewDesignationName("");
+    } catch (err: any) {
+      showError(err?.message || "Failed to add designation");
+    } finally {
+      setAddingDesignationSaving(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -448,20 +511,97 @@ export function AdminDirectory() {
 
               {/* Designation selector */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Official Designation *</label>
-                <div className="relative">
-                  <select
-                    value={form.designation}
-                    onChange={(e) => setForm({ ...form, designation: e.target.value })}
-                    className={`${inputCls} appearance-none cursor-pointer pr-10`}
-                  >
-                    <option value="">Select official role</option>
-                    {DESIGNATIONS.map((d) => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-450 pointer-events-none" />
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                    Official Designation *
+                  </label>
+                  {!isAddingNewDesignation && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingNewDesignation(true);
+                        setNewDesignationName("");
+                      }}
+                      className="text-xs text-indigo-600 hover:text-indigo-700 font-semibold flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      Add Designation
+                    </button>
+                  )}
                 </div>
+
+                {isAddingNewDesignation ? (
+                  <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-indigo-900">Add New Official Designation</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsAddingNewDesignation(false);
+                          setNewDesignationName("");
+                        }}
+                        className="text-slate-400 hover:text-slate-600 p-0.5"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={newDesignationName}
+                        onChange={(e) => setNewDesignationName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddNewDesignation();
+                          }
+                        }}
+                        placeholder="e.g. Youth Coordinator, Floor Captain..."
+                        className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-medium outline-none focus:ring-2 focus:ring-indigo-500"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddNewDesignation}
+                        disabled={addingDesignationSaving || !newDesignationName.trim()}
+                        className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                      >
+                        {addingDesignationSaving ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Plus className="w-3.5 h-3.5" />
+                        )}
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <select
+                      value={form.designation}
+                      onChange={(e) => {
+                        if (e.target.value === "__add_new__") {
+                          setIsAddingNewDesignation(true);
+                          setNewDesignationName("");
+                        } else {
+                          setForm({ ...form, designation: e.target.value });
+                        }
+                      }}
+                      className={`${inputCls} appearance-none cursor-pointer pr-10`}
+                    >
+                      <option value="">
+                        {loadingDesignations ? "Loading designations..." : "Select official role"}
+                      </option>
+                      {designations.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                      <option value="__add_new__" className="text-indigo-600 font-bold">
+                        + Add New Designation...
+                      </option>
+                    </select>
+                    <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-450 pointer-events-none" />
+                  </div>
+                )}
               </div>
 
               {/* Committee Designation */}
