@@ -124,7 +124,7 @@ function isVideoMedia(mediaType?: string, mediaUrl?: string): boolean {
   return type.includes("video") || /\.(mp4|webm|mov|avi|3gp|ogg|mkv)$/.test(url);
 }
 
-async function uploadFeedMedia(file: File, communityId: number, subContext: string): Promise<Omit<FeedMediaAttachment, "sortOrder">> {
+async function uploadFeedMedia(file: File, communityId: number, subContext: string, draftId: string): Promise<Omit<FeedMediaAttachment, "sortOrder">> {
   const validation = await validateMediaFile(file);
   if (!validation.valid) throw new Error(validation.error || `File '${file.name}' failed validation.`);
   if ((file.type || "").toLowerCase() === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg")) {
@@ -134,7 +134,7 @@ async function uploadFeedMedia(file: File, communityId: number, subContext: stri
   const mediaType = validation.mediaType === "video" ? "VIDEO" : "IMAGE";
   const uploadRequest = {
     module: "COMMUNITY" as const,
-    moduleId: String(communityId),
+    moduleId: draftId,
     communityId,
     subContext,
     caption: file.name,
@@ -212,6 +212,7 @@ export function Feed() {
   const [showImageUrlInput, setShowImageUrlInput] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const imageFileInputRef = useRef<HTMLInputElement>(null);
+  const postDraftIdRef = useRef<string>(crypto.randomUUID());
   const [postingAction, setPostingAction] = useState<"publish" | "notify" | null>(null);
   const isPosting = postingAction !== null;
   const [composerType, setComposerType] = useState<PostTypeEnum>("GENERAL");
@@ -363,7 +364,7 @@ export function Feed() {
     try {
       const uploaded: FeedMediaAttachment[] = [];
       for (const file of selectedFiles) {
-        const media = await uploadFeedMedia(file, user.communityId, "feed_post");
+        const media = await uploadFeedMedia(file, user.communityId, "feed_post", postDraftIdRef.current);
         uploaded.push({
           ...media,
           sortOrder: newPostMedia.length + uploaded.length,
@@ -444,6 +445,7 @@ export function Feed() {
       setNewPostTitle("");
       setNewPostImageUrl("");
       setNewPostMedia([]);
+      postDraftIdRef.current = crypto.randomUUID();
       setShowImageUrlInput(false);
       setComposerType("GENERAL");
       setClassifiedPrice("");
@@ -1074,7 +1076,7 @@ function PostCard({
     try {
       const uploaded: FeedMediaAttachment[] = [];
       for (const file of selectedFiles) {
-        const media = await uploadFeedMedia(file, user.communityId, "feed_post_edit");
+        const media = await uploadFeedMedia(file, user.communityId, "feed_post_edit", String(post.id));
         uploaded.push({
           ...media,
           sortOrder: editMedia.length + uploaded.length,
