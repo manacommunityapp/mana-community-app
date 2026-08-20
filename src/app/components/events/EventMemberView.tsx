@@ -983,8 +983,8 @@ export function EventMemberView() {
   });
 
   return (
-    <div className="w-full max-w-7xl mx-auto bg-card border border-border text-card-foreground font-sans rounded-2xl overflow-hidden shadow-xs pb-20 md:pb-12 relative">
-      <div className="p-3.5 sm:p-6 space-y-4 sm:space-y-6">
+    <div className="w-full max-w-7xl mx-auto bg-card border border-border text-card-foreground font-sans rounded-xl overflow-hidden shadow-xs pb-20 md:pb-10 relative">
+      <div className="p-2.5 sm:p-4 space-y-3 sm:space-y-4">
         {activeTab === "home" && (
           <>
             {/* Search & Filter Bar on Mobile - hidden as of now */}
@@ -1011,7 +1011,7 @@ export function EventMemberView() {
 
             {/* Hero Community Event Banner (Interactive Mobile Optimized) */}
             <div
-              className="relative rounded-2xl sm:rounded-3xl overflow-hidden shadow-md transition-all duration-300 border border-indigo-900/20"
+              className="relative rounded-xl sm:rounded-2xl overflow-hidden shadow-sm transition-all duration-300 border border-indigo-900/20"
               style={{
                 background:
                   "linear-gradient(135deg, rgb(79, 70, 229) 0%, rgb(124, 58, 237) 50%, rgb(99, 102, 241) 100%)",
@@ -1025,32 +1025,32 @@ export function EventMemberView() {
                 }}
               />
               <div
-                className="absolute right-0 top-0 w-64 h-full rounded-full opacity-20 blur-3xl pointer-events-none z-0"
+                className="absolute right-0 top-0 w-48 h-full rounded-full opacity-20 blur-3xl pointer-events-none z-0"
                 style={{
                   background: "radial-gradient(circle, rgb(254, 243, 199) 0%, transparent 70%)",
                   transform: "translate(20%, -20%)",
                 }}
               />
-              <div className="relative z-10 p-3.5 sm:p-5 text-white space-y-2.5 sm:space-y-3">
+              <div className="relative z-10 p-2.5 sm:p-3.5 text-white space-y-2">
                 {/* ── Line 1: 🔥 Community Event & Events Available in a single line ── */}
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap overflow-x-auto hide-scrollbar">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] sm:text-[10.5px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs whitespace-nowrap shrink-0">
+                <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto hide-scrollbar">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs whitespace-nowrap shrink-0">
                     🔥 Community Event
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[10px] sm:text-[10.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[9px] sm:text-[9.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
                     <span className={`w-1.5 h-1.5 rounded-full ${activitiesList.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
                     <span>{activitiesList.length > 0 ? `${activitiesList.length} Events Available` : "0 Events Available"}</span>
                   </span>
                 </div>
 
                 {/* ── Line 2: Event name and date and other event details wrapped in a single div ── */}
-                <div className="min-w-0 bg-white/5 border border-white/10 rounded-xl p-2.5 sm:p-3 space-y-1">
-                  <h2 className="text-sm sm:text-lg font-black text-white leading-snug drop-shadow-md truncate">
+                <div className="min-w-0 bg-white/5 border border-white/10 rounded-lg p-2 sm:p-2.5 space-y-0.5">
+                  <h2 className="text-sm sm:text-base font-black text-white leading-snug drop-shadow-sm truncate">
                     {activitiesList.length > 0
                       ? (activitiesList[0]?.title || "Maha Ganapathi Archana & Silver Shield Pooja")
                       : "No Events Created Yet"}
                   </h2>
-                  <div className="flex items-center gap-1.5 sm:gap-2.5 text-[11px] font-medium text-white/90 overflow-hidden">
+                  <div className="flex items-center gap-1.5 sm:gap-2 text-[10.5px] font-medium text-white/90 overflow-hidden">
                     <span className="flex items-center gap-1 shrink-0">
                       <Calendar className="w-3 h-3 text-amber-300 shrink-0" />
                       <span className="whitespace-nowrap">{activitiesList.length > 0 ? (activitiesList[0]?.date || "22 Aug 2026") : "Upcoming"}</span>
@@ -1073,14 +1073,14 @@ export function EventMemberView() {
                 </div>
 
                 {/* ── Line 3: Start Time & Registration Button in a Single Line ── */}
-                <div className="flex items-center justify-between gap-3 sm:gap-4 pt-1">
+                <div className="flex items-center justify-between gap-2 sm:gap-3 pt-0.5">
                   {/* Left: Start Time / Countdown Ticker in single clean row */}
                   {activitiesList.length > 0 ? (
-                    <div className="flex items-center gap-2 min-w-0 flex-wrap sm:flex-nowrap">
-                      <span className="text-[9px] sm:text-[10px] font-bold text-white/80 uppercase tracking-wider whitespace-nowrap">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-wrap sm:flex-nowrap">
+                      <span className="text-[9px] font-bold text-white/80 uppercase tracking-wider whitespace-nowrap">
                         Starts in:
                       </span>
-                      <div className="flex items-center gap-0.5 sm:gap-1 whitespace-nowrap">
+                      <div className="flex items-center gap-0.5 whitespace-nowrap">
                         {[
                           { val: timeLeft.days, unit: "d" },
                           { val: timeLeft.hours, unit: "h" },
@@ -1088,11 +1088,11 @@ export function EventMemberView() {
                           { val: timeLeft.secs, unit: "s", amber: true },
                         ].map(({ val, unit, amber }, i) => (
                           <div key={unit} className="flex items-center">
-                            <div className="flex items-baseline gap-0.5 bg-black/40 border border-white/15 px-1.5 py-0.5 rounded-lg shadow-sm">
-                              <span className={`font-mono text-xs sm:text-sm font-black leading-none tracking-tight ${amber ? "text-amber-300 drop-shadow-xs" : "text-white"}`}>
+                            <div className="flex items-baseline gap-0.5 bg-black/40 border border-white/15 px-1.5 py-0.5 rounded-md shadow-sm">
+                              <span className={`font-mono text-xs font-black leading-none tracking-tight ${amber ? "text-amber-300 drop-shadow-xs" : "text-white"}`}>
                                 {String(val).padStart(2, "0")}
                               </span>
-                              <span className="text-[8px] sm:text-[9px] font-extrabold text-white/70 uppercase leading-none">{unit}</span>
+                              <span className="text-[8px] font-extrabold text-white/70 uppercase leading-none">{unit}</span>
                             </div>
                             {i < 3 && <span className="text-white/60 font-black text-xs mx-0.5 mb-0.5">:</span>}
                           </div>
@@ -1119,7 +1119,7 @@ export function EventMemberView() {
                             setSelectedActivity(act);
                           }
                         }}
-                        className={`ml-auto px-3.5 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-black rounded-xl shadow-md transition-all active:scale-95 cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                        className={`ml-auto px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10.5px] sm:text-[11px] font-black rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                           existingPass
                             ? "bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-400/40"
                             : "bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950"

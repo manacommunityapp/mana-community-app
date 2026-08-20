@@ -686,7 +686,7 @@ export function EventsDashboard() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-3.5 pb-12 min-h-screen bg-gradient-to-br from-[#F3F4FB] via-[#F6F4FE] to-[#EEF0F8] px-3 sm:px-5 py-3.5">
+    <div className="space-y-3 pb-10 min-h-screen bg-gradient-to-br from-[#F3F4FB] via-[#F6F4FE] to-[#EEF0F8] px-2 sm:px-3 py-2.5">
 
       {/* ── Loading bar ── */}
       {!useMock && loading && (
@@ -708,22 +708,22 @@ export function EventsDashboard() {
 
       {/* ── Single Merged Unified Festival & Event Header Bar ── */}
       <div
-        className="relative rounded-2xl overflow-hidden shadow-md transition-all duration-300 border border-indigo-900/20"
+        className="relative rounded-xl overflow-hidden shadow-sm transition-all duration-300 border border-indigo-900/20"
         style={{ background: currentBanner.bgGradient || "linear-gradient(135deg, #3730A3 0%, #4F46E5 40%, #7C3AED 72%, #9333EA 100%)" }}
       >
         {/* Dot grid texture */}
         <div className="absolute inset-0 opacity-[0.07] pointer-events-none z-0"
           style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "20px 20px" }} />
         {/* Glow blob */}
-        <div className="absolute right-0 top-0 w-64 h-full rounded-full opacity-15 blur-3xl pointer-events-none z-0"
+        <div className="absolute right-0 top-0 w-48 h-full rounded-full opacity-15 blur-3xl pointer-events-none z-0"
           style={{ background: "radial-gradient(circle, #FEF3C7 0%, transparent 70%)", transform: "translate(20%,-20%)" }} />
 
-        <div className="relative z-10 px-3.5 py-2.5 sm:px-4 sm:py-3 text-white flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+        <div className="relative z-10 px-3 py-2 sm:px-3.5 sm:py-2.5 text-white flex flex-col lg:flex-row lg:items-center justify-between gap-2">
 
           {/* Left: Festival Icon + Title + Metadata */}
-          <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
-            <div className="relative w-9 h-9 rounded-xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-lg shrink-0 shadow-xs overflow-hidden">
-              <span className="text-lg">{(useMock || events.length > 0) ? "🕉️" : "📅"}</span>
+          <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
+            <div className="relative w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-base shrink-0 shadow-xs overflow-hidden">
+              <span className="text-base">{(useMock || events.length > 0) ? "🕉️" : "📅"}</span>
               {currentBanner.image && (
                 <img
                   src={currentBanner.image}
@@ -736,32 +736,32 @@ export function EventsDashboard() {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                <span className="px-2 py-0.5 rounded-full text-[9.5px] font-semibold bg-amber-400/20 text-amber-200 border border-amber-300/30 uppercase tracking-wider">
+              <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-amber-400/20 text-amber-200 border border-amber-300/30 uppercase tracking-wider">
                   🔥 {currentBanner.category}
                 </span>
                 {(useMock || events.length > 0) ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 text-[10px] font-bold border border-emerald-400/30">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 text-[9.5px] font-bold border border-emerald-400/30">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live · {events.length || 1} Event{events.length === 1 ? "" : "s"}
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-300 text-[10px] font-bold border border-slate-400/30">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-300 text-[9.5px] font-bold border border-slate-400/30">
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> 0 Events Available
                   </span>
                 )}
                 {(useMock || events.length > 0) && (
                   <>
                     <span className="text-white/60 text-xs hidden sm:inline">·</span>
-                    <span className="text-xs font-semibold text-white/80 hidden sm:inline-flex items-center gap-1">
+                    <span className="text-[11px] font-semibold text-white/80 hidden sm:inline-flex items-center gap-1">
                       <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {currentBanner.registered}
                     </span>
                   </>
                 )}
               </div>
-              <h2 className="text-base sm:text-lg font-bold text-white leading-tight drop-shadow-sm truncate">
+              <h2 className="text-sm sm:text-base font-bold text-white leading-tight drop-shadow-sm truncate">
                 {currentBanner.title}
               </h2>
-              <div className="flex flex-wrap items-center gap-2.5 text-[10.5px] font-normal text-white/75 mt-0.5">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-normal text-white/75 mt-0.5">
                 <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-amber-300" /> {currentBanner.location}</span>
                 <span className="text-white/30">·</span>
                 <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3 text-indigo-200" /> {currentBanner.date}</span>
@@ -770,7 +770,7 @@ export function EventsDashboard() {
           </div>
 
           {/* Right: Countdown Ticker & Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3 shrink-0 justify-between lg:justify-end border-t lg:border-t-0 pt-2.5 lg:pt-0 border-white/10">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0 justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-white/10">
             {/* Countdown (only if events exist) */}
             {(useMock || events.length > 0) ? (
               <div className="flex items-center gap-1">
@@ -784,7 +784,7 @@ export function EventsDashboard() {
                   <div key={unit} className="flex items-center">
                     <div className="flex flex-col items-center">
                       <span
-                        className={`w-7 sm:w-8 text-center px-1 py-0.5 rounded-lg font-mono text-xs font-extrabold leading-none ${
+                        className={`w-6 sm:w-7 text-center px-1 py-0.5 rounded-md font-mono text-[11px] font-extrabold leading-none ${
                           amber ? "bg-amber-500/30 text-amber-200 border border-amber-400/30" : "bg-black/30 text-white"
                         }`}
                       >
@@ -805,11 +805,11 @@ export function EventsDashboard() {
             {/* Buttons */}
             {(useMock || events.length > 0) ? (
               <div className="flex items-center gap-2">
-                <button onClick={() => setShowQRModal(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/15 hover:bg-white/25 text-white border border-white/20 text-xs font-bold transition-all shadow-xs cursor-pointer">
+                <button onClick={() => setShowQRModal(true)} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white border border-white/20 text-[11px] font-bold transition-all shadow-xs cursor-pointer">
                   <QrCode className="w-3.5 h-3.5 text-amber-300" /> My Pass
                 </button>
                 <button onClick={() => setShowRegisterModal(true)}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-white text-xs font-black shadow-md cursor-pointer hover:scale-105 active:scale-95 transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-white text-[11px] font-black shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-all"
                   style={{ background: "linear-gradient(135deg, #EA580C, #F97316)", boxShadow: "0 4px 12px rgba(234,88,12,0.35)" }}
                 >
                   <UserPlus className="w-3.5 h-3.5" /> Register
