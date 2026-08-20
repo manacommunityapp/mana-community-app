@@ -90,6 +90,7 @@ const TAB_ITEMS = [
   { id: "dashboards", label: "Dashboard Modes", icon: LayoutDashboard },
   { id: "users-roles", label: "Users & Roles", icon: Users },
   { id: "access-roles", label: "Access & Roles", icon: Shield },
+  { id: "directory",  label: "Directory",     icon: Shield },
   { id: "kyc",        label: "KYC Review",    icon: ShieldCheck },
   { id: "modules",    label: "Modules",       icon: ToggleLeft },
   { id: "bulk",       label: "Bulk Upload",   icon: FileSpreadsheet },
@@ -98,7 +99,6 @@ const TAB_ITEMS = [
   { id: "email-gallery", label: "Email Templates", icon: MailOpen },
   { id: "email-templates", label: "Email Builder", icon: Mail },
   { id: "email-logs", label: "Email Delivery Logs", icon: Clock },
-  { id: "directory",  label: "Directory",     icon: Shield },
 ] as const;
 
 type TabId = (typeof TAB_ITEMS)[number]["id"];

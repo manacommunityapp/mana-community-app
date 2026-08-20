@@ -176,6 +176,24 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       } catch {}
     }
     if (!parsedMembers || parsedMembers.length === 0) {
+      if (reg.attendingDevotees) {
+        try {
+          const parsed = JSON.parse(reg.attendingDevotees);
+          if (Array.isArray(parsed) && parsed.length > 0) parsedMembers = parsed;
+        } catch {
+          const names = String(reg.attendingDevotees).split(",").map((s) => s.trim()).filter(Boolean);
+          if (names.length > 0) {
+            parsedMembers = names.map((name, idx) => ({
+              name,
+              age: idx === 0 ? 30 : 25,
+              gender: "Male",
+              relationship: idx === 0 ? "Self (Head)" : "Family",
+            }));
+          }
+        }
+      }
+    }
+    if (!parsedMembers || parsedMembers.length === 0) {
       parsedMembers = [{
         name: reg.participantName || reg.primaryName || authUser?.fullName || "",
         age: 28,
@@ -195,6 +213,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       poojaSlot: reg.poojaSlot || reg.eventTime || prev.poojaSlot,
       paymentMode: reg.paymentMethod || prev.paymentMode,
       category: reg.category || prev.category,
+      numericPrice: typeof reg.bookingFee === "number" ? reg.bookingFee : (parseFloat(String(reg.bookingFee || "0").replace(/[^0-9.]/g, "")) || 0),
     }));
   };
 

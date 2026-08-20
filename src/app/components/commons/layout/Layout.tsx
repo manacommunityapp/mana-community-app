@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate, useLocation } from "react-router";
+import { Outlet, NavLink, Link, useNavigate, useLocation } from "react-router";
 import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
@@ -438,14 +438,18 @@ export function Layout() {
       >
         <div className="w-64 flex flex-col h-full bg-sidebar">
         <div className="h-16 flex items-center px-5 border-b border-sidebar-border">
-          <div className="flex items-center gap-3 flex-1">
+          <Link
+            to="/"
+            onClick={() => setIsSidebarOpen(false)}
+            className="flex items-center gap-3 flex-1 hover:opacity-90 transition-opacity cursor-pointer"
+          >
             <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary shadow-md shadow-primary/25">
               <Zap className="h-5 w-5 text-white animate-pulse" />
             </div>
             <span className="font-black text-white tracking-tight text-base">
               Mana Community
             </span>
-          </div>
+          </Link>
           <button className="text-white/40 hover:text-white/85 transition-colors p-1 rounded-lg hover:bg-white/10" onClick={() => setIsSidebarOpen(false)}>
             <X className="h-5 w-5" />
           </button>
@@ -823,7 +827,12 @@ export function Layout() {
             <button onClick={toggleSidebar} className="p-2 -ml-2 mr-1.5 sm:mr-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-xl transition-all">
               <Menu className="h-5 w-5" />
             </button>
-            <span className="font-extrabold text-sm sm:text-base text-foreground lg:hidden tracking-tight">Mana Community</span>
+            <Link
+              to="/"
+              className="font-extrabold text-sm sm:text-base text-foreground lg:hidden tracking-tight hover:opacity-85 transition-opacity cursor-pointer"
+            >
+              Mana Community
+            </Link>
             <AppHeaderBreadcrumb />
           </div>
 

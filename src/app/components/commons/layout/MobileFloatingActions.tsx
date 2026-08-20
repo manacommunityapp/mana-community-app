@@ -413,29 +413,29 @@ export function MobileHeaderActions() {
 
       {/* ── Modal 2: Community Directory Modal ────────────────────────────── */}
       {activeModal === "directory" && (
-        <div className="fixed inset-x-3 top-12 bottom-4 z-50 flex flex-col bg-slate-50 rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 lg:inset-auto lg:top-16 lg:right-12 lg:w-[680px] lg:max-h-[85vh] lg:rounded-2xl">
+        <div className="fixed inset-x-2 sm:inset-x-4 top-10 bottom-3 z-50 flex flex-col bg-slate-50 rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 lg:inset-auto lg:top-16 lg:right-12 lg:w-[720px] lg:max-h-[85vh] lg:rounded-2xl">
           {/* Header */}
-          <div className="p-4 bg-gradient-to-r from-emerald-600 via-teal-500 to-emerald-700 text-white flex items-center justify-between shrink-0">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 bg-white/10 rounded-xl border border-white/20">
+          <div className="p-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white flex items-center justify-between shrink-0 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/15 rounded-xl border border-white/25 shadow-2xs">
                 <Users className="w-5 h-5 text-emerald-100" />
               </div>
               <div>
-                <h3 className="font-extrabold text-sm text-white">Community Directory</h3>
-                <p className="text-[11px] text-white/70">Leadership, committees & contacts</p>
+                <h3 className="font-extrabold text-sm sm:text-base text-white">Community Directory</h3>
+                <p className="text-[11px] text-white/80">Management committee, leaders & emergency contacts</p>
               </div>
             </div>
             <button
               onClick={() => setActiveModal(null)}
-              className="p-1.5 rounded-full hover:bg-white/20 text-white/80 hover:text-white transition-colors"
+              className="p-1.5 rounded-full hover:bg-white/20 text-white/80 hover:text-white transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
 
           {/* Directory Content */}
-          <div className="flex-1 overflow-y-auto p-3">
-            <CommunityDirectory />
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-slate-50/60">
+            <CommunityDirectory isModal={true} />
           </div>
         </div>
       )}

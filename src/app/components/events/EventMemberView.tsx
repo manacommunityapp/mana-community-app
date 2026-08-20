@@ -87,6 +87,8 @@ interface UserPass {
   passType: string;
   title: string;
   participantName: string;
+  phone?: string;
+  flatNo?: string;
   devoteeCount?: number;
   attendingDevotees?: string;
   gotram?: string;
@@ -219,6 +221,9 @@ export function EventMemberView() {
   const [managePassModal, setManagePassModal] = useState<UserPass | null>(null);
   const [editParticipantName, setEditParticipantName] = useState("");
   const [editAttendeeCount, setEditAttendeeCount] = useState(1);
+  const [editGotram, setEditGotram] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editFlatNo, setEditFlatNo] = useState("");
   const [cancelConfirmMode, setCancelConfirmMode] = useState(false);
   const [isSavingManage, setIsSavingManage] = useState(false);
   const [manageSuccess, setManageSuccess] = useState<string | null>(null);
@@ -481,6 +486,8 @@ export function EventMemberView() {
               passType: r.passType || `${r.category || "Event"} Registration Pass`,
               title: r.activityTitle || r.eventName || "Community Event",
               participantName: r.participantName || r.primaryName || "Devotee",
+              phone: r.phone,
+              flatNo: r.flatNo,
               devoteeCount: attendeeCount,
               attendingDevotees: r.attendingDevotees,
               gotram: r.gotram,
@@ -726,8 +733,11 @@ export function EventMemberView() {
   // ── Open Manage Modal ──────────────────────────────────────────────────
   const openManageModal = (pass: UserPass) => {
     setManagePassModal(pass);
-    setEditParticipantName(pass.participantName);
-    setEditAttendeeCount(1);
+    setEditParticipantName(pass.participantName || "");
+    setEditAttendeeCount(pass.devoteeCount || 1);
+    setEditGotram(pass.gotram || "");
+    setEditPhone(pass.phone || user?.phone || "");
+    setEditFlatNo(pass.flatNo || (user?.block && user?.flatNo ? `${user.block}-${user.flatNo}` : user?.flatNo || ""));
     setCancelConfirmMode(false);
     setManageSuccess(null);
     setManageError(null);
@@ -740,14 +750,29 @@ export function EventMemberView() {
     setManageError(null);
     setManageSuccess(null);
 
+    const numericId = typeof managePassModal.id === "number"
+      ? managePassModal.id
+      : Number(String(managePassModal.id).replace(/\D/g, ""));
+
     const updatedData = {
+      primaryName: editParticipantName.trim() || managePassModal.participantName,
       participantName: editParticipantName.trim() || managePassModal.participantName,
+      phone: editPhone.trim() || undefined,
+      gotram: editGotram.trim() || undefined,
+      flatNo: editFlatNo.trim() || undefined,
       devoteeCount: editAttendeeCount,
+      membersCount: editAttendeeCount,
+      attendingDevotees: managePassModal.attendingDevotees,
+      eventDate: managePassModal.date,
+      eventTime: managePassModal.time,
+      venue: managePassModal.venue,
+      bookingFee: managePassModal.bookingFee,
+      paymentStatus: managePassModal.paymentStatus,
+      status: managePassModal.status,
     };
 
     try {
-      const numericId = parseInt(managePassModal.id, 10);
-      if (!isNaN(numericId)) {
+      if (!isNaN(numericId) && numericId > 0) {
         await eventService.updateRegistration(numericId, updatedData);
       }
 
@@ -755,20 +780,28 @@ export function EventMemberView() {
       setPassesList((prev) =>
         prev.map((p) =>
           p.id === managePassModal.id
-            ? { ...p, participantName: updatedData.participantName }
+            ? {
+                ...p,
+                participantName: updatedData.participantName,
+                devoteeCount: editAttendeeCount,
+                gotram: editGotram.trim() || p.gotram,
+                phone: editPhone.trim() || p.phone,
+                flatNo: editFlatNo.trim() || p.flatNo,
+              }
             : p
         )
       );
 
       setManageSuccess("Registration updated successfully in Database!");
-      // Auto-close after 1.5s
       setTimeout(() => {
         setManagePassModal(null);
         setManageSuccess(null);
-      }, 1500);
-    } catch (err) {
+        loadUserPasses();
+        fetchLiveDataFromBackend();
+      }, 1200);
+    } catch (err: any) {
       console.error("Failed to update registration:", err);
-      setManageError("Failed to update registration. Please try again.");
+      setManageError(err?.message || "Failed to update registration. Please try again.");
     } finally {
       setIsSavingManage(false);
     }
@@ -781,8 +814,11 @@ export function EventMemberView() {
     setManageError(null);
 
     try {
-      const numericId = parseInt(managePassModal.id, 10);
-      if (!isNaN(numericId)) {
+      const numericId = typeof managePassModal.id === "number"
+        ? managePassModal.id
+        : Number(String(managePassModal.id).replace(/\D/g, ""));
+
+      if (!isNaN(numericId) && numericId > 0) {
         await eventService.cancelRegistration(numericId);
       }
 
@@ -791,10 +827,12 @@ export function EventMemberView() {
       setManagePassModal(null);
       setCancelConfirmMode(false);
       // Refresh data from backend
+      loadUserPasses();
       fetchLiveDataFromBackend();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to cancel registration:", err);
-      setManageError("Failed to cancel registration. Please try again.");
+      setManageError(err?.message || "Failed to cancel registration. Please try again.");
+    } finally {
       setIsSavingManage(false);
     }
   };
@@ -2150,6 +2188,47 @@ export function EventMemberView() {
                       className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                     />
                     <p className="text-[10px] text-muted-foreground">Current: {managePassModal.participantName}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Contact Phone
+                      </label>
+                      <input
+                        type="text"
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        placeholder="+91..."
+                        className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all font-semibold"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                        Flat / Unit No.
+                      </label>
+                      <input
+                        type="text"
+                        value={editFlatNo}
+                        onChange={(e) => setEditFlatNo(e.target.value)}
+                        placeholder="e.g. A-402"
+                        className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                      Gotram (Family Lineage)
+                    </label>
+                    <input
+                      type="text"
+                      value={editGotram}
+                      onChange={(e) => setEditGotram(e.target.value)}
+                      placeholder="e.g. Kashyapa, Bharadwaja..."
+                      className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all font-semibold"
+                    />
                   </div>
 
                   <div className="space-y-1">
