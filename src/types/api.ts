@@ -697,6 +697,7 @@ export interface PostMediaResponse {
   thumbnailUrl?: string;
   altText?: string;
   sortOrder: number;
+  mediaObjectId?: string;
 }
 
 export interface PostGroupSummary {

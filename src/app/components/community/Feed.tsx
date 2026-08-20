@@ -70,6 +70,7 @@ type FeedMediaAttachment = {
   thumbnailUrl?: string;
   altText?: string;
   sortOrder: number;
+  mediaObjectId?: string;
 };
 
 const FEED_MEDIA_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/avif,image/bmp,video/mp4,video/webm,video/quicktime,video/x-msvideo,video/3gpp,video/ogg";
@@ -152,6 +153,7 @@ async function uploadFeedMedia(file: File, communityId: number, subContext: stri
     mediaType,
     thumbnailUrl: media.thumbnailUrl,
     altText: file.name,
+    mediaObjectId: media.id,
   };
 }
 
@@ -182,6 +184,7 @@ function postMediaToAttachments(post: any): FeedMediaAttachment[] {
       thumbnailUrl: media.thumbnailUrl,
       altText: media.altText,
       sortOrder: media.sortOrder ?? index,
+      mediaObjectId: media.mediaObjectId,
     }));
   }
 
@@ -398,12 +401,13 @@ export function Feed() {
       title: newPostTitle || undefined,
       imageUrl: newPostImageUrl.trim() || newPostMedia.find((item) => item.mediaType === "IMAGE")?.mediaUrl || undefined,
       type: composerType,
-      mediaAttachments: newPostMedia.length > 0 ? newPostMedia.map(({ mediaUrl, mediaType, thumbnailUrl, altText, sortOrder }) => ({
+      mediaAttachments: newPostMedia.length > 0 ? newPostMedia.map(({ mediaUrl, mediaType, thumbnailUrl, altText, sortOrder, mediaObjectId }) => ({
         mediaUrl,
         mediaType,
         thumbnailUrl,
         altText,
         sortOrder,
+        mediaObjectId,
       })) : undefined,
     };
 
@@ -1099,12 +1103,13 @@ function PostCard({
         content: editContent.trim(),
         title: editTitle.trim() || undefined,
         imageUrl: editImageUrl.trim() || editMedia.find((item) => item.mediaType === "IMAGE")?.mediaUrl || undefined,
-        mediaAttachments: editMedia.length > 0 ? editMedia.map(({ mediaUrl, mediaType, thumbnailUrl, altText, sortOrder }) => ({
+        mediaAttachments: editMedia.length > 0 ? editMedia.map(({ mediaUrl, mediaType, thumbnailUrl, altText, sortOrder, mediaObjectId }) => ({
           mediaUrl,
           mediaType,
           thumbnailUrl,
           altText,
           sortOrder,
+          mediaObjectId,
         })) : undefined,
         eventDate: editEventDate || undefined,
         eventVenue: editEventVenue.trim() || undefined,
