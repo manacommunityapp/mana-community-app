@@ -12,7 +12,7 @@ export interface UpdatePostRequest {
   content?: string;
   title?: string;
   imageUrl?: string;
-  mediaAttachments?: { mediaUrl: string; mediaType: string; thumbnailUrl?: string; altText?: string; sortOrder?: number }[];
+  mediaAttachments?: { mediaUrl: string; mediaType: string; thumbnailUrl?: string; altText?: string; sortOrder?: number; mediaObjectId?: string }[];
   eventId?: number;
   eventDate?: string;
   eventVenue?: string;
@@ -42,7 +42,7 @@ export interface CreatePostRequest {
   eventEndDate?: string;
   eventVenue?: string;
   notify?: boolean;
-  mediaAttachments?: { mediaUrl: string; mediaType: string; thumbnailUrl?: string; altText?: string; sortOrder?: number }[];
+  mediaAttachments?: { mediaUrl: string; mediaType: string; thumbnailUrl?: string; altText?: string; sortOrder?: number; mediaObjectId?: string }[];
 }
 
 export const feedService = {
