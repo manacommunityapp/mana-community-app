@@ -344,28 +344,6 @@ export function Feed() {
   };
 
   const handleImageFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!user?.communityId) { toast.error("Community not found — cannot upload image."); return; }
-    if (!file.type.startsWith("image/")) { toast.error("Please select an image file."); return; }
-    if (file.size > 10 * 1024 * 1024) { toast.error("Image must be under 10MB."); return; }
-
-    setIsUploadingImage(true);
-    try {
-      const media = await mediaService.upload(file, {
-        module: "COMMUNITY",
-        moduleId: String(user.communityId),
-        communityId: Number(user.communityId),
-        subContext: "feed_post",
-      });
-      const uploadedUrl = media.url || media.compressedUrl || media.mediumUrl;
-      if (!uploadedUrl) throw new Error("Server did not return an image URL.");
-      setNewPostImageUrl(uploadedUrl);
-      toast.success("Image uploaded!");
-    } catch (error: any) {
-      toast.error("Image upload failed: " + (error.message || "Please try again."));
-
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     if (!user?.communityId) { toast.error("No community assigned — cannot upload media."); return; }
@@ -938,16 +916,6 @@ export function Feed() {
                     )}
                   </button>
 
-                  <button
-                    onClick={handleCreatePost}
-                    className={`px-5 py-2 text-white text-sm font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
-                      composerType === "EMERGENCY" ? "bg-red-600 hover:bg-red-700" : "bg-indigo-600 hover:bg-indigo-700"
-                    } disabled:opacity-50`}
-                    disabled={isPosting || isUploadingImage || !newPostContent.trim()}
-                  >
-                    {isPosting ? <><Loader2 className="w-4 h-4 animate-spin" /> Publishing...</> : isUploadingImage ? "Uploading photo..." : "Publish"}
-                  </button>
-
                   <div className="flex flex-wrap justify-end gap-2">
                     <button
                       onClick={() => handleCreatePost(false)}
@@ -1091,25 +1059,6 @@ function PostCard({
   const canEditThisPost = canEdit || (user?.userId === String(post.authorId));
 
   const handleEditImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!user?.communityId) { toast.error("Community not found — cannot upload image."); return; }
-    if (!file.type.startsWith("image/")) { toast.error("Please select an image."); return; }
-    if (file.size > 10 * 1024 * 1024) { toast.error("Image must be under 10MB."); return; }
-    setIsUploadingEditImage(true);
-    try {
-      const media = await mediaService.upload(file, {
-        module: "COMMUNITY",
-        moduleId: String(user.communityId),
-        communityId: Number(user.communityId),
-        subContext: "feed_post_edit",
-      });
-      const uploadedUrl = media.url || media.compressedUrl || media.mediumUrl;
-      if (!uploadedUrl) throw new Error("Server did not return an image URL.");
-      setEditImageUrl(uploadedUrl);
-      toast.success("Image uploaded!");
-
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     if (!user?.communityId) { toast.error("No community assigned — cannot upload media."); return; }
