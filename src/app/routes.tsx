@@ -387,7 +387,7 @@ export const router = createBrowserRouter([
         element: <PermissionGuard requiredModule="EVENTS"><EventsLayout /></PermissionGuard>,
         children: [
           { index: true, element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_DASHBOARD]}><EventDashboardWrapper /></PermissionGuard> },
-          { path: "member-flow", element: <PermissionGuard anyPermissions={[MANAGE_EVENT_DASHBOARD]}><EventMemberFlow /></PermissionGuard> },
+          { path: "member-flow", element: <PermissionGuard superAdminOnly><EventMemberFlow /></PermissionGuard> },
           { path: "schedule", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_SCHEDULE]}><EventsSchedule /></PermissionGuard> },
           { path: "registration", element: <PermissionGuard anyPermissions={[VIEW_EVENTS, VIEW_EVENT_REGISTRATION, REGISTER_EVENT]}><EventsRegistrationHub /></PermissionGuard> },
           { path: "forms", element: <PermissionGuard anyPermissions={[MANAGE_EVENT_FORMS]}><EventsFormsHub /></PermissionGuard> },

@@ -16,7 +16,7 @@ import { CreateEventButton } from "./EventsCreate";
 
 const navItems = [
   { to: "/events",              label: "Dashboard",        icon: LayoutDashboard, end: true, permission: VIEW_EVENT_DASHBOARD, altPermission: VIEW_EVENTS },
-  { to: "/events/member-flow",  label: "Member Flow",      icon: UserRound,       adminOnly: true, permission: MANAGE_EVENT_DASHBOARD, localOnly: true },
+  { to: "/events/member-flow",  label: "Member Flow",      icon: UserRound,       superAdminOnly: true, permission: MANAGE_EVENT_DASHBOARD },
   { to: "/events/schedule",     label: "Events & Schedule",icon: CalendarDays,              permission: VIEW_EVENT_SCHEDULE },
   { to: "/events/forms",        label: "Forms",            icon: ClipboardList,   adminOnly: true, permission: MANAGE_EVENT_FORMS },
   { to: "/events/people",       label: "People",           icon: Users,                     permission: VIEW_EVENT_PEOPLE },
@@ -46,7 +46,7 @@ function DataModeToggle() {
 }
 
 function EventsLayoutInner() {
-  const { hasPermission, isAdmin } = useAuth();
+  const { hasPermission, isAdmin, isSuperAdmin } = useAuth();
   const location = useLocation();
 
   const activeItem = navItems.find((item) =>
@@ -54,6 +54,7 @@ function EventsLayoutInner() {
   );
 
   const visibleNav = navItems.filter((nav) => {
+    if ("superAdminOnly" in nav && nav.superAdminOnly && !isSuperAdmin) return false;
     if ("adminOnly" in nav && nav.adminOnly && !isAdmin) return false;
     // Hide items marked as localOnly when running in a production build
     if ("localOnly" in nav && nav.localOnly && !import.meta.env.DEV) return false;

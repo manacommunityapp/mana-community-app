@@ -126,10 +126,12 @@ export function validateUser(
     } else if (!/^\+?[0-9]{8,15}$/.test(cleanPhone)) {
       errors.push("Phone contains invalid characters (digits and optional + prefix only)");
     } else {
-      if (seenPhones.has(cleanPhone)) {
-        errors.push(`Duplicate phone in CSV (same as row #${seenPhones.get(cleanPhone)})`);
+      const digitsOnly = cleanPhone.replace(/\D/g, "");
+      const phoneKey = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly;
+      if (seenPhones.has(phoneKey)) {
+        errors.push(`Duplicate phone in CSV (same as row #${seenPhones.get(phoneKey)})`);
       } else {
-        seenPhones.set(cleanPhone, row);
+        seenPhones.set(phoneKey, row);
       }
     }
   }
