@@ -41,14 +41,25 @@ import {
   Crown,
   Flame,
   BarChart3,
+  Lock,
+  Play,
+  Video,
+  Camera,
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router";
+import { cn } from "../ui/utils";
 import { feedService, type CreatePostRequest, type UpdatePostRequest } from "../../../services/community/feedService";
 import { engagementService, groupService } from "../../../services/community/engagementService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { mediaService } from "../../../services/files/mediaService";
 import { validateMediaFile } from "../../../utils/mediaValidator";
+import {
+  captureVideoFrame,
+  generateVideoThumbnailCandidates,
+  uploadVideoCoverBlob,
+  type VideoThumbnailCandidate,
+} from "../../../utils/videoThumbnailHelper";
 import { useAuth } from "../../../contexts/AuthContext";
 import type {
   PostResponse,
@@ -160,10 +171,20 @@ async function uploadFeedMedia(file: File, communityId: number, subContext: stri
   const resolvedUrl = media.url || media.compressedUrl || media.mediumUrl;
   if (!resolvedUrl) throw new Error(`Upload succeeded but the server returned no URL for '${file.name}'.`);
 
+  let coverThumbnailUrl = media.thumbnailUrl;
+  if (mediaType === "VIDEO" && !coverThumbnailUrl) {
+    try {
+      const frame = await captureVideoFrame(file, 1.0);
+      coverThumbnailUrl = await uploadVideoCoverBlob(frame.blob, file.name, communityId, draftId);
+    } catch (e) {
+      console.warn("Auto video cover generation notice:", e);
+    }
+  }
+
   return {
     mediaUrl: resolvedUrl,
     mediaType,
-    thumbnailUrl: media.thumbnailUrl,
+    thumbnailUrl: coverThumbnailUrl,
     altText: file.name,
     mediaObjectId: media.id,
   };
@@ -208,6 +229,366 @@ function postMediaToAttachments(post: any): FeedMediaAttachment[] {
   }] : [];
 }
 
+interface FeedVideoPlayerProps {
+  mediaUrl: string;
+  thumbnailUrl?: string;
+  altText?: string;
+  isSingle?: boolean;
+}
+
+function FeedVideoPlayer({ mediaUrl, thumbnailUrl, altText, isSingle = false }: FeedVideoPlayerProps) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [autoCover, setAutoCover] = useState<string | undefined>(thumbnailUrl);
+
+  useEffect(() => {
+    if (thumbnailUrl) {
+      setAutoCover(thumbnailUrl);
+      return;
+    }
+    let active = true;
+    captureVideoFrame(mediaUrl, 0.5)
+      .then((frame) => {
+        if (active) setAutoCover(frame.dataUrl);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [mediaUrl, thumbnailUrl]);
+
+  if (!isPlaying) {
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setIsPlaying(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") setIsPlaying(true);
+        }}
+        className={cn(
+          "relative w-full overflow-hidden bg-slate-950 group cursor-pointer select-none flex items-center justify-center",
+          isSingle ? "max-h-96 min-h-56" : "h-full min-h-40"
+        )}
+        title="Play video"
+      >
+        {/* Cover Photo */}
+        {autoCover ? (
+          <img
+            src={autoCover}
+            alt={altText || "Video cover"}
+            className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-slate-900 text-slate-500">
+            <Video className="w-10 h-10 opacity-30" />
+          </div>
+        )}
+
+        {/* Shaded vignette overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-black/30 group-hover:bg-black/40 transition-colors" />
+
+        {/* Video Badge */}
+        <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold tracking-wide pointer-events-none">
+          <Video className="w-3 h-3 text-indigo-400" />
+          <span>VIDEO</span>
+        </div>
+
+        {/* Play Button Icon Overlay */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-white/90 group-hover:bg-white group-hover:scale-110 shadow-xl shadow-black/50 flex items-center justify-center text-indigo-600 transition-all duration-200 pl-1">
+            <Play className="w-7 h-7 sm:w-8 sm:h-8 fill-indigo-600 text-indigo-600" />
+          </div>
+        </div>
+
+        {/* Bottom prompt */}
+        <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center justify-between text-white/90 text-xs font-medium pointer-events-none">
+          <span className="truncate drop-shadow-sm">{altText || "Watch video"}</span>
+          <span className="text-[10px] bg-black/60 px-2 py-0.5 rounded-md text-white/90 font-mono backdrop-blur-xs">Tap to Play</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <video
+      src={mediaUrl}
+      poster={autoCover || thumbnailUrl}
+      autoPlay
+      controls
+      playsInline
+      preload="auto"
+      className={isSingle ? "w-full max-h-96 object-contain bg-black" : "w-full h-full object-cover bg-black"}
+    />
+  );
+}
+
+interface VideoCoverPickerModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  videoUrl: string;
+  currentCoverUrl?: string;
+  onApplyCover: (coverUrl: string) => void;
+  communityId: number;
+  draftId: string;
+}
+
+function VideoCoverPickerModal({
+  isOpen,
+  onClose,
+  videoUrl,
+  currentCoverUrl,
+  onApplyCover,
+  communityId,
+  draftId,
+}: VideoCoverPickerModalProps) {
+  const [candidates, setCandidates] = useState<VideoThumbnailCandidate[]>([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(true);
+  const [selectedPreviewUrl, setSelectedPreviewUrl] = useState<string | undefined>(currentCoverUrl);
+  const [selectedBlob, setSelectedBlob] = useState<Blob | undefined>(undefined);
+  const [isSaving, setIsSaving] = useState(false);
+  const customFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen || !videoUrl) return;
+    let active = true;
+    setLoadingCandidates(true);
+    setSelectedPreviewUrl(currentCoverUrl);
+    setSelectedBlob(undefined);
+
+    generateVideoThumbnailCandidates(videoUrl, 4)
+      .then((cands) => {
+        if (!active) return;
+        setCandidates(cands);
+        setLoadingCandidates(false);
+        if (!currentCoverUrl && cands.length > 0 && cands[0]) {
+          setSelectedPreviewUrl(cands[0].dataUrl);
+          setSelectedBlob(cands[0].blob);
+        }
+      })
+      .catch(() => {
+        if (active) setLoadingCandidates(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isOpen, videoUrl, currentCoverUrl]);
+
+  if (!isOpen) return null;
+
+  const handleSelectCandidate = (cand: VideoThumbnailCandidate) => {
+    setSelectedPreviewUrl(cand.dataUrl);
+    setSelectedBlob(cand.blob);
+  };
+
+  const handleCustomUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setIsSaving(true);
+      const uploaded = await mediaService.upload(file, {
+        module: "COMMUNITY",
+        moduleId: draftId,
+        communityId,
+        subContext: "video_cover",
+        caption: `Custom cover: ${file.name}`,
+        altText: `Custom cover: ${file.name}`,
+      });
+      const url = uploaded.url || uploaded.mediumUrl || uploaded.compressedUrl || uploaded.thumbnailUrl;
+      if (url) {
+        setSelectedPreviewUrl(url);
+        setSelectedBlob(undefined);
+        toast.success("Custom cover photo loaded!");
+      }
+    } catch (err: any) {
+      toast.error("Failed to upload custom image: " + (err.message || "Unknown error"));
+    } finally {
+      setIsSaving(false);
+      if (customFileInputRef.current) customFileInputRef.current.value = "";
+    }
+  };
+
+  const handleApply = async () => {
+    let finalUrl = selectedPreviewUrl;
+    if (selectedBlob) {
+      try {
+        setIsSaving(true);
+        finalUrl = await uploadVideoCoverBlob(selectedBlob, "video_frame.jpg", communityId, draftId);
+      } catch (err: any) {
+        toast.error("Failed to save cover image: " + (err.message || "Unknown error"));
+        setIsSaving(false);
+        return;
+      }
+    }
+
+    if (finalUrl) {
+      onApplyCover(finalUrl);
+      toast.success("Video cover photo updated!");
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-60 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto animate-in fade-in duration-200">
+      <div className="fixed inset-0" onClick={() => !isSaving && onClose()} />
+      <div className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center">
+              <Camera className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">Select Video Cover Photo</h3>
+              <p className="text-xs text-slate-500">This photo will be displayed before the video starts playing</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => !isSaving && onClose()}
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-5 space-y-4 overflow-y-auto">
+          {/* Live Preview */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-slate-700">Cover Page Live Preview</label>
+            <div className="relative aspect-video rounded-xl overflow-hidden bg-slate-950 border border-slate-200 shadow-inner flex items-center justify-center">
+              {selectedPreviewUrl ? (
+                <img
+                  src={selectedPreviewUrl}
+                  alt="Cover preview"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="text-center text-slate-500 space-y-1">
+                  <Video className="w-8 h-8 mx-auto opacity-40" />
+                  <span className="text-xs">No cover image selected</span>
+                </div>
+              )}
+
+              {/* Shaded vignette overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/30 pointer-events-none" />
+
+              {/* Video Badge */}
+              <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold tracking-wide pointer-events-none">
+                <Video className="w-3 h-3 text-indigo-400" />
+                <span>VIDEO</span>
+              </div>
+
+              {/* Play Button preview */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-12 h-12 rounded-full bg-white/90 shadow-lg flex items-center justify-center text-indigo-600 pl-0.5">
+                  <Play className="w-6 h-6 fill-indigo-600 text-indigo-600" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Choose from Video Snapshot Frames */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-slate-700">Choose from Video Frames</label>
+              {loadingCandidates && (
+                <span className="text-xs text-indigo-600 flex items-center gap-1 font-medium">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Extracting frames...
+                </span>
+              )}
+            </div>
+
+            {candidates.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {candidates.map((cand, idx) => {
+                  const isSelected = selectedPreviewUrl === cand.dataUrl;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSelectCandidate(cand)}
+                      className={cn(
+                        "relative aspect-video rounded-lg overflow-hidden border-2 transition-all cursor-pointer group bg-slate-900",
+                        isSelected
+                          ? "border-indigo-600 ring-2 ring-indigo-300 scale-102"
+                          : "border-slate-200 hover:border-slate-400 opacity-80 hover:opacity-100"
+                      )}
+                    >
+                      <img src={cand.dataUrl} alt={`Frame at ${cand.label}`} className="w-full h-full object-cover" />
+                      <span className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/75 text-white text-[9px] font-mono rounded">
+                        {cand.label}
+                      </span>
+                      {isSelected && (
+                        <div className="absolute top-1 left-1 w-4 h-4 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow">
+                          <Check className="w-2.5 h-2.5" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : !loadingCandidates ? (
+              <p className="text-xs text-slate-400 italic">No snapshot frames could be auto-extracted.</p>
+            ) : null}
+          </div>
+
+          {/* Custom Upload Option */}
+          <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-bold text-slate-700 block">Custom Image</span>
+              <span className="text-[11px] text-slate-400">Upload a custom thumbnail from your device (JPG, PNG, WebP)</span>
+            </div>
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={() => customFileInputRef.current?.click()}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 hover:border-indigo-300 bg-white hover:bg-indigo-50/40 text-xs font-bold text-slate-700 transition-colors flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+            >
+              {isSaving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+              ) : (
+                <Upload className="w-3.5 h-3.5 text-indigo-600" />
+              )}
+              <span>Upload Image</span>
+            </button>
+            <input
+              ref={customFileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/avif"
+              className="hidden"
+              onChange={handleCustomUpload}
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={isSaving || !selectedPreviewUrl}
+            onClick={handleApply}
+            className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+          >
+            {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            <span>Set Cover Photo</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Feed() {
   const { user, isAdmin, isEventsAdmin, isSportsAdmin, isSuperAdmin } = useAuth();
   const canPost = isAdmin || isEventsAdmin || isSuperAdmin;
@@ -241,6 +622,7 @@ export function Feed() {
   const [selectedEventId, setSelectedEventId] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [eventVenue, setEventVenue] = useState("");
+  const [activeCoverPickerMediaIndex, setActiveCoverPickerMediaIndex] = useState<number | null>(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const activeFilter = searchParams.get("filter") || "ALL";
@@ -418,6 +800,10 @@ export function Feed() {
   };
 
   const handleCreatePost = async (notify = false) => {
+    if (!canPost) {
+      toast.error("Posting is restricted to community administrators.");
+      return;
+    }
     if (!newPostContent.trim()) { toast.error("Post content cannot be empty."); return; }
 
     const request: CreatePostRequest = {
@@ -825,111 +1211,166 @@ export function Feed() {
           </div>
 
           {/* Facebook-style Short Composer Trigger Bar */}
-          <div className="bg-white rounded-xl shadow-xs border border-slate-200/90 p-2.5 sm:p-3.5 sm:space-y-3 transition-all hover:border-slate-300">
+          <div className={cn(
+            "bg-white rounded-xl shadow-xs border p-2.5 sm:p-3.5 sm:space-y-3 transition-all",
+            canPost
+              ? "border-slate-200/90 hover:border-slate-300"
+              : "border-slate-200/70 bg-slate-50/40"
+          )}>
             {/* Main row: Mobile shows avatar + button + action symbols; Desktop shows avatar + full button */}
             <div className="flex items-center gap-2 sm:gap-3">
-              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center flex-shrink-0 text-white font-bold text-xs sm:text-sm shadow-xs">
+              <div className={cn(
+                "h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-xs sm:text-sm shadow-xs",
+                canPost
+                  ? "bg-gradient-to-br from-indigo-500 to-violet-600"
+                  : "bg-slate-400 opacity-80"
+              )}>
                 {getInitials(user?.fullName)}
               </div>
               <button
                 type="button"
-                disabled={!canPost}
-                onClick={() => canPost && setIsCreateModalOpen(true)}
-                className={`flex-1 min-w-0 bg-slate-100/90 text-slate-500 rounded-full px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-left transition-colors border border-slate-200/50 truncate ${
+                onClick={() => {
+                  if (canPost) {
+                    setIsCreateModalOpen(true);
+                  } else {
+                    toast.info("Posting is restricted to community administrators.");
+                  }
+                }}
+                className={cn(
+                  "flex-1 min-w-0 rounded-full px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-left transition-colors border truncate flex items-center gap-2",
                   canPost
-                    ? "hover:bg-slate-200/70 hover:text-slate-700 cursor-pointer"
-                    : "cursor-not-allowed"
-                }`}
-                title={!canPost ? "Posting is restricted to administrators" : undefined}
+                    ? "bg-slate-100/90 text-slate-500 border-slate-200/50 hover:bg-slate-200/70 hover:text-slate-700 cursor-pointer"
+                    : "bg-slate-100/70 text-slate-400 border-slate-200/60 cursor-not-allowed opacity-90"
+                )}
+                title={!canPost ? "Only community administrators can post updates" : undefined}
               >
-                <span className="hidden sm:inline">What's on your mind, {user?.fullName ? user.fullName.split(" ")[0] : "Resident"}?</span>
-                <span className="sm:hidden inline">Post update...</span>
+                {!canPost ? (
+                  <>
+                    <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span className="hidden sm:inline font-medium text-slate-500">Only community administrators can post updates</span>
+                    <span className="sm:hidden inline font-medium text-slate-500">Only admins can post</span>
+                    <span className="ml-auto text-[10px] font-bold text-slate-400 bg-slate-200/80 px-2 py-0.5 rounded-full hidden md:inline-flex items-center gap-1 shrink-0">
+                      <Lock className="w-2.5 h-2.5" /> Admin Only
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="hidden sm:inline">What's on your mind, {user?.fullName ? user.fullName.split(" ")[0] : "Resident"}?</span>
+                    <span className="sm:hidden inline">Post update...</span>
+                  </>
+                )}
               </button>
 
               {/* Mobile view only: symbols beside the feed button */}
               <div className="flex sm:hidden items-center gap-0.5 shrink-0">
                 <button
                   type="button"
-                  disabled={!canPost}
                   onClick={() => {
-                    if (!canPost) return;
+                    if (!canPost) {
+                      toast.info("Posting is restricted to community administrators.");
+                      return;
+                    }
                     setIsCreateModalOpen(true);
                     setTimeout(() => imageFileInputRef.current?.click(), 150);
                   }}
-                  className={`p-1.5 rounded-full transition-colors text-emerald-600 ${
-                    canPost ? "hover:bg-slate-100 cursor-pointer" : "cursor-not-allowed"
-                  }`}
-                  title={canPost ? "Photo / Video" : "Posting restricted to administrators"}
+                  className={cn(
+                    "p-1.5 rounded-full transition-colors",
+                    canPost
+                      ? "text-emerald-600 hover:bg-slate-100 cursor-pointer"
+                      : "text-emerald-600/60 opacity-60 cursor-not-allowed hover:bg-transparent"
+                  )}
+                  title={canPost ? "Photo / Video" : "Only community administrators can post"}
                 >
-                  <ImageIcon className="w-4 h-4 text-emerald-600" />
+                  <ImageIcon className="w-4 h-4" />
                 </button>
 
                 <button
                   type="button"
-                  disabled={!canPost}
                   onClick={() => {
-                    if (!canPost) return;
+                    if (!canPost) {
+                      toast.info("Posting is restricted to community administrators.");
+                      return;
+                    }
                     setComposerType("POLL");
                     setIsCreateModalOpen(true);
                   }}
-                  className={`p-1.5 rounded-full transition-colors text-indigo-600 ${
-                    canPost ? "hover:bg-slate-100 cursor-pointer" : "cursor-not-allowed"
-                  }`}
-                  title={canPost ? "Poll" : "Posting restricted to administrators"}
+                  className={cn(
+                    "p-1.5 rounded-full transition-colors",
+                    canPost
+                      ? "text-indigo-600 hover:bg-slate-100 cursor-pointer"
+                      : "text-indigo-600/60 opacity-60 cursor-not-allowed hover:bg-transparent"
+                  )}
+                  title={canPost ? "Poll" : "Only community administrators can post"}
                 >
-                  <BarChart3 className="w-4 h-4 text-indigo-600" />
+                  <BarChart3 className="w-4 h-4" />
                 </button>
 
                 <button
                   type="button"
-                  disabled={!canPost}
                   onClick={() => {
-                    if (!canPost) return;
+                    if (!canPost) {
+                      toast.info("Posting is restricted to community administrators.");
+                      return;
+                    }
                     setComposerType("EVENT");
                     setIsCreateModalOpen(true);
                   }}
-                  className={`p-1.5 rounded-full transition-colors text-amber-600 ${
-                    canPost ? "hover:bg-slate-100 cursor-pointer" : "cursor-not-allowed"
-                  }`}
-                  title={canPost ? "Event" : "Posting restricted to administrators"}
+                  className={cn(
+                    "p-1.5 rounded-full transition-colors",
+                    canPost
+                      ? "text-amber-600 hover:bg-slate-100 cursor-pointer"
+                      : "text-amber-600/60 opacity-60 cursor-not-allowed hover:bg-transparent"
+                  )}
+                  title={canPost ? "Event" : "Only community administrators can post"}
                 >
-                  <Calendar className="w-4 h-4 text-amber-600" />
+                  <Calendar className="w-4 h-4" />
                 </button>
 
                 <button
                   type="button"
-                  disabled={!canPost}
                   onClick={() => {
-                    if (!canPost) return;
+                    if (!canPost) {
+                      toast.info("Posting is restricted to community administrators.");
+                      return;
+                    }
                     setComposerType("ANNOUNCEMENT");
                     setIsCreateModalOpen(true);
                   }}
-                  className={`p-1.5 rounded-full transition-colors text-rose-600 ${
-                    canPost ? "hover:bg-slate-100 cursor-pointer" : "cursor-not-allowed"
-                  }`}
-                  title={canPost ? "Announcement" : "Posting restricted to administrators"}
+                  className={cn(
+                    "p-1.5 rounded-full transition-colors",
+                    canPost
+                      ? "text-rose-600 hover:bg-slate-100 cursor-pointer"
+                      : "text-rose-600/60 opacity-60 cursor-not-allowed hover:bg-transparent"
+                  )}
+                  title={canPost ? "Announcement" : "Only community administrators can post"}
                 >
-                  <Megaphone className="w-4 h-4 text-rose-600" />
+                  <Megaphone className="w-4 h-4" />
                 </button>
               </div>
             </div>
 
             {/* Website / Desktop view: bottom row with symbols + labels */}
-            <div className="hidden sm:flex border-t border-slate-100 pt-2 items-center justify-between gap-1 text-slate-600 text-xs font-semibold">
+            <div className={cn(
+              "hidden sm:flex border-t pt-2 items-center justify-between gap-1 text-xs font-semibold",
+              canPost ? "border-slate-100 text-slate-600" : "border-slate-100/60 text-slate-400"
+            )}>
               <button
                 type="button"
-                disabled={!canPost}
                 onClick={() => {
-                  if (!canPost) return;
+                  if (!canPost) {
+                    toast.info("Posting is restricted to community administrators.");
+                    return;
+                  }
                   setIsCreateModalOpen(true);
                   setTimeout(() => imageFileInputRef.current?.click(), 150);
                 }}
-                className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 text-slate-600 transition-colors ${
+                className={cn(
+                  "flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors",
                   canPost
-                    ? "hover:bg-slate-50 hover:text-emerald-600 cursor-pointer"
-                    : "cursor-not-allowed"
-                }`}
-                title={!canPost ? "Posting restricted to administrators" : undefined}
+                    ? "text-slate-600 hover:bg-slate-50 hover:text-emerald-600 cursor-pointer"
+                    : "text-slate-500 opacity-60 cursor-not-allowed hover:bg-transparent"
+                )}
+                title={!canPost ? "Only community administrators can post" : undefined}
               >
                 <ImageIcon className="w-4 h-4 text-emerald-500" />
                 <span>Photo / Video</span>
@@ -937,18 +1378,21 @@ export function Feed() {
 
               <button
                 type="button"
-                disabled={!canPost}
                 onClick={() => {
-                  if (!canPost) return;
+                  if (!canPost) {
+                    toast.info("Posting is restricted to community administrators.");
+                    return;
+                  }
                   setComposerType("POLL");
                   setIsCreateModalOpen(true);
                 }}
-                className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 text-slate-600 transition-colors ${
+                className={cn(
+                  "flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors",
                   canPost
-                    ? "hover:bg-slate-50 hover:text-indigo-600 cursor-pointer"
-                    : "cursor-not-allowed"
-                }`}
-                title={!canPost ? "Posting restricted to administrators" : undefined}
+                    ? "text-slate-600 hover:bg-slate-50 hover:text-indigo-600 cursor-pointer"
+                    : "text-slate-500 opacity-60 cursor-not-allowed hover:bg-transparent"
+                )}
+                title={!canPost ? "Only community administrators can post" : undefined}
               >
                 <BarChart3 className="w-4 h-4 text-indigo-500" />
                 <span>Poll</span>
@@ -956,18 +1400,21 @@ export function Feed() {
 
               <button
                 type="button"
-                disabled={!canPost}
                 onClick={() => {
-                  if (!canPost) return;
+                  if (!canPost) {
+                    toast.info("Posting is restricted to community administrators.");
+                    return;
+                  }
                   setComposerType("EVENT");
                   setIsCreateModalOpen(true);
                 }}
-                className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 text-slate-600 transition-colors ${
+                className={cn(
+                  "flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors",
                   canPost
-                    ? "hover:bg-slate-50 hover:text-amber-600 cursor-pointer"
-                    : "cursor-not-allowed"
-                }`}
-                title={!canPost ? "Posting restricted to administrators" : undefined}
+                    ? "text-slate-600 hover:bg-slate-50 hover:text-amber-600 cursor-pointer"
+                    : "text-slate-500 opacity-60 cursor-not-allowed hover:bg-transparent"
+                )}
+                title={!canPost ? "Only community administrators can post" : undefined}
               >
                 <Calendar className="w-4 h-4 text-amber-500" />
                 <span>Event</span>
@@ -975,18 +1422,21 @@ export function Feed() {
 
               <button
                 type="button"
-                disabled={!canPost}
                 onClick={() => {
-                  if (!canPost) return;
+                  if (!canPost) {
+                    toast.info("Posting is restricted to community administrators.");
+                    return;
+                  }
                   setComposerType("ANNOUNCEMENT");
                   setIsCreateModalOpen(true);
                 }}
-                className={`flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 text-slate-600 transition-colors ${
+                className={cn(
+                  "flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors",
                   canPost
-                    ? "hover:bg-slate-50 hover:text-rose-600 cursor-pointer"
-                    : "cursor-not-allowed"
-                }`}
-                title={!canPost ? "Posting restricted to administrators" : undefined}
+                    ? "text-slate-600 hover:bg-slate-50 hover:text-rose-600 cursor-pointer"
+                    : "text-slate-500 opacity-60 cursor-not-allowed hover:bg-transparent"
+                )}
+                title={!canPost ? "Only community administrators can post" : undefined}
               >
                 <Megaphone className="w-4 h-4 text-rose-500" />
                 <span>Announcement</span>
@@ -1168,11 +1618,31 @@ export function Feed() {
                       {newPostMedia.map((item, index) => (
                         <div key={`${item.mediaUrl}-${index}`} className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-xs aspect-video">
                           {isVideoMedia(item.mediaType, item.mediaUrl) ? (
-                            <video src={item.mediaUrl} className="w-full h-full object-cover" muted preload="metadata" />
+                            <div className="relative w-full h-full bg-slate-950">
+                              {item.thumbnailUrl ? (
+                                <img src={item.thumbnailUrl} alt="Video cover" className="w-full h-full object-cover" />
+                              ) : (
+                                <video src={item.mediaUrl} className="w-full h-full object-cover" muted preload="metadata" />
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => setActiveCoverPickerMediaIndex(index)}
+                                className="absolute bottom-1.5 right-1.5 px-2 py-0.5 bg-black/75 hover:bg-black text-white text-[10px] font-bold rounded-md flex items-center gap-1 shadow-md transition-colors cursor-pointer"
+                                title="Set Cover Photo"
+                              >
+                                <Camera className="w-3 h-3 text-indigo-400" />
+                                <span>{item.thumbnailUrl ? "Change Cover" : "Set Cover"}</span>
+                              </button>
+                              {item.thumbnailUrl && (
+                                <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-emerald-600/90 text-white text-[8px] font-bold uppercase tracking-wider shadow">
+                                  Cover Set
+                                </span>
+                              )}
+                            </div>
                           ) : (
                             <img src={item.mediaUrl} alt={item.altText || "Attachment preview"} className="w-full h-full object-cover" />
                           )}
-                          <span className="absolute left-1.5 bottom-1.5 px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold uppercase">
+                          <span className="absolute left-1.5 bottom-1.5 px-1.5 py-0.5 rounded bg-black/60 text-white text-[9px] font-bold uppercase pointer-events-none">
                             {isVideoMedia(item.mediaType, item.mediaUrl) ? "Video" : "Image"}
                           </span>
                           <button
@@ -1212,7 +1682,7 @@ export function Feed() {
                         className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-full transition-colors cursor-pointer disabled:opacity-40"
                         title="Add Photos / Videos"
                       >
-                        {isUploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-5 h-5" />}
+                        {isUploadingImage ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-5 h-5 text-emerald-500" />}
                       </button>
 
                       <button
@@ -1279,6 +1749,23 @@ export function Feed() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* ── Video Cover Photo Picker Modal for Create Post ── */}
+          {activeCoverPickerMediaIndex !== null && newPostMedia[activeCoverPickerMediaIndex] && (
+            <VideoCoverPickerModal
+              isOpen={activeCoverPickerMediaIndex !== null}
+              onClose={() => setActiveCoverPickerMediaIndex(null)}
+              videoUrl={newPostMedia[activeCoverPickerMediaIndex].mediaUrl}
+              currentCoverUrl={newPostMedia[activeCoverPickerMediaIndex].thumbnailUrl}
+              onApplyCover={(coverUrl) => {
+                setNewPostMedia((prev) =>
+                  prev.map((item, idx) => (idx === activeCoverPickerMediaIndex ? { ...item, thumbnailUrl: coverUrl } : item))
+                );
+              }}
+              communityId={user?.communityId || 0}
+              draftId={postDraftIdRef.current}
+            />
           )}
 
           {/* ── Centered Post Type Selection Modal (Fits mobile & desktop screens perfectly) ── */}
@@ -1633,6 +2120,7 @@ function PostCard({
   const editImageInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
   const [isLinkCopied, setIsLinkCopied] = useState(false);
+  const [activeEditCoverPickerIndex, setActiveEditCoverPickerIndex] = useState<number | null>(null);
 
   const canEditThisPost = canEdit || (user?.userId === String(post.authorId));
 
@@ -1852,20 +2340,41 @@ function PostCard({
               {editMedia.map((item, index) => (
                 <div key={`${item.mediaUrl}-${index}`} className="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-100 shadow-sm aspect-video">
                   {isVideoMedia(item.mediaType, item.mediaUrl) ? (
-                    <video src={item.mediaUrl} className="w-full h-full object-cover" muted preload="metadata" />
+                    <div className="relative w-full h-full bg-slate-950">
+                      {item.thumbnailUrl ? (
+                        <img src={item.thumbnailUrl} alt="Video cover" className="w-full h-full object-cover" />
+                      ) : (
+                        <video src={item.mediaUrl} className="w-full h-full object-cover" muted preload="metadata" />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setActiveEditCoverPickerIndex(index)}
+                        className="absolute bottom-1.5 right-1.5 px-2 py-0.5 bg-black/75 hover:bg-black text-white text-[10px] font-bold rounded flex items-center gap-1 shadow-md transition-colors cursor-pointer"
+                        title="Set Cover Photo"
+                      >
+                        <Camera className="w-3 h-3 text-indigo-400" />
+                        <span>{item.thumbnailUrl ? "Change Cover" : "Set Cover"}</span>
+                      </button>
+                      {item.thumbnailUrl && (
+                        <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-emerald-600/90 text-white text-[8px] font-bold uppercase tracking-wider shadow">
+                          Cover Set
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     <img src={item.mediaUrl} alt={item.altText || "Post media"} className="w-full h-full object-cover" />
                   )}
-                  <span className="absolute left-1.5 bottom-1.5 px-1.5 py-0.5 rounded bg-black/55 text-white text-[9px] font-bold uppercase">
+                  <span className="absolute left-1.5 bottom-1.5 px-1.5 py-0.5 rounded bg-black/55 text-white text-[9px] font-bold uppercase pointer-events-none">
                     {isVideoMedia(item.mediaType, item.mediaUrl) ? "Video" : "Image"}
                   </span>
                   <button
+                    type="button"
                     onClick={() => {
                       const next = editMedia.filter((_, i) => i !== index).map((media, sortOrder) => ({ ...media, sortOrder }));
                       setEditMedia(next);
                       setEditImageUrl(next.find((media) => media.mediaType === "IMAGE")?.mediaUrl || "");
                     }}
-                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full shadow"
+                    className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full shadow hover:bg-red-600 transition-colors cursor-pointer"
                   >
                     <X className="w-3 h-3" />
                   </button>
@@ -1896,6 +2405,23 @@ function PostCard({
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Video Cover Picker for Edit Mode ── */}
+      {activeEditCoverPickerIndex !== null && editMedia[activeEditCoverPickerIndex] && (
+        <VideoCoverPickerModal
+          isOpen={activeEditCoverPickerIndex !== null}
+          onClose={() => setActiveEditCoverPickerIndex(null)}
+          videoUrl={editMedia[activeEditCoverPickerIndex].mediaUrl}
+          currentCoverUrl={editMedia[activeEditCoverPickerIndex].thumbnailUrl}
+          onApplyCover={(coverUrl) => {
+            setEditMedia((prev) =>
+              prev.map((item, idx) => (idx === activeEditCoverPickerIndex ? { ...item, thumbnailUrl: coverUrl } : item))
+            );
+          }}
+          communityId={user?.communityId || 0}
+          draftId={String(post.id)}
+        />
       )}
 
       {!isEditing && post.title && <h3 className="text-base font-bold text-slate-900 mb-2 text-left">{post.title}</h3>}
@@ -2000,12 +2526,11 @@ function PostCard({
           {post.media.slice(0, 4).map((m: any, idx: number) => (
             <div key={m.id || `${m.mediaUrl}-${idx}`} className={`overflow-hidden bg-slate-100 ${post.media.length === 1 ? "max-h-96" : "aspect-video max-h-48"} ${idx === 0 && post.media.length === 3 ? "row-span-2" : ""}`}>
               {isVideoMedia(m.mediaType, m.mediaUrl) ? (
-                <video
-                  src={m.mediaUrl}
-                  poster={m.thumbnailUrl}
-                  controls
-                  preload="metadata"
-                  className={post.media.length === 1 ? "w-full max-h-96 object-contain bg-black" : "w-full h-full object-cover bg-black"}
+                <FeedVideoPlayer
+                  mediaUrl={m.mediaUrl}
+                  thumbnailUrl={m.thumbnailUrl}
+                  altText={m.altText}
+                  isSingle={post.media.length === 1}
                 />
               ) : (
                 <img src={m.mediaUrl} alt={m.altText || ""} className="w-full h-full object-cover" />
@@ -2017,18 +2542,22 @@ function PostCard({
 
       {post.imageUrl && (!post.media || post.media.length === 0) && (
         <div className="mb-3 overflow-hidden rounded-xl border border-slate-100 max-h-96 bg-slate-50 flex items-center justify-center">
-          <img
-            src={post.imageUrl}
-            alt=""
-            className="w-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              const el = e.currentTarget;
-              el.style.display = "none";
-              const parent = el.parentElement;
-              if (parent) parent.style.display = "none";
-            }}
-          />
+          {isVideoMedia(undefined, post.imageUrl) ? (
+            <FeedVideoPlayer mediaUrl={post.imageUrl} isSingle />
+          ) : (
+            <img
+              src={post.imageUrl}
+              alt=""
+              className="w-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                const el = e.currentTarget;
+                el.style.display = "none";
+                const parent = el.parentElement;
+                if (parent) parent.style.display = "none";
+              }}
+            />
+          )}
         </div>
       )}
 

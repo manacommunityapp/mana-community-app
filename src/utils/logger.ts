@@ -131,7 +131,9 @@ function emit(
   }
 }
 
-window.addEventListener("beforeunload", flush);
+if (typeof window !== "undefined") {
+  window.addEventListener("beforeunload", flush);
+}
 
 export function createLogger(tag: string) {
   return {

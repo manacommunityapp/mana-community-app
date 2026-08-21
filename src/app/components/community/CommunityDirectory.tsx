@@ -237,7 +237,7 @@ function groupLeaders(leaders: CommunityLeaderResponse[]): GroupedLeaders {
   const other: CommunityLeaderResponse[] = [];
 
   for (const l of leaders) {
-    const d = l.designation.toLowerCase();
+    const d = (l.designation || "").toLowerCase();
     let isExec = false;
     
     if (EXECUTIVE_KEYWORDS.some((kw) => d.includes(kw))) {
@@ -245,16 +245,24 @@ function groupLeaders(leaders: CommunityLeaderResponse[]): GroupedLeaders {
       isExec = true;
     }
     
-    if (l.committee) {
-      const c = l.committee;
+    if (l.committee && l.committee.trim()) {
+      const c = l.committee.trim();
       if (!committees[c]) committees[c] = [];
-      if (!committees[c].some(x => x.userId === l.userId)) {
+      if (!committees[c].some(x => x.id === l.id)) {
         committees[c].push(l);
       }
-    } else if (!isExec) {
+    }
+    
+    if (!isExec && (!l.committee || !l.committee.trim())) {
       other.push(l);
     }
   }
+
+  // If no executives explicitly found, make all leaders visible in council tab
+  if (executives.length === 0 && other.length > 0) {
+    executives.push(...other);
+  }
+
   return { executives, committees, other };
 }
 
@@ -303,34 +311,34 @@ type DirectoryTab = "leadership" | "committees" | "contact";
 
 // ── Enhanced Leader Card ────────────────────────────────────────────────────
 
-function DirectoryMemberCard({ leader }: { leader: CommunityLeaderResponse }) {
+function DirectoryMemberCard({ leader, isModal }: { leader: CommunityLeaderResponse; isModal?: boolean }) {
   const style = getRoleStyle(leader.designation);
   const { openFloatingChatWithUser } = useChat();
 
   const unitDetails = [
+    leader.block && `Block ${leader.block}`,
     leader.flatNo && `Flat ${leader.flatNo}`,
-    leader.block && `Block ${leader.block}`
   ].filter(Boolean).join(" · ");
 
   return (
-    <div className="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-indigo-200 transition-all flex flex-col justify-between gap-3 text-left group">
+    <div className="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-emerald-200 transition-all flex flex-col justify-between gap-3 text-left group">
       {/* Top Details */}
       <div className="flex items-start gap-3 min-w-0">
         {leader.profilePicUrl ? (
           <img
             src={leader.profilePicUrl}
             alt={leader.fullName}
-            className={`h-11 w-11 rounded-2xl object-cover ring-2 ${style.avatarRing} shadow-xs flex-shrink-0`}
+            className={`h-11 w-11 rounded-2xl object-cover ring-2 ${style.avatarRing} shadow-xs shrink-0`}
           />
         ) : (
-          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center font-black text-xs ring-2 ${style.avatarRing} shadow-xs flex-shrink-0 ${style.bg} ${style.color}`}>
+          <div className={`h-11 w-11 rounded-2xl flex items-center justify-center font-black text-xs ring-2 ${style.avatarRing} shadow-xs shrink-0 ${style.bg} ${style.color}`}>
             {getInitials(leader.fullName)}
           </div>
         )}
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <h4 className="font-bold text-sm text-slate-900 group-hover:text-indigo-600 transition-colors truncate">
+            <h4 className="font-bold text-sm text-slate-900 group-hover:text-emerald-700 transition-colors truncate">
               {leader.fullName}
             </h4>
             <span className={`inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide px-2 py-0.5 rounded-full ${style.bg} ${style.color} border ${style.border} shrink-0`}>
@@ -339,20 +347,21 @@ function DirectoryMemberCard({ leader }: { leader: CommunityLeaderResponse }) {
             </span>
           </div>
 
-          {unitDetails && (
-            <div className="flex items-center gap-1 text-xs text-slate-500 font-medium mt-1">
-              <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-              <span className="truncate">{unitDetails}</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2 flex-wrap mt-1">
+            {unitDetails && (
+              <div className="inline-flex items-center gap-1 text-[11px] text-slate-500 font-semibold bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+                <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                <span className="truncate">{unitDetails}</span>
+              </div>
+            )}
 
-          {leader.committee && (
-            <div className="mt-1">
-              <span className="inline-block text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">
-                {leader.committee}
-              </span>
-            </div>
-          )}
+            {leader.committee && (
+              <div className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100/80">
+                <Users className="w-2.5 h-2.5 text-indigo-500" />
+                <span className="truncate">{leader.committee}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -365,7 +374,7 @@ function DirectoryMemberCard({ leader }: { leader: CommunityLeaderResponse }) {
             className="flex-1 py-1.5 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/70 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-2xs"
             title={`Call ${leader.fullName}`}
           >
-            <Phone className="w-3.5 h-3.5 text-emerald-600" />
+            <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             <span className="truncate">{leader.contactPhone}</span>
           </button>
         ) : (
@@ -471,6 +480,8 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false }:
   const hasCommittees = committeeNames.length > 0 || other.length > 0;
   const hasWhoToCall = whoToCallDbList.length > 0 || contactMap.length > 0;
 
+  const gridClass = isModal ? "grid grid-cols-1 sm:grid-cols-2 gap-3" : "grid grid-cols-1 gap-2.5";
+
   if (isModal) {
     if (loading) {
       return (
@@ -557,9 +568,9 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false }:
         {tab === "leadership" && (
           <div className="space-y-2.5">
             {executives.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              <div className={gridClass}>
                 {executives.map((l) => (
-                  <DirectoryMemberCard key={l.id} leader={l} />
+                  <DirectoryMemberCard key={l.id} leader={l} isModal={isModal} />
                 ))}
               </div>
             ) : (
@@ -597,9 +608,9 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false }:
                     {isOpen ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
                   </button>
                   {isOpen && (
-                    <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-2.5 bg-slate-50/30">
+                    <div className={`p-3 bg-slate-50/30 ${gridClass}`}>
                       {members.map((l) => (
-                        <DirectoryMemberCard key={l.id} leader={l} />
+                        <DirectoryMemberCard key={l.id} leader={l} isModal={isModal} />
                       ))}
                     </div>
                   )}
@@ -628,9 +639,9 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false }:
                     : <ChevronDown className="w-4 h-4 text-slate-400" />}
                 </button>
                 {expandedCommittees.__other !== false && (
-                  <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-2.5 bg-slate-50/30">
+                  <div className={`p-3 bg-slate-50/30 ${gridClass}`}>
                     {other.map((l) => (
-                      <DirectoryMemberCard key={l.id} leader={l} />
+                      <DirectoryMemberCard key={l.id} leader={l} isModal={isModal} />
                     ))}
                   </div>
                 )}
@@ -652,7 +663,7 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false }:
               Need assistance? Direct contacts for community departments and services:
             </p>
             {whoToCallDbList.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              <div className={gridClass}>
                 {filteredWhoToCall.map((c) => {
                   const isEmergency = Boolean(c.isEmergency);
                   const colorClass = isEmergency
@@ -748,7 +759,7 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false }:
                 })}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              <div className={gridClass}>
                 {contactMap.map(({ issue, icon, color, leader }) => {
                   if (!leader) return null;
                   const [colorBase] = color.split(" ");
