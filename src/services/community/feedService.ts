@@ -146,4 +146,22 @@ export const feedService = {
   async getCommentReactionCounts(commentId: number): Promise<Record<string, number>> {
     return apiClient.get<Record<string, number>>(`/posts/comments/${commentId}/reactions`);
   },
+
+  /** Fast summary counts for sidebar accordion badges on initial page load */
+  async getSidebarSummary(): Promise<FeedSummaryCountsResponse> {
+    return apiClient.get<FeedSummaryCountsResponse>("/posts/summary-counts");
+  },
 };
+
+export interface FeedSummaryCountsResponse {
+  directoryCount: number;
+  sportsEventsCount: number;
+  upcomingEventsCount: number;
+  myPassCount: number;
+  trendingCount: number;
+  myGroupsCount: number;
+  topContributorsCount: number;
+  myEngagementPoints: number;
+  myEngagementLevel: number;
+  officialAnnouncementsCount: number;
+}

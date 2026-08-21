@@ -49,7 +49,7 @@ import {
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { cn } from "../ui/utils";
-import { feedService, type CreatePostRequest, type UpdatePostRequest } from "../../../services/community/feedService";
+import { feedService, type CreatePostRequest, type UpdatePostRequest, type FeedSummaryCountsResponse } from "../../../services/community/feedService";
 import { engagementService, groupService } from "../../../services/community/engagementService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { mediaService } from "../../../services/files/mediaService";
@@ -688,6 +688,8 @@ export function Feed() {
   const [commentLikersList, setCommentLikersList] = useState<CommentLikerResponse[]>([]);
   const [loadingCommentLikers, setLoadingCommentLikers] = useState(false);
 
+  const [summaryCounts, setSummaryCounts] = useState<FeedSummaryCountsResponse | null>(null);
+
   useEffect(() => {
     async function loadInitialFeed() {
       if (!user?.communityId) { setLoading(false); return; }
@@ -705,6 +707,11 @@ export function Feed() {
     }
     loadInitialFeed();
   }, [user?.communityId, activeFilter]);
+
+  useEffect(() => {
+    if (!user?.communityId) return;
+    feedService.getSidebarSummary().then(setSummaryCounts).catch(() => {});
+  }, [user?.communityId]);
 
   useEffect(() => {
     if (!user?.communityId || !canPost || !isCreateModalOpen) return;
@@ -1924,13 +1931,13 @@ export function Feed() {
 
         {/* Sidebar */}
         <div className="hidden lg:block sticky top-20 space-y-4">
-          <EventsNotificationCard />
-          <TrendingCard onHashtagClick={(tag) => { setSearchQuery(tag); handleSearch(); }} />
-          <MyGroupsCard />
-          <LeaderboardCard getInitials={getInitials} />
-          <CommunityDirectory />
-          <EngagementScoreCard />
-          <SportsNotificationCard />
+          <EventsNotificationCard badgeCount={summaryCounts?.upcomingEventsCount} passCount={summaryCounts?.myPassCount} />
+          <TrendingCard badgeCount={summaryCounts?.trendingCount} onHashtagClick={(tag) => { setSearchQuery(tag); handleSearch(); }} />
+          <MyGroupsCard badgeCount={summaryCounts?.myGroupsCount} />
+          <LeaderboardCard badgeCount={summaryCounts?.topContributorsCount} getInitials={getInitials} />
+          <CommunityDirectory badgeCount={summaryCounts?.directoryCount} />
+          <EngagementScoreCard summaryScore={summaryCounts ? { totalPoints: summaryCounts.myEngagementPoints, level: summaryCounts.myEngagementLevel } : undefined} />
+          <SportsNotificationCard badgeCount={summaryCounts?.sportsEventsCount} />
           <SidebarAnnouncements posts={posts} />
           <QuickLinksCard />
         </div>
@@ -2906,7 +2913,7 @@ function CommentItem({
 }
 
 /* ─── Sidebar Components (On-Demand / Lazy Loaded) ─── */
-function EngagementScoreCard() {
+function EngagementScoreCard({ summaryScore }: { summaryScore?: { totalPoints: number; level: number } }) {
   const [expanded, setExpanded] = useState(false);
   const [score, setScore] = useState<EngagementScoreResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -2924,6 +2931,9 @@ function EngagementScoreCard() {
       .finally(() => setLoading(false));
   }, [expanded, hasFetched]);
 
+  const displayPoints = score?.totalPoints ?? summaryScore?.totalPoints;
+  const displayLevel = score?.level ?? summaryScore?.level;
+
   return (
     <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden transition-all duration-300 hover:shadow-md">
       <button
@@ -2937,10 +2947,21 @@ function EngagementScoreCard() {
           </div>
           <div>
             <span className="text-xs font-bold text-slate-800 block">Your Engagement Score</span>
-            <span className="text-[10px] text-slate-400 font-medium">Points, level & badges</span>
+            <span className="text-[10px] text-slate-400 font-medium">
+              {displayPoints !== undefined
+                ? `${displayPoints.toLocaleString()} pts · Level ${displayLevel ?? 1}`
+                : "Points, level & badges"}
+            </span>
           </div>
         </div>
-        {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        <div className="flex items-center gap-1.5">
+          {displayLevel !== undefined && (
+            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+              Lvl {displayLevel}
+            </span>
+          )}
+          {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        </div>
       </button>
 
       {expanded && (
@@ -2997,7 +3018,7 @@ function EngagementScoreCard() {
   );
 }
 
-function TrendingCard({ onHashtagClick }: { onHashtagClick: (tag: string) => void }) {
+function TrendingCard({ badgeCount, onHashtagClick }: { badgeCount?: number; onHashtagClick: (tag: string) => void }) {
   const [expanded, setExpanded] = useState(false);
   const [trending, setTrending] = useState<TrendingResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -3014,6 +3035,8 @@ function TrendingCard({ onHashtagClick }: { onHashtagClick: (tag: string) => voi
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [expanded, hasFetched]);
+
+  const currentCount = hasFetched ? trending.length : (badgeCount ?? trending.length);
 
   return (
     <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden transition-all duration-300 hover:shadow-md">
@@ -3032,9 +3055,9 @@ function TrendingCard({ onHashtagClick }: { onHashtagClick: (tag: string) => voi
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          {trending.length > 0 && (
+          {currentCount > 0 && (
             <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-orange-50 text-orange-600 border border-orange-100 leading-none">
-              {trending.length}
+              {currentCount}
             </span>
           )}
           {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -3077,7 +3100,7 @@ function TrendingCard({ onHashtagClick }: { onHashtagClick: (tag: string) => voi
   );
 }
 
-function MyGroupsCard() {
+function MyGroupsCard({ badgeCount }: { badgeCount?: number }) {
   const [expanded, setExpanded] = useState(false);
   const [groups, setGroups] = useState<GroupResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -3094,6 +3117,8 @@ function MyGroupsCard() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [expanded, hasFetched]);
+
+  const currentCount = hasFetched ? groups.length : (badgeCount ?? groups.length);
 
   return (
     <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden transition-all duration-300 hover:shadow-md">
@@ -3112,9 +3137,9 @@ function MyGroupsCard() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          {groups.length > 0 && (
+          {currentCount > 0 && (
             <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-violet-50 text-violet-600 border border-violet-100 leading-none">
-              {groups.length}
+              {currentCount}
             </span>
           )}
           {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
@@ -3153,7 +3178,7 @@ function MyGroupsCard() {
   );
 }
 
-function LeaderboardCard({ getInitials }: { getInitials: (name: string) => string }) {
+function LeaderboardCard({ badgeCount, getInitials }: { badgeCount?: number; getInitials: (name: string) => string }) {
   const [expanded, setExpanded] = useState(false);
   const [leaderboard, setLeaderboard] = useState<EngagementScoreResponse[]>([]);
   const [loading, setLoading] = useState(false);
@@ -3172,6 +3197,8 @@ function LeaderboardCard({ getInitials }: { getInitials: (name: string) => strin
       .finally(() => setLoading(false));
   }, [expanded, hasFetched]);
 
+  const currentCount = hasFetched ? leaderboard.length : (badgeCount ?? leaderboard.length);
+
   return (
     <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden transition-all duration-300 hover:shadow-md">
       <button
@@ -3189,9 +3216,9 @@ function LeaderboardCard({ getInitials }: { getInitials: (name: string) => strin
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          {leaderboard.length > 0 && (
+          {currentCount > 0 && (
             <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-100 leading-none">
-              {leaderboard.length}
+              {currentCount}
             </span>
           )}
           {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}

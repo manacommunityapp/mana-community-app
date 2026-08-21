@@ -412,9 +412,10 @@ function DirectoryMemberCard({ leader, isModal }: { leader: CommunityLeaderRespo
 export interface CommunityDirectoryProps {
   isModal?: boolean;
   defaultExpanded?: boolean;
+  badgeCount?: number;
 }
 
-export function CommunityDirectory({ isModal = false, defaultExpanded = false }: CommunityDirectoryProps) {
+export function CommunityDirectory({ isModal = false, defaultExpanded = false, badgeCount }: CommunityDirectoryProps) {
   const { openFloatingChatWithUser } = useChat();
   const [leaders, setLeaders] = useState<CommunityLeaderResponse[]>([]);
   const [whoToCallDbList, setWhoToCallDbList] = useState<CommunityWhoToCallResponse[]>([]);
@@ -850,9 +851,11 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false }:
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-            {leaders.length}
-          </span>
+          {(hasFetched ? leaders.length > 0 : (badgeCount !== undefined ? badgeCount > 0 : leaders.length > 0)) && (
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+              {hasFetched ? leaders.length : (badgeCount ?? leaders.length)}
+            </span>
+          )}
           {expanded ? (
             <ChevronUp className="w-4 h-4 text-slate-400" />
           ) : (
