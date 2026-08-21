@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  Calendar, MapPin, ChevronRight, Loader2, Flame,
+  Calendar, MapPin, ChevronRight, ChevronDown, ChevronUp, Loader2, Flame,
   Utensils, Music, Trophy, Ticket, Clock, ArrowRight,
 } from "lucide-react";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
@@ -29,10 +29,12 @@ function getCategoryMeta(typeOrCat?: string | null): {
   return { icon: <Calendar className="w-3 h-3" />, dot: "bg-indigo-400" };
 }
 
-export function EventsNotificationCard() {
+export function EventsNotificationCard({ defaultExpanded = false }: { defaultExpanded?: boolean }) {
   const navigate = useNavigate();
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [hasFetched, setHasFetched] = useState(false);
   const [events, setEvents] = useState<EventResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [myPassCount, setMyPassCount] = useState<number>(0);
 
   const loadEventsData = async () => {
@@ -44,6 +46,7 @@ export function EventsNotificationCard() {
       ]);
       if (Array.isArray(allUpcoming)) setEvents(allUpcoming.slice(0, 4));
       if (Array.isArray(myPasses)) setMyPassCount(myPasses.length);
+      setHasFetched(true);
     } catch {
       setEvents([]);
     } finally {
@@ -52,41 +55,59 @@ export function EventsNotificationCard() {
   };
 
   useEffect(() => {
+    if (!expanded) return;
+    if (hasFetched) return;
     loadEventsData();
-    const reload = () => loadEventsData();
+  }, [expanded, hasFetched]);
+
+  useEffect(() => {
+    const reload = () => {
+      if (expanded) loadEventsData();
+      else setHasFetched(false);
+    };
     window.addEventListener("mana_activities_updated", reload);
     window.addEventListener("mana_event_created", reload);
     return () => {
       window.removeEventListener("mana_activities_updated", reload);
       window.removeEventListener("mana_event_created", reload);
     };
-  }, []);
+  }, [expanded]);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden transition-all duration-300 hover:shadow-md">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-slate-100">
-        <div className="flex items-center gap-1.5">
-          <div className="w-5 h-5 rounded-md bg-indigo-600 flex items-center justify-center">
-            <Calendar className="w-3 h-3 text-white" />
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-3.5 py-3 border-b border-slate-100 text-left hover:bg-slate-50/50 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-xs">
+            <Calendar className="w-3.5 h-3.5 text-white" />
           </div>
-          <span className="text-[11px] font-black text-slate-800 tracking-wide uppercase">
-            Events
-          </span>
+          <div>
+            <span className="text-xs font-bold text-slate-800 block">
+              Events & Celebrations
+            </span>
+            <span className="text-[10px] text-slate-400 font-medium">Upcoming community festivals</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
           {events.length > 0 && (
-            <span className="px-1.5 py-px rounded-full text-[9px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100 leading-none">
+            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100 leading-none">
               {events.length}
             </span>
           )}
+          {expanded ? (
+            <ChevronUp className="w-4 h-4 text-slate-400" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-slate-400" />
+          )}
         </div>
-        <button
-          type="button"
-          onClick={() => navigate("/events")}
-          className="flex items-center gap-0.5 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 transition-colors cursor-pointer"
-        >
-          All <ChevronRight className="w-3 h-3" />
-        </button>
-      </div>
+      </button>
+
+      {expanded && (
+        <>
 
       {/* Pass badge — compact strip */}
       {myPassCount > 0 && (
@@ -182,6 +203,8 @@ export function EventsNotificationCard() {
         >
           View all events <ChevronRight className="w-3 h-3" />
         </button>
+      )}
+        </>
       )}
     </div>
   );

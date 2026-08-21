@@ -148,43 +148,25 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
   const [dismissed, setDismissed]     = useState(false);
   const [activeAlert, setActiveAlert] = useState<AlertTickerItem | null>(null);
 
-  // Fetch live events, pooja sevas, and notifications from the backend
+  // Fetch live notifications/broadcast notices from the backend
   useEffect(() => {
     let isMounted = true;
 
     async function loadAlerts() {
       try {
-        const [noticesRes, eventsRes, poojaRes] = await Promise.allSettled([
-          notificationService.getNotifications(0, 10),
-          eventService.getAllEvents(),
-          eventService.getPoojaSevas(),
-        ]);
+        const noticesRes = await notificationService.getNotifications(0, 5).catch(() => null);
 
         const combinedAlerts: AlertTickerItem[] = [];
 
-        // 1. Add Live Events from Events Module
-        if (eventsRes.status === "fulfilled" && Array.isArray(eventsRes.value) && eventsRes.value.length > 0) {
-          const eventAlerts = eventsRes.value.map(mapEventToAlert);
-          combinedAlerts.push(...eventAlerts);
-        }
-
-        // 2. Add Pooja Sevas from Events Module
-        if (poojaRes.status === "fulfilled" && Array.isArray(poojaRes.value) && poojaRes.value.length > 0) {
-          const poojaAlerts = poojaRes.value.map(mapPoojaSevaToAlert);
-          combinedAlerts.push(...poojaAlerts);
-        }
-
-        // 3. Add Live Notifications/Notices
-        if (noticesRes.status === "fulfilled" && noticesRes.value?.content && noticesRes.value.content.length > 0) {
-          const noticeAlerts = noticesRes.value.content.map(mapNotificationToAlert);
+        if (noticesRes?.content && noticesRes.content.length > 0) {
+          const noticeAlerts = noticesRes.content.map(mapNotificationToAlert);
           combinedAlerts.push(...noticeAlerts);
         }
 
         if (isMounted) {
           if (combinedAlerts.length > 0) {
-            setAlerts(combinedAlerts);
+            setAlerts([...combinedAlerts, ...VINAYAKA_CHAVITHI_DEFAULT_ALERTS]);
           } else {
-            // Fallback to upcoming Vinayaka Chavithi on September 14
             setAlerts(VINAYAKA_CHAVITHI_DEFAULT_ALERTS);
           }
         }

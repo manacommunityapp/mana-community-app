@@ -13,7 +13,7 @@ import { FloatingChat } from "../../chat/FloatingChat";
 import { FloatingChatBot } from "../../chat/FloatingChatBot";
 import { ChatProvider } from "../../../../contexts/ChatContext";
 import { NotificationBell } from "./NotificationBell";
-import { MobileHeaderActions, MenuListIcon } from "./MobileFloatingActions";
+import { MobileHeaderActions } from "./MobileFloatingActions";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -824,6 +824,16 @@ export function Layout() {
       <div className="flex-1 flex flex-col min-w-0">
         <header className="bg-card border-b border-border h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 lg:px-8 sticky top-0 z-30 shadow-sm">
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Desktop Menu Button on Complete Left Side */}
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Toggle Navigation Menu"
+              className="hidden lg:flex p-2 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-xl transition-all border border-border hover:border-primary/30 shrink-0 cursor-pointer shadow-2xs items-center justify-center"
+            >
+              <Menu className="h-4.5 w-4.5" />
+            </button>
+
             <Link
               to="/"
               className="font-extrabold text-sm sm:text-base text-foreground lg:hidden tracking-tight hover:opacity-85 transition-opacity cursor-pointer"
@@ -833,7 +843,7 @@ export function Layout() {
             <AppHeaderBreadcrumb />
           </div>
 
-          {/* Search bar - desktop with Menu toggle button right beside (after) */}
+          {/* Search bar - desktop */}
           <div className="hidden lg:flex items-center gap-2 flex-1 max-w-sm ml-4">
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl w-full bg-input border border-border focus-within:border-primary/50 focus-within:bg-card transition-all">
               <Search className="h-4 w-4 text-muted-foreground" />
@@ -843,15 +853,6 @@ export function Layout() {
                 className="bg-transparent border-none outline-none text-xs flex-1 text-foreground placeholder:text-muted-foreground/60"
               />
             </div>
-            {/* Menu button beside (after) search bar */}
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              title="Open Navigation Menu"
-              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-xl transition-all border border-border hover:border-primary/30 shrink-0 cursor-pointer shadow-2xs"
-            >
-              <MenuListIcon className="h-4.5 w-4.5" />
-            </button>
           </div>
 
           <div className="flex-1 hidden lg:block" />

@@ -46,7 +46,7 @@ import {
   Video,
   Camera,
 } from "lucide-react";
-import { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { cn } from "../ui/utils";
 import { feedService, type CreatePostRequest, type UpdatePostRequest } from "../../../services/community/feedService";
@@ -228,6 +228,40 @@ function postMediaToAttachments(post: any): FeedMediaAttachment[] {
     sortOrder: 0,
   }] : [];
 }
+
+const getInitials = (name?: string) => {
+  if (!name) return "U";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0, Math.min(2, parts[0].length)).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
+
+const formatTimeAgo = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (seconds < 60) return "Just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+};
+
+const getPostTypeConfig = (type?: string) =>
+  POST_TYPE_CONFIG.find((t) => t.id === type) || POST_TYPE_CONFIG[0];
+
+const getReactionIcon = (type?: ReactionTypeEnum) => {
+  const config = REACTION_CONFIG.find((r) => r.type === type);
+  return config || REACTION_CONFIG[0];
+};
+
+const renderHashtags = (content: string) => {
+  return content.replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>');
+};
 
 interface FeedVideoPlayerProps {
   mediaUrl: string;
@@ -654,11 +688,6 @@ export function Feed() {
   const [commentLikersList, setCommentLikersList] = useState<CommentLikerResponse[]>([]);
   const [loadingCommentLikers, setLoadingCommentLikers] = useState(false);
 
-  const [trending, setTrending] = useState<TrendingResponse[]>([]);
-  const [myGroups, setMyGroups] = useState<GroupResponse[]>([]);
-  const [leaderboard, setLeaderboard] = useState<EngagementScoreResponse[]>([]);
-  const [myScore, setMyScore] = useState<EngagementScoreResponse | null>(null);
-
   useEffect(() => {
     async function loadInitialFeed() {
       if (!user?.communityId) { setLoading(false); return; }
@@ -678,15 +707,8 @@ export function Feed() {
   }, [user?.communityId, activeFilter]);
 
   useEffect(() => {
-    if (!user?.communityId) return;
-    engagementService.getTrending(8).then(setTrending).catch(() => {});
-    groupService.getMyGroups().then(setMyGroups).catch(() => {});
-    engagementService.getLeaderboard(5).then(setLeaderboard).catch(() => {});
-    engagementService.getMyScore().then(setMyScore).catch(() => {});
-  }, [user?.communityId]);
-
-  useEffect(() => {
-    if (!user?.communityId || !canPost) return;
+    if (!user?.communityId || !canPost || !isCreateModalOpen) return;
+    if (createdEvents.length > 0) return;
 
     let active = true;
     setLoadingCreatedEvents(true);
@@ -704,7 +726,7 @@ export function Feed() {
       });
 
     return () => { active = false; };
-  }, [user?.communityId, canPost]);
+  }, [user?.communityId, canPost, isCreateModalOpen, createdEvents.length]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -875,7 +897,7 @@ export function Feed() {
     }
   };
 
-  const handleDeletePost = async (postId: number) => {
+  const handleDeletePost = useCallback(async (postId: number) => {
     if (!window.confirm("Are you sure you want to delete this post?")) return;
     try {
       await feedService.deletePost(postId);
@@ -884,9 +906,9 @@ export function Feed() {
     } catch (error: any) {
       toast.error("Failed to delete post: " + error.message);
     }
-  };
+  }, []);
 
-  const handleUpdatePost = async (postId: number, updates: UpdatePostRequest) => {
+  const handleUpdatePost = useCallback(async (postId: number, updates: UpdatePostRequest) => {
     try {
       const updated = await feedService.updatePost(postId, updates);
       setPosts((prev) => prev.map((p) => (p.id === postId ? updated : p)));
@@ -894,10 +916,9 @@ export function Feed() {
     } catch (error: any) {
       toast.error("Failed to update post: " + error.message);
     }
-  };
+  }, []);
 
-  const handleReaction = async (postId: number, reactionType: ReactionTypeEnum) => {
-    const originalPosts = [...posts];
+  const handleReaction = useCallback(async (postId: number, reactionType: ReactionTypeEnum) => {
     setPosts((prev) =>
       prev.map((post) => {
         if (post.id === postId) {
@@ -931,12 +952,11 @@ export function Feed() {
         })
       );
     } catch (error: any) {
-      setPosts(originalPosts);
       toast.error("Failed to react: " + error.message);
     }
-  };
+  }, []);
 
-  const handleBookmark = async (postId: number) => {
+  const handleBookmark = useCallback(async (postId: number) => {
     setPosts((prev) =>
       prev.map((post) => {
         if (post.id === postId) {
@@ -954,9 +974,23 @@ export function Feed() {
     } catch (error: any) {
       toast.error("Failed to bookmark: " + error.message);
     }
-  };
+  }, []);
 
-  const handleVote = async (postId: number, option: string) => {
+  const handleVote = useCallback(async (postId: number, option: string) => {
+    setPosts((prev) =>
+      prev.map((post) => {
+        if (post.id === postId) {
+          const currentVotes = { ...(post.pollVotes || {}) };
+          currentVotes[option] = (currentVotes[option] || 0) + 1;
+          return {
+            ...post,
+            userVotedOption: option,
+            pollVotes: currentVotes,
+          };
+        }
+        return post;
+      })
+    );
     try {
       const updatedPost = await feedService.voteOnPoll(postId, option);
       setPosts((prev) => prev.map((p) => (p.id === postId ? updatedPost : p)));
@@ -964,25 +998,28 @@ export function Feed() {
     } catch (error: any) {
       toast.error("Failed to vote: " + error.message);
     }
-  };
+  }, []);
 
-  const handleToggleComments = async (postId: number) => {
-    const isOpen = !commentsOpen[postId];
-    setCommentsOpen((prev) => ({ ...prev, [postId]: isOpen }));
-    if (isOpen && !comments[postId]) {
-      setLoadingComments((prev) => ({ ...prev, [postId]: true }));
-      try {
-        const res = await feedService.getComments(postId);
-        setComments((prev) => ({ ...prev, [postId]: res }));
-      } catch (error: any) {
-        toast.error("Failed to load comments: " + error.message);
-      } finally {
-        setLoadingComments((prev) => ({ ...prev, [postId]: false }));
+  const handleToggleComments = useCallback(async (postId: number) => {
+    setCommentsOpen((prev) => {
+      const isOpen = !prev[postId];
+      if (isOpen) {
+        setComments((cPrev) => {
+          if (!cPrev[postId]) {
+            setLoadingComments((lPrev) => ({ ...lPrev, [postId]: true }));
+            feedService.getComments(postId)
+              .then((res) => setComments((cur) => ({ ...cur, [postId]: res })))
+              .catch((err) => toast.error("Failed to load comments: " + err.message))
+              .finally(() => setLoadingComments((cur) => ({ ...cur, [postId]: false })));
+          }
+          return cPrev;
+        });
       }
-    }
-  };
+      return { ...prev, [postId]: isOpen };
+    });
+  }, []);
 
-  const handleAddComment = async (postId: number) => {
+  const handleAddComment = useCallback(async (postId: number) => {
     const text = newCommentText[postId]?.trim();
     if (!text) return;
     const parentId = replyingTo[postId] || undefined;
@@ -1008,9 +1045,9 @@ export function Feed() {
     } finally {
       setSubmittingComment((prev) => ({ ...prev, [postId]: false }));
     }
-  };
+  }, [newCommentText, replyingTo]);
 
-  const handleDeleteComment = async (postId: number, commentId: number) => {
+  const handleDeleteComment = useCallback(async (postId: number, commentId: number) => {
     if (!window.confirm("Delete this comment?")) return;
     try {
       await feedService.deleteComment(commentId);
@@ -1025,9 +1062,9 @@ export function Feed() {
     } catch (error: any) {
       toast.error("Failed to delete comment: " + error.message);
     }
-  };
+  }, []);
 
-  const handleOpenPostLikers = async (postId: number) => {
+  const handleOpenPostLikers = useCallback(async (postId: number) => {
     setPostLikersModalPostId(postId);
     setLoadingPostLikers(true);
     try {
@@ -1038,9 +1075,9 @@ export function Feed() {
     } finally {
       setLoadingPostLikers(false);
     }
-  };
+  }, []);
 
-  const handleOpenCommentLikers = async (commentId: number) => {
+  const handleOpenCommentLikers = useCallback(async (commentId: number) => {
     setCommentLikersModalCommentId(commentId);
     setLoadingCommentLikers(true);
     try {
@@ -1051,9 +1088,9 @@ export function Feed() {
     } finally {
       setLoadingCommentLikers(false);
     }
-  };
+  }, []);
 
-  const handleToggleCommentLike = async (postId: number, commentId: number) => {
+  const handleToggleCommentLike = useCallback(async (postId: number, commentId: number) => {
     try {
       const res = await feedService.toggleCommentLike(commentId);
       setComments((prev) => {
@@ -1084,10 +1121,10 @@ export function Feed() {
     } catch (err: any) {
       toast.error("Failed to like comment: " + err.message);
     }
-  };
+  }, []);
 
   /** Toggle a rich emoji reaction on a comment (LIKE, LOVE, CELEBRATE, HELPFUL, THANKS) */
-  const handleToggleCommentReaction = async (postId: number, commentId: number, reactionType: string) => {
+  const handleToggleCommentReaction = useCallback(async (postId: number, commentId: number, reactionType: string) => {
     try {
       const res = await feedService.toggleCommentReaction(commentId, reactionType);
       setComments((prev) => {
@@ -1112,41 +1149,7 @@ export function Feed() {
     } catch (err: any) {
       toast.error("Failed to react to comment: " + err.message);
     }
-  };
-
-  const getInitials = (name?: string) => {
-    if (!name) return "U";
-    const parts = name.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].substring(0, Math.min(2, parts[0].length)).toUpperCase();
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-  };
-
-  const formatTimeAgo = (dateString: string): string => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-    if (seconds < 60) return "Just now";
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    if (days === 1) return "Yesterday";
-    if (days < 7) return `${days}d ago`;
-    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  };
-
-  const getPostTypeConfig = (type?: string) =>
-    POST_TYPE_CONFIG.find((t) => t.id === type) || POST_TYPE_CONFIG[0];
-
-  const getReactionIcon = (type?: ReactionTypeEnum) => {
-    const config = REACTION_CONFIG.find((r) => r.type === type);
-    return config || REACTION_CONFIG[0];
-  };
-
-  const renderHashtags = (content: string) => {
-    return content.replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>');
-  };
+  }, []);
 
   if (!user?.communityId) {
     return (
@@ -1922,11 +1925,11 @@ export function Feed() {
         {/* Sidebar */}
         <div className="hidden lg:block sticky top-20 space-y-4">
           <EventsNotificationCard />
-          <TrendingCard trending={trending} onHashtagClick={(tag) => { setSearchQuery(tag); handleSearch(); }} />
-          <MyGroupsCard groups={myGroups} />
-          <LeaderboardCard leaderboard={leaderboard} getInitials={getInitials} />
+          <TrendingCard onHashtagClick={(tag) => { setSearchQuery(tag); handleSearch(); }} />
+          <MyGroupsCard />
+          <LeaderboardCard getInitials={getInitials} />
           <CommunityDirectory />
-          {myScore && <EngagementScoreCard score={myScore} />}
+          <EngagementScoreCard />
           <SportsNotificationCard />
           <SidebarAnnouncements posts={posts} />
           <QuickLinksCard />
@@ -2093,8 +2096,8 @@ export function Feed() {
   );
 }
 
-/* ─── Post Card Component ─── */
-function PostCard({
+/* ─── Post Card Component (Memoized for 60fps feed performance) ─── */
+const PostCard = React.memo(function PostCard({
   post, user, isAdmin, canEdit, commentsOpen, comments, loadingComments, newCommentText,
   submittingComment, replyingTo, showReactionPicker, reactionPickerRef,
   onDeletePost, onUpdatePost, onReaction, onBookmark, onVote, onToggleComments, onAddComment,
@@ -2737,7 +2740,7 @@ function PostCard({
       )}
     </div>
   );
-}
+});
 
 /* ─── Comment Item (Threaded) ─── */
 function CommentItem({
@@ -2902,119 +2905,328 @@ function CommentItem({
   );
 }
 
-/* ─── Sidebar Components ─── */
-function EngagementScoreCard({ score }: { score: EngagementScoreResponse }) {
+/* ─── Sidebar Components (On-Demand / Lazy Loaded) ─── */
+function EngagementScoreCard() {
+  const [expanded, setExpanded] = useState(false);
+  const [score, setScore] = useState<EngagementScoreResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+
+  useEffect(() => {
+    if (!expanded || hasFetched) return;
+    setLoading(true);
+    engagementService.getMyScore()
+      .then((data) => {
+        setScore(data);
+        setHasFetched(true);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [expanded, hasFetched]);
+
   return (
-    <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-lg p-2.5 text-white shadow-sm">
-      <div className="flex items-center justify-between mb-1.5">
-        <h4 className="text-[10px] font-bold uppercase tracking-wider opacity-90">Your Engagement</h4>
-        <div className="flex items-center gap-1 bg-white/20 px-1.5 py-0.5 rounded-full text-[9px] font-bold">
-          <Crown className="w-2.5 h-2.5" /> Lvl {score.level}
+    <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden transition-all duration-300 hover:shadow-md">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-3.5 py-3 text-left hover:bg-slate-50/50 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-white shadow-xs">
+            <Crown className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-800 block">Your Engagement Score</span>
+            <span className="text-[10px] text-slate-400 font-medium">Points, level & badges</span>
+          </div>
         </div>
-      </div>
-      <div className="flex items-baseline gap-1 mb-2">
-        <span className="text-lg font-black leading-none">{score.totalPoints.toLocaleString()}</span>
-        <span className="text-[9px] opacity-75 font-medium">pts</span>
-      </div>
-      <div className="grid grid-cols-3 gap-1 text-center">
-        <div className="bg-white/10 rounded p-1">
-          <div className="text-xs font-bold leading-tight">{score.postsCount}</div>
-          <div className="text-[8px] opacity-70 leading-tight">Posts</div>
-        </div>
-        <div className="bg-white/10 rounded p-1">
-          <div className="text-xs font-bold leading-tight">{score.commentsCount}</div>
-          <div className="text-[8px] opacity-70 leading-tight">Comments</div>
-        </div>
-        <div className="bg-white/10 rounded p-1">
-          <div className="text-xs font-bold leading-tight">{score.helpfulCount}</div>
-          <div className="text-[8px] opacity-70 leading-tight">Helpful</div>
-        </div>
-      </div>
-      {score.badges.length > 0 && (
-        <div className="flex gap-1 mt-1.5 flex-wrap">
-          {score.badges.slice(0, 5).map((b) => (
-            <span key={b.id} className="bg-white/15 px-1.5 py-0.5 rounded text-[8px] font-semibold" title={b.title}>
-              {b.icon || "🏅"} {b.title}
-            </span>
-          ))}
+        {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+      </button>
+
+      {expanded && (
+        <div className="px-3.5 pb-3.5 pt-1 border-t border-slate-100">
+          {loading ? (
+            <div className="flex items-center justify-center py-4 text-slate-400 text-xs">
+              <Loader2 className="w-4 h-4 animate-spin text-indigo-600 mr-2" />
+              Loading your score...
+            </div>
+          ) : !score ? (
+            <div className="text-center py-4 text-slate-400 text-xs font-medium">
+              Score data currently unavailable.
+            </div>
+          ) : (
+            <div className="bg-gradient-to-br from-indigo-600 to-violet-700 rounded-xl p-3 text-white shadow-xs mt-1">
+              <div className="flex items-center justify-between mb-1.5">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider opacity-90">Community Level</h4>
+                <div className="flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded-full text-[9px] font-bold">
+                  <Crown className="w-2.5 h-2.5" /> Lvl {score.level}
+                </div>
+              </div>
+              <div className="flex items-baseline gap-1 mb-2">
+                <span className="text-xl font-black leading-none">{score.totalPoints.toLocaleString()}</span>
+                <span className="text-[9px] opacity-75 font-medium">pts</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 text-center">
+                <div className="bg-white/10 rounded-lg p-1.5">
+                  <div className="text-xs font-bold leading-tight">{score.postsCount}</div>
+                  <div className="text-[8px] opacity-70 leading-tight">Posts</div>
+                </div>
+                <div className="bg-white/10 rounded-lg p-1.5">
+                  <div className="text-xs font-bold leading-tight">{score.commentsCount}</div>
+                  <div className="text-[8px] opacity-70 leading-tight">Comments</div>
+                </div>
+                <div className="bg-white/10 rounded-lg p-1.5">
+                  <div className="text-xs font-bold leading-tight">{score.helpfulCount}</div>
+                  <div className="text-[8px] opacity-70 leading-tight">Helpful</div>
+                </div>
+              </div>
+              {score.badges && score.badges.length > 0 && (
+                <div className="flex gap-1 mt-2 flex-wrap">
+                  {score.badges.slice(0, 5).map((b) => (
+                    <span key={b.id} className="bg-white/15 px-1.5 py-0.5 rounded text-[8px] font-semibold" title={b.title}>
+                      {b.icon || "🏅"} {b.title}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function TrendingCard({ trending, onHashtagClick }: { trending: TrendingResponse[]; onHashtagClick: (tag: string) => void }) {
-  if (trending.length === 0) return null;
-  return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
-      <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-        <div className="p-1.5 bg-orange-50 text-orange-600 rounded-lg"><Flame className="w-4 h-4" /></div>
-        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Trending</h4>
-      </div>
-      <div className="space-y-2">
-        {trending.map((t, i) => (
-          <button key={t.id} onClick={() => onHashtagClick(t.topic)} className="w-full text-left flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50 transition-all group">
-            <span className="text-[10px] font-bold text-slate-400 w-4">{i + 1}</span>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-bold text-slate-800 group-hover:text-indigo-600 truncate">{t.topic}</div>
-              <div className="text-[10px] text-slate-400">{t.postCount} posts</div>
-            </div>
-            <TrendingUp className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
+function TrendingCard({ onHashtagClick }: { onHashtagClick: (tag: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [trending, setTrending] = useState<TrendingResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
 
-function MyGroupsCard({ groups }: { groups: GroupResponse[] }) {
-  if (groups.length === 0) return null;
+  useEffect(() => {
+    if (!expanded || hasFetched) return;
+    setLoading(true);
+    engagementService.getTrending(8)
+      .then((data) => {
+        setTrending(Array.isArray(data) ? data : []);
+        setHasFetched(true);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [expanded, hasFetched]);
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
-      <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-        <div className="p-1.5 bg-violet-50 text-violet-600 rounded-lg"><Users className="w-4 h-4" /></div>
-        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">My Groups</h4>
-      </div>
-      <div className="space-y-1.5">
-        {groups.slice(0, 5).map((g) => (
-          <div key={g.id} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50 cursor-pointer transition-all">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center text-[10px] font-bold text-violet-700">
-              {g.iconUrl ? <img src={g.iconUrl} alt="" className="w-full h-full rounded-lg object-cover" /> : g.name.charAt(0)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold text-slate-800 truncate">{g.name}</div>
-              <div className="text-[10px] text-slate-400">{g.memberCount} members</div>
-            </div>
+    <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden transition-all duration-300 hover:shadow-md">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-3.5 py-3 text-left hover:bg-slate-50/50 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-xs">
+            <Flame className="w-3.5 h-3.5" />
           </div>
-        ))}
-      </div>
+          <div>
+            <span className="text-xs font-bold text-slate-800 block">Trending Topics</span>
+            <span className="text-[10px] text-slate-400 font-medium">Popular community discussions</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {trending.length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-orange-50 text-orange-600 border border-orange-100 leading-none">
+              {trending.length}
+            </span>
+          )}
+          {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-3.5 pb-3.5 pt-1 border-t border-slate-100">
+          {loading ? (
+            <div className="flex items-center justify-center py-4 text-slate-400 text-xs">
+              <Loader2 className="w-4 h-4 animate-spin text-orange-500 mr-2" />
+              Loading trending topics...
+            </div>
+          ) : trending.length === 0 ? (
+            <div className="text-center py-4 text-slate-400 text-xs font-medium">
+              No trending hashtags yet.
+            </div>
+          ) : (
+            <div className="space-y-1.5 mt-1">
+              {trending.map((t, i) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => onHashtagClick(t.topic)}
+                  className="w-full text-left flex items-center gap-2 p-1.5 rounded-xl hover:bg-orange-50/60 transition-all group cursor-pointer"
+                >
+                  <span className="text-[10px] font-bold text-slate-400 w-4 text-center">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-slate-800 group-hover:text-orange-600 truncate">{t.topic}</div>
+                    <div className="text-[10px] text-slate-400">{t.postCount} posts</div>
+                  </div>
+                  <TrendingUp className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function LeaderboardCard({ leaderboard, getInitials }: { leaderboard: EngagementScoreResponse[]; getInitials: (name: string) => string }) {
-  if (leaderboard.length === 0) return null;
+function MyGroupsCard() {
+  const [expanded, setExpanded] = useState(false);
+  const [groups, setGroups] = useState<GroupResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+
+  useEffect(() => {
+    if (!expanded || hasFetched) return;
+    setLoading(true);
+    groupService.getMyGroups()
+      .then((data) => {
+        setGroups(Array.isArray(data) ? data : []);
+        setHasFetched(true);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [expanded, hasFetched]);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden transition-all duration-300 hover:shadow-md">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-3.5 py-3 text-left hover:bg-slate-50/50 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-xs">
+            <Users className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <span className="text-xs font-bold text-slate-800 block">My Groups</span>
+            <span className="text-[10px] text-slate-400 font-medium">Interest & club channels</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {groups.length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-violet-50 text-violet-600 border border-violet-100 leading-none">
+              {groups.length}
+            </span>
+          )}
+          {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-3.5 pb-3.5 pt-1 border-t border-slate-100">
+          {loading ? (
+            <div className="flex items-center justify-center py-4 text-slate-400 text-xs">
+              <Loader2 className="w-4 h-4 animate-spin text-violet-600 mr-2" />
+              Loading your groups...
+            </div>
+          ) : groups.length === 0 ? (
+            <div className="text-center py-4 text-slate-400 text-xs font-medium">
+              You haven't joined any groups yet.
+            </div>
+          ) : (
+            <div className="space-y-1 mt-1">
+              {groups.slice(0, 5).map((g) => (
+                <div key={g.id} className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-violet-50/60 cursor-pointer transition-all">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center text-[10px] font-bold text-violet-700 shrink-0">
+                    {g.iconUrl ? <img src={g.iconUrl} alt="" className="w-full h-full rounded-lg object-cover" /> : g.name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-slate-800 truncate">{g.name}</div>
+                    <div className="text-[10px] text-slate-400">{g.memberCount} members</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LeaderboardCard({ getInitials }: { getInitials: (name: string) => string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [leaderboard, setLeaderboard] = useState<EngagementScoreResponse[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
   const medals = ["🥇", "🥈", "🥉"];
+
+  useEffect(() => {
+    if (!expanded || hasFetched) return;
+    setLoading(true);
+    engagementService.getLeaderboard(5)
+      .then((data) => {
+        setLeaderboard(Array.isArray(data) ? data : []);
+        setHasFetched(true);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [expanded, hasFetched]);
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 space-y-3">
-      <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
-        <div className="p-1.5 bg-yellow-50 text-yellow-600 rounded-lg"><Trophy className="w-4 h-4" /></div>
-        <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Top Contributors</h4>
-      </div>
-      <div className="space-y-1.5">
-        {leaderboard.map((entry, i) => (
-          <div key={entry.userId} className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-slate-50 transition-all">
-            <span className="text-sm w-5 text-center">{medals[i] || `${i + 1}`}</span>
-            <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 overflow-hidden">
-              {entry.profilePicUrl ? <img src={entry.profilePicUrl} alt="" className="w-full h-full object-cover" /> : getInitials(entry.userName)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold text-slate-800 truncate">{entry.userName}</div>
-              <div className="text-[10px] text-slate-400">{entry.totalPoints} pts · Level {entry.level}</div>
-            </div>
+    <div className="bg-white rounded-2xl shadow-xs border border-slate-200/90 overflow-hidden transition-all duration-300 hover:shadow-md">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center justify-between px-3.5 py-3 text-left hover:bg-slate-50/50 transition-colors cursor-pointer"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+            <Trophy className="w-3.5 h-3.5" />
           </div>
-        ))}
-      </div>
+          <div>
+            <span className="text-xs font-bold text-slate-800 block">Top Contributors</span>
+            <span className="text-[10px] text-slate-400 font-medium">Most active residents</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {leaderboard.length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-50 text-amber-600 border border-amber-100 leading-none">
+              {leaderboard.length}
+            </span>
+          )}
+          {expanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-3.5 pb-3.5 pt-1 border-t border-slate-100">
+          {loading ? (
+            <div className="flex items-center justify-center py-4 text-slate-400 text-xs">
+              <Loader2 className="w-4 h-4 animate-spin text-amber-500 mr-2" />
+              Loading top contributors...
+            </div>
+          ) : leaderboard.length === 0 ? (
+            <div className="text-center py-4 text-slate-400 text-xs font-medium">
+              No contributor scores recorded yet.
+            </div>
+          ) : (
+            <div className="space-y-1 mt-1">
+              {leaderboard.map((entry, i) => (
+                <div key={entry.userId} className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-amber-50/60 transition-all">
+                  <span className="text-xs w-5 text-center">{medals[i] || `${i + 1}`}</span>
+                  <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 overflow-hidden shrink-0">
+                    {entry.profilePicUrl ? <img src={entry.profilePicUrl} alt="" className="w-full h-full object-cover" /> : getInitials(entry.userName)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-slate-800 truncate">{entry.userName}</div>
+                    <div className="text-[10px] text-slate-400">{entry.totalPoints} pts · Level {entry.level}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

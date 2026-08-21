@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Trophy, Calendar, MapPin, Users, ChevronRight, Loader2, Bell, Award, Zap } from "lucide-react";
+import { Trophy, Calendar, MapPin, Users, ChevronRight, ChevronDown, ChevronUp, Loader2, Bell, Award, Zap } from "lucide-react";
 import { sportsEventService } from "../../../services/sports/sportsEventService";
 import { notificationService } from "../../../services/notices/notificationService";
 import type { SportsEvent } from "../../../types/api";
@@ -89,32 +89,41 @@ function NotificationRow({ n }: { n: NotificationItem }) {
 interface Props {
   /** Pass "sports" to show Sports tab first */
   defaultTab?: "events" | "notifications";
+  defaultExpanded?: boolean;
 }
 
-export function SportsNotificationCard({ defaultTab = "events" }: Props) {
+export function SportsNotificationCard({ defaultTab = "events", defaultExpanded = false }: Props) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const [hasFetched, setHasFetched] = useState(false);
   const [tab, setTab] = useState<"events" | "notifications">(defaultTab);
   const [events, setEvents] = useState<SportsEvent[]>([]);
   const [notifs, setNotifs] = useState<NotificationItem[]>([]);
-  const [loadingEvents, setLoadingEvents] = useState(true);
-  const [loadingNotifs, setLoadingNotifs] = useState(true);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [loadingNotifs, setLoadingNotifs] = useState(false);
 
   useEffect(() => {
-    if (!user?.communityId) { setLoadingEvents(false); return; }
-    sportsEventService.getOpenTournaments(user.communityId)
-      .then(setEvents)
-      .catch(() => {})
-      .finally(() => setLoadingEvents(false));
-  }, [user?.communityId]);
+    if (!expanded) return;
+    if (hasFetched) return;
 
-  useEffect(() => {
+    if (user?.communityId) {
+      setLoadingEvents(true);
+      sportsEventService.getOpenTournaments(user.communityId)
+        .then(setEvents)
+        .catch(() => {})
+        .finally(() => setLoadingEvents(false));
+    }
+
+    setLoadingNotifs(true);
     notificationService.getNotifications(0, 10)
       .then(page => setNotifs(page.content))
       .catch(() => {})
       .finally(() => setLoadingNotifs(false));
-  }, []);
+
+    setHasFetched(true);
+  }, [expanded, hasFetched, user?.communityId]);
 
   const sportsNotifs = notifs.filter((n) => {
     const cat = (n.category || "").toLowerCase();
@@ -135,123 +144,135 @@ export function SportsNotificationCard({ defaultTab = "events" }: Props) {
   });
 
   const hasEvents = events.length > 0;
-  const hasNotifs = notifs.length > 0;
-
-  if (!hasEvents && !hasNotifs && !loadingEvents && !loadingNotifs) return null;
 
   return (
-    <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden transition-all duration-300 hover:shadow-md">
       {/* Header */}
-      <div className="flex items-center gap-2 px-2.5 py-2 border-b border-slate-100 bg-gradient-to-r from-sky-50 to-white">
-        <div className="w-6 h-6 rounded-md bg-sky-600 flex items-center justify-center shadow-sm">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 px-3 py-3 border-b border-slate-100 bg-gradient-to-r from-sky-50 to-white text-left cursor-pointer transition-colors hover:bg-sky-50/80"
+      >
+        <div className="w-7 h-7 rounded-xl bg-sky-600 flex items-center justify-center shadow-xs">
           <Trophy className="w-3.5 h-3.5 text-white" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-xs font-bold text-slate-900 leading-tight truncate">Sports & Notifications</h3>
-          <p className="text-[9px] text-slate-500 font-medium leading-tight truncate">Upcoming events & alerts</p>
+          <h3 className="text-xs font-bold text-slate-900 leading-tight truncate">Sports Hub</h3>
+          <p className="text-[10px] text-slate-500 font-medium leading-tight truncate">Tournaments, matches & alerts</p>
         </div>
-        <Zap className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-      </div>
+        <div className="flex items-center gap-1.5">
+          <Zap className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+          {expanded ? (
+            <ChevronUp className="w-4 h-4 text-slate-400" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-slate-400" />
+          )}
+        </div>
+      </button>
 
-      {/* Tab Bar */}
-      <div className="flex border-b border-slate-100">
-        <button
-          type="button"
-          onClick={() => setTab("events")}
-          className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[9px] font-bold transition-all border-b-2 ${
-            tab === "events"
-              ? "border-sky-500 text-sky-700 bg-sky-50/30"
-              : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <Award className="w-2.5 h-2.5" />
-          Events {hasEvents && <span className="bg-sky-100 text-sky-600 px-1 py-0.2 rounded-full text-[8px]">{events.length}</span>}
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("notifications")}
-          className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[9px] font-bold transition-all border-b-2 ${
-            tab === "notifications"
-              ? "border-indigo-500 text-indigo-700 bg-indigo-50/30"
-              : "border-transparent text-slate-400 hover:text-slate-600"
-          }`}
-        >
-          <Bell className="w-2.5 h-2.5" />
-          Alerts {sportsNotifs.length > 0 && <span className="bg-indigo-100 text-indigo-600 px-1 py-0.2 rounded-full text-[8px]">{sportsNotifs.length}</span>}
-        </button>
-      </div>
+      {expanded && (
+        <>
+          {/* Tab Bar */}
+          <div className="flex border-b border-slate-100 bg-slate-50/60">
+            <button
+              type="button"
+              onClick={() => setTab("events")}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 text-[10px] font-bold transition-all border-b-2 cursor-pointer ${
+                tab === "events"
+                  ? "border-sky-500 text-sky-700 bg-white shadow-2xs"
+                  : "border-transparent text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              <Award className="w-3 h-3" />
+              Events {hasEvents && <span className="bg-sky-100 text-sky-600 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold">{events.length}</span>}
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("notifications")}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 text-[10px] font-bold transition-all border-b-2 cursor-pointer ${
+                tab === "notifications"
+                  ? "border-indigo-500 text-indigo-700 bg-white shadow-2xs"
+                  : "border-transparent text-slate-400 hover:text-slate-600"
+              }`}
+            >
+              <Bell className="w-3 h-3" />
+              Alerts {sportsNotifs.length > 0 && <span className="bg-indigo-100 text-indigo-600 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold">{sportsNotifs.length}</span>}
+            </button>
+          </div>
 
-      {/* Content */}
-      <div className="p-2 space-y-1.5 max-h-52 overflow-y-auto">
-        {tab === "events" && (
-          <>
-            {loadingEvents ? (
-              <div className="flex items-center justify-center py-4 text-slate-400">
-                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                <span className="text-[10px]">Loading events...</span>
-              </div>
-            ) : hasEvents ? (
-              events.slice(0, 5).map(ev => (
-                <SportEventRow
-                  key={ev.id}
-                  ev={ev}
-                  onNavigate={() => navigate(`/sports/events/${ev.id}`)}
-                />
-              ))
-            ) : (
-              <div className="text-center py-4 text-slate-400">
-                <Trophy className="w-5 h-5 mx-auto mb-1 opacity-30" />
-                <p className="text-[10px]">No open sports events right now.</p>
-              </div>
+          {/* Content */}
+          <div className="p-2 space-y-1.5 max-h-52 overflow-y-auto">
+            {tab === "events" && (
+              <>
+                {loadingEvents ? (
+                  <div className="flex items-center justify-center py-4 text-slate-400">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    <span className="text-[10px]">Loading events...</span>
+                  </div>
+                ) : hasEvents ? (
+                  events.slice(0, 5).map(ev => (
+                    <SportEventRow
+                      key={ev.id}
+                      ev={ev}
+                      onNavigate={() => navigate(`/sports/events/${ev.id}`)}
+                    />
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-slate-400">
+                    <Trophy className="w-5 h-5 mx-auto mb-1 opacity-30" />
+                    <p className="text-[10px]">No open sports events right now.</p>
+                  </div>
+                )}
+                {events.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => navigate("/sports")}
+                    className="w-full py-1 text-[9px] font-bold text-sky-600 hover:text-sky-800 hover:bg-sky-50 rounded transition-colors flex items-center justify-center gap-0.5"
+                  >
+                    View all {events.length} events <ChevronRight className="w-2.5 h-2.5" />
+                  </button>
+                )}
+              </>
             )}
-            {events.length > 5 && (
-              <button
-                type="button"
-                onClick={() => navigate("/sports")}
-                className="w-full py-1 text-[9px] font-bold text-sky-600 hover:text-sky-800 hover:bg-sky-50 rounded transition-colors flex items-center justify-center gap-0.5"
-              >
-                View all {events.length} events <ChevronRight className="w-2.5 h-2.5" />
-              </button>
-            )}
-          </>
-        )}
 
-        {tab === "notifications" && (
-          <>
-            {loadingNotifs ? (
-              <div className="flex items-center justify-center py-4 text-slate-400">
-                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                <span className="text-[10px]">Loading alerts...</span>
-              </div>
-            ) : sportsNotifs.length > 0 ? (
-              sportsNotifs.slice(0, 8).map(n => (
-                <NotificationRow key={n.id} n={n} />
-              ))
-            ) : notifs.length > 0 ? (
-              notifs.slice(0, 8).map(n => (
-                <NotificationRow key={n.id} n={n} />
-              ))
-            ) : (
-              <div className="text-center py-4 text-slate-400">
-                <Bell className="w-5 h-5 mx-auto mb-1 opacity-30" />
-                <p className="text-[10px]">No notifications yet.</p>
-              </div>
+            {tab === "notifications" && (
+              <>
+                {loadingNotifs ? (
+                  <div className="flex items-center justify-center py-4 text-slate-400">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                    <span className="text-[10px]">Loading alerts...</span>
+                  </div>
+                ) : sportsNotifs.length > 0 ? (
+                  sportsNotifs.slice(0, 8).map(n => (
+                    <NotificationRow key={n.id} n={n} />
+                  ))
+                ) : notifs.length > 0 ? (
+                  notifs.slice(0, 8).map(n => (
+                    <NotificationRow key={n.id} n={n} />
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-slate-400">
+                    <Bell className="w-5 h-5 mx-auto mb-1 opacity-30" />
+                    <p className="text-[10px]">No notifications yet.</p>
+                  </div>
+                )}
+              </>
             )}
-          </>
-        )}
-      </div>
+          </div>
 
-      {/* Footer CTA */}
-      <div className="border-t border-slate-100 px-2.5 py-1.5 flex items-center justify-between bg-slate-50/40">
-        <span className="text-[9px] text-slate-400">Sports Hub</span>
-        <button
-          type="button"
-          onClick={() => navigate("/sports")}
-          className="text-[9px] font-bold text-sky-600 hover:text-sky-800 flex items-center gap-0.5 transition-colors"
-        >
-          Explore <ChevronRight className="w-2.5 h-2.5" />
-        </button>
-      </div>
+          {/* Footer CTA */}
+          <div className="border-t border-slate-100 px-2.5 py-1.5 flex items-center justify-between bg-slate-50/40">
+            <span className="text-[9px] text-slate-400">Sports Hub</span>
+            <button
+              type="button"
+              onClick={() => navigate("/sports")}
+              className="text-[9px] font-bold text-sky-600 hover:text-sky-800 flex items-center gap-0.5 transition-colors"
+            >
+              Explore <ChevronRight className="w-2.5 h-2.5" />
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

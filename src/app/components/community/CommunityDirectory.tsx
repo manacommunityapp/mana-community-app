@@ -418,15 +418,20 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false }:
   const { openFloatingChatWithUser } = useChat();
   const [leaders, setLeaders] = useState<CommunityLeaderResponse[]>([]);
   const [whoToCallDbList, setWhoToCallDbList] = useState<CommunityWhoToCallResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(isModal || defaultExpanded);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(isModal || defaultExpanded);
+  const [hasFetched, setHasFetched] = useState(false);
   const [tab, setTab] = useState<DirectoryTab>("leadership");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCommittees, setExpandedCommittees] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    if (!expanded && !isModal) return;
+    if (hasFetched) return;
+
     let cancelled = false;
+    setLoading(true);
     Promise.all([
       communityDirectoryService.getDirectory().catch(() => []),
       whoToCallService.getWhoToCallList().catch(() => []),
@@ -435,6 +440,7 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false }:
         if (!cancelled) {
           setLeaders(Array.isArray(dirData) ? dirData : []);
           setWhoToCallDbList(Array.isArray(whoToCallData) ? whoToCallData : []);
+          setHasFetched(true);
         }
       })
       .catch((err) => {
@@ -446,7 +452,7 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false }:
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [expanded, isModal, hasFetched]);
 
   const filteredLeaders = useMemo(() => {
     if (!searchQuery.trim()) return leaders;
