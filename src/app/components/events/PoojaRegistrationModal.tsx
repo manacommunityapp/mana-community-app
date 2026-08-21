@@ -15,10 +15,12 @@ import {
   Loader2,
   ShieldCheck,
   Database,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { userService } from "../../../services/common/userService";
 import { eventService, type PoojaRegistrationRequest } from "../../../services/events/eventService";
+import { isRegistrationClosed, isPoojaSlotPassed } from "../../../utils/eventDeadlineUtils";
 import { showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { GlassCard, TouchButton } from "./redesign/EventDesignSystem";
@@ -196,8 +198,7 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
       });
       cur.setDate(cur.getDate() + 1);
       count++;
-    }
-    const startFmt = formatPoojaDate(startDate);
+    }    const startFmt = formatPoojaDate(startDate);
     return days.length > 0
       ? days
       : [
@@ -244,6 +245,12 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   onSuccess,
 }) => {
   const { user: authUser } = useAuth();
+  const isAnyAdmin = Boolean(
+    authUser?.role?.toLowerCase().includes("admin") ||
+    authUser?.role?.toLowerCase().includes("event_admin") ||
+    authUser?.role?.toLowerCase().includes("super_admin") ||
+    authUser?.role?.toLowerCase().includes("community_admin")
+  );
   useEscapeKey(onClose);
 
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -262,10 +269,32 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [passNumber] = useState<number>(() => Math.floor(1000 + Math.random() * 9000));
   const [copiedPass, setCopiedPass] = useState<boolean>(false);
 
+  // Admin on-behalf registration states
+  const [registerOnBehalf, setRegisterOnBehalf] = useState<boolean>(false);
+  const [communityUsers, setCommunityUsers] = useState<any[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState<string>("");
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState<boolean>(false);
+  const [selectedTargetUserId, setSelectedTargetUserId] = useState<number | null>(null);
+
+  // Load community users for Admin on-behalf registration
+  useEffect(() => {
+    if (isAnyAdmin) {
+      userService
+        .getAllUsers()
+        .then((users) => {
+          if (Array.isArray(users)) setCommunityUsers(users);
+        })
+        .catch((err) => {
+          console.warn("Could not load community users for pooja admin registration:", err);
+        });
+    }
+  }, [isAnyAdmin]);
+
   // Existing registration / Update mode detection
   const [existingReg, setExistingReg] = useState<any>(() => event?.existingRegistration || null);
   const isUpdateMode = Boolean(event?.isUpdateMode || existingReg);
   const existingRegId = event?.registrationId || existingReg?.id || (event as any)?.regId;
+  const isPoojaClosed = isRegistrationClosed(event) && !isUpdateMode;
 
   // User details
   const [devoteeName, setDevoteeName] = useState<string>("");
@@ -288,6 +317,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
   // Sync profile details for name/phone/flat from logged in user details
   useEffect(() => {
+    if (registerOnBehalf) return;
     // 1. Check AuthContext user
     if (authUser) {
       const flat = resolveUserFlat(authUser);
@@ -320,7 +350,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         }
       })
       .catch(() => {});
-  }, [authUser]);
+  }, [authUser, registerOnBehalf]);
 
   // Build day schedule from event details
   const poojaTitle = event?.title || event?.name || "Maha Ganapathi Homam & Sahasranama Archana";
@@ -497,6 +527,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   ];
 
   const handleNext = () => {
+    if (isPoojaClosed) {
+      showWarning("Registration for this pooja seva has ended.");
+      return;
+    }
     if (currentStep === 1 && (!currentDay || !selectedSlot)) {
       showWarning("Please select one pooja date and one time slot.");
       return;
@@ -513,6 +547,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   };
 
   const handleBookingConfirm = async (paymentMode: string = "UPI") => {
+    if (isPoojaClosed) {
+      showWarning("Registration for this pooja seva has ended.");
+      return;
+    }
     if (!currentDay || !selectedSlot) {
       showWarning("Please select one pooja date and one time slot.");
       return;
@@ -552,6 +590,8 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         paymentMethod: numericFee === 0 ? "Free Seva" : paymentMode,
         prasadamMode,
         status: "CONFIRMED",
+        userId: selectedTargetUserId || undefined,
+        user: selectedTargetUserId ? { id: selectedTargetUserId } : undefined,
       };
 
       if (isUpdateMode && existingRegId) {
@@ -688,10 +728,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                         isActive ? "text-primary" : isDone ? "text-foreground" : "text-muted-foreground"
                       }`}
                     >
-                      {s.title}
-                    </span>
-                  </div>
-                  {idx < steps.length - 1 && (
+                                     {idx < steps.length - 1 && (
                     <div
                       className={`flex-1 h-[2px] mx-1.5 sm:mx-2 rounded-full transition-colors ${
                         currentStep > idx + 1 ? "bg-emerald-500" : "bg-border"
@@ -706,11 +743,22 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
         {/* ─── STEP CONTENT (GLASS CONTAINER) ─── */}
         {!isSuccess ? (
+          <GlassCard  )}
+
+        {/* ─── STEP CONTENT (GLASS CONTAINER) ─── */}
+        {!isSuccess ? (
           <GlassCard
             isDark={isDark}
             hoverScale={false}
             className="flex-1 flex flex-col justify-between p-4 sm:p-5 border border-border rounded-2xl overflow-y-auto space-y-4 shadow-xs my-2 bg-muted/20"
           >
+            {isPoojaClosed && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
+                <Clock className="w-4 h-4 shrink-0" />
+                <span>Pooja registration has closed. New seva bookings are no longer accepted.</span>
+              </div>
+            )}
+
             {/* ───────────────────────────────────────────────────────── */}
             {/* STEP 1: POOJA DATE & DAY-WISE TIME SLOTS                 */}
             {/* ───────────────────────────────────────────────────────── */}
@@ -790,150 +838,16 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     {currentDay.slots.map((s) => {
                       const slotKey = makeSlotSelectionKey(currentDay, s);
                       const isSlotSelected = selectedSlotKey === slotKey;
+                      const isSlotPassed = isPoojaSlotPassed(currentDay.dateValue, s.time) || isPoojaClosed;
                       return (
                         <div
                           key={slotKey}
                           onClick={() => {
+                            if (isSlotPassed) return;
                             setSelectedSlotTime(s.time);
                             setSelectedSlotName(s.name);
                             setSelectedSlotKey(slotKey);
                           }}
-                          className={`p-3 rounded-2xl cursor-pointer flex items-center justify-between transition-all border-2 ${
-                            isSlotSelected
-                              ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20"
-                              : "border-border bg-background hover:border-primary/50"
-                          }`}
-                        >
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-base">{s.icon}</span>
-                              <strong className={`text-xs sm:text-sm font-extrabold ${isSlotSelected ? "text-primary" : "text-foreground"}`}>
-                                {s.time}
-                              </strong>
-                            </div>
-                            <span className="text-xs block ml-6 font-medium text-muted-foreground">
-                              {s.name}
-                            </span>
-                            <div className="ml-6 mt-1">
-                              <span className="inline-block px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-black">
-                                {s.left} Slots Left
-                              </span>
-                            </div>
-                          </div>
-                          <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
-                            isSlotSelected ? "bg-primary text-primary-foreground" : "text-muted-foreground border border-border"
-                          }`}>
-                            {isSlotSelected ? "✓" : ""}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ───────────────────────────────────────────────────────── */}
-            {/* STEP 2: PRIMARY REGISTRANT & GOTRAM DETAILS              */}
-            {/* ───────────────────────────────────────────────────────── */}
-            {currentStep === 2 && (
-              <div className="space-y-3.5 flex-1">
-                <div className="border-b border-border pb-2">
-                  <h3 className="text-sm font-extrabold text-foreground">Primary Registrant &amp; Gotram</h3>
-                  <p className="text-[11px] text-muted-foreground">Verified identity details for holy Sankalpam chanting</p>
-                </div>
-
-                {/* Compact Single-Row Bar with minimal height */}
-                <div className="p-3.5 rounded-2xl bg-card border border-border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-                  <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-foreground">
-                    <div>
-                      <span className="text-muted-foreground font-medium">Name:</span>
-                      <strong className="text-foreground ml-1 font-bold">{devoteeName}</strong>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground font-medium">Mobile:</span>
-                      <strong className="text-foreground ml-1 font-bold">{devoteePhone || "+91 98765 43210"}</strong>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground font-medium">Flat:</span>
-                      <strong className="text-foreground ml-1 font-bold">{devoteeFlat || "Flat Pending"}</strong>
-                    </div>
-                  </div>
-
-                  {/* Gotram: Non-editable field sourced strictly from event registration in backend database */}
-                  <div className="flex items-center gap-2 w-full sm:w-auto px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20 shrink-0 select-none">
-                    <span className="text-[11px] font-bold text-primary whitespace-nowrap">Gotram:</span>
-                    {isGotramLoading ? (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1 font-medium">
-                        <Loader2 className="w-3 h-3 animate-spin text-primary" />
-                        <span>Fetching DB...</span>
-                      </span>
-                    ) : gotram ? (
-                      <>
-                        <strong className="text-xs font-black text-foreground font-mono">{gotram}</strong>
-                        <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.2 rounded border border-emerald-500/20 flex items-center gap-0.5">
-                          <Database className="w-2.5 h-2.5" />
-                          <span>DB Verified</span>
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                        Not in Event Pass (DB)
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="p-3 rounded-xl bg-muted/40 border border-border text-[11px] text-muted-foreground flex items-center gap-2">
-                  <span>ℹ️</span>
-                  <span>The Gotram will be respectfully chanted by Head Priest Pt. Ramachandra Sharma during the Sankalpam.</span>
-                </div>
-              </div>
-            )}
-
-            {/* ───────────────────────────────────────────────────────── */}
-            {/* STEP 3: SAMAGRI & NOTES                                   */}
-            {/* ───────────────────────────────────────────────────────── */}
-            {currentStep === 3 && (
-              <div className="space-y-3.5 flex-1">
-                <div className="border-b border-border pb-2">
-                  <h3 className="text-sm font-extrabold text-foreground">Samagri &amp; Notes</h3>
-                  <p className="text-[11px] text-muted-foreground">Samagri requirements and additional notes for this pooja event</p>
-                </div>
-
-                <div className="space-y-3">
-                  {/* Samagri Required */}
-                  <div className="p-4 rounded-2xl bg-card border border-border space-y-2">
-                    <h4 className="font-bold text-foreground flex items-center gap-1.5 text-xs uppercase tracking-wide">
-                      <span>🌾</span> Samagri Required
-                    </h4>
-                    {event.samagri || event.description ? (
-                      <p className="text-[13px] text-foreground leading-relaxed whitespace-pre-line">
-                        {event.samagri || event.description}
-                      </p>
-                    ) : (
-                      <p className="text-[12px] text-muted-foreground italic">No samagri details specified for this event.</p>
-                    )}
-                  </div>
-
-                  {/* Notes */}
-                  <div className="p-4 rounded-2xl bg-card border border-border space-y-2">
-                    <h4 className="font-bold text-foreground flex items-center gap-1.5 text-xs uppercase tracking-wide">
-                      <span>📝</span> Notes
-                    </h4>
-                    {event.notes ? (
-                      <p className="text-[13px] text-foreground leading-relaxed whitespace-pre-line">
-                        {event.notes}
-                      </p>
-                    ) : (
-                      <p className="text-[12px] text-muted-foreground italic">No additional notes for this event.</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ───────────────────────────────────────────────────────── */}
             {/* STEP 4: REVIEW & CONFIRMATION                             */}
             {/* ───────────────────────────────────────────────────────── */}
             {currentStep === 4 && (
@@ -1031,7 +945,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                            <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div>
                   <span className="text-muted-foreground block">Date &amp; Session:</span>
                   <strong className="text-foreground">{selectedDateDisplay} • {selectedSlotDisplayTime}</strong>
@@ -1083,7 +997,11 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               </TouchButton>
             )}
 
-            {currentStep < 4 ? (
+            {isPoojaClosed ? (
+              <span className="px-4 py-2 rounded-xl bg-muted text-muted-foreground text-xs font-bold border border-border flex items-center gap-1.5 select-none">
+                <Clock className="w-3.5 h-3.5" /> Registration Closed
+              </span>
+            ) : currentStep < 4 ? (
               <TouchButton
                 type="button"
                 onClick={handleNext}

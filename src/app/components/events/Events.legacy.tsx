@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { eventService, type EventResponse, type EventRequest } from "../../../services/events/eventService";
+import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -255,17 +256,25 @@ function EventCard({ event, onClick, onRegister, onUnregister }: {
         </div>
         <div className="flex items-center justify-between">
           <span className="text-xs text-slate-400">by {event.createdByName}</span>
-          <button
-            onClick={e => { e.stopPropagation(); event.isRegistered ? onUnregister(event.id) : onRegister(event.id); }}
-            className={cn(
-              "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
-              event.isRegistered
-                ? "bg-green-50 text-green-700 border border-green-200 hover:bg-green-100"
-                : "bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100"
-            )}
-          >
-            {event.isRegistered ? "Registered ✓" : "Register"}
-          </button>
+          {event.isRegistered ? (
+            <button
+              onClick={e => { e.stopPropagation(); onUnregister(event.id); }}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-all"
+            >
+              Registered ✓
+            </button>
+          ) : isRegistrationClosed(event) ? (
+            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200 select-none">
+              Registration Closed
+            </span>
+          ) : (
+            <button
+              onClick={e => { e.stopPropagation(); onRegister(event.id); }}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition-all"
+            >
+              Register
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -336,17 +345,25 @@ function EventDetailModal({ event, onClose, onRegister, onUnregister, onDelete }
           </div>
 
           <div className="flex gap-2 pt-2">
-            <button
-              onClick={() => event.isRegistered ? onUnregister(event.id) : onRegister(event.id)}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all",
-                event.isRegistered
-                  ? "bg-green-50 text-green-700 border border-green-200 hover:bg-green-100"
-                  : "bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg hover:shadow-xl"
-              )}
-            >
-              {event.isRegistered ? <><CheckCircle className="w-4 h-4" /> Registered</> : "Register Now"}
-            </button>
+            {event.isRegistered ? (
+              <button
+                onClick={() => onUnregister(event.id)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition-all"
+              >
+                <CheckCircle className="w-4 h-4" /> Registered
+              </button>
+            ) : isRegistrationClosed(event) ? (
+              <span className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-slate-100 text-slate-500 border border-slate-200 select-none">
+                Registration Closed
+              </span>
+            ) : (
+              <button
+                onClick={() => onRegister(event.id)}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg hover:shadow-xl transition-all"
+              >
+                Register Now
+              </button>
+            )}
             <button
               onClick={() => onDelete(event.id)}
               className="px-3 py-2.5 border border-slate-200 rounded-xl text-slate-400 hover:text-red-500 hover:border-red-200 transition-colors"

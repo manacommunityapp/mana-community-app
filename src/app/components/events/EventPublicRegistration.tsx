@@ -20,6 +20,7 @@ import { eventService, type EventResponse } from "../../../services/events/event
 import { eventProgramService, type ActivityRegistrationResponse, type EventProgramResponse } from "../../../services/events/eventProgramService";
 import { CollapsibleFormSection, type RegistrationFormConfig, type FormField } from "./EventRegistrationFormBuilder";
 import { userService } from "../../../services/common/userService";
+import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 
 /* ─── Constants ─── */
 const GENDER_OPTIONS = ["Male", "Female", "Other", "Prefer not to say"] as const;
@@ -1090,6 +1091,7 @@ export function EventPublicRegistration() {
 
   const displayEvent = event ?? MOCK_EVENT;
   const hasDynamicForm = formConfig && formConfig.fields.length > 0;
+  const isClosed = isRegistrationClosed(displayEvent) && !isRegistered;
 
   const [form, setForm] = useState<RegistrationForm>({
     registrationType: "individual",
@@ -1182,6 +1184,7 @@ export function EventPublicRegistration() {
   };
 
   const goNext = () => {
+    if (isClosed) return;
     const nextIdx = activeStepIndex + 1;
     if (nextIdx < activeSteps.length) {
       setStep(activeSteps[nextIdx].id);
@@ -1196,6 +1199,7 @@ export function EventPublicRegistration() {
   };
 
   const handleConfirm = async () => {
+    if (isClosed) return;
     if (event) {
       setRegistering(true);
       setRegError("");
@@ -1412,6 +1416,13 @@ export function EventPublicRegistration() {
             )}
           </div>
 
+          {isClosed && (
+            <div className="mx-5 sm:mx-7 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>Registration for this event is closed as the deadline has passed.</span>
+            </div>
+          )}
+
           <div className="px-5 sm:px-7 py-5 sm:py-6">
             <div key={isRegistered ? "done" : step} className="animate-fade-in-up">
               {isRegistered ? (
@@ -1473,7 +1484,11 @@ export function EventPublicRegistration() {
                 <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Back
               </Button>
 
-              {!isLastStep ? (
+              {isClosed ? (
+                <span className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 text-slate-500 border border-slate-200 select-none">
+                  Registration Closed
+                </span>
+              ) : !isLastStep ? (
                 <Button
                   onClick={goNext}
                   disabled={!canNext()}

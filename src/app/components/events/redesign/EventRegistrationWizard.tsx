@@ -29,6 +29,7 @@ import { GlassCard, TouchButton } from "./EventDesignSystem";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { eventService } from "../../../../services/events/eventService";
 import { userService } from "../../../../services/common/userService";
+import { isRegistrationClosed } from "../../../../utils/eventDeadlineUtils";
 import { fileUploadService } from "../../../../services/files/fileUploadService";
 import { useEscapeKey } from "../../../../hooks/useEscapeKey";
 import { showSuccess, showWarning } from "../../../../utils/ToastUtils";
@@ -78,15 +79,45 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 }) => {
   useEscapeKey(onClose);
   const { user: authUser } = useAuth();
+  const isAnyAdmin = Boolean(
+    authUser?.role?.toLowerCase().includes("admin") ||
+    authUser?.role?.toLowerCase().includes("event_admin") ||
+    authUser?.role?.toLowerCase().includes("super_admin") ||
+    authUser?.role?.toLowerCase().includes("community_admin")
+  );
+
   const [currentStep, setCurrentStep] = useState(1);
   const [categories, setCategories] = useState<TicketCategoryItem[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<string>("");
   const [eventDetails, setEventDetails] = useState<any>(event || null);
 
+  // Admin on-behalf registration states
+  const [registerOnBehalf, setRegisterOnBehalf] = useState<boolean>(false);
+  const [communityUsers, setCommunityUsers] = useState<any[]>([]);
+  const [userSearchQuery, setUserSearchQuery] = useState<string>("");
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState<boolean>(false);
+  const [selectedTargetUserId, setSelectedTargetUserId] = useState<number | null>(null);
+  const [adminPaymentStatus, setAdminPaymentStatus] = useState<string>("PAID");
+
+  // Load community users for Admin on-behalf registration
+  useEffect(() => {
+    if (isAnyAdmin) {
+      userService
+        .getAllUsers()
+        .then((users) => {
+          if (Array.isArray(users)) setCommunityUsers(users);
+        })
+        .catch((err) => {
+          console.warn("Could not load community users for admin registration:", err);
+        });
+    }
+  }, [isAnyAdmin]);
+
   // Existing registration / Update mode detection
   const [existingReg, setExistingReg] = useState<any>(() => event?.existingRegistration || null);
   const isUpdateMode = Boolean(event?.isUpdateMode || existingReg);
   const existingRegId = event?.registrationId || existingReg?.id || (event as any)?.regId;
+  const isRegistrationEnded = isRegistrationClosed(event) && !isUpdateMode;
 
   const [formData, setFormData] = useState({
     category: "Standard Pass",
@@ -526,19 +557,33 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         }
       }
     }
+    if (isRegistrationEnded) {
+      showWarning("Registration for this event has ended.");
+      return;
+    }
     if (currentStep < 4) {
       setCurrentStep((prev) => prev + 1);
     }
   };
 
   const handleComplete = async (modeOverride?: string) => {
+    if (isRegistrationEnded) {
+      showWarning("Registration for this event has ended.");
+      return;
+    }
     if (!formData.gotram?.trim()) {
       showWarning("Gotram / Family Lineage is mandatory for event registration.");
       setCurrentStep(2);
       return;
     }
     const selectedMode = modeOverride || formData.paymentMode || "UPI";
-    const paymentStatus = formData.numericPrice === 0 ? "PAID" : selectedMode === "Pay Later" ? "PENDING" : "PAID";
+    const paymentStatus = isAnyAdmin && adminPaymentStatus
+      ? adminPaymentStatus
+      : formData.numericPrice === 0
+      ? "PAID"
+      : selectedMode === "Pay Later"
+      ? "PENDING"
+      : "PAID";
 
     try {
       const regPayload = {
@@ -560,11 +605,13 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         eventDate: event?.date || "2026",
         eventTime: event?.time || formData.poojaSlot,
         venue: event?.venue || "Community Mandap",
-        bookingFee: formData.numericPrice,
+        bookingFee: (isAnyAdmin && adminPaymentStatus === "FREE") ? 0 : formData.numericPrice,
         paymentStatus,
         paymentMethod: selectedMode,
         paymentReceiptUrl: formData.receiptUrl || undefined,
         transactionId: formData.transactionRef || undefined,
+        userId: selectedTargetUserId || undefined,
+        user: selectedTargetUserId ? { id: selectedTargetUserId } : undefined,
       };
 
       if (isUpdateMode && existingRegId) {
@@ -712,6 +759,12 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           hoverScale={false}
           className="flex-1 flex flex-col justify-between p-4 sm:p-5 border border-border rounded-2xl overflow-y-auto space-y-4 shadow-sm"
         >
+          {isRegistrationEnded && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
+              <Clock className="w-4 h-4 shrink-0" />
+              <span>Event registration has closed. New bookings are no longer available.</span>
+            </div>
+          )}
           {/* STEP 1: Dynamic Pass Categories */}
           {currentStep === 1 && (
             <div className="space-y-3.5 flex-1">
@@ -794,7 +847,158 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
             <div className="space-y-3.5 flex-1">
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <h3 className="text-sm font-extrabold text-foreground">Primary Registrant Details</h3>
+                {isAnyAdmin && (
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                    <ShieldCheck className="w-3 h-3" /> Admin Desk Mode
+                  </span>
+                )}
               </div>
+
+              {/* ── Admin / Event Admin Mode Switch ── */}
+              {isAnyAdmin && (
+                <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/10 via-primary/10 to-indigo-500/10 border border-primary/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+                      <ShieldCheck className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-foreground">Admin Registration Desk</p>
+                      <p className="text-[10.5px] text-muted-foreground">Register for yourself or on behalf of any resident / devotee</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 bg-background/90 p-1 rounded-xl border border-border shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRegisterOnBehalf(false);
+                        setSelectedTargetUserId(null);
+                        setFormData((prev) => ({
+                          ...prev,
+                          fullName: authUser?.fullName || "",
+                          email: authUser?.email || "",
+                          phone: authUser?.phone || "",
+                          flatNo: (authUser?.block && authUser?.flatNo) ? `${authUser.block}-${authUser.flatNo}` : (authUser?.flatNo || ""),
+                          members: prev.members.map((m, i) => i === 0 ? { ...m, name: authUser?.fullName || m.name } : m),
+                        }));
+                      }}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        !registerOnBehalf
+                          ? "bg-primary text-white shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      For Myself
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRegisterOnBehalf(true);
+                        setFormData((prev) => ({
+                          ...prev,
+                          fullName: "",
+                          email: "",
+                          phone: "",
+                          flatNo: "",
+                          gotram: "",
+                          members: prev.members.map((m, i) => i === 0 ? { ...m, name: "" } : m),
+                        }));
+                      }}
+                      className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                        registerOnBehalf
+                          ? "bg-amber-600 text-white shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      On Behalf of Resident
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Resident Auto-Select for On-Behalf Mode ── */}
+              {isAnyAdmin && registerOnBehalf && (
+                <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-2 relative">
+                  <label className="text-[10px] uppercase font-bold text-amber-700 dark:text-amber-400 block flex items-center justify-between">
+                    <span>Search & Select Community Resident:</span>
+                    <span className="text-[10px] font-normal text-muted-foreground lowercase">or type attendee details manually below</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search by resident name, flat no, or email..."
+                      value={userSearchQuery}
+                      onChange={(e) => {
+                        setUserSearchQuery(e.target.value);
+                        setIsUserDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsUserDropdownOpen(true)}
+                      className="w-full h-9 pl-3 pr-8 rounded-xl bg-background text-xs font-semibold border border-border focus:ring-2 focus:ring-amber-500/30 outline-none text-foreground"
+                    />
+                    {userSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUserSearchQuery("");
+                          setIsUserDropdownOpen(false);
+                        }}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown Suggestions */}
+                  {isUserDropdownOpen && communityUsers.length > 0 && (
+                    <div className="max-h-48 overflow-y-auto rounded-xl bg-card border border-border shadow-xl absolute left-3 right-3 z-30 divide-y divide-border/60">
+                      {communityUsers
+                        .filter((u: any) => {
+                          if (!userSearchQuery.trim()) return true;
+                          const q = userSearchQuery.toLowerCase();
+                          return (
+                            (u.fullName && u.fullName.toLowerCase().includes(q)) ||
+                            (u.email && u.email.toLowerCase().includes(q)) ||
+                            (u.phone && u.phone.includes(q)) ||
+                            (u.flatNo && u.flatNo.toLowerCase().includes(q))
+                          );
+                        })
+                        .slice(0, 8)
+                        .map((u: any) => {
+                          const flat = u.block && u.flatNo ? `${u.block}-${u.flatNo}` : u.flatNo || "";
+                          return (
+                            <div
+                              key={u.id || u.email}
+                              onClick={() => {
+                                setSelectedTargetUserId(u.id || null);
+                                setUserSearchQuery(u.fullName || u.email || "");
+                                setIsUserDropdownOpen(false);
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  fullName: u.fullName || "",
+                                  email: u.email || "",
+                                  phone: u.phone || "",
+                                  flatNo: flat,
+                                  members: prev.members.map((m, i) => i === 0 ? { ...m, name: u.fullName || m.name } : m),
+                                }));
+                              }}
+                              className="p-2.5 hover:bg-primary/10 cursor-pointer flex items-center justify-between text-xs transition-colors"
+                            >
+                              <div>
+                                <strong className="text-foreground font-bold block">{u.fullName || "Unnamed Resident"}</strong>
+                                <span className="text-[10px] text-muted-foreground block">{u.email} {u.phone ? `· ${u.phone}` : ""}</span>
+                              </div>
+                              {flat && (
+                                <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-md bg-muted text-foreground border border-border">
+                                  {flat}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Full Name */}
               <div>
@@ -1355,7 +1559,11 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
               <div />
             )}
 
-            {currentStep < 4 ? (
+            {isRegistrationEnded ? (
+              <span className="px-4 py-2 rounded-xl bg-muted text-muted-foreground text-xs font-bold border border-border flex items-center gap-1.5 select-none">
+                <Clock className="w-3.5 h-3.5" /> Registration Closed
+              </span>
+            ) : currentStep < 4 ? (
               <TouchButton variant="primary" size="sm" icon={ArrowRight} onClick={handleNextStep}>
                 Next Step
               </TouchButton>

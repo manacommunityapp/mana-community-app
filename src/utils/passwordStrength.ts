@@ -1,5 +1,5 @@
 /**
- * Frontend password-strength evaluator for 4–8 character passwords with alphabet & number combination.
+ * Frontend password-strength evaluator for 6–20 character passwords with alphabet & number combination.
  */
 
 export const MIN_ACCEPTABLE_SCORE = 1;
@@ -13,7 +13,7 @@ export interface PasswordStrength {
   warning: string | null;
   /** Actionable tips. */
   suggestions: string[];
-  /** True when password is 4–8 characters with letters & numbers combination. */
+  /** True when password is 6–20 characters with letters & numbers combination. */
   acceptable: boolean;
 }
 
@@ -35,10 +35,10 @@ function pick(set: string): string {
 }
 
 /**
- * Generates a password between 4 and 8 characters containing a combination of letters and digits. Default length 8.
+ * Generates a password between 6 and 20 characters containing a combination of letters and digits. Default length 10.
  */
-export function generateStrongPassword(length = 8): string {
-  const safeLength = Math.min(8, Math.max(4, length));
+export function generateStrongPassword(length = 10): string {
+  const safeLength = Math.min(20, Math.max(6, length));
   const all = GEN_LETTERS + GEN_DIGITS;
 
   for (let attempt = 0; attempt < 50; attempt++) {
@@ -56,7 +56,7 @@ export function generateStrongPassword(length = 8): string {
     if (evaluatePassword(candidate).acceptable) return candidate;
   }
 
-  return "Abc12345".slice(0, safeLength);
+  return "Abc1234567".slice(0, safeLength);
 }
 
 export function evaluatePassword(password: string, userInputs: string[] = []): PasswordStrength {
@@ -65,7 +65,7 @@ export function evaluatePassword(password: string, userInputs: string[] = []): P
       score: 0,
       label: "Weak",
       warning: "Password is required.",
-      suggestions: ["Enter a password between 4 and 8 characters with letters and numbers."],
+      suggestions: ["Enter a password between 6 and 20 characters with letters and numbers."],
       acceptable: false,
     };
   }
@@ -74,22 +74,22 @@ export function evaluatePassword(password: string, userInputs: string[] = []): P
   const hasLetter = /[a-zA-Z]/.test(password);
   const hasDigit = /[0-9]/.test(password);
 
-  if (len < 4) {
+  if (len < 6) {
     return {
       score: 0,
       label: "Weak",
-      warning: "Password must be at least 4 characters.",
-      suggestions: ["Use 4 to 8 characters with letters and numbers."],
+      warning: "Password must be at least 6 characters.",
+      suggestions: ["Use 6 to 20 characters with letters and numbers."],
       acceptable: false,
     };
   }
 
-  if (len > 8) {
+  if (len > 20) {
     return {
       score: 1,
       label: "Fair",
-      warning: "Password cannot exceed 8 characters.",
-      suggestions: ["Keep password between 4 and 8 characters."],
+      warning: "Password cannot exceed 20 characters.",
+      suggestions: ["Keep password between 6 and 20 characters."],
       acceptable: false,
     };
   }
@@ -104,10 +104,10 @@ export function evaluatePassword(password: string, userInputs: string[] = []): P
     };
   }
 
-  // Valid 4-8 chars with letters & numbers
+  // Valid 6-20 chars with letters & numbers
   let score = 2; // Base score: Good
   if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
-  if (len >= 6 && len <= 8) score++;
+  if (len >= 8) score++;
   score = Math.min(score, 4);
 
   return {

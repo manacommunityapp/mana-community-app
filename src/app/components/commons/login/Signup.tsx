@@ -1083,24 +1083,24 @@ export function Signup() {
                           <input
                             id="signup-password"
                             type={showPassword ? "text" : "password"}
-                            maxLength={8}
+                            maxLength={20}
                             {...register("password", {
                               required: "Password is required",
                               minLength: {
-                                value: 4,
-                                message: "Password must be at least 4 characters",
+                                value: 6,
+                                message: "Password must be at least 6 characters",
                               },
                               maxLength: {
-                                value: 8,
-                                message: "Password cannot exceed 8 characters",
+                                value: 20,
+                                message: "Password cannot exceed 20 characters",
                               },
                               validate: (val) =>
                                 evaluatePassword(val).acceptable ||
                                 evaluatePassword(val).warning ||
-                                "Password must be 4–8 characters and combine letters & numbers",
+                                "Password must be 6–20 characters and combine letters & numbers",
                             })}
                             className={`${inputBase} pl-9 sm:pl-10 pr-9`}
-                            placeholder="4–8 chars (letters & numbers)"
+                            placeholder="6–20 chars (letters & numbers)"
                           />
                           <button
                             type="button"

@@ -859,8 +859,8 @@ export function AdminCreateUser() {
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                           <input
                             type={showPassword ? "text" : "password"}
-                            maxLength={8}
-                            placeholder="4–8 chars (letters & numbers)"
+                            maxLength={20}
+                            placeholder="6–20 chars (letters & numbers)"
                             value={form.password}
                             onChange={e => update("password", e.target.value)}
                             className={`w-full pl-9 pr-10 py-2.5 border rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 ${
@@ -896,7 +896,7 @@ export function AdminCreateUser() {
                           <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                           <input
                             type={showConfirmPassword ? "text" : "password"}
-                            maxLength={8}
+                            maxLength={20}
                             placeholder="Re-enter password"
                             value={form.confirmPassword}
                             onChange={e => update("confirmPassword", e.target.value)}
