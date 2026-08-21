@@ -787,11 +787,47 @@ export interface CommentResponse {
   pinned: boolean;
   acceptedAnswer: boolean;
   replies?: CommentResponse[];
+  likedByCurrentUser?: boolean;
+  /** The current user's rich reaction type on this comment, e.g. "LOVE", or undefined if not reacted */
+  userCommentReaction?: string;
+  /** Per-type reaction counts, e.g. { LIKE: 3, LOVE: 2 } */
+  commentReactionCounts?: Record<string, number>;
 }
 
 export interface LikeToggleResponse {
   likesCount: number;
   liked: boolean;
+}
+
+export interface CommentLikeToggleResponse {
+  commentId: number;
+  likesCount: number;
+  liked: boolean;
+}
+
+export interface CommentReactionToggleResponse {
+  commentId: number;
+  likesCount: number;
+  /** The user's new reaction type name (e.g. "LOVE"), or null if they un-reacted */
+  userReaction: string | null;
+  reactionCounts: Record<string, number>;
+}
+
+export interface PostLikerResponse {
+  userId: number;
+  fullName: string;
+  profilePicUrl?: string;
+  role: string;
+  reactionType: string;
+  createdAt: string;
+}
+
+export interface CommentLikerResponse {
+  userId: number;
+  fullName: string;
+  profilePicUrl?: string;
+  role: string;
+  createdAt: string;
 }
 
 export interface ReactionResponse {
@@ -880,6 +916,63 @@ export interface CommunityLeaderRequest {
   contactPhone?: string;
   contactEmail?: string;
   displayOrder?: number;
+}
+
+export interface CommunityWhoToCallResponse {
+  id: number;
+  communityId: number;
+  department: string;
+  contactPerson: string;
+  userId?: number;
+  userFullName?: string;
+  userProfilePicUrl?: string;
+  phoneNumber: string;
+  secondaryPhone?: string;
+  email?: string;
+  designation?: string;
+  availability?: string;
+  locationOrDesk?: string;
+  icon: string;
+  color: string;
+  isEmergency: boolean;
+  displayOrder: number;
+  isActive: boolean;
+  createdBy?: number;
+  updatedBy?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CommunityWhoToCallRequest {
+  department: string;
+  contactPerson: string;
+  userId?: number;
+  phoneNumber: string;
+  secondaryPhone?: string;
+  email?: string;
+  designation?: string;
+  availability?: string;
+  locationOrDesk?: string;
+  icon?: string;
+  color?: string;
+  isEmergency?: boolean;
+  displayOrder?: number;
+  isActive?: boolean;
+}
+
+export interface CommunityWhoToCallHistoryResponse {
+  id: number;
+  whoToCallId: number;
+  communityId: number;
+  action: string;
+  changedByUserId?: number;
+  changedByName?: string;
+  department: string;
+  contactPerson: string;
+  phoneNumber: string;
+  changeSummary?: string;
+  snapshotData?: string;
+  createdAt: string;
 }
 
 // ─── Chat (backend DTOs) ───────────────────────────────────────────────────────

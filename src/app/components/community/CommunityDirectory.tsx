@@ -7,7 +7,8 @@ import {
   Search, X, Sparkles, UserCheck, MapPin
 } from "lucide-react";
 import { communityDirectoryService } from "../../../services/community/communityDirectoryService";
-import type { CommunityLeaderResponse } from "../../../types/api";
+import { whoToCallService } from "../../../services/community/whoToCallService";
+import type { CommunityLeaderResponse, CommunityWhoToCallResponse } from "../../../types/api";
 import { useChat } from "../../../contexts/ChatContext";
 
 // ── Role styling ────────────────────────────────────────────────────────────
@@ -99,6 +100,121 @@ const handlePhoneClick = (fullName: string, phone: string) => {
     }
   });
 };
+
+// ── Availability / Working-hours badge ──────────────────────────────────────
+
+type AvailabilityStatus = "open" | "closed" | "unknown";
+
+const DAY_MAP: Record<string, number> = {
+  sun: 0, sunday: 0,
+  mon: 1, monday: 1,
+  tue: 2, tuesday: 2,
+  wed: 3, wednesday: 3,
+  thu: 4, thursday: 4,
+  fri: 5, friday: 5,
+  sat: 6, saturday: 6,
+};
+
+/** Convert "9am", "9:00 AM", "09:00" etc. → fractional hours (9.0, 13.5 …) */
+function parseHour(raw: string): number | null {
+  const s = raw.trim().toLowerCase();
+  // "9:30am" / "9:30 am"
+  const full = s.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/);
+  if (full) {
+    let h = parseInt(full[1], 10);
+    const m = parseInt(full[2], 10);
+    const period = full[3];
+    if (period === "pm" && h < 12) h += 12;
+    if (period === "am" && h === 12) h = 0;
+    return h + m / 60;
+  }
+  // "9am" / "9 pm"
+  const simple = s.match(/^(\d{1,2})\s*(am|pm)?$/);
+  if (simple) {
+    let h = parseInt(simple[1], 10);
+    const period = simple[2];
+    if (period === "pm" && h < 12) h += 12;
+    if (period === "am" && h === 12) h = 0;
+    return h;
+  }
+  return null;
+}
+
+/** Parse "Mon-Fri" or "Mon–Sat" etc. → [startDay, endDay] (0-6) */
+function parseDayRange(raw: string): [number, number] | null {
+  const parts = raw.toLowerCase().split(/[-–]/);
+  if (parts.length === 2) {
+    const start = DAY_MAP[parts[0].trim()];
+    const end = DAY_MAP[parts[1].trim()];
+    if (start !== undefined && end !== undefined) return [start, end];
+  }
+  if (parts.length === 1) {
+    const d = DAY_MAP[parts[0].trim()];
+    if (d !== undefined) return [d, d];
+  }
+  return null;
+}
+
+/**
+ * Parse an availability string and determine if "now" falls within it.
+ * Handles: "24/7", "Mon-Fri 9am-6pm", "Mon–Sat 9:00 AM – 5:00 PM", "Weekdays 9am-5pm" etc.
+ */
+export function parseAvailabilityStatus(availability?: string): AvailabilityStatus {
+  if (!availability) return "unknown";
+  const s = availability.toLowerCase().trim();
+
+  // Always-open patterns
+  if (/24\s*[/x]\s*7|always|round.the.clock/i.test(s)) return "open";
+
+  const now = new Date();
+  const currentDay = now.getDay(); // 0=Sun…6=Sat
+  const currentHour = now.getHours() + now.getMinutes() / 60;
+
+  // Normalise "weekdays" → "mon-fri", "weekends" → "sat-sun"
+  const normalised = s
+    .replace(/weekdays?/g, "mon-fri")
+    .replace(/weekends?/g, "sat-sun");
+
+  // Split on comma or semicolon to support "Mon-Fri 9am-6pm, Sat 10am-2pm"
+  const segments = normalised.split(/[,;]/);
+
+  for (const seg of segments) {
+    const trimmed = seg.trim();
+    // Try to isolate a day-range token and time-range tokens
+    const dayPart = trimmed.match(/[a-z]{3,}[-–][a-z]{3,}|[a-z]{3,}/)?.[0] ?? "";
+    const dayRange = parseDayRange(dayPart);
+
+    // Extract time range: two time tokens separated by - or –
+    const timeTokens = trimmed.match(/\d{1,2}(?::\d{2})?\s*(?:am|pm)?/g) ?? [];
+    let openHour: number | null = null;
+    let closeHour: number | null = null;
+    if (timeTokens.length >= 2) {
+      openHour = parseHour(timeTokens[0]);
+      closeHour = parseHour(timeTokens[1]);
+    }
+
+    // Check day
+    let dayMatch = false;
+    if (!dayRange) {
+      dayMatch = true; // No day info → treat as every day
+    } else {
+      const [dStart, dEnd] = dayRange;
+      dayMatch = dStart <= dEnd
+        ? currentDay >= dStart && currentDay <= dEnd
+        : currentDay >= dStart || currentDay <= dEnd; // wrap e.g. Sat-Mon
+    }
+
+    if (!dayMatch) continue;
+
+    // Check time
+    if (openHour === null || closeHour === null) {
+      return "open"; // Day matches, no time restriction → open
+    }
+    if (currentHour >= openHour && currentHour < closeHour) return "open";
+  }
+
+  return "closed";
+}
 
 // ── Grouping ────────────────────────────────────────────────────────────────
 
@@ -290,6 +406,7 @@ export interface CommunityDirectoryProps {
 export function CommunityDirectory({ isModal = false, defaultExpanded = true }: CommunityDirectoryProps) {
   const { openFloatingChatWithUser } = useChat();
   const [leaders, setLeaders] = useState<CommunityLeaderResponse[]>([]);
+  const [whoToCallDbList, setWhoToCallDbList] = useState<CommunityWhoToCallResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(defaultExpanded || isModal);
@@ -299,12 +416,25 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = true }: 
 
   useEffect(() => {
     let cancelled = false;
-    communityDirectoryService
-      .getDirectory()
-      .then((data) => { if (!cancelled) setLeaders(data); })
-      .catch((err) => { if (!cancelled) setError(err.message ?? "Failed to load directory"); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    Promise.all([
+      communityDirectoryService.getDirectory().catch(() => []),
+      whoToCallService.getWhoToCallList().catch(() => []),
+    ])
+      .then(([dirData, whoToCallData]) => {
+        if (!cancelled) {
+          setLeaders(Array.isArray(dirData) ? dirData : []);
+          setWhoToCallDbList(Array.isArray(whoToCallData) ? whoToCallData : []);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err?.message ?? "Failed to load directory");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filteredLeaders = useMemo(() => {
@@ -321,10 +451,23 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = true }: 
     );
   }, [leaders, searchQuery]);
 
+  const filteredWhoToCall = useMemo(() => {
+    if (!searchQuery.trim()) return whoToCallDbList;
+    const q = searchQuery.toLowerCase().trim();
+    return whoToCallDbList.filter((c) =>
+      c.department.toLowerCase().includes(q) ||
+      c.contactPerson.toLowerCase().includes(q) ||
+      c.phoneNumber.toLowerCase().includes(q) ||
+      (c.designation && c.designation.toLowerCase().includes(q)) ||
+      (c.locationOrDesk && c.locationOrDesk.toLowerCase().includes(q))
+    );
+  }, [whoToCallDbList, searchQuery]);
+
   const { executives, committees, other } = useMemo(() => groupLeaders(filteredLeaders), [filteredLeaders]);
   const committeeNames = useMemo(() => Object.keys(committees).sort(), [committees]);
   const contactMap = useMemo(() => resolveContacts(filteredLeaders, CONTACT_SUGGESTIONS), [filteredLeaders]);
   const hasCommittees = committeeNames.length > 0 || other.length > 0;
+  const hasWhoToCall = whoToCallDbList.length > 0 || contactMap.length > 0;
 
   if (loading) {
     return (
@@ -337,7 +480,7 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = true }: 
     );
   }
 
-  if (error || leaders.length === 0) {
+  if (error || (leaders.length === 0 && whoToCallDbList.length === 0)) {
     return (
       <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 text-center">
         <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
@@ -348,9 +491,9 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = true }: 
   }
 
   const tabs: { id: DirectoryTab; label: string; icon: React.ReactNode; count?: number }[] = [
-    { id: "leadership", label: "Council", icon: <Landmark className="w-3.5 h-3.5" />, count: executives.length },
+    ...(executives.length > 0 || !hasWhoToCall ? [{ id: "leadership" as DirectoryTab, label: "Council", icon: <Landmark className="w-3.5 h-3.5" />, count: executives.length }] : []),
     ...(hasCommittees ? [{ id: "committees" as DirectoryTab, label: "Committees", icon: <Users className="w-3.5 h-3.5" />, count: committeeNames.length + (other.length > 0 ? 1 : 0) }] : []),
-    ...(contactMap.length > 0 ? [{ id: "contact" as DirectoryTab, label: "Who to Call", icon: <HelpCircle className="w-3.5 h-3.5" /> }] : []),
+    ...(hasWhoToCall ? [{ id: "contact" as DirectoryTab, label: "Who to Call", icon: <HelpCircle className="w-3.5 h-3.5" />, count: whoToCallDbList.length > 0 ? whoToCallDbList.length : undefined }] : []),
   ];
 
   const content = (
@@ -502,63 +645,161 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = true }: 
         {tab === "contact" && (
           <div className="space-y-2.5">
             <p className="text-xs text-slate-500 font-medium px-1">
-              Need assistance? Direct contacts for common community departments:
+              Need assistance? Direct contacts for community departments and services:
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-              {contactMap.map(({ issue, icon, color, leader }) => {
-                if (!leader) return null;
-                const [colorBase] = color.split(" ");
-                return (
-                  <div
-                    key={issue}
-                    className={`p-3.5 rounded-2xl border transition-all bg-white shadow-2xs hover:shadow-sm ${color}`}
-                  >
-                    <div className="flex items-start justify-between gap-2.5">
-                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className={`p-2 rounded-xl bg-white shadow-2xs ${colorBase} shrink-0`}>
-                          {icon}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-xs font-bold text-slate-900 truncate">{issue}</h4>
-                          <p className="text-[11px] font-semibold text-slate-700 truncate mt-0.5">
-                            {leader.fullName} <span className="text-[10px] text-slate-500 font-normal">({leader.designation})</span>
-                          </p>
+            {whoToCallDbList.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {filteredWhoToCall.map((c) => {
+                  const isEmergency = Boolean(c.isEmergency);
+                  const colorClass = isEmergency
+                    ? "text-red-700 bg-red-50 border-red-200"
+                    : c.color || "text-indigo-600 bg-indigo-50 border-indigo-200";
+                  const [colorBase] = colorClass.split(" ");
+                  return (
+                    <div
+                      key={c.id}
+                      className={`p-3.5 rounded-2xl border transition-all bg-white shadow-2xs hover:shadow-sm ${
+                        isEmergency ? "border-red-300 ring-1 ring-red-200" : "border-slate-200/80"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className={`p-2 rounded-xl bg-white shadow-2xs ${colorBase} shrink-0`}>
+                            {isEmergency ? <AlertTriangle className="w-4 h-4 text-red-600" /> : <Wrench className="w-4 h-4 text-indigo-600" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <h4 className="text-xs font-bold text-slate-900 truncate">{c.department}</h4>
+                              {isEmergency && (
+                                <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.2 rounded bg-red-100 text-red-700">
+                                  Emergency
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] font-semibold text-slate-700 truncate mt-0.5">
+                              {c.contactPerson} {c.designation ? <span className="text-[10px] text-slate-500 font-normal">({c.designation})</span> : null}
+                            </p>
+                            {(c.availability || c.locationOrDesk) && (
+                              <div className="flex items-center gap-2 flex-wrap text-[10px] text-slate-400 mt-0.5">
+                                {c.availability && (() => {
+                                  const status = parseAvailabilityStatus(c.availability);
+                                  return (
+                                    <span className="flex items-center gap-1">
+                                      {status === "open" && (
+                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                                          Open Now
+                                        </span>
+                                      )}
+                                      {status === "closed" && (
+                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+                                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block" />
+                                          Closed
+                                        </span>
+                                      )}
+                                      {status === "unknown" && <span>🕒</span>}
+                                      <span className="text-slate-400">{c.availability}</span>
+                                    </span>
+                                  );
+                                })()}
+                                {c.locationOrDesk && <span>📍 {c.locationOrDesk}</span>}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
-                      {leader.contactPhone && (
+                      <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
+                        {c.phoneNumber && (
+                          <button
+                            type="button"
+                            onClick={() => handlePhoneClick(c.contactPerson, c.phoneNumber)}
+                            className="flex-1 py-1.5 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/70 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Call</span>
+                          </button>
+                        )}
+                        {c.userId && (
+                          <button
+                            type="button"
+                            onClick={() => openFloatingChatWithUser(String(c.userId))}
+                            className="py-1.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/70 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs shrink-0"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Chat</span>
+                          </button>
+                        )}
+                        {c.email && (
+                          <a
+                            href={`mailto:${c.email}`}
+                            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60 transition-all shrink-0 flex items-center justify-center cursor-pointer"
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {contactMap.map(({ issue, icon, color, leader }) => {
+                  if (!leader) return null;
+                  const [colorBase] = color.split(" ");
+                  return (
+                    <div
+                      key={issue}
+                      className={`p-3.5 rounded-2xl border transition-all bg-white shadow-2xs hover:shadow-sm ${color}`}
+                    >
+                      <div className="flex items-start justify-between gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                          <div className={`p-2 rounded-xl bg-white shadow-2xs ${colorBase} shrink-0`}>
+                            {icon}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-xs font-bold text-slate-900 truncate">{issue}</h4>
+                            <p className="text-[11px] font-semibold text-slate-700 truncate mt-0.5">
+                              {leader.fullName} <span className="text-[10px] text-slate-500 font-normal">({leader.designation})</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
+                        {leader.contactPhone && (
+                          <button
+                            type="button"
+                            onClick={() => handlePhoneClick(leader.fullName, leader.contactPhone!)}
+                            className="flex-1 py-1.5 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/70 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                          >
+                            <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Call</span>
+                          </button>
+                        )}
                         <button
                           type="button"
-                          onClick={() => handlePhoneClick(leader.fullName, leader.contactPhone!)}
-                          className="flex-1 py-1.5 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/70 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                          onClick={() => openFloatingChatWithUser(String(leader.userId))}
+                          className="py-1.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/70 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs shrink-0"
                         >
-                          <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Call</span>
+                          <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>Chat</span>
                         </button>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => openFloatingChatWithUser(String(leader.userId))}
-                        className="py-1.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/70 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs shrink-0"
-                      >
-                        <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
-                        <span>Chat</span>
-                      </button>
-                      {leader.contactEmail && (
-                        <a
-                          href={`mailto:${leader.contactEmail}`}
-                          className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60 transition-all shrink-0 flex items-center justify-center cursor-pointer"
-                        >
-                          <Mail className="w-3.5 h-3.5" />
-                        </a>
-                      )}
+                        {leader.contactEmail && (
+                          <a
+                            href={`mailto:${leader.contactEmail}`}
+                            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60 transition-all shrink-0 flex items-center justify-center cursor-pointer"
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
