@@ -116,11 +116,12 @@ const DAY_MAP: Record<string, number> = {
 };
 
 /** Convert "9am", "9:00 AM", "09:00" etc. → fractional hours (9.0, 13.5 …) */
-function parseHour(raw: string): number | null {
+function parseHour(raw?: string): number | null {
+  if (!raw) return null;
   const s = raw.trim().toLowerCase();
   // "9:30am" / "9:30 am"
   const full = s.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/);
-  if (full) {
+  if (full && full[1] && full[2]) {
     let h = parseInt(full[1], 10);
     const m = parseInt(full[2], 10);
     const period = full[3];
@@ -130,7 +131,7 @@ function parseHour(raw: string): number | null {
   }
   // "9am" / "9 pm"
   const simple = s.match(/^(\d{1,2})\s*(am|pm)?$/);
-  if (simple) {
+  if (simple && simple[1]) {
     let h = parseInt(simple[1], 10);
     const period = simple[2];
     if (period === "pm" && h < 12) h += 12;
@@ -141,14 +142,15 @@ function parseHour(raw: string): number | null {
 }
 
 /** Parse "Mon-Fri" or "Mon–Sat" etc. → [startDay, endDay] (0-6) */
-function parseDayRange(raw: string): [number, number] | null {
+function parseDayRange(raw?: string): [number, number] | null {
+  if (!raw) return null;
   const parts = raw.toLowerCase().split(/[-–]/);
-  if (parts.length === 2) {
+  if (parts.length === 2 && parts[0] && parts[1]) {
     const start = DAY_MAP[parts[0].trim()];
     const end = DAY_MAP[parts[1].trim()];
     if (start !== undefined && end !== undefined) return [start, end];
   }
-  if (parts.length === 1) {
+  if (parts.length === 1 && parts[0]) {
     const d = DAY_MAP[parts[0].trim()];
     if (d !== undefined) return [d, d];
   }
@@ -188,7 +190,7 @@ export function parseAvailabilityStatus(availability?: string): AvailabilityStat
     const timeTokens = trimmed.match(/\d{1,2}(?::\d{2})?\s*(?:am|pm)?/g) ?? [];
     let openHour: number | null = null;
     let closeHour: number | null = null;
-    if (timeTokens.length >= 2) {
+    if (timeTokens.length >= 2 && timeTokens[0] && timeTokens[1]) {
       openHour = parseHour(timeTokens[0]);
       closeHour = parseHour(timeTokens[1]);
     }
@@ -403,13 +405,13 @@ export interface CommunityDirectoryProps {
   defaultExpanded?: boolean;
 }
 
-export function CommunityDirectory({ isModal = false, defaultExpanded = true }: CommunityDirectoryProps) {
+export function CommunityDirectory({ isModal = false, defaultExpanded = false }: CommunityDirectoryProps) {
   const { openFloatingChatWithUser } = useChat();
   const [leaders, setLeaders] = useState<CommunityLeaderResponse[]>([]);
   const [whoToCallDbList, setWhoToCallDbList] = useState<CommunityWhoToCallResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(defaultExpanded || isModal);
+  const [expanded, setExpanded] = useState(isModal || defaultExpanded);
   const [tab, setTab] = useState<DirectoryTab>("leadership");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCommittees, setExpandedCommittees] = useState<Record<string, boolean>>({});
@@ -469,25 +471,27 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = true }: 
   const hasCommittees = committeeNames.length > 0 || other.length > 0;
   const hasWhoToCall = whoToCallDbList.length > 0 || contactMap.length > 0;
 
-  if (loading) {
-    return (
-      <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6">
-        <div className="flex flex-col items-center justify-center gap-3 text-slate-400 py-6">
-          <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
-          <span className="text-xs font-semibold text-slate-600">Loading community directory...</span>
+  if (isModal) {
+    if (loading) {
+      return (
+        <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6">
+          <div className="flex flex-col items-center justify-center gap-3 text-slate-400 py-6">
+            <Loader2 className="w-6 h-6 animate-spin text-emerald-600" />
+            <span className="text-xs font-semibold text-slate-600">Loading community directory...</span>
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
-  if (error || (leaders.length === 0 && whoToCallDbList.length === 0)) {
-    return (
-      <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 text-center">
-        <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-        <p className="text-xs font-bold text-slate-700">No directory records found</p>
-        <p className="text-[11px] text-slate-400 mt-0.5">Leadership and committee members will appear here once added.</p>
-      </div>
-    );
+    if (error || (leaders.length === 0 && whoToCallDbList.length === 0)) {
+      return (
+        <div className="bg-white rounded-2xl shadow-xs border border-slate-200 p-6 text-center">
+          <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+          <p className="text-xs font-bold text-slate-700">No directory records found</p>
+          <p className="text-[11px] text-slate-400 mt-0.5">Leadership and committee members will appear here once added.</p>
+        </div>
+      );
+    }
   }
 
   const tabs: { id: DirectoryTab; label: string; icon: React.ReactNode; count?: number }[] = [
@@ -842,7 +846,20 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = true }: 
 
       {expanded && (
         <div className="px-4 pb-4 border-t border-slate-100 pt-3">
-          {content}
+          {loading ? (
+            <div className="flex flex-col items-center justify-center gap-2.5 text-slate-400 py-6">
+              <Loader2 className="w-5 h-5 animate-spin text-emerald-600" />
+              <span className="text-xs font-semibold text-slate-600">Loading community directory...</span>
+            </div>
+          ) : error || (leaders.length === 0 && whoToCallDbList.length === 0) ? (
+            <div className="p-4 text-center">
+              <Users className="w-6 h-6 text-slate-300 mx-auto mb-1.5" />
+              <p className="text-xs font-bold text-slate-700">No directory records found</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Leadership and committee members will appear here once added.</p>
+            </div>
+          ) : (
+            content
+          )}
         </div>
       )}
     </div>
