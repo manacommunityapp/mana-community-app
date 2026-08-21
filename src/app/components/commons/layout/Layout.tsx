@@ -19,103 +19,6 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/* ── Global Header Breadcrumb with Clickable Links ── */
-function AppHeaderBreadcrumb() {
-  const location = useLocation();
-  const path = location.pathname;
-
-  const getCrumbs = () => {
-    const crumbs: { label: string; to: string }[] = [{ label: "Home", to: "/" }];
-
-    if (path === "/") return crumbs;
-
-    if (path.startsWith("/events")) {
-      crumbs.push({ label: "Events", to: "/events" });
-      if (path.includes("/member-flow")) crumbs.push({ label: "Member Flow", to: "/events/member-flow" });
-      else if (path.includes("/schedule")) crumbs.push({ label: "Schedule", to: "/events/schedule" });
-      else if (path.includes("/registration")) crumbs.push({ label: "Registration", to: "/events/registration" });
-      else if (path.includes("/people")) crumbs.push({ label: "People", to: "/events/people" });
-      else if (path.includes("/fundraising")) crumbs.push({ label: "Fundraising", to: "/events/fundraising" });
-      else if (path.includes("/operations")) crumbs.push({ label: "Operations", to: "/events/operations" });
-      else if (path.includes("/media")) crumbs.push({ label: "Media & Reports", to: "/events/media" });
-    } else if (path.startsWith("/sports")) {
-      crumbs.push({ label: "Sports", to: "/sports" });
-      if (path.includes("/leagues")) crumbs.push({ label: "Leagues", to: "/sports/leagues" });
-      else if (path.includes("/teams")) crumbs.push({ label: "Teams", to: "/sports/teams" });
-      else if (path.includes("/schedule")) crumbs.push({ label: "Schedule", to: "/sports/schedule" });
-      else if (path.includes("/auctions")) crumbs.push({ label: "Auctions", to: "/sports/auctions" });
-    } else if (path.startsWith("/marketplace")) {
-      crumbs.push({ label: "Marketplace", to: "/marketplace" });
-      if (path.includes("/orders")) crumbs.push({ label: "Orders", to: "/marketplace/orders" });
-      else if (path.includes("/my-listings")) crumbs.push({ label: "My Listings", to: "/marketplace/my-listings" });
-    } else if (path.startsWith("/visitors")) {
-      crumbs.push({ label: "Visitors", to: "/visitors" });
-    } else if (path.startsWith("/notices")) {
-      crumbs.push({ label: "Notices", to: "/notices" });
-    } else if (path.startsWith("/bookings")) {
-      crumbs.push({ label: "Bookings", to: "/bookings" });
-    } else if (path.startsWith("/helpdesk")) {
-      crumbs.push({ label: "Helpdesk", to: "/helpdesk" });
-    } else if (path.startsWith("/polls")) {
-      crumbs.push({ label: "Polls", to: "/polls" });
-    } else if (path.startsWith("/jobs")) {
-      crumbs.push({ label: "Jobs & Referrals", to: "/jobs" });
-    } else if (path.startsWith("/cpn")) {
-      crumbs.push({ label: "Professional Network", to: "/cpn" });
-    } else if (path.startsWith("/admin")) {
-      crumbs.push({ label: "Admin Hub", to: "/admin" });
-    } else if (path.startsWith("/finance")) {
-      crumbs.push({ label: "Finance", to: "/finance/expenses" });
-      if (path.includes("/expenses")) crumbs.push({ label: "Expenses", to: "/finance/expenses" });
-      else if (path.includes("/invoices")) crumbs.push({ label: "Invoices", to: "/finance/invoices" });
-      else if (path.includes("/budget")) crumbs.push({ label: "Budget", to: "/finance/budget" });
-      else if (path.includes("/reports")) crumbs.push({ label: "Reports", to: "/finance/reports" });
-    } else if (path.startsWith("/community")) {
-      crumbs.push({ label: "Community", to: "/" });
-      if (path.includes("/inventory")) crumbs.push({ label: "Inventory", to: "/community/inventory" });
-      else if (path.includes("/assets")) crumbs.push({ label: "Assets", to: "/community/assets" });
-      else if (path.includes("/procurement")) crumbs.push({ label: "Procurement", to: "/community/procurement" });
-      else if (path.includes("/vendors")) crumbs.push({ label: "Vendors", to: "/community/vendors" });
-    } else if (path.startsWith("/vendor-portal")) {
-      crumbs.push({ label: "Vendor Portal", to: "/vendor-portal" });
-    } else if (path.startsWith("/profile")) {
-      crumbs.push({ label: "My Profile", to: "/profile" });
-    } else if (path.startsWith("/architecture")) {
-      crumbs.push({ label: "Architecture", to: "/architecture" });
-    } else {
-      const seg = path.replace("/", "").replaceAll("-", " ");
-      if (seg) crumbs.push({ label: seg.charAt(0).toUpperCase() + seg.slice(1), to: path });
-    }
-
-    return crumbs;
-  };
-
-  const crumbs = getCrumbs();
-
-  return (
-    <nav aria-label="Breadcrumb" className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground ml-3">
-      {crumbs.map((crumb, idx) => {
-        const isLast = idx === crumbs.length - 1;
-        return (
-          <div key={crumb.to + idx} className="flex items-center gap-1.5">
-            {idx > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/40 shrink-0" />}
-            {isLast ? (
-              <span className="font-extrabold text-foreground">{crumb.label}</span>
-            ) : (
-              <NavLink
-                to={crumb.to}
-                className="hover:underline hover:text-primary transition-colors font-medium text-muted-foreground"
-              >
-                {crumb.label}
-              </NavLink>
-            )}
-          </div>
-        );
-      })}
-    </nav>
-  );
-}
-
 /* ── Merged User Profile & Account Dropdown Menu ── */
 function UserProfileMenu({
   user,
@@ -840,7 +743,6 @@ export function Layout() {
             >
               Mana Community
             </Link>
-            <AppHeaderBreadcrumb />
           </div>
 
           {/* Search bar - desktop */}

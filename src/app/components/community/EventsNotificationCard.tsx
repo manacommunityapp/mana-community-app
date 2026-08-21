@@ -29,13 +29,21 @@ function getCategoryMeta(typeOrCat?: string | null): {
   return { icon: <Calendar className="w-3 h-3" />, dot: "bg-indigo-400" };
 }
 
-export function EventsNotificationCard({ defaultExpanded = false }: { defaultExpanded?: boolean }) {
+export function EventsNotificationCard({
+  defaultExpanded = false,
+  badgeCount,
+  passCount,
+}: {
+  defaultExpanded?: boolean;
+  badgeCount?: number;
+  passCount?: number;
+}) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const [hasFetched, setHasFetched] = useState(false);
   const [events, setEvents] = useState<EventResponse[]>([]);
   const [loading, setLoading] = useState(false);
-  const [myPassCount, setMyPassCount] = useState<number>(0);
+  const [myPassCount, setMyPassCount] = useState<number>(passCount ?? 0);
 
   const loadEventsData = async () => {
     try {
@@ -55,6 +63,12 @@ export function EventsNotificationCard({ defaultExpanded = false }: { defaultExp
   };
 
   useEffect(() => {
+    if (passCount !== undefined && !hasFetched) {
+      setMyPassCount(passCount);
+    }
+  }, [passCount, hasFetched]);
+
+  useEffect(() => {
     if (!expanded) return;
     if (hasFetched) return;
     loadEventsData();
@@ -72,6 +86,8 @@ export function EventsNotificationCard({ defaultExpanded = false }: { defaultExp
       window.removeEventListener("mana_event_created", reload);
     };
   }, [expanded]);
+
+  const currentEventsCount = hasFetched ? events.length : (badgeCount ?? events.length);
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden transition-all duration-300 hover:shadow-md">
@@ -93,9 +109,9 @@ export function EventsNotificationCard({ defaultExpanded = false }: { defaultExp
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          {events.length > 0 && (
+          {currentEventsCount > 0 && (
             <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-indigo-50 text-indigo-600 border border-indigo-100 leading-none">
-              {events.length}
+              {currentEventsCount}
             </span>
           )}
           {expanded ? (

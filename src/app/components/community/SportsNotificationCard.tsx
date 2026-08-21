@@ -90,9 +90,10 @@ interface Props {
   /** Pass "sports" to show Sports tab first */
   defaultTab?: "events" | "notifications";
   defaultExpanded?: boolean;
+  badgeCount?: number;
 }
 
-export function SportsNotificationCard({ defaultTab = "events", defaultExpanded = false }: Props) {
+export function SportsNotificationCard({ defaultTab = "events", defaultExpanded = false, badgeCount }: Props) {
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -144,6 +145,7 @@ export function SportsNotificationCard({ defaultTab = "events", defaultExpanded 
   });
 
   const hasEvents = events.length > 0;
+  const currentCount = hasFetched ? events.length : (badgeCount ?? events.length);
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden transition-all duration-300 hover:shadow-md">
@@ -161,6 +163,11 @@ export function SportsNotificationCard({ defaultTab = "events", defaultExpanded 
           <p className="text-[10px] text-slate-500 font-medium leading-tight truncate">Tournaments, matches & alerts</p>
         </div>
         <div className="flex items-center gap-1.5">
+          {currentCount > 0 && (
+            <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
+              {currentCount}
+            </span>
+          )}
           <Zap className="w-3.5 h-3.5 text-sky-400 shrink-0" />
           {expanded ? (
             <ChevronUp className="w-4 h-4 text-slate-400" />
