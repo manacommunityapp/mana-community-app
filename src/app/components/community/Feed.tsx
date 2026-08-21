@@ -58,6 +58,8 @@ import type {
   TrendingResponse,
   EngagementScoreResponse,
   PostTypeEnum,
+  PostLikerResponse,
+  CommentLikerResponse,
 } from "../../../types/api";
 import { toast } from "sonner";
 import { CommunityDirectory } from "./CommunityDirectory";
@@ -87,6 +89,16 @@ const REACTION_CONFIG: { type: ReactionTypeEnum; icon: typeof Heart; label: stri
   { type: "THANKS", icon: Star, label: "Thanks", color: "text-yellow-500", activeColor: "bg-yellow-50 text-yellow-600" },
 ];
 
+/** Reaction types available on comments (subset of post reactions) */
+const COMMENT_REACTION_CONFIG: { type: string; emoji: string; label: string; activeColor: string }[] = [
+  { type: "LIKE",      emoji: "👍", label: "Like",      activeColor: "text-blue-600" },
+  { type: "LOVE",      emoji: "❤️", label: "Love",      activeColor: "text-rose-600" },
+  { type: "CELEBRATE", emoji: "🎉", label: "Celebrate", activeColor: "text-amber-600" },
+  { type: "HELPFUL",   emoji: "💡", label: "Helpful",   activeColor: "text-green-600" },
+  { type: "THANKS",    emoji: "🙏", label: "Thanks",    activeColor: "text-yellow-600" },
+];
+
+
 const POST_TYPE_CONFIG: { id: PostTypeEnum; label: string; icon: string; color: string }[] = [
   { id: "GENERAL", label: "General", icon: "💬", color: "bg-slate-100 text-slate-700" },
   { id: "ANNOUNCEMENT", label: "Announcement", icon: "📢", color: "bg-amber-100 text-amber-700" },
@@ -110,7 +122,6 @@ const FEED_FILTERS = [
   { id: "ALL", label: "All", shortLabel: "All" },
   { id: "OFFICIAL", label: "Official", shortLabel: "Official" },
   { id: "ANNOUNCEMENT", label: "Announcements", shortLabel: "Announce" },
-  { id: "QUESTION", label: "Questions", shortLabel: "Q&A" },
   { id: "POLL", label: "Polls", shortLabel: "Polls" },
   { id: "EVENT", label: "Events", shortLabel: "Events" },
   { id: "CLASSIFIED", label: "Classifieds", shortLabel: "Classifieds" },
@@ -251,6 +262,15 @@ export function Feed() {
 
   const [showReactionPicker, setShowReactionPicker] = useState<number | null>(null);
   const reactionPickerRef = useRef<HTMLDivElement>(null);
+
+  // ── Post & Comment Likers Modal State ──
+  const [postLikersModalPostId, setPostLikersModalPostId] = useState<number | null>(null);
+  const [postLikersList, setPostLikersList] = useState<PostLikerResponse[]>([]);
+  const [loadingPostLikers, setLoadingPostLikers] = useState(false);
+
+  const [commentLikersModalCommentId, setCommentLikersModalCommentId] = useState<number | null>(null);
+  const [commentLikersList, setCommentLikersList] = useState<CommentLikerResponse[]>([]);
+  const [loadingCommentLikers, setLoadingCommentLikers] = useState(false);
 
   const [trending, setTrending] = useState<TrendingResponse[]>([]);
   const [myGroups, setMyGroups] = useState<GroupResponse[]>([]);
@@ -618,6 +638,93 @@ export function Feed() {
       toast.success("Comment deleted.");
     } catch (error: any) {
       toast.error("Failed to delete comment: " + error.message);
+    }
+  };
+
+  const handleOpenPostLikers = async (postId: number) => {
+    setPostLikersModalPostId(postId);
+    setLoadingPostLikers(true);
+    try {
+      const list = await feedService.getPostLikers(postId);
+      setPostLikersList(Array.isArray(list) ? list : []);
+    } catch (err: any) {
+      toast.error("Failed to load likes: " + err.message);
+    } finally {
+      setLoadingPostLikers(false);
+    }
+  };
+
+  const handleOpenCommentLikers = async (commentId: number) => {
+    setCommentLikersModalCommentId(commentId);
+    setLoadingCommentLikers(true);
+    try {
+      const list = await feedService.getCommentLikers(commentId);
+      setCommentLikersList(Array.isArray(list) ? list : []);
+    } catch (err: any) {
+      toast.error("Failed to load comment likes: " + err.message);
+    } finally {
+      setLoadingCommentLikers(false);
+    }
+  };
+
+  const handleToggleCommentLike = async (postId: number, commentId: number) => {
+    try {
+      const res = await feedService.toggleCommentLike(commentId);
+      setComments((prev) => {
+        const postComments = prev[postId] || [];
+        const updateRecursive = (list: CommentResponse[]): CommentResponse[] => {
+          return list.map((c) => {
+            if (c.id === commentId) {
+              return {
+                ...c,
+                likesCount: res.likesCount,
+                likedByCurrentUser: res.liked,
+              };
+            }
+            if (c.replies && c.replies.length > 0) {
+              return {
+                ...c,
+                replies: updateRecursive(c.replies),
+              };
+            }
+            return c;
+          });
+        };
+        return {
+          ...prev,
+          [postId]: updateRecursive(postComments),
+        };
+      });
+    } catch (err: any) {
+      toast.error("Failed to like comment: " + err.message);
+    }
+  };
+
+  /** Toggle a rich emoji reaction on a comment (LIKE, LOVE, CELEBRATE, HELPFUL, THANKS) */
+  const handleToggleCommentReaction = async (postId: number, commentId: number, reactionType: string) => {
+    try {
+      const res = await feedService.toggleCommentReaction(commentId, reactionType);
+      setComments((prev) => {
+        const postComments = prev[postId] || [];
+        const updateRecursive = (list: CommentResponse[]): CommentResponse[] =>
+          list.map((c) => {
+            if (c.id === commentId) {
+              return {
+                ...c,
+                likesCount: res.likesCount,
+                userCommentReaction: res.userReaction ?? undefined,
+                commentReactionCounts: res.reactionCounts,
+              };
+            }
+            if (c.replies && c.replies.length > 0) {
+              return { ...c, replies: updateRecursive(c.replies) };
+            }
+            return c;
+          });
+        return { ...prev, [postId]: updateRecursive(postComments) };
+      });
+    } catch (err: any) {
+      toast.error("Failed to react to comment: " + err.message);
     }
   };
 
@@ -1235,9 +1342,33 @@ export function Feed() {
           {/* Feed Items */}
           <div className="space-y-4">
             {posts.length === 0 && !loading ? (
-              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-500 text-sm">
-                No posts found. Be the first to share something!
-              </div>
+              activeFilter === "BOOKMARKED" ? (
+                /* ── Dedicated Saved Posts Empty State ── */
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-10 text-center flex flex-col items-center gap-4">
+                  <div className="w-20 h-20 rounded-2xl bg-indigo-50 flex items-center justify-center shadow-inner">
+                    <Bookmark className="w-10 h-10 text-indigo-300" strokeWidth={1.5} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h3 className="text-base font-bold text-slate-800">No saved posts yet</h3>
+                    <p className="text-sm text-slate-500 max-w-xs mx-auto leading-relaxed">
+                      You haven't saved any posts yet. Tap the{" "}
+                      <BookmarkCheck className="inline w-3.5 h-3.5 text-indigo-500 align-text-bottom" />{" "}
+                      bookmark icon on any post to save it for later.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setActiveFilter("ALL")}
+                    className="mt-1 px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-xl transition-colors shadow-sm"
+                  >
+                    Browse Posts
+                  </button>
+                </div>
+              ) : (
+                /* ── Generic Empty State ── */
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 text-center text-slate-500 text-sm">
+                  No posts found. Be the first to share something!
+                </div>
+              )
             ) : (
               posts.map((post) => (
                 <PostCard
@@ -1265,6 +1396,10 @@ export function Feed() {
                   onSetCommentText={(text: string) => setNewCommentText((prev) => ({ ...prev, [post.id]: text }))}
                   onSetReplyingTo={(id: number | null) => setReplyingTo((prev) => ({ ...prev, [post.id]: id }))}
                   onShowReactionPicker={() => setShowReactionPicker(showReactionPicker === post.id ? null : post.id)}
+                  onOpenPostLikers={handleOpenPostLikers}
+                  onOpenCommentLikers={handleOpenCommentLikers}
+                  onToggleCommentLike={handleToggleCommentLike}
+                  onToggleCommentReaction={handleToggleCommentReaction}
                   getInitials={getInitials}
                   formatTimeAgo={formatTimeAgo}
                   getPostTypeConfig={getPostTypeConfig}
@@ -1310,6 +1445,163 @@ export function Feed() {
           <QuickLinksCard />
         </div>
       </div>
+
+      {/* ── Modal: Post Likers / Reactions ── */}
+      {postLikersModalPostId !== null && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
+                  <Heart className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Post Reactions & Likes</h3>
+                  <p className="text-[11px] text-slate-500">
+                    {postLikersList.length} {postLikersList.length === 1 ? "person" : "people"} reacted to this post
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setPostLikersModalPostId(null); setPostLikersList([]); }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="max-h-96 overflow-y-auto p-3 divide-y divide-slate-100">
+              {loadingPostLikers ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-2 text-slate-400">
+                  <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
+                  <span className="text-xs font-medium">Loading reactions...</span>
+                </div>
+              ) : postLikersList.length === 0 ? (
+                <div className="text-center py-8 text-slate-400 text-xs font-medium">
+                  No likes yet on this post.
+                </div>
+              ) : (
+                postLikersList.map((liker) => {
+                  const rc = REACTION_CONFIG.find((r) => r.type === liker.reactionType) || REACTION_CONFIG[0];
+                  const IconComp = rc.icon;
+                  return (
+                    <div key={`${liker.userId}-${liker.reactionType}`} className="py-2.5 px-2 flex items-center justify-between gap-3 hover:bg-slate-50/80 rounded-xl transition-colors">
+                      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                        <div className="relative">
+                          <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 overflow-hidden shrink-0">
+                            {liker.profilePicUrl ? (
+                              <img src={liker.profilePicUrl} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              getInitials(liker.fullName)
+                            )}
+                          </div>
+                          <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-white shadow-xs border border-slate-200 flex items-center justify-center ${rc.color}`}>
+                            <IconComp className="w-2.5 h-2.5" />
+                          </div>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs font-bold text-slate-900 truncate">{liker.fullName}</h4>
+                          <p className="text-[10px] text-slate-500 truncate">{liker.role || "Verified Member"}</p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-[10px] text-slate-400 font-medium">
+                          {liker.createdAt ? formatTimeAgo(liker.createdAt) : ""}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="p-3 bg-slate-50/60 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => { setPostLikersModalPostId(null); setPostLikersList([]); }}
+                className="px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Comment Likers ── */}
+      {commentLikersModalCommentId !== null && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between p-4 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
+                  <Heart className="w-4 h-4 fill-rose-600" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Comment Likes</h3>
+                  <p className="text-[11px] text-slate-500">
+                    {commentLikersList.length} {commentLikersList.length === 1 ? "like" : "likes"}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setCommentLikersModalCommentId(null); setCommentLikersList([]); }}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="max-h-80 overflow-y-auto p-3 divide-y divide-slate-100">
+              {loadingCommentLikers ? (
+                <div className="flex flex-col items-center justify-center py-8 gap-2 text-slate-400">
+                  <Loader2 className="w-5 h-5 animate-spin text-rose-600" />
+                  <span className="text-xs font-medium">Loading likes...</span>
+                </div>
+              ) : commentLikersList.length === 0 ? (
+                <div className="text-center py-6 text-slate-400 text-xs font-medium">
+                  No likes yet on this comment.
+                </div>
+              ) : (
+                commentLikersList.map((liker) => (
+                  <div key={liker.userId} className="py-2.5 px-2 flex items-center justify-between gap-3 hover:bg-slate-50/80 rounded-xl transition-colors">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 overflow-hidden shrink-0">
+                        {liker.profilePicUrl ? (
+                          <img src={liker.profilePicUrl} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          getInitials(liker.fullName)
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="text-xs font-bold text-slate-900 truncate">{liker.fullName}</h4>
+                        <p className="text-[10px] text-slate-500 truncate">{liker.role || "Verified Member"}</p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        {liker.createdAt ? formatTimeAgo(liker.createdAt) : ""}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="p-3 bg-slate-50/60 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => { setCommentLikersModalCommentId(null); setCommentLikersList([]); }}
+                className="px-4 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1320,6 +1612,7 @@ function PostCard({
   submittingComment, replyingTo, showReactionPicker, reactionPickerRef,
   onDeletePost, onUpdatePost, onReaction, onBookmark, onVote, onToggleComments, onAddComment,
   onDeleteComment, onSetCommentText, onSetReplyingTo, onShowReactionPicker,
+  onOpenPostLikers, onOpenCommentLikers, onToggleCommentLike, onToggleCommentReaction,
   getInitials, formatTimeAgo, getPostTypeConfig, getReactionIcon,
 }: any) {
   const navigate = useNavigate();
@@ -1339,6 +1632,7 @@ function PostCard({
   const [isSavingEdit, setIsSavingEdit] = useState(false);
   const editImageInputRef = useRef<HTMLInputElement>(null);
   const [isUploadingEditImage, setIsUploadingEditImage] = useState(false);
+  const [isLinkCopied, setIsLinkCopied] = useState(false);
 
   const canEditThisPost = canEdit || (user?.userId === String(post.authorId));
 
@@ -1752,16 +2046,23 @@ function PostCard({
       {/* Reaction summary */}
       {totalReactions > 0 && (
         <div className="flex items-center gap-1.5 mb-2 text-xs text-slate-500">
-          <div className="flex -space-x-1">
-            {Object.entries(post.reactionCounts || {}).slice(0, 3).map(([type]) => {
-              const rc = REACTION_CONFIG.find((r) => r.type === type);
-              if (!rc) return null;
-              const IconComp = rc.icon;
-              return <span key={type} className={`w-5 h-5 rounded-full flex items-center justify-center ${rc.color} bg-white border border-slate-200`}><IconComp className="w-3 h-3" /></span>;
-            })}
-          </div>
-          <span className="font-medium">{totalReactions}</span>
-          {post.commentsCount > 0 && <span className="ml-auto">{post.commentsCount} comments</span>}
+          <button
+            type="button"
+            onClick={() => onOpenPostLikers(post.id)}
+            className="flex items-center gap-1.5 hover:text-indigo-600 cursor-pointer group transition-colors"
+            title="Click to view who liked or reacted to this post"
+          >
+            <div className="flex -space-x-1">
+              {Object.entries(post.reactionCounts || {}).slice(0, 3).map(([type]) => {
+                const rc = REACTION_CONFIG.find((r) => r.type === type);
+                if (!rc) return null;
+                const IconComp = rc.icon;
+                return <span key={type} className={`w-5 h-5 rounded-full flex items-center justify-center ${rc.color} bg-white border border-slate-200 shadow-2xs`}><IconComp className="w-3 h-3" /></span>;
+              })}
+            </div>
+            <span className="font-semibold text-slate-700 group-hover:text-indigo-600 group-hover:underline ml-0.5">{totalReactions} {totalReactions === 1 ? "like" : "likes"}</span>
+          </button>
+          {post.commentsCount > 0 && <span className="ml-auto text-slate-400">{post.commentsCount} comments</span>}
         </div>
       )}
 
@@ -1805,9 +2106,58 @@ function PostCard({
           <MessageSquare className="w-4 h-4" />
           <span className="text-xs">{post.commentsCount}</span>
         </button>
-        <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/posts/${post.id}`); toast.success("Link copied!"); }} className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-slate-50 transition-colors font-medium">
-          <Share2 className="w-4 h-4" />
-          <span className="text-xs hidden sm:inline">Share</span>
+
+        {/* ── Share / Copy Link Button ── */}
+        <button
+          onClick={async () => {
+            const postUrl = `${window.location.origin}/posts/${post.id}`;
+            const shareTitle = post.title || (post.content?.slice(0, 60) + (post.content && post.content.length > 60 ? "…" : "")) || "Community Post";
+            const shareText = post.content?.slice(0, 120) || shareTitle;
+
+            // Try Web Share API first (works natively on mobile → WhatsApp, etc.)
+            if (typeof navigator.share === "function") {
+              try {
+                await navigator.share({ title: shareTitle, text: shareText, url: postUrl });
+                return; // native sheet handled it
+              } catch {
+                // User cancelled or API unavailable — fall through to clipboard
+              }
+            }
+
+            // Clipboard fallback
+            try {
+              await navigator.clipboard.writeText(postUrl);
+            } catch {
+              // Last-resort fallback for insecure contexts
+              const ta = document.createElement("textarea");
+              ta.value = postUrl;
+              ta.style.cssText = "position:fixed;opacity:0";
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand("copy");
+              document.body.removeChild(ta);
+            }
+            setIsLinkCopied(true);
+            setTimeout(() => setIsLinkCopied(false), 2000);
+          }}
+          className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-colors font-medium ${
+            isLinkCopied
+              ? "bg-emerald-50 text-emerald-600"
+              : "hover:bg-slate-50 text-slate-500 hover:text-slate-700"
+          }`}
+          title="Share or copy link to this post"
+        >
+          {isLinkCopied ? (
+            <>
+              <Check className="w-4 h-4" />
+              <span className="text-xs hidden sm:inline">Copied!</span>
+            </>
+          ) : (
+            <>
+              <Share2 className="w-4 h-4" />
+              <span className="text-xs hidden sm:inline">Share</span>
+            </>
+          )}
         </button>
       </div>
 
@@ -1829,6 +2179,9 @@ function PostCard({
                   formatTimeAgo={formatTimeAgo}
                   onDelete={onDeleteComment}
                   onReply={(commentId: number) => onSetReplyingTo(commentId)}
+                  onToggleCommentLike={(postId: number, commentId: number) => onToggleCommentLike(postId, commentId)}
+                  onToggleCommentReaction={(postId: number, commentId: number, type: string) => onToggleCommentReaction(postId, commentId, type)}
+                  onOpenCommentLikers={onOpenCommentLikers}
                   depth={0}
                 />
               ))}
@@ -1858,9 +2211,44 @@ function PostCard({
 }
 
 /* ─── Comment Item (Threaded) ─── */
-function CommentItem({ comment, allComments, postId, user, isAdmin, getInitials, formatTimeAgo, onDelete, onReply, depth }: any) {
+function CommentItem({
+  comment,
+  allComments,
+  postId,
+  user,
+  isAdmin,
+  getInitials,
+  formatTimeAgo,
+  onDelete,
+  onReply,
+  onToggleCommentLike,
+  onToggleCommentReaction,
+  onOpenCommentLikers,
+  depth,
+}: any) {
   const replies = comment.replies || allComments.filter((c: CommentResponse) => c.parentId === comment.id);
   const [showReplies, setShowReplies] = useState(depth < 2);
+  const [showReactionPicker, setShowReactionPicker] = useState(false);
+
+  // Determine current user's reaction on this comment
+  const userReaction = comment.userCommentReaction as string | undefined;
+  const reactionCounts: Record<string, number> = comment.commentReactionCounts || {};
+  const totalReactions = comment.likesCount || 0;
+
+  // Dominant reaction emoji for button face
+  const dominantEmoji = userReaction
+    ? (COMMENT_REACTION_CONFIG.find(r => r.type === userReaction)?.emoji ?? "❤️")
+    : (totalReactions > 0 ? (COMMENT_REACTION_CONFIG.find(r => reactionCounts[r.type] > 0)?.emoji ?? "❤️") : null);
+
+  const handleReaction = async (type: string) => {
+    setShowReactionPicker(false);
+    if (onToggleCommentReaction) {
+      await onToggleCommentReaction(postId, comment.id, type);
+    } else if (onToggleCommentLike) {
+      // Fallback to simple like for backward compat
+      await onToggleCommentLike(postId, comment.id);
+    }
+  };
 
   return (
     <div className={`${depth > 0 ? "ml-6 border-l-2 border-slate-100 pl-3" : ""}`}>
@@ -1889,10 +2277,64 @@ function CommentItem({ comment, allComments, postId, user, isAdmin, getInitials,
           </div>
           <p className="text-xs text-slate-700 leading-normal whitespace-pre-line mt-0.5">{comment.content}</p>
           <div className="flex items-center gap-3 mt-1.5">
-            <button onClick={() => onReply(comment.id)} className="text-[10px] font-semibold text-slate-500 hover:text-indigo-600 flex items-center gap-1">
+            {/* ── Rich Comment Reaction Picker ── */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowReactionPicker(prev => !prev)}
+                className={`text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                  userReaction ? "text-rose-600 font-bold" : "text-slate-500 hover:text-rose-600"
+                }`}
+                title="React to this comment"
+              >
+                {dominantEmoji ? (
+                  <span className="text-[11px]">{dominantEmoji}</span>
+                ) : (
+                  <Heart className="w-3 h-3" />
+                )}
+                <span>{userReaction
+                  ? (COMMENT_REACTION_CONFIG.find(r => r.type === userReaction)?.label ?? "Reacted")
+                  : "React"}</span>
+              </button>
+              {showReactionPicker && (
+                <div className="absolute bottom-full left-0 mb-1 z-30 bg-white border border-slate-200 rounded-xl shadow-xl px-2 py-1.5 flex items-center gap-1.5">
+                  {COMMENT_REACTION_CONFIG.map(r => (
+                    <button
+                      key={r.type}
+                      type="button"
+                      onClick={() => handleReaction(r.type)}
+                      title={r.label}
+                      className={`flex flex-col items-center gap-0.5 px-1 py-0.5 rounded-lg transition-all hover:bg-slate-100 hover:scale-125 cursor-pointer ${
+                        userReaction === r.type ? "bg-slate-100 scale-110" : ""
+                      }`}
+                    >
+                      <span className="text-base leading-none">{r.emoji}</span>
+                      <span className={`text-[8px] font-bold ${userReaction === r.type ? r.activeColor : "text-slate-400"}`}>{r.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Reaction summary: show per-type counts or total */}
+            {totalReactions > 0 && (
+              <button
+                type="button"
+                onClick={() => onOpenCommentLikers && onOpenCommentLikers(comment.id)}
+                className="text-[10px] font-medium text-slate-500 hover:text-indigo-600 hover:underline cursor-pointer flex items-center gap-0.5"
+                title="View who reacted to this comment"
+              >
+                {Object.entries(reactionCounts).slice(0, 3).map(([type]) => {
+                  const cfg = COMMENT_REACTION_CONFIG.find(r => r.type === type);
+                  return cfg ? <span key={type} className="text-[11px]">{cfg.emoji}</span> : null;
+                })}
+                <span className="ml-0.5">{totalReactions}</span>
+              </button>
+            )}
+
+            <button onClick={() => onReply(comment.id)} className="text-[10px] font-semibold text-slate-500 hover:text-indigo-600 flex items-center gap-1 cursor-pointer">
               <Reply className="w-3 h-3" /> Reply
             </button>
-            {comment.likesCount > 0 && <span className="text-[10px] text-slate-400">{comment.likesCount} likes</span>}
           </div>
         </div>
       </div>
@@ -1900,13 +2342,28 @@ function CommentItem({ comment, allComments, postId, user, isAdmin, getInitials,
       {replies.length > 0 && (
         <>
           {!showReplies ? (
-            <button onClick={() => setShowReplies(true)} className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 ml-9 mt-1">
+            <button onClick={() => setShowReplies(true)} className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-700 ml-9 mt-1 cursor-pointer">
               Show {replies.length} {replies.length === 1 ? "reply" : "replies"}
             </button>
           ) : (
             <div className="mt-1.5 space-y-1.5">
               {replies.map((reply: CommentResponse) => (
-                <CommentItem key={reply.id} comment={reply} allComments={allComments} postId={postId} user={user} isAdmin={isAdmin} getInitials={getInitials} formatTimeAgo={formatTimeAgo} onDelete={onDelete} onReply={onReply} depth={depth + 1} />
+                <CommentItem
+                  key={reply.id}
+                  comment={reply}
+                  allComments={allComments}
+                  postId={postId}
+                  user={user}
+                  isAdmin={isAdmin}
+                  getInitials={getInitials}
+                  formatTimeAgo={formatTimeAgo}
+                  onDelete={onDelete}
+                  onReply={onReply}
+                  onToggleCommentLike={onToggleCommentLike}
+                  onToggleCommentReaction={onToggleCommentReaction}
+                  onOpenCommentLikers={onOpenCommentLikers}
+                  depth={depth + 1}
+                />
               ))}
             </div>
           )}

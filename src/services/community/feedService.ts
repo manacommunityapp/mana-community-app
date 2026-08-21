@@ -88,12 +88,24 @@ export const feedService = {
     return apiClient.post<LikeToggleResponse>(`/posts/${id}/like`);
   },
 
+  async getPostLikers(id: number): Promise<import("../../types/api").PostLikerResponse[]> {
+    return apiClient.get<import("../../types/api").PostLikerResponse[]>(`/posts/${id}/likes`);
+  },
+
   async toggleBookmark(id: number): Promise<PostResponse> {
     return apiClient.post<PostResponse>(`/posts/${id}/bookmark`);
   },
 
   async getComments(postId: number): Promise<CommentResponse[]> {
     return apiClient.get<CommentResponse[]>(`/posts/${postId}/comments`);
+  },
+
+  async toggleCommentLike(commentId: number): Promise<import("../../types/api").CommentLikeToggleResponse> {
+    return apiClient.post<import("../../types/api").CommentLikeToggleResponse>(`/posts/comments/${commentId}/like`);
+  },
+
+  async getCommentLikers(commentId: number): Promise<import("../../types/api").CommentLikerResponse[]> {
+    return apiClient.get<import("../../types/api").CommentLikerResponse[]>(`/posts/comments/${commentId}/likes`);
   },
 
   async addComment(postId: number, content: string, parentId?: number): Promise<CommentResponse> {
@@ -118,5 +130,20 @@ export const feedService = {
 
   async reportPost(postId: number, reason: string, description?: string): Promise<void> {
     return apiClient.post<void>(`/posts/${postId}/report`, { contentType: "POST", contentId: postId, reason, description });
+  },
+
+  /**
+   * Toggle a rich reaction (LIKE, LOVE, CELEBRATE, HELPFUL, THANKS) on a comment.
+   * Passing the same reaction type again will un-react.
+   */
+  async toggleCommentReaction(commentId: number, reactionType: string): Promise<import("../../types/api").CommentReactionToggleResponse> {
+    return apiClient.post<import("../../types/api").CommentReactionToggleResponse>(
+      `/posts/comments/${commentId}/react?type=${encodeURIComponent(reactionType)}`
+    );
+  },
+
+  /** Returns per-type reaction counts for a comment, e.g. { LIKE: 3, LOVE: 2 } */
+  async getCommentReactionCounts(commentId: number): Promise<Record<string, number>> {
+    return apiClient.get<Record<string, number>>(`/posts/comments/${commentId}/reactions`);
   },
 };

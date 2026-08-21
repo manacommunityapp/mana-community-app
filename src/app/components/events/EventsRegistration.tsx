@@ -4,7 +4,9 @@ import {
   Loader2, AlertCircle, X, User, Mail, Phone, MapPin, Ticket, Eye,
   Printer, FileSpreadsheet, FileText, Copy, ChevronDown, UserPlus,
   CalendarDays, Hash, CreditCard, Users, BadgeCheck, ArrowUpDown,
+  UserCheck, Check,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse, type RegistrationResponse } from "../../../services/events/eventService";
 import { Input } from "../ui/input";
@@ -20,22 +22,24 @@ import { cn } from "../ui/utils";
 const categories = ["All", "Family", "Individual", "VIP", "Volunteer", "Committee", "Sponsor", "Media"];
 
 const mockRegistrants = [
-  { id: "REG-001", name: "Ramesh Sharma",   email: "ramesh@email.com",  phone: "9876543210", category: "VIP",        tickets: 2, amount: "₹2,000", status: "Confirmed", time: "2h ago",  address: "Andheri East, Mumbai" },
-  { id: "REG-002", name: "Priya Iyer",      email: "priya@email.com",   phone: "9876543211", category: "Family",     tickets: 4, amount: "₹1,600", status: "Confirmed", time: "3h ago",  address: "Bandra West, Mumbai" },
-  { id: "REG-003", name: "Karan Mehta",     email: "karan@email.com",   phone: "9876543212", category: "Individual", tickets: 1, amount: "₹400",   status: "Pending",   time: "5h ago",  address: "Powai, Mumbai" },
-  { id: "REG-004", name: "Neha Kulkarni",   email: "neha@email.com",    phone: "9876543213", category: "Volunteer",  tickets: 1, amount: "Free",   status: "Confirmed", time: "6h ago",  address: "Dadar, Mumbai" },
-  { id: "REG-005", name: "Arvind Patel",    email: "arvind@email.com",  phone: "9876543214", category: "Family",     tickets: 5, amount: "₹2,000", status: "Confirmed", time: "8h ago",  address: "Juhu, Mumbai" },
-  { id: "REG-006", name: "Sudha Reddy",     email: "sudha@email.com",   phone: "9876543215", category: "Committee",  tickets: 1, amount: "Free",   status: "Confirmed", time: "1d ago",  address: "Worli, Mumbai" },
-  { id: "REG-007", name: "Vikram Singh",    email: "vikram@email.com",  phone: "9876543216", category: "Individual", tickets: 1, amount: "₹400",   status: "Cancelled", time: "1d ago",  address: "Malad, Mumbai" },
-  { id: "REG-008", name: "Anita Desai",     email: "anita@email.com",   phone: "9876543217", category: "Sponsor",    tickets: 10,amount: "₹15,000",status: "Confirmed", time: "2d ago",  address: "Colaba, Mumbai" },
-  { id: "REG-009", name: "Media Corp TV",   email: "media@corp.com",    phone: "9876543218", category: "Media",      tickets: 3, amount: "Free",   status: "Pending",   time: "2d ago",  address: "Lower Parel, Mumbai" },
-  { id: "REG-010", name: "Deepak Joshi",    email: "deepak@email.com",  phone: "9876543219", category: "VIP",        tickets: 2, amount: "₹2,000", status: "Confirmed", time: "3d ago",  address: "Goregaon, Mumbai" },
+  { id: "REG-001", name: "Ramesh Sharma",   email: "ramesh@email.com",  phone: "9876543210", category: "VIP",        tickets: 2, amount: "₹2,000", status: "Confirmed", time: "2h ago",  address: "Andheri East, Mumbai", checkedIn: true,  checkedInAt: "09:30 AM" },
+  { id: "REG-002", name: "Priya Iyer",      email: "priya@email.com",   phone: "9876543211", category: "Family",     tickets: 4, amount: "₹1,600", status: "Confirmed", time: "3h ago",  address: "Bandra West, Mumbai", checkedIn: true,  checkedInAt: "10:15 AM" },
+  { id: "REG-003", name: "Karan Mehta",     email: "karan@email.com",   phone: "9876543212", category: "Individual", tickets: 1, amount: "₹400",   status: "Pending",   time: "5h ago",  address: "Powai, Mumbai",       checkedIn: false },
+  { id: "REG-004", name: "Neha Kulkarni",   email: "neha@email.com",    phone: "9876543213", category: "Volunteer",  tickets: 1, amount: "Free",   status: "Confirmed", time: "6h ago",  address: "Dadar, Mumbai",       checkedIn: true,  checkedInAt: "08:45 AM" },
+  { id: "REG-005", name: "Arvind Patel",    email: "arvind@email.com",  phone: "9876543214", category: "Family",     tickets: 5, amount: "₹2,000", status: "Confirmed", time: "8h ago",  address: "Juhu, Mumbai",        checkedIn: false },
+  { id: "REG-006", name: "Sudha Reddy",     email: "sudha@email.com",   phone: "9876543215", category: "Committee",  tickets: 1, amount: "Free",   status: "Confirmed", time: "1d ago",  address: "Worli, Mumbai",       checkedIn: true,  checkedInAt: "09:00 AM" },
+  { id: "REG-007", name: "Vikram Singh",    email: "vikram@email.com",  phone: "9876543216", category: "Individual", tickets: 1, amount: "₹400",   status: "Cancelled", time: "1d ago",  address: "Malad, Mumbai",       checkedIn: false },
+  { id: "REG-008", name: "Anita Desai",     email: "anita@email.com",   phone: "9876543217", category: "Sponsor",    tickets: 10,amount: "₹15,000",status: "Confirmed", time: "2d ago",  address: "Colaba, Mumbai",      checkedIn: true,  checkedInAt: "11:00 AM" },
+  { id: "REG-009", name: "Media Corp TV",   email: "media@corp.com",    phone: "9876543218", category: "Media",      tickets: 3, amount: "Free",   status: "Pending",   time: "2d ago",  address: "Lower Parel, Mumbai", checkedIn: false },
+  { id: "REG-010", name: "Deepak Joshi",    email: "deepak@email.com",  phone: "9876543219", category: "VIP",        tickets: 2, amount: "₹2,000", status: "Confirmed", time: "3d ago",  address: "Goregaon, Mumbai",    checkedIn: false },
 ];
 
 type RegRow = {
   id: string; name: string; email: string; phone: string; category: string;
   tickets: number; amount: string; status: string; time: string; address: string;
   backendId?: number;
+  checkedIn?: boolean;
+  checkedInAt?: string;
 };
 
 const statusStyle: Record<string, { icon: any; bg: string; text: string }> = {
@@ -70,22 +74,26 @@ function mapLiveRegistrations(data: RegistrationResponse[]): RegRow[] {
     time: new Date(r.registeredAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
     address: "—",
     backendId: r.id,
+    checkedIn: Boolean(r.checkedIn),
+    checkedInAt: r.checkedInAt ?? undefined,
   }));
 }
 
 /* ─── Export Helpers ─── */
 function generateCSV(rows: RegRow[], useMock: boolean): string {
   const headers = useMock
-    ? ["ID", "Name", "Email", "Phone", "Category", "Tickets", "Amount", "Status", "Registered"]
-    : ["ID", "Name", "Email", "Status", "Registered"];
+    ? ["ID", "Name", "Email", "Phone", "Category", "Tickets", "Amount", "Status", "Registered", "Checked In", "Check-In Time"]
+    : ["ID", "Name", "Email", "Status", "Registered", "Checked In", "Check-In Time"];
 
   const lines = rows.map(r => {
+    const checkInStatus = r.checkedIn ? "Yes" : "No";
+    const checkInTime = r.checkedInAt || "—";
     const base = [r.id, r.name, r.email];
     if (useMock) {
-      return [...base, r.phone, r.category, String(r.tickets), r.amount, r.status, r.time]
+      return [...base, r.phone, r.category, String(r.tickets), r.amount, r.status, r.time, checkInStatus, checkInTime]
         .map(v => `"${v.replace(/"/g, '""')}"`).join(",");
     }
-    return [...base, r.status, r.time].map(v => `"${v.replace(/"/g, '""')}"`).join(",");
+    return [...base, r.status, r.time, checkInStatus, checkInTime].map(v => `"${v.replace(/"/g, '""')}"`).join(",");
   });
 
   return [headers.join(","), ...lines].join("\n");
@@ -475,9 +483,10 @@ function AddRegistrantDialog({ useMock, onAdd, onClose }: {
 }
 
 /* ─── View Registrant Drawer ─── */
-function ViewRegistrantDrawer({ row, useMock, onClose, onConfirm, onReject }: {
+function ViewRegistrantDrawer({ row, useMock, onClose, onConfirm, onReject, onToggleCheckIn }: {
   row: RegRow; useMock: boolean; onClose: () => void;
   onConfirm: (r: RegRow) => void; onReject: (r: RegRow) => void;
+  onToggleCheckIn: (r: RegRow) => void;
 }) {
   const ss = statusStyle[row.status] ?? statusStyle.Pending;
 
@@ -510,9 +519,53 @@ function ViewRegistrantDrawer({ row, useMock, onClose, onConfirm, onReject }: {
               {row.name.charAt(0)}
             </div>
             <h4 className="font-bold text-slate-800 text-lg">{row.name}</h4>
-            <span className={cn("inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold mt-2", ss.bg, ss.text)}>
-              <ss.icon className="w-3 h-3" /> {row.status}
-            </span>
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <span className={cn("inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold", ss.bg, ss.text)}>
+                <ss.icon className="w-3 h-3" /> {row.status}
+              </span>
+              <span className={cn(
+                "inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold",
+                row.checkedIn ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-600"
+              )}>
+                {row.checkedIn ? <CheckCircle2 className="w-3 h-3 text-emerald-600" /> : <UserCheck className="w-3 h-3 text-slate-400" />}
+                {row.checkedIn ? `Checked In${row.checkedInAt ? ` (${row.checkedInAt})` : ""}` : "Not Checked In"}
+              </span>
+            </div>
+          </div>
+
+          {/* Check-in Quick Action Card */}
+          <div className={cn(
+            "p-4 rounded-xl border flex items-center justify-between gap-3",
+            row.checkedIn ? "bg-emerald-50/70 border-emerald-200" : "bg-indigo-50/70 border-indigo-200"
+          )}>
+            <div>
+              <p className="text-xs font-bold text-slate-800">Event Check-In Status</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                {row.checkedIn
+                  ? `Attendee checked in on event day${row.checkedInAt ? ` at ${row.checkedInAt}` : ""}`
+                  : "Mark attendee as present when they arrive at the venue"}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => onToggleCheckIn(row)}
+              className={cn(
+                "gap-1.5 text-xs font-bold shadow-sm h-8",
+                row.checkedIn
+                  ? "bg-rose-500 hover:bg-rose-600 text-white"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
+              )}
+            >
+              {row.checkedIn ? (
+                <>
+                  <XCircle className="w-3.5 h-3.5" /> Check Out
+                </>
+              ) : (
+                <>
+                  <Check className="w-3.5 h-3.5" /> Check In
+                </>
+              )}
+            </Button>
           </div>
 
           {/* Details */}
@@ -551,18 +604,20 @@ function ViewRegistrantDrawer({ row, useMock, onClose, onConfirm, onReject }: {
 export function EventsRegistration() {
   const { useMock } = useEventMock();
   const [activeTab, setActiveTab] = useState("All");
+  const [checkInFilter, setCheckInFilter] = useState<"all" | "checked_in" | "not_checked_in">("all");
   const [search, setSearch] = useState("");
   const [events, setEvents] = useState<EventResponse[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [liveRegistrants, setLiveRegistrants] = useState<RegRow[]>([]);
   const [addedMockRows, setAddedMockRows] = useState<RegRow[]>([]);
   const [loading, setLoading] = useState(false);
+  const [checkingInId, setCheckingInId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [showExport, setShowExport] = useState(false);
   const [showPrintPasses, setShowPrintPasses] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [viewRow, setViewRow] = useState<RegRow | null>(null);
-  const [sortBy, setSortBy] = useState<"time" | "name" | "status">("time");
+  const [sortBy, setSortBy] = useState<"time" | "name" | "status" | "checkin">("time");
 
   useEffect(() => {
     if (useMock) return;
@@ -587,13 +642,23 @@ export function EventsRegistration() {
   const registrants = useMock ? [...addedMockRows, ...mockRegistrants] : liveRegistrants;
 
   const filtered = registrants
-    .filter(r =>
-      (activeTab === "All" || r.category === activeTab) &&
-      (r.name.toLowerCase().includes(search.toLowerCase()) || r.id.includes(search) || r.email.toLowerCase().includes(search.toLowerCase()))
-    )
+    .filter(r => {
+      const matchCategory = activeTab === "All" || r.category === activeTab;
+      const matchSearch =
+        r.name.toLowerCase().includes(search.toLowerCase()) ||
+        r.id.toLowerCase().includes(search.toLowerCase()) ||
+        r.email.toLowerCase().includes(search.toLowerCase()) ||
+        r.phone.toLowerCase().includes(search.toLowerCase());
+      const matchCheckIn =
+        checkInFilter === "all" ||
+        (checkInFilter === "checked_in" && r.checkedIn) ||
+        (checkInFilter === "not_checked_in" && !r.checkedIn);
+      return matchCategory && matchSearch && matchCheckIn;
+    })
     .sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
       if (sortBy === "status") return a.status.localeCompare(b.status);
+      if (sortBy === "checkin") return (b.checkedIn ? 1 : 0) - (a.checkedIn ? 1 : 0);
       return 0;
     });
 
@@ -611,6 +676,42 @@ export function EventsRegistration() {
       .catch(() => {});
   };
 
+  const handleToggleCheckIn = async (row: RegRow) => {
+    const nextCheckedIn = !row.checkedIn;
+    const timeStr = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+
+    const updateRow = (r: RegRow) =>
+      r.id === row.id
+        ? { ...r, checkedIn: nextCheckedIn, checkedInAt: nextCheckedIn ? timeStr : undefined }
+        : r;
+
+    if (useMock || !row.backendId) {
+      if (useMock) {
+        setAddedMockRows(prev => prev.map(updateRow));
+      }
+      setLiveRegistrants(prev => prev.map(updateRow));
+      if (viewRow && viewRow.id === row.id) {
+        setViewRow(prev => prev ? updateRow(prev) : null);
+      }
+      toast.success(nextCheckedIn ? `✓ ${row.name} checked in!` : `Checked out ${row.name}`);
+      return;
+    }
+
+    setCheckingInId(row.id);
+    try {
+      await eventService.toggleCheckIn(row.backendId, nextCheckedIn);
+      setLiveRegistrants(prev => prev.map(updateRow));
+      if (viewRow && viewRow.id === row.id) {
+        setViewRow(prev => prev ? updateRow(prev) : null);
+      }
+      toast.success(nextCheckedIn ? `✓ ${row.name} checked in!` : `Checked out ${row.name}`);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update check-in status");
+    } finally {
+      setCheckingInId(null);
+    }
+  };
+
   const handleAddRegistrant = (row: RegRow) => {
     if (useMock) {
       setAddedMockRows(prev => [row, ...prev]);
@@ -619,13 +720,20 @@ export function EventsRegistration() {
     }
   };
 
+  const totalCount = registrants.length;
+  const checkedInCount = registrants.filter(r => r.checkedIn).length;
+  const checkedInPct = totalCount > 0 ? Math.round((checkedInCount / totalCount) * 100) : 0;
+
   const catStats = useMock
-    ? mockCatStats
+    ? [
+        ...mockCatStats,
+        { label: "Checked In", value: checkedInCount, color: "#059669" },
+      ]
     : [
-        { label: "Total",     value: registrants.length,                                    color: "#4f46e5" },
-        { label: "Confirmed", value: registrants.filter(r => r.status === "Confirmed").length, color: "#10b981" },
-        { label: "Pending",   value: registrants.filter(r => r.status === "Pending").length,   color: "#f59e0b" },
-        { label: "Rejected",  value: registrants.filter(r => ["Cancelled", "Rejected"].includes(r.status)).length, color: "#ef4444" },
+        { label: "Total",      value: totalCount,                                             color: "#4f46e5" },
+        { label: "Checked In", value: checkedInCount,                                         color: "#059669" },
+        { label: "Confirmed",  value: registrants.filter(r => r.status === "Confirmed").length, color: "#10b981" },
+        { label: "Pending",    value: registrants.filter(r => r.status === "Pending").length,   color: "#f59e0b" },
       ];
 
   return (
@@ -655,10 +763,15 @@ export function EventsRegistration() {
       )}
 
       {/* Stats strip */}
-      <div className={`grid gap-2 sm:gap-4 ${useMock ? "grid-cols-2 sm:grid-cols-3 lg:grid-cols-6" : "grid-cols-2 sm:grid-cols-4"}`}>
+      <div className={`grid gap-2 sm:gap-4 ${useMock ? "grid-cols-2 sm:grid-cols-4 lg:grid-cols-7" : "grid-cols-2 sm:grid-cols-4"}`}>
         {catStats.map((s) => (
           <div key={s.label} className="bg-white rounded-2xl p-2.5 sm:p-4 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
-            <p className="text-lg sm:text-2xl font-black tabular-nums" style={{ color: s.color }}>{s.value.toLocaleString()}</p>
+            <p className="text-lg sm:text-2xl font-black tabular-nums" style={{ color: s.color }}>
+              {s.value.toLocaleString()}
+              {s.label === "Checked In" && totalCount > 0 && (
+                <span className="text-xs font-semibold text-slate-400 block sm:inline sm:ml-1">({checkedInPct}%)</span>
+              )}
+            </p>
             <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5">{s.label}</p>
           </div>
         ))}
@@ -672,6 +785,10 @@ export function EventsRegistration() {
             <div className="flex items-center gap-2">
               <h2 className="font-bold text-slate-800">Registrant List</h2>
               <Badge variant="outline" className="text-[9px]">{filtered.length}</Badge>
+              <Badge className="bg-emerald-50 text-emerald-700 text-[10px] font-bold border-emerald-200">
+                <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
+                {checkedInCount} of {totalCount} checked in
+              </Badge>
             </div>
             <div className="flex gap-1.5 sm:gap-2">
               <div className="relative">
@@ -705,11 +822,44 @@ export function EventsRegistration() {
                 placeholder="Search by name, email, or ID..."
                 className="bg-transparent border-none shadow-none h-auto p-0 text-sm outline-none flex-1 placeholder-slate-400 text-slate-700 focus-visible:ring-0" />
             </div>
-            <Button variant="ghost" size="sm" onClick={() => setSortBy(s => s === "time" ? "name" : s === "name" ? "status" : "time")}
+
+            {/* Check-in Filter Pills */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+              <button
+                onClick={() => setCheckInFilter("all")}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all",
+                  checkInFilter === "all" ? "bg-white text-slate-800 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                )}
+              >
+                All
+              </button>
+              <button
+                onClick={() => setCheckInFilter("checked_in")}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1",
+                  checkInFilter === "checked_in" ? "bg-emerald-600 text-white shadow-xs" : "text-slate-500 hover:text-slate-800"
+                )}
+              >
+                <Check className="w-3 h-3" /> Checked In ({checkedInCount})
+              </button>
+              <button
+                onClick={() => setCheckInFilter("not_checked_in")}
+                className={cn(
+                  "px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1",
+                  checkInFilter === "not_checked_in" ? "bg-amber-600 text-white shadow-xs" : "text-slate-500 hover:text-slate-800"
+                )}
+              >
+                Pending Check-In ({totalCount - checkedInCount})
+              </button>
+            </div>
+
+            <Button variant="ghost" size="sm" onClick={() => setSortBy(s => s === "time" ? "name" : s === "name" ? "status" : s === "status" ? "checkin" : "time")}
               className="h-8 gap-1 text-xs text-slate-500 bg-slate-100 hover:bg-slate-200 rounded-xl">
               <ArrowUpDown className="w-3 h-3" />
-              {sortBy === "time" ? "Default" : sortBy === "name" ? "Name" : "Status"}
+              {sortBy === "time" ? "Time" : sortBy === "name" ? "Name" : sortBy === "status" ? "Status" : "Check-in"}
             </Button>
+
             {useMock && (
               <div className="flex gap-1.5 flex-wrap">
                 {categories.map(c => (
@@ -731,7 +881,7 @@ export function EventsRegistration() {
           <Table className="text-sm">
             <TableHeader>
               <TableRow className="bg-slate-50/80 border-b border-slate-100 hover:bg-slate-50/80">
-                {["ID", "Name", useMock ? "Category" : null, useMock ? "Tickets" : null, useMock ? "Amount" : null, "Status", "Time", "Actions"].filter(Boolean).map(h => (
+                {["ID", "Name", useMock ? "Category" : null, useMock ? "Tickets" : null, useMock ? "Amount" : null, "Status", "Check-In", "Time", "Actions"].filter(Boolean).map(h => (
                   <TableHead key={h!} className={`px-3 sm:px-6 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap h-auto ${
                     (h === "ID" || h === "Time" || h === "Tickets") ? "hidden sm:table-cell" : ""
                   }`}>{h}</TableHead>
@@ -741,12 +891,16 @@ export function EventsRegistration() {
             <TableBody className="divide-y divide-slate-50">
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-slate-400 text-sm">
-                    {search.trim() ? "No registrants found matching your search" : "No registrants yet"}
+                  <TableCell colSpan={9} className="text-center py-8 text-slate-400 text-sm">
+                    {search.trim() || checkInFilter !== "all"
+                      ? "No registrants found matching your search or check-in filter"
+                      : "No registrants yet"}
                   </TableCell>
                 </TableRow>
               ) : filtered.map((r) => {
                 const ss = statusStyle[r.status] ?? statusStyle.Pending;
+                const isCheckingIn = checkingInId === r.id;
+
                 return (
                   <TableRow key={r.id} className="animate-fade-in-up hover:bg-slate-50/60 transition-colors">
                     <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 font-mono text-xs text-slate-400 hidden sm:table-cell">{r.id}</TableCell>
@@ -768,6 +922,43 @@ export function EventsRegistration() {
                         <ss.icon className="w-3 h-3" /> {r.status}
                       </span>
                     </TableCell>
+
+                    {/* ── Check-In Toggle Cell ── */}
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
+                      {r.checkedIn ? (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCheckIn(r)}
+                          disabled={isCheckingIn}
+                          className="group flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 hover:bg-rose-50 hover:text-rose-600 transition-all border border-emerald-200 hover:border-rose-200 cursor-pointer shadow-2xs"
+                          title="Click to check out attendee"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 group-hover:hidden shrink-0" />
+                          <XCircle className="w-3.5 h-3.5 text-rose-500 hidden group-hover:block shrink-0" />
+                          <span className="group-hover:hidden">Checked In</span>
+                          <span className="hidden group-hover:inline">Check Out</span>
+                          {r.checkedInAt && (
+                            <span className="text-[9px] text-emerald-600/75 font-normal ml-0.5 hidden md:inline">({r.checkedInAt})</span>
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleToggleCheckIn(r)}
+                          disabled={isCheckingIn}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 text-slate-600 hover:bg-emerald-600 hover:text-white transition-all border border-slate-200 hover:border-emerald-600 cursor-pointer shadow-2xs"
+                          title="Click to mark attendee as checked in"
+                        >
+                          {isCheckingIn ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <UserCheck className="w-3.5 h-3.5 text-slate-400 group-hover:text-white" />
+                          )}
+                          <span>Check In</span>
+                        </button>
+                      )}
+                    </TableCell>
+
                     <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 text-xs text-slate-400 hidden sm:table-cell">{r.time}</TableCell>
                     <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
                       <div className="flex items-center gap-2">
@@ -790,8 +981,11 @@ export function EventsRegistration() {
         <div className="px-3 sm:px-6 py-3 sm:py-4 border-t border-slate-50 flex items-center justify-between text-xs text-slate-400">
           <span>Showing {filtered.length} of {registrants.length} registrants</span>
           <div className="flex items-center gap-2">
+            <Badge className="bg-emerald-50 text-emerald-700 text-[9px] gap-1 font-bold">
+              <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" /> {checkedInCount} checked in
+            </Badge>
             {filtered.filter(r => r.status === "Confirmed").length > 0 && (
-              <Badge className="bg-emerald-50 text-emerald-600 text-[9px] gap-1">
+              <Badge className="bg-indigo-50 text-indigo-600 text-[9px] gap-1">
                 <CheckCircle2 className="w-2.5 h-2.5" /> {filtered.filter(r => r.status === "Confirmed").length} confirmed
               </Badge>
             )}
@@ -807,7 +1001,16 @@ export function EventsRegistration() {
       {/* Dialogs */}
       {showPrintPasses && <PrintPassesDialog registrants={registrants} onClose={() => setShowPrintPasses(false)} />}
       {showAddDialog && <AddRegistrantDialog useMock={useMock} onAdd={handleAddRegistrant} onClose={() => setShowAddDialog(false)} />}
-      {viewRow && <ViewRegistrantDrawer row={viewRow} useMock={useMock} onClose={() => setViewRow(null)} onConfirm={handleConfirm} onReject={handleReject} />}
+      {viewRow && (
+        <ViewRegistrantDrawer
+          row={viewRow}
+          useMock={useMock}
+          onClose={() => setViewRow(null)}
+          onConfirm={handleConfirm}
+          onReject={handleReject}
+          onToggleCheckIn={handleToggleCheckIn}
+        />
+      )}
     </div>
   );
 }

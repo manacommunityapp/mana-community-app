@@ -143,6 +143,8 @@ export interface RegistrationResponse {
   userEmail: string;
   status: string;
   registeredAt: string;
+  checkedIn?: boolean;
+  checkedInAt?: string;
 }
 
 export interface PoojaRegistrationRequest {
@@ -283,6 +285,12 @@ export const eventService = {
     const numericId = parseNumericId(regId);
     if (!numericId) throw new Error(`Invalid registration ID: ${regId}`);
     return apiClient.put<RegistrationResponse>(`/events/registrations/${numericId}/reject`, {});
+  },
+
+  async toggleCheckIn(regId: number | string, checkedIn: boolean): Promise<RegistrationResponse> {
+    const numericId = parseNumericId(regId);
+    if (!numericId) throw new Error(`Invalid registration ID: ${regId}`);
+    return apiClient.put<RegistrationResponse>(`/events/registrations/${numericId}/check-in?checkedIn=${checkedIn}`, {});
   },
 
   async getPoojaTypes(): Promise<{ id: number; name: string; description?: string }[]> {

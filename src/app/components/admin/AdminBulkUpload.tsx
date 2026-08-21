@@ -379,6 +379,47 @@ export function AdminBulkUpload() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  /**
+   * Downloads a CSV of only the rows that have validation errors or upload failures,
+   * with an extra "Error Reason" column for easy admin correction and re-upload.
+   */
+  const downloadErrorRows = () => {
+    if (!parsedData) return;
+    const errorRows = parsedData.filter(
+      r => r.status === "error" || r.uploadStatus === "failed"
+    );
+    if (errorRows.length === 0) {
+      toast.info("No error rows to export.");
+      return;
+    }
+    const csvRows = errorRows.map(r => ({
+      "First Name": r.firstName,
+      "Last Name": r.lastName,
+      "Email": r.email,
+      "Phone": r.phone,
+      "Role": r.role,
+      "Community Code": r.communityCode,
+      "Flat/Unit": r.flatUnit,
+      "ID Type": r.idType,
+      "ID Number": r.idNumber,
+      "Error Reason": r.uploadStatus === "failed"
+        ? (r.uploadMessage || r.remarks)
+        : r.errors.join("; "),
+    }));
+    const csvContent = Papa.unparse(csvRows, { header: true });
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `mana_bulk_upload_errors_${today}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${errorRows.length} error row(s) as CSV for correction.`);
+  };
+
   const displayData = parsedData
     ? showErrorsOnly
       ? parsedData.filter(r => r.status !== "valid" || r.uploadStatus === "failed")
@@ -617,15 +658,32 @@ export function AdminBulkUpload() {
                 </button>
               </div>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-600 select-none">
-              <input
-                type="checkbox"
-                checked={showErrorsOnly}
-                onChange={e => setShowErrorsOnly(e.target.checked)}
-                className="rounded accent-indigo-600 w-4 h-4"
-              />
-              <span>Filter: Show errors & failed rows only</span>
-            </label>
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Download Errors CSV button — shown when there are error/failed rows */}
+              {stats && (stats.errors > 0 || stats.failed > 0) && (
+                <button
+                  onClick={downloadErrorRows}
+                  disabled={isUploading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors disabled:opacity-50 shadow-sm"
+                  title="Download only the invalid / failed rows as a correctable CSV"
+                >
+                  <Download className="w-4 h-4" />
+                  Download Errors CSV
+                  <span className="ml-1 text-[10px] font-extrabold bg-red-200 text-red-800 px-1.5 py-0.5 rounded-full">
+                    {stats.errors + stats.failed}
+                  </span>
+                </button>
+              )}
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-600 select-none">
+                <input
+                  type="checkbox"
+                  checked={showErrorsOnly}
+                  onChange={e => setShowErrorsOnly(e.target.checked)}
+                  className="rounded accent-indigo-600 w-4 h-4"
+                />
+                <span>Filter: Show errors &amp; failed rows only</span>
+              </label>
+            </div>
           </div>
 
           {/* Table View */}
