@@ -1,4 +1,4 @@
-import { apiClient } from "./apiClient";
+import { apiClient, getStoredUser } from "./apiClient";
 
 export interface FamilyMember {
   id: string | number;
@@ -22,65 +22,56 @@ export interface FamilyMember {
 
 export type FamilyMemberRequest = Omit<FamilyMember, "id" | "createdAt" | "updatedAt">;
 
-const STORAGE_KEY = "mana_family_members_v2";
+const STORAGE_KEY = "mana_family_members_v3";
 
-// Default seed family members for demonstration/new profiles
-const DEFAULT_INITIAL_MEMBERS: FamilyMember[] = [
-  {
-    id: "fam-1",
-    name: "Suresh Sharma",
-    relation: "Self (Head)",
-    age: 38,
-    gender: "Male",
-    phone: "+91 98765 43210",
-    email: "suresh.sharma@example.com",
-    bloodGroup: "O+",
-    gotram: "Bharadwaj",
-    emergencyContact: true,
-    isDevotee: true,
-    notes: "Primary resident and family head",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "fam-2",
-    name: "Sunita Sharma",
-    relation: "Spouse",
-    age: 35,
-    gender: "Female",
-    phone: "+91 98765 43211",
-    email: "sunita.sharma@example.com",
-    bloodGroup: "A+",
-    gotram: "Bharadwaj",
-    emergencyContact: true,
-    isDevotee: true,
-    notes: "Active in cultural events & pooja ceremonies",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "fam-3",
-    name: "Aarav Sharma",
-    relation: "Son",
-    age: 10,
-    gender: "Male",
-    bloodGroup: "O+",
-    gotram: "Bharadwaj",
-    isDevotee: true,
-    notes: "Interested in drawing competitions & junior badminton",
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "fam-4",
-    name: "Ananya Sharma",
-    relation: "Daughter",
-    age: 7,
-    gender: "Female",
-    bloodGroup: "A+",
-    gotram: "Bharadwaj",
-    isDevotee: true,
-    notes: "Participates in dance & classical singing",
-    createdAt: new Date().toISOString(),
-  },
-];
+const DUMMY_STATIC_NAMES = new Set([
+  "sunita sharma",
+  "aarav sharma",
+  "ananya sharma",
+  "suresh sharma",
+  "ramesh verma",
+  "priya verma",
+  "rahul verma",
+]);
+
+function getDefaultInitialMembers(): FamilyMember[] {
+  const user = getStoredUser();
+  if (!user || !user.fullName) {
+    return [];
+  }
+
+  const userName = user.fullName;
+  const userGender = user.gender || "Male";
+  const userPhone = user.phone || "";
+  const userEmail = user.email || "";
+  const userDob = user.dateOfBirth;
+
+  let calculatedAge: number | undefined;
+  if (userDob) {
+    const birth = new Date(userDob);
+    if (!isNaN(birth.getTime())) {
+      calculatedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+    }
+  }
+
+  return [
+    {
+      id: "fam-self",
+      userId: user.userId ? Number(user.userId) : undefined,
+      name: userName,
+      relation: "Self (Head)",
+      age: calculatedAge,
+      dob: userDob,
+      gender: userGender,
+      phone: userPhone,
+      email: userEmail,
+      emergencyContact: true,
+      isDevotee: true,
+      notes: "Primary resident and household head",
+      createdAt: new Date().toISOString(),
+    },
+  ];
+}
 
 function getStoredMembers(): FamilyMember[] {
   try {
@@ -88,13 +79,19 @@ function getStoredMembers(): FamilyMember[] {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        // Filter out any stale dummy mock names from previous sessions
+        const clean = parsed.filter(
+          (m) => m && m.name && !DUMMY_STATIC_NAMES.has(m.name.trim().toLowerCase())
+        );
+        if (clean.length > 0) {
+          return clean;
+        }
       }
     }
   } catch (err) {
     console.warn("Could not read family members from localStorage:", err);
   }
-  return DEFAULT_INITIAL_MEMBERS;
+  return getDefaultInitialMembers();
 }
 
 function persistMembers(members: FamilyMember[]): void {
@@ -111,13 +108,22 @@ export const familyService = {
    * Get all family members for the current user.
    * Tries backend API first with fallback to synchronized local repository.
    */
-  async getFamilyMembers(forceRefresh = false): Promise<FamilyMember[]> {
+  async getFamilyMembers(_forceRefresh = false): Promise<FamilyMember[]> {
     try {
-      // Try backend endpoint first
-      const res = await apiClient.get<any[]>("/events/family-members");
+      let res: any[] | null = null;
+      try {
+        res = await apiClient.get<any[]>("/events/family-members");
+      } catch {
+        try {
+          res = await apiClient.get<any[]>("/users/family-members");
+        } catch {
+          // fallback
+        }
+      }
+
       if (Array.isArray(res) && res.length > 0) {
         const mapped: FamilyMember[] = res.map((m) => ({
-          id: m.id || `fam-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          id: m.id ?? `fam-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
           userId: m.userId,
           name: m.name || m.fullName || "Family Member",
           relation: m.relation || m.relationship || "Family",
@@ -138,15 +144,15 @@ export const familyService = {
         persistMembers(mapped);
         return mapped;
       }
-    } catch {
-      // Offline / API unavailable — fallback to local persistence
+    } catch (err) {
+      console.warn("Could not fetch family members from database API:", err);
     }
 
     return getStoredMembers();
   },
 
   /**
-   * Add a new family member.
+   * Add a new family member to database and synchronized repository.
    */
   async addFamilyMember(data: Partial<FamilyMember>): Promise<FamilyMember> {
     const current = getStoredMembers();
@@ -170,9 +176,16 @@ export const familyService = {
     };
 
     try {
-      const serverRes = await apiClient.post<any>("/events/family-members", newMember);
-      if (serverRes && serverRes.id) {
-        newMember.id = serverRes.id;
+      try {
+        const serverRes = await apiClient.post<any>("/events/family-members", newMember);
+        if (serverRes && serverRes.id) {
+          newMember.id = serverRes.id;
+        }
+      } catch {
+        const userRes = await apiClient.post<any>("/users/family-members", newMember);
+        if (userRes && userRes.id) {
+          newMember.id = userRes.id;
+        }
       }
     } catch {
       // Local fallback continues smoothly
@@ -210,7 +223,11 @@ export const familyService = {
     }
 
     try {
-      await apiClient.put<any>(`/events/family-members/${id}`, updatedMember);
+      try {
+        await apiClient.put<any>(`/events/family-members/${id}`, updatedMember);
+      } catch {
+        await apiClient.put<any>(`/users/family-members/${id}`, updatedMember);
+      }
     } catch {
       // Local fallback continues smoothly
     }
@@ -220,16 +237,25 @@ export const familyService = {
   },
 
   /**
-   * Delete a family member by ID.
+   * Delete a family member by ID from database and repository.
    */
   async deleteFamilyMember(id: string | number): Promise<void> {
     const current = getStoredMembers();
     const filtered = current.filter((m) => String(m.id) !== String(id));
 
-    try {
-      await apiClient.delete<void>(`/events/family-members/${id}`);
-    } catch {
-      // Local fallback continues smoothly
+    const idStr = String(id);
+    const isRealId = !idStr.startsWith("fam-") && idStr !== "self" && !isNaN(Number(idStr)) && idStr.trim() !== "";
+
+    if (isRealId) {
+      try {
+        try {
+          await apiClient.delete<void>(`/events/family-members/${id}`);
+        } catch {
+          await apiClient.delete<void>(`/users/family-members/${id}`);
+        }
+      } catch {
+        // Local fallback continues smoothly
+      }
     }
 
     persistMembers(filtered);

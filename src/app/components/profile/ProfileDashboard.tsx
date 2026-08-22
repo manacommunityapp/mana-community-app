@@ -205,6 +205,11 @@ export function ProfileDashboard() {
         block: res.block,
       });
 
+      // Synchronize into Family Table as Self (Head)
+      if (res.fullName) {
+        familyService.syncUserProfile(res.fullName, res.dob, res.gender, res.phone, res.email);
+      }
+
       if (isSilent) toast.success("Profile refreshed from database!");
     } catch (err) {
       console.error("Error loading user profile from database:", err);
@@ -384,6 +389,11 @@ export function ProfileDashboard() {
         block: res.block,
         profilePicUrl: res.profilePicUrl,
       });
+
+      // Synchronize updated details across Family table
+      if (res.fullName) {
+        familyService.syncUserProfile(res.fullName, res.dob, res.gender, res.phone, res.email);
+      }
 
       toast.success("Profile saved and synchronized successfully!");
     } catch (err) {
@@ -1290,7 +1300,7 @@ export function ProfileDashboard() {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Sunita Sharma"
+                      placeholder="Enter member's full name"
                       value={memberForm.name || ""}
                       onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })}
                       className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
