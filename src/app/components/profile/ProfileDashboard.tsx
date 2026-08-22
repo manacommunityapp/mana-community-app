@@ -622,7 +622,6 @@ export function ProfileDashboard() {
 
       {/* Cover Banner */}
       <div className="h-28 sm:h-40 md:h-48 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/10" />
         <div className="absolute -right-10 -bottom-10 w-44 sm:w-64 h-44 sm:h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute left-6 top-3 w-28 sm:w-44 h-28 sm:h-44 bg-indigo-400/20 rounded-full blur-xl pointer-events-none" />
         <div className="absolute right-1/3 bottom-0 w-20 h-20 bg-pink-300/10 rounded-full blur-xl pointer-events-none" />
