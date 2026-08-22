@@ -336,6 +336,7 @@ export const emailAdminService = {
     templateType?: string;
     communityId?: number;
     recipient?: string;
+    keyword?: string;
     from?: string;
     to?: string;
     page?: number;
@@ -346,6 +347,7 @@ export const emailAdminService = {
     if (params?.templateType) query.set("templateType", params.templateType);
     if (params?.communityId != null) query.set("communityId", String(params.communityId));
     if (params?.recipient) query.set("recipient", params.recipient);
+    if (params?.keyword) query.set("keyword", params.keyword);
     if (params?.from) query.set("from", params.from);
     if (params?.to) query.set("to", params.to);
     if (params?.page != null) query.set("page", String(params.page));
@@ -363,12 +365,53 @@ export const emailAdminService = {
   async getDeliveryLogById(id: number): Promise<EmailDeliveryLogDto> {
     return apiClient.get(`/admin/email/delivery-log/${id}`);
   },
+
+  async resendEmail(id: number, overrideRecipient?: string): Promise<{ status: string; message: string; recipient: string }> {
+    return apiClient.post(`/admin/email/delivery-log/${id}/resend`, { overrideRecipient });
+  },
+
+  async sendCustomEmail(request: {
+    to: string;
+    subject: string;
+    body: string;
+    templateType?: string;
+    communityId?: number;
+  }): Promise<{ status: string; message: string; recipient: string }> {
+    return apiClient.post("/admin/email/send-custom", request);
+  },
+
+  async getBrevoAccount(): Promise<BrevoAccountDto> {
+    return apiClient.get("/admin/email/brevo/account");
+  },
+
+  async getBrevoStats(days: number = 7): Promise<BrevoStatsDto> {
+    return apiClient.get(`/admin/email/brevo/stats?days=${days}`);
+  },
+
+  async getBrevoLogs(params?: { limit?: number; email?: string; event?: string }): Promise<BrevoEmailLogDto[]> {
+    const query = new URLSearchParams();
+    if (params?.limit != null) query.set("limit", String(params.limit));
+    if (params?.email) query.set("email", params.email);
+    if (params?.event) query.set("event", params.event);
+    const queryString = query.toString();
+    return apiClient.get(`/admin/email/brevo/logs${queryString ? `?${queryString}` : ""}`);
+  },
+
+  async getBrevoSenders(): Promise<BrevoSenderDto[]> {
+    return apiClient.get("/admin/email/brevo/senders");
+  },
+
+  async syncBrevoEvents(): Promise<BrevoSyncResultDto> {
+    return apiClient.post("/admin/email/brevo/sync", {});
+  },
 };
 
 export interface EmailDeliveryLogDto {
   id: number;
+  sender?: string;
   recipient: string;
   subject: string;
+  body?: string;
   templateType: string | null;
   status: "SENT" | "FAILED" | "SKIPPED";
   errorMessage: string | null;
@@ -392,5 +435,78 @@ export interface EmailDeliverySummary {
   sent: number;
   failed: number;
   skipped: number;
+  opened?: number;
   total: number;
+  deliveryRate?: number;
+  openRate?: number;
+  categoryCounts?: Record<string, number>;
+}
+
+export interface BrevoAccountDto {
+  email: string;
+  firstName: string;
+  lastName: string;
+  companyName: string;
+  planType: string;
+  dailyRelayQuota: number;
+  creditsRemaining: number;
+  creditsUsed: number;
+  isConfigured: boolean;
+  isLive: boolean;
+  message: string;
+}
+
+export interface BrevoStatsDto {
+  periodDays: number;
+  requests: number;
+  delivered: number;
+  hardBounces: number;
+  softBounces: number;
+  clicks: number;
+  uniqueClicks: number;
+  opens: number;
+  uniqueOpens: number;
+  spamReports: number;
+  blocked: number;
+  unsubscribed: number;
+  deliveryRate: number;
+  openRate: number;
+  clickRate: number;
+  bounceRate: number;
+  isConfigured: boolean;
+  isLive: boolean;
+}
+
+export interface BrevoEventDetailDto {
+  name: string;
+  time: string;
+  reason?: string | null;
+}
+
+export interface BrevoEmailLogDto {
+  email: string;
+  subject: string;
+  messageId: string;
+  uuid: string;
+  date: string;
+  status: string;
+  events: BrevoEventDetailDto[];
+  templateId?: string | null;
+  from?: string;
+}
+
+export interface BrevoSenderDto {
+  id: number;
+  name: string;
+  email: string;
+  active: boolean;
+  ips: string[];
+}
+
+export interface BrevoSyncResultDto {
+  syncedCount: number;
+  openedUpdated: number;
+  bouncedUpdated: number;
+  message: string;
+  timestamp: string;
 }

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   ShieldCheck,
@@ -142,10 +142,10 @@ export function ForgotPassword() {
 
   // Generate strong random password
   const handleGeneratePassword = () => {
-    const pwd = generateStrongPassword(8);
+    const pwd = generateStrongPassword(10);
     setNewPassword(pwd);
     setConfirmPassword(pwd);
-    toast.info("Generated a strong 8-character password!");
+    toast.info("Generated a strong password!");
   };
 
   // Step 2: Reset Password submission
@@ -358,7 +358,7 @@ export function ForgotPassword() {
                     type="button"
                     onClick={handleGeneratePassword}
                     className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary/80 transition-colors cursor-pointer bg-transparent border-none"
-                    title="Generate a secure 8-character password"
+                    title="Generate a secure strong password"
                   >
                     <Sparkles className="w-3 h-3 text-amber-500" />
                     <span>Auto-generate</span>
@@ -374,8 +374,8 @@ export function ForgotPassword() {
                     type={showPassword ? "text" : "password"}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="4 to 8 characters (letters & digits)"
-                    maxLength={8}
+                    placeholder="6 to 20 characters (letters & digits)"
+                    maxLength={20}
                     className="w-full pl-10 pr-10 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-lg placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all text-sm"
                     disabled={isResettingPassword}
                   />
@@ -406,7 +406,7 @@ export function ForgotPassword() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Re-enter your new password"
-                    maxLength={8}
+                    maxLength={20}
                     className="w-full pl-10 pr-10 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-lg placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all text-sm"
                     disabled={isResettingPassword}
                   />
