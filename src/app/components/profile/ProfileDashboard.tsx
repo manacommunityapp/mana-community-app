@@ -598,6 +598,7 @@ export function ProfileDashboard() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "overview", label: "Overview" },
+    { id: "family", label: "My Family" },
     { id: "activity", label: "Activity" },
     { id: "achievements", label: "Achievements" },
     { id: "settings", label: "Settings" },
@@ -858,6 +859,62 @@ export function ProfileDashboard() {
 
               {/* Right Column */}
               <div className="space-y-6">
+                {/* My Family Summary Card in Overview */}
+                <div className="bg-card rounded-2xl border border-border p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center">
+                        <Heart className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-foreground text-sm">My Family</h3>
+                        <p className="text-[10px] text-muted-foreground">{familyMembers.length} {familyMembers.length === 1 ? 'member' : 'members'} registered</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveTab("family")}
+                      className="text-xs font-bold text-primary hover:text-primary/80 flex items-center gap-1 cursor-pointer"
+                    >
+                      Manage <ChevronRight className="w-3 h-3" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 mb-3">
+                    {familyMembers.slice(0, 4).map((member) => (
+                      <div key={member.id} className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border/50 text-xs">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className={cn(
+                            "w-7 h-7 rounded-lg font-bold flex items-center justify-center text-[11px] shrink-0",
+                            member.gender === "Female" ? "bg-pink-100 text-pink-700 dark:bg-pink-950/40 dark:text-pink-300" : "bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+                          )}>
+                            {member.name.charAt(0)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-foreground truncate">{member.name}</p>
+                            <p className="text-[10px] text-muted-foreground">{member.age ? `${member.age} yrs` : member.gender || ""}</p>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
+                          {member.relation}
+                        </span>
+                      </div>
+                    ))}
+                    {familyMembers.length === 0 && (
+                      <p className="text-xs text-muted-foreground italic py-2">No family members registered yet.</p>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setActiveTab("family");
+                      handleOpenAddFamily();
+                    }}
+                    className="w-full py-2 bg-primary/10 hover:bg-primary/20 text-primary font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add Family Member
+                  </button>
+                </div>
+
                 {/* KYC Status Card */}
                 <div
                   className={cn(
@@ -900,6 +957,498 @@ export function ProfileDashboard() {
                     Status: {profile.kycStatus}
                   </span>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── MY FAMILY TAB ── */}
+          {activeTab === "family" && (
+            <div className="space-y-6">
+              {/* Header Banner & Stats */}
+              <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 text-white flex items-center justify-center shadow-lg shadow-rose-500/25 shrink-0">
+                      <Heart className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h2 className="font-black text-foreground text-lg sm:text-xl tracking-tight flex items-center gap-2">
+                        My Family Directory
+                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60">
+                          {familyMembers.length} Members
+                        </span>
+                      </h2>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                        Single unified source of truth for your household. Details here automatically populate across <strong>Events</strong>, <strong>Pooja Sankalpams</strong>, <strong>Sports Tournaments</strong>, and <strong>Gate Passes</strong>.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleOpenAddFamily}
+                    className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold rounded-xl shadow-md shadow-rose-500/20 text-xs sm:text-sm transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shrink-0"
+                  >
+                    <UserPlus className="w-4 h-4" /> Add Family Member
+                  </button>
+                </div>
+
+                {/* Family Metrics Bar */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-5">
+                  {[
+                    { label: "Total Members", value: familyMembers.length, icon: Users, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/40" },
+                    { label: "Adults (18+)", value: familyMembers.filter(m => (m.age ?? 25) >= 18).length, icon: UserCheck, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/40" },
+                    { label: "Kids & Youth", value: familyMembers.filter(m => (m.age ?? 25) < 18).length, icon: Smile, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50/50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/40" },
+                    { label: "Emergency Contacts", value: familyMembers.filter(m => m.emergencyContact).length, icon: Star, color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-50/50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/40" },
+                  ].map((s) => (
+                    <div key={s.label} className={cn("p-3.5 rounded-xl border flex items-center gap-3", s.bg)}>
+                      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-background/80", s.color)}>
+                        <s.icon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className={cn("text-lg sm:text-xl font-black", s.color)}>{s.value}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{s.label}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Filter and Search Bar */}
+              <div className="bg-card rounded-2xl border border-border p-4 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={familySearch}
+                    onChange={(e) => setFamilySearch(e.target.value)}
+                    placeholder="Search by name, relation, gotram..."
+                    className="w-full pl-9 pr-3 py-1.5 text-xs bg-muted/40 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                  {familySearch && (
+                    <button
+                      onClick={() => setFamilySearch("")}
+                      className="absolute right-2.5 top-2 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                  {["ALL", "SPOUSE", "CHILDREN", "PARENTS", "EMERGENCY"].map((filter) => {
+                    const isActive = familyFilterRelation === filter;
+                    return (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setFamilyFilterRelation(filter)}
+                        className={cn(
+                          "px-3 py-1.5 text-[11px] font-bold rounded-lg whitespace-nowrap transition-all cursor-pointer",
+                          isActive
+                            ? "bg-primary text-white shadow-xs"
+                            : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        )}
+                      >
+                        {filter === "ALL" && "All Family"}
+                        {filter === "SPOUSE" && "Spouse"}
+                        {filter === "CHILDREN" && "Children"}
+                        {filter === "PARENTS" && "Parents"}
+                        {filter === "EMERGENCY" && "⭐ Emergency"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Members Grid */}
+              {loadingFamily ? (
+                <div className="py-12 text-center text-sm text-muted-foreground">
+                  <Loader2 className="w-6 h-6 animate-spin inline mr-2 text-primary" /> Loading family members...
+                </div>
+              ) : (
+                (() => {
+                  const filtered = familyMembers.filter((m) => {
+                    const q = familySearch.toLowerCase();
+                    const matchSearch =
+                      !q ||
+                      m.name.toLowerCase().includes(q) ||
+                      m.relation.toLowerCase().includes(q) ||
+                      (m.gotram && m.gotram.toLowerCase().includes(q)) ||
+                      (m.phone && m.phone.includes(q));
+
+                    let matchRelation = true;
+                    if (familyFilterRelation === "SPOUSE") matchRelation = m.relation.toLowerCase().includes("spouse") || m.relation.toLowerCase().includes("wife") || m.relation.toLowerCase().includes("husband");
+                    else if (familyFilterRelation === "CHILDREN") matchRelation = m.relation.toLowerCase().includes("son") || m.relation.toLowerCase().includes("daughter") || m.relation.toLowerCase().includes("child");
+                    else if (familyFilterRelation === "PARENTS") matchRelation = m.relation.toLowerCase().includes("father") || m.relation.toLowerCase().includes("mother") || m.relation.toLowerCase().includes("parent");
+                    else if (familyFilterRelation === "EMERGENCY") matchRelation = Boolean(m.emergencyContact);
+
+                    return matchSearch && matchRelation;
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="bg-card rounded-2xl border border-dashed border-border p-10 text-center space-y-3">
+                        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+                          <Users className="w-6 h-6" />
+                        </div>
+                        <h3 className="font-bold text-foreground text-base">No Family Members Found</h3>
+                        <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                          {familySearch || familyFilterRelation !== "ALL"
+                            ? "No family members match your search or filter criteria."
+                            : "You haven't added any family members yet. Add family members to easily register them for community festivals, poojas, and sports tournaments."}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleOpenAddFamily}
+                          className="px-4 py-2 bg-primary text-white font-bold rounded-xl text-xs inline-flex items-center gap-1.5 shadow-sm hover:bg-primary/90 transition-all cursor-pointer"
+                        >
+                          <Plus className="w-4 h-4" /> Add Member Now
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {filtered.map((member) => {
+                        const isSelf = member.relation.toLowerCase().includes("self") || member.relation.toLowerCase().includes("head");
+                        const isFemale = member.gender === "Female";
+                        return (
+                          <div
+                            key={member.id}
+                            className="bg-card rounded-2xl border border-border p-5 shadow-sm hover:shadow-md transition-all relative flex flex-col justify-between group"
+                          >
+                            <div>
+                              {/* Top Bar: Avatar + Name + Relation + Actions */}
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex items-start gap-3.5 min-w-0">
+                                  <div className={cn(
+                                    "w-12 h-12 rounded-2xl font-black flex items-center justify-center text-base shrink-0 shadow-sm",
+                                    isSelf
+                                      ? "bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-indigo-500/20"
+                                      : isFemale
+                                      ? "bg-gradient-to-br from-pink-400 to-rose-600 text-white shadow-rose-500/20"
+                                      : "bg-gradient-to-br from-blue-500 to-cyan-600 text-white shadow-blue-500/20"
+                                  )}>
+                                    {member.name.charAt(0)}
+                                  </div>
+
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h3 className="font-black text-foreground text-base truncate">{member.name}</h3>
+                                      {member.emergencyContact && (
+                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800" title="Emergency Contact">
+                                          ★ Emergency
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                      <span className={cn(
+                                        "text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                                        isSelf
+                                          ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
+                                          : isFemale
+                                          ? "bg-pink-50 dark:bg-pink-950/40 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-800"
+                                          : "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                                      )}>
+                                        {member.relation}
+                                      </span>
+                                      {member.age && (
+                                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                          {member.age} yrs
+                                        </span>
+                                      )}
+                                      {member.gender && (
+                                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                          {member.gender}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleEmergency(member)}
+                                    className={cn(
+                                      "p-1.5 rounded-lg text-xs transition-colors cursor-pointer",
+                                      member.emergencyContact
+                                        ? "text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                                        : "text-muted-foreground/40 hover:text-muted-foreground hover:bg-muted"
+                                    )}
+                                    title={member.emergencyContact ? "Remove from emergency contacts" : "Mark as emergency contact"}
+                                  >
+                                    <Star className="w-4 h-4 fill-current" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditFamily(member)}
+                                    className="p-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer"
+                                    title="Edit details"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteFamilyMember(member.id, member.name)}
+                                    className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
+                                    title="Remove family member"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Attributes Tags Bar */}
+                              <div className="grid grid-cols-2 gap-2 mt-4 text-xs">
+                                {member.gotram && (
+                                  <div className="flex items-center gap-1.5 p-2 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30">
+                                    <Flame className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className="text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Gotram</p>
+                                      <p className="font-semibold text-foreground truncate">{member.gotram}</p>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {member.bloodGroup && (
+                                  <div className="flex items-center gap-1.5 p-2 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900/30">
+                                    <Droplet className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className="text-[9px] font-bold uppercase tracking-wider text-rose-700 dark:text-rose-400">Blood Group</p>
+                                      <p className="font-semibold text-foreground truncate">{member.bloodGroup}</p>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {member.phone && (
+                                  <div className="flex items-center gap-1.5 p-2 rounded-xl bg-muted/40 border border-border/50 col-span-2">
+                                    <Phone className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                    <span className="font-medium text-foreground truncate">{member.phone}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {member.notes && (
+                                <p className="text-[11px] text-muted-foreground bg-muted/30 p-2 rounded-xl mt-3 border border-border/40 line-clamp-2">
+                                  {member.notes}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Bottom Module Usage Info */}
+                            <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground">
+                              <span className="flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Synced to Events & Sports
+                              </span>
+                              <span className="font-mono text-[9px] text-muted-foreground/60">
+                                ID: #{String(member.id).slice(-4)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
+              )}
+            </div>
+          )}
+
+          {/* Add / Edit Family Member Modal */}
+          {isFamilyModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
+              <div className="bg-card rounded-3xl border border-border shadow-2xl max-w-lg w-full p-6 sm:p-7 relative overflow-hidden animate-scaleUp">
+                <div className="flex items-center justify-between pb-4 border-b border-border mb-5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center">
+                      {editingMember ? <Edit3 className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <h3 className="font-black text-foreground text-base sm:text-lg">
+                        {editingMember ? `Edit ${editingMember.name}` : "Add Family Member"}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">Save to household profile database</p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsFamilyModalOpen(false)}
+                    className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <form onSubmit={handleSaveFamilyMember} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
+                      Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Sunita Sharma"
+                      value={memberForm.name || ""}
+                      onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
+                        Relationship *
+                      </label>
+                      <select
+                        value={memberForm.relation || "Spouse"}
+                        onChange={(e) => setMemberForm({ ...memberForm, relation: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      >
+                        <option value="Self (Head)">Self (Head)</option>
+                        <option value="Spouse">Spouse</option>
+                        <option value="Son">Son</option>
+                        <option value="Daughter">Daughter</option>
+                        <option value="Father">Father</option>
+                        <option value="Mother">Mother</option>
+                        <option value="Brother">Brother</option>
+                        <option value="Sister">Sister</option>
+                        <option value="Grandfather">Grandfather</option>
+                        <option value="Grandmother">Grandmother</option>
+                        <option value="In-law">In-law</option>
+                        <option value="Other">Other Relative</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
+                        Gender
+                      </label>
+                      <select
+                        value={memberForm.gender || "Male"}
+                        onChange={(e) => setMemberForm({ ...memberForm, gender: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      >
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
+                        Age (Years)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="120"
+                        placeholder="e.g. 32"
+                        value={memberForm.age || ""}
+                        onChange={(e) => setMemberForm({ ...memberForm, age: e.target.value ? Number(e.target.value) : undefined })}
+                        className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
+                        Gotram (Pooja / Seva)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Bharadwaj"
+                        value={memberForm.gotram || ""}
+                        onChange={(e) => setMemberForm({ ...memberForm, gotram: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
+                        Phone Number
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="e.g. +91 98765 43210"
+                        value={memberForm.phone || ""}
+                        onChange={(e) => setMemberForm({ ...memberForm, phone: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
+                        Blood Group
+                      </label>
+                      <select
+                        value={memberForm.bloodGroup || ""}
+                        onChange={(e) => setMemberForm({ ...memberForm, bloodGroup: e.target.value })}
+                        className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      >
+                        <option value="">Not Specified</option>
+                        <option value="A+">A+</option>
+                        <option value="A-">A-</option>
+                        <option value="B+">B+</option>
+                        <option value="B-">B-</option>
+                        <option value="O+">O+</option>
+                        <option value="O-">O-</option>
+                        <option value="AB+">AB+</option>
+                        <option value="AB-">AB-</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/40 border border-border">
+                    <input
+                      type="checkbox"
+                      id="emergencyContactCheck"
+                      checked={Boolean(memberForm.emergencyContact)}
+                      onChange={(e) => setMemberForm({ ...memberForm, emergencyContact: e.target.checked })}
+                      className="w-4 h-4 text-primary rounded border-border"
+                    />
+                    <label htmlFor="emergencyContactCheck" className="text-xs font-semibold text-foreground cursor-pointer">
+                      Mark as Emergency Contact
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
+                      Notes / Dietary / Preferences
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Special dietary needs, sports interests, etc."
+                      value={memberForm.notes || ""}
+                      onChange={(e) => setMemberForm({ ...memberForm, notes: e.target.value })}
+                      className="w-full px-3.5 py-2 bg-[var(--mana-bg-input)] border border-border rounded-xl text-xs focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => setIsFamilyModalOpen(false)}
+                      className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted rounded-xl transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSavingMember}
+                      className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-500/20 transition-all cursor-pointer disabled:opacity-60 flex items-center gap-1.5"
+                    >
+                      {isSavingMember ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                      {editingMember ? "Save Changes" : "Add Member"}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}
