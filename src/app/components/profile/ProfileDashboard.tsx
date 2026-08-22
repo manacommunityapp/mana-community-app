@@ -1045,7 +1045,7 @@ export function ProfileDashboard() {
                 </div>
 
                 <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-                  {["ALL", "SPOUSE", "CHILDREN", "PARENTS", "EMERGENCY"].map((filter) => {
+                  {["ALL", "SELF", "SPOUSE", "CHILDREN", "PARENTS", "EMERGENCY"].map((filter) => {
                     const isActive = familyFilterRelation === filter;
                     return (
                       <button
@@ -1060,6 +1060,7 @@ export function ProfileDashboard() {
                         )}
                       >
                         {filter === "ALL" && "All Family"}
+                        {filter === "SELF" && "Myself (Head)"}
                         {filter === "SPOUSE" && "Spouse"}
                         {filter === "CHILDREN" && "Children"}
                         {filter === "PARENTS" && "Parents"}
@@ -1087,7 +1088,8 @@ export function ProfileDashboard() {
                       (m.phone && m.phone.includes(q));
 
                     let matchRelation = true;
-                    if (familyFilterRelation === "SPOUSE") matchRelation = m.relation.toLowerCase().includes("spouse") || m.relation.toLowerCase().includes("wife") || m.relation.toLowerCase().includes("husband");
+                    if (familyFilterRelation === "SELF") matchRelation = m.relation.toLowerCase().includes("self") || m.relation.toLowerCase().includes("head");
+                    else if (familyFilterRelation === "SPOUSE") matchRelation = m.relation.toLowerCase().includes("spouse") || m.relation.toLowerCase().includes("wife") || m.relation.toLowerCase().includes("husband");
                     else if (familyFilterRelation === "CHILDREN") matchRelation = m.relation.toLowerCase().includes("son") || m.relation.toLowerCase().includes("daughter") || m.relation.toLowerCase().includes("child");
                     else if (familyFilterRelation === "PARENTS") matchRelation = m.relation.toLowerCase().includes("father") || m.relation.toLowerCase().includes("mother") || m.relation.toLowerCase().includes("parent");
                     else if (familyFilterRelation === "EMERGENCY") matchRelation = Boolean(m.emergencyContact);
@@ -1121,12 +1123,15 @@ export function ProfileDashboard() {
                   return (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {filtered.map((member) => {
-                        const isSelf = member.relation.toLowerCase().includes("self") || member.relation.toLowerCase().includes("head");
+                        const isSelf = member.relation.toLowerCase().includes("self") || member.relation.toLowerCase().includes("head") || String(member.id) === "fam-self";
                         const isFemale = member.gender === "Female";
                         return (
                           <div
                             key={member.id}
-                            className="bg-card rounded-2xl border border-border p-5 shadow-sm hover:shadow-md transition-all relative flex flex-col justify-between group"
+                            className={cn(
+                              "bg-card rounded-2xl border p-5 shadow-sm hover:shadow-md transition-all relative flex flex-col justify-between group",
+                              isSelf ? "border-indigo-200/80 dark:border-indigo-900/60 ring-1 ring-indigo-500/10" : "border-border"
+                            )}
                           >
                             <div>
                               {/* Top Bar: Avatar + Name + Relation + Actions */}
@@ -1146,7 +1151,12 @@ export function ProfileDashboard() {
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
                                       <h3 className="font-black text-foreground text-base truncate">{member.name}</h3>
-                                      {member.emergencyContact && (
+                                      {isSelf && (
+                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                          ★ Primary Resident
+                                        </span>
+                                      )}
+                                      {member.emergencyContact && !isSelf && (
                                         <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800" title="Emergency Contact">
                                           ★ Emergency
                                         </span>
@@ -1199,14 +1209,23 @@ export function ProfileDashboard() {
                                   >
                                     <Edit3 className="w-3.5 h-3.5" />
                                   </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteFamilyMember(member.id, member.name)}
-                                    className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
-                                    title="Remove family member"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                  {!isSelf ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteFamilyMember(member.id, member.name)}
+                                      className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer"
+                                      title="Remove family member"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  ) : (
+                                    <span
+                                      className="p-1.5 text-muted-foreground/30 cursor-not-allowed"
+                                      title="Primary account holder cannot be removed"
+                                    >
+                                      <ShieldCheck className="w-3.5 h-3.5" />
+                                    </span>
+                                  )}
                                 </div>
                               </div>
 
