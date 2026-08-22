@@ -785,43 +785,65 @@ export function ProfileDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
               {/* Left Column — About & Skills (shown 2nd on mobile, 1st on desktop) */}
               <div className="lg:col-span-2 space-y-5 sm:space-y-6 order-2 lg:order-1">
-                {/* About & Contact Cards */}
-                <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 shadow-sm">
-                  <h2 className="font-bold text-foreground text-sm sm:text-base mb-2 sm:mb-3">About Resident</h2>
-                  <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed mb-4">
-                    {profile.bio || "No personal bio added yet."}
-                  </p>
+                {/* About & Contact Cards (Compact View) */}
+                <div className="bg-card rounded-xl sm:rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs">
+                  <div className="flex items-center justify-between mb-2">
+                    <h2 className="font-bold text-foreground text-xs sm:text-sm">About Resident</h2>
+                    <span className="text-[10px] font-semibold text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-md">
+                      Resident Details
+                    </span>
+                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3.5 text-sm">
-                    <div className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/30 border border-border/60">
-                      <Mail className="w-4 h-4 text-primary shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Email</p>
-                        <p className="font-semibold text-foreground truncate">{profile.email || "Not Provided"}</p>
+                  {profile.bio && (
+                    <p className="text-muted-foreground text-xs leading-relaxed mb-3">
+                      {profile.bio}
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                    <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-muted/20 border border-border/50 min-w-0">
+                      <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                        <Mail className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Email</p>
+                        <p className="font-semibold text-foreground text-xs truncate" title={profile.email || "Not Provided"}>
+                          {profile.email || "Not Provided"}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/30 border border-border/60">
-                      <Phone className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Phone</p>
-                        <p className="font-semibold text-foreground">{profile.phone || "Not Provided"}</p>
+                    <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-muted/20 border border-border/50 min-w-0">
+                      <div className="w-6 h-6 rounded-md bg-emerald-500/10 flex items-center justify-center shrink-0">
+                        <Phone className="w-3.5 h-3.5 text-emerald-500" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Phone</p>
+                        <p className="font-semibold text-foreground text-xs truncate" title={profile.phone || "Not Provided"}>
+                          {profile.phone || "Not Provided"}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/30 border border-border/60">
-                      <Home className="w-4 h-4 text-indigo-500 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Residence Unit</p>
-                        <p className="font-semibold text-foreground">{unitDisplay}</p>
+                    <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-muted/20 border border-border/50 min-w-0">
+                      <div className="w-6 h-6 rounded-md bg-indigo-500/10 flex items-center justify-center shrink-0">
+                        <Home className="w-3.5 h-3.5 text-indigo-500" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Unit</p>
+                        <p className="font-semibold text-foreground text-xs truncate" title={unitDisplay}>
+                          {unitDisplay}
+                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/30 border border-border/60">
-                      <Calendar className="w-4 h-4 text-amber-500 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Date of Birth</p>
-                        <p className="font-semibold text-foreground">
+                    <div className="flex items-center gap-2 p-2 sm:p-2.5 rounded-lg bg-muted/20 border border-border/50 min-w-0">
+                      <div className="w-6 h-6 rounded-md bg-amber-500/10 flex items-center justify-center shrink-0">
+                        <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Date of Birth</p>
+                        <p className="font-semibold text-foreground text-xs truncate">
                           {profile.dob
                             ? new Date(profile.dob).toLocaleDateString("en-IN", {
                                 day: "numeric",
@@ -834,6 +856,7 @@ export function ProfileDashboard() {
                     </div>
                   </div>
                 </div>
+
 
                 {/* Skills & Interests */}
                 <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 shadow-sm">
