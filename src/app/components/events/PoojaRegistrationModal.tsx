@@ -835,7 +835,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             {isPoojaFull && (
               <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>Pooja capacity reached (Housefull). All seva slots have been booked.</span>
+                <span>Event Capacity Reached (Housefull). All slots have been booked. Contact admin for manual registration or queries.</span>
               </div>
             )}
             {isPoojaClosed && !isPoojaFull && (
