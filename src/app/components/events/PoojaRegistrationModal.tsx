@@ -63,6 +63,8 @@ export interface PoojaRegistrationModalProps {
     registrationId?: string | number;
     isUpdateMode?: boolean;
     timeSlotConfig?: any;
+    /** Parent community event id — used for correct registration deduplication scoping */
+    mainEventId?: string | number;
   };
   onSuccess?: () => void;
 }
@@ -389,42 +391,49 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         if (Array.isArray(regs) && regs.length > 0) {
           const activeRegs = regs.filter((r: any) => r.status !== "CANCELLED");
 
+          // Normalise the activity id — strip non-digits so "pooja-5", "5", 5 all compare as "5"
+          const currentSevaIdNumeric = String(event?.id || "").replace(/\D/g, "");
+          const currentCleanTitle = (poojaTitle || "").trim().toLowerCase();
+          const currentMainEventId = event?.mainEventId ? String(event.mainEventId) : null;
+
+          // Match for THIS specific pooja activity across all days/slots
+          // Priority 1: numeric ID match (handles "pooja-5" == "5" == 5)
+          // Priority 2: exact title match scoped to same mainEventId
           const currentEventReg = activeRegs.find((r: any) => {
-            if (r.activityId && (r.activityId === event?.id || String(r.activityId) === String(event?.id))) return true;
-            if (event?.id && String(event.id).includes("-")) {
-              const rawId = String(event.id).split("-")[1];
-              if (r.activityId && (r.activityId === rawId || r.activityId === event.id)) return true;
-              if (r.eventId && String(r.eventId) === rawId) return true;
-            }
-            const cleanPoojaTitle = (poojaTitle || "").trim().toLowerCase();
-            const cleanRegTitle = (r.activityTitle || r.eventName || "").trim().toLowerCase();
-            if (
-              cleanPoojaTitle &&
-              cleanRegTitle &&
-              (cleanPoojaTitle === cleanRegTitle ||
-                cleanPoojaTitle.includes(cleanRegTitle) ||
-                cleanRegTitle.includes(cleanPoojaTitle))
-            ) {
+            // Strategy 1 — normalised numeric activityId match
+            const regActIdNumeric = String(r.activityId || "").replace(/\D/g, "");
+            if (currentSevaIdNumeric && regActIdNumeric && currentSevaIdNumeric === regActIdNumeric) {
               return true;
             }
+
+            // Strategy 2 — exact activityTitle match scoped to mainEventId when available
+            const cleanRegTitle = (r.activityTitle || "").trim().toLowerCase();
+            if (cleanRegTitle && currentCleanTitle && cleanRegTitle === currentCleanTitle) {
+              const regMainEventId = r.mainEventId ? String(r.mainEventId) : null;
+              if (currentMainEventId && regMainEventId) {
+                return currentMainEventId === regMainEventId;
+              }
+              // Fallback: no mainEventId available — match on title alone
+              return true;
+            }
+
             return false;
           });
 
-          // Duplicate registration check: does the user already have an active booking for this seva?
-          if (!event?.isUpdateMode) {
-            const currentSevaId = String(event?.id || "");
-            const duplicateReg = activeRegs.find((r: any) => {
-              const regActId = String(r.activityId || "");
-              return (
-                regActId === currentSevaId ||
-                regActId === `pooja-${currentSevaId}` ||
-                (currentSevaId.startsWith("pooja-") && regActId === currentSevaId.replace("pooja-", "")) ||
-                (currentSevaId.startsWith("pooja-") && regActId === currentSevaId)
-              );
-            });
-            if (duplicateReg) {
-              setAlreadyRegisteredTitle(duplicateReg.activityTitle || poojaTitle);
+          // If the user already has a registration for THIS specific pooja, allow them to update to next slot time
+          if (currentEventReg) {
+            setExistingReg(currentEventReg);
+            setAlreadyRegisteredTitle(null);
+            if (currentEventReg.prasadamMode) setPrasadamMode(currentEventReg.prasadamMode);
+            if (currentEventReg.participantName || currentEventReg.primaryName) {
+              setDevoteeName(currentEventReg.participantName || currentEventReg.primaryName);
             }
+            if (currentEventReg.phone || currentEventReg.contactPhone) {
+              setDevoteePhone(currentEventReg.phone || currentEventReg.contactPhone);
+            }
+            if (currentEventReg.flatNo) setDevoteeFlat(currentEventReg.flatNo);
+          } else {
+            setAlreadyRegisteredTitle(null);
           }
 
           // Gotram from database event registration
@@ -442,16 +451,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           } else {
             setGotram("");
             setIsGotramFromDb(false);
-          }
-
-          if (currentEventReg) {
-            setExistingReg(currentEventReg);
-            if (currentEventReg.prasadamMode) setPrasadamMode(currentEventReg.prasadamMode);
-            if (currentEventReg.participantName || currentEventReg.primaryName) {
-              setDevoteeName(currentEventReg.participantName || currentEventReg.primaryName);
-            }
-            if (currentEventReg.phone) setDevoteePhone(currentEventReg.phone);
-            if (currentEventReg.flatNo) setDevoteeFlat(currentEventReg.flatNo);
           }
         } else {
           setGotram("");
@@ -620,9 +619,28 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      // ── Resolve eventId: should be the PARENT community event id, NOT the pooja seva's own id.
+      // When mainEventId is present, use it.  Fall back to stripping pooja's numeric id only as last resort.
+      const resolvedParentEventId: number = (() => {
+        if (event?.mainEventId) {
+          const n = Number(String(event.mainEventId).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
+        }
+        // Fallback: extract numeric portion of the pooja activity id (e.g. "pooja-5" → 5)
+        if (event?.id) {
+          const n = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
+        }
+        return 1;
+      })();
+
       const regPayload: PoojaRegistrationRequest = {
-        eventId: event?.id ? (typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, "")) || 1) : 1,
+        // eventId = parent community event id (used by backend for event-level grouping)
+        eventId: resolvedParentEventId,
+        // activityId = full "pooja-N" string — used for exact sub-activity deduplication
         activityId: event?.id ? String(event.id) : undefined,
+        // Also send mainEventId so the backend can store and return it for future use
+        ...(event?.mainEventId ? { mainEventId: String(event.mainEventId) } as any : {}),
         eventName: poojaTitle,
         activityTitle: poojaTitle,
         category: "Pooja",
@@ -661,7 +679,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             await eventService.updatePoojaRegistration(numericId, regPayload);
             showSuccess("🪔 Pooja registration updated successfully!");
           } catch (apiErr: any) {
-            const errMsg = apiErr?.response?.data?.message || apiErr?.message || "Failed to update pooja registration.";
+            const errMsg = apiErr?.message || "Failed to update pooja registration.";
             showWarning(errMsg);
             return;
           }
@@ -671,7 +689,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           await eventService.createPoojaRegistration(regPayload);
           showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
         } catch (apiErr: any) {
-          const errMsg = apiErr?.response?.data?.message || apiErr?.message || "";
+          const errMsg = apiErr?.message || "";
           console.warn("Backend createPoojaRegistration API note, trying fallback register:", apiErr);
           if (errMsg && (errMsg.toLowerCase().includes("deadline") || errMsg.toLowerCase().includes("passed") || errMsg.toLowerCase().includes("cancelled") || errMsg.toLowerCase().includes("ended") || errMsg.toLowerCase().includes("full"))) {
             showWarning(errMsg);
@@ -684,7 +702,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 await eventService.register(numericEventId);
                 showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
               } catch (regErr: any) {
-                const regErrMsg = regErr?.response?.data?.message || regErr?.message || "Registration deadline has passed. Contact admin for manual registration.";
+                const regErrMsg = regErr?.message || "Registration deadline has passed. Contact admin for manual registration.";
                 showWarning(regErrMsg);
                 return;
               }
@@ -704,7 +722,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       setIsSuccess(true);
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      const errMsg = err?.response?.data?.message || err?.message || "Registration deadline has passed. Contact admin for manual registration.";
+      const errMsg = err?.message || "Registration deadline has passed. Contact admin for manual registration.";
       console.error("Failed to process pooja registration:", err);
       showWarning(errMsg);
     } finally {
@@ -821,13 +839,24 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             hoverScale={false}
             className="flex-1 flex flex-col justify-between p-4 sm:p-5 border border-border rounded-2xl overflow-y-auto space-y-4 shadow-xs my-2 bg-muted/20"
           >
+            {isUpdateMode && (
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-start gap-2">
+                <RefreshCw className="w-4 h-4 shrink-0 mt-0.5" />
+                <div>
+                  <p>Update Pooja Registration</p>
+                  <p className="font-normal mt-0.5 text-emerald-600 dark:text-emerald-400">
+                    You have an active pass for this Pooja seva. You can select the next slot time or update devotee details below.
+                  </p>
+                </div>
+              </div>
+            )}
             {alreadyRegisteredTitle && !isUpdateMode && (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-bold flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
                 <div>
                   <p>You are already registered for <strong>{alreadyRegisteredTitle}</strong>.</p>
                   <p className="font-normal mt-0.5 text-amber-600 dark:text-amber-500">
-                    Only one pooja seva registration per family per event is allowed. Cancel your existing registration first if you wish to switch sevas.
+                    You can update your registration to select the next slot time.
                   </p>
                 </div>
               </div>

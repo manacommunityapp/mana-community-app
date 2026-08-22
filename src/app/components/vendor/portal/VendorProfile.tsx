@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   UserCircle, Save, Loader2, AlertCircle, Building2,
-  Mail, Phone, Globe, MapPin, Camera,
+  Mail, Phone, Globe, MapPin, Camera, X,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { vendorService, vendorCategoryService } from "../../../../services/vendor/vendorService";
@@ -390,7 +390,9 @@ export function VendorProfile() {
             {(form.tags || []).map((tag) => (
               <span key={tag} className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-indigo-50 text-indigo-600 rounded-full">
                 {tag}
-                <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors">&times;</button>
+                <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-500 transition-colors p-0.5" title="Remove tag">
+                  <X className="w-3 h-3" />
+                </button>
               </span>
             ))}
           </div>

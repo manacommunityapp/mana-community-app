@@ -37,7 +37,7 @@ export const fileUploadService = {
         sizeBytes: media.fileSize,
       };
     } catch (err: any) {
-      let msg = err?.response?.data?.message || err?.message || "Failed to upload file to S3 cloud storage.";
+      let msg = err?.message || "Failed to upload file to S3 cloud storage.";
       const lower = msg.toLowerCase();
       if (lower.includes("301") || lower.includes("specified endpoint") || lower.includes("permanentredirect")) {
         msg = "Unable to save file to AWS S3: S3 bucket region misconfigured. Please check S3_REGION settings.";

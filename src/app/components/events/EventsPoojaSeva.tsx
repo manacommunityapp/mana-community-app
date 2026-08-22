@@ -277,7 +277,7 @@ export function EventsPoojaSeva() {
       setEditingPoojaId(null);
       setPoojaForm(emptyPoojaForm);
     } catch (err: any) {
-      setFormError(err?.response?.data?.message || err?.message || "Failed to save pooja");
+      setFormError(err?.message || "Failed to save pooja");
     } finally {
       setSaving(false);
     }
@@ -584,7 +584,14 @@ export function EventsPoojaSeva() {
                   <p className="text-xs text-slate-400">Fill in the details for the temple ritual</p>
                 </div>
               </div>
-              <button onClick={() => { setShowCreateModal(false); setEditingPoojaId(null); }} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+              <button
+                type="button"
+                onClick={() => { setShowCreateModal(false); setEditingPoojaId(null); }}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">

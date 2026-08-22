@@ -164,7 +164,7 @@ export function AdminRoleManagement() {
       setNewRoleName("");
       setIsCreateRoleOpen(false);
     } catch (err: any) {
-      const errorMsg = err?.response?.data?.message || err?.message || "Failed to create role";
+      const errorMsg = err?.message || "Failed to create role";
       toast.error(errorMsg);
     } finally {
       setIsCreatingRole(false);

@@ -205,6 +205,11 @@ export function ProfileDashboard() {
         block: res.block,
       });
 
+      // Synchronize into Family Table as Self (Head)
+      if (res.fullName) {
+        familyService.syncUserProfile(res.fullName, res.dob, res.gender, res.phone, res.email);
+      }
+
       if (isSilent) toast.success("Profile refreshed from database!");
     } catch (err) {
       console.error("Error loading user profile from database:", err);
@@ -385,6 +390,11 @@ export function ProfileDashboard() {
         profilePicUrl: res.profilePicUrl,
       });
 
+      // Synchronize updated details across Family table
+      if (res.fullName) {
+        familyService.syncUserProfile(res.fullName, res.dob, res.gender, res.phone, res.email);
+      }
+
       toast.success("Profile saved and synchronized successfully!");
     } catch (err) {
       console.error("Error updating profile in database:", err);
@@ -548,7 +558,6 @@ export function ProfileDashboard() {
     } catch (err: any) {
       console.error("Change password error:", err);
       const msg =
-        err?.response?.data?.message ||
         err?.message ||
         "Failed to update password. Please verify current password.";
       toast.error(msg);
@@ -1291,7 +1300,7 @@ export function ProfileDashboard() {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Sunita Sharma"
+                      placeholder="Enter member's full name"
                       value={memberForm.name || ""}
                       onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })}
                       className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"

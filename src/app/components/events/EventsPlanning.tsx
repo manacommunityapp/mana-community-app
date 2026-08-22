@@ -4,6 +4,7 @@ import { useEventMock } from "./EventMockToggle";
 import { ErrorBanner, LoadingSpinner } from "./shared";
 import { eventTaskService, type EventTaskResponse } from "../../../services/events/eventTaskService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
+import { showError } from "../../../utils/ToastUtils";
 
 // Mock data — shown when toggle is "Mock Data"; live API used otherwise
 const milestones = [
@@ -92,7 +93,7 @@ export function EventsPlanning() {
     } else {
       eventTaskService.toggleDone(id)
         .then(updated => setLiveTasks(prev => prev.map(t => t.id === id ? { ...t, done: updated.done } : t)))
-        .catch(() => {});
+        .catch((err: any) => showError(err?.message || "Failed to update task status"));
     }
   };
 
@@ -132,7 +133,7 @@ export function EventsPlanning() {
       setShowAddForm(false);
       setTaskForm(emptyTaskForm);
     } catch (err: any) {
-      setFormError(err?.response?.data?.message || err?.message || "Failed to create task");
+      setFormError(err?.message || "Failed to create task");
     } finally {
       setSaving(false);
     }
@@ -189,7 +190,7 @@ export function EventsPlanning() {
       setEditingTaskId(null);
       setTaskForm(emptyTaskForm);
     } catch (err: any) {
-      setFormError(err?.response?.data?.message || err?.message || "Failed to update task");
+      setFormError(err?.message || "Failed to update task");
     } finally {
       setSaving(false);
     }
@@ -334,7 +335,14 @@ export function EventsPlanning() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-bold text-slate-800">{editingTaskId ? "Edit Task" : "Add New Task"}</h3>
-              <button onClick={() => { setShowAddForm(false); setEditingTaskId(null); }} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+              <button
+                type="button"
+                onClick={() => { setShowAddForm(false); setEditingTaskId(null); }}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
             <form onSubmit={editingTaskId ? handleEditTask : handleAddTask} className="px-6 py-5 space-y-4">
               {formError && (

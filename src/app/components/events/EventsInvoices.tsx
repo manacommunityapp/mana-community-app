@@ -400,7 +400,14 @@ export function EventsInvoices() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-bold text-slate-800">{editingId ? "Edit Invoice" : "New Invoice"}</h3>
-              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
             <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
               {formError && (
@@ -580,7 +587,14 @@ export function EventsInvoices() {
               <h4 className="font-bold text-slate-800 text-sm flex items-center gap-2">
                 <Tag className="w-4 h-4 text-indigo-600" /> Add Invoice Category
               </h4>
-              <button onClick={() => setShowAddCatModal(false)} className="text-slate-400 hover:text-slate-600 text-lg">×</button>
+              <button
+                type="button"
+                onClick={() => setShowAddCatModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
             <form onSubmit={handleAddCategorySubmit} className="p-5 space-y-4">
               {catError && (

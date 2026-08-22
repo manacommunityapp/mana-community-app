@@ -44,40 +44,36 @@ export const authService = {
       password: data.newPassword,
     };
 
-    // 1. Try POST /auth/change-password
-    try {
-      const res = await apiClient.post<any>("/auth/change-password", payload);
+    const isEndpointMissing = (err: unknown) => {
+      const msg = ((err instanceof Error ? err.message : "") || "").toLowerCase();
+      return msg.includes("404") || msg.includes("not found") || msg.includes("405") || msg.includes("method not allowed");
+    };
+
+    const unwrapResponse = (res: any): ChangePasswordResponse => {
       if (typeof res === "string") return { success: true, message: res };
       if (res && res.message) return { success: res.success ?? true, message: res.message };
       return { success: true, message: "Password changed successfully" };
-    } catch (err: any) {
-      if (err?.status && err.status !== 404 && err.status !== 405) {
-        throw err;
-      }
+    };
+
+    // 1. Try POST /auth/change-password
+    try {
+      return unwrapResponse(await apiClient.post<any>("/auth/change-password", payload));
+    } catch (err: unknown) {
+      if (!isEndpointMissing(err)) throw err;
     }
 
     // 2. Try PUT /auth/change-password
     try {
-      const res = await apiClient.put<any>("/auth/change-password", payload);
-      if (typeof res === "string") return { success: true, message: res };
-      if (res && res.message) return { success: res.success ?? true, message: res.message };
-      return { success: true, message: "Password changed successfully" };
-    } catch (err: any) {
-      if (err?.status && err.status !== 404 && err.status !== 405) {
-        throw err;
-      }
+      return unwrapResponse(await apiClient.put<any>("/auth/change-password", payload));
+    } catch (err: unknown) {
+      if (!isEndpointMissing(err)) throw err;
     }
 
     // 3. Try POST /users/change-password
     try {
-      const res = await apiClient.post<any>("/users/change-password", payload);
-      if (typeof res === "string") return { success: true, message: res };
-      if (res && res.message) return { success: res.success ?? true, message: res.message };
-      return { success: true, message: "Password changed successfully" };
-    } catch (err: any) {
-      if (err?.status && err.status !== 404 && err.status !== 405) {
-        throw err;
-      }
+      return unwrapResponse(await apiClient.post<any>("/users/change-password", payload));
+    } catch (err: unknown) {
+      if (!isEndpointMissing(err)) throw err;
     }
 
     // 4. Try PUT /users/{me.id} fallback
@@ -90,18 +86,11 @@ export const authService = {
         });
         if (res) return { success: true, message: "Password changed successfully" };
       }
-    } catch (err: any) {
-      if (err?.status && err.status !== 404 && err.status !== 405) {
-        throw err;
-      }
+    } catch (err: unknown) {
+      if (!isEndpointMissing(err)) throw err;
     }
 
-    // 5. If backend change-password endpoint is not yet mounted (404), provide successful client response
-    console.info("[AuthService] Backend /api/auth/change-password endpoint returned 404. Handled gracefully.");
-    return {
-      success: true,
-      message: "Password updated successfully!",
-    };
+    throw new Error("Password change is not available. Please contact your administrator.");
   },
 
   /**

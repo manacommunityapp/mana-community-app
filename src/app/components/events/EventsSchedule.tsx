@@ -36,6 +36,7 @@ import { EventsPoojaSeva } from "./EventsPoojaSeva";
 import { EventsLunchDinner } from "./EventsLunchDinner";
 import { EventsCulturalEvents } from "./EventsCulturalEvents";
 import { EditEventDialog } from "./EventsCreate";
+import { showError } from "../../../utils/ToastUtils";
 
 /* ─── Types ─── */
 type EventStatus = "upcoming" | "ongoing" | "completed" | "draft" | "cancelled";
@@ -1594,8 +1595,8 @@ function EventsList() {
         } else {
           setEvents([]);
         }
-      } catch (err) {
-        console.error("Failed to load live events for schedule", err);
+      } catch (err: any) {
+        showError(err?.message || "Failed to load events");
       } finally {
         setLoading(false);
       }
@@ -1676,7 +1677,7 @@ function EventsList() {
       window.dispatchEvent(new Event("mana_activities_updated"));
     } catch (err: any) {
       console.error("Failed to delete/cancel event from database:", err);
-      alert(err?.response?.data?.message || err?.message || "Failed to process event deletion/cancellation.");
+      showError(err?.message || "Failed to process event deletion/cancellation.");
     } finally {
       setDeleteEvent(null);
     }

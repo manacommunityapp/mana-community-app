@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Landmark, TrendingUp, TrendingDown, IndianRupee, Plus, Download, Loader2, AlertCircle, Trash2, Pencil } from "lucide-react";
+import { Landmark, TrendingUp, TrendingDown, IndianRupee, Plus, Download, Loader2, AlertCircle, Trash2, Pencil, X } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { ErrorBanner, LoadingSpinner } from "./shared";
 import { eventExpenseService, type EventExpenseResponse, type EventExpenseRequest } from "../../../services/events/eventExpenseService";
@@ -346,7 +346,14 @@ export function EventsFinance() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-bold text-slate-800">{editingId ? "Edit Expense" : "Add Expense"}</h3>
-              <button onClick={() => setShowForm(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
             <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
               {formError && (
