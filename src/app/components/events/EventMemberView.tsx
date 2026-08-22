@@ -193,6 +193,7 @@ export function EventMemberView() {
   const [activeTab, setActiveTab] = useState<"home" | "passes" | "auction">("home");
   const [showQRPass, setShowQRPass] = useState<UserPass | null>(null);
   const [showFamily, setShowFamily] = useState(false);
+  const [mobileModal, setMobileModal] = useState<"pooja" | "meals" | "passes" | "family" | null>(null);
   const [passesList, setPassesList] = useState<UserPass[]>(() => (useMock ? INITIAL_PASSES : []));
   const [activitiesList, setActivitiesList] = useState<Activity[]>(() => (useMock ? INITIAL_ACTIVITIES : []));
   const [mainEventsList, setMainEventsList] = useState<any[]>([]);
@@ -1763,11 +1764,13 @@ export function EventMemberView() {
       <div className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-card/95 backdrop-blur-md border-t border-border px-3 py-2 flex items-center justify-around shadow-lg">
         <button
           onClick={() => {
+            setMobileModal(null);
             setActiveTab("home");
             setSelectedCategoryFilter(null);
+            window.scrollTo({ top: 0, behavior: "smooth" });
           }}
           className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer ${
-            activeTab === "home" && !selectedCategoryFilter ? "text-primary font-black scale-105" : "text-muted-foreground font-semibold"
+            !mobileModal && activeTab === "home" && !selectedCategoryFilter ? "text-primary font-black scale-105" : "text-muted-foreground font-semibold"
           }`}
         >
           <Sparkles className="w-4 h-4" />
@@ -1775,12 +1778,9 @@ export function EventMemberView() {
         </button>
 
         <button
-          onClick={() => {
-            setActiveTab("home");
-            setSelectedCategoryFilter("Pooja");
-          }}
+          onClick={() => setMobileModal(mobileModal === "pooja" ? null : "pooja")}
           className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer ${
-            selectedCategoryFilter === "Pooja" ? "text-amber-600 font-black scale-105" : "text-muted-foreground font-semibold"
+            mobileModal === "pooja" || (!mobileModal && selectedCategoryFilter === "Pooja") ? "text-amber-600 font-black scale-105" : "text-muted-foreground font-semibold"
           }`}
         >
           <Flame className="w-4 h-4" />
@@ -1788,12 +1788,9 @@ export function EventMemberView() {
         </button>
 
         <button
-          onClick={() => {
-            setActiveTab("home");
-            setSelectedCategoryFilter("Food");
-          }}
+          onClick={() => setMobileModal(mobileModal === "meals" ? null : "meals")}
           className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer ${
-            selectedCategoryFilter === "Food" ? "text-orange-600 font-black scale-105" : "text-muted-foreground font-semibold"
+            mobileModal === "meals" || (!mobileModal && selectedCategoryFilter === "Food") ? "text-orange-600 font-black scale-105" : "text-muted-foreground font-semibold"
           }`}
         >
           <Utensils className="w-4 h-4" />
@@ -1801,12 +1798,9 @@ export function EventMemberView() {
         </button>
 
         <button
-          onClick={() => {
-            setActiveTab("passes");
-            setSelectedCategoryFilter(null);
-          }}
+          onClick={() => setMobileModal(mobileModal === "passes" ? null : "passes")}
           className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer relative ${
-            activeTab === "passes" ? "text-indigo-600 font-black scale-105" : "text-muted-foreground font-semibold"
+            mobileModal === "passes" || (!mobileModal && activeTab === "passes") ? "text-indigo-600 font-black scale-105" : "text-muted-foreground font-semibold"
           }`}
         >
           <Ticket className="w-4 h-4" />
@@ -1817,15 +1811,495 @@ export function EventMemberView() {
         </button>
 
         <button
-          onClick={() => setShowFamily(!showFamily)}
+          onClick={() => setMobileModal(mobileModal === "family" ? null : "family")}
           className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer ${
-            showFamily ? "text-primary font-black scale-105" : "text-muted-foreground font-semibold"
+            mobileModal === "family" ? "text-rose-600 font-black scale-105" : "text-muted-foreground font-semibold"
           }`}
         >
           <Users className="w-4 h-4" />
           <span className="text-[9.5px]">Family</span>
+          {familyMembers.length > 0 && (
+            <span className="text-[8px] font-bold px-1 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400">
+              {familyMembers.length}
+            </span>
+          )}
         </button>
       </div>
+
+      {/* ─── MOBILE POOJA & SEVA MODAL / BOTTOM SHEET ─── */}
+      {mobileModal === "pooja" && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-3 sm:hidden" />
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                  <Flame className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-foreground text-base flex items-center gap-2">
+                    Pooja & Seva Services
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-800">
+                      Live
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">Book sankalpams, homams & gotram sevas for family</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileModal(null)}
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto py-3 space-y-3 flex-1 text-xs">
+              {(() => {
+                const poojaItems = activitiesList.filter(
+                  (a) =>
+                    a.category?.toLowerCase().includes("pooja") ||
+                    a.category?.toLowerCase().includes("seva") ||
+                    a.category?.toLowerCase().includes("spiritual") ||
+                    a.title.toLowerCase().includes("pooja") ||
+                    a.title.toLowerCase().includes("homam") ||
+                    a.title.toLowerCase().includes("archana")
+                );
+
+                if (poojaItems.length === 0) {
+                  return (
+                    <div className="text-center py-8 text-muted-foreground space-y-3">
+                      <Flame className="w-8 h-8 mx-auto text-amber-500/60" />
+                      <p className="font-semibold text-foreground">No specific pooja slots listed right now</p>
+                      <button
+                        onClick={() => {
+                          setMobileModal(null);
+                          setSelectedActivity({
+                            id: "pooja-general",
+                            title: "Community Festival Pooja & Seva Sankalpam",
+                            category: "Pooja",
+                            date: "Daily",
+                            time: "Morning & Evening",
+                            venue: "Main Utsav Mandap",
+                            fee: 0,
+                            availableSeats: 50,
+                            image: "🪔",
+                            description: "Special community festival pooja sankalpam and archana seva with family gotram.",
+                          });
+                        }}
+                        className="px-4 py-2 bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md shadow-amber-600/20 cursor-pointer"
+                      >
+                        Register for Special Festival Pooja
+                      </button>
+                    </div>
+                  );
+                }
+
+                return poojaItems.map((p) => (
+                  <div
+                    key={p.id}
+                    className="p-3.5 rounded-2xl bg-amber-50/30 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+                          {p.category || "Pooja & Seva"}
+                        </span>
+                        <h4 className="font-bold text-foreground text-sm mt-1">{p.title}</h4>
+                      </div>
+                      <span className="font-black text-amber-700 dark:text-amber-300 text-xs shrink-0">
+                        {p.fee === 0 || p.isFree ? "Free / Seva" : `₹${p.fee}`}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 text-[11px] text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-amber-600" />
+                        <span className="truncate">{p.time}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-amber-600" />
+                        <span className="truncate">{p.venue}</span>
+                      </div>
+                    </div>
+
+                    {p.description && (
+                      <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
+                        {p.description}
+                      </p>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        setMobileModal(null);
+                        setSelectedActivity(p);
+                      }}
+                      className="w-full py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-amber-600/20 cursor-pointer"
+                    >
+                      <Flame className="w-3.5 h-3.5" /> Book Devotee Pooja Slot
+                    </button>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            <div className="pt-3 border-t border-border flex items-center justify-between">
+              <button
+                onClick={() => {
+                  setMobileModal(null);
+                  setActiveTab("home");
+                  setSelectedCategoryFilter("Pooja");
+                }}
+                className="text-xs font-bold text-amber-600 hover:text-amber-700 cursor-pointer"
+              >
+                View all in main feed →
+              </button>
+              <button
+                onClick={() => setMobileModal(null)}
+                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MOBILE MEALS & ANNADANAM MODAL / BOTTOM SHEET ─── */}
+      {mobileModal === "meals" && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-3 sm:hidden" />
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center">
+                  <Utensils className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-foreground text-base flex items-center gap-2">
+                    Meals & Annadanam
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/40 text-orange-600 border border-orange-200 dark:border-orange-800">
+                      Community Feast
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">Lunch/Dinner feast schedules & food counter tokens</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileModal(null)}
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto py-3 space-y-3 flex-1 text-xs">
+              {/* Daily Meal Schedule Summary */}
+              <div className="grid grid-cols-2 gap-2 p-3 rounded-2xl bg-orange-50/50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900/50">
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400">☀️ Maha Prasadam Lunch</p>
+                  <p className="font-extrabold text-foreground text-xs">12:30 PM – 03:00 PM</p>
+                  <p className="text-[10px] text-muted-foreground">Main Dining Hall, Counter A & B</p>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400">🌙 Evening Utsav Dinner</p>
+                  <p className="font-extrabold text-foreground text-xs">07:30 PM – 10:30 PM</p>
+                  <p className="text-[10px] text-muted-foreground">Dining Area, All Counters</p>
+                </div>
+              </div>
+
+              {(() => {
+                const foodItems = activitiesList.filter(
+                  (a) =>
+                    a.category?.toLowerCase().includes("food") ||
+                    a.category?.toLowerCase().includes("meal") ||
+                    a.category?.toLowerCase().includes("annadanam") ||
+                    a.category?.toLowerCase().includes("feast") ||
+                    a.title.toLowerCase().includes("lunch") ||
+                    a.title.toLowerCase().includes("dinner") ||
+                    a.title.toLowerCase().includes("prasadam") ||
+                    a.title.toLowerCase().includes("food") ||
+                    a.title.toLowerCase().includes("feast")
+                );
+
+                if (foodItems.length === 0) {
+                  return (
+                    <div className="p-4 rounded-2xl bg-card border border-border text-center space-y-2">
+                      <p className="font-semibold text-foreground">Community Mahaprasadam Feast is Free for All Residents</p>
+                      <p className="text-[11px] text-muted-foreground">Please show your festival member entry QR pass at the dining counter.</p>
+                      <button
+                        onClick={() => {
+                          setMobileModal("passes");
+                        }}
+                        className="px-4 py-2 bg-orange-600 text-white font-bold rounded-xl text-xs shadow-sm cursor-pointer"
+                      >
+                        View My Dining Entry Pass
+                      </button>
+                    </div>
+                  );
+                }
+
+                return foodItems.map((f) => (
+                  <div
+                    key={f.id}
+                    className="p-3.5 rounded-2xl bg-orange-50/30 dark:bg-orange-950/20 border border-orange-200/60 dark:border-orange-900/40 space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <h4 className="font-bold text-foreground text-sm">{f.title}</h4>
+                      <span className="font-black text-orange-600 text-xs shrink-0">
+                        {f.fee === 0 || f.isFree ? "Free Feast" : `₹${f.fee}`}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5 text-[11px] text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-orange-600" />
+                        <span className="truncate">{f.time}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-orange-600" />
+                        <span className="truncate">{f.venue}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setMobileModal(null);
+                        setSelectedActivity(f);
+                      }}
+                      className="w-full py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-orange-600/20 cursor-pointer"
+                    >
+                      <Utensils className="w-3.5 h-3.5" /> Reserve Meal Token for Family
+                    </button>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            <div className="pt-3 border-t border-border flex items-center justify-between">
+              <button
+                onClick={() => {
+                  setMobileModal(null);
+                  setActiveTab("home");
+                  setSelectedCategoryFilter("Food");
+                }}
+                className="text-xs font-bold text-orange-600 hover:text-orange-700 cursor-pointer"
+              >
+                View all food events in feed →
+              </button>
+              <button
+                onClick={() => setMobileModal(null)}
+                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MOBILE PASSES & TICKETS MODAL / BOTTOM SHEET ─── */}
+      {mobileModal === "passes" && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-3 sm:hidden" />
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-600 flex items-center justify-center">
+                  <Ticket className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-foreground text-base flex items-center gap-2">
+                    My Event Entry Passes
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 border border-indigo-200 dark:border-indigo-800">
+                      {passesList.length} Active
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">Scan QR codes at festival gate and dining hall</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileModal(null)}
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto py-3 space-y-3 flex-1 text-xs">
+              {passesList.length === 0 ? (
+                <div className="text-center py-10 space-y-3 text-muted-foreground">
+                  <Ticket className="w-10 h-10 mx-auto text-muted-foreground/40" />
+                  <p className="font-bold text-foreground">No Passes Found</p>
+                  <p className="text-xs max-w-xs mx-auto">Register for festival events or poojas to receive your digital QR entry pass.</p>
+                  <button
+                    onClick={() => {
+                      setMobileModal(null);
+                      setActiveTab("home");
+                    }}
+                    className="px-4 py-2 bg-primary text-white font-bold rounded-xl text-xs shadow-sm cursor-pointer"
+                  >
+                    Browse Festival Events
+                  </button>
+                </div>
+              ) : (
+                passesList.map((pass) => (
+                  <div
+                    key={pass.id}
+                    className="p-4 rounded-2xl bg-card border border-border shadow-sm space-y-3 relative overflow-hidden"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1 min-w-0">
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 border border-indigo-200 dark:border-indigo-800">
+                          {pass.passType || "Entry Pass"}
+                        </span>
+                        <h4 className="font-bold text-foreground text-sm truncate">{pass.title}</h4>
+                        <p className="text-[11px] text-muted-foreground font-mono">Pass #{pass.regId || pass.id}</p>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setMobileModal(null);
+                          setShowQRPass(pass);
+                        }}
+                        className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 shrink-0 cursor-pointer flex flex-col items-center gap-1"
+                        title="Show Entry QR Code"
+                      >
+                        <QrCode className="w-5 h-5" />
+                        <span className="text-[9px] font-bold">Show QR</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground pt-2 border-t border-border/60">
+                      <div>
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80">Devotee</p>
+                        <p className="font-semibold text-foreground truncate">{pass.participantName}</p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80">Attendees</p>
+                        <p className="font-semibold text-foreground">{pass.devoteeCount || 1} Member(s)</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-border flex items-center justify-between">
+              <button
+                onClick={() => {
+                  setMobileModal(null);
+                  setActiveTab("passes");
+                }}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"
+              >
+                Open Full Passes Dashboard →
+              </button>
+              <button
+                onClick={() => setMobileModal(null)}
+                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MOBILE FAMILY DIRECTORY MODAL / BOTTOM SHEET ─── */}
+      {mobileModal === "family" && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col">
+            <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-3 sm:hidden" />
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-foreground text-base flex items-center gap-2">
+                    My Household Family
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 border border-rose-200 dark:border-rose-800">
+                      {familyMembers.length} Members
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">Unified profile directory across Events & Sports</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileModal(null)}
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="overflow-y-auto py-3 space-y-2.5 flex-1 text-xs">
+              {familyMembers.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground space-y-2">
+                  <Users className="w-8 h-8 mx-auto text-muted-foreground/40" />
+                  <p className="font-semibold text-foreground">No family members added yet</p>
+                  <p className="text-[11px]">Add your spouse, kids, and parents to register them for events with a single tap.</p>
+                </div>
+              ) : (
+                familyMembers.map((member) => {
+                  const isSelf = member.relation?.toLowerCase().includes("self") || member.relation?.toLowerCase().includes("head");
+                  return (
+                    <div
+                      key={member.id}
+                      className="p-3 rounded-2xl bg-muted/30 border border-border flex items-center justify-between gap-2.5"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary font-bold flex items-center justify-center text-sm shrink-0">
+                          {member.avatar || member.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-foreground text-xs truncate">{member.name}</h4>
+                          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                            <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-full bg-primary/10 text-primary uppercase">
+                              {member.relation}
+                            </span>
+                            {member.age ? (
+                              <span className="text-[10px] text-muted-foreground">{member.age} yrs</span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+
+                      {!isSelf && (
+                        <button
+                          onClick={(e) => handleDeleteFamilyMember(member.id, e)}
+                          className="p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors cursor-pointer shrink-0"
+                          title="Remove member"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="pt-3 border-t border-border flex items-center justify-between gap-2">
+              <button
+                onClick={() => {
+                  setShowAddMemberModal(true);
+                }}
+                className="flex-1 py-2 bg-gradient-to-r from-rose-600 to-pink-600 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md shadow-rose-600/20 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Family Member
+              </button>
+              <button
+                onClick={() => setMobileModal(null)}
+                className="px-4 py-2 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── ADD FAMILY MEMBER MODAL (MOBILE BOTTOM-SHEET) ─── */}
       {showAddMemberModal && (

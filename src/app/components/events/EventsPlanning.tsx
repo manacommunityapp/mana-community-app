@@ -335,7 +335,14 @@ export function EventsPlanning() {
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="font-bold text-slate-800">{editingTaskId ? "Edit Task" : "Add New Task"}</h3>
-              <button onClick={() => { setShowAddForm(false); setEditingTaskId(null); }} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+              <button
+                type="button"
+                onClick={() => { setShowAddForm(false); setEditingTaskId(null); }}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
             <form onSubmit={editingTaskId ? handleEditTask : handleAddTask} className="px-6 py-5 space-y-4">
               {formError && (

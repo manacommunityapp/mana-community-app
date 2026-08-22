@@ -367,7 +367,14 @@ export function EventsCulturalEvents() {
                   <p className="text-xs text-slate-400">Set up performance details and requirements</p>
                 </div>
               </div>
-              <button onClick={() => { setShowModal(false); setEditingId(null); }} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+              <button
+                type="button"
+                onClick={() => { setShowModal(false); setEditingId(null); }}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">

@@ -1126,7 +1126,14 @@ export function EventsPrograms() {
                 <h3 className="font-bold text-slate-800">Activity Registrations</h3>
                 <p className="text-xs text-slate-400 mt-0.5">{regProgramTitle}</p>
               </div>
-              <button onClick={() => setRegModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+              <button
+                type="button"
+                onClick={() => setRegModalOpen(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
             <div className="px-6 py-4">
               {regError && (
