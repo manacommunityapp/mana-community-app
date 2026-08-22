@@ -94,13 +94,15 @@ function getStoredMembers(): FamilyMember[] {
   return getDefaultInitialMembers();
 }
 
-function persistMembers(members: FamilyMember[]): void {
+function persistMembers(members: FamilyMember[], notify = true): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(members));
   } catch (err) {
     console.warn("Could not save family members to localStorage:", err);
   }
-  window.dispatchEvent(new CustomEvent("mana_family_updated", { detail: members }));
+  if (notify) {
+    window.dispatchEvent(new CustomEvent("mana_family_updated", { detail: members }));
+  }
 }
 
 export const familyService = {
@@ -133,7 +135,7 @@ export const familyService = {
           phone: m.phone || m.mobile,
           email: m.email,
           bloodGroup: m.bloodGroup || m.blood,
-          gotram: m.gotram,
+          gotram: m.gothram || m.gotram,
           emergencyContact: Boolean(m.emergencyContact || m.isEmergency),
           isDevotee: m.isDevotee !== undefined ? Boolean(m.isDevotee) : true,
           photoUrl: m.photoUrl,
@@ -141,7 +143,8 @@ export const familyService = {
           createdAt: m.createdAt,
           updatedAt: m.updatedAt,
         }));
-        persistMembers(mapped);
+        // Do NOT emit mana_family_updated on GET to prevent infinite event loop
+        persistMembers(mapped, false);
         return mapped;
       }
     } catch (err) {
@@ -166,7 +169,7 @@ export const familyService = {
       phone: data.phone?.trim(),
       email: data.email?.trim(),
       bloodGroup: data.bloodGroup?.trim(),
-      gotram: data.gotram?.trim(),
+      gotram: data.gotram?.trim() || (data as any).gothram?.trim(),
       emergencyContact: Boolean(data.emergencyContact),
       isDevotee: data.isDevotee !== undefined ? Boolean(data.isDevotee) : true,
       photoUrl: data.photoUrl,
@@ -175,24 +178,29 @@ export const familyService = {
       updatedAt: new Date().toISOString(),
     };
 
+    // Clean payload matching backend entity: do NOT send string id or ISO dates that fail Jackson deserialization
+    const serverPayload = {
+      name: newMember.name,
+      relation: newMember.relation,
+      age: newMember.age,
+      gender: newMember.gender,
+      avatar: (data as any).avatar || (newMember.gender === "Female" ? (Number(newMember.age) < 18 ? "👧" : "👩") : (Number(newMember.age) < 18 ? "👦" : "👨")),
+      gothram: newMember.gotram || undefined,
+      gotram: newMember.gotram || undefined,
+      status: "ACTIVE",
+    };
+
     try {
-      try {
-        const serverRes = await apiClient.post<any>("/events/family-members", newMember);
-        if (serverRes && serverRes.id) {
-          newMember.id = serverRes.id;
-        }
-      } catch {
-        const userRes = await apiClient.post<any>("/users/family-members", newMember);
-        if (userRes && userRes.id) {
-          newMember.id = userRes.id;
-        }
+      const serverRes = await apiClient.post<any>("/events/family-members", serverPayload);
+      if (serverRes && serverRes.id) {
+        newMember.id = serverRes.id;
       }
-    } catch {
-      // Local fallback continues smoothly
+    } catch (err) {
+      console.warn("Failed to persist family member on server, keeping locally:", err);
     }
 
     const updated = [newMember, ...current.filter((m) => m.name.toLowerCase() !== newMember.name.toLowerCase())];
-    persistMembers(updated);
+    persistMembers(updated, true);
     return newMember;
   },
 
@@ -222,17 +230,28 @@ export const familyService = {
       current.push(updatedMember);
     }
 
-    try {
+    const idStr = String(id);
+    const isRealNumericId = !idStr.startsWith("fam-") && idStr !== "self" && !isNaN(Number(idStr)) && idStr.trim() !== "";
+
+    if (isRealNumericId) {
+      const serverPayload = {
+        name: updatedMember.name,
+        relation: updatedMember.relation,
+        age: updatedMember.age,
+        gender: updatedMember.gender,
+        avatar: (data as any).avatar || (updatedMember.gender === "Female" ? "👩" : "👨"),
+        gothram: updatedMember.gotram || (data as any).gothram,
+        gotram: updatedMember.gotram || (data as any).gothram,
+        status: (data as any).status || "ACTIVE",
+      };
       try {
-        await apiClient.put<any>(`/events/family-members/${id}`, updatedMember);
-      } catch {
-        await apiClient.put<any>(`/users/family-members/${id}`, updatedMember);
+        await apiClient.put<any>(`/events/family-members/${id}`, serverPayload);
+      } catch (err) {
+        console.warn("Failed to update family member on server:", err);
       }
-    } catch {
-      // Local fallback continues smoothly
     }
 
-    persistMembers([...current]);
+    persistMembers([...current], true);
     return updatedMember;
   },
 
@@ -248,17 +267,13 @@ export const familyService = {
 
     if (isRealId) {
       try {
-        try {
-          await apiClient.delete<void>(`/events/family-members/${id}`);
-        } catch {
-          await apiClient.delete<void>(`/users/family-members/${id}`);
-        }
-      } catch {
-        // Local fallback continues smoothly
+        await apiClient.delete<void>(`/events/family-members/${id}`);
+      } catch (err) {
+        console.warn("Failed to delete family member on server:", err);
       }
     }
 
-    persistMembers(filtered);
+    persistMembers(filtered, true);
   },
 
   /**
