@@ -71,7 +71,7 @@ const MOCK_KPIS = [
   { label: "Today's Schedule & Duty", value: "32 Items", sub: "12 programs · 318 duty shifts", icon: Clock, color: "#16A34A", bg: "rgba(22,163,74,0.12)", trend: "Active Today", to: "/events/schedule?tab=programs" },
   { label: "Pending Action Items",    value: "9",      sub: "4 tasks · 5 sponsors", icon: AlertCircle, color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "Action Required", to: "/events/schedule?tab=planning" },
   { label: "Sponsors Raised",         value: "₹6.10L", sub: "19 Active partners",   icon: Star,         color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "5 pending",       to: "/events/fundraising?tab=sponsors" },
-  { label: "Food Prepared",           value: "85%",    sub: "4,200 plates est",    icon: Utensils,     color: "#8B5CF6", bg: "rgba(139,92,246,0.12)",  trend: "On schedule",     to: "/events/operations?tab=food" },
+  // { label: "Food Prepared",           value: "85%",    sub: "4,200 plates est",    icon: Utensils,     color: "#8B5CF6", bg: "rgba(139,92,246,0.12)",  trend: "On schedule",     to: "/events/operations?tab=food" },
   { label: "Auction Revenue",         value: "₹2.10L", sub: "14 items sold",       icon: Gavel,        color: "#06B6D4", bg: "rgba(6,182,212,0.12)",   trend: "Live now",        to: "/events/fundraising?tab=auction" },
 ];
 
@@ -235,7 +235,7 @@ export function EventsDashboard() {
 
   // ── Registered Users section state ──
   type RegCat = 'all' | 'event' | 'pooja' | 'cultural' | 'competition';
-  type UnifiedReg = { id: string|number; regCode: string; category: RegCat; activityTitle: string; participantName: string; email?: string; phone?: string; extra?: string; devoteeCount: number; bookingFee: number; paymentStatus: string; status: string; eventDate?: string; eventTime?: string; venue?: string; createdAt: string; };
+  type UnifiedReg = { id: string|number; regCode: string; category: RegCat; activityTitle: string; participantName: string; email?: string; phone?: string; extra?: string; devoteeCount: number; bookingFee: number; paymentStatus: string; status: string; eventDate?: string; eventTime?: string; venue?: string; createdAt: string; registeredAt?: string; passType?: string; };
   const MOCK_REGS: UnifiedReg[] = [
     { id:'e1', regCode:'EVT-5001', category:'event', activityTitle:'Ganesh Utsav 2026 – Main Event', participantName:'Rajesh Sharma', email:'rajesh@example.com', phone:'+91 98765 43210', devoteeCount:4, bookingFee:300, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', venue:'Community Hall', createdAt:'2026-08-10T10:00:00' },
     { id:'e2', regCode:'EVT-5002', category:'event', activityTitle:'Ganesh Utsav 2026 – Main Event', participantName:'Meera Deshmukh', email:'meera@example.com', phone:'+91 91234 56789', devoteeCount:2, bookingFee:300, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', venue:'Community Hall', createdAt:'2026-08-10T11:30:00' },
@@ -539,6 +539,19 @@ export function EventsDashboard() {
     return [];
   }, [useMock, pendingActionItems, tasks, tasksDone]);
 
+  const liveDevoteeCount = useMemo(() => {
+    return allUnifiedRegs.reduce((sum, r) => sum + (r.devoteeCount || 1), 0);
+  }, [allUnifiedRegs]);
+
+  const liveRegCount = useMemo(() => {
+    return Math.max(
+      stats?.totalRegistrations ?? 0,
+      allUnifiedRegs.length,
+      liveDevoteeCount,
+      registrations.length
+    );
+  }, [stats?.totalRegistrations, allUnifiedRegs.length, liveDevoteeCount, registrations.length]);
+
   // ── Derived: KPI cards ────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     if (useMock) return MOCK_KPIS;
@@ -568,13 +581,6 @@ export function EventsDashboard() {
     const dutyCount           = stats?.todaysDutyCount ?? 0;
     const pendingActionsCount = stats?.pendingActionItemsCount ?? (pendingTasks.length + livePendingSponsor);
 
-    const liveDevoteeCount = allUnifiedRegs.reduce((sum, r) => sum + (r.devoteeCount || 1), 0);
-    const liveRegCount = Math.max(
-      stats?.totalRegistrations ?? 0,
-      allUnifiedRegs.length,
-      liveDevoteeCount,
-      registrations.length
-    );
     const totalEventsCount = stats?.totalEvents ?? events.length;
 
     return [
@@ -627,12 +633,12 @@ export function EventsDashboard() {
         trend: liveDonationTotal > 0 ? "Active" : "No donations yet",
         to: "/events/fundraising?tab=donations",
       },
-      {
-        label: "Live Food Prepared", value: foodPlates,
-        sub: foodPct !== "—" ? `${foodPct} target reached` : "Live tracking",
-        icon: Utensils, color: "#8B5CF6", bg: "rgba(139,92,246,0.12)", trend: foodTrend,
-        to: "/events/operations?tab=food",
-      },
+      // {
+      //   label: "Live Food Prepared", value: foodPlates,
+      //   sub: foodPct !== "—" ? `${foodPct} target reached` : "Live tracking",
+      //   icon: Utensils, color: "#8B5CF6", bg: "rgba(139,92,246,0.12)", trend: foodTrend,
+      //   to: "/events/operations?tab=food",
+      // },
       {
         label: "Auction Revenue", value: auctionRev,
         sub: auctionItems,
@@ -698,13 +704,48 @@ export function EventsDashboard() {
 
   // ── Derived: registration trend ───────────────────────────────────────────
   const regTrendData = useMemo(() => {
-    if (!useMock && analytics?.dailyRegistrations) return analytics.dailyRegistrations;
+    if (!useMock && analytics?.dailyRegistrations && analytics.dailyRegistrations.some((d: any) => (d.count || 0) > 0 || (d.vip || 0) > 0)) {
+      return analytics.dailyRegistrations;
+    }
     if (useMock) return MOCK_REG_TREND;
     const counts: Record<string, number> = {};
-    WEEK_DAYS.forEach(d => { counts[d] = 0; });
-    registrations.forEach(r => { counts[WEEK_DAYS[new Date(r.registeredAt).getDay()]]++; });
-    return WEEK_DAYS.map(d => ({ day: d, count: counts[d], vip: 0 }));
-  }, [useMock, analytics, registrations]);
+    const vipCounts: Record<string, number> = {};
+    WEEK_DAYS.forEach(d => { counts[d] = 0; vipCounts[d] = 0; });
+
+    registrations.forEach(r => {
+      if (r.registeredAt) {
+        try {
+          const d = new Date(r.registeredAt);
+          const dayIdx = d.getDay();
+          const dayName = WEEK_DAYS[dayIdx === 0 ? 6 : dayIdx - 1];
+          if (dayName) {
+            counts[dayName] = (counts[dayName] || 0) + 1;
+            if (r.status === "CONFIRMED") vipCounts[dayName] = (vipCounts[dayName] || 0) + 1;
+          }
+        } catch {}
+      }
+    });
+
+    allUnifiedRegs.forEach(r => {
+      const dateStr = (r as any).registeredAt || r.createdAt || r.eventDate;
+      if (dateStr) {
+        try {
+          const d = new Date(dateStr);
+          const dayIdx = isNaN(d.getTime()) ? 0 : d.getDay();
+          const dayName = WEEK_DAYS[dayIdx === 0 ? 6 : dayIdx - 1];
+          if (dayName) {
+            const devotees = r.devoteeCount || 1;
+            counts[dayName] = (counts[dayName] || 0) + devotees;
+            if (r.status === "CONFIRMED" || r.paymentStatus === "PAID") {
+              vipCounts[dayName] = (vipCounts[dayName] || 0) + devotees;
+            }
+          }
+        } catch {}
+      }
+    });
+
+    return WEEK_DAYS.map(d => ({ day: d, count: counts[d] || 0, vip: vipCounts[d] || 0 }));
+  }, [useMock, analytics, registrations, allUnifiedRegs]);
 
   // ── Derived: expense breakdown ────────────────────────────────────────────
   const budgetData = useMemo(() => {
@@ -727,18 +768,26 @@ export function EventsDashboard() {
 
   // ── Derived: pie categories ───────────────────────────────────────────────
   const pieData = useMemo(() => {
-    if (!useMock && analytics?.passCategories) return analytics.passCategories;
+    if (!useMock && analytics?.passCategories && analytics.passCategories.length > 0) return analytics.passCategories;
     if (useMock) return MOCK_PIE;
-    const byStatus: Record<string, number> = {};
-    registrations.forEach(r => { byStatus[r.status] = (byStatus[r.status] || 0) + 1; });
-    const entries = Object.entries(byStatus).map(([name, value], i) => ({
-      name: name === "CONFIRMED" ? "Confirmed" : name === "PENDING" ? "Pending" : name === "REJECTED" ? "Rejected" : name,
+    const byCat: Record<string, number> = {};
+    allUnifiedRegs.forEach(r => {
+      const cat = r.category || (r as any).passType || r.activityTitle || "Event Pass";
+      const count = r.devoteeCount || 1;
+      byCat[cat] = (byCat[cat] || 0) + count;
+    });
+    registrations.forEach(r => {
+      const status = r.status === "CONFIRMED" ? "Confirmed Passes" : "General Passes";
+      byCat[status] = (byCat[status] || 0) + 1;
+    });
+    const entries = Object.entries(byCat).map(([name, value], i) => ({
+      name,
       value,
       color: PIE_COLORS[i % PIE_COLORS.length],
     }));
     if (stats?.totalVolunteers) entries.push({ name: "Volunteers", value: stats.totalVolunteers, color: "#2563EB" });
     return entries;
-  }, [useMock, analytics, registrations, stats]);
+  }, [useMock, analytics, registrations, allUnifiedRegs, stats]);
 
   // ── Derived: today's schedule & duty chart data ───────────────────────────
   const scheduleDutyChartData = useMemo(() => {
@@ -1037,8 +1086,8 @@ export function EventsDashboard() {
               onClick={() => navigate("/events/registration")}
               className="text-[10.5px] font-bold text-[#4F46E5] bg-indigo-50 hover:bg-indigo-100 px-2.5 py-0.5 rounded-full border border-indigo-200 cursor-pointer transition-colors"
             >
-              {!useMock && stats
-                ? `Total: ${stats.totalRegistrations.toLocaleString()} Passes →`
+              {!useMock
+                ? `Total: ${liveRegCount.toLocaleString()} Passes →`
                 : "Total: 1,842 Passes →"}
             </button>
           </div>
