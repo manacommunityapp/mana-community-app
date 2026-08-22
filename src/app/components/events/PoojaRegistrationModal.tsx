@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Database,
   Clock,
+  AlertCircle,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { userService } from "../../../services/common/userService";
@@ -268,6 +269,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [passNumber] = useState<number>(() => Math.floor(1000 + Math.random() * 9000));
   const [copiedPass, setCopiedPass] = useState<boolean>(false);
+  const [alreadyRegisteredTitle, setAlreadyRegisteredTitle] = useState<string | null>(null);
 
   // Admin on-behalf registration states
   const [registerOnBehalf, setRegisterOnBehalf] = useState<boolean>(false);
@@ -295,6 +297,8 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const isUpdateMode = Boolean(event?.isUpdateMode || existingReg);
   const existingRegId = event?.registrationId || existingReg?.id || (event as any)?.regId;
   const isPoojaClosed = isRegistrationClosed(event) && !isUpdateMode;
+  const maxPoojaSlots = Number(event?.availableSeats ?? event?.slots ?? 0);
+  const isPoojaFull = !isUpdateMode && event?.availableSeats !== undefined && Number(event?.availableSeats) <= 0;
 
   // User details
   const [devoteeName, setDevoteeName] = useState<string>("");
@@ -388,6 +392,23 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             }
             return false;
           });
+
+          // Duplicate registration check: does the user already have an active booking for this seva?
+          if (!event?.isUpdateMode) {
+            const currentSevaId = String(event?.id || "");
+            const duplicateReg = activeRegs.find((r: any) => {
+              const regActId = String(r.activityId || "");
+              return (
+                regActId === currentSevaId ||
+                regActId === `pooja-${currentSevaId}` ||
+                (currentSevaId.startsWith("pooja-") && regActId === currentSevaId.replace("pooja-", "")) ||
+                (currentSevaId.startsWith("pooja-") && regActId === currentSevaId)
+              );
+            });
+            if (duplicateReg) {
+              setAlreadyRegisteredTitle(duplicateReg.activityTitle || poojaTitle);
+            }
+          }
 
           // Gotram from database event registration
           const dbGotram =
@@ -527,12 +548,24 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   ];
 
   const handleNext = () => {
+    if (alreadyRegisteredTitle && !isUpdateMode) {
+      showWarning("You are already registered for this pooja seva. Only one registration per family per event is allowed.");
+      return;
+    }
+    if (isPoojaFull) {
+      showWarning("This Pooja Seva is fully booked. No slots remaining.");
+      return;
+    }
     if (isPoojaClosed) {
       showWarning("Registration for this pooja seva has ended.");
       return;
     }
     if (currentStep === 1 && (!currentDay || !selectedSlot)) {
       showWarning("Please select one pooja date and one time slot.");
+      return;
+    }
+    if (currentStep === 1 && selectedSlot && selectedSlot.left <= 0) {
+      showWarning("The selected time slot is full. Please choose another session.");
       return;
     }
     if (currentStep < 4) {
@@ -547,12 +580,24 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   };
 
   const handleBookingConfirm = async (paymentMode: string = "UPI") => {
+    if (alreadyRegisteredTitle && !isUpdateMode) {
+      showWarning("You are already registered for this pooja seva. Only one registration per family per event is allowed.");
+      return;
+    }
+    if (isPoojaFull) {
+      showWarning("This Pooja Seva is fully booked. No slots remaining.");
+      return;
+    }
     if (isPoojaClosed) {
       showWarning("Registration for this pooja seva has ended.");
       return;
     }
     if (!currentDay || !selectedSlot) {
       showWarning("Please select one pooja date and one time slot.");
+      return;
+    }
+    if (selectedSlot && selectedSlot.left <= 0) {
+      showWarning("The selected time slot is full. Please choose another session.");
       return;
     }
 
@@ -597,36 +642,54 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         if (!isNaN(numericId) && numericId > 0) {
           try {
             await eventService.updatePoojaRegistration(numericId, regPayload);
-          } catch (apiErr) {
-            console.warn("Backend pooja update API note:", apiErr);
+            showSuccess("🪔 Pooja registration updated successfully!");
+          } catch (apiErr: any) {
+            const errMsg = apiErr?.response?.data?.message || apiErr?.message || "Failed to update pooja registration.";
+            showWarning(errMsg);
+            return;
           }
         }
-        showSuccess("🪔 Pooja registration updated successfully!");
       } else {
         try {
           await eventService.createPoojaRegistration(regPayload);
-        } catch (apiErr) {
-          console.warn("Backend createRegistration API note, trying fallback register:", apiErr);
+          showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
+        } catch (apiErr: any) {
+          const errMsg = apiErr?.response?.data?.message || apiErr?.message || "";
+          console.warn("Backend createPoojaRegistration API note, trying fallback register:", apiErr);
+          if (errMsg && (errMsg.toLowerCase().includes("deadline") || errMsg.toLowerCase().includes("passed") || errMsg.toLowerCase().includes("cancelled") || errMsg.toLowerCase().includes("ended") || errMsg.toLowerCase().includes("full"))) {
+            showWarning(errMsg);
+            return;
+          }
           if (event?.id) {
             const numericEventId = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
             if (!isNaN(numericEventId) && numericEventId > 0) {
-              await eventService.register(numericEventId).catch(() => {});
+              try {
+                await eventService.register(numericEventId);
+                showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
+              } catch (regErr: any) {
+                const regErrMsg = regErr?.response?.data?.message || regErr?.message || "Registration deadline has passed. Contact admin for manual registration.";
+                showWarning(regErrMsg);
+                return;
+              }
+            }
+          } else {
+            if (errMsg) {
+              showWarning(errMsg);
+              return;
             }
           }
         }
-        showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
       }
 
       window.dispatchEvent(new Event("mana_activities_updated"));
-      window.dispatchEvent(new Event("mana_registrations_updated"));
       window.dispatchEvent(new Event("mana_registrations_updated"));
 
       setIsSuccess(true);
       if (onSuccess) onSuccess();
     } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || "Registration deadline has passed. Contact admin for manual registration.";
       console.error("Failed to process pooja registration:", err);
-      showWarning(isUpdateMode ? "Pooja registration updated locally." : "Pooja registration recorded locally.");
-      setIsSuccess(true);
+      showWarning(errMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -741,7 +804,24 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             hoverScale={false}
             className="flex-1 flex flex-col justify-between p-4 sm:p-5 border border-border rounded-2xl overflow-y-auto space-y-4 shadow-xs my-2 bg-muted/20"
           >
-            {isPoojaClosed && (
+            {alreadyRegisteredTitle && !isUpdateMode && (
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-bold flex items-start gap-2">
+                <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
+                <div>
+                  <p>You are already registered for <strong>{alreadyRegisteredTitle}</strong>.</p>
+                  <p className="font-normal mt-0.5 text-amber-600 dark:text-amber-500">
+                    Only one pooja seva registration per family per event is allowed. Cancel your existing registration first if you wish to switch sevas.
+                  </p>
+                </div>
+              </div>
+            )}
+            {isPoojaFull && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>Pooja capacity reached (Housefull). All seva slots have been booked.</span>
+              </div>
+            )}
+            {isPoojaClosed && !isPoojaFull && (
               <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
                 <Clock className="w-4 h-4 shrink-0" />
                 <span>Pooja registration has closed. New seva bookings are no longer accepted.</span>
@@ -1106,7 +1186,15 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               </TouchButton>
             )}
 
-            {isPoojaClosed ? (
+            {alreadyRegisteredTitle && !isUpdateMode ? (
+              <span className="px-4 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold border border-amber-500/20 flex items-center gap-1.5 select-none">
+                <ShieldCheck className="w-3.5 h-3.5" /> Already Registered
+              </span>
+            ) : isPoojaFull ? (
+              <span className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold border border-rose-500/20 flex items-center gap-1.5 select-none">
+                <AlertCircle className="w-3.5 h-3.5" /> Pooja Capacity Full (Sold Out)
+              </span>
+            ) : isPoojaClosed ? (
               <span className="px-4 py-2 rounded-xl bg-muted text-muted-foreground text-xs font-bold border border-border flex items-center gap-1.5 select-none">
                 <Clock className="w-3.5 h-3.5" /> Registration Closed
               </span>
