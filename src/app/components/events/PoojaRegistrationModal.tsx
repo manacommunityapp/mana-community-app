@@ -16,6 +16,7 @@ import {
   ShieldCheck,
   Database,
   Clock,
+  AlertCircle,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { userService } from "../../../services/common/userService";
@@ -295,6 +296,8 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const isUpdateMode = Boolean(event?.isUpdateMode || existingReg);
   const existingRegId = event?.registrationId || existingReg?.id || (event as any)?.regId;
   const isPoojaClosed = isRegistrationClosed(event) && !isUpdateMode;
+  const maxPoojaSlots = Number(event?.availableSeats ?? event?.slots ?? 0);
+  const isPoojaFull = !isUpdateMode && event?.availableSeats !== undefined && Number(event?.availableSeats) <= 0;
 
   // User details
   const [devoteeName, setDevoteeName] = useState<string>("");
@@ -527,12 +530,20 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   ];
 
   const handleNext = () => {
+    if (isPoojaFull) {
+      showWarning("This Pooja Seva is fully booked. No slots remaining.");
+      return;
+    }
     if (isPoojaClosed) {
       showWarning("Registration for this pooja seva has ended.");
       return;
     }
     if (currentStep === 1 && (!currentDay || !selectedSlot)) {
       showWarning("Please select one pooja date and one time slot.");
+      return;
+    }
+    if (currentStep === 1 && selectedSlot && selectedSlot.left <= 0) {
+      showWarning("The selected time slot is full. Please choose another session.");
       return;
     }
     if (currentStep < 4) {
@@ -547,12 +558,20 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   };
 
   const handleBookingConfirm = async (paymentMode: string = "UPI") => {
+    if (isPoojaFull) {
+      showWarning("This Pooja Seva is fully booked. No slots remaining.");
+      return;
+    }
     if (isPoojaClosed) {
       showWarning("Registration for this pooja seva has ended.");
       return;
     }
     if (!currentDay || !selectedSlot) {
       showWarning("Please select one pooja date and one time slot.");
+      return;
+    }
+    if (selectedSlot && selectedSlot.left <= 0) {
+      showWarning("The selected time slot is full. Please choose another session.");
       return;
     }
 
@@ -759,7 +778,13 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             hoverScale={false}
             className="flex-1 flex flex-col justify-between p-4 sm:p-5 border border-border rounded-2xl overflow-y-auto space-y-4 shadow-xs my-2 bg-muted/20"
           >
-            {isPoojaClosed && (
+            {isPoojaFull && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>Pooja capacity reached (Housefull). All seva slots have been booked.</span>
+              </div>
+            )}
+            {isPoojaClosed && !isPoojaFull && (
               <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
                 <Clock className="w-4 h-4 shrink-0" />
                 <span>Pooja registration has closed. New seva bookings are no longer accepted.</span>
@@ -1124,7 +1149,11 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               </TouchButton>
             )}
 
-            {isPoojaClosed ? (
+            {isPoojaFull ? (
+              <span className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold border border-rose-500/20 flex items-center gap-1.5 select-none">
+                <AlertCircle className="w-3.5 h-3.5" /> Pooja Capacity Full (Sold Out)
+              </span>
+            ) : isPoojaClosed ? (
               <span className="px-4 py-2 rounded-xl bg-muted text-muted-foreground text-xs font-bold border border-border flex items-center gap-1.5 select-none">
                 <Clock className="w-3.5 h-3.5" /> Registration Closed
               </span>
