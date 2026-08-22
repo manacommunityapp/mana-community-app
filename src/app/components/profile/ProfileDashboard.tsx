@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, type ComponentType } from "react";
 import { useSearchParams } from "react-router";
 import {
   UserCircle,
@@ -605,13 +605,13 @@ export function ProfileDashboard() {
     ? `${profile.block ? `Block ${profile.block}` : ""}${profile.block && profile.flatNo ? " - " : ""}${profile.flatNo ? `Flat ${profile.flatNo}` : ""}`
     : "No Unit Assigned";
 
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "overview", label: "Overview" },
-    { id: "family", label: "My Family" },
-    { id: "activity", label: "Activity" },
-    { id: "achievements", label: "Achievements" },
-    { id: "settings", label: "Settings" },
-    { id: "security", label: "Security" },
+  const tabs: { id: Tab; label: string; shortLabel: string; icon: ComponentType<{ className?: string }> }[] = [
+    { id: "overview", label: "Overview", shortLabel: "Overview", icon: UserCircle },
+    { id: "family", label: "My Family", shortLabel: "Family", icon: Heart },
+    { id: "activity", label: "Activity", shortLabel: "Activity", icon: Bell },
+    { id: "achievements", label: "Achievements", shortLabel: "Awards", icon: Trophy },
+    { id: "settings", label: "Settings", shortLabel: "Settings", icon: Monitor },
+    { id: "security", label: "Security", shortLabel: "Security", icon: Lock },
   ];
 
   const achievements = profile.achievements ?? [];
@@ -621,7 +621,7 @@ export function ProfileDashboard() {
       <Toaster position="top-center" richColors />
 
       {/* Modern Gradient Cover Banner */}
-      <div className="h-28 sm:h-40 md:h-48 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 relative overflow-hidden">
+      <div className="h-32 sm:h-40 md:h-48 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 relative overflow-hidden">
         <div className="absolute inset-0 bg-black/10 backdrop-blur-[0.5px]" />
         <div className="absolute -right-12 -bottom-12 w-48 sm:w-64 h-48 sm:h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute left-8 top-4 w-32 sm:w-44 h-32 sm:h-44 bg-indigo-400/20 rounded-full blur-xl pointer-events-none" />
@@ -630,10 +630,10 @@ export function ProfileDashboard() {
       {/* Profile Header */}
       <div className="bg-card border-b border-border px-4 sm:px-6 lg:px-10 pb-0">
         <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-end -mt-14 sm:-mt-16 md:-mt-20 pb-4 sm:pb-5 text-center sm:text-left">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-6 items-center sm:items-end -mt-12 sm:-mt-16 md:-mt-20 pb-3 sm:pb-5 text-center sm:text-left">
             {/* Avatar */}
             <div className="relative flex-shrink-0">
-              <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-[2rem] overflow-hidden border-4 border-card shadow-2xl ring-4 ring-primary/20 bg-muted">
+              <div className="w-24 h-24 sm:w-36 sm:h-36 rounded-[1.5rem] sm:rounded-[2rem] overflow-hidden border-4 border-card shadow-2xl ring-4 ring-primary/20 bg-muted">
                 <img src={userAvatar} alt={profile.fullName} className="w-full h-full object-cover" />
                 {uploadingAvatar && (
                   <div className="absolute inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center">
@@ -656,48 +656,52 @@ export function ProfileDashboard() {
 
             {/* Name & Meta */}
             <div className="flex-1 min-w-0 pb-1">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-3 mb-1.5">
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-foreground tracking-tight">{profile.fullName}</h1>
-                <span className={cn("inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider", role.color)}>
-                  <role.icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> {role.label}
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-foreground tracking-tight leading-tight mb-1.5">{profile.fullName}</h1>
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5 sm:gap-2 mb-1">
+                <span className={cn("inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider", role.color)}>
+                  <role.icon className="w-3 h-3" /> {role.label}
                 </span>
                 {profile.kycStatus === "VERIFIED" && (
-                  <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
-                    <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> KYC Verified
+                  <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider">
+                    <ShieldCheck className="w-3 h-3" /> Verified
                   </span>
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1 font-medium">
-                  <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                  {profile.communityName || "Community Member"}
-                </span>
-                <span className="flex items-center gap-1 font-medium">
-                  <Home className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                  {unitDisplay}
-                </span>
-                <span className="hidden xs:flex items-center gap-1 font-medium">
-                  <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  Member since {profile.joinedAt ? new Date(profile.joinedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "Active"}
-                </span>
-                <span className="flex items-center gap-1 text-[11px] bg-muted text-muted-foreground px-2 py-0.5 rounded-lg font-mono">
-                  ID: #{profile.userId}
-                </span>
+              <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-center sm:justify-start gap-1 sm:gap-3 text-xs text-muted-foreground mt-1.5">
+                <div className="flex items-center justify-center sm:justify-start gap-3 sm:gap-3 flex-wrap">
+                  <span className="flex items-center gap-1 font-medium">
+                    <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                    {profile.communityName || "Community Member"}
+                  </span>
+                  <span className="flex items-center gap-1 font-medium">
+                    <Home className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    {unitDisplay}
+                  </span>
+                </div>
+                <div className="flex items-center justify-center sm:justify-start gap-2 flex-wrap">
+                  <span className="flex items-center gap-1 font-medium">
+                    <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                    Since {profile.joinedAt ? new Date(profile.joinedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "Active"}
+                  </span>
+                  <span className="flex items-center gap-1 text-[11px] bg-muted text-muted-foreground px-2 py-0.5 rounded-lg font-mono">
+                    ID: #{profile.userId}
+                  </span>
+                </div>
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-2 w-full sm:w-auto pt-1 sm:pt-0 sm:pb-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto sm:pb-2">
               <button
                 type="button"
                 onClick={() => loadProfile(true)}
                 disabled={refreshing}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-xl transition-all text-xs border border-border cursor-pointer disabled:opacity-60"
+                className="flex items-center justify-center gap-1.5 px-3 py-2.5 sm:px-3.5 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-xl transition-all text-xs border border-border cursor-pointer disabled:opacity-60 shrink-0"
                 title="Refresh user data from database"
               >
                 <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin text-primary")} />
-                <span>Refresh</span>
+                <span className="sm:inline">Refresh</span>
               </button>
 
               <button
@@ -708,67 +712,72 @@ export function ProfileDashboard() {
                   }
                   setIsEditing(!isEditing);
                 }}
-                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl transition-all shadow-md shadow-primary/25 text-xs sm:text-sm cursor-pointer"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 sm:px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl transition-all shadow-md shadow-primary/25 text-xs sm:text-sm cursor-pointer"
               >
-                <PenLine className="w-4 h-4" />
-                {isEditing ? "Cancel Edit" : "Edit Profile"}
+                <PenLine className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                {isEditing ? "Cancel" : "Edit Profile"}
               </button>
             </div>
           </div>
 
           {/* Stats Bar */}
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 my-4 sm:my-6">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-3 my-3 sm:my-6">
             {[
-              { label: "Posts", value: profile.stats.posts, colorClass: "text-indigo-600 dark:text-indigo-400", bgClass: "bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/30" },
-              { label: "Network", value: profile.stats.connections, colorClass: "text-violet-600 dark:text-violet-400", bgClass: "bg-violet-50/50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/30" },
-              { label: "Events", value: profile.stats.eventsAttended, colorClass: "text-rose-600 dark:text-rose-400", bgClass: "bg-rose-50/50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/30" },
-              { label: "Items", value: profile.stats.itemsSold, colorClass: "text-emerald-600 dark:text-emerald-400", bgClass: "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/30" },
-              { label: "Jobs", value: profile.stats.jobsPosted, colorClass: "text-blue-600 dark:text-blue-400", bgClass: "bg-blue-50/50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30" },
-              { label: "Sports", value: profile.stats.sportsPlayed, colorClass: "text-amber-600 dark:text-amber-400", bgClass: "bg-amber-50/50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/30" },
+              { label: "Posts", value: profile.stats.posts, colorClass: "text-indigo-600 dark:text-indigo-400", bgClass: "bg-indigo-50/60 dark:bg-indigo-950/30 border-indigo-100 dark:border-indigo-900/40" },
+              { label: "Network", value: profile.stats.connections, colorClass: "text-violet-600 dark:text-violet-400", bgClass: "bg-violet-50/60 dark:bg-violet-950/30 border-violet-100 dark:border-violet-900/40" },
+              { label: "Events", value: profile.stats.eventsAttended, colorClass: "text-rose-600 dark:text-rose-400", bgClass: "bg-rose-50/60 dark:bg-rose-950/30 border-rose-100 dark:border-rose-900/40" },
+              { label: "Items", value: profile.stats.itemsSold, colorClass: "text-emerald-600 dark:text-emerald-400", bgClass: "bg-emerald-50/60 dark:bg-emerald-950/30 border-emerald-100 dark:border-emerald-900/40" },
+              { label: "Jobs", value: profile.stats.jobsPosted, colorClass: "text-blue-600 dark:text-blue-400", bgClass: "bg-blue-50/60 dark:bg-blue-950/30 border-blue-100 dark:border-blue-900/40" },
+              { label: "Sports", value: profile.stats.sportsPlayed, colorClass: "text-amber-600 dark:text-amber-400", bgClass: "bg-amber-50/60 dark:bg-amber-950/30 border-amber-100 dark:border-amber-900/40" },
             ].map((stat) => (
-              <div key={stat.label} className={cn("rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 text-center border", stat.bgClass)}>
-                <div className={cn("text-base sm:text-2xl font-black", stat.colorClass)}>{stat.value}</div>
-                <div className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5 truncate">{stat.label}</div>
+              <div key={stat.label} className={cn("rounded-xl sm:rounded-2xl p-2 sm:p-3.5 text-center border", stat.bgClass)}>
+                <div className={cn("text-lg sm:text-2xl font-black leading-none", stat.colorClass)}>{stat.value}</div>
+                <div className="text-[8.5px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-wide mt-1 truncate">{stat.label}</div>
               </div>
             ))}
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex gap-1 sm:gap-2 -mb-px mt-2 sm:mt-4 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  "px-3.5 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0",
-                  activeTab === tab.id
-                    ? "border-primary text-primary font-black"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="flex gap-0 sm:gap-1 -mb-px mt-2 sm:mt-4 overflow-x-auto no-scrollbar -mx-4 px-2 sm:mx-0 sm:px-0">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    "flex flex-col sm:flex-row items-center gap-0.5 sm:gap-1.5 px-2.5 sm:px-5 py-2 sm:py-3 text-[10px] sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0 min-w-[52px] sm:min-w-0",
+                    activeTab === tab.id
+                      ? "border-primary text-primary font-black"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                  )}
+                >
+                  <Icon className="w-4 h-4 sm:w-3.5 sm:h-3.5 shrink-0" />
+                  <span className="sm:hidden">{tab.shortLabel}</span>
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>
 
       {/* Tab Content */}
-      <div className="px-3 sm:px-6 lg:px-8 py-5 sm:py-6">
+      <div className="px-3 sm:px-6 lg:px-8 py-4 sm:py-6">
         <div className="max-w-5xl mx-auto">
           {/* OVERVIEW TAB */}
           {activeTab === "overview" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column */}
-              <div className="lg:col-span-2 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
+              {/* Left Column — About & Skills (shown 2nd on mobile, 1st on desktop) */}
+              <div className="lg:col-span-2 space-y-5 sm:space-y-6 order-2 lg:order-1">
                 {/* About & Contact Cards */}
-                <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-                  <h2 className="font-bold text-foreground text-base mb-3">About Resident</h2>
-                  <p className="text-muted-foreground text-sm leading-relaxed mb-5">
+                <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 shadow-sm">
+                  <h2 className="font-bold text-foreground text-sm sm:text-base mb-2 sm:mb-3">About Resident</h2>
+                  <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed mb-4">
                     {profile.bio || "No personal bio added yet."}
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3.5 text-sm">
                     <div className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/30 border border-border/60">
                       <Mail className="w-4 h-4 text-primary shrink-0" />
                       <div className="min-w-0">
@@ -812,8 +821,8 @@ export function ProfileDashboard() {
                 </div>
 
                 {/* Skills & Interests */}
-                <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-                  <h2 className="font-bold text-foreground text-base mb-3">Skills & Community Interests</h2>
+                <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 shadow-sm">
+                  <h2 className="font-bold text-foreground text-sm sm:text-base mb-3">Skills & Community Interests</h2>
                   <div className="flex flex-wrap gap-2 items-center">
                     {profile.skills.map((skill) => (
                       <span
@@ -873,8 +882,8 @@ export function ProfileDashboard() {
                 </div>
               </div>
 
-              {/* Right Column */}
-              <div className="space-y-6">
+              {/* Right Column — Family & KYC (shown 1st on mobile, 2nd on desktop) */}
+              <div className="space-y-4 sm:space-y-6 order-1 lg:order-2">
                 {/* My Family Summary Card in Overview */}
                 <div className="bg-card rounded-2xl border border-border p-5 shadow-sm">
                   <div className="flex items-center justify-between mb-3">
@@ -1492,11 +1501,11 @@ export function ProfileDashboard() {
 
           {/* SETTINGS TAB */}
           {activeTab === "settings" && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
+              <div className="lg:col-span-2 space-y-5 sm:space-y-6">
                 {/* Personal Info Edit */}
-                <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-                  <div className="flex items-center justify-between mb-5">
+                <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-4 sm:mb-5">
                     <div>
                       <h2 className="font-bold text-foreground text-base">Personal Information</h2>
                       <p className="text-xs text-muted-foreground mt-0.5">
