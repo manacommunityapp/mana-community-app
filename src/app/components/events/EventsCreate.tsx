@@ -22,6 +22,8 @@ import { CREATE_EVENT, MANAGE_EVENT_DASHBOARD } from "../../../constants/permiss
 import { useEventMock } from "./EventMockToggle";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { eventService, type EventRequest } from "../../../services/events/eventService";
+import { ticketCategoryService, type TicketCategoryMasterResponse } from "../../../services/events/ticketCategoryService";
+import { showSuccess, showError } from "../../../utils/ToastUtils";
 import { fileUploadService } from "../../../services/files/fileUploadService";
 import { DEFAULT_REGISTRATION_FORM_CONFIG, GANESH_CHATURTHI_FORM_CONFIG, type RegistrationFormConfig, type FormField } from "./EventRegistrationFormBuilder";
 import { AgendaNotificationModal } from "./EventsPrograms";
@@ -1070,6 +1072,54 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
 /* ─── Step 3: Registration ─── */
 function Step3Registration({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
+  const [dbCategories, setDbCategories] = useState<TicketCategoryMasterResponse[]>([]);
+  const [loadingCats, setLoadingCats] = useState(false);
+  const [addingNewCatForTicketId, setAddingNewCatForTicketId] = useState<string | null>(null);
+  const [newCatName, setNewCatName] = useState("");
+  const [newCatDesc, setNewCatDesc] = useState("");
+  const [savingNewCat, setSavingNewCat] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingCats(true);
+    ticketCategoryService.getAll()
+      .then(res => {
+        if (!cancelled && Array.isArray(res)) {
+          setDbCategories(res);
+        }
+      })
+      .catch(err => console.warn("Failed to load ticket category master names:", err))
+      .finally(() => {
+        if (!cancelled) setLoadingCats(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleCreateCategoryName = async (ticketId: string) => {
+    const trimmed = newCatName.trim();
+    if (!trimmed) {
+      showError("Please enter a category name");
+      return;
+    }
+    setSavingNewCat(true);
+    try {
+      const created = await ticketCategoryService.create(trimmed, newCatDesc.trim() || undefined);
+      setDbCategories(prev => {
+        if (prev.some(c => c.name.toLowerCase() === created.name.toLowerCase())) return prev;
+        return [...prev, created];
+      });
+      updateTicket(ticketId, "name", created.name);
+      showSuccess(`Added category "${created.name}" to database`);
+      setAddingNewCatForTicketId(null);
+      setNewCatName("");
+      setNewCatDesc("");
+    } catch (err: any) {
+      showError(err?.message || "Failed to create category name");
+    } finally {
+      setSavingNewCat(false);
+    }
+  };
+
   const addTicket = () => {
     const newTicket: TicketType = { id: `t${Date.now()}`, name: "", price: "0", qty: "", description: "" };
     update("ticketTypes", [...data.ticketTypes, newTicket]);
@@ -1131,11 +1181,11 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h4 className="text-sm font-bold text-slate-700">Ticket Categories</h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">Define different registration tiers for your event</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Define different registration tiers from database categories</p>
               </div>
               <button onClick={addTicket}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-all">
-                <Plus className="w-3.5 h-3.5" /> Add Category
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer">
+                <Plus className="w-3.5 h-3.5" /> Add Category Tier
               </button>
             </div>
             <div className="space-y-3">
@@ -1152,16 +1202,80 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
                     </div>
                     {data.ticketTypes.length > 1 && (
                       <button onClick={() => removeTicket(ticket.id)}
-                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded-lg hover:bg-rose-50">
+                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded-lg hover:bg-rose-50 cursor-pointer">
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <FieldLabel required>Name</FieldLabel>
-                      <Input value={ticket.name} onChange={e => updateTicket(ticket.id, "name", e.target.value)}
-                        placeholder="e.g. Family, Volunteer" className={INPUT_CLS} />
+                      <div className="flex items-center justify-between mb-1">
+                        <FieldLabel required>Category Name</FieldLabel>
+                        {addingNewCatForTicketId !== ticket.id && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAddingNewCatForTicketId(ticket.id);
+                              setNewCatName("");
+                              setNewCatDesc("");
+                            }}
+                            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                          >
+                            + Add New
+                          </button>
+                        )}
+                      </div>
+
+                      {addingNewCatForTicketId === ticket.id ? (
+                        <div className="p-2.5 rounded-xl bg-indigo-50/80 border border-indigo-200 space-y-2">
+                          <input
+                            type="text"
+                            value={newCatName}
+                            onChange={e => setNewCatName(e.target.value)}
+                            placeholder="New category name (e.g. VIP Pass)..."
+                            className="w-full px-2.5 py-1.5 border border-indigo-300 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none"
+                            autoFocus
+                          />
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAddingNewCatForTicketId(null);
+                                setNewCatName("");
+                                setNewCatDesc("");
+                              }}
+                              className="px-2.5 py-1 rounded-lg border border-slate-200 text-[11px] font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleCreateCategoryName(ticket.id)}
+                              disabled={savingNewCat}
+                              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-[11px] flex items-center gap-1 shadow-xs cursor-pointer"
+                            >
+                              {savingNewCat && <Loader2 className="w-3 h-3 animate-spin" />}
+                              Save to Database
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <select
+                          value={ticket.name}
+                          onChange={e => updateTicket(ticket.id, "name", e.target.value)}
+                          className={cn(INPUT_CLS, "bg-white cursor-pointer font-medium")}
+                        >
+                          <option value="">-- Select Category Name --</option>
+                          {dbCategories.map(c => (
+                            <option key={c.id} value={c.name}>
+                              {c.name}
+                            </option>
+                          ))}
+                          {ticket.name && !dbCategories.some(c => c.name.toLowerCase() === ticket.name.toLowerCase()) && (
+                            <option value={ticket.name}>{ticket.name}</option>
+                          )}
+                        </select>
+                      )}
                     </div>
                     <div>
                       <FieldLabel>Price (₹)</FieldLabel>
@@ -2480,6 +2594,7 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
     priceType: data.ticketTypes.some(t => parseFloat(t.price) > 0) ? "PAID" : "FREE",
     price: data.ticketTypes.length > 0 ? parseFloat(data.ticketTypes[0].price) || undefined : undefined,
     capacity: data.capacity ? parseInt(data.capacity) : undefined,
+    maxAttendees: data.capacity ? parseInt(data.capacity) : undefined,
     imageUrl: coverImageUrl,
     organizerName: primaryContact?.name || undefined,
     organizerContact: primaryContact?.phone || undefined,
@@ -2496,6 +2611,7 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
     city: data.city || undefined,
     category: data.eventType || undefined,
     status: statusOverride || "PUBLISHED",
+    registrationDeadline: data.registrationEnabled && data.registrationDeadline ? data.registrationDeadline : undefined,
   };
 }
 

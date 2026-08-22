@@ -15,7 +15,7 @@ import {
   Send, Mail, BellRing, Megaphone, MessageSquare,
   ChevronRight, Filter, ArrowUpDown, Plus, ExternalLink, Loader2,
   CalendarClock, Repeat, Timer, History, Zap, RotateCcw, Pause, Play, X, ShieldCheck, Smartphone,
-  Flame, Music, Trophy, UtensilsCrossed
+  Flame, Music, Trophy, UtensilsCrossed, Phone, CreditCard, QrCode, IndianRupee, Share2, Check, FileText, Sparkles, Info
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -844,31 +844,518 @@ function NotificationDialog({ event, onClose }: { event: EventItem; onClose: () 
 function DeleteConfirmDialog({ event, onClose, onConfirm }: {
   event: EventItem; onClose: () => void; onConfirm: () => void;
 }) {
+  const hasRegs = (event.registrations || 0) > 0;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6 space-y-4" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6 space-y-4 animate-fade-in-up" onClick={e => e.stopPropagation()}>
         <div className="text-center">
           <div className="w-12 h-12 rounded-full bg-rose-50 flex items-center justify-center mx-auto mb-3">
             <Trash2 className="w-6 h-6 text-rose-500" />
           </div>
-          <h3 className="font-bold text-slate-800 text-lg">Delete Event?</h3>
+          <h3 className="font-bold text-slate-800 text-lg">
+            {hasRegs ? "Cancel & Close Event?" : "Delete Event?"}
+          </h3>
           <p className="text-sm text-slate-500 mt-1">
-            Are you sure you want to delete <span className="font-semibold text-slate-700">"{event.title}"</span>?
-            This action cannot be undone.
+            Are you sure you want to {hasRegs ? "cancel" : "delete"} <span className="font-semibold text-slate-700">"{event.title}"</span>?
           </p>
-          {event.registrations > 0 && (
-            <div className="bg-amber-50 rounded-lg p-2.5 mt-3 flex items-center gap-2 text-xs text-amber-700">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              This event has {event.registrations} registrations. All registrations will also be removed.
+          {hasRegs && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mt-3 text-left space-y-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>{event.registrations} Active Registration(s)</span>
+              </div>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                Because attendees have already registered for this event or its sub-events, deleting it will automatically transition the event and all linked sub-activities to <strong>Cancelled</strong> status, preserving registration records and notifying registered members.
+              </p>
             </div>
           )}
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button className="flex-1 bg-rose-600 hover:bg-rose-700 gap-1" onClick={onConfirm}>
-            <Trash2 className="w-4 h-4" /> Delete
+        <div className="flex gap-2 pt-1">
+          <Button variant="outline" className="flex-1 cursor-pointer" onClick={onClose}>Keep Event</Button>
+          <Button className="flex-1 bg-rose-600 hover:bg-rose-700 gap-1.5 font-bold cursor-pointer" onClick={onConfirm}>
+            <Trash2 className="w-4 h-4" /> {hasRegs ? "Cancel Event" : "Delete"}
           </Button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Event Details Dialog ─── */
+function EventDetailsDialog({
+  event,
+  onClose,
+  onEdit,
+  onNotify,
+}: {
+  event: EventItem;
+  onClose: () => void;
+  onEdit?: () => void;
+  onNotify?: () => void;
+}) {
+  const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
+  const [fullEvent, setFullEvent] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [copiedUpi, setCopiedUpi] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+
+  const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
+  const isEventsAdmin =
+    isAdmin ||
+    isSuperAdmin ||
+    userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("COMMUNITY_ADMIN") ||
+    userRolesUpper.includes("EVENT_ADMIN") ||
+    userRolesUpper.includes("EVENTS_ADMIN") ||
+    hasPermission(CREATE_EVENT) ||
+    hasPermission(MANAGE_EVENT_DASHBOARD);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
+    const rawId = event.id;
+    const numId = typeof rawId === "string" ? parseInt(rawId.replace(/\D/g, ""), 10) : Number(rawId);
+    if (!isNaN(numId) && numId > 0) {
+      setLoading(true);
+      eventService
+        .getById(numId)
+        .then((res) => {
+          if (res) setFullEvent(res);
+        })
+        .catch((err) => {
+          console.warn("Could not fetch full event details:", err);
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [event.id]);
+
+  const activeData = fullEvent || event;
+  const s = STATUS_CONFIG[activeData.status?.toLowerCase()] || STATUS_CONFIG.upcoming;
+  const vis = VISIBILITY_ICON[activeData.visibility?.toLowerCase()] || VISIBILITY_ICON.community;
+  const typeColor = TYPE_COLORS[activeData.type] ?? "#4f46e5";
+
+  const formatDate = (d: string) => {
+    if (!d) return "";
+    return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  };
+
+  const formatTime = (t: string) => {
+    if (!t) return "";
+    const clean = t.includes("T") ? t.split("T")[1] : t;
+    const [h, m] = clean.split(":");
+    const hr = parseInt(h);
+    if (isNaN(hr)) return t;
+    return `${hr > 12 ? hr - 12 : hr === 0 ? 12 : hr}:${m || "00"} ${hr >= 12 ? "PM" : "AM"}`;
+  };
+
+  const isMultiDay = activeData.startDate && activeData.endDate && activeData.startDate !== activeData.endDate;
+  const capacity = activeData.capacity || activeData.maxAttendees || 100;
+  const registrations = activeData.attendees || activeData.registrations || 0;
+  const capacityPct = Math.round((registrations / (capacity || 1)) * 100);
+
+  // Parse ticket categories
+  let ticketTypes: any[] = [];
+  if (Array.isArray(activeData.ticketTypes) && activeData.ticketTypes.length > 0) {
+    ticketTypes = activeData.ticketTypes;
+  } else if (activeData.ticketTypesJson) {
+    try {
+      const parsed = typeof activeData.ticketTypesJson === "string" ? JSON.parse(activeData.ticketTypesJson) : activeData.ticketTypesJson;
+      if (Array.isArray(parsed) && parsed.length > 0) ticketTypes = parsed;
+    } catch {}
+  }
+
+  // Parse contacts
+  let contacts: any[] = [];
+  if (activeData.contactsJson) {
+    try {
+      const parsed = typeof activeData.contactsJson === "string" ? JSON.parse(activeData.contactsJson) : activeData.contactsJson;
+      if (Array.isArray(parsed) && parsed.length > 0) contacts = parsed;
+    } catch {}
+  }
+  if (contacts.length === 0 && Array.isArray(activeData.contactDetails) && activeData.contactDetails.length > 0) {
+    contacts = activeData.contactDetails;
+  }
+  if (contacts.length === 0 && Array.isArray(activeData.contacts) && activeData.contacts.length > 0) {
+    contacts = activeData.contacts;
+  }
+  if (contacts.length === 0 && (activeData.organizerName || activeData.organizerContact)) {
+    contacts = [
+      {
+        name: activeData.organizerName,
+        phone: activeData.organizerContact,
+        role: "Event Organizer",
+      },
+    ];
+  }
+
+  const paymentModes = activeData.paymentModes
+    ? typeof activeData.paymentModes === "string"
+      ? activeData.paymentModes.split(",").map((s: string) => s.trim()).filter(Boolean)
+      : Array.isArray(activeData.paymentModes)
+      ? activeData.paymentModes
+      : ["UPI", "Card", "Cash"]
+    : ["UPI", "Card", "Cash"];
+
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/events?id=${event.id}`;
+    navigator.clipboard.writeText(url);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleCopyUpi = () => {
+    if (activeData.upiId) {
+      navigator.clipboard.writeText(activeData.upiId);
+      setCopiedUpi(true);
+      setTimeout(() => setCopiedUpi(false), 2000);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-5 overflow-y-auto animate-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="relative bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200/80 animate-fade-in-up"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Top Banner / Cover */}
+        <div className="relative h-44 sm:h-52 bg-slate-900 overflow-hidden shrink-0">
+          {activeData.coverImage || activeData.imageUrl ? (
+            <img
+              src={activeData.coverImage || activeData.imageUrl}
+              alt={activeData.title}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div
+              className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-900 via-indigo-800 to-violet-950 p-6"
+              style={{
+                backgroundImage: `radial-gradient(circle at 20% 30%, ${typeColor}60 0%, transparent 70%)`,
+              }}
+            >
+              <Sparkles className="w-16 h-16 text-white/10" />
+            </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
+
+          {/* Top Actions */}
+          <div className="absolute top-3.5 inset-x-3.5 flex items-center justify-between z-10">
+            <div className="flex items-center gap-2">
+              <Badge className={cn("gap-1 text-[10px] shadow-sm font-bold", s.bg, s.text)}>
+                <span className={cn("w-1.5 h-1.5 rounded-full", s.dot)} />
+                {s.label}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="gap-1 text-[10px] bg-black/30 backdrop-blur-md text-white border-white/20 font-bold"
+              >
+                {activeData.type}
+              </Badge>
+              <div className="flex items-center gap-1 text-[10px] text-white/80 bg-black/30 backdrop-blur-md px-2 py-0.5 rounded-md border border-white/20 font-medium">
+                <vis.icon className="w-3 h-3" /> {vis.label}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="p-2 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-md transition-all cursor-pointer shadow-sm"
+                title="Copy shareable event link"
+              >
+                {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Share2 className="w-4 h-4" />}
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="p-2 rounded-full bg-black/40 hover:bg-black/60 text-white backdrop-blur-md transition-all cursor-pointer shadow-sm"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Title & Subtitle in Hero */}
+          <div className="absolute bottom-3.5 inset-x-4 text-white z-10">
+            <h2 className="text-lg sm:text-2xl font-black drop-shadow-md line-clamp-1">{activeData.title}</h2>
+            <div className="flex items-center gap-3 text-[11px] font-semibold text-slate-200 mt-1 flex-wrap">
+              <span className="flex items-center gap-1">
+                <CalendarDays className="w-3.5 h-3.5 text-indigo-300" />
+                {formatDate(activeData.startDate)}
+                {isMultiDay && ` — ${formatDate(activeData.endDate)}`}
+              </span>
+              <span className="text-white/40">•</span>
+              <span className="flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5 text-indigo-300" />
+                {formatTime(activeData.startTime)} – {formatTime(activeData.endTime)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Scrollable Content Body */}
+        <div className="p-4 sm:p-6 space-y-5 overflow-y-auto flex-1 text-slate-800">
+          {/* Description */}
+          {activeData.description && (
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-indigo-600" /> About the Event
+              </h4>
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50/80 p-3.5 rounded-2xl border border-slate-200/70 whitespace-pre-line">
+                {activeData.description}
+              </p>
+            </div>
+          )}
+
+          {/* Location & Venue */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-1">
+              <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                <MapPin className="w-3.5 h-3.5 text-rose-500" /> Venue &amp; Location
+              </span>
+              <p className="text-xs font-bold text-slate-800">{activeData.venue || activeData.location || "Community Grounds"}</p>
+              {activeData.city && <p className="text-[11px] text-slate-500 font-medium">{activeData.city}</p>}
+            </div>
+
+            {/* Capacity & Registrations */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <Ticket className="w-3.5 h-3.5 text-violet-500" /> Capacity &amp; Bookings
+                </span>
+                <span className="text-xs font-black text-indigo-700">{capacityPct}% Booked</span>
+              </div>
+              <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                <div
+                  className={cn(
+                    "h-full rounded-full transition-all",
+                    capacityPct >= 90 ? "bg-rose-500" : capacityPct >= 70 ? "bg-amber-500" : "bg-emerald-500"
+                  )}
+                  style={{ width: `${Math.min(capacityPct, 100)}%` }}
+                />
+              </div>
+              <p className="text-[11px] font-semibold text-slate-600">
+                {registrations} / {capacity} passes filled
+              </p>
+            </div>
+          </div>
+
+          {/* Ticket Tiers / Categories */}
+          {ticketTypes.length > 0 && (
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
+                <Ticket className="w-3.5 h-3.5 text-indigo-600" /> Ticket Passes &amp; Tiers
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {ticketTypes.map((t, idx) => {
+                  const priceNum = parseFloat(String(t.price || 0));
+                  return (
+                    <div
+                      key={t.id || idx}
+                      className="p-3 rounded-2xl border border-slate-200 bg-white shadow-2xs hover:border-indigo-200 transition-all flex flex-col justify-between"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <strong className="text-xs font-bold text-slate-900">{t.name || `Category ${idx + 1}`}</strong>
+                          {t.description && <p className="text-[10.5px] text-slate-500 mt-0.5 line-clamp-2">{t.description}</p>}
+                        </div>
+                        <span className="text-xs font-extrabold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                          {priceNum > 0 ? `₹${priceNum}` : "Free"}
+                        </span>
+                      </div>
+                      {(t.qty || t.seats || t.capacity) && (
+                        <div className="text-[10px] font-semibold text-slate-400 mt-2 pt-2 border-t border-slate-100 flex items-center justify-between">
+                          <span>Capacity</span>
+                          <span>{t.qty || t.seats || t.capacity} seats</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Payment & QR Setup */}
+          {(activeData.upiId || activeData.scannerUrl || activeData.paymentInstructions || paymentModes.length > 0) && (
+            <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100/80 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-900 flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5 text-indigo-600" /> Payment Modes &amp; Instructions
+              </h4>
+
+              {/* Modes Badges */}
+              <div className="flex flex-wrap gap-1.5">
+                {paymentModes.map((mode: string) => (
+                  <span
+                    key={mode}
+                    className="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-white text-indigo-700 border border-indigo-200 shadow-2xs"
+                  >
+                    {mode}
+                  </span>
+                ))}
+              </div>
+
+              {/* UPI & Scanner Preview */}
+              {(activeData.upiId || activeData.scannerUrl) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                  {activeData.upiId && (
+                    <div className="p-2.5 rounded-xl bg-white border border-indigo-200/80 flex items-center justify-between">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <span className="text-[9.5px] font-bold uppercase text-slate-400 block">UPI VPA</span>
+                        <p className="text-xs font-mono font-bold text-slate-800 truncate">{activeData.upiId}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleCopyUpi}
+                        className="px-2 py-1 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200 transition-all cursor-pointer shrink-0 flex items-center gap-1"
+                      >
+                        {copiedUpi ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedUpi ? "Copied" : "Copy"}</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {activeData.scannerUrl && (
+                    <div
+                      onClick={() => setShowQrModal(true)}
+                      className="p-2.5 rounded-xl bg-white border border-indigo-200/80 flex items-center gap-2.5 cursor-pointer hover:border-indigo-300 transition-all"
+                    >
+                      <div className="w-9 h-9 rounded-lg bg-slate-100 overflow-hidden shrink-0 border border-slate-200">
+                        <img src={activeData.scannerUrl} alt="QR Scanner" className="w-full h-full object-cover" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <strong className="text-xs font-bold text-slate-800 block leading-none">QR Scanner</strong>
+                        <span className="text-[10px] text-indigo-600 font-semibold mt-0.5 inline-block">Click to enlarge</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Payment Instructions */}
+              {activeData.paymentInstructions && (
+                <p className="text-[11px] text-slate-600 font-medium leading-relaxed bg-white p-2.5 rounded-xl border border-indigo-100">
+                  ℹ️ {activeData.paymentInstructions}
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Notes & Guidelines */}
+          {activeData.notes && (
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
+                <Info className="w-3.5 h-3.5 text-amber-500" /> Guidelines &amp; Notes
+              </h4>
+              <p className="text-xs text-slate-700 leading-relaxed bg-amber-50/60 border border-amber-200/80 p-3 rounded-2xl whitespace-pre-line">
+                {activeData.notes}
+              </p>
+            </div>
+          )}
+
+          {/* Coordinators & Contacts */}
+          {contacts.length > 0 && (
+            <div>
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-indigo-600" /> Event Coordinators &amp; Helpdesk
+              </h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {contacts.map((c, idx) => (
+                  <div
+                    key={c.id || idx}
+                    className="p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs flex items-center justify-between gap-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <strong className="text-xs font-bold text-slate-900 block truncate">{c.name || "Event Lead"}</strong>
+                      <span className="text-[10.5px] text-slate-400 block truncate">{c.role || "Organizer"}</span>
+                      {c.phone && <p className="text-xs font-mono font-semibold text-slate-600 mt-0.5">{c.phone}</p>}
+                    </div>
+                    {c.phone && (
+                      <a
+                        href={`tel:${c.phone}`}
+                        className="px-2.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center gap-1 transition-all shrink-0 cursor-pointer shadow-2xs"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-emerald-600" /> Call
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Modal Footer */}
+        <div className="p-3.5 sm:p-4 bg-slate-50 border-t border-slate-200/80 flex items-center gap-2 shrink-0">
+          <Button variant="outline" className="text-xs font-semibold px-4 cursor-pointer" onClick={onClose}>
+            Close
+          </Button>
+
+          <div className="flex-1" />
+
+          {isEventsAdmin && onNotify && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-200 font-bold cursor-pointer"
+              onClick={onNotify}
+            >
+              <Bell className="w-3.5 h-3.5" /> Notify
+            </Button>
+          )}
+
+          {isEventsAdmin && onEdit && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border-indigo-200 font-bold cursor-pointer"
+              onClick={onEdit}
+            >
+              <Pencil className="w-3.5 h-3.5" /> Edit
+            </Button>
+          )}
+
+          <a
+            href={`/events?tab=registration&id=${event.id}`}
+            className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-sm flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+          >
+            <Ticket className="w-3.5 h-3.5" /> Book Passes
+          </a>
+        </div>
+
+        {/* Enlarge QR Modal */}
+        {showQrModal && activeData.scannerUrl && (
+          <div
+            className="fixed inset-0 z-60 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowQrModal(false)}
+          >
+            <div
+              className="bg-white rounded-3xl p-5 max-w-sm w-full text-center space-y-3 shadow-2xl animate-fade-in-up"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+                <strong className="text-sm font-bold text-slate-800">Scan &amp; Pay via UPI</strong>
+                <button onClick={() => setShowQrModal(false)} className="text-slate-400 hover:text-slate-700 p-1">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="w-56 h-56 mx-auto rounded-2xl overflow-hidden border-2 border-indigo-100 shadow-inner bg-white p-2">
+                <img src={activeData.scannerUrl} alt="QR Scanner" className="w-full h-full object-contain" />
+              </div>
+              {activeData.upiId && <p className="text-xs font-mono font-bold text-slate-700">{activeData.upiId}</p>}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -916,9 +1403,12 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
   const formatTime = (t: string) => {
-    const [h, m] = t.split(":");
+    if (!t) return "";
+    const clean = t.includes("T") ? t.split("T")[1] : t;
+    const [h, m] = clean.split(":");
     const hr = parseInt(h);
-    return `${hr > 12 ? hr - 12 : hr}:${m} ${hr >= 12 ? "PM" : "AM"}`;
+    if (isNaN(hr)) return t;
+    return `${hr > 12 ? hr - 12 : hr === 0 ? 12 : hr}:${m || "00"} ${hr >= 12 ? "PM" : "AM"}`;
   };
 
   return (
@@ -929,7 +1419,7 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
       <div className="p-4 sm:p-5 space-y-3">
         {/* Header */}
         <div className="flex items-start justify-between gap-2">
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 cursor-pointer" onClick={onPreview}>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <Badge className={cn("gap-1 text-[10px]", s.bg, s.text)}>
                 <span className={cn("w-1.5 h-1.5 rounded-full", s.dot)} />
@@ -942,41 +1432,40 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
                 <vis.icon className="w-3 h-3" /> {vis.label}
               </div>
             </div>
-            <h4 className="font-semibold text-slate-800 text-sm sm:text-base line-clamp-1">{event.title}</h4>
+            <h4 className="font-semibold text-slate-800 text-sm sm:text-base line-clamp-1 hover:text-indigo-600 transition-colors">{event.title}</h4>
           </div>
 
           {isEventsAdmin && (
             <div className="relative">
-              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => setMenuOpen(!menuOpen)}>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 cursor-pointer" onClick={() => setMenuOpen(!menuOpen)}>
                 <MoreVertical className="w-4 h-4 text-slate-400" />
               </Button>
               {menuOpen && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                  <div className="absolute right-0 top-9 z-20 bg-white rounded-lg shadow-lg border border-slate-100 py-1 w-48">
+                  <div className="absolute right-0 top-9 z-20 bg-white rounded-lg shadow-lg border border-slate-100 py-1 w-48 animate-fade-in-up">
                     <button onClick={() => { onPreview(); setMenuOpen(false); }}
-                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
                       <Eye className="w-3.5 h-3.5" /> View Details
                     </button>
                     <button onClick={() => { onEdit(); setMenuOpen(false); }}
-                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
                       <Pencil className="w-3.5 h-3.5" /> Edit Event
                     </button>
                     <button onClick={() => { onNotify(); setMenuOpen(false); }}
-                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
+                      className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
                       <Bell className="w-3.5 h-3.5" /> Send Notification
                     </button>
-                    <button className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                      <Copy className="w-3.5 h-3.5" /> Duplicate Event
+                    <button onClick={() => {
+                      const url = `${window.location.origin}/events?id=${event.id}`;
+                      navigator.clipboard.writeText(url);
+                      setMenuOpen(false);
+                    }} className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+                      <Copy className="w-3.5 h-3.5" /> Copy Event Link
                     </button>
-                    {event.status !== "completed" && (
-                      <button className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2">
-                        <ExternalLink className="w-3.5 h-3.5" /> Registration Link
-                      </button>
-                    )}
                     <hr className="my-1 border-slate-100" />
                     <button onClick={() => { onDelete(); setMenuOpen(false); }}
-                      className="w-full text-left px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2">
+                      className="w-full text-left px-3 py-2 text-sm text-rose-600 hover:bg-rose-50 flex items-center gap-2 cursor-pointer">
                       <Trash2 className="w-3.5 h-3.5" /> Delete Event
                     </button>
                   </div>
@@ -987,7 +1476,7 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
         </div>
 
         {/* Date & Venue */}
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 cursor-pointer" onClick={onPreview}>
           <div className="flex items-center gap-2 text-xs text-slate-600">
             <CalendarDays className="w-3.5 h-3.5 text-indigo-400" />
             <span>
@@ -1026,19 +1515,19 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
       <div className="border-t border-slate-100 px-4 sm:px-5 py-2.5 flex items-center gap-1">
         {isEventsAdmin && (
           <>
-            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-indigo-600" onClick={onEdit}>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-indigo-600 cursor-pointer" onClick={onEdit}>
               <Pencil className="w-3 h-3" /> Edit
             </Button>
-            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-rose-500" onClick={onDelete}>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-rose-500 cursor-pointer" onClick={onDelete}>
               <Trash2 className="w-3 h-3" /> Delete
             </Button>
-            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-amber-600" onClick={onNotify}>
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-amber-600 cursor-pointer" onClick={onNotify}>
               <Bell className="w-3 h-3" /> Notify
             </Button>
           </>
         )}
         <div className="flex-1" />
-        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-indigo-600" onClick={onPreview}>
+        <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-600 hover:text-indigo-600 font-semibold cursor-pointer" onClick={onPreview}>
           Details <ChevronRight className="w-3 h-3" />
         </Button>
       </div>
@@ -1060,6 +1549,7 @@ function EventsList() {
   const [notifyEvent, setNotifyEvent] = useState<EventItem | null>(null);
   const [deleteEvent, setDeleteEvent] = useState<EventItem | null>(null);
   const [editEvent, setEditEvent] = useState<EventItem | null>(null);
+  const [detailEvent, setDetailEvent] = useState<EventItem | null>(null);
 
   const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
   const isEventsAdmin =
@@ -1146,17 +1636,23 @@ function EventsList() {
   const handleDelete = async () => {
     if (!deleteEvent) return;
     const targetId = deleteEvent.id;
+    const hadRegistrations = (deleteEvent.registrations || 0) > 0;
     try {
       const numericId = parseInt(targetId, 10);
       if (!isNaN(numericId)) {
         await eventService.deleteEvent(numericId);
       }
-      setEvents(prev => prev.filter(e => e.id !== targetId));
+      if (hadRegistrations) {
+        setEvents(prev => prev.map(e => e.id === targetId ? { ...e, status: "cancelled" as EventStatus } : e));
+      } else {
+        setEvents(prev => prev.filter(e => e.id !== targetId));
+      }
       window.dispatchEvent(new Event("mana_event_created"));
+      window.dispatchEvent(new Event("mana_event_updated"));
       window.dispatchEvent(new Event("mana_activities_updated"));
     } catch (err: any) {
-      console.error("Failed to delete event from database:", err);
-      alert(err?.response?.data?.message || err?.message || "Failed to delete event from database.");
+      console.error("Failed to delete/cancel event from database:", err);
+      alert(err?.response?.data?.message || err?.message || "Failed to process event deletion/cancellation.");
     } finally {
       setDeleteEvent(null);
     }
@@ -1245,13 +1741,29 @@ function EventsList() {
               onEdit={() => setEditEvent(event)}
               onDelete={() => setDeleteEvent(event)}
               onNotify={() => setNotifyEvent(event)}
-              onPreview={() => {}}
+              onPreview={() => setDetailEvent(event)}
             />
           ))}
         </div>
       )}
 
       {/* Dialogs */}
+      {detailEvent && (
+        <EventDetailsDialog
+          event={detailEvent}
+          onClose={() => setDetailEvent(null)}
+          onEdit={() => {
+            const target = detailEvent;
+            setDetailEvent(null);
+            setEditEvent(target);
+          }}
+          onNotify={() => {
+            const target = detailEvent;
+            setDetailEvent(null);
+            setNotifyEvent(target);
+          }}
+        />
+      )}
       {editEvent && (
         <EditEventDialog
           event={editEvent}
