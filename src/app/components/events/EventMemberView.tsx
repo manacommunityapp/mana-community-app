@@ -14,6 +14,7 @@ import {
   Search,
   MapPin,
   Clock,
+  ChevronLeft,
   ChevronRight,
   ChevronDown,
   ChevronUp,
@@ -198,19 +199,42 @@ export function EventMemberView() {
   const [loadingApiData, setLoadingApiData] = useState(false);
   const [loadingFamily, setLoadingFamily] = useState(false);
 
-  // Live Countdown Ticker
+  // Hero Banner Carousel & Live Countdown Ticker
+  const [heroBannerIndex, setHeroBannerIndex] = useState(0);
+  const [isHeroBannerHovered, setIsHeroBannerHovered] = useState(false);
   const [timeLeft, setTimeLeft] = useState(() => countdownFrom("2026-08-27", null));
 
+  // Auto-move hero banner every 4.5s (pauses on hover)
   useEffect(() => {
-    const targetDate = activitiesList.length > 0 && activitiesList[0]?.date ? activitiesList[0].date : "2026-08-27";
-    const targetTime = activitiesList.length > 0 && activitiesList[0]?.time ? activitiesList[0].time : null;
+    if (activitiesList.length <= 1 || isHeroBannerHovered) return;
+    const timer = setInterval(() => {
+      setHeroBannerIndex((prev) => (prev + 1) % activitiesList.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [activitiesList.length, isHeroBannerHovered]);
+
+  const activeHeroActivity = activitiesList[Math.min(heroBannerIndex, activitiesList.length - 1)] || activitiesList[0];
+
+  useEffect(() => {
+    const targetDate = activeHeroActivity?.date ? activeHeroActivity.date : "2026-08-27";
+    const targetTime = activeHeroActivity?.time ? activeHeroActivity.time : null;
 
     setTimeLeft(countdownFrom(targetDate, targetTime));
     const interval = setInterval(() => {
       setTimeLeft(countdownFrom(targetDate, targetTime));
     }, 1000);
     return () => clearInterval(interval);
-  }, [activitiesList]);
+  }, [activeHeroActivity]);
+
+  const handlePrevHeroBanner = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHeroBannerIndex((prev) => (prev - 1 + activitiesList.length) % activitiesList.length);
+  };
+
+  const handleNextHeroBanner = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHeroBannerIndex((prev) => (prev + 1) % activitiesList.length);
+  };
 
   // Payment Upload & Verification States
   const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
@@ -1052,7 +1076,9 @@ export function EventMemberView() {
 
             {/* Hero Community Event Banner (Interactive Mobile Optimized) */}
             <div
-              className="relative rounded-xl sm:rounded-2xl overflow-hidden shadow-sm transition-all duration-300 border border-indigo-900/20"
+              onMouseEnter={() => setIsHeroBannerHovered(true)}
+              onMouseLeave={() => setIsHeroBannerHovered(false)}
+              className="relative rounded-xl sm:rounded-2xl overflow-hidden shadow-sm transition-all duration-300 border border-indigo-900/20 group/herobanner"
               style={{
                 background:
                   "linear-gradient(135deg, rgb(79, 70, 229) 0%, rgb(124, 58, 237) 50%, rgb(99, 102, 241) 100%)",
@@ -1073,40 +1099,79 @@ export function EventMemberView() {
                 }}
               />
               <div className="relative z-10 p-2.5 sm:p-3.5 text-white space-y-2">
-                {/* ── Line 1: 🔥 Community Event & Events Available in a single line ── */}
-                <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto hide-scrollbar">
-                  <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs whitespace-nowrap shrink-0">
-                    🔥 Community Event
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[9px] sm:text-[9.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
-                    <span className={`w-1.5 h-1.5 rounded-full ${activitiesList.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
-                    <span>{activitiesList.length > 0 ? `${activitiesList.length} Events Available` : "0 Events Available"}</span>
-                  </span>
+                {/* ── Line 1: 🔥 Community Event & Events Available & Carousel Navigation Controller ── */}
+                <div className="flex items-center justify-between gap-1.5 flex-nowrap overflow-x-auto hide-scrollbar">
+                  <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
+                    <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs whitespace-nowrap shrink-0">
+                      🔥 Community Event
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[9px] sm:text-[9.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
+                      <span className={`w-1.5 h-1.5 rounded-full ${activitiesList.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
+                      <span>{activitiesList.length > 0 ? (activitiesList.length > 1 ? `Live · Event ${heroBannerIndex + 1} of ${activitiesList.length}` : "1 Event Available") : "0 Events Available"}</span>
+                    </span>
+                  </div>
+
+                  {/* Carousel Navigation Controller */}
+                  {activitiesList.length > 1 && (
+                    <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-xs px-2 py-1 rounded-xl border border-white/15 shrink-0 self-start lg:self-center shadow-xs">
+                      <button
+                        type="button"
+                        onClick={handlePrevHeroBanner}
+                        className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                        title="Previous Event"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="flex items-center gap-1 px-1">
+                        {activitiesList.map((_, dotIdx) => (
+                          <button
+                            key={dotIdx}
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setHeroBannerIndex(dotIdx); }}
+                            className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                              dotIdx === heroBannerIndex
+                                ? "w-4 bg-amber-400 shadow-xs"
+                                : "w-1.5 bg-white/40 hover:bg-white/70"
+                            }`}
+                            title={`Go to Event ${dotIdx + 1}`}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleNextHeroBanner}
+                        className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                        title="Next Event"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* ── Line 2: Event name and date and other event details wrapped in a single div ── */}
                 <div className="min-w-0 bg-white/5 border border-white/10 rounded-lg p-2 sm:p-2.5 space-y-0.5">
                   <h2 className="text-sm sm:text-base font-black text-white leading-snug drop-shadow-sm truncate">
                     {activitiesList.length > 0
-                      ? (activitiesList[0]?.title || "Maha Ganapathi Archana & Silver Shield Pooja")
+                      ? (activeHeroActivity?.title || "Maha Ganapathi Archana & Silver Shield Pooja")
                       : "No Events Created Yet"}
                   </h2>
                   <div className="flex items-center gap-1.5 sm:gap-2 text-[10.5px] font-medium text-white/90 overflow-hidden">
                     <span className="flex items-center gap-1 shrink-0">
                       <Calendar className="w-3 h-3 text-amber-300 shrink-0" />
-                      <span className="whitespace-nowrap">{activitiesList.length > 0 ? (activitiesList[0]?.date || "22 Aug 2026") : "Upcoming"}</span>
+                      <span className="whitespace-nowrap">{activitiesList.length > 0 ? (activeHeroActivity?.date || "22 Aug 2026") : "Upcoming"}</span>
                     </span>
                     <span className="text-white/40 shrink-0">·</span>
                     <span className="flex items-center gap-1 truncate max-w-[140px] sm:max-w-[220px]">
                       <MapPin className="w-3 h-3 text-indigo-200 shrink-0" />
-                      <span className="truncate">{activitiesList.length > 0 ? (activitiesList[0]?.venue || "Main Mandap, Gate 1") : "Community Center"}</span>
+                      <span className="truncate">{activitiesList.length > 0 ? (activeHeroActivity?.venue || "Main Mandap, Gate 1") : "Community Center"}</span>
                     </span>
-                    {activitiesList.length > 0 && activitiesList[0]?.time && (
+                    {activitiesList.length > 0 && activeHeroActivity?.time && (
                       <>
                         <span className="text-white/40 shrink-0">·</span>
                         <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                           <Clock className="w-3 h-3 text-amber-300 shrink-0" />
-                          <span className="whitespace-nowrap">{activitiesList[0]?.time}</span>
+                          <span className="whitespace-nowrap">{activeHeroActivity?.time}</span>
                         </span>
                       </>
                     )}
@@ -1148,7 +1213,7 @@ export function EventMemberView() {
 
                   {/* Right: Registration / Pass Button moved to right */}
                   {activitiesList.length > 0 && (() => {
-                    const act = activitiesList[0];
+                    const act = activeHeroActivity;
                     const existingPass = getExistingPassForActivity(act);
                     const isClosed = isRegistrationClosed(act);
                     if (isClosed && !existingPass) {

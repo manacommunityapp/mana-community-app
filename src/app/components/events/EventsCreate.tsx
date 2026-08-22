@@ -1233,6 +1233,10 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
     ? new Date(new Date(data.startDate).getTime() - 86400000).toISOString().split("T")[0]
     : undefined;
 
+  const maxEventCapacity = data.capacity ? parseInt(data.capacity, 10) : 0;
+  const totalCategorySeats = data.ticketTypes.reduce((sum, t) => sum + (parseInt(t.qty || "0", 10) || 0), 0);
+  const isCapacityExceeded = maxEventCapacity > 0 && totalCategorySeats > maxEventCapacity;
+
   return (
     <div className="space-y-4 sm:space-y-7">
       <SectionHeader icon={Ticket} title="Registration Settings" subtitle="Configure how attendees can register for your event" />
@@ -1272,7 +1276,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
               <div>
                 <h4 className="text-sm font-bold text-slate-700">Ticket Categories</h4>
                 <p className="text-[11px] text-slate-400 mt-0.5">Define different registration tiers from database categories</p>
@@ -1282,6 +1286,53 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
                 <Plus className="w-3.5 h-3.5" /> Add Category Tier
               </button>
             </div>
+
+            {maxEventCapacity > 0 && (
+              <div className={cn(
+                "p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3.5 text-xs transition-colors",
+                isCapacityExceeded
+                  ? "bg-rose-50 border-rose-200 text-rose-800"
+                  : "bg-slate-50 border-slate-200 text-slate-700"
+              )}>
+                <div className="flex items-center gap-2">
+                  {isCapacityExceeded ? (
+                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  ) : (
+                    <Users className="w-4 h-4 text-indigo-600 shrink-0" />
+                  )}
+                  <div>
+                    <span className="font-bold">Total Category Seats: </span>
+                    <span className={cn("font-black font-mono", isCapacityExceeded ? "text-rose-600" : "text-indigo-600")}>
+                      {totalCategorySeats.toLocaleString()}
+                    </span>
+                    <span className="text-slate-500 font-medium"> / {maxEventCapacity.toLocaleString()} max event capacity</span>
+                    {isCapacityExceeded && (
+                      <span className="text-rose-600 font-bold ml-1">
+                        ({(totalCategorySeats - maxEventCapacity).toLocaleString()} seats over limit!)
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-[11px] font-bold">
+                  {isCapacityExceeded ? (
+                    <span className="text-rose-600 font-bold">Exceeds Max Capacity</span>
+                  ) : (
+                    <span className="text-emerald-600 font-bold">
+                      {Math.max(0, maxEventCapacity - totalCategorySeats).toLocaleString()} unallocated seats
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {isCapacityExceeded && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2 mb-3 animate-fade-in-up">
+                <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+                <span>
+                  Total seats across all ticket categories ({totalCategorySeats}) cannot exceed Event Max Capacity ({maxEventCapacity}). Please adjust category seat allocations.
+                </span>
+              </div>
+            )}
             <div className="space-y-3">
               {data.ticketTypes.map((ticket, i) => (
                 <div key={ticket.id}
@@ -2963,6 +3014,13 @@ export function EventCreateWizard({
     }
     if (currentStep === 3) {
       if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
+      const maxCap = formData.capacity ? parseInt(formData.capacity, 10) : 0;
+      if (maxCap > 0 && formData.ticketTypes && formData.ticketTypes.length > 0) {
+        const totalCategorySeats = formData.ticketTypes.reduce((sum, t) => sum + (parseInt(t.qty || "0", 10) || 0), 0);
+        if (totalCategorySeats > maxCap) {
+          return `Total seats across all ticket categories (${totalCategorySeats}) cannot exceed Event Max Capacity (${maxCap}). Please adjust category seat allocations.`;
+        }
+      }
     }
     return null;
   };
@@ -2974,6 +3032,13 @@ export function EventCreateWizard({
     if (isEndDateInvalid) return `End date (${formData.endDate}) cannot be earlier than start date (${formData.startDate}).`;
     if (isTimeInvalid) return `End time (${formData.endTime}) must be after start time (${formData.startTime}).`;
     if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
+    const maxCap = formData.capacity ? parseInt(formData.capacity, 10) : 0;
+    if (maxCap > 0 && formData.ticketTypes && formData.ticketTypes.length > 0) {
+      const totalCategorySeats = formData.ticketTypes.reduce((sum, t) => sum + (parseInt(t.qty || "0", 10) || 0), 0);
+      if (totalCategorySeats > maxCap) {
+        return `Total seats across all ticket categories (${totalCategorySeats}) cannot exceed Event Max Capacity (${maxCap}). Please adjust category seat allocations.`;
+      }
+    }
     return null;
   };
 
