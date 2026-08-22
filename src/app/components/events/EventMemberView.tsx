@@ -194,46 +194,86 @@ export function EventMemberView() {
   const [showFamily, setShowFamily] = useState(false);
   const [passesList, setPassesList] = useState<UserPass[]>(() => (useMock ? INITIAL_PASSES : []));
   const [activitiesList, setActivitiesList] = useState<Activity[]>(() => (useMock ? INITIAL_ACTIVITIES : []));
+  const [mainEventsList, setMainEventsList] = useState<any[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
   const [loadingApiData, setLoadingApiData] = useState(false);
   const [loadingFamily, setLoadingFamily] = useState(false);
 
-  // Hero Banner Carousel & Live Countdown Ticker
+  const DEFAULT_MOCK_MAIN_EVENTS = [
+    {
+      id: "1",
+      title: "Ganesh Chaturthi Utsav 2026",
+      category: "Grand Festival",
+      startDate: "2026-08-27",
+      endDate: "2026-09-06",
+      startTime: "08:30",
+      venue: "Main Community Grounds, Sector 4",
+      location: "Main Community Grounds, Sector 4",
+      coverImage: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
+      attendees: 1842,
+      price: 0,
+      description: "Grand 10-Day Festival, Cultural Competitions & Community Feasts",
+    },
+    {
+      id: "2",
+      title: "Diwali Mahotsav 2026",
+      category: "Grand Festival",
+      startDate: "2026-10-28",
+      endDate: "2026-11-02",
+      startTime: "18:00",
+      venue: "Central Amphitheatre & Grounds",
+      location: "Central Amphitheatre & Grounds",
+      coverImage: "https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1200&q=80",
+      attendees: 950,
+      price: 0,
+      description: "Festival of Lights Celebration, Aarti, Fireworks & Cultural Night",
+    },
+  ];
+
+  const bannerMainEvents = useMemo(() => {
+    if (mainEventsList.length > 0) return mainEventsList;
+    if (useMock) return DEFAULT_MOCK_MAIN_EVENTS;
+    const parentActs = activitiesList.filter(a => String(a.id).startsWith("event-"));
+    if (parentActs.length > 0) return parentActs;
+    return activitiesList.slice(0, 1);
+  }, [mainEventsList, useMock, activitiesList]);
+
+  // Hero Banner Carousel & Live Countdown Ticker (Main Events only)
   const [heroBannerIndex, setHeroBannerIndex] = useState(0);
   const [isHeroBannerHovered, setIsHeroBannerHovered] = useState(false);
   const [timeLeft, setTimeLeft] = useState(() => countdownFrom("2026-08-27", null));
 
   // Auto-move hero banner every 4.5s (pauses on hover)
   useEffect(() => {
-    if (activitiesList.length <= 1 || isHeroBannerHovered) return;
+    if (bannerMainEvents.length <= 1 || isHeroBannerHovered) return;
     const timer = setInterval(() => {
-      setHeroBannerIndex((prev) => (prev + 1) % activitiesList.length);
+      setHeroBannerIndex((prev) => (prev + 1) % bannerMainEvents.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, [activitiesList.length, isHeroBannerHovered]);
+  }, [bannerMainEvents.length, isHeroBannerHovered]);
 
-  const activeHeroActivity = activitiesList[Math.min(heroBannerIndex, activitiesList.length - 1)] || activitiesList[0];
+  const activeMainEvent = bannerMainEvents[Math.min(heroBannerIndex, bannerMainEvents.length - 1)] || bannerMainEvents[0];
 
   useEffect(() => {
-    const targetDate = activeHeroActivity?.date ? activeHeroActivity.date : "2026-08-27";
-    const targetTime = activeHeroActivity?.time ? activeHeroActivity.time : null;
+    const targetDate = activeMainEvent?.startDate || activeMainEvent?.date || "2026-08-27";
+    const targetTime = activeMainEvent?.startTime || activeMainEvent?.time || null;
 
     setTimeLeft(countdownFrom(targetDate, targetTime));
     const interval = setInterval(() => {
       setTimeLeft(countdownFrom(targetDate, targetTime));
     }, 1000);
     return () => clearInterval(interval);
-  }, [activeHeroActivity]);
+  }, [activeMainEvent]);
 
   const handlePrevHeroBanner = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setHeroBannerIndex((prev) => (prev - 1 + activitiesList.length) % activitiesList.length);
+    setHeroBannerIndex((prev) => (prev - 1 + bannerMainEvents.length) % bannerMainEvents.length);
   };
 
   const handleNextHeroBanner = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setHeroBannerIndex((prev) => (prev + 1) % activitiesList.length);
+    setHeroBannerIndex((prev) => (prev + 1) % bannerMainEvents.length);
   };
 
   // Payment Upload & Verification States

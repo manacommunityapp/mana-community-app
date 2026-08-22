@@ -36,10 +36,18 @@ import {
   Award,
   PenLine,
   RefreshCw,
-  Layers,
   Home,
   Loader2,
   Sparkles,
+  Heart,
+  Plus,
+  Trash2,
+  UserPlus,
+  Smile,
+  Droplet,
+  Flame,
+  UserCheck,
+  Search,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { clsx, type ClassValue } from "clsx";
@@ -47,6 +55,7 @@ import { twMerge } from "tailwind-merge";
 import { profileService } from "../../../services/common/profileService";
 import { authService } from "../../../services/common/authService";
 import { fileUploadService } from "../../../services/files/fileUploadService";
+import { familyService, type FamilyMember } from "../../../services/common/familyService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { evaluatePassword, generateStrongPassword } from "../../../utils/passwordStrength";
 import { PasswordStrengthMeter } from "../commons/PasswordStrengthMeter";
@@ -56,7 +65,7 @@ function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-type Tab = "overview" | "activity" | "achievements" | "settings" | "security";
+type Tab = "overview" | "family" | "activity" | "achievements" | "settings" | "security";
 
 const defaultAvatar =
   "https://images.unsplash.com/photo-1707396172424-f3293f788364?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBwcm9maWxlJTIwYXZhdGFyJTIwcGVyc29ufGVufDF8fHx8MTc3NzA1ODgxOXww&ixlib=rb-4.1.0&q=80&w=1080";
@@ -205,6 +214,128 @@ export function ProfileDashboard() {
       setRefreshing(false);
     }
   }, [updateUser]);
+
+  // ── Family Members State ──
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
+  const [loadingFamily, setLoadingFamily] = useState(false);
+  const [familySearch, setFamilySearch] = useState("");
+  const [familyFilterRelation, setFamilyFilterRelation] = useState<string>("ALL");
+  const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
+  const [isSavingMember, setIsSavingMember] = useState(false);
+  const [memberForm, setMemberForm] = useState<Partial<FamilyMember>>({
+    name: "",
+    relation: "Spouse",
+    age: undefined,
+    gender: "Female",
+    phone: "",
+    email: "",
+    bloodGroup: "",
+    gotram: "",
+    emergencyContact: false,
+    notes: "",
+  });
+
+  const loadFamilyMembers = useCallback(async () => {
+    setLoadingFamily(true);
+    try {
+      const data = await familyService.getFamilyMembers();
+      setFamilyMembers(data);
+    } catch (err) {
+      console.warn("Error loading family members:", err);
+    } finally {
+      setLoadingFamily(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadFamilyMembers();
+    window.addEventListener("mana_family_updated", loadFamilyMembers);
+    return () => window.removeEventListener("mana_family_updated", loadFamilyMembers);
+  }, [loadFamilyMembers]);
+
+  const handleOpenAddFamily = () => {
+    setEditingMember(null);
+    setMemberForm({
+      name: "",
+      relation: "Spouse",
+      age: undefined,
+      gender: "Female",
+      phone: "",
+      email: "",
+      bloodGroup: "",
+      gotram: profile?.fullName ? "Bharadwaj" : "",
+      emergencyContact: false,
+      notes: "",
+    });
+    setIsFamilyModalOpen(true);
+  };
+
+  const handleOpenEditFamily = (member: FamilyMember) => {
+    setEditingMember(member);
+    setMemberForm({
+      name: member.name,
+      relation: member.relation,
+      age: member.age,
+      dob: member.dob,
+      gender: member.gender || "Male",
+      phone: member.phone || "",
+      email: member.email || "",
+      bloodGroup: member.bloodGroup || "",
+      gotram: member.gotram || "",
+      emergencyContact: member.emergencyContact || false,
+      notes: member.notes || "",
+    });
+    setIsFamilyModalOpen(true);
+  };
+
+  const handleSaveFamilyMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!memberForm.name?.trim()) {
+      toast.error("Please enter a name for the family member");
+      return;
+    }
+
+    setIsSavingMember(true);
+    try {
+      if (editingMember) {
+        await familyService.updateFamilyMember(editingMember.id, memberForm);
+        toast.success(`Updated ${memberForm.name}'s details`);
+      } else {
+        await familyService.addFamilyMember(memberForm);
+        toast.success(`Added ${memberForm.name} to your family list`);
+      }
+      setIsFamilyModalOpen(false);
+      loadFamilyMembers();
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to save family member");
+    } finally {
+      setIsSavingMember(false);
+    }
+  };
+
+  const handleDeleteFamilyMember = async (id: string | number, name: string) => {
+    if (window.confirm(`Are you sure you want to remove ${name} from your family list?`)) {
+      try {
+        await familyService.deleteFamilyMember(id);
+        toast.success(`Removed ${name} from family members`);
+        loadFamilyMembers();
+      } catch (err: any) {
+        toast.error(err?.message || "Failed to delete family member");
+      }
+    }
+  };
+
+  const handleToggleEmergency = async (member: FamilyMember) => {
+    try {
+      const updated = !member.emergencyContact;
+      await familyService.updateFamilyMember(member.id, { emergencyContact: updated });
+      toast.success(updated ? `Marked ${member.name} as emergency contact` : `Removed ${member.name} from emergency contacts`);
+      loadFamilyMembers();
+    } catch (err: any) {
+      toast.error("Failed to update emergency contact status");
+    }
+  };
 
   useEffect(() => {
     loadProfile();
