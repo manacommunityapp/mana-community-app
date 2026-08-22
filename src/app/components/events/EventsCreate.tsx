@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import {
-  CalendarDays, MapPin, Users, IndianRupee, Image,
+  CalendarDays, Calendar, MapPin, Users, IndianRupee, Image,
   CheckCircle2, ChevronRight, ChevronLeft, Sparkles, Clock,
   Globe, Lock, Building2, Heart, Music, Utensils,
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
@@ -452,15 +452,22 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     }
   ];
 
-  const syncDaySchedules = (start: string, end: string) => {
-    const days = getDaysBetween(start, end);
-    const existing = new Map(data.daySchedules.map(ds => [ds.date, ds]));
-    const synced = days.map(date => existing.get(date) ?? {
-      date,
-      activities: createDefaultSingleActivity(),
-    });
-    update("daySchedules", synced);
-    if (synced.length > 0 && !expandedDay) setExpandedDay(synced[0].date);
+  const allDaysInRange = data.multiDay && data.startDate && data.endDate && data.endDate >= data.startDate
+    ? getDaysBetween(data.startDate, data.endDate)
+    : data.startDate ? [data.startDate] : [];
+
+  const handleSelectDay = (dateStr: string) => {
+    if (!dateStr) return;
+    const exists = data.daySchedules.some(ds => ds.date === dateStr);
+    if (!exists) {
+      const newDay: DaySchedule = {
+        date: dateStr,
+        activities: [],
+      };
+      const updated = [...data.daySchedules, newDay].sort((a, b) => a.date.localeCompare(b.date));
+      update("daySchedules", updated);
+    }
+    setExpandedDay(dateStr);
   };
 
   const isEndDateInvalid = Boolean(data.multiDay && data.endDate && data.startDate && data.endDate < data.startDate);
@@ -476,9 +483,10 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     if (data.multiDay) {
       if (data.endDate && data.endDate < val) {
         update("endDate", val);
-        syncDaySchedules(val, val);
-      } else if (data.endDate) {
-        syncDaySchedules(val, data.endDate);
+      }
+      if (data.daySchedules.length > 0) {
+        const pruned = data.daySchedules.filter(ds => ds.date >= val && (!data.endDate || ds.date <= data.endDate));
+        update("daySchedules", pruned);
       }
     }
   };
@@ -486,7 +494,10 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const handleEndDate = (val: string) => {
     update("endDate", val);
     if (data.multiDay && data.startDate && val >= data.startDate) {
-      syncDaySchedules(data.startDate, val);
+      if (data.daySchedules.length > 0) {
+        const pruned = data.daySchedules.filter(ds => ds.date >= data.startDate && ds.date <= val);
+        update("daySchedules", pruned);
+      }
     }
   };
 
@@ -498,18 +509,27 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       if (!data.endDate || data.endDate < targetStart) {
         update("endDate", targetEnd);
       }
-      syncDaySchedules(targetStart, targetEnd);
+      if (data.daySchedules.length > 0) {
+        const valid = data.daySchedules.filter(ds => ds.date >= targetStart && ds.date <= targetEnd);
+        update("daySchedules", valid);
+      }
     } else {
       if (data.startDate) {
-        update("daySchedules", [{
-          date: data.startDate,
-          activities: createDefaultSingleActivity(),
-        }]);
+        const existingForStart = data.daySchedules.find(ds => ds.date === data.startDate);
+        update("daySchedules", existingForStart ? [existingForStart] : []);
       }
     }
   };
 
   const handleAddDay = () => {
+    // Look for first unconfigured date in range if multiDay
+    if (data.multiDay && allDaysInRange.length > 0) {
+      const unconfigured = allDaysInRange.find(d => !data.daySchedules.some(ds => ds.date === d));
+      if (unconfigured) {
+        handleSelectDay(unconfigured);
+        return;
+      }
+    }
     const lastDay = data.daySchedules[data.daySchedules.length - 1];
     let nextDateStr = new Date().toISOString().split("T")[0];
     if (lastDay && lastDay.date) {
@@ -519,7 +539,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     }
     const newDay: DaySchedule = {
       date: nextDateStr,
-      activities: createDefaultSingleActivity(),
+      activities: [],
     };
     const updated = [...data.daySchedules, newDay];
     update("daySchedules", updated);
@@ -530,7 +550,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   };
 
   const handleRemoveDay = (dateToRemove: string) => {
-    if (data.daySchedules.length <= 1) return;
+    if (data.daySchedules.length <= 1 && !data.multiDay) return;
     const updated = data.daySchedules.filter(ds => ds.date !== dateToRemove);
     update("daySchedules", updated);
     if (data.multiDay && updated.length > 0) {
@@ -682,9 +702,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       </div>
 
       {/* Day-wise schedule builder */}
-      <div className="animate-fade-in-up pt-3 border-t border-slate-100">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-3">
-          <SectionHeader icon={Zap} title="Day-wise Agenda & Cultural Activities" subtitle={dayCount > 0 ? `${dayCount} day${dayCount > 1 ? "s" : ""} configured` : "Add day-wise schedule dynamically"} />
+      <div className="animate-fade-in-up pt-3 border-t border-slate-100 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <SectionHeader icon={Zap} title="Day-wise Agenda & Cultural Activities" subtitle={dayCount > 0 ? `${dayCount} day${dayCount > 1 ? "s" : ""} configured` : "Select a day from dropdown to configure agenda"} />
           <div className="flex items-center gap-2 flex-wrap">
             <Button
               type="button"
@@ -716,12 +736,54 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
           </div>
         </div>
 
+        {/* Multi-Day Dropdown Day Selector */}
+        {data.multiDay && allDaysInRange.length > 0 && (
+          <div className="p-3.5 bg-indigo-50/40 border border-indigo-100 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1">
+              <label className="text-xs font-extrabold text-slate-800 mb-1.5 flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                Select Day to Configure Day-wise Events:
+              </label>
+              <select
+                value={expandedDay || ""}
+                onChange={e => handleSelectDay(e.target.value)}
+                className="w-full h-10 px-3.5 rounded-xl bg-white border border-indigo-200 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer shadow-2xs"
+              >
+                <option value="">-- Choose a Specific Day to Add/Edit Agenda ({allDaysInRange.length} Days in Period) --</option>
+                {allDaysInRange.map((dStr, idx) => {
+                  const dayObj = data.daySchedules.find(ds => ds.date === dStr);
+                  const count = dayObj?.activities?.filter(a => a.name?.trim()).length || 0;
+                  return (
+                    <option key={dStr} value={dStr}>
+                      Day {idx + 1} • {formatDayLabel(dStr)} {count > 0 ? `(${count} activities configured)` : "(Not configured yet)"}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+            {expandedDay && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => addActivity(expandedDay)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl h-10 sm:mt-5 cursor-pointer shrink-0 shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Activity to Selected Day
+              </Button>
+            )}
+          </div>
+        )}
+
         {dayCount === 0 && (
-          <div className="p-4 text-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50 space-y-2">
+          <div className="p-5 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 space-y-2.5">
             <Zap className="w-6 h-6 text-indigo-400 mx-auto" />
             <div>
               <p className="text-xs font-bold text-slate-700">No Day-wise Agenda Configured</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">Click "+ Add Day" to add Day 1, Day 2, etc. dynamically.</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                {data.multiDay
+                  ? "Select a day from the dropdown above to configure activities for that particular day."
+                  : "Click '+ Add Day' to configure activities for this event."}
+              </p>
             </div>
             <Button
               type="button"
@@ -790,6 +852,38 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
                   {isExpanded && (
                     <div className="px-3 sm:px-4 pb-3 pt-2 bg-white space-y-2.5 animate-fade-in-up">
+                      {day.activities.length === 0 && (
+                        <div className="p-4 text-center border border-dashed border-indigo-200 rounded-2xl bg-indigo-50/30 space-y-2">
+                          <p className="text-xs font-bold text-slate-700">No activities added for {formatDayLabel(day.date)} yet</p>
+                          <p className="text-[11px] text-slate-500">Click below to add a custom activity or load festival templates.</p>
+                          <div className="flex items-center justify-center gap-2 pt-1">
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => addActivity(day.date)}
+                              className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1 text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" /> Add Activity
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                const placeholders = FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({
+                                  ...p,
+                                  id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
+                                }));
+                                const updated = data.daySchedules.map(ds => ds.date === day.date ? { ...ds, activities: placeholders } : ds);
+                                update("daySchedules", updated);
+                              }}
+                              className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1 text-xs font-bold rounded-xl cursor-pointer"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Load Templates
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                       {day.activities.map((act, actIdx) => {
                         const currentCategory = act.categoryType || "Pooja & Seva";
                         const suggestions = PRESET_ACTIVITY_TITLES[currentCategory] || [];
@@ -824,7 +918,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                     <Mail className="w-3 h-3" /> Notify
                                   </button>
                                 )}
-                                {day.activities.length > 1 && (
+                                {day.activities.length > 0 && (
                                   <button
                                     type="button"
                                     onClick={() => removeActivity(day.date, act.id)}

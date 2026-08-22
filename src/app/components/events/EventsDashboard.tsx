@@ -526,17 +526,26 @@ export function EventsDashboard() {
     const dutyCount           = stats?.todaysDutyCount ?? 0;
     const pendingActionsCount = stats?.pendingActionItemsCount ?? (pendingTasks.length + livePendingSponsor);
 
+    const liveDevoteeCount = allUnifiedRegs.reduce((sum, r) => sum + (r.devoteeCount || 1), 0);
+    const liveRegCount = Math.max(
+      stats?.totalRegistrations ?? 0,
+      allUnifiedRegs.length,
+      liveDevoteeCount,
+      registrations.length
+    );
+    const totalEventsCount = stats?.totalEvents ?? events.length;
+
     return [
       {
-        label: "Total Events",    value: stats ? String(stats.totalEvents) : "0",
-        sub: stats ? `${stats.upcomingEvents} upcoming` : "0 upcoming",
+        label: "Total Events",    value: totalEventsCount > 0 ? String(totalEventsCount) : (stats ? String(stats.totalEvents) : "0"),
+        sub: stats ? `${stats.upcomingEvents} upcoming` : `${events.filter(e => e.status !== "CANCELLED").length} upcoming`,
         icon: CalendarDays, color: "#4F46E5", bg: "rgba(79,70,229,0.12)",
         trend: stats ? `${stats.upcomingEvents} upcoming` : "0 upcoming",
         to: "/events/schedule?tab=events",
       },
       {
-        label: "Registrations",   value: stats ? stats.totalRegistrations.toLocaleString() : "0",
-        sub: `Across ${stats?.totalEvents ?? 0} events`,
+        label: "Registrations",   value: liveRegCount > 0 ? liveRegCount.toLocaleString() : (stats ? stats.totalRegistrations.toLocaleString() : "0"),
+        sub: `Across ${totalEventsCount} ${totalEventsCount === 1 ? "event" : "events"}`,
         icon: Ticket, color: "#7C3AED", bg: "rgba(124,58,237,0.12)",
         trend: hasEvents ? "Live" : "Inactive",
         to: "/events/registration",
@@ -570,15 +579,15 @@ export function EventsDashboard() {
         to: "/events/fundraising?tab=sponsors",
       },
       {
-        label: "Donations Received", value: fmtINR(liveDonationTotal),
-        sub: liveDonationTotal > 0 ? "Community contributions" : "No donations yet",
+        label: "Donations Raised", value: fmtINR(liveDonationTotal),
+        sub: "Live community contributions",
         icon: Heart, color: "#EC4899", bg: "rgba(236,72,153,0.12)",
-        trend: liveDonationTotal > 0 ? "Thank donors" : "Awaiting donations",
+        trend: liveDonationTotal > 0 ? "Active" : "No donations yet",
         to: "/events/fundraising?tab=donations",
       },
       {
-        label: "Food Prepared",   value: foodPct,
-        sub: foodPlates,
+        label: "Live Food Prepared", value: foodPlates,
+        sub: foodPct !== "—" ? `${foodPct} target reached` : "Live tracking",
         icon: Utensils, color: "#8B5CF6", bg: "rgba(139,92,246,0.12)", trend: foodTrend,
         to: "/events/operations?tab=food",
       },
@@ -590,7 +599,7 @@ export function EventsDashboard() {
         to: "/events/fundraising?tab=auction",
       },
     ];
-  }, [useMock, stats, sponsorTotal, donationTotal, sponsors, registrations, todaySchedule, pendingTasks, events]);
+  }, [useMock, stats, sponsorTotal, donationTotal, sponsors, registrations, allUnifiedRegs, todaySchedule, pendingTasks, events]);
 
   // ── Derived: banner items ─────────────────────────────────────────────────
   const bannerItems: BannerItem[] = useMemo(() => {
