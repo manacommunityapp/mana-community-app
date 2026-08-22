@@ -590,8 +590,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         paymentMethod: numericFee === 0 ? "Free Seva" : paymentMode,
         prasadamMode,
         status: "CONFIRMED",
-        userId: selectedTargetUserId || undefined,
-        user: selectedTargetUserId ? { id: selectedTargetUserId } : undefined,
       };
 
       if (isUpdateMode && existingRegId) {
@@ -645,8 +643,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn">
       <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-card text-card-foreground rounded-3xl p-4 sm:p-6 shadow-2xl border border-border min-h-[85vh] sm:min-h-[620px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp">
-        
-        {/* ─── MODAL HEADER (MATCHING APP EVENT WIZARD) ─── */}
         <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
           <div className="min-w-0 pr-3">
             <div className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider mb-0.5">
@@ -662,9 +658,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 </span>
               )}
             </div>
-            <h2 className="text-base sm:text-xl font-black text-foreground truncate">
-              {poojaTitle}
-            </h2>
+            <h2 className="text-base sm:text-xl font-black text-foreground truncate">{poojaTitle}</h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
               <span className="inline-flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-primary" />
@@ -697,7 +691,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           </div>
         </div>
 
-        {/* ─── STEPPER PROGRESS BAR (APP MODULE DESIGN SYSTEM) ─── */}
         {!isSuccess && (
           <div className="flex items-center justify-between px-1 py-1 shrink-0 my-2">
             {steps.map((s, idx) => {
@@ -707,9 +700,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               return (
                 <React.Fragment key={s.num}>
                   <div
-                    className={`flex flex-col items-center gap-1 select-none transition-all ${
-                      s.num < currentStep ? "cursor-pointer" : "cursor-default"
-                    }`}
+                    className={`flex flex-col items-center gap-1 select-none transition-all ${s.num < currentStep ? "cursor-pointer" : "cursor-default"}`}
                     onClick={() => s.num < currentStep && setCurrentStep(s.num)}
                   >
                     <div
@@ -728,7 +719,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                         isActive ? "text-primary" : isDone ? "text-foreground" : "text-muted-foreground"
                       }`}
                     >
-                                     {idx < steps.length - 1 && (
+                      {s.title}
+                    </span>
+                  </div>
+                  {idx < steps.length - 1 && (
                     <div
                       className={`flex-1 h-[2px] mx-1.5 sm:mx-2 rounded-full transition-colors ${
                         currentStep > idx + 1 ? "bg-emerald-500" : "bg-border"
@@ -741,11 +735,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           </div>
         )}
 
-        {/* ─── STEP CONTENT (GLASS CONTAINER) ─── */}
-        {!isSuccess ? (
-          <GlassCard  )}
-
-        {/* ─── STEP CONTENT (GLASS CONTAINER) ─── */}
         {!isSuccess ? (
           <GlassCard
             isDark={isDark}
@@ -759,9 +748,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               </div>
             )}
 
-            {/* ───────────────────────────────────────────────────────── */}
-            {/* STEP 1: POOJA DATE & DAY-WISE TIME SLOTS                 */}
-            {/* ───────────────────────────────────────────────────────── */}
             {currentStep === 1 && (
               <div className="space-y-3.5 flex-1">
                 <div className="flex items-center justify-between border-b border-border pb-2">
@@ -785,14 +771,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                   </span>
                 </div>
 
-                {/* Day Selection Tabs */}
-                <div className={`grid gap-2 ${
-                  scheduleDays.length === 1
-                    ? "grid-cols-1"
-                    : scheduleDays.length === 2
-                    ? "grid-cols-2"
-                    : "grid-cols-2 sm:grid-cols-3"
-                }`}>
+                <div className={`grid gap-2 ${scheduleDays.length === 1 ? "grid-cols-1" : scheduleDays.length === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"}`}>
                   {scheduleDays.map((d) => {
                     const isSelected = d.id === selectedDayId;
                     return (
@@ -816,9 +795,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                         <span className={`block text-[10px] font-bold uppercase ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
                           {d.dayLabel}
                         </span>
-                        <strong className="text-xs sm:text-sm font-black text-foreground block mt-0.5">
-                          {d.dateStr}
-                        </strong>
+                        <strong className="text-xs sm:text-sm font-black text-foreground block mt-0.5">{d.dateStr}</strong>
                         <span className="text-[10px] text-muted-foreground">
                           {d.slots.length} {d.slots.length === 1 ? "Session" : "Sessions"} Available
                         </span>
@@ -827,7 +804,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                   })}
                 </div>
 
-                {/* Day-Wise Time Slots Section */}
                 <div className="p-3.5 rounded-2xl bg-card border border-border space-y-2.5">
                   <div className="flex items-center justify-between text-xs font-bold text-foreground px-1">
                     <span>Available Sessions for {currentDay.dateStr}:</span>
@@ -835,10 +811,11 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-                    {currentDay.slots.map((s) => {
+                    {currentDay?.slots.map((s) => {
                       const slotKey = makeSlotSelectionKey(currentDay, s);
                       const isSlotSelected = selectedSlotKey === slotKey;
                       const isSlotPassed = isPoojaSlotPassed(currentDay.dateValue, s.time) || isPoojaClosed;
+
                       return (
                         <div
                           key={slotKey}
@@ -848,17 +825,162 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                             setSelectedSlotName(s.name);
                             setSelectedSlotKey(slotKey);
                           }}
-            {/* STEP 4: REVIEW & CONFIRMATION                             */}
-            {/* ───────────────────────────────────────────────────────── */}
+                          className={`p-3 rounded-2xl border-2 transition-all cursor-pointer ${
+                            isSlotSelected
+                              ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                              : isSlotPassed
+                              ? "border-border bg-muted/40 opacity-60 cursor-not-allowed"
+                              : "border-border bg-card hover:border-primary/50"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <span className="block text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">{s.name}</span>
+                              <strong className="block mt-1 text-xs font-black text-foreground">{s.time}</strong>
+                            </div>
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 shrink-0">
+                              {s.left} left
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {currentStep === 2 && (
+              <div className="space-y-3.5 flex-1">
+                <div className="border-b border-border pb-2">
+                  <h3 className="text-sm font-extrabold text-foreground">Registrant Details</h3>
+                  <p className="text-[11px] text-muted-foreground">Share the details for the seva devotee and family information.</p>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="grid gap-3">
+                    <label className="block text-[11px] font-bold text-foreground">
+                      <span className="mb-1.5 block">Yajaman / Devotee Name</span>
+                      <input
+                        value={devoteeName}
+                        onChange={(e) => setDevoteeName(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="Enter devotee name"
+                      />
+                    </label>
+                    <label className="block text-[11px] font-bold text-foreground">
+                      <span className="mb-1.5 block">Phone Number</span>
+                      <input
+                        value={devoteePhone}
+                        onChange={(e) => setDevoteePhone(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="Enter phone number"
+                      />
+                    </label>
+                    <label className="block text-[11px] font-bold text-foreground">
+                      <span className="mb-1.5 block">Flat / Block</span>
+                      <input
+                        value={devoteeFlat}
+                        onChange={(e) => setDevoteeFlat(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="Flat or block"
+                      />
+                    </label>
+                    <label className="block text-[11px] font-bold text-foreground">
+                      <span className="mb-1.5 block">Gotram</span>
+                      <input
+                        value={gotram}
+                        onChange={(e) => setGotram(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        placeholder="Optional gotram"
+                      />
+                    </label>
+                  </div>
+
+                  {isAnyAdmin && (
+                    <div className="rounded-2xl border border-border bg-card/50 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-foreground">Register on behalf</span>
+                        <button
+                          type="button"
+                          onClick={() => setRegisterOnBehalf((prev) => !prev)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${registerOnBehalf ? "bg-primary" : "bg-muted"}`}
+                        >
+                          <span className={`inline-block h-4 w-4 rounded-full bg-white transition ${registerOnBehalf ? "translate-x-6" : "translate-x-1"}`} />
+                        </button>
+                      </div>
+                      {registerOnBehalf && (
+                        <div className="space-y-2">
+                          <input
+                            value={userSearchQuery}
+                            onChange={(e) => setUserSearchQuery(e.target.value)}
+                            placeholder="Search community member"
+                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          />
+                          <div className="max-h-32 overflow-y-auto rounded-xl border border-border bg-background p-2 space-y-1">
+                            {communityUsers
+                              .filter((u) => `${u.fullName || u.name || ""} ${u.email || ""}`.toLowerCase().includes(userSearchQuery.toLowerCase()))
+                              .slice(0, 6)
+                              .map((u) => (
+                                <button
+                                  key={u.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedTargetUserId(u.id);
+                                    setRegisterOnBehalf(false);
+                                    setDevoteeName(u.fullName || u.name || "");
+                                    setDevoteePhone(u.phone || u.mobile || "");
+                                    setDevoteeFlat(resolveUserFlat(u));
+                                  }}
+                                  className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left hover:bg-muted"
+                                >
+                                  <span className="text-xs font-medium text-foreground">{u.fullName || u.name || "Unknown"}</span>
+                                  <span className="text-[10px] text-muted-foreground">{u.flatNo || resolveUserFlat(u) || "No flat"}</span>
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {currentStep === 3 && (
+              <div className="space-y-3.5 flex-1">
+                <div className="border-b border-border pb-2">
+                  <h3 className="text-sm font-extrabold text-foreground">Prasadam Collection</h3>
+                  <p className="text-[11px] text-muted-foreground">Choose how your prasadam and tokens will be collected.</p>
+                </div>
+
+                <div className="grid gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPrasadamMode("mandap")}
+                    className={`rounded-2xl border p-3 text-left transition ${
+                      prasadamMode === "mandap"
+                        ? "border-primary bg-primary/10 shadow-sm"
+                        : "border-border bg-card hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <span className="block text-xs font-black text-foreground">Mandap Counter Collection</span>
+                        <span className="text-[10px] text-muted-foreground">Collect prasadam at the mandap after the ritual.</span>
+                      </div>
+                      <CheckCircle2 className={`w-4 h-4 ${prasadamMode === "mandap" ? "text-primary" : "text-muted-foreground"}`} />
+                    </div>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {currentStep === 4 && (
               <div className="space-y-3.5 flex-1">
                 <div className="border-b border-border pb-2">
                   <h3 className="text-sm font-extrabold text-foreground">
-                    {isUpdateMode
-                      ? "Review & Confirm Updates"
-                      : isFreeEvent
-                      ? "Review & Confirmation"
-                      : "Review & Contribution"}
+                    {isUpdateMode ? "Review & Confirm Updates" : isFreeEvent ? "Review & Confirmation" : "Review & Contribution"}
                   </h3>
                   <p className="text-[11px] text-muted-foreground">
                     {isUpdateMode
@@ -888,12 +1010,11 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
                       <span className="text-[10px] text-muted-foreground uppercase font-bold block">Prasadam Delivery</span>
                       <strong className="text-emerald-600 dark:text-emerald-400 font-bold text-xs block truncate">
-                        Mandap Counter Collection
+                        {prasadamMode === "mandap" ? "Mandap Counter Collection" : "Home Delivery"}
                       </strong>
                     </div>
                   </div>
 
-                  {/* Total Contribution Box (Visible ONLY if fee configured) */}
                   {!isFreeEvent && numericFee > 0 && !isUpdateMode && (
                     <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-between">
                       <div>
@@ -908,9 +1029,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             )}
           </GlassCard>
         ) : (
-          /* ═══════════════════════════════════════════════════════════════ */
-          /* SUCCESS SCREEN                                                  */
-          /* ═══════════════════════════════════════════════════════════════ */
           <div className="space-y-4 text-center py-6 animate-fadeIn flex-1 flex flex-col justify-center">
             <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 flex items-center justify-center mx-auto text-3xl shadow-lg">
               🪔
@@ -927,7 +1045,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               </p>
             </div>
 
-            {/* Digital Pass Card */}
             <div className="p-4 rounded-2xl bg-card border border-border text-left space-y-2.5 text-xs max-w-md mx-auto shadow-md">
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <div>
@@ -945,7 +1062,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 </button>
               </div>
 
-                            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div>
                   <span className="text-muted-foreground block">Date &amp; Session:</span>
                   <strong className="text-foreground">{selectedDateDisplay} • {selectedSlotDisplayTime}</strong>
@@ -956,9 +1073,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 </div>
                 <div>
                   <span className="text-muted-foreground block">Prasadam Collection:</span>
-                  <strong className="text-emerald-600 dark:text-emerald-400">
-                    Mandap Counter post-Aarti
-                  </strong>
+                  <strong className="text-emerald-600 dark:text-emerald-400">Mandap Counter post-Aarti</strong>
                 </div>
                 <div>
                   <span className="text-muted-foreground block">Seva Contribution:</span>
@@ -968,19 +1083,13 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             </div>
 
             <div className="pt-2 flex items-center justify-center gap-3">
-              <TouchButton
-                onClick={onClose}
-                variant="primary"
-                size="md"
-                className="cursor-pointer"
-              >
+              <TouchButton onClick={onClose} variant="primary" size="md" className="cursor-pointer">
                 Done &amp; View Registrations
               </TouchButton>
             </div>
           </div>
         )}
 
-        {/* ─── FOOTER NAVIGATION (APP MODULE BUTTONS) ─── */}
         {!isSuccess && (
           <div className="flex items-center justify-center gap-3 border-t border-border pt-3 shrink-0">
             {currentStep > 1 && (
@@ -1002,13 +1111,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 <Clock className="w-3.5 h-3.5" /> Registration Closed
               </span>
             ) : currentStep < 4 ? (
-              <TouchButton
-                type="button"
-                onClick={handleNext}
-                variant="primary"
-                size="sm"
-                className="cursor-pointer"
-              >
+              <TouchButton type="button" onClick={handleNext} variant="primary" size="sm" className="cursor-pointer">
                 <span>Continue</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </TouchButton>
@@ -1036,7 +1139,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             )}
           </div>
         )}
-
       </div>
     </div>
   );

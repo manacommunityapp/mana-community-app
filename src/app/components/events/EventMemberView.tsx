@@ -1436,7 +1436,9 @@ export function EventMemberView() {
                             <span className="font-black uppercase text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
                               {act.category}
                             </span>
-                            <span className="text-muted-foreground font-bold text-[10px]">{act.availableSeats} slots left</span>
+                            <span className={`font-bold text-[10px] ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                              {act.availableSeats === 0 ? "Registration Closed" : `${act.availableSeats} slots left`}
+                            </span>
                           </div>
                           <h4 className="text-xs sm:text-sm font-black text-foreground mt-1 line-clamp-1">
                             {act.title}
@@ -2061,7 +2063,9 @@ export function EventMemberView() {
                                 <span className="font-black uppercase text-primary bg-primary/10 px-1.5 py-0.2 rounded border border-primary/20">
                                   {act.category}
                                 </span>
-                                <span className="text-muted-foreground font-semibold">{act.availableSeats} slots</span>
+                                <span className={`font-semibold ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                                  {act.availableSeats === 0 ? "Closed" : `${act.availableSeats} slots`}
+                                </span>
                               </div>
                               <h4 className="text-xs font-bold text-foreground mt-0.5 truncate">{act.title}</h4>
                               <p className="text-[10px] text-muted-foreground">
