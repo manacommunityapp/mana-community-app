@@ -81,11 +81,17 @@ interface Activity {
   existingRegistration?: any;
   registrationId?: string | number;
   isUpdateMode?: boolean;
+  /** ID of the parent community/top-level event this sub-event belongs to */
+  mainEventId?: string | number;
 }
 
 interface UserPass {
   id: string;
   activityId?: string;
+  /** Pooja Seva's numeric DB id (e.g. 5 for "pooja-5") – NOT the parent event id */
+  poojaSevaId?: string;
+  /** Parent community event id */
+  mainEventId?: string | number;
   eventId?: number | string;
   passType: string;
   title: string;
@@ -387,6 +393,8 @@ export function EventMemberView() {
             availableSeats: Math.max(0, initialSlots - booked),
             image: "🪔",
             description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || ""}`,
+            // Track parent event linkage for strict deduplication
+            mainEventId: p.mainEventId != null ? String(p.mainEventId) : undefined,
           });
         });
       }
@@ -550,7 +558,12 @@ export function EventMemberView() {
 
             return {
               id: String(r.id),
+              // activityId is stored as "pooja-5" or "5" — normalise to full "pooja-N" form when possible
               activityId: r.activityId ? String(r.activityId) : undefined,
+              // Canonical numeric-only id of the Pooja Seva for normalised matching
+              poojaSevaId: r.activityId ? String(r.activityId).replace(/\D/g, "") || undefined : undefined,
+              // Parent community event id (different from the pooja seva's own id)
+              mainEventId: r.mainEventId != null ? String(r.mainEventId) : undefined,
               eventId: r.eventId ? String(r.eventId) : undefined,
               passType: r.passType || `${r.category || "Event"} Registration Pass`,
               title: r.activityTitle || r.eventName || "Community Event",
@@ -709,23 +722,47 @@ export function EventMemberView() {
     ];
   }, [poojaCount, foodCount, culturalCount, compCount, passesList.length, useMock, liveStats]);
 
+  /**
+   * Returns the existing UserPass for the given activity if the user has already
+   * registered for it (on ANY day / slot) under the same main event.
+   *
+   * Matching strategy (in priority order):
+   *  1. Normalised numeric pooja-seva ID comparison ("pooja-5" == "5" == 5)
+   *  2. Exact title comparison scoped to the same mainEventId (if available)
+   *  3. Exact title comparison without scope (fallback for mock/unlinked data)
+   *
+   * CANCELLED registrations are always excluded.
+   */
   const getExistingPassForActivity = (act: Activity): UserPass | undefined => {
     if (!passesList || passesList.length === 0) return undefined;
+
+    // Extract the numeric part of the activity id — "pooja-5" → "5"
+    const actIdNumeric = String(act.id || "").replace(/\D/g, "");
     const cleanActTitle = (act.title || "").trim().toLowerCase();
-    const actIdStr = String(act.id || "");
+    const actMainEventId = act.mainEventId ? String(act.mainEventId) : null;
 
     return passesList.find((p) => {
       if (p.status === "CANCELLED") return false;
-      const passActId = String(p.activityId || "");
-      const cleanPassTitle = (p.title || "").trim().toLowerCase();
 
-      // 1. Strict exact activityId matching
-      if (passActId && (passActId === actIdStr || passActId === `pooja-${actIdStr}` || (actIdStr.startsWith("pooja-") && passActId === actIdStr.replace("pooja-", "")))) {
+      // ── Strategy 1: Normalised numeric pooja-seva ID match ──────────────────
+      // Handle all 3 storage variants: "pooja-5", "5", 5
+      const passActIdNumeric = p.poojaSevaId || String(p.activityId || "").replace(/\D/g, "");
+
+      if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
+        // IDs match — this is definitely the same Pooja Seva
         return true;
       }
 
-      // 2. Strict exact title matching (avoid broad substring matches that cross-pollinate poojas)
+      // ── Strategy 2: Exact title match scoped to same mainEventId ────────────
+      const cleanPassTitle = (p.title || "").trim().toLowerCase();
+      const passMainEventId = p.mainEventId ? String(p.mainEventId) : null;
+
       if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) {
+        // If both have mainEventId, enforce same-parent-event scope
+        if (actMainEventId && passMainEventId) {
+          return actMainEventId === passMainEventId;
+        }
+        // ── Strategy 3: Fallback — title match without mainEventId scope ──────
         return true;
       }
 
@@ -2335,7 +2372,7 @@ export function EventMemberView() {
                   required
                   value={newMember.name}
                   onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                  placeholder="e.g. Ramesh Verma"
+                  placeholder="Enter member's full name"
                   className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
                   autoFocus
                 />
@@ -2452,6 +2489,8 @@ export function EventMemberView() {
               existingRegistration: (selectedActivity as any)?.existingRegistration,
               registrationId: (selectedActivity as any)?.registrationId,
               isUpdateMode: (selectedActivity as any)?.isUpdateMode,
+              // Pass parent community event id for correct deduplication scoping
+              mainEventId: selectedActivity.mainEventId,
             }}
             onClose={() => {
               setSelectedActivity(null);

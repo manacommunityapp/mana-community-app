@@ -63,6 +63,8 @@ export interface PoojaRegistrationModalProps {
     registrationId?: string | number;
     isUpdateMode?: boolean;
     timeSlotConfig?: any;
+    /** Parent community event id — used for correct registration deduplication scoping */
+    mainEventId?: string | number;
   };
   onSuccess?: () => void;
 }
@@ -389,24 +391,32 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         if (Array.isArray(regs) && regs.length > 0) {
           const activeRegs = regs.filter((r: any) => r.status !== "CANCELLED");
 
-          const currentSevaId = String(event?.id || "");
+          // Normalise the activity id — strip non-digits so "pooja-5", "5", 5 all compare as "5"
+          const currentSevaIdNumeric = String(event?.id || "").replace(/\D/g, "");
           const currentCleanTitle = (poojaTitle || "").trim().toLowerCase();
+          const currentMainEventId = event?.mainEventId ? String(event.mainEventId) : null;
 
-          // Strict match for THIS specific pooja activity
+          // Match for THIS specific pooja activity across all days/slots
+          // Priority 1: numeric ID match (handles "pooja-5" == "5" == 5)
+          // Priority 2: exact title match scoped to same mainEventId
           const currentEventReg = activeRegs.find((r: any) => {
-            const regActId = String(r.activityId || "");
-            if (
-              regActId &&
-              (regActId === currentSevaId ||
-                regActId === `pooja-${currentSevaId}` ||
-                (currentSevaId.startsWith("pooja-") && regActId === currentSevaId.replace("pooja-", "")))
-            ) {
+            // Strategy 1 — normalised numeric activityId match
+            const regActIdNumeric = String(r.activityId || "").replace(/\D/g, "");
+            if (currentSevaIdNumeric && regActIdNumeric && currentSevaIdNumeric === regActIdNumeric) {
               return true;
             }
+
+            // Strategy 2 — exact activityTitle match scoped to mainEventId when available
             const cleanRegTitle = (r.activityTitle || "").trim().toLowerCase();
             if (cleanRegTitle && currentCleanTitle && cleanRegTitle === currentCleanTitle) {
+              const regMainEventId = r.mainEventId ? String(r.mainEventId) : null;
+              if (currentMainEventId && regMainEventId) {
+                return currentMainEventId === regMainEventId;
+              }
+              // Fallback: no mainEventId available — match on title alone
               return true;
             }
+
             return false;
           });
 
@@ -609,9 +619,28 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      // ── Resolve eventId: should be the PARENT community event id, NOT the pooja seva's own id.
+      // When mainEventId is present, use it.  Fall back to stripping pooja's numeric id only as last resort.
+      const resolvedParentEventId: number = (() => {
+        if (event?.mainEventId) {
+          const n = Number(String(event.mainEventId).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
+        }
+        // Fallback: extract numeric portion of the pooja activity id (e.g. "pooja-5" → 5)
+        if (event?.id) {
+          const n = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
+        }
+        return 1;
+      })();
+
       const regPayload: PoojaRegistrationRequest = {
-        eventId: event?.id ? (typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, "")) || 1) : 1,
+        // eventId = parent community event id (used by backend for event-level grouping)
+        eventId: resolvedParentEventId,
+        // activityId = full "pooja-N" string — used for exact sub-activity deduplication
         activityId: event?.id ? String(event.id) : undefined,
+        // Also send mainEventId so the backend can store and return it for future use
+        ...(event?.mainEventId ? { mainEventId: String(event.mainEventId) } as any : {}),
         eventName: poojaTitle,
         activityTitle: poojaTitle,
         category: "Pooja",
