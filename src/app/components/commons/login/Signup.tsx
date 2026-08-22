@@ -301,7 +301,7 @@ export function Signup() {
   const communityCode = watch("communityCode");
 
   const handleSuggestPassword = () => {
-    const suggested = generateStrongPassword(8);
+    const suggested = generateStrongPassword(10);
     setValue("password", suggested, { shouldValidate: true });
     setValue("confirmPassword", suggested, { shouldValidate: true });
     setShowPassword(true);
@@ -1097,10 +1097,10 @@ export function Signup() {
                               validate: (val) =>
                                 evaluatePassword(val).acceptable ||
                                 evaluatePassword(val).warning ||
-                                "Password must be 6–20 characters and combine letters & numbers",
+                                "Password must be between 6 and 20 characters and combine letters & numbers",
                             })}
                             className={`${inputBase} pl-9 sm:pl-10 pr-9`}
-                            placeholder="6–20 chars (letters & numbers)"
+                            placeholder="6 to 20 characters (letters & numbers)"
                           />
                           <button
                             type="button"
@@ -1135,12 +1135,13 @@ export function Signup() {
                           <input
                             id="confirmPassword"
                             type={showConfirmPassword ? "text" : "password"}
+                            maxLength={20}
                             {...register("confirmPassword", {
                               required: "Please confirm your password",
                               validate: (value) => value === password || "Passwords do not match",
                             })}
                             className={`${inputBase} pl-9 sm:pl-10 pr-9`}
-                            placeholder="Re-enter password"
+                            placeholder="Re-enter password (max 20 characters)"
                           />
                           <button
                             type="button"

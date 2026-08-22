@@ -290,8 +290,8 @@ export function AdminCreateUser() {
     if (form.username.trim() || form.password || form.confirmPassword) {
       if (!form.username.trim()) newErrors.username = "Username is required for logins";
       if (!form.password) newErrors.password = "Password is required";
-      else if (form.password.length < 4 || form.password.length > 8) {
-        newErrors.password = "Password must be between 4 and 8 characters";
+      else if (form.password.length < 6 || form.password.length > 20) {
+        newErrors.password = "Password must be between 6 and 20 characters";
       } else if (!/[a-zA-Z]/.test(form.password) || !/[0-9]/.test(form.password)) {
         newErrors.password = "Password must contain both letters and numbers";
       }
