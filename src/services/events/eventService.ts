@@ -113,6 +113,7 @@ export interface EventRequest {
   notes?: string;
   contactsJson?: string;
   paymentInstructions?: string;
+  registrationDeadline?: string;
 }
 
 export interface DashboardStatsResponse {
@@ -122,6 +123,10 @@ export interface DashboardStatsResponse {
   totalVolunteers: number;
   totalRevenue: number;
   totalExpenses: number;
+  donationTotal?: number;
+  sponsorTotal?: number;
+  activeSponsorCount?: number;
+  pendingSponsorCount?: number;
   foodPreparedPercentage?: number;
   foodPlatesCount?: number;
   auctionRevenue?: number;
