@@ -389,42 +389,41 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         if (Array.isArray(regs) && regs.length > 0) {
           const activeRegs = regs.filter((r: any) => r.status !== "CANCELLED");
 
+          const currentSevaId = String(event?.id || "");
+          const currentCleanTitle = (poojaTitle || "").trim().toLowerCase();
+
+          // Strict match for THIS specific pooja activity
           const currentEventReg = activeRegs.find((r: any) => {
-            if (r.activityId && (r.activityId === event?.id || String(r.activityId) === String(event?.id))) return true;
-            if (event?.id && String(event.id).includes("-")) {
-              const rawId = String(event.id).split("-")[1];
-              if (r.activityId && (r.activityId === rawId || r.activityId === event.id)) return true;
-              if (r.eventId && String(r.eventId) === rawId) return true;
-            }
-            const cleanPoojaTitle = (poojaTitle || "").trim().toLowerCase();
-            const cleanRegTitle = (r.activityTitle || r.eventName || "").trim().toLowerCase();
+            const regActId = String(r.activityId || "");
             if (
-              cleanPoojaTitle &&
-              cleanRegTitle &&
-              (cleanPoojaTitle === cleanRegTitle ||
-                cleanPoojaTitle.includes(cleanRegTitle) ||
-                cleanRegTitle.includes(cleanPoojaTitle))
+              regActId &&
+              (regActId === currentSevaId ||
+                regActId === `pooja-${currentSevaId}` ||
+                (currentSevaId.startsWith("pooja-") && regActId === currentSevaId.replace("pooja-", "")))
             ) {
+              return true;
+            }
+            const cleanRegTitle = (r.activityTitle || "").trim().toLowerCase();
+            if (cleanRegTitle && currentCleanTitle && cleanRegTitle === currentCleanTitle) {
               return true;
             }
             return false;
           });
 
-          // Duplicate registration check: does the user already have an active booking for this seva?
-          if (!event?.isUpdateMode) {
-            const currentSevaId = String(event?.id || "");
-            const duplicateReg = activeRegs.find((r: any) => {
-              const regActId = String(r.activityId || "");
-              return (
-                regActId === currentSevaId ||
-                regActId === `pooja-${currentSevaId}` ||
-                (currentSevaId.startsWith("pooja-") && regActId === currentSevaId.replace("pooja-", "")) ||
-                (currentSevaId.startsWith("pooja-") && regActId === currentSevaId)
-              );
-            });
-            if (duplicateReg) {
-              setAlreadyRegisteredTitle(duplicateReg.activityTitle || poojaTitle);
+          // If the user already has a registration for THIS specific pooja, allow them to update to next slot time
+          if (currentEventReg) {
+            setExistingReg(currentEventReg);
+            setAlreadyRegisteredTitle(null);
+            if (currentEventReg.prasadamMode) setPrasadamMode(currentEventReg.prasadamMode);
+            if (currentEventReg.participantName || currentEventReg.primaryName) {
+              setDevoteeName(currentEventReg.participantName || currentEventReg.primaryName);
             }
+            if (currentEventReg.phone || currentEventReg.contactPhone) {
+              setDevoteePhone(currentEventReg.phone || currentEventReg.contactPhone);
+            }
+            if (currentEventReg.flatNo) setDevoteeFlat(currentEventReg.flatNo);
+          } else {
+            setAlreadyRegisteredTitle(null);
           }
 
           // Gotram from database event registration
@@ -442,16 +441,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           } else {
             setGotram("");
             setIsGotramFromDb(false);
-          }
-
-          if (currentEventReg) {
-            setExistingReg(currentEventReg);
-            if (currentEventReg.prasadamMode) setPrasadamMode(currentEventReg.prasadamMode);
-            if (currentEventReg.participantName || currentEventReg.primaryName) {
-              setDevoteeName(currentEventReg.participantName || currentEventReg.primaryName);
-            }
-            if (currentEventReg.phone) setDevoteePhone(currentEventReg.phone);
-            if (currentEventReg.flatNo) setDevoteeFlat(currentEventReg.flatNo);
           }
         } else {
           setGotram("");
@@ -821,13 +810,24 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             hoverScale={false}
             className="flex-1 flex flex-col justify-between p-4 sm:p-5 border border-border rounded-2xl overflow-y-auto space-y-4 shadow-xs my-2 bg-muted/20"
           >
+            {isUpdateMode && (
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-start gap-2">
+                <RefreshCw className="w-4 h-4 shrink-0 mt-0.5" />
+                <div>
+                  <p>Update Pooja Registration</p>
+                  <p className="font-normal mt-0.5 text-emerald-600 dark:text-emerald-400">
+                    You have an active pass for this Pooja seva. You can select the next slot time or update devotee details below.
+                  </p>
+                </div>
+              </div>
+            )}
             {alreadyRegisteredTitle && !isUpdateMode && (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-bold flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
                 <div>
                   <p>You are already registered for <strong>{alreadyRegisteredTitle}</strong>.</p>
                   <p className="font-normal mt-0.5 text-amber-600 dark:text-amber-500">
-                    Only one pooja seva registration per family per event is allowed. Cancel your existing registration first if you wish to switch sevas.
+                    You can update your registration to select the next slot time.
                   </p>
                 </div>
               </div>

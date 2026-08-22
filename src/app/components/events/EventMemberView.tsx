@@ -710,24 +710,24 @@ export function EventMemberView() {
 
   const getExistingPassForActivity = (act: Activity): UserPass | undefined => {
     if (!passesList || passesList.length === 0) return undefined;
+    const cleanActTitle = (act.title || "").trim().toLowerCase();
+    const actIdStr = String(act.id || "");
+
     return passesList.find((p) => {
       if (p.status === "CANCELLED") return false;
-      // Match by exact ID
-      if (p.activityId && (p.activityId === act.id || String(p.activityId) === String(act.id))) return true;
-      // Match by extracted numeric ID (e.g. pooja-12 vs 12)
-      if (act.id && act.id.includes("-")) {
-        const rawId = act.id.split("-")[1];
-        if (p.activityId && (p.activityId === rawId || p.activityId === act.id)) return true;
-        if (p.eventId && String(p.eventId) === rawId) return true;
+      const passActId = String(p.activityId || "");
+      const cleanPassTitle = (p.title || "").trim().toLowerCase();
+
+      // 1. Strict exact activityId matching
+      if (passActId && (passActId === actIdStr || passActId === `pooja-${actIdStr}` || (actIdStr.startsWith("pooja-") && passActId === actIdStr.replace("pooja-", "")))) {
+        return true;
       }
-      // Match by title
-      if (p.title && act.title) {
-        const cleanPassTitle = p.title.trim().toLowerCase();
-        const cleanActTitle = act.title.trim().toLowerCase();
-        if (cleanPassTitle === cleanActTitle) return true;
-        if (cleanPassTitle.replace(/\s+/g, "") === cleanActTitle.replace(/\s+/g, "")) return true;
-        if (cleanPassTitle.includes(cleanActTitle) || cleanActTitle.includes(cleanPassTitle)) return true;
+
+      // 2. Strict exact title matching (avoid broad substring matches that cross-pollinate poojas)
+      if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) {
+        return true;
       }
+
       return false;
     });
   };
