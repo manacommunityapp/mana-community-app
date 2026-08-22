@@ -1442,7 +1442,7 @@ export function EventPublicRegistration() {
           {isCapacityFull && (
             <div className="mx-5 sm:mx-7 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>Registration for this event is closed as maximum attendee capacity has been reached.</span>
+              <span>Event Capacity Reached (Housefull). Registration is closed. Contact admin for manual registration.</span>
             </div>
           )}
 

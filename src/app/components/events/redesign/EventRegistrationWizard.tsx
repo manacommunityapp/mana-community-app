@@ -914,7 +914,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
               <div>
                 <strong className="block text-xs font-extrabold text-rose-900 dark:text-rose-200">Event Capacity Reached (Housefull)</strong>
                 <span className="text-[11.5px] font-semibold leading-relaxed">
-                  This event has reached its maximum capacity limit of {maxEventCapacity} attendees. Registration is no longer accepted.
+                  This event has reached its maximum capacity limit of {maxEventCapacity} attendees. Registration is no longer accepted. Contact admin for manual registration or queries.
                 </span>
               </div>
             </div>
