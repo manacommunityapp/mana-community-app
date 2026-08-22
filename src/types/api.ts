@@ -34,6 +34,17 @@ export interface ResetPasswordResponse {
   message: string;
 }
 
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword?: string;
+}
+
+export interface ChangePasswordResponse {
+  success: boolean;
+  message: string;
+}
+
 export interface AuthResponse {
   userId: string;
   message: string;

@@ -39,13 +39,17 @@ import {
   Layers,
   Home,
   Loader2,
+  Sparkles,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 import { profileService } from "../../../services/common/profileService";
+import { authService } from "../../../services/common/authService";
 import { fileUploadService } from "../../../services/files/fileUploadService";
 import { useAuth } from "../../../contexts/AuthContext";
+import { evaluatePassword, generateStrongPassword } from "../../../utils/passwordStrength";
+import { PasswordStrengthMeter } from "../commons/PasswordStrengthMeter";
 import type { UserProfileResponse } from "../../../types/api";
 
 function cn(...inputs: ClassValue[]) {
@@ -136,8 +140,6 @@ export function ProfileDashboard() {
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -334,9 +336,101 @@ export function ProfileDashboard() {
     }
   };
 
-  const handlePasswordChange = (e: React.FormEvent) => {
+  // ── Change Password State ──
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordErrors, setPasswordErrors] = useState<{
+    currentPassword?: string;
+    newPassword?: string;
+    confirmPassword?: string;
+  }>({});
+
+  const handleSuggestNewPassword = () => {
+    const suggested = generateStrongPassword(10);
+    setPasswordForm((prev) => ({
+      ...prev,
+      newPassword: suggested,
+      confirmPassword: suggested,
+    }));
+    setShowNewPassword(true);
+    setShowConfirmPassword(true);
+    setPasswordErrors((prev) => ({ ...prev, newPassword: undefined, confirmPassword: undefined }));
+    toast.info("Generated a secure 10-character password!");
+  };
+
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    toast.success("Password changed successfully!");
+    const errors: typeof passwordErrors = {};
+
+    if (!passwordForm.currentPassword) {
+      errors.currentPassword = "Current password is required";
+    }
+
+    if (!passwordForm.newPassword) {
+      errors.newPassword = "New password is required";
+    } else {
+      const userInputs = [profile?.email, profile?.fullName, profile?.phone].filter(Boolean) as string[];
+      const evalResult = evaluatePassword(passwordForm.newPassword, userInputs);
+      if (!evalResult.acceptable) {
+        errors.newPassword = evalResult.warning || "Password must be 6–20 characters with letters & numbers";
+      }
+    }
+
+    if (!passwordForm.confirmPassword) {
+      errors.confirmPassword = "Confirm password is required";
+    } else if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      errors.confirmPassword = "New password and confirm password do not match";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setPasswordErrors(errors);
+      return;
+    }
+
+    setPasswordErrors({});
+    setIsChangingPassword(true);
+    try {
+      const res = await authService.changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+        confirmPassword: passwordForm.confirmPassword,
+      });
+
+      toast.success(res.message || "Password changed successfully!");
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+    } catch (err: any) {
+      console.error("Change password error:", err);
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update password. Please verify current password.";
+      toast.error(msg);
+      if (
+        msg.toLowerCase().includes("current") ||
+        msg.toLowerCase().includes("incorrect") ||
+        msg.toLowerCase().includes("old")
+      ) {
+        setPasswordErrors((prev) => ({ ...prev, currentPassword: msg }));
+      } else {
+        setPasswordErrors((prev) => ({ ...prev, newPassword: msg }));
+      }
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
 
   if (loading) {
@@ -1020,53 +1114,163 @@ export function ProfileDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Change Password */}
               <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-                <div className="flex items-center gap-2 mb-5">
-                  <Key className="w-5 h-5 text-primary" />
-                  <div>
-                    <h2 className="font-bold text-foreground text-base">Change Password</h2>
-                    <p className="text-xs text-muted-foreground">Keep your account secure</p>
-                  </div>
-                </div>
-                <form onSubmit={handlePasswordChange} className="space-y-4">
-                  {[
-                    { label: "Current Password", show: showPassword, toggle: () => setShowPassword(!showPassword) },
-                    { label: "New Password", show: showNewPassword, toggle: () => setShowNewPassword(!showNewPassword) },
-                  ].map((field, idx) => (
-                    <div key={idx}>
-                      <label className="block text-xs font-semibold text-foreground/80 mb-1.5 uppercase tracking-wide">
-                        {field.label}
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={field.show ? "text" : "password"}
-                          placeholder="••••••••"
-                          className="w-full px-3.5 py-2.5 pr-10 border border-border rounded-xl text-sm bg-[var(--mana-bg-input)] focus:ring-2 focus:ring-primary/25 outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={field.toggle}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
-                        >
-                          {field.show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                      <Key className="w-5 h-5" />
                     </div>
-                  ))}
-                  <div>
-                    <label className="block text-xs font-semibold text-foreground/80 mb-1.5 uppercase tracking-wide">
-                      Confirm New Password
-                    </label>
-                    <input
-                      type="password"
-                      placeholder="••••••••"
-                      className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm bg-[var(--mana-bg-input)] focus:ring-2 focus:ring-primary/25 outline-none"
-                    />
+                    <div>
+                      <h2 className="font-bold text-foreground text-base">Change Password</h2>
+                      <p className="text-xs text-muted-foreground">Keep your account secure with a strong password</p>
+                    </div>
                   </div>
                   <button
-                    type="submit"
-                    className="w-full py-2.5 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer"
+                    type="button"
+                    onClick={handleSuggestNewPassword}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors py-1 px-2.5 rounded-lg hover:bg-primary/10 border border-primary/20 cursor-pointer shadow-2xs"
+                    title="Generate a cryptographically-secure password"
                   >
-                    Update Password
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Suggest Strong
+                  </button>
+                </div>
+
+                <form onSubmit={handlePasswordChange} className="space-y-4">
+                  {/* Current Password Field */}
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground/80 mb-1.5 uppercase tracking-wide">
+                      Current Password <span className="text-destructive">*</span>
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type={showCurrentPassword ? "text" : "password"}
+                        value={passwordForm.currentPassword}
+                        onChange={(e) => {
+                          setPasswordForm({ ...passwordForm, currentPassword: e.target.value });
+                          if (passwordErrors.currentPassword) {
+                            setPasswordErrors((prev) => ({ ...prev, currentPassword: undefined }));
+                          }
+                        }}
+                        placeholder="Enter your current password"
+                        maxLength={20}
+                        className={`w-full pl-10 pr-10 py-2.5 border rounded-xl text-sm bg-[var(--mana-bg-input)] outline-none transition-all ${
+                          passwordErrors.currentPassword
+                            ? "border-destructive ring-2 ring-destructive/10"
+                            : "border-border focus:ring-2 focus:ring-primary/25"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
+                        aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+                      >
+                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {passwordErrors.currentPassword && (
+                      <p className="text-destructive text-xs mt-1 font-medium">{passwordErrors.currentPassword}</p>
+                    )}
+                  </div>
+
+                  {/* New Password Field */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-foreground/80 uppercase tracking-wide">
+                        New Password <span className="text-destructive">*</span>
+                      </label>
+                      <span className="text-[11px] text-muted-foreground">6–20 characters</span>
+                    </div>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type={showNewPassword ? "text" : "password"}
+                        value={passwordForm.newPassword}
+                        onChange={(e) => {
+                          setPasswordForm({ ...passwordForm, newPassword: e.target.value });
+                          if (passwordErrors.newPassword) {
+                            setPasswordErrors((prev) => ({ ...prev, newPassword: undefined }));
+                          }
+                        }}
+                        placeholder="6 to 20 characters (letters & numbers)"
+                        maxLength={20}
+                        className={`w-full pl-10 pr-10 py-2.5 border rounded-xl text-sm bg-[var(--mana-bg-input)] outline-none transition-all ${
+                          passwordErrors.newPassword
+                            ? "border-destructive ring-2 ring-destructive/10"
+                            : "border-border focus:ring-2 focus:ring-primary/25"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
+                        aria-label={showNewPassword ? "Hide password" : "Show password"}
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <PasswordStrengthMeter
+                      password={passwordForm.newPassword}
+                      userInputs={[profile?.email, profile?.fullName, profile?.phone].filter(Boolean) as string[]}
+                      className="mt-1.5"
+                    />
+                    {passwordErrors.newPassword && (
+                      <p className="text-destructive text-xs mt-1 font-medium">{passwordErrors.newPassword}</p>
+                    )}
+                  </div>
+
+                  {/* Confirm New Password Field */}
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground/80 mb-1.5 uppercase tracking-wide">
+                      Confirm New Password <span className="text-destructive">*</span>
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) => {
+                          setPasswordForm({ ...passwordForm, confirmPassword: e.target.value });
+                          if (passwordErrors.confirmPassword) {
+                            setPasswordErrors((prev) => ({ ...prev, confirmPassword: undefined }));
+                          }
+                        }}
+                        placeholder="Re-enter your new password"
+                        maxLength={20}
+                        className={`w-full pl-10 pr-10 py-2.5 border rounded-xl text-sm bg-[var(--mana-bg-input)] outline-none transition-all ${
+                          passwordErrors.confirmPassword
+                            ? "border-destructive ring-2 ring-destructive/10"
+                            : "border-border focus:ring-2 focus:ring-primary/25"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-1"
+                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    {passwordErrors.confirmPassword && (
+                      <p className="text-destructive text-xs mt-1 font-medium">{passwordErrors.confirmPassword}</p>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isChangingPassword}
+                    className="w-full py-2.5 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-xl transition-all shadow-sm active:scale-98 cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isChangingPassword ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Updating Password...
+                      </>
+                    ) : (
+                      "Update Password"
+                    )}
                   </button>
                 </form>
               </div>
