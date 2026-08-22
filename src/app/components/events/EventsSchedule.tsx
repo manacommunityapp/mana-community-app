@@ -1636,16 +1636,40 @@ function EventsList() {
   const handleDelete = async () => {
     if (!deleteEvent) return;
     const targetId = deleteEvent.id;
-    const hadRegistrations = (deleteEvent.registrations || 0) > 0;
     try {
       const numericId = parseInt(targetId, 10);
       if (!isNaN(numericId)) {
         await eventService.deleteEvent(numericId);
       }
-      if (hadRegistrations) {
-        setEvents(prev => prev.map(e => e.id === targetId ? { ...e, status: "cancelled" as EventStatus } : e));
+      if (!useMock) {
+        try {
+          const res = await eventService.getAllEvents();
+          if (res) {
+            const mapped: EventItem[] = res.map(e => ({
+              id: String(e.id),
+              title: e.title,
+              type: e.type ? e.type.charAt(0).toUpperCase() + e.type.slice(1) : "General",
+              category: e.category || "Community",
+              startDate: e.startDate || new Date().toISOString().split("T")[0],
+              endDate: e.endDate || e.startDate || new Date().toISOString().split("T")[0],
+              startTime: e.startTime || "09:00",
+              endTime: e.endTime || "17:00",
+              venue: e.venue || e.location || "Community Center",
+              city: e.city || "Local",
+              status: (e.status?.toLowerCase() as EventStatus) || (e.startDate && new Date(e.startDate) > new Date() ? "upcoming" : "completed"),
+              visibility: (e.visibility?.toLowerCase() as any) || "community",
+              registrations: e.attendees || 0,
+              capacity: e.maxAttendees || 100,
+              coverImage: e.imageUrl || "",
+              createdAt: e.createdAt || new Date().toISOString(),
+            }));
+            setEvents(mapped);
+          }
+        } catch {
+          setEvents(prev => prev.map(e => e.id === targetId ? { ...e, status: "cancelled" as EventStatus } : e));
+        }
       } else {
-        setEvents(prev => prev.filter(e => e.id !== targetId));
+        setEvents(prev => prev.map(e => e.id === targetId ? { ...e, status: "cancelled" as EventStatus } : e));
       }
       window.dispatchEvent(new Event("mana_event_created"));
       window.dispatchEvent(new Event("mana_event_updated"));
