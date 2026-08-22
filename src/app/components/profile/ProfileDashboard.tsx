@@ -979,22 +979,22 @@ export function ProfileDashboard() {
 
           {/* ── MY FAMILY TAB ── */}
           {activeTab === "family" && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* Header Banner & Stats */}
-              <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-border">
-                  <div className="flex items-start gap-3.5">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 text-white flex items-center justify-center shadow-lg shadow-rose-500/25 shrink-0">
-                      <Heart className="w-6 h-6" />
+              <div className="bg-card rounded-2xl border border-border p-4 sm:p-6 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 pb-4 sm:pb-6 border-b border-border">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-rose-500 to-pink-600 text-white flex items-center justify-center shadow-lg shadow-rose-500/25 shrink-0">
+                      <Heart className="w-5 h-5 sm:w-6 sm:h-6" />
                     </div>
                     <div>
-                      <h2 className="font-black text-foreground text-lg sm:text-xl tracking-tight flex items-center gap-2">
+                      <h2 className="font-black text-foreground text-base sm:text-xl tracking-tight flex items-center gap-2 flex-wrap">
                         My Family Directory
-                        <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60">
+                        <span className="text-[10px] sm:text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800/60">
                           {familyMembers.length} Members
                         </span>
                       </h2>
-                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                      <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-relaxed">
                         Single unified source of truth for your household. Details here automatically populate across <strong>Events</strong>, <strong>Pooja Sankalpams</strong>, <strong>Sports Tournaments</strong>, and <strong>Gate Passes</strong>.
                       </p>
                     </div>
@@ -1003,27 +1003,27 @@ export function ProfileDashboard() {
                   <button
                     type="button"
                     onClick={handleOpenAddFamily}
-                    className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold rounded-xl shadow-md shadow-rose-500/20 text-xs sm:text-sm transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shrink-0"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold rounded-xl shadow-md shadow-rose-500/20 text-xs sm:text-sm transition-all hover:scale-[1.02] active:scale-95 cursor-pointer shrink-0"
                   >
                     <UserPlus className="w-4 h-4" /> Add Family Member
                   </button>
                 </div>
 
-                {/* Family Metrics Bar */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5 pt-5">
+                {/* Family Metrics Bar: 2x2 on mobile, 4 columns on desktop */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3.5 pt-4">
                   {[
                     { label: "Total Members", value: familyMembers.length, icon: Users, color: "text-indigo-600 dark:text-indigo-400", bg: "bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/40" },
                     { label: "Adults (18+)", value: familyMembers.filter(m => (m.age ?? 25) >= 18).length, icon: UserCheck, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-100 dark:border-emerald-900/40" },
                     { label: "Kids & Youth", value: familyMembers.filter(m => (m.age ?? 25) < 18).length, icon: Smile, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50/50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/40" },
                     { label: "Emergency Contacts", value: familyMembers.filter(m => m.emergencyContact).length, icon: Star, color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-50/50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/40" },
                   ].map((s) => (
-                    <div key={s.label} className={cn("p-3.5 rounded-xl border flex items-center gap-3", s.bg)}>
-                      <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-background/80", s.color)}>
-                        <s.icon className="w-4 h-4" />
+                    <div key={s.label} className={cn("p-2.5 sm:p-3.5 rounded-xl border flex items-center gap-2.5 sm:gap-3", s.bg)}>
+                      <div className={cn("w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 bg-background/80", s.color)}>
+                        <s.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       </div>
-                      <div>
-                        <p className={cn("text-lg sm:text-xl font-black", s.color)}>{s.value}</p>
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{s.label}</p>
+                      <div className="min-w-0">
+                        <p className={cn("text-base sm:text-xl font-black truncate", s.color)}>{s.value}</p>
+                        <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">{s.label}</p>
                       </div>
                     </div>
                   ))}
@@ -1031,7 +1031,7 @@ export function ProfileDashboard() {
               </div>
 
               {/* Filter and Search Bar */}
-              <div className="bg-card rounded-2xl border border-border p-4 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+              <div className="bg-card rounded-2xl border border-border p-3 sm:p-4 shadow-sm flex flex-col sm:flex-row gap-2.5 sm:gap-3 items-stretch sm:items-center justify-between">
                 <div className="relative w-full sm:w-72">
                   <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" />
                   <input
@@ -1039,7 +1039,7 @@ export function ProfileDashboard() {
                     value={familySearch}
                     onChange={(e) => setFamilySearch(e.target.value)}
                     placeholder="Search by name, relation, gotram..."
-                    className="w-full pl-9 pr-3 py-1.5 text-xs bg-muted/40 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 outline-none"
+                    className="w-full pl-9 pr-7 py-2 text-xs bg-muted/40 border border-border rounded-xl focus:ring-2 focus:ring-primary/20 outline-none"
                   />
                   {familySearch && (
                     <button
@@ -1051,7 +1051,7 @@ export function ProfileDashboard() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 -mx-1 px-1 sm:mx-0 sm:px-0">
                   {["ALL", "SELF", "SPOUSE", "CHILDREN", "PARENTS", "EMERGENCY"].map((filter) => {
                     const isActive = familyFilterRelation === filter;
                     return (
@@ -1060,7 +1060,7 @@ export function ProfileDashboard() {
                         type="button"
                         onClick={() => setFamilyFilterRelation(filter)}
                         className={cn(
-                          "px-3 py-1.5 text-[11px] font-bold rounded-lg whitespace-nowrap transition-all cursor-pointer",
+                          "px-2.5 sm:px-3 py-1.5 text-[10.5px] sm:text-[11px] font-bold rounded-lg whitespace-nowrap transition-all cursor-pointer shrink-0",
                           isActive
                             ? "bg-primary text-white shadow-xs"
                             : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -1106,12 +1106,12 @@ export function ProfileDashboard() {
 
                   if (filtered.length === 0) {
                     return (
-                      <div className="bg-card rounded-2xl border border-dashed border-border p-10 text-center space-y-3">
+                      <div className="bg-card rounded-2xl border border-dashed border-border p-6 sm:p-10 text-center space-y-3">
                         <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground">
                           <Users className="w-6 h-6" />
                         </div>
-                        <h3 className="font-bold text-foreground text-base">No Family Members Found</h3>
-                        <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                        <h3 className="font-bold text-foreground text-sm sm:text-base">No Family Members Found</h3>
+                        <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
                           {familySearch || familyFilterRelation !== "ALL"
                             ? "No family members match your search or filter criteria."
                             : "You haven't added any family members yet. Add family members to easily register them for community festivals, poojas, and sports tournaments."}
@@ -1128,7 +1128,7 @@ export function ProfileDashboard() {
                   }
 
                   return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                       {filtered.map((member) => {
                         const isSelf = member.relation.toLowerCase().includes("self") || member.relation.toLowerCase().includes("head") || String(member.id) === "fam-self";
                         const isFemale = member.gender === "Female";
@@ -1136,16 +1136,16 @@ export function ProfileDashboard() {
                           <div
                             key={member.id}
                             className={cn(
-                              "bg-card rounded-2xl border p-5 shadow-sm hover:shadow-md transition-all relative flex flex-col justify-between group",
+                              "bg-card rounded-2xl border p-4 sm:p-5 shadow-sm hover:shadow-md transition-all relative flex flex-col justify-between group",
                               isSelf ? "border-indigo-200/80 dark:border-indigo-900/60 ring-1 ring-indigo-500/10" : "border-border"
                             )}
                           >
                             <div>
                               {/* Top Bar: Avatar + Name + Relation + Actions */}
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex items-start gap-3.5 min-w-0">
+                              <div className="flex items-start justify-between gap-2.5">
+                                <div className="flex items-start gap-3 min-w-0">
                                   <div className={cn(
-                                    "w-12 h-12 rounded-2xl font-black flex items-center justify-center text-base shrink-0 shadow-sm",
+                                    "w-10 h-10 sm:w-12 sm:h-12 rounded-2xl font-black flex items-center justify-center text-sm sm:text-base shrink-0 shadow-sm",
                                     isSelf
                                       ? "bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-indigo-500/20"
                                       : isFemale
@@ -1156,22 +1156,22 @@ export function ProfileDashboard() {
                                   </div>
 
                                   <div className="min-w-0">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <h3 className="font-black text-foreground text-base truncate">{member.name}</h3>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <h3 className="font-black text-foreground text-sm sm:text-base truncate">{member.name}</h3>
                                       {isSelf && (
-                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                                        <span className="inline-flex items-center gap-0.5 text-[8.5px] sm:text-[9px] font-black px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                                           ★ Primary Resident
                                         </span>
                                       )}
                                       {member.emergencyContact && !isSelf && (
-                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800" title="Emergency Contact">
+                                        <span className="inline-flex items-center gap-0.5 text-[8.5px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800" title="Emergency Contact">
                                           ★ Emergency
                                         </span>
                                       )}
                                     </div>
-                                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                    <div className="flex items-center gap-1 mt-1 flex-wrap">
                                       <span className={cn(
-                                        "text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider",
+                                        "text-[9.5px] sm:text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider",
                                         isSelf
                                           ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800"
                                           : isFemale
@@ -1181,12 +1181,12 @@ export function ProfileDashboard() {
                                         {member.relation}
                                       </span>
                                       {member.age && (
-                                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                        <span className="text-[9.5px] sm:text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                                           {member.age} yrs
                                         </span>
                                       )}
                                       {member.gender && (
-                                        <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                        <span className="text-[9.5px] sm:text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                                           {member.gender}
                                         </span>
                                       )}
@@ -1194,7 +1194,7 @@ export function ProfileDashboard() {
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-1 shrink-0">
+                                <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
                                   <button
                                     type="button"
                                     onClick={() => handleToggleEmergency(member)}
@@ -1236,8 +1236,8 @@ export function ProfileDashboard() {
                                 </div>
                               </div>
 
-                              {/* Attributes Tags Bar */}
-                              <div className="grid grid-cols-2 gap-2 mt-4 text-xs">
+                              {/* Attributes Tags Bar: responsive 1 or 2 columns */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3.5 text-xs">
                                 {member.gotram && (
                                   <div className="flex items-center gap-1.5 p-2 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30">
                                     <Flame className="w-3.5 h-3.5 text-amber-600 shrink-0" />
@@ -1259,7 +1259,7 @@ export function ProfileDashboard() {
                                 )}
 
                                 {member.phone && (
-                                  <div className="flex items-center gap-1.5 p-2 rounded-xl bg-muted/40 border border-border/50 col-span-2">
+                                  <div className="flex items-center gap-1.5 p-2 rounded-xl bg-muted/40 border border-border/50 col-span-1 sm:col-span-2">
                                     <Phone className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                                     <span className="font-medium text-foreground truncate">{member.phone}</span>
                                   </div>
@@ -1267,14 +1267,14 @@ export function ProfileDashboard() {
                               </div>
 
                               {member.notes && (
-                                <p className="text-[11px] text-muted-foreground bg-muted/30 p-2 rounded-xl mt-3 border border-border/40 line-clamp-2">
+                                <p className="text-[11px] text-muted-foreground bg-muted/30 p-2 rounded-xl mt-2.5 border border-border/40 line-clamp-2">
                                   {member.notes}
                                 </p>
                               )}
                             </div>
 
                             {/* Bottom Module Usage Info */}
-                            <div className="mt-4 pt-3 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground">
+                            <div className="mt-3.5 pt-2.5 border-t border-border flex items-center justify-between text-[10px] text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <CheckCircle2 className="w-3 h-3 text-emerald-500" /> Synced to Events & Sports
                               </span>
@@ -1294,196 +1294,198 @@ export function ProfileDashboard() {
 
           {/* Add / Edit Family Member Modal */}
           {isFamilyModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
-              <div className="bg-card rounded-3xl border border-border shadow-2xl max-w-lg w-full p-6 sm:p-7 relative overflow-hidden animate-scaleUp">
-                <div className="flex items-center justify-between pb-4 border-b border-border mb-5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center">
-                      {editingMember ? <Edit3 className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
-                    </div>
-                    <div>
-                      <h3 className="font-black text-foreground text-base sm:text-lg">
-                        {editingMember ? `Edit ${editingMember.name}` : "Add Family Member"}
-                      </h3>
-                      <p className="text-xs text-muted-foreground">Save to household profile database</p>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsFamilyModalOpen(false)}
-                    className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center transition-colors cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <form onSubmit={handleSaveFamilyMember} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Enter member's full name"
-                      value={memberForm.name || ""}
-                      onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
-                        Relationship *
-                      </label>
-                      <select
-                        value={memberForm.relation || "Spouse"}
-                        onChange={(e) => setMemberForm({ ...memberForm, relation: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                      >
-                        <option value="Self (Head)">Self (Head)</option>
-                        <option value="Spouse">Spouse</option>
-                        <option value="Son">Son</option>
-                        <option value="Daughter">Daughter</option>
-                        <option value="Father">Father</option>
-                        <option value="Mother">Mother</option>
-                        <option value="Brother">Brother</option>
-                        <option value="Sister">Sister</option>
-                        <option value="Grandfather">Grandfather</option>
-                        <option value="Grandmother">Grandmother</option>
-                        <option value="In-law">In-law</option>
-                        <option value="Other">Other Relative</option>
-                      </select>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
+              <div className="bg-card rounded-2xl sm:rounded-3xl border border-border shadow-2xl max-w-lg w-full p-4 sm:p-7 relative overflow-hidden animate-scaleUp max-h-[92vh] flex flex-col justify-between overflow-y-auto">
+                <div>
+                  <div className="flex items-center justify-between pb-3.5 border-b border-border mb-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-rose-500/10 text-rose-600 flex items-center justify-center shrink-0">
+                        {editingMember ? <Edit3 className="w-4 h-4 sm:w-5 sm:h-5" /> : <UserPlus className="w-4 h-4 sm:w-5 sm:h-5" />}
+                      </div>
+                      <div>
+                        <h3 className="font-black text-foreground text-sm sm:text-lg">
+                          {editingMember ? `Edit ${editingMember.name}` : "Add Family Member"}
+                        </h3>
+                        <p className="text-[11px] sm:text-xs text-muted-foreground">Save to household profile database</p>
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
-                        Gender
-                      </label>
-                      <select
-                        value={memberForm.gender || "Male"}
-                        onChange={(e) => setMemberForm({ ...memberForm, gender: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                      >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
-                        Age (Years)
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="120"
-                        placeholder="e.g. 32"
-                        value={memberForm.age || ""}
-                        onChange={(e) => setMemberForm({ ...memberForm, age: e.target.value ? Number(e.target.value) : undefined })}
-                        className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
-                        Gotram (Pooja / Seva)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Bharadwaj"
-                        value={memberForm.gotram || ""}
-                        onChange={(e) => setMemberForm({ ...memberForm, gotram: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    <div>
-                      <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        placeholder="e.g. +91 98765 43210"
-                        value={memberForm.phone || ""}
-                        onChange={(e) => setMemberForm({ ...memberForm, phone: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
-                        Blood Group
-                      </label>
-                      <select
-                        value={memberForm.bloodGroup || ""}
-                        onChange={(e) => setMemberForm({ ...memberForm, bloodGroup: e.target.value })}
-                        className="w-full px-3.5 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-sm focus:ring-2 focus:ring-primary/20 outline-none"
-                      >
-                        <option value="">Not Specified</option>
-                        <option value="A+">A+</option>
-                        <option value="A-">A-</option>
-                        <option value="B+">B+</option>
-                        <option value="B-">B-</option>
-                        <option value="O+">O+</option>
-                        <option value="O-">O-</option>
-                        <option value="AB+">AB+</option>
-                        <option value="AB-">AB-</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2.5 p-3 rounded-xl bg-muted/40 border border-border">
-                    <input
-                      type="checkbox"
-                      id="emergencyContactCheck"
-                      checked={Boolean(memberForm.emergencyContact)}
-                      onChange={(e) => setMemberForm({ ...memberForm, emergencyContact: e.target.checked })}
-                      className="w-4 h-4 text-primary rounded border-border"
-                    />
-                    <label htmlFor="emergencyContactCheck" className="text-xs font-semibold text-foreground cursor-pointer">
-                      Mark as Emergency Contact
-                    </label>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-foreground uppercase tracking-wider mb-1.5">
-                      Notes / Dietary / Preferences
-                    </label>
-                    <textarea
-                      rows={2}
-                      placeholder="Special dietary needs, sports interests, etc."
-                      value={memberForm.notes || ""}
-                      onChange={(e) => setMemberForm({ ...memberForm, notes: e.target.value })}
-                      className="w-full px-3.5 py-2 bg-[var(--mana-bg-input)] border border-border rounded-xl text-xs focus:ring-2 focus:ring-primary/20 outline-none resize-none"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
                     <button
                       type="button"
                       onClick={() => setIsFamilyModalOpen(false)}
-                      className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted rounded-xl transition-colors cursor-pointer"
+                      className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center transition-colors cursor-pointer"
                     >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSavingMember}
-                      className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-500/20 transition-all cursor-pointer disabled:opacity-60 flex items-center gap-1.5"
-                    >
-                      {isSavingMember ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                      {editingMember ? "Save Changes" : "Add Member"}
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
-                </form>
+
+                  <form onSubmit={handleSaveFamilyMember} className="space-y-3.5">
+                    <div>
+                      <label className="block text-[11px] sm:text-xs font-bold text-foreground uppercase tracking-wider mb-1">
+                        Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="Enter member's full name"
+                        value={memberForm.name || ""}
+                        onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })}
+                        className="w-full px-3.5 py-2 sm:py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] sm:text-xs font-bold text-foreground uppercase tracking-wider mb-1">
+                          Relationship *
+                        </label>
+                        <select
+                          value={memberForm.relation || "Spouse"}
+                          onChange={(e) => setMemberForm({ ...memberForm, relation: e.target.value })}
+                          className="w-full px-3.5 py-2 sm:py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                        >
+                          <option value="Self (Head)">Self (Head)</option>
+                          <option value="Spouse">Spouse</option>
+                          <option value="Son">Son</option>
+                          <option value="Daughter">Daughter</option>
+                          <option value="Father">Father</option>
+                          <option value="Mother">Mother</option>
+                          <option value="Brother">Brother</option>
+                          <option value="Sister">Sister</option>
+                          <option value="Grandfather">Grandfather</option>
+                          <option value="Grandmother">Grandmother</option>
+                          <option value="In-law">In-law</option>
+                          <option value="Other">Other Relative</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] sm:text-xs font-bold text-foreground uppercase tracking-wider mb-1">
+                          Gender
+                        </label>
+                        <select
+                          value={memberForm.gender || "Male"}
+                          onChange={(e) => setMemberForm({ ...memberForm, gender: e.target.value })}
+                          className="w-full px-3.5 py-2 sm:py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                        >
+                          <option value="Male">Male</option>
+                          <option value="Female">Female</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] sm:text-xs font-bold text-foreground uppercase tracking-wider mb-1">
+                          Age (Years)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="120"
+                          placeholder="e.g. 32"
+                          value={memberForm.age || ""}
+                          onChange={(e) => setMemberForm({ ...memberForm, age: e.target.value ? Number(e.target.value) : undefined })}
+                          className="w-full px-3.5 py-2 sm:py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] sm:text-xs font-bold text-foreground uppercase tracking-wider mb-1">
+                          Gotram (Pooja / Seva)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Bharadwaj"
+                          value={memberForm.gotram || ""}
+                          onChange={(e) => setMemberForm({ ...memberForm, gotram: e.target.value })}
+                          className="w-full px-3.5 py-2 sm:py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] sm:text-xs font-bold text-foreground uppercase tracking-wider mb-1">
+                          Phone Number
+                        </label>
+                        <input
+                          type="tel"
+                          placeholder="e.g. +91 98765 43210"
+                          value={memberForm.phone || ""}
+                          onChange={(e) => setMemberForm({ ...memberForm, phone: e.target.value })}
+                          className="w-full px-3.5 py-2 sm:py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] sm:text-xs font-bold text-foreground uppercase tracking-wider mb-1">
+                          Blood Group
+                        </label>
+                        <select
+                          value={memberForm.bloodGroup || ""}
+                          onChange={(e) => setMemberForm({ ...memberForm, bloodGroup: e.target.value })}
+                          className="w-full px-3.5 py-2 sm:py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                        >
+                          <option value="">Not Specified</option>
+                          <option value="A+">A+</option>
+                          <option value="A-">A-</option>
+                          <option value="B+">B+</option>
+                          <option value="B-">B-</option>
+                          <option value="O+">O+</option>
+                          <option value="O-">O-</option>
+                          <option value="AB+">AB+</option>
+                          <option value="AB-">AB-</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5 p-2.5 sm:p-3 rounded-xl bg-muted/40 border border-border">
+                      <input
+                        type="checkbox"
+                        id="emergencyContactCheck"
+                        checked={Boolean(memberForm.emergencyContact)}
+                        onChange={(e) => setMemberForm({ ...memberForm, emergencyContact: e.target.checked })}
+                        className="w-4 h-4 text-primary rounded border-border"
+                      />
+                      <label htmlFor="emergencyContactCheck" className="text-xs font-semibold text-foreground cursor-pointer">
+                        Mark as Emergency Contact
+                      </label>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] sm:text-xs font-bold text-foreground uppercase tracking-wider mb-1">
+                        Notes / Preferences
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="Special dietary needs, sports interests, etc."
+                        value={memberForm.notes || ""}
+                        onChange={(e) => setMemberForm({ ...memberForm, notes: e.target.value })}
+                        className="w-full px-3.5 py-2 bg-[var(--mana-bg-input)] border border-border rounded-xl text-xs focus:ring-2 focus:ring-primary/20 outline-none resize-none"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+                      <button
+                        type="button"
+                        onClick={() => setIsFamilyModalOpen(false)}
+                        className="px-4 py-2 text-xs font-semibold text-muted-foreground hover:bg-muted rounded-xl transition-colors cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={isSavingMember}
+                        className="px-5 py-2.5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-500/20 transition-all cursor-pointer disabled:opacity-60 flex items-center gap-1.5"
+                      >
+                        {isSavingMember ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                        {editingMember ? "Save Changes" : "Add Member"}
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
             </div>
           )}
