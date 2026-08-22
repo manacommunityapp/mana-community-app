@@ -24,6 +24,7 @@ import {
   Loader2,
   RefreshCw,
   Edit3,
+  AlertCircle,
 } from "lucide-react";
 import { GlassCard, TouchButton } from "./EventDesignSystem";
 import { useAuth } from "../../../../contexts/AuthContext";
