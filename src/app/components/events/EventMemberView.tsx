@@ -321,8 +321,8 @@ export function EventMemberView() {
 
     try {
       setLoadingApiData(true);
-      const [mainEvents, poojas, culturals, comps, meals, stats, allRegistrations] = await Promise.all([
-        eventService.getUpcomingEvents().catch(() => []),
+      const [allEvents, poojas, culturals, comps, meals, stats, allRegistrations] = await Promise.all([
+        eventService.getAllEvents().catch(() => eventService.getUpcomingEvents()).catch(() => []),
         eventService.getPoojaSevas().catch(() => []),
         eventService.getCulturalEvents().catch(() => []),
         eventService.getCompetitions().catch(() => []),
@@ -348,10 +348,33 @@ export function EventMemberView() {
 
       const fetchedActivities: Activity[] = [];
 
-      if (mainEvents && Array.isArray(mainEvents)) {
-        const running = mainEvents.filter((ev: any) => String(ev.status || "").toUpperCase() !== "CANCELLED");
+      // Collect cancelled event IDs and normalized titles
+      const cancelledEventIds = new Set<string>();
+      const cancelledEventTitles = new Set<string>();
+      const activeEventIds = new Set<string>();
+
+      if (allEvents && Array.isArray(allEvents)) {
+        allEvents.forEach((ev: any) => {
+          const isCancelled = String(ev.status || "").toUpperCase() === "CANCELLED";
+          if (isCancelled) {
+            if (ev.id != null) {
+              cancelledEventIds.add(String(ev.id));
+              cancelledEventIds.add(`event-${ev.id}`);
+            }
+            if (ev.title) {
+              cancelledEventTitles.add(ev.title.trim().toLowerCase());
+            }
+          } else {
+            if (ev.id != null) {
+              activeEventIds.add(String(ev.id));
+              activeEventIds.add(`event-${ev.id}`);
+            }
+          }
+        });
+
+        const running = allEvents.filter((ev: any) => String(ev.status || "").toUpperCase() !== "CANCELLED");
         setMainEventsList(running);
-        mainEvents.forEach((ev: any) => {
+        running.forEach((ev: any) => {
           const initialCapacity = ev.capacity || ev.maxAttendees || 50;
           const booked = getBookedCount(`event-${ev.id}`, ev.title);
           fetchedActivities.push({
@@ -371,6 +394,32 @@ export function EventMemberView() {
 
       if (poojas && Array.isArray(poojas)) {
         poojas.forEach((p: any) => {
+          // Exclude if pooja itself is cancelled
+          if (String(p.status || "").toUpperCase() === "CANCELLED") return;
+
+          // Exclude if parent event is cancelled or not active
+          if (p.mainEventId != null) {
+            const mid = String(p.mainEventId);
+            if (cancelledEventIds.has(mid) || cancelledEventIds.has(`event-${mid}`)) {
+              return;
+            }
+            if (allEvents && allEvents.length > 0 && !activeEventIds.has(mid) && !activeEventIds.has(`event-${mid}`)) {
+              return;
+            }
+          }
+          if (p.eventId != null) {
+            const eid = String(p.eventId);
+            if (cancelledEventIds.has(eid) || cancelledEventIds.has(`event-${eid}`)) {
+              return;
+            }
+            if (allEvents && allEvents.length > 0 && !activeEventIds.has(eid) && !activeEventIds.has(`event-${eid}`)) {
+              return;
+            }
+          }
+          if (p.parentEventTitle && cancelledEventTitles.has(p.parentEventTitle.trim().toLowerCase())) {
+            return;
+          }
+
           const initialSlots = p.slots != null ? p.slots : 20;
           const booked = getBookedCount(`pooja-${p.id}`, p.name);
           fetchedActivities.push({
@@ -401,6 +450,19 @@ export function EventMemberView() {
 
       if (meals && Array.isArray(meals)) {
         meals.forEach((m: any) => {
+          if (String(m.status || "").toUpperCase() === "CANCELLED") return;
+          if (m.mainEventId != null) {
+            const mid = String(m.mainEventId);
+            if (cancelledEventIds.has(mid) || cancelledEventIds.has(`event-${mid}`)) return;
+            if (allEvents && allEvents.length > 0 && !activeEventIds.has(mid) && !activeEventIds.has(`event-${mid}`)) return;
+          }
+          if (m.eventId != null) {
+            const eid = String(m.eventId);
+            if (cancelledEventIds.has(eid) || cancelledEventIds.has(`event-${eid}`)) return;
+            if (allEvents && allEvents.length > 0 && !activeEventIds.has(eid) && !activeEventIds.has(`event-${eid}`)) return;
+          }
+          if (m.parentEventTitle && cancelledEventTitles.has(m.parentEventTitle.trim().toLowerCase())) return;
+
           const initialPlates = m.targetPlates != null ? m.targetPlates : 500;
           const booked = getBookedCount(`food-${m.id}`, m.name);
           fetchedActivities.push({
@@ -420,6 +482,19 @@ export function EventMemberView() {
 
       if (culturals && Array.isArray(culturals)) {
         culturals.forEach((c: any) => {
+          if (String(c.status || "").toUpperCase() === "CANCELLED") return;
+          if (c.mainEventId != null) {
+            const mid = String(c.mainEventId);
+            if (cancelledEventIds.has(mid) || cancelledEventIds.has(`event-${mid}`)) return;
+            if (allEvents && allEvents.length > 0 && !activeEventIds.has(mid) && !activeEventIds.has(`event-${mid}`)) return;
+          }
+          if (c.eventId != null) {
+            const eid = String(c.eventId);
+            if (cancelledEventIds.has(eid) || cancelledEventIds.has(`event-${eid}`)) return;
+            if (allEvents && allEvents.length > 0 && !activeEventIds.has(eid) && !activeEventIds.has(`event-${eid}`)) return;
+          }
+          if (c.parentEventTitle && cancelledEventTitles.has(c.parentEventTitle.trim().toLowerCase())) return;
+
           const initialSeats = 30;
           const booked = getBookedCount(`cult-${c.id}`, c.name);
           fetchedActivities.push({
@@ -439,6 +514,19 @@ export function EventMemberView() {
 
       if (comps && Array.isArray(comps)) {
         comps.forEach((cm: any) => {
+          if (String(cm.status || "").toUpperCase() === "CANCELLED") return;
+          if (cm.mainEventId != null) {
+            const mid = String(cm.mainEventId);
+            if (cancelledEventIds.has(mid) || cancelledEventIds.has(`event-${mid}`)) return;
+            if (allEvents && allEvents.length > 0 && !activeEventIds.has(mid) && !activeEventIds.has(`event-${mid}`)) return;
+          }
+          if (cm.eventId != null) {
+            const eid = String(cm.eventId);
+            if (cancelledEventIds.has(eid) || cancelledEventIds.has(`event-${eid}`)) return;
+            if (allEvents && allEvents.length > 0 && !activeEventIds.has(eid) && !activeEventIds.has(`event-${eid}`)) return;
+          }
+          if (cm.parentEventTitle && cancelledEventTitles.has(cm.parentEventTitle.trim().toLowerCase())) return;
+
           const initialMax = cm.maxParticipants != null ? cm.maxParticipants : 50;
           const booked = getBookedCount(`comp-${cm.id}`, cm.name);
           fetchedActivities.push({
@@ -455,6 +543,8 @@ export function EventMemberView() {
           });
         });
       }
+
+
 
       setActivitiesList(fetchedActivities);
     } catch (err) {
@@ -981,7 +1071,10 @@ export function EventMemberView() {
 
     if (!useMock) {
       try {
-        const saved = await eventService.createRegistration(passPayload);
+        const isPooja = selectedActivity.category?.toLowerCase().includes("pooja");
+        const saved = isPooja
+          ? await eventService.createPoojaRegistration(passPayload as any)
+          : await eventService.createRegistration(passPayload);
         if (saved && saved.id) {
           createdId = String(saved.id);
         }
@@ -2409,7 +2502,15 @@ export function EventMemberView() {
                     max="110"
                     required
                     value={newMember.age}
-                    onChange={(e) => setNewMember({ ...newMember, age: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
+                    }}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const parsed = parseInt(val, 10);
+                      const sanitized = isNaN(parsed) ? "" : String(Math.max(0, Math.min(110, parsed)));
+                      setNewMember({ ...newMember, age: sanitized });
+                    }}
                     placeholder="25"
                     className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />

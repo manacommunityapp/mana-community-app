@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import {
   Flame, Plus, Loader2, AlertCircle, Pencil, Trash2, Users, Clock, MapPin,
-  Calendar, IndianRupee, X, Star, ChevronDown, ChevronUp, User,
+  Calendar, IndianRupee, X, Star, ChevronDown, ChevronUp, User, Ban,
+  CheckCircle2, Search, UserPlus, Edit3, Save, Phone, Mail, FileText, AlertTriangle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 
@@ -44,6 +46,9 @@ type BookingRegistration = {
   bookingFee: number;
   paymentStatus: string;
   status: string;
+  phone?: string;
+  email?: string;
+  notes?: string;
   createdAt: string;
 };
 
@@ -88,6 +93,22 @@ const emptyPoojaForm = {
   notes: "",
 };
 
+const emptyRegForm = {
+  participantName: "",
+  attendingDevotees: "",
+  gotram: "",
+  devoteeCount: 1,
+  phone: "",
+  email: "",
+  eventDate: "",
+  eventTime: "",
+  venue: "",
+  bookingFee: 0,
+  paymentStatus: "PAID",
+  status: "CONFIRMED",
+  notes: "",
+};
+
 export function EventsPoojaSeva() {
   const { useMock } = useEventMock();
   const [poojaSevas, setPoojaSevas] = useState<PoojaSeva[]>([]);
@@ -97,12 +118,30 @@ export function EventsPoojaSeva() {
   const [events, setEvents] = useState<EventResponse[]>([]);
   const [expandedPoojaId, setExpandedPoojaId] = useState<number | null>(null);
 
+  // Pooja Seva Create / Edit modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingPoojaId, setEditingPoojaId] = useState<number | null>(null);
   const [poojaForm, setPoojaForm] = useState(emptyPoojaForm);
   const [poojaTypes, setPoojaTypes] = useState<string[]>(DEFAULT_POOJA_TYPES);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Admin Registration Management state
+  const [showRegModal, setShowRegModal] = useState(false);
+  const [editingReg, setEditingReg] = useState<BookingRegistration | null>(null);
+  const [selectedPoojaForReg, setSelectedPoojaForReg] = useState<PoojaSeva | null>(null);
+  const [regForm, setRegForm] = useState(emptyRegForm);
+  const [regFormError, setRegFormError] = useState("");
+  const [savingReg, setSavingReg] = useState(false);
+
+  // Per-pooja search and status filter state
+  const [regSearch, setRegSearch] = useState<Record<number, string>>({});
+  const [regFilterStatus, setRegFilterStatus] = useState<Record<number, string>>({});
+
+  // Confirmation modals
+  const [deleteConfirmReg, setDeleteConfirmReg] = useState<BookingRegistration | null>(null);
+  const [cancelConfirmReg, setCancelConfirmReg] = useState<BookingRegistration | null>(null);
+  const [processingAction, setProcessingAction] = useState(false);
 
   useEffect(() => {
     eventService.getAll().then(evts => {
@@ -120,16 +159,13 @@ export function EventsPoojaSeva() {
     setError("");
     Promise.all([
       eventService.getPoojaSevas(),
-      eventService.getAllRegistrations(),
+      eventService.getPoojaRegistrations(),
       eventService.getPoojaTypes(),
     ])
       .then(([sevas, regs, types]) => {
         setPoojaSevas(sevas || []);
         const poojaRegs = (regs || [])
           .filter((r: any) => {
-            const regStatus = String(r.status || '').toUpperCase();
-            if (regStatus === 'CANCELLED' || regStatus === 'REJECTED') return false;
-            if (String(r.eventStatus || '').toUpperCase() === 'CANCELLED') return false;
             return r.category === "Pooja" || r.activityId?.startsWith("pooja-");
           })
           .map((r: any) => {
@@ -141,7 +177,12 @@ export function EventsPoojaSeva() {
               } catch {}
             }
             if (!count) count = 1;
-            return { ...r, devoteeCount: count };
+            return {
+              ...r,
+              devoteeCount: count,
+              status: String(r.status || "CONFIRMED").toUpperCase(),
+              paymentStatus: String(r.paymentStatus || "PAID").toUpperCase(),
+            };
           });
         setRegistrations(poojaRegs);
         if (types?.length > 0) setPoojaTypes(types.map((t: any) => t.name));
@@ -158,28 +199,49 @@ export function EventsPoojaSeva() {
     window.addEventListener("mana_schedule_updated", loadData);
     window.addEventListener("mana_event_created", loadData);
     window.addEventListener("mana_event_updated", loadData);
+    window.addEventListener("mana_event_registration_updated", loadData);
     return () => {
       window.removeEventListener("mana_activities_updated", loadData);
       window.removeEventListener("mana_schedule_updated", loadData);
       window.removeEventListener("mana_event_created", loadData);
       window.removeEventListener("mana_event_updated", loadData);
+      window.removeEventListener("mana_event_registration_updated", loadData);
     };
   }, [useMock]);
 
   const getRegistrationsForPooja = (pooja: PoojaSeva) => {
-    if (useMock) {
-      return registrations.filter(r => r.activityId === `pooja-${pooja.id}`);
-    }
-    return registrations.filter(r =>
-      r.activityTitle === pooja.name || r.activityId === `pooja-${pooja.id}` || r.activityId === String(pooja.id)
-    );
+    const raw = useMock
+      ? registrations.filter(r => r.activityId === `pooja-${pooja.id}`)
+      : registrations.filter(r =>
+          r.activityTitle === pooja.name || r.activityId === `pooja-${pooja.id}` || r.activityId === String(pooja.id)
+        );
+
+    const searchQ = (regSearch[pooja.id] || "").toLowerCase().trim();
+    const filterSt = regFilterStatus[pooja.id] || "ALL";
+
+    return raw.filter(r => {
+      const matchSearch =
+        !searchQ ||
+        r.participantName.toLowerCase().includes(searchQ) ||
+        (r.gotram && r.gotram.toLowerCase().includes(searchQ)) ||
+        (r.regCode && r.regCode.toLowerCase().includes(searchQ)) ||
+        (r.phone && r.phone.includes(searchQ));
+
+      const matchStatus =
+        filterSt === "ALL" ||
+        (filterSt === "CONFIRMED" && r.status === "CONFIRMED") ||
+        (filterSt === "PENDING" && r.status === "PENDING") ||
+        (filterSt === "CANCELLED" && (r.status === "CANCELLED" || r.status === "REJECTED"));
+
+      return matchSearch && matchStatus;
+    });
   };
 
-  const set = (k: string, v: any) => setPoojaForm(f => ({ ...f, [k]: v }));
+  const activeEvents = events.filter(ev => String(ev.status || "").toUpperCase() !== "CANCELLED");
 
   const openCreateModal = () => {
     setEditingPoojaId(null);
-    setPoojaForm({ ...emptyPoojaForm, mainEventId: events.length > 0 ? String(events[0].id) : "" });
+    setPoojaForm({ ...emptyPoojaForm, mainEventId: activeEvents.length > 0 ? String(activeEvents[0].id) : "" });
     setFormError("");
     setShowCreateModal(true);
   };
@@ -264,6 +326,7 @@ export function EventsPoojaSeva() {
           const resp = await eventService.updatePoojaSeva(editingPoojaId, payload);
           setPoojaSevas(prev => prev.map(p => p.id === editingPoojaId ? resp : p));
         }
+        toast.success("Pooja updated successfully");
       } else {
         if (useMock) {
           const newPooja: PoojaSeva = { id: Date.now(), ...payload, fee: payload.fee, duration: payload.duration, slots: payload.slots } as PoojaSeva;
@@ -272,6 +335,7 @@ export function EventsPoojaSeva() {
           const resp = await eventService.createPoojaSeva(payload);
           setPoojaSevas(prev => [resp, ...prev]);
         }
+        toast.success("Pooja created successfully");
       }
       setShowCreateModal(false);
       setEditingPoojaId(null);
@@ -287,15 +351,181 @@ export function EventsPoojaSeva() {
     if (!confirm(`Delete "${p.name}"?`)) return;
     if (useMock) {
       setPoojaSevas(prev => prev.filter(x => x.id !== p.id));
+      toast.success("Pooja deleted");
       return;
     }
     try {
       await eventService.deletePoojaSeva(p.id);
       setPoojaSevas(prev => prev.filter(x => x.id !== p.id));
+      toast.success("Pooja deleted successfully");
     } catch (err: any) {
       setError(err?.message || "Failed to delete pooja");
     }
   };
+
+  /* ─── Admin Registration Actions (Add, Edit, Cancel, Delete) ─── */
+  const handleOpenAddReg = (pooja: PoojaSeva) => {
+    setSelectedPoojaForReg(pooja);
+    setEditingReg(null);
+    setRegForm({
+      ...emptyRegForm,
+      eventDate: pooja.date,
+      eventTime: pooja.startTimes?.[0] || pooja.startTime || "08:30 AM",
+      venue: pooja.mandap || "Main Temple Mandap",
+      bookingFee: pooja.isFree ? 0 : Number(pooja.fee || 0),
+      paymentStatus: pooja.isFree ? "FREE" : "PAID",
+      status: "CONFIRMED",
+    });
+    setRegFormError("");
+    setShowRegModal(true);
+  };
+
+  const handleOpenEditReg = (pooja: PoojaSeva, reg: BookingRegistration) => {
+    setSelectedPoojaForReg(pooja);
+    setEditingReg(reg);
+    setRegForm({
+      participantName: reg.participantName || "",
+      attendingDevotees: reg.attendingDevotees || "",
+      gotram: reg.gotram || "",
+      devoteeCount: reg.devoteeCount || 1,
+      phone: reg.phone || "",
+      email: reg.email || "",
+      eventDate: reg.eventDate || pooja.date,
+      eventTime: reg.eventTime || pooja.startTimes?.[0] || pooja.startTime || "",
+      venue: reg.venue || pooja.mandap || "Main Temple Mandap",
+      bookingFee: Number(reg.bookingFee || 0),
+      paymentStatus: reg.paymentStatus || "PAID",
+      status: reg.status || "CONFIRMED",
+      notes: reg.notes || "",
+    });
+    setRegFormError("");
+    setShowRegModal(true);
+  };
+
+  const handleSaveRegistration = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPoojaForReg) return;
+    if (!regForm.participantName.trim()) {
+      setRegFormError("Devotee / Participant Name is required");
+      return;
+    }
+
+    const payload = {
+      activityId: `pooja-${selectedPoojaForReg.id}`,
+      activityTitle: selectedPoojaForReg.name,
+      category: "Pooja",
+      participantName: regForm.participantName.trim(),
+      attendingDevotees: regForm.attendingDevotees.trim() || undefined,
+      gotram: regForm.gotram.trim() || undefined,
+      devoteeCount: Math.max(1, Number(regForm.devoteeCount) || 1),
+      phone: regForm.phone.trim() || undefined,
+      email: regForm.email.trim() || undefined,
+      eventDate: regForm.eventDate || selectedPoojaForReg.date,
+      eventTime: regForm.eventTime || selectedPoojaForReg.startTime || "08:30 AM",
+      venue: regForm.venue || selectedPoojaForReg.mandap || "Main Temple Mandap",
+      bookingFee: Number(regForm.bookingFee) || 0,
+      paymentStatus: regForm.paymentStatus,
+      status: regForm.status,
+      notes: regForm.notes.trim() || undefined,
+      mainEventId: undefined,
+    };
+
+    setSavingReg(true);
+    setRegFormError("");
+
+    try {
+      if (editingReg) {
+        if (useMock) {
+          setRegistrations(prev =>
+            prev.map(r => (r.id === editingReg.id ? { ...r, ...payload } : r))
+          );
+        } else {
+          const updated = await eventService.updateRegistration(editingReg.id, payload);
+          setRegistrations(prev =>
+            prev.map(r => (r.id === editingReg.id ? { ...r, ...updated, ...payload } : r))
+          );
+        }
+        toast.success(`Registration updated for ${regForm.participantName}`);
+      } else {
+        if (useMock) {
+          const newReg: BookingRegistration = {
+            id: Date.now(),
+            regCode: `POOJA-${Math.floor(1000 + Math.random() * 9000)}`,
+            ...payload,
+            createdAt: new Date().toISOString(),
+          };
+          setRegistrations(prev => [newReg, ...prev]);
+        } else {
+          const created = await eventService.adminCreateRegistration(payload);
+          setRegistrations(prev => [
+            {
+              id: created.id || Date.now(),
+              regCode: created.regCode || `POOJA-${created.id || 'REG'}`,
+              ...payload,
+              createdAt: created.createdAt || new Date().toISOString(),
+            },
+            ...prev,
+          ]);
+        }
+        toast.success(`Devotee registration added for ${regForm.participantName}`);
+      }
+      setShowRegModal(false);
+      setEditingReg(null);
+      setSelectedPoojaForReg(null);
+      setRegForm(emptyRegForm);
+      window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
+    } catch (err: any) {
+      setRegFormError(err?.message || "Failed to save registration");
+    } finally {
+      setSavingReg(false);
+    }
+  };
+
+  const handleConfirmCancelRegistration = async () => {
+    if (!cancelConfirmReg) return;
+    setProcessingAction(true);
+    try {
+      if (useMock) {
+        setRegistrations(prev =>
+          prev.map(r => (r.id === cancelConfirmReg.id ? { ...r, status: "CANCELLED" } : r))
+        );
+      } else {
+        await eventService.cancelRegistration(cancelConfirmReg.id);
+        setRegistrations(prev =>
+          prev.map(r => (r.id === cancelConfirmReg.id ? { ...r, status: "CANCELLED" } : r))
+        );
+      }
+      toast.success(`Registration cancelled for ${cancelConfirmReg.participantName}`);
+      setCancelConfirmReg(null);
+      window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to cancel registration");
+    } finally {
+      setProcessingAction(false);
+    }
+  };
+
+  const handleConfirmDeleteRegistration = async () => {
+    if (!deleteConfirmReg) return;
+    setProcessingAction(true);
+    try {
+      if (useMock) {
+        setRegistrations(prev => prev.filter(r => r.id !== deleteConfirmReg.id));
+      } else {
+        await eventService.deleteRegistrationPermanent(deleteConfirmReg.id);
+        setRegistrations(prev => prev.filter(r => r.id !== deleteConfirmReg.id));
+      }
+      toast.success(`Registration permanently deleted for ${deleteConfirmReg.participantName}`);
+      setDeleteConfirmReg(null);
+      window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete registration");
+    } finally {
+      setProcessingAction(false);
+    }
+  };
+
+  const set = (k: string, v: any) => setPoojaForm(f => ({ ...f, [k]: v }));
 
   const addTimeSlot = () => set("startTimes", [...poojaForm.startTimes, ""]);
   const removeTimeSlot = (idx: number) => {
@@ -374,7 +604,8 @@ export function EventsPoojaSeva() {
     }
   }, [poojaForm.isMultiDay, poojaForm.date, poojaForm.endDate, startTimesKey]);
 
-  const totalRegisteredDevotees = registrations.reduce((a, r) => a + (r.devoteeCount || 1), 0);
+  const activeRegistrations = registrations.filter(r => r.status !== "CANCELLED" && r.status !== "REJECTED");
+  const totalRegisteredDevotees = activeRegistrations.reduce((a, r) => a + (r.devoteeCount || 1), 0);
 
   return (
     <div className="space-y-3 sm:space-y-6">
@@ -382,13 +613,13 @@ export function EventsPoojaSeva() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-xs">
         <div>
           <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            <Flame className="w-5 h-5 text-amber-500" /> Pooja & Seva Management
+            <Flame className="w-5 h-5 text-amber-500" /> Pooja &amp; Seva Management
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">Manage temple rituals, view registrations, and configure pooja slots</p>
+          <p className="text-xs text-slate-400 mt-0.5">Manage temple rituals, devotee registrations, slots, and bookings</p>
         </div>
         <button
           onClick={openCreateModal}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 text-white hover:bg-amber-600 transition-all shadow-sm"
+          className="flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 text-white hover:bg-amber-600 transition-all shadow-sm cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" /> Create Pooja
         </button>
@@ -409,9 +640,9 @@ export function EventsPoojaSeva() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {[
           { label: "Total Poojas", value: poojaSevas.length, color: "#f59e0b" },
-          { label: "Total Registrations", value: registrations.length, color: "#6366f1" },
+          { label: "Active Registrations", value: activeRegistrations.length, color: "#6366f1" },
           { label: "Total Devotees", value: totalRegisteredDevotees, color: "#10b981" },
-          { label: "Paid Bookings", value: registrations.filter(r => r.paymentStatus === "PAID").length, color: "#0891b2" },
+          { label: "Paid Bookings", value: activeRegistrations.filter(r => r.paymentStatus === "PAID").length, color: "#0891b2" },
         ].map(s => (
           <div key={s.label} className="bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
             <p className="text-lg sm:text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
@@ -424,8 +655,15 @@ export function EventsPoojaSeva() {
       <div className="space-y-3">
         {poojaSevas.map(pooja => {
           const regs = getRegistrationsForPooja(pooja);
+          const rawPoojaRegs = useMock
+            ? registrations.filter(r => r.activityId === `pooja-${pooja.id}`)
+            : registrations.filter(r =>
+                r.activityTitle === pooja.name || r.activityId === `pooja-${pooja.id}` || r.activityId === String(pooja.id)
+              );
           const isExpanded = expandedPoojaId === pooja.id;
-          const totalDevotees = regs.reduce((a, r) => a + (r.devoteeCount || 1), 0);
+          const activeRegsForPooja = rawPoojaRegs.filter(r => r.status !== "CANCELLED" && r.status !== "REJECTED");
+          const totalDevotees = activeRegsForPooja.reduce((a, r) => a + (r.devoteeCount || 1), 0);
+
           return (
             <div key={pooja.id} className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
               {/* Pooja Header Card */}
@@ -441,12 +679,20 @@ export function EventsPoojaSeva() {
                         <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 mt-1">{pooja.type}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleOpenAddReg(pooja)}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 rounded-xl text-xs font-bold shadow-2xs transition-all cursor-pointer"
+                          title="Add devotee registration"
+                        >
+                          <UserPlus className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Add Devotee</span>
+                        </button>
                         <button onClick={() => openEditModal(pooja)}
-                          className="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors" title="Edit">
+                          className="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer" title="Edit Pooja">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
                         <button onClick={() => handleDelete(pooja)}
-                          className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors" title="Delete">
+                          className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer" title="Delete Pooja">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -469,7 +715,7 @@ export function EventsPoojaSeva() {
                     <div className="flex items-center gap-3 mt-2 flex-wrap">
                       {pooja.slots && (
                         <span className="text-xs font-semibold text-indigo-600">
-                          <Users className="w-3 h-3 inline mr-1" />{regs.length}/{pooja.slots} slots
+                          <Users className="w-3 h-3 inline mr-1" />{activeRegsForPooja.length}/{pooja.slots} slots booked
                         </span>
                       )}
                       <span className="text-xs font-semibold text-emerald-600">
@@ -485,74 +731,181 @@ export function EventsPoojaSeva() {
                 {/* Expand toggle for registrations */}
                 <button
                   onClick={() => setExpandedPoojaId(isExpanded ? null : pooja.id)}
-                  className="mt-3 flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors w-full justify-center py-1.5 rounded-lg hover:bg-indigo-50"
+                  className="mt-3 flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors w-full justify-center py-2 rounded-xl hover:bg-indigo-50/80 cursor-pointer border border-transparent hover:border-indigo-100"
                 >
                   <Users className="w-3.5 h-3.5" />
-                  {regs.length} Registration{regs.length !== 1 ? "s" : ""} ({totalDevotees} devotee{totalDevotees !== 1 ? "s" : ""})
+                  {rawPoojaRegs.length} Registration{rawPoojaRegs.length !== 1 ? "s" : ""} ({totalDevotees} active devotee{totalDevotees !== 1 ? "s" : ""})
                   {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
               </div>
 
               {/* Expanded Registrations Table */}
               {isExpanded && (
-                <div className="border-t border-slate-100">
+                <div className="border-t border-slate-100 bg-slate-50/40 p-3 sm:p-5 space-y-3">
+                  {/* Search, Status filter & Add Devotee Toolbar */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="relative flex-1 max-w-sm">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                        <input
+                          type="text"
+                          value={regSearch[pooja.id] || ""}
+                          onChange={e => setRegSearch(prev => ({ ...prev, [pooja.id]: e.target.value }))}
+                          placeholder="Search devotee, gotram, reg code..."
+                          className="w-full pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-300"
+                        />
+                        {regSearch[pooja.id] && (
+                          <button
+                            onClick={() => setRegSearch(prev => ({ ...prev, [pooja.id]: "" }))}
+                            className="absolute right-2.5 top-2 text-xs text-slate-400 hover:text-slate-700"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1 overflow-x-auto">
+                        {["ALL", "CONFIRMED", "PENDING", "CANCELLED"].map(st => {
+                          const currentFilter = regFilterStatus[pooja.id] || "ALL";
+                          const isActive = currentFilter === st;
+                          return (
+                            <button
+                              key={st}
+                              type="button"
+                              onClick={() => setRegFilterStatus(prev => ({ ...prev, [pooja.id]: st }))}
+                              className={`px-2.5 py-1 text-[10px] font-bold rounded-lg whitespace-nowrap transition-all cursor-pointer ${
+                                isActive
+                                  ? "bg-amber-500 text-white shadow-2xs"
+                                  : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                              }`}
+                            >
+                              {st === "ALL" && "All"}
+                              {st === "CONFIRMED" && "Confirmed"}
+                              {st === "PENDING" && "Pending"}
+                              {st === "CANCELLED" && "Cancelled"}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenAddReg(pooja)}
+                      className="flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-2xs transition-all cursor-pointer shrink-0"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Devotee Registration
+                    </button>
+                  </div>
+
                   {regs.length === 0 ? (
-                    <p className="px-6 py-6 text-center text-sm text-slate-400">No registrations yet</p>
+                    <div className="bg-white rounded-xl border border-dashed border-slate-200 p-8 text-center space-y-2">
+                      <Users className="w-8 h-8 text-slate-300 mx-auto" />
+                      <p className="text-xs font-semibold text-slate-600">No registrations match your filter</p>
+                      <p className="text-[11px] text-slate-400">Click &ldquo;Add Devotee Registration&rdquo; to manually book a slot for a devotee.</p>
+                    </div>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-xs sm:text-sm">
-                        <thead>
-                          <tr className="bg-slate-50/80 border-b border-slate-100">
-                            {["Reg Code", "Devotee Name", "Gotram", "Devotees", "Date / Time", "Fee", "Payment", "Status", "Registered At"].map(h => (
-                              <th key={h} className={`px-3 sm:px-4 py-2.5 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap ${
-                                ["Gotram", "Date / Time", "Registered At"].includes(h) ? "hidden lg:table-cell" : ""
-                              }`}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
-                          {regs.map(r => (
-                            <tr key={r.id} className="hover:bg-slate-50/60 transition-colors">
-                              <td className="px-3 sm:px-4 py-2.5 font-mono text-xs text-indigo-600 font-semibold">{r.regCode}</td>
-                              <td className="px-3 sm:px-4 py-2.5">
-                                <p className="font-semibold text-slate-800">{r.participantName}</p>
-                                {r.attendingDevotees && (
-                                  <p className="text-[10px] text-slate-400 mt-0.5">{r.attendingDevotees}</p>
-                                )}
-                              </td>
-                              <td className="px-3 sm:px-4 py-2.5 text-slate-600 hidden lg:table-cell">{r.gotram || "—"}</td>
-                              <td className="px-3 sm:px-4 py-2.5">
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">
-                                  <User className="w-3 h-3" /> {r.devoteeCount}
-                                </span>
-                              </td>
-                              <td className="px-3 sm:px-4 py-2.5 text-slate-500 hidden lg:table-cell whitespace-nowrap">
-                                {r.eventDate || "—"} {r.eventTime ? `· ${r.eventTime}` : ""}
-                              </td>
-                              <td className="px-3 sm:px-4 py-2.5 font-semibold text-slate-700">
-                                {r.bookingFee > 0 ? `₹${r.bookingFee.toLocaleString("en-IN")}` : "Free"}
-                              </td>
-                              <td className="px-3 sm:px-4 py-2.5">
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  r.paymentStatus === "PAID" ? "bg-emerald-50 text-emerald-700" :
-                                  r.paymentStatus === "FREE" ? "bg-sky-50 text-sky-700" :
-                                  "bg-amber-50 text-amber-700"
-                                }`}>{r.paymentStatus}</span>
-                              </td>
-                              <td className="px-3 sm:px-4 py-2.5">
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  r.status === "CONFIRMED" ? "bg-emerald-50 text-emerald-700" :
-                                  r.status === "CANCELLED" ? "bg-rose-50 text-rose-700" :
-                                  "bg-slate-100 text-slate-600"
-                                }`}>{r.status}</span>
-                              </td>
-                              <td className="px-3 sm:px-4 py-2.5 text-slate-400 hidden lg:table-cell whitespace-nowrap">
-                                {new Date(r.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                              </td>
+                    <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-2xs">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="bg-slate-100/80 border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                              <th className="px-3 py-2.5 text-left">Reg Code</th>
+                              <th className="px-3 py-2.5 text-left">Devotee Name &amp; Gotram</th>
+                              <th className="px-3 py-2.5 text-left">Devotees</th>
+                              <th className="px-3 py-2.5 text-left hidden md:table-cell">Slot Date / Time</th>
+                              <th className="px-3 py-2.5 text-left hidden lg:table-cell">Fee / Payment</th>
+                              <th className="px-3 py-2.5 text-left">Status</th>
+                              <th className="px-3 py-2.5 text-right">Admin Actions</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {regs.map(r => {
+                              const isCancelled = r.status === "CANCELLED" || r.status === "REJECTED";
+                              return (
+                                <tr key={r.id} className={`hover:bg-slate-50/80 transition-colors ${isCancelled ? "opacity-60 bg-rose-50/20" : ""}`}>
+                                  <td className="px-3 py-2.5 font-mono font-bold text-amber-700">{r.regCode}</td>
+                                  <td className="px-3 py-2.5">
+                                    <div className="font-semibold text-slate-800">{r.participantName}</div>
+                                    <div className="text-[10px] text-slate-400 flex items-center gap-1.5 flex-wrap mt-0.5">
+                                      {r.gotram && <span className="text-amber-700 font-medium bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200/60">Gotram: {r.gotram}</span>}
+                                      {r.attendingDevotees && <span className="truncate max-w-[160px]" title={r.attendingDevotees}>Family: {r.attendingDevotees}</span>}
+                                      {r.phone && <span>📞 {r.phone}</span>}
+                                    </div>
+                                  </td>
+                                  <td className="px-3 py-2.5">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[10px] font-bold">
+                                      <User className="w-3 h-3" /> {r.devoteeCount}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2.5 text-slate-600 hidden md:table-cell whitespace-nowrap">
+                                    <div>{r.eventDate || pooja.date}</div>
+                                    <div className="text-[10px] text-slate-400">{r.eventTime || pooja.startTime}</div>
+                                  </td>
+                                  <td className="px-3 py-2.5 hidden lg:table-cell">
+                                    <div className="font-semibold text-slate-700">
+                                      {r.bookingFee > 0 ? `₹${r.bookingFee.toLocaleString("en-IN")}` : "Free"}
+                                    </div>
+                                    <span className={`inline-block px-1.5 py-0.2 rounded text-[9px] font-extrabold uppercase mt-0.5 ${
+                                      r.paymentStatus === "PAID" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                                      r.paymentStatus === "FREE" ? "bg-sky-50 text-sky-700 border border-sky-200" :
+                                      "bg-amber-50 text-amber-700 border border-amber-200"
+                                    }`}>
+                                      {r.paymentStatus}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2.5">
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                      r.status === "CONFIRMED" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                                      r.status === "CANCELLED" ? "bg-rose-50 text-rose-700 border border-rose-200" :
+                                      "bg-amber-50 text-amber-700 border border-amber-200"
+                                    }`}>
+                                      {r.status === "CONFIRMED" && <CheckCircle2 className="w-3 h-3" />}
+                                      {r.status === "CANCELLED" && <Ban className="w-3 h-3" />}
+                                      {r.status}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2.5 text-right">
+                                    <div className="flex items-center justify-end gap-1">
+                                      {/* Edit */}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenEditReg(pooja, r)}
+                                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                                        title="Edit registration details"
+                                      >
+                                        <Edit3 className="w-3.5 h-3.5" />
+                                      </button>
+
+                                      {/* Cancel */}
+                                      {!isCancelled && (
+                                        <button
+                                          type="button"
+                                          onClick={() => setCancelConfirmReg(r)}
+                                          className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors cursor-pointer"
+                                          title="Cancel registration"
+                                        >
+                                          <Ban className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+
+                                      {/* Delete Permanent */}
+                                      <button
+                                        type="button"
+                                        onClick={() => setDeleteConfirmReg(r)}
+                                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                        title="Permanently delete registration"
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -565,12 +918,333 @@ export function EventsPoojaSeva() {
           <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] p-8 text-center">
             <Flame className="w-10 h-10 text-slate-300 mx-auto mb-3" />
             <p className="text-sm font-semibold text-slate-600">No Pooja or Seva created yet</p>
-            <p className="text-xs text-slate-400 mt-1">Click "Create Pooja" to add your first pooja or seva</p>
+            <p className="text-xs text-slate-400 mt-1">Click &ldquo;Create Pooja&rdquo; to add your first pooja or seva</p>
           </div>
         )}
       </div>
 
-      {/* Create / Edit Pooja Modal */}
+      {/* ── Add / Edit Devotee Registration Modal ── */}
+      {showRegModal && selectedPoojaForReg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[92vh] flex flex-col">
+            <div className="px-5 sm:px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+                  <UserPlus className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm sm:text-base">
+                    {editingReg ? "Edit Devotee Registration" : "Add Devotee Registration"}
+                  </h3>
+                  <p className="text-[11px] text-amber-100 truncate max-w-[260px] sm:max-w-xs">{selectedPoojaForReg.name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setShowRegModal(false); setEditingReg(null); }}
+                className="p-1 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveRegistration} className="p-5 sm:p-6 space-y-3.5 overflow-y-auto flex-1 text-xs">
+              {regFormError && (
+                <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700">
+                  <AlertCircle className="w-4 h-4 shrink-0" /> {regFormError}
+                </div>
+              )}
+
+              <div>
+                <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Devotee / Participant Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Ramesh Sharma"
+                  value={regForm.participantName}
+                  onChange={e => setRegForm({ ...regForm, participantName: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Gotram
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Bharadwaj"
+                    value={regForm.gotram}
+                    onChange={e => setRegForm({ ...regForm, gotram: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Devotee Count (Number of people)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={regForm.devoteeCount}
+                    onChange={e => setRegForm({ ...regForm, devoteeCount: Number(e.target.value) || 1 })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Attending Family Members / Devotees
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Priya Sharma, Arjun Sharma"
+                  value={regForm.attendingDevotees}
+                  onChange={e => setRegForm({ ...regForm, attendingDevotees: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. 9876543210"
+                    value={regForm.phone}
+                    onChange={e => setRegForm({ ...regForm, phone: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="e.g. devotee@example.com"
+                    value={regForm.email}
+                    onChange={e => setRegForm({ ...regForm, email: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                </div>
+              </div>
+
+              {/* Slot Date & Time selection */}
+              <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-200/60 space-y-2.5">
+                <p className="font-bold text-amber-800 uppercase tracking-wide">Pooja Slot Selection</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Slot Date</label>
+                    {selectedPoojaForReg.multiDay && selectedPoojaForReg.endDate ? (
+                      <select
+                        value={regForm.eventDate}
+                        onChange={e => setRegForm({ ...regForm, eventDate: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
+                      >
+                        {getDayRange(selectedPoojaForReg.date, selectedPoojaForReg.endDate).map(d => (
+                          <option key={d} value={d}>
+                            {new Date(d + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} ({d})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="date"
+                        value={regForm.eventDate}
+                        onChange={e => setRegForm({ ...regForm, eventDate: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">Slot Time</label>
+                    {selectedPoojaForReg.startTimes && selectedPoojaForReg.startTimes.length > 0 ? (
+                      <select
+                        value={regForm.eventTime}
+                        onChange={e => setRegForm({ ...regForm, eventTime: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
+                      >
+                        {selectedPoojaForReg.startTimes.map(t => (
+                          <option key={t} value={t}>⏰ {t}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="08:30 AM"
+                        value={regForm.eventTime}
+                        onChange={e => setRegForm({ ...regForm, eventTime: e.target.value })}
+                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Status & Payment Settings */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Booking Fee (₹)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={regForm.bookingFee}
+                    onChange={e => setRegForm({ ...regForm, bookingFee: Number(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Payment Status
+                  </label>
+                  <select
+                    value={regForm.paymentStatus}
+                    onChange={e => setRegForm({ ...regForm, paymentStatus: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  >
+                    <option value="PAID">PAID</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="FREE">FREE</option>
+                    <option value="WAIVED">WAIVED</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Registration Status
+                  </label>
+                  <select
+                    value={regForm.status}
+                    onChange={e => setRegForm({ ...regForm, status: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  >
+                    <option value="CONFIRMED">CONFIRMED</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Notes / Sankalpam Requests
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Special dietary / sankalpam / seating requests"
+                  value={regForm.notes}
+                  onChange={e => setRegForm({ ...regForm, notes: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => { setShowRegModal(false); setEditingReg(null); }}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingReg}
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer disabled:opacity-60 flex items-center gap-1.5"
+                >
+                  {savingReg ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  {editingReg ? "Save Changes" : "Create Registration"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Cancel Registration Confirmation Modal ── */}
+      {cancelConfirmReg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-slate-100 text-center">
+            <div className="w-12 h-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+              <Ban className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-base">Cancel Registration?</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Are you sure you want to cancel the pooja booking for <strong>{cancelConfirmReg.participantName}</strong> ({cancelConfirmReg.regCode})?
+              </p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setCancelConfirmReg(null)}
+                className="flex-1 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Keep Booking
+              </button>
+              <button
+                type="button"
+                disabled={processingAction}
+                onClick={handleConfirmCancelRegistration}
+                className="flex-1 px-4 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-1.5"
+              >
+                {processingAction ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Ban className="w-3.5 h-3.5" />}
+                Yes, Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Delete Registration Permanent Confirmation Modal ── */}
+      {deleteConfirmReg && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-slate-100 text-center">
+            <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-800 text-base">Permanently Delete Record?</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                This will permanently purge the registration record of <strong>{deleteConfirmReg.participantName}</strong> ({deleteConfirmReg.regCode}) from the database. This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmReg(null)}
+                className="flex-1 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={processingAction}
+                onClick={handleConfirmDeleteRegistration}
+                className="flex-1 px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-60 flex items-center justify-center gap-1.5"
+              >
+                {processingAction ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Create / Edit Pooja Modal ── */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -607,7 +1281,7 @@ export function EventsPoojaSeva() {
                   <select value={poojaForm.mainEventId} onChange={e => set("mainEventId", e.target.value)}
                     className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white">
                     <option value="">Select event (optional)</option>
-                    {events.map(ev => <option key={ev.id} value={String(ev.id)}>{ev.title}</option>)}
+                    {activeEvents.map(ev => <option key={ev.id} value={String(ev.id)}>{ev.title}</option>)}
                   </select>
                 </label>
               )}
@@ -714,7 +1388,7 @@ export function EventsPoojaSeva() {
                 </label>
               </div>
 
-              {/* Slots Configuration: Available Slots for Single Day vs Per-Time Slot for Multi-Day */}
+              {/* Slots Configuration */}
               {!poojaForm.isMultiDay ? (
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
                   <label className="flex flex-col gap-1">
@@ -893,3 +1567,4 @@ export function EventsPoojaSeva() {
     </div>
   );
 }
+

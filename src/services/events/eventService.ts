@@ -493,32 +493,141 @@ export const eventService = {
   },
 
   async createPoojaRegistration(data: PoojaRegistrationRequest): Promise<any> {
-    return apiClient.post<any>("/events/registrations", data);
+    try {
+      return await apiClient.post<any>("/events/pooja-registrations", data);
+    } catch {
+      return await apiClient.post<any>("/events/registrations", data);
+    }
+  },
+
+  async getPoojaRegistrations(): Promise<any[]> {
+    try {
+      return await apiClient.get<any[]>("/events/pooja-registrations");
+    } catch {
+      const all = await apiClient.get<any[]>("/events/registrations");
+      return (all || []).filter((r: any) => r.category === "Pooja" || r.activityId?.startsWith("pooja-"));
+    }
+  },
+
+  async getMyPoojaRegistrations(): Promise<any[]> {
+    try {
+      return await apiClient.get<any[]>("/events/pooja-registrations/my");
+    } catch {
+      const all = await apiClient.get<any[]>("/events/registrations/my");
+      return (all || []).filter((r: any) => r.category === "Pooja" || r.activityId?.startsWith("pooja-"));
+    }
   },
 
   async getMyRegistrations(): Promise<any[]> {
-    return apiClient.get<any[]>("/events/registrations/my");
+    const [generalRegs, poojaRegs] = await Promise.allSettled([
+      apiClient.get<any[]>("/events/registrations/my"),
+      apiClient.get<any[]>("/events/pooja-registrations/my"),
+    ]);
+
+    const general = generalRegs.status === "fulfilled" && Array.isArray(generalRegs.value) ? generalRegs.value : [];
+    const pooja = poojaRegs.status === "fulfilled" && Array.isArray(poojaRegs.value) ? poojaRegs.value : [];
+
+    const normalizedPooja = pooja.map((p) => ({
+      ...p,
+      activityId: p.activityId || (p.eventId ? `pooja-${p.eventId}` : `pooja-${p.id}`),
+      activityTitle: p.activityTitle || p.poojaSlotName || "Pooja Seva",
+      category: p.category || "Pooja",
+      passType: p.passType || "Pooja Registration Pass",
+      eventDate: p.eventDate || p.poojaSlotDate,
+      eventTime: p.eventTime || p.poojaSlotTime,
+    }));
+
+    const seen = new Set<string>();
+    const combined: any[] = [];
+    for (const r of [...normalizedPooja, ...general]) {
+      const key = r.regCode || (r.id ? `${r.category || 'REG'}-${r.id}` : JSON.stringify(r));
+      if (!seen.has(key)) {
+        seen.add(key);
+        combined.push(r);
+      }
+    }
+    return combined;
   },
 
   async getAllRegistrations(): Promise<any[]> {
-    return apiClient.get<any[]>("/events/registrations");
+    const [generalRegs, poojaRegs] = await Promise.allSettled([
+      apiClient.get<any[]>("/events/registrations"),
+      apiClient.get<any[]>("/events/pooja-registrations"),
+    ]);
+
+    const general = generalRegs.status === "fulfilled" && Array.isArray(generalRegs.value) ? generalRegs.value : [];
+    const pooja = poojaRegs.status === "fulfilled" && Array.isArray(poojaRegs.value) ? poojaRegs.value : [];
+
+    const normalizedPooja = pooja.map((p) => ({
+      ...p,
+      activityId: p.activityId || (p.eventId ? `pooja-${p.eventId}` : `pooja-${p.id}`),
+      activityTitle: p.activityTitle || p.poojaSlotName || "Pooja Seva",
+      category: p.category || "Pooja",
+      passType: p.passType || "Pooja Registration Pass",
+      eventDate: p.eventDate || p.poojaSlotDate,
+      eventTime: p.eventTime || p.poojaSlotTime,
+    }));
+
+    const seen = new Set<string>();
+    const combined: any[] = [];
+    for (const r of [...normalizedPooja, ...general]) {
+      const key = r.regCode || (r.id ? `${r.category || 'REG'}-${r.id}` : JSON.stringify(r));
+      if (!seen.has(key)) {
+        seen.add(key);
+        combined.push(r);
+      }
+    }
+    return combined;
   },
 
   async updateRegistration(id: number | string, data: any): Promise<any> {
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
-    return apiClient.put<any>(`/events/registrations/${numericId}`, data);
+    try {
+      return await apiClient.put<any>(`/events/registrations/${numericId}`, data);
+    } catch {
+      return await apiClient.put<any>(`/events/pooja-registrations/${numericId}`, data);
+    }
   },
 
   async updatePoojaRegistration(id: number | string, data: PoojaRegistrationRequest): Promise<any> {
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
-    return apiClient.put<any>(`/events/registrations/${numericId}`, data);
+    try {
+      return await apiClient.put<any>(`/events/pooja-registrations/${numericId}`, data);
+    } catch {
+      return await apiClient.put<any>(`/events/registrations/${numericId}`, data);
+    }
   },
 
   async cancelRegistration(id: number | string): Promise<void> {
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
-    return apiClient.delete<void>(`/events/registrations/${numericId}`);
+    try {
+      await apiClient.delete<void>(`/events/pooja-registrations/${numericId}`);
+    } catch {
+      await apiClient.delete<void>(`/events/registrations/${numericId}`);
+    }
+  },
+
+  async deleteRegistrationPermanent(id: number | string): Promise<void> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
+    try {
+      await apiClient.delete<void>(`/events/pooja-registrations/${numericId}?permanent=true`);
+    } catch {
+      await apiClient.delete<void>(`/events/registrations/${numericId}?permanent=true`);
+    }
+  },
+
+  async adminCreateRegistration(data: any): Promise<any> {
+    if (data?.category?.toLowerCase() === "pooja") {
+      try {
+        return await apiClient.post<any>("/events/pooja-registrations?adminOverride=true", data);
+      } catch {
+        // fallback
+      }
+    }
+    return apiClient.post<any>("/events/registrations?adminOverride=true", data);
   },
 };

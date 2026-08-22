@@ -726,14 +726,14 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         email: formData.email,
         gotram: formData.gotram || undefined,
         flatNo: formData.flatNo,
-        membersCount: formData.members.length || 1,
-        devoteeCount: formData.members.length || 1,
+        membersCount: Math.max(1, formData.members.length || 1),
+        devoteeCount: Math.max(1, formData.members.length || 1),
         attendingDevotees: formData.members.map((m) => m.name).filter(Boolean).join(", "),
-        membersJson: JSON.stringify(formData.members),
+        membersJson: JSON.stringify(formData.members.map(m => ({ ...m, age: Math.max(0, Math.min(120, Number(m.age) || 0)) }))),
         eventDate: event?.date || "2026",
         eventTime: event?.time || formData.poojaSlot,
         venue: event?.venue || "Community Mandap",
-        bookingFee: (isAnyAdmin && adminPaymentStatus === "FREE") ? 0 : formData.numericPrice,
+        bookingFee: Math.max(0, (isAnyAdmin && adminPaymentStatus === "FREE") ? 0 : (formData.numericPrice || 0)),
         paymentStatus,
         paymentMethod: selectedMode,
         paymentReceiptUrl: formData.receiptUrl || undefined,
@@ -756,7 +756,11 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         }
       } else {
         try {
-          await eventService.createRegistration(regPayload);
+          if (regPayload.category?.toLowerCase() === "pooja" || (event?.category && String(event.category).toLowerCase().includes("pooja"))) {
+            await eventService.createPoojaRegistration(regPayload as any);
+          } else {
+            await eventService.createRegistration(regPayload);
+          }
           showSuccess("Registration completed successfully!");
         } catch (apiErr: any) {
           const errMsg = apiErr?.response?.data?.message || apiErr?.message || "";
@@ -1445,9 +1449,14 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                           min={1}
                           max={120}
                           value={mem.age || ""}
+                          onKeyDown={(e) => {
+                            if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
+                          }}
                           onChange={(e) => {
+                            const val = e.target.value;
+                            const parsed = parseInt(val, 10);
                             const updated = [...formData.members];
-                            updated[idx].age = parseInt(e.target.value) || 0;
+                            updated[idx].age = isNaN(parsed) ? 0 : Math.max(0, Math.min(120, parsed));
                             setFormData({ ...formData, members: updated });
                           }}
                           className="w-full h-9 px-2.5 rounded-xl bg-[var(--mana-bg-input)] text-xs font-semibold border border-border outline-none text-foreground"
