@@ -620,13 +620,20 @@ export function ProfileDashboard() {
     <div className="space-y-0 -mt-4 sm:-mt-6 lg:-mt-8 -mx-4 sm:-mx-6 lg:-mx-8">
       <Toaster position="top-center" richColors />
 
+      {/* Modern Gradient Cover Banner */}
+      <div className="h-28 sm:h-40 md:h-48 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 relative overflow-hidden">
+        <div className="absolute inset-0 bg-black/10 backdrop-blur-[0.5px]" />
+        <div className="absolute -right-12 -bottom-12 w-48 sm:w-64 h-48 sm:h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute left-8 top-4 w-32 sm:w-44 h-32 sm:h-44 bg-indigo-400/20 rounded-full blur-xl pointer-events-none" />
+      </div>
+
       {/* Profile Header */}
-      <div className="bg-card border-b border-border px-6 sm:px-10 pt-20 pb-0">
+      <div className="bg-card border-b border-border px-4 sm:px-6 lg:px-10 pb-0">
         <div className="max-w-5xl mx-auto">
-          <div className="flex flex-col md:flex-row gap-6 items-start md:items-end -mt-16 md:-mt-20 pb-5">
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 items-center sm:items-end -mt-14 sm:-mt-16 md:-mt-20 pb-4 sm:pb-5 text-center sm:text-left">
             {/* Avatar */}
             <div className="relative flex-shrink-0">
-              <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-[2rem] overflow-hidden border-4 border-card shadow-2xl ring-4 ring-primary/20 bg-muted">
+              <div className="w-28 h-28 sm:w-36 sm:h-36 rounded-[2rem] overflow-hidden border-4 border-card shadow-2xl ring-4 ring-primary/20 bg-muted">
                 <img src={userAvatar} alt={profile.fullName} className="w-full h-full object-cover" />
                 {uploadingAvatar && (
                   <div className="absolute inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center">
@@ -634,63 +641,63 @@ export function ProfileDashboard() {
                   </div>
                 )}
               </div>
-              <div className="absolute top-3 right-3 w-4 h-4 bg-emerald-400 rounded-full border-2 border-white shadow" />
+              <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-emerald-400 rounded-full border-2 border-white shadow" />
               <button
                 type="button"
                 disabled={uploadingAvatar}
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-2 -right-2 bg-primary hover:bg-primary/90 text-white p-2.5 rounded-xl shadow-lg transition-all hover:scale-110 active:scale-95 cursor-pointer disabled:opacity-50"
+                className="absolute -bottom-1.5 -right-1.5 sm:-bottom-2 sm:-right-2 bg-primary hover:bg-primary/90 text-white p-2 sm:p-2.5 rounded-xl shadow-lg transition-all hover:scale-110 active:scale-95 cursor-pointer disabled:opacity-50"
                 title="Change profile picture"
               >
-                <Camera className="w-4 h-4" />
+                <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
             </div>
 
             {/* Name & Meta */}
-            <div className="flex-1 pb-2">
-              <div className="flex flex-wrap items-center gap-3 mb-2">
-                <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">{profile.fullName}</h1>
-                <span className={cn("inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest", role.color)}>
-                  <role.icon className="w-3.5 h-3.5" /> {role.label}
+            <div className="flex-1 min-w-0 pb-1">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-3 mb-1.5">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-foreground tracking-tight">{profile.fullName}</h1>
+                <span className={cn("inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider", role.color)}>
+                  <role.icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> {role.label}
                 </span>
                 {profile.kycStatus === "VERIFIED" && (
-                  <span className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest">
-                    <ShieldCheck className="w-3.5 h-3.5" /> KYC Verified
+                  <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
+                    <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> KYC Verified
                   </span>
                 )}
               </div>
 
-              <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-muted-foreground">
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Building2 className="w-4 h-4 text-primary" />
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1 font-medium">
+                  <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
                   {profile.communityName || "Community Member"}
                 </span>
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Home className="w-4 h-4 text-indigo-500" />
+                <span className="flex items-center gap-1 font-medium">
+                  <Home className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                   {unitDisplay}
                 </span>
-                <span className="flex items-center gap-1.5 font-medium">
-                  <Calendar className="w-4 h-4 text-amber-500" />
+                <span className="hidden xs:flex items-center gap-1 font-medium">
+                  <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                   Member since {profile.joinedAt ? new Date(profile.joinedAt).toLocaleDateString("en-US", { month: "short", year: "numeric" }) : "Active"}
                 </span>
-                <span className="flex items-center gap-1.5 text-xs bg-muted text-muted-foreground px-2.5 py-0.5 rounded-lg font-mono">
+                <span className="flex items-center gap-1 text-[11px] bg-muted text-muted-foreground px-2 py-0.5 rounded-lg font-mono">
                   ID: #{profile.userId}
                 </span>
               </div>
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2.5 pb-2">
+            <div className="flex items-center gap-2 w-full sm:w-auto pt-1 sm:pt-0 sm:pb-2">
               <button
                 type="button"
                 onClick={() => loadProfile(true)}
                 disabled={refreshing}
-                className="flex items-center gap-1.5 px-3.5 py-2.5 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-xl transition-all text-xs border border-border cursor-pointer disabled:opacity-60"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-muted hover:bg-muted/80 text-foreground font-semibold rounded-xl transition-all text-xs border border-border cursor-pointer disabled:opacity-60"
                 title="Refresh user data from database"
               >
                 <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin text-primary")} />
-                <span className="hidden sm:inline">Refresh</span>
+                <span>Refresh</span>
               </button>
 
               <button
@@ -701,7 +708,7 @@ export function ProfileDashboard() {
                   }
                   setIsEditing(!isEditing);
                 }}
-                className="flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl transition-all shadow-md shadow-primary/25 text-xs sm:text-sm cursor-pointer"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl transition-all shadow-md shadow-primary/25 text-xs sm:text-sm cursor-pointer"
               >
                 <PenLine className="w-4 h-4" />
                 {isEditing ? "Cancel Edit" : "Edit Profile"}
@@ -710,7 +717,7 @@ export function ProfileDashboard() {
           </div>
 
           {/* Stats Bar */}
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mt-6">
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-3 my-4 sm:my-6">
             {[
               { label: "Posts", value: profile.stats.posts, colorClass: "text-indigo-600 dark:text-indigo-400", bgClass: "bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-100 dark:border-indigo-900/30" },
               { label: "Network", value: profile.stats.connections, colorClass: "text-violet-600 dark:text-violet-400", bgClass: "bg-violet-50/50 dark:bg-violet-950/20 border-violet-100 dark:border-violet-900/30" },
@@ -719,23 +726,23 @@ export function ProfileDashboard() {
               { label: "Jobs", value: profile.stats.jobsPosted, colorClass: "text-blue-600 dark:text-blue-400", bgClass: "bg-blue-50/50 dark:bg-blue-950/20 border-blue-100 dark:border-blue-900/30" },
               { label: "Sports", value: profile.stats.sportsPlayed, colorClass: "text-amber-600 dark:text-amber-400", bgClass: "bg-amber-50/50 dark:bg-amber-950/20 border-amber-100 dark:border-amber-900/30" },
             ].map((stat) => (
-              <div key={stat.label} className={cn("rounded-2xl p-3.5 text-center border", stat.bgClass)}>
-                <div className={cn("text-xl sm:text-2xl font-black", stat.colorClass)}>{stat.value}</div>
-                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">{stat.label}</div>
+              <div key={stat.label} className={cn("rounded-xl sm:rounded-2xl p-2.5 sm:p-3.5 text-center border", stat.bgClass)}>
+                <div className={cn("text-base sm:text-2xl font-black", stat.colorClass)}>{stat.value}</div>
+                <div className="text-[9px] sm:text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5 truncate">{stat.label}</div>
               </div>
             ))}
           </div>
 
           {/* Tab Navigation */}
-          <div className="flex gap-0 -mb-px mt-4 overflow-x-auto">
+          <div className="flex gap-1 sm:gap-2 -mb-px mt-2 sm:mt-4 overflow-x-auto no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  "px-4 sm:px-6 py-3 text-xs sm:text-sm font-semibold border-b-2 transition-colors cursor-pointer whitespace-nowrap",
+                  "px-3.5 sm:px-5 py-2.5 sm:py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer whitespace-nowrap shrink-0",
                   activeTab === tab.id
-                    ? "border-primary text-primary"
+                    ? "border-primary text-primary font-black"
                     : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
                 )}
               >
@@ -747,7 +754,7 @@ export function ProfileDashboard() {
       </div>
 
       {/* Tab Content */}
-      <div className="px-4 sm:px-6 lg:px-8 py-6">
+      <div className="px-3 sm:px-6 lg:px-8 py-5 sm:py-6">
         <div className="max-w-5xl mx-auto">
           {/* OVERVIEW TAB */}
           {activeTab === "overview" && (
