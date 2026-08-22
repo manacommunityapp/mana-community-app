@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
   CalendarDays, Users, Ticket, TrendingUp, IndianRupee,
-  Utensils, Gavel, ClipboardCheck, Star,
+  Utensils, Gavel, ClipboardCheck, Star, Heart,
   Clock, MapPin, AlertCircle, Loader2,
   Sparkles, QrCode, UserPlus,
   ChevronRight, Download, Bot, RefreshCw,
@@ -500,32 +500,31 @@ export function EventsDashboard() {
   // ── Derived: KPI cards ────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     if (useMock) return MOCK_KPIS;
-    const spent = stats?.totalExpenses ?? 0;
-    const revenue = stats?.totalRevenue ?? 0;
-    const pending = sponsors.filter(s => s.status === "PENDING").length;
-    const active  = sponsors.filter(s => ["ACTIVE", "CONFIRMED"].includes(s.status)).length;
+    const spent   = stats?.totalExpenses ?? 0;
+    const revenue = stats?.totalRevenue  ?? 0;
+    // Use backend-computed counts (accurate today-specific) with frontend list as fallback
+    const livePendingSponsor = stats?.pendingSponsorCount ?? sponsors.filter(s => s.status === "PENDING").length;
+    const liveActiveSponsor  = stats?.activeSponsorCount  ?? sponsors.filter(s => ["ACTIVE","CONFIRMED"].includes(s.status)).length;
+    const liveSponsorTotal   = stats?.sponsorTotal   ?? sponsorTotal;
+    const liveDonationTotal  = stats?.donationTotal  ?? donationTotal;
     const spentPct = revenue > 0 ? `${Math.round(spent / revenue * 100)}% utilised` : "—";
-    const hasEvents = useMock || (events && events.length > 0) || (stats && stats.totalEvents > 0);
+    const hasEvents = (events && events.length > 0) || (stats && stats.totalEvents > 0);
 
-    const foodPct = hasEvents && stats?.foodPreparedPercentage != null
+    const foodPct    = stats?.foodPreparedPercentage != null && stats.foodPreparedPercentage > 0
       ? `${Math.round(stats.foodPreparedPercentage)}%`
-      : "0%";
+      : "—";
+    const foodPlates = stats?.foodPlatesCount != null && stats.foodPlatesCount > 0
+      ? `${stats.foodPlatesCount.toLocaleString()} plates`
+      : "No data yet";
+    const foodTrend = stats?.foodPlatesCount ? "Live tracking" : "No active menu";
 
-    const foodPlates = hasEvents && stats?.foodPlatesCount != null
-      ? `${stats.foodPlatesCount.toLocaleString()} plates prepared`
-      : "0 plates prepared";
+    const auctionRev   = fmtINR(stats?.auctionRevenue ?? 0);
+    const auctionItems = `${stats?.auctionItemCount ?? 0} items sold`;
 
-    const foodTrend = hasEvents ? "Live tracking" : "No active menu";
-
-    const auctionRev = stats?.auctionRevenue != null ? fmtINR(stats.auctionRevenue) : fmtINR(0);
-    const auctionItems = stats?.auctionItemCount != null ? `${stats.auctionItemCount} items sold` : "0 items sold";
-
-    const todaysScheduleDutyCount = hasEvents
-      ? (stats?.todaysScheduleCount ?? todaySchedule.length) + (stats?.todaysDutyCount ?? (stats?.totalVolunteers ?? 0))
-      : 0;
-    const pendingActionsCount = hasEvents
-      ? (stats?.pendingActionItemsCount ?? (pendingTasks.length + pending))
-      : 0;
+    // Today's schedule & duty: exact counts from backend (events active today)
+    const todayCount          = stats?.todaysScheduleCount ?? 0;
+    const dutyCount           = stats?.todaysDutyCount ?? 0;
+    const pendingActionsCount = stats?.pendingActionItemsCount ?? (pendingTasks.length + livePendingSponsor);
 
     return [
       {
@@ -538,33 +537,44 @@ export function EventsDashboard() {
       {
         label: "Registrations",   value: stats ? stats.totalRegistrations.toLocaleString() : "0",
         sub: `Across ${stats?.totalEvents ?? 0} events`,
-        icon: Ticket, color: "#7C3AED", bg: "rgba(124,58,237,0.12)", trend: hasEvents ? "Live" : "Inactive",
+        icon: Ticket, color: "#7C3AED", bg: "rgba(124,58,237,0.12)",
+        trend: hasEvents ? "Live" : "Inactive",
         to: "/events/registration",
       },
       {
-        label: "Budget Spent",    value: stats ? fmtINR(spent) : "₹0",
+        label: "Budget Spent",    value: fmtINR(spent),
         sub: revenue > 0 ? `Revenue: ${fmtINR(revenue)}` : "Revenue: ₹0",
         icon: IndianRupee, color: "#2563EB", bg: "rgba(37,99,235,0.12)", trend: spentPct,
         to: "/events/operations?tab=finance",
       },
       {
-        label: "Today's Schedule & Duty", value: `${todaysScheduleDutyCount} Items`,
-        sub: `${stats?.todaysScheduleCount ?? (hasEvents ? todaySchedule.length : 0)} events · ${stats?.todaysDutyCount ?? (stats?.totalVolunteers ?? 0)} duty shifts`,
-        icon: Clock, color: "#16A34A", bg: "rgba(22,163,74,0.12)", trend: hasEvents ? "Active Today" : "No Shift Today",
+        label: "Today's Schedule & Duty",
+        value: `${todayCount + dutyCount} Items`,
+        sub: `${todayCount} events today · ${dutyCount} on duty`,
+        icon: Clock, color: "#16A34A", bg: "rgba(22,163,74,0.12)",
+        trend: todayCount > 0 ? `${todayCount} active` : "No events today",
         to: "/events/schedule?tab=programs",
       },
       {
         label: "Pending Action Items", value: String(pendingActionsCount),
-        sub: `${pendingTasks.length} tasks · ${pending} sponsors pending`,
-        icon: AlertCircle, color: "#F59E0B", bg: "rgba(245,158,11,0.12)", trend: pendingActionsCount > 0 ? "Action Required" : "All Clear",
+        sub: `${pendingTasks.length} tasks · ${livePendingSponsor} sponsors pending`,
+        icon: AlertCircle, color: "#F59E0B", bg: "rgba(245,158,11,0.12)",
+        trend: pendingActionsCount > 0 ? "Action Required" : "All Clear",
         to: "/events/schedule?tab=planning",
       },
       {
-        label: "Sponsors Raised", value: fmtINR(sponsorTotal),
-        sub: `${active} active partners`,
+        label: "Sponsors Raised", value: fmtINR(liveSponsorTotal),
+        sub: `${liveActiveSponsor} active · ${livePendingSponsor} pending`,
         icon: Star, color: "#F59E0B", bg: "rgba(245,158,11,0.12)",
-        trend: pending > 0 ? `${pending} pending` : "All confirmed",
+        trend: livePendingSponsor > 0 ? `${livePendingSponsor} need review` : "All confirmed",
         to: "/events/fundraising?tab=sponsors",
+      },
+      {
+        label: "Donations Received", value: fmtINR(liveDonationTotal),
+        sub: liveDonationTotal > 0 ? "Community contributions" : "No donations yet",
+        icon: Heart, color: "#EC4899", bg: "rgba(236,72,153,0.12)",
+        trend: liveDonationTotal > 0 ? "Thank donors" : "Awaiting donations",
+        to: "/events/fundraising?tab=donations",
       },
       {
         label: "Food Prepared",   value: foodPct,
@@ -575,11 +585,12 @@ export function EventsDashboard() {
       {
         label: "Auction Revenue", value: auctionRev,
         sub: auctionItems,
-        icon: Gavel, color: "#06B6D4", bg: "rgba(6,182,212,0.12)", trend: hasEvents ? "Live now" : "No Active Auction",
+        icon: Gavel, color: "#06B6D4", bg: "rgba(6,182,212,0.12)",
+        trend: (stats?.auctionItemCount ?? 0) > 0 ? "Bids active" : "No Active Auction",
         to: "/events/fundraising?tab=auction",
       },
     ];
-  }, [useMock, stats, sponsorTotal, sponsors, registrations, todaySchedule, pendingTasks, events]);
+  }, [useMock, stats, sponsorTotal, donationTotal, sponsors, registrations, todaySchedule, pendingTasks, events]);
 
   // ── Derived: banner items ─────────────────────────────────────────────────
   const bannerItems: BannerItem[] = useMemo(() => {
@@ -1262,13 +1273,13 @@ export function EventsDashboard() {
               </div>
             ))}
           </div>
-          {/* Search bar hidden as of now */}
-          {/* <div className="relative w-full sm:w-52">
+          {/* Search bar */}
+          <div className="relative w-full sm:w-52">
             <Search className="w-3 h-3 text-slate-400 absolute left-2.5 top-2.5" />
             <input type="text" placeholder="Search name, code..." value={regSearch}
               onChange={e => setRegSearch(e.target.value)}
               className="w-full pl-7 pr-3 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-medium text-slate-700 focus:outline-none focus:border-indigo-400" />
-          </div> */}
+          </div>
         </div>
 
         {loadingRegs && <div className="py-8 text-center text-xs text-slate-400"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />Loading...</div>}
