@@ -1,14 +1,14 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import Swal from "sweetalert2";
 import {
   Phone, Mail, ChevronDown, ChevronUp, Users, Shield, Loader2,
   HelpCircle, Wrench, Banknote, Megaphone, HeartHandshake,
   AlertTriangle, Trophy, Building2, Landmark, MessageSquare,
-  Search, X, Sparkles, UserCheck, MapPin
+  Search, X, Sparkles, UserCheck, MapPin, History, Crown, Award, Clock
 } from "lucide-react";
 import { communityDirectoryService } from "../../../services/community/communityDirectoryService";
 import { whoToCallService } from "../../../services/community/whoToCallService";
-import type { CommunityLeaderResponse, CommunityWhoToCallResponse } from "../../../types/api";
+import type { CommunityLeaderResponse, CommunityWhoToCallResponse, CommunityLeaderHistoryResponse } from "../../../types/api";
 import { useChat } from "../../../contexts/ChatContext";
 
 // ── Role styling ────────────────────────────────────────────────────────────
@@ -427,6 +427,25 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedCommittees, setExpandedCommittees] = useState<Record<string, boolean>>({});
 
+  // ── Council History Modal State for Residents ──
+  const [showCouncilHistoryModal, setShowCouncilHistoryModal] = useState(false);
+  const [councilHistoryLogs, setCouncilHistoryLogs] = useState<CommunityLeaderHistoryResponse[]>([]);
+  const [loadingCouncilHistory, setLoadingCouncilHistory] = useState(false);
+
+  const openCouncilHistoryModal = useCallback(async () => {
+    setShowCouncilHistoryModal(true);
+    setLoadingCouncilHistory(true);
+    try {
+      const logs = await communityDirectoryService.getLeaderHistory();
+      setCouncilHistoryLogs(Array.isArray(logs) ? logs : []);
+    } catch (err) {
+      console.error("Failed to load council history:", err);
+      setCouncilHistoryLogs([]);
+    } finally {
+      setLoadingCouncilHistory(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!expanded && !isModal) return;
     if (hasFetched) return;
@@ -574,6 +593,21 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
         {/* ── Leadership Tab ── */}
         {tab === "leadership" && (
           <div className="space-y-2.5">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                Active Council Members ({executives.length})
+              </span>
+              <button
+                type="button"
+                onClick={openCouncilHistoryModal}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200/70 transition-all active:scale-95 cursor-pointer shadow-2xs"
+                title="View historical council appointments and past tenures"
+              >
+                <History className="w-3.5 h-3.5 text-violet-600" />
+                <span>Past Terms &amp; History</span>
+              </button>
+            </div>
+
             {executives.length > 0 ? (
               <div className={gridClass}>
                 {executives.map((l) => (
@@ -825,6 +859,93 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
           </div>
         )}
       </div>
+
+      {/* ── MODAL: COUNCIL HISTORY & PAST TERMS ── */}
+      {showCouncilHistoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 relative max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-md">
+                  <Landmark className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
+                    <span>Council History &amp; Past Terms</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Chronological record of leadership appointments, designations &amp; tenures.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCouncilHistoryModal(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingCouncilHistory ? (
+              <div className="py-12 text-center text-slate-400">
+                <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-violet-600" />
+                <span className="text-xs font-semibold">Loading leadership history...</span>
+              </div>
+            ) : councilHistoryLogs.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-xs font-semibold space-y-2">
+                <Award className="w-8 h-8 text-slate-300 mx-auto" />
+                <p>No historical council records available yet.</p>
+                <p className="text-[11px] text-slate-400 font-normal">
+                  All appointments, promotions, and changes to the executive council are logged here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {councilHistoryLogs.map((h, i) => {
+                  const badgeColor =
+                    h.action === "APPOINTED" || h.action === "CREATED"
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                      : h.action === "UPDATED"
+                      ? "bg-indigo-100 text-indigo-800 border-indigo-200"
+                      : h.action === "REMOVED"
+                      ? "bg-rose-100 text-rose-800 border-rose-200"
+                      : "bg-amber-100 text-amber-800 border-amber-200";
+
+                  return (
+                    <div key={h.id || i} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${badgeColor}`}>
+                          {h.action}
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          {new Date(h.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-extrabold text-sm text-slate-900">{h.fullName}</span>
+                        <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                          {h.designation}
+                        </span>
+                        {h.committee && (
+                          <span className="text-xs text-slate-500 font-medium">({h.committee})</span>
+                        )}
+                      </div>
+
+                      {h.changeSummary && (
+                        <p className="text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200/80 font-medium">
+                          {h.changeSummary}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 

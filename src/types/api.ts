@@ -975,6 +975,27 @@ export interface CommunityWhoToCallHistoryResponse {
   createdAt: string;
 }
 
+export interface CommunityLeaderHistoryResponse {
+  id: number;
+  leaderId?: number;
+  userId: number;
+  communityId?: number;
+  fullName: string;
+  designation: string;
+  committee?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  action: "APPOINTED" | "UPDATED" | "REMOVED" | "RESTORED" | "TERM_ENDED" | string;
+  changedByUserId?: number;
+  changedByName?: string;
+  changeSummary?: string;
+  previousDesignation?: string;
+  previousCommittee?: string;
+  tenureStart?: string;
+  tenureEnd?: string;
+  createdAt: string;
+}
+
 // ─── Chat (backend DTOs) ───────────────────────────────────────────────────────
 
 export interface ChatContactDto {
