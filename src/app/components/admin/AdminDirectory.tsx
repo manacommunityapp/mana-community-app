@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   Shield, Plus, Pencil, Trash2, X, Search, Inbox, Loader2,
   Phone, Mail, ArrowUpDown, Users, AlertTriangle,
   History, CheckCircle2, RotateCcw, Wrench,
-  Building2, Sparkles, Clock, MapPin, Eye,
+  Building2, Sparkles, Clock, MapPin, Eye, Landmark, Crown, Award, ArrowRight,
 } from "lucide-react";
 import { communityDirectoryService } from "../../../services/community/communityDirectoryService";
 import { whoToCallService } from "../../../services/community/whoToCallService";
@@ -14,6 +14,7 @@ import { showSuccess, showError } from "../../../utils/ToastUtils";
 import type {
   CommunityLeaderResponse,
   CommunityLeaderRequest,
+  CommunityLeaderHistoryResponse,
   CommunityWhoToCallResponse,
   CommunityWhoToCallRequest,
   CommunityWhoToCallHistoryResponse,
@@ -79,6 +80,7 @@ const emptyWhoToCallForm: CommunityWhoToCallRequest & { _userName?: string } = {
 };
 
 type ActiveTab = "leaders" | "who_to_call" | "history";
+type HistoryFilter = "all" | "leaders" | "who_to_call";
 
 export function AdminDirectory() {
   const { user } = useAuth();
@@ -93,6 +95,11 @@ export function AdminDirectory() {
   const [leaderSaving, setLeaderSaving] = useState(false);
   const [deletingLeaderId, setDeletingLeaderId] = useState<number | null>(null);
 
+  // ── Single Leader History Modal State ──
+  const [selectedLeaderHistory, setSelectedLeaderHistory] = useState<CommunityLeaderResponse | null>(null);
+  const [leaderHistoryModalList, setLeaderHistoryModalList] = useState<CommunityLeaderHistoryResponse[]>([]);
+  const [loadingSingleLeaderHistory, setLoadingSingleLeaderHistory] = useState(false);
+
   // ── Who to Call State ──
   const [whoToCallList, setWhoToCallList] = useState<CommunityWhoToCallResponse[]>([]);
   const [loadingWhoToCall, setLoadingWhoToCall] = useState(true);
@@ -103,12 +110,17 @@ export function AdminDirectory() {
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [deletingWhoToCallId, setDeletingWhoToCallId] = useState<number | null>(null);
 
-  // ── History Audit State ──
-  const [historyList, setHistoryList] = useState<CommunityWhoToCallHistoryResponse[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
+  // ── Single Contact History Modal State ──
   const [selectedContactHistory, setSelectedContactHistory] = useState<CommunityWhoToCallResponse | null>(null);
   const [contactHistoryModalList, setContactHistoryModalList] = useState<CommunityWhoToCallHistoryResponse[]>([]);
   const [loadingContactHistory, setLoadingContactHistory] = useState(false);
+
+  // ── History Tab State (Combined Leaders & Who to Call) ──
+  const [historyList, setHistoryList] = useState<CommunityWhoToCallHistoryResponse[]>([]);
+  const [leaderHistoryList, setLeaderHistoryList] = useState<CommunityLeaderHistoryResponse[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
+  const [historySearch, setHistorySearch] = useState("");
 
   // ── Designations State ──
   const [designations, setDesignations] = useState<string[]>(DESIGNATIONS);
@@ -161,13 +173,22 @@ export function AdminDirectory() {
     }
   }, []);
 
-  const loadCommunityHistory = useCallback(async () => {
+  const loadAllHistory = useCallback(async () => {
     setLoadingHistory(true);
     try {
-      const list = await whoToCallService.getCommunityHistory();
-      setHistoryList(Array.isArray(list) ? list : []);
+      const [whoRes, leaderRes] = await Promise.allSettled([
+        whoToCallService.getCommunityHistory(),
+        communityDirectoryService.getLeaderHistory(),
+      ]);
+
+      if (whoRes.status === "fulfilled" && Array.isArray(whoRes.value)) {
+        setHistoryList(whoRes.value);
+      }
+      if (leaderRes.status === "fulfilled" && Array.isArray(leaderRes.value)) {
+        setLeaderHistoryList(leaderRes.value);
+      }
     } catch (err: any) {
-      console.error("Failed to load community history:", err);
+      console.error("Failed to load community history audit log:", err);
     } finally {
       setLoadingHistory(false);
     }
@@ -181,9 +202,9 @@ export function AdminDirectory() {
 
   useEffect(() => {
     if (activeTab === "history") {
-      loadCommunityHistory();
+      loadAllHistory();
     }
-  }, [activeTab, loadCommunityHistory]);
+  }, [activeTab, loadAllHistory]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -270,6 +291,19 @@ export function AdminDirectory() {
     setLeaderModal(l);
   };
 
+  const openLeaderHistory = async (l: CommunityLeaderResponse) => {
+    setSelectedLeaderHistory(l);
+    setLoadingSingleLeaderHistory(true);
+    try {
+      const list = await communityDirectoryService.getLeaderHistory(l.id);
+      setLeaderHistoryModalList(Array.isArray(list) ? list : []);
+    } catch (err: any) {
+      showError(err?.message || "Failed to load leader history");
+    } finally {
+      setLoadingSingleLeaderHistory(false);
+    }
+  };
+
   const handleLeaderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!leaderForm.userId || !leaderForm.designation.trim()) {
@@ -286,15 +320,56 @@ export function AdminDirectory() {
         contactEmail: leaderForm.contactEmail?.trim() || undefined,
         displayOrder: Number(leaderForm.displayOrder) || 0,
       };
+
       if (leaderModal === "create") {
-        await communityDirectoryService.addLeader(payload);
-        showSuccess("Leader added to directory");
+        const created = await communityDirectoryService.addLeader(payload);
+        await communityDirectoryService.recordLeaderHistory({
+          leaderId: created?.id,
+          userId: payload.userId,
+          fullName: leaderForm._userName || "Council Leader",
+          designation: payload.designation,
+          committee: payload.committee,
+          contactPhone: payload.contactPhone,
+          contactEmail: payload.contactEmail,
+          action: "APPOINTED",
+          changeSummary: `Appointed as ${payload.designation}${payload.committee ? " (" + payload.committee + ")" : ""}`,
+        });
+        showSuccess("Leader added to directory and recorded in history");
       } else if (typeof leaderModal === "object" && leaderModal !== null) {
         await communityDirectoryService.updateLeader(leaderModal.id, payload);
-        showSuccess("Leader details updated");
+        const changes: string[] = [];
+        if (leaderModal.designation !== payload.designation) {
+          changes.push(`Designation updated from "${leaderModal.designation}" to "${payload.designation}"`);
+        }
+        if ((leaderModal.committee || "") !== (payload.committee || "")) {
+          changes.push(`Committee updated to "${payload.committee || "None"}"`);
+        }
+        if ((leaderModal.contactPhone || "") !== (payload.contactPhone || "")) {
+          changes.push(`Contact phone updated to "${payload.contactPhone || "None"}"`);
+        }
+        if ((leaderModal.contactEmail || "") !== (payload.contactEmail || "")) {
+          changes.push(`Contact email updated to "${payload.contactEmail || "None"}"`);
+        }
+        const summary = changes.length > 0 ? changes.join("; ") : `Updated council profile for ${leaderModal.fullName}`;
+
+        await communityDirectoryService.recordLeaderHistory({
+          leaderId: leaderModal.id,
+          userId: payload.userId,
+          fullName: leaderModal.fullName,
+          designation: payload.designation,
+          previousDesignation: leaderModal.designation,
+          committee: payload.committee,
+          previousCommittee: leaderModal.committee,
+          contactPhone: payload.contactPhone,
+          contactEmail: payload.contactEmail,
+          action: "UPDATED",
+          changeSummary: summary,
+        });
+        showSuccess("Leader details updated and logged in history");
       }
       setLeaderModal(null);
       await loadLeaders();
+      if (activeTab === "history") await loadAllHistory();
     } catch (err: any) {
       showError(err?.message || "Failed to save leader");
     } finally {
@@ -305,15 +380,27 @@ export function AdminDirectory() {
   const handleDeleteLeader = async (l: CommunityLeaderResponse) => {
     const ok = await confirmAction({
       title: "Remove Directory Leader?",
-      text: `Remove "${l.fullName}" (${l.designation}) from the directory?`,
-      confirmButtonText: "Remove Leader",
+      text: `Relieve "${l.fullName}" from the position of ${l.designation}? This change will be permanently logged in history.`,
+      confirmButtonText: "Remove & Log in History",
     });
     if (!ok) return;
     setDeletingLeaderId(l.id);
     try {
       await communityDirectoryService.removeLeader(l.id);
-      showSuccess(`${l.fullName} removed from directory`);
+      await communityDirectoryService.recordLeaderHistory({
+        leaderId: l.id,
+        userId: l.userId,
+        fullName: l.fullName,
+        designation: l.designation,
+        committee: l.committee,
+        contactPhone: l.contactPhone,
+        contactEmail: l.contactEmail,
+        action: "REMOVED",
+        changeSummary: `Relieved from Council position of ${l.designation}${l.committee ? " (" + l.committee + ")" : ""}`,
+      });
+      showSuccess(`${l.fullName} removed and logged in history`);
       await loadLeaders();
+      if (activeTab === "history") await loadAllHistory();
     } catch (err: any) {
       showError(err?.message || "Failed to remove leader");
     } finally {
@@ -483,6 +570,61 @@ export function AdminDirectory() {
     );
   });
 
+  // ── Unified History Timeline ──
+  const combinedHistory = useMemo(() => {
+    type UnifiedHistoryItem =
+      | { type: "who_to_call"; data: CommunityWhoToCallHistoryResponse; timestamp: number }
+      | { type: "leader"; data: CommunityLeaderHistoryResponse; timestamp: number };
+
+    const items: UnifiedHistoryItem[] = [];
+
+    if (historyFilter === "all" || historyFilter === "who_to_call") {
+      historyList.forEach((h) => {
+        items.push({
+          type: "who_to_call",
+          data: h,
+          timestamp: new Date(h.createdAt).getTime() || 0,
+        });
+      });
+    }
+
+    if (historyFilter === "all" || historyFilter === "leaders") {
+      leaderHistoryList.forEach((h) => {
+        items.push({
+          type: "leader",
+          data: h,
+          timestamp: new Date(h.createdAt).getTime() || 0,
+        });
+      });
+    }
+
+    // Sort newest first
+    items.sort((a, b) => b.timestamp - a.timestamp);
+
+    if (!historySearch.trim()) return items;
+    const q = historySearch.toLowerCase();
+    return items.filter((it) => {
+      if (it.type === "who_to_call") {
+        return (
+          it.data.department.toLowerCase().includes(q) ||
+          it.data.contactPerson.toLowerCase().includes(q) ||
+          it.data.action.toLowerCase().includes(q) ||
+          (it.data.changeSummary && it.data.changeSummary.toLowerCase().includes(q)) ||
+          (it.data.changedByName && it.data.changedByName.toLowerCase().includes(q))
+        );
+      } else {
+        return (
+          it.data.fullName.toLowerCase().includes(q) ||
+          it.data.designation.toLowerCase().includes(q) ||
+          (it.data.committee && it.data.committee.toLowerCase().includes(q)) ||
+          it.data.action.toLowerCase().includes(q) ||
+          (it.data.changeSummary && it.data.changeSummary.toLowerCase().includes(q)) ||
+          (it.data.changedByName && it.data.changedByName.toLowerCase().includes(q))
+        );
+      }
+    });
+  }, [historyList, leaderHistoryList, historyFilter, historySearch]);
+
   return (
     <div className="space-y-6 w-full pb-12" style={{ fontFamily: "'Poppins', sans-serif" }}>
       {/* ── Top Header ── */}
@@ -501,7 +643,7 @@ export function AdminDirectory() {
               Directory & Department Contacts
             </h2>
             <p className="text-slate-500 text-xs sm:text-sm mt-0.5">
-              Manage executive leaders, emergency contacts, Who to Call departments, and view audit history.
+              Manage council leadership, department helpdesk contacts, and audit complete change & tenure history.
             </p>
           </div>
         </div>
@@ -571,6 +713,11 @@ export function AdminDirectory() {
         >
           <History className="w-4 h-4 text-emerald-600" />
           <span>Change History Audit Log</span>
+          {(historyList.length > 0 || leaderHistoryList.length > 0) && (
+            <span className="ml-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-extrabold">
+              {historyList.length + leaderHistoryList.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -850,6 +997,13 @@ export function AdminDirectory() {
                         <td className="px-5 py-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             <button
+                              onClick={() => openLeaderHistory(l)}
+                              className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors cursor-pointer"
+                              title="View Council History & Tenure"
+                            >
+                              <History className="w-3.5 h-3.5" />
+                            </button>
+                            <button
                               onClick={() => openEditLeader(l)}
                               className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
                               title="Edit leader"
@@ -885,17 +1039,72 @@ export function AdminDirectory() {
       {/* ─────────────────────────────────────────────────────────────────── */}
       {activeTab === "history" && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
-              <History className="w-5 h-5 text-emerald-600" />
-              Who to Call Audit History
-            </h3>
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+            <div>
+              <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                <History className="w-5 h-5 text-emerald-600" />
+                Directory &amp; Council Change History Audit Log
+              </h3>
+              <p className="text-xs text-slate-500">
+                Complete timeline of leadership appointments, designations, committee shifts, and Who to Call modifications.
+              </p>
+            </div>
             <button
-              onClick={loadCommunityHistory}
-              className="text-xs text-indigo-600 font-bold hover:underline cursor-pointer flex items-center gap-1"
+              onClick={loadAllHistory}
+              className="text-xs text-indigo-600 font-bold hover:underline cursor-pointer flex items-center gap-1.5 bg-indigo-50 px-3 py-1.5 rounded-xl border border-indigo-100 shrink-0"
             >
-              <RotateCcw className="w-3 h-3" /> Refresh
+              <RotateCcw className="w-3.5 h-3.5" /> Refresh Audit Logs
             </button>
+          </div>
+
+          {/* History Sub-Filter & Search Bar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs">
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setHistoryFilter("all")}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  historyFilter === "all"
+                    ? "bg-white text-indigo-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                All Activity ({historyList.length + leaderHistoryList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryFilter("leaders")}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  historyFilter === "leaders"
+                    ? "bg-white text-violet-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Council &amp; Leaders ({leaderHistoryList.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryFilter("who_to_call")}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                  historyFilter === "who_to_call"
+                    ? "bg-white text-emerald-700 shadow-xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Who to Call ({historyList.length})
+              </button>
+            </div>
+
+            <div className="relative flex-1 sm:max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
+              <input
+                type="text"
+                value={historySearch}
+                onChange={(e) => setHistorySearch(e.target.value)}
+                placeholder="Search history by member, designation, role..."
+                className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-indigo-500/20 font-medium"
+              />
+            </div>
           </div>
 
           {loadingHistory ? (
@@ -903,49 +1112,119 @@ export function AdminDirectory() {
               <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mb-2" />
               <span className="text-xs font-semibold text-slate-500">Loading audit history...</span>
             </div>
-          ) : historyList.length === 0 ? (
+          ) : combinedHistory.length === 0 ? (
             <div className="text-center py-16 bg-white border border-slate-200/70 rounded-2xl p-6">
               <History className="w-12 h-12 mx-auto mb-3 opacity-30 text-emerald-600" />
-              <p className="text-sm text-slate-700 font-bold">No history recorded yet</p>
-              <p className="text-xs text-slate-400 mt-1">Changes to Who to Call contacts will be tracked and displayed here.</p>
+              <p className="text-sm text-slate-700 font-bold">
+                {historySearch ? "No history records match your search" : "No history recorded yet"}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                Appointments, modifications, and removals of council leaders &amp; contacts will be tracked and displayed here.
+              </p>
             </div>
           ) : (
             <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
               <div className="divide-y divide-slate-100">
-                {historyList.map((h) => (
-                  <div key={h.id} className="p-4 hover:bg-slate-50/70 transition-colors flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`p-2 rounded-xl text-xs font-bold shrink-0 mt-0.5 ${
-                          h.action === "CREATED"
-                            ? "bg-emerald-100 text-emerald-800"
-                            : h.action === "UPDATED"
-                            ? "bg-indigo-100 text-indigo-800"
-                            : h.action === "RESTORED"
-                            ? "bg-sky-100 text-sky-800"
-                            : "bg-rose-100 text-rose-800"
-                        }`}
-                      >
-                        {h.action}
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-extrabold text-sm text-slate-900">{h.department}</span>
-                          <span className="text-xs text-slate-500 font-medium">({h.contactPerson} - {h.phoneNumber})</span>
+                {combinedHistory.map((item, idx) => {
+                  if (item.type === "leader") {
+                    const h = item.data;
+                    const actionBadge =
+                      h.action === "APPOINTED" || h.action === "CREATED"
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                        : h.action === "UPDATED"
+                        ? "bg-indigo-100 text-indigo-800 border-indigo-200"
+                        : h.action === "REMOVED" || h.action === "DELETED"
+                        ? "bg-rose-100 text-rose-800 border-rose-200"
+                        : h.action === "RESTORED"
+                        ? "bg-sky-100 text-sky-800 border-sky-200"
+                        : "bg-amber-100 text-amber-800 border-amber-200";
+
+                    return (
+                      <div key={`leader-${h.id}-${idx}`} className="p-4 hover:bg-slate-50/70 transition-colors flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className={`px-2.5 py-1 rounded-xl text-xs font-black border shrink-0 mt-0.5 ${actionBadge}`}>
+                            {h.action}
+                          </div>
+
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide bg-violet-50 text-violet-700 px-2 py-0.5 rounded-full border border-violet-200/70">
+                                <Crown className="w-3 h-3 text-violet-600" /> Council Leader
+                              </span>
+                              <span className="font-extrabold text-sm text-slate-900">{h.fullName}</span>
+                              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+                                {h.designation}
+                              </span>
+                              {h.committee && (
+                                <span className="text-xs text-slate-500 font-medium">({h.committee})</span>
+                              )}
+                            </div>
+
+                            {h.changeSummary && (
+                              <p className="text-xs text-slate-700 bg-slate-50 rounded-xl p-2.5 border border-slate-200/70 font-medium">
+                                {h.changeSummary}
+                              </p>
+                            )}
+
+                            <p className="text-[11px] text-slate-400 flex items-center gap-2">
+                              <span>
+                                Recorded by <strong className="text-slate-700 font-bold">{h.changedByName || "Admin"}</strong>
+                              </span>
+                              <span>•</span>
+                              <span>{new Date(h.createdAt).toLocaleString()}</span>
+                            </p>
+                          </div>
                         </div>
-                        {h.changeSummary && (
-                          <p className="text-xs text-slate-600 bg-slate-50 rounded-lg p-2 border border-slate-100">
-                            {h.changeSummary}
-                          </p>
-                        )}
-                        <p className="text-[11px] text-slate-400">
-                          Modified by <span className="font-bold text-slate-700">{h.changedByName || "Admin"}</span> •{" "}
-                          {new Date(h.createdAt).toLocaleString()}
-                        </p>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  } else {
+                    const h = item.data;
+                    const actionBadge =
+                      h.action === "CREATED"
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                        : h.action === "UPDATED"
+                        ? "bg-indigo-100 text-indigo-800 border-indigo-200"
+                        : h.action === "RESTORED"
+                        ? "bg-sky-100 text-sky-800 border-sky-200"
+                        : "bg-rose-100 text-rose-800 border-rose-200";
+
+                    return (
+                      <div key={`who-${h.id}-${idx}`} className="p-4 hover:bg-slate-50/70 transition-colors flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <div className={`px-2.5 py-1 rounded-xl text-xs font-black border shrink-0 mt-0.5 ${actionBadge}`}>
+                            {h.action}
+                          </div>
+
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wide bg-sky-50 text-sky-700 px-2 py-0.5 rounded-full border border-sky-200/70">
+                                <Building2 className="w-3 h-3 text-sky-600" /> Who to Call
+                              </span>
+                              <span className="font-extrabold text-sm text-slate-900">{h.department}</span>
+                              <span className="text-xs text-slate-500 font-medium">
+                                ({h.contactPerson} • {h.phoneNumber})
+                              </span>
+                            </div>
+
+                            {h.changeSummary && (
+                              <p className="text-xs text-slate-700 bg-slate-50 rounded-xl p-2.5 border border-slate-200/70 font-medium">
+                                {h.changeSummary}
+                              </p>
+                            )}
+
+                            <p className="text-[11px] text-slate-400 flex items-center gap-2">
+                              <span>
+                                Modified by <strong className="text-slate-700 font-bold">{h.changedByName || "Admin"}</strong>
+                              </span>
+                              <span>•</span>
+                              <span>{new Date(h.createdAt).toLocaleString()}</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                })}
               </div>
             </div>
           )}
@@ -1430,6 +1709,114 @@ export function AdminDirectory() {
                     </p>
                   </div>
                 ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {/* ── MODAL: SINGLE LEADER HISTORY & TENURE VIEW ──────────────────── */}
+      {/* ─────────────────────────────────────────────────────────────────── */}
+      {selectedLeaderHistory && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 shadow-2xl border border-slate-100 relative max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-600 to-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-md">
+                  <Crown className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
+                    <span>Council Tenure &amp; Change History</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {selectedLeaderHistory.fullName} • {selectedLeaderHistory.designation}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedLeaderHistory(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Leader Identity Card */}
+            <div className="p-4 bg-violet-50/70 border border-violet-100 rounded-2xl mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
+                  {selectedLeaderHistory.fullName[0]}
+                </div>
+                <div>
+                  <p className="font-bold text-sm text-slate-900">{selectedLeaderHistory.fullName}</p>
+                  <p className="text-xs text-violet-700 font-semibold">
+                    Current: {selectedLeaderHistory.designation} {selectedLeaderHistory.committee ? `(${selectedLeaderHistory.committee})` : ""}
+                  </p>
+                </div>
+              </div>
+              {(selectedLeaderHistory.block || selectedLeaderHistory.flatNo) && (
+                <span className="text-xs font-bold text-slate-600 bg-white px-2.5 py-1 rounded-lg border border-violet-200">
+                  Unit: {selectedLeaderHistory.block} {selectedLeaderHistory.flatNo}
+                </span>
+              )}
+            </div>
+
+            {loadingSingleLeaderHistory ? (
+              <div className="py-12 text-center text-slate-400">
+                <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-violet-600" />
+                <span className="text-xs font-semibold">Loading tenure history...</span>
+              </div>
+            ) : leaderHistoryModalList.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-xs font-semibold space-y-2">
+                <Award className="w-8 h-8 text-slate-300 mx-auto" />
+                <p>No historical updates recorded for this leader yet.</p>
+                <p className="text-[11px] text-slate-400 font-normal">
+                  All future appointments, designation updates, and tenure events will be tracked here.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {leaderHistoryModalList.map((h, i) => {
+                  const badgeColor =
+                    h.action === "APPOINTED" || h.action === "CREATED"
+                      ? "bg-emerald-100 text-emerald-800 border-emerald-200"
+                      : h.action === "UPDATED"
+                      ? "bg-indigo-100 text-indigo-800 border-indigo-200"
+                      : h.action === "REMOVED"
+                      ? "bg-rose-100 text-rose-800 border-rose-200"
+                      : "bg-amber-100 text-amber-800 border-amber-200";
+
+                  return (
+                    <div key={h.id || i} className="p-3.5 bg-slate-50 rounded-2xl border border-slate-100 text-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${badgeColor}`}>
+                          {h.action}
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-medium">
+                          {new Date(h.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className="font-semibold text-slate-800 pt-0.5">
+                        <span className="text-indigo-700 font-bold">{h.designation}</span>
+                        {h.committee && <span className="text-slate-500"> • {h.committee}</span>}
+                      </div>
+
+                      {h.changeSummary && (
+                        <p className="text-slate-600 bg-white p-2.5 rounded-xl border border-slate-200/80 font-medium">
+                          {h.changeSummary}
+                        </p>
+                      )}
+
+                      <p className="text-[10px] text-slate-400 pt-0.5">
+                        Author / Approver: <span className="font-bold text-slate-600">{h.changedByName || "Admin"}</span>
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
