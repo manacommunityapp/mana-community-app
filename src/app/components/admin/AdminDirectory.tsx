@@ -472,7 +472,7 @@ export function AdminDirectory() {
       }
       setWhoToCallModal(null);
       await loadWhoToCall();
-      if (activeTab === "history") await loadCommunityHistory();
+      if (activeTab === "history") await loadAllHistory();
     } catch (err: any) {
       showError(err?.message || "Failed to save Who to Call contact");
     } finally {
@@ -486,7 +486,7 @@ export function AdminDirectory() {
       await whoToCallService.toggleStatus(c.id);
       showSuccess(`${c.department} marked as ${c.isActive ? "Inactive" : "Active"}`);
       await loadWhoToCall();
-      if (activeTab === "history") await loadCommunityHistory();
+      if (activeTab === "history") await loadAllHistory();
     } catch (err: any) {
       showError(err?.message || "Failed to toggle status");
     } finally {
@@ -506,7 +506,7 @@ export function AdminDirectory() {
       await whoToCallService.deleteWhoToCall(c.id);
       showSuccess(`Deactivated "${c.department}" contact`);
       await loadWhoToCall();
-      if (activeTab === "history") await loadCommunityHistory();
+      if (activeTab === "history") await loadAllHistory();
     } catch (err: any) {
       showError(err?.message || "Failed to delete contact");
     } finally {
