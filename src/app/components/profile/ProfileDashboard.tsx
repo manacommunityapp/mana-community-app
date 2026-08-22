@@ -923,7 +923,7 @@ export function ProfileDashboard() {
               {/* Right Column — Family & KYC (shown 1st on mobile, 2nd on desktop) */}
               <div className="space-y-4 sm:space-y-6 order-1 lg:order-2">
                 {/* My Family Summary Card in Overview */}
-                <div className="bg-card rounded-2xl border border-border p-5 shadow-sm">
+                <div className="hidden sm:block bg-card rounded-2xl border border-border p-5 shadow-sm">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center">
