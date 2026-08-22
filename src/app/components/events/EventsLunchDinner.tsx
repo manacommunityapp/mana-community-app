@@ -108,7 +108,12 @@ export function EventsLunchDinner() {
       .then(([m, regs]) => {
         setMeals(m || []);
         const mealRegs = (regs || [])
-          .filter((r: any) => r.category === "Meal" || r.activityId?.startsWith("meal-"))
+          .filter((r: any) => {
+            const regStatus = String(r.status || '').toUpperCase();
+            if (regStatus === 'CANCELLED' || regStatus === 'REJECTED') return false;
+            if (String(r.eventStatus || '').toUpperCase() === 'CANCELLED') return false;
+            return r.category === "Meal" || r.activityId?.startsWith("meal-");
+          })
           .map((r: any) => {
             let count = Number(r.devoteeCount ?? r.membersCount ?? 0);
             if (!count && r.membersJson) {

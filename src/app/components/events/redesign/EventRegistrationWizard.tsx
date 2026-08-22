@@ -627,7 +627,21 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     }
   };
 
+  const maxEventCapacity = (activeEvent as any)?.maxAttendees ?? activeEvent?.capacity;
+  const currentEventCount = (activeEvent as any)?.attendees ?? (activeEvent as any)?.registrationCount ?? (activeEvent?.registrations ? activeEvent.registrations.length : 0);
+  const isEventFull = !isUpdateMode && maxEventCapacity != null && Number(maxEventCapacity) > 0 && currentEventCount >= Number(maxEventCapacity) && !isAnyAdmin;
+
   const handleNextStep = () => {
+    if (isEventFull) {
+      showWarning(`This event has reached its maximum capacity of ${maxEventCapacity} attendees.`);
+      return;
+    }
+    if (currentStep === 1) {
+      if (!selectedCatId || !formData.category) {
+        showWarning("Please select a pass category to proceed.");
+        return;
+      }
+    }
     if (currentStep === 2) {
       if (!formData.fullName?.trim()) {
         showWarning("Please enter your Full Name.");
@@ -681,6 +695,10 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   };
 
   const handleComplete = async (modeOverride?: string) => {
+    if (isEventFull) {
+      showWarning(`This event has reached its maximum capacity of ${maxEventCapacity} attendees.`);
+      return;
+    }
     if (isRegistrationEnded) {
       showWarning("Registration deadline has passed. Contact admin for manual registration.");
       return;
@@ -894,6 +912,17 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           hoverScale={false}
           className="flex-1 flex flex-col justify-between p-4 sm:p-5 border border-border rounded-2xl overflow-y-auto space-y-4 shadow-sm"
         >
+          {isEventFull && (
+            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-800 dark:text-rose-300 text-xs font-bold flex items-start gap-2.5 animate-fadeIn">
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+              <div>
+                <strong className="block text-xs font-extrabold text-rose-900 dark:text-rose-200">Event Capacity Reached (Housefull)</strong>
+                <span className="text-[11.5px] font-semibold leading-relaxed">
+                  This event has reached its maximum capacity limit of {maxEventCapacity} attendees. Registration is no longer accepted.
+                </span>
+              </div>
+            </div>
+          )}
           {isRegistrationEnded && (
             <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-start gap-2.5 animate-fadeIn">
               <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
@@ -1717,7 +1746,11 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
               <div />
             )}
 
-            {isRegistrationEnded ? (
+            {isEventFull ? (
+              <span className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-700 dark:text-rose-300 text-xs font-bold border border-rose-500/20 flex items-center gap-1.5 select-none">
+                <AlertCircle className="w-3.5 h-3.5" /> Event Full ({currentEventCount}/{maxEventCapacity})
+              </span>
+            ) : isRegistrationEnded ? (
               <span className="px-4 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs font-bold border border-amber-500/20 flex items-center gap-1.5 select-none">
                 <AlertCircle className="w-3.5 h-3.5" /> Registration Deadline Passed
               </span>

@@ -1105,6 +1105,10 @@ export function EventPublicRegistration() {
   const displayEvent = event ?? MOCK_EVENT;
   const hasDynamicForm = formConfig && formConfig.fields.length > 0;
   const isClosed = isRegistrationClosed(displayEvent) && !isRegistered;
+  const maxCapacity = (displayEvent as any)?.maxAttendees ?? displayEvent?.capacity;
+  const currentCount = displayEvent?.attendees ?? (displayEvent as any)?.registrationCount ?? 0;
+  const isCapacityFull = maxCapacity != null && Number(maxCapacity) > 0 && currentCount >= Number(maxCapacity) && !isRegistered;
+  const isRegistrationBlocked = (isClosed || isCapacityFull) && !isRegistered;
 
   const [form, setForm] = useState<RegistrationForm>({
     registrationType: "individual",
@@ -1203,7 +1207,7 @@ export function EventPublicRegistration() {
   };
 
   const goNext = () => {
-    if (isClosed) return;
+    if (isRegistrationBlocked) return;
     const nextIdx = activeStepIndex + 1;
     if (nextIdx < activeSteps.length) {
       setStep(activeSteps[nextIdx].id);
@@ -1218,7 +1222,7 @@ export function EventPublicRegistration() {
   };
 
   const handleConfirm = async () => {
-    if (isClosed) return;
+    if (isRegistrationBlocked) return;
     if (event) {
       setRegistering(true);
       setRegError("");
@@ -1435,7 +1439,14 @@ export function EventPublicRegistration() {
             )}
           </div>
 
-          {isClosed && (
+          {isCapacityFull && (
+            <div className="mx-5 sm:mx-7 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>Registration for this event is closed as maximum attendee capacity has been reached.</span>
+            </div>
+          )}
+
+          {isClosed && !isCapacityFull && (
             <div className="mx-5 sm:mx-7 mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>Registration for this event is closed as the deadline has passed.</span>
@@ -1503,9 +1514,9 @@ export function EventPublicRegistration() {
                 <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Back
               </Button>
 
-              {isClosed ? (
+              {isRegistrationBlocked ? (
                 <span className="px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-100 text-slate-500 border border-slate-200 select-none">
-                  Registration Closed
+                  {isCapacityFull ? "Event Capacity Full" : "Registration Closed"}
                 </span>
               ) : !isLastStep ? (
                 <Button

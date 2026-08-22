@@ -878,8 +878,10 @@ export function EventMemberView() {
         if (saved && saved.id) {
           createdId = String(saved.id);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Failed to save event registration to database:", err);
+        alert(err?.message || "Registration failed. The activity capacity has been reached.");
+        return;
       }
     }
 
@@ -1465,6 +1467,14 @@ export function EventMemberView() {
                                 >
                                   <Edit3 className="w-3.5 h-3.5" /> Update Registration
                                 </button>
+                              );
+                            }
+                            const isFull = act.availableSeats !== undefined && act.availableSeats <= 0;
+                            if (isFull) {
+                              return (
+                                <span className="px-3 py-1.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl border border-rose-500/20 flex items-center gap-1.5 select-none">
+                                  <AlertCircle className="w-3.5 h-3.5" /> Full / Sold Out
+                                </span>
                               );
                             }
                             if (isClosed) {
@@ -2085,6 +2095,7 @@ export function EventMemberView() {
                               {(() => {
                                 const existingPass = getExistingPassForActivity(act);
                                 const isClosed = isRegistrationClosed(act);
+                                const isFull = act.availableSeats !== undefined && act.availableSeats <= 0;
                                 if (existingPass) {
                                   return (
                                     <button
@@ -2097,6 +2108,13 @@ export function EventMemberView() {
                                     >
                                       <Edit3 className="w-3 h-3" /> Update Registration
                                     </button>
+                                  );
+                                }
+                                if (isFull) {
+                                  return (
+                                    <span className="px-2.5 py-1 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[11px] font-bold rounded-lg border border-rose-500/20 flex items-center gap-1 select-none">
+                                      <AlertCircle className="w-3 h-3" /> Full
+                                    </span>
                                   );
                                 }
                                 if (isClosed) {

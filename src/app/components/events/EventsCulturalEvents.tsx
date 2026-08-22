@@ -112,7 +112,12 @@ export function EventsCulturalEvents() {
       .then(([evts, regs, cats, pts]) => {
         setCulturalEvents(evts || []);
         const cultRegs = (regs || [])
-          .filter((r: any) => r.category === "Cultural" || r.activityId?.startsWith("cultural-"))
+          .filter((r: any) => {
+            const regStatus = String(r.status || '').toUpperCase();
+            if (regStatus === 'CANCELLED' || regStatus === 'REJECTED') return false;
+            if (String(r.eventStatus || '').toUpperCase() === 'CANCELLED') return false;
+            return r.category === "Cultural" || r.activityId?.startsWith("cultural-");
+          })
           .map((r: any) => {
             let count = Number(r.devoteeCount ?? r.membersCount ?? 0);
             if (!count && r.membersJson) {

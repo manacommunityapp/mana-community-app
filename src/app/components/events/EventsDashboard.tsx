@@ -5,7 +5,7 @@ import {
   Utensils, Gavel, ClipboardCheck, Star, Heart,
   Clock, MapPin, AlertCircle, Loader2,
   Sparkles, QrCode, UserPlus,
-  ChevronRight, Download, Bot, RefreshCw,
+  ChevronLeft, ChevronRight, Download, Bot, RefreshCw,
   Search, ChevronDown, ChevronUp, User,
 } from "lucide-react";
 import {
@@ -71,7 +71,7 @@ const MOCK_KPIS = [
   { label: "Today's Schedule & Duty", value: "32 Items", sub: "12 programs · 318 duty shifts", icon: Clock, color: "#16A34A", bg: "rgba(22,163,74,0.12)", trend: "Active Today", to: "/events/schedule?tab=programs" },
   { label: "Pending Action Items",    value: "9",      sub: "4 tasks · 5 sponsors", icon: AlertCircle, color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "Action Required", to: "/events/schedule?tab=planning" },
   { label: "Sponsors Raised",         value: "₹6.10L", sub: "19 Active partners",   icon: Star,         color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "5 pending",       to: "/events/fundraising?tab=sponsors" },
-  { label: "Food Prepared",           value: "85%",    sub: "4,200 plates est",    icon: Utensils,     color: "#8B5CF6", bg: "rgba(139,92,246,0.12)",  trend: "On schedule",     to: "/events/operations?tab=food" },
+  // { label: "Food Prepared",           value: "85%",    sub: "4,200 plates est",    icon: Utensils,     color: "#8B5CF6", bg: "rgba(139,92,246,0.12)",  trend: "On schedule",     to: "/events/operations?tab=food" },
   { label: "Auction Revenue",         value: "₹2.10L", sub: "14 items sold",       icon: Gavel,        color: "#06B6D4", bg: "rgba(6,182,212,0.12)",   trend: "Live now",        to: "/events/fundraising?tab=auction" },
 ];
 
@@ -235,7 +235,7 @@ export function EventsDashboard() {
 
   // ── Registered Users section state ──
   type RegCat = 'all' | 'event' | 'pooja' | 'cultural' | 'competition';
-  type UnifiedReg = { id: string|number; regCode: string; category: RegCat; activityTitle: string; participantName: string; email?: string; phone?: string; extra?: string; devoteeCount: number; bookingFee: number; paymentStatus: string; status: string; eventDate?: string; eventTime?: string; venue?: string; createdAt: string; };
+  type UnifiedReg = { id: string|number; regCode: string; category: RegCat; activityTitle: string; participantName: string; email?: string; phone?: string; extra?: string; devoteeCount: number; bookingFee: number; paymentStatus: string; status: string; eventDate?: string; eventTime?: string; venue?: string; createdAt: string; registeredAt?: string; passType?: string; };
   const MOCK_REGS: UnifiedReg[] = [
     { id:'e1', regCode:'EVT-5001', category:'event', activityTitle:'Ganesh Utsav 2026 – Main Event', participantName:'Rajesh Sharma', email:'rajesh@example.com', phone:'+91 98765 43210', devoteeCount:4, bookingFee:300, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', venue:'Community Hall', createdAt:'2026-08-10T10:00:00' },
     { id:'e2', regCode:'EVT-5002', category:'event', activityTitle:'Ganesh Utsav 2026 – Main Event', participantName:'Meera Deshmukh', email:'meera@example.com', phone:'+91 91234 56789', devoteeCount:2, bookingFee:300, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', venue:'Community Hall', createdAt:'2026-08-10T11:30:00' },
@@ -260,11 +260,48 @@ export function EventsDashboard() {
   const [expandedActivity, setExpandedActivity] = useState<string|null>(null);
 
   const fetchLiveRegistrations = () => {
-    if (useMock) { setAllUnifiedRegs(MOCK_REGS); return; }
+    if (useMock) {
+      setAllUnifiedRegs(MOCK_REGS.filter(r => String(r.status || '').toUpperCase() !== 'CANCELLED'));
+      return;
+    }
     setLoadingRegs(true);
-    eventService.getAllRegistrations()
-      .then((regs: any[]) => {
-        setAllUnifiedRegs(regs.map((r: any) => {
+    Promise.all([
+      eventService.getAllRegistrations().catch(() => []),
+      eventService.getAllEvents().catch(() => [])
+    ])
+      .then(([regs, evts]: [any[], any[]]) => {
+        // Collect cancelled event IDs and normalized titles
+        const cancelledEventIds = new Set<number>();
+        const cancelledEventTitles = new Set<string>();
+
+        if (Array.isArray(evts)) {
+          evts.forEach(ev => {
+            const evStatus = String(ev.status || '').toUpperCase();
+            if (evStatus === 'CANCELLED') {
+              if (ev.id != null) cancelledEventIds.add(Number(ev.id));
+              if (ev.title) cancelledEventTitles.add(ev.title.trim().toLowerCase());
+            }
+          });
+        }
+
+        const validRegs = (Array.isArray(regs) ? regs : []).filter((r: any) => {
+          // Exclude cancelled or rejected registrations
+          const regStatus = String(r.status || '').toUpperCase();
+          if (regStatus === 'CANCELLED' || regStatus === 'REJECTED') return false;
+
+          // Exclude if registration's eventStatus indicates cancellation
+          const regEvtStatus = String(r.eventStatus || '').toUpperCase();
+          if (regEvtStatus === 'CANCELLED') return false;
+
+          // Exclude if associated event is cancelled
+          if (r.eventId != null && cancelledEventIds.has(Number(r.eventId))) return false;
+          const actTitle = String(r.activityTitle || r.eventTitle || r.eventName || '').trim().toLowerCase();
+          if (actTitle && cancelledEventTitles.has(actTitle)) return false;
+
+          return true;
+        });
+
+        setAllUnifiedRegs(validRegs.map((r: any) => {
           let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
           if (r.membersJson) {
             try {
@@ -351,6 +388,7 @@ export function EventsDashboard() {
         const evs = eventsR.value;
         setEvents(evs);
         const upcoming = [...evs]
+          .filter(ev => String(ev.status || '').toUpperCase() !== "CANCELLED")
           .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
           .find(ev => new Date(ev.startDate).getTime() >= Date.now() - 86400000);
         if (upcoming) {
@@ -416,10 +454,12 @@ export function EventsDashboard() {
   // ── Phase 2: fetch registrations for the trend chart (needs eventId) ──
   useEffect(() => {
     if (useMock || events.length === 0) return;
-    const target = [...events]
+    const activeEvents = events.filter(e => String(e.status || '').toUpperCase() !== "CANCELLED");
+    if (activeEvents.length === 0) return;
+    const target = [...activeEvents]
       .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
       .find(ev => new Date(ev.startDate).getTime() >= Date.now() - 86400000)
-      ?? events[0];
+      ?? activeEvents[0];
     if (!target) return;
     eventService.getEventRegistrations(target.id)
       .then(regs => setRegistrations(regs))
@@ -439,10 +479,12 @@ export function EventsDashboard() {
   const todaySchedule = useMemo(() => {
     if (useMock) return MOCK_ACTIVITIES;
     const today = new Date().toISOString().slice(0, 10);
-    const filtered = events.filter(ev =>
-      ev.startDate === today ||
-      (ev.startDate <= today && (ev.endDate ?? ev.startDate) >= today)
-    );
+    const filtered = events
+      .filter(ev => String(ev.status || '').toUpperCase() !== "CANCELLED")
+      .filter(ev =>
+        ev.startDate === today ||
+        (ev.startDate <= today && (ev.endDate ?? ev.startDate) >= today)
+      );
     if (filtered.length === 0) return [];
     return filtered.slice(0, 4).map(ev => {
       const now = Date.now();
@@ -497,6 +539,19 @@ export function EventsDashboard() {
     return [];
   }, [useMock, pendingActionItems, tasks, tasksDone]);
 
+  const liveDevoteeCount = useMemo(() => {
+    return allUnifiedRegs.reduce((sum, r) => sum + (r.devoteeCount || 1), 0);
+  }, [allUnifiedRegs]);
+
+  const liveRegCount = useMemo(() => {
+    return Math.max(
+      stats?.totalRegistrations ?? 0,
+      allUnifiedRegs.length,
+      liveDevoteeCount,
+      registrations.length
+    );
+  }, [stats?.totalRegistrations, allUnifiedRegs.length, liveDevoteeCount, registrations.length]);
+
   // ── Derived: KPI cards ────────────────────────────────────────────────────
   const kpis = useMemo(() => {
     if (useMock) return MOCK_KPIS;
@@ -526,17 +581,19 @@ export function EventsDashboard() {
     const dutyCount           = stats?.todaysDutyCount ?? 0;
     const pendingActionsCount = stats?.pendingActionItemsCount ?? (pendingTasks.length + livePendingSponsor);
 
+    const totalEventsCount = stats?.totalEvents ?? events.length;
+
     return [
       {
-        label: "Total Events",    value: stats ? String(stats.totalEvents) : "0",
-        sub: stats ? `${stats.upcomingEvents} upcoming` : "0 upcoming",
+        label: "Total Events",    value: totalEventsCount > 0 ? String(totalEventsCount) : (stats ? String(stats.totalEvents) : "0"),
+        sub: stats ? `${stats.upcomingEvents} upcoming` : `${events.filter(e => e.status !== "CANCELLED").length} upcoming`,
         icon: CalendarDays, color: "#4F46E5", bg: "rgba(79,70,229,0.12)",
         trend: stats ? `${stats.upcomingEvents} upcoming` : "0 upcoming",
         to: "/events/schedule?tab=events",
       },
       {
-        label: "Registrations",   value: stats ? stats.totalRegistrations.toLocaleString() : "0",
-        sub: `Across ${stats?.totalEvents ?? 0} events`,
+        label: "Registrations",   value: liveRegCount > 0 ? liveRegCount.toLocaleString() : (stats ? stats.totalRegistrations.toLocaleString() : "0"),
+        sub: `Across ${totalEventsCount} ${totalEventsCount === 1 ? "event" : "events"}`,
         icon: Ticket, color: "#7C3AED", bg: "rgba(124,58,237,0.12)",
         trend: hasEvents ? "Live" : "Inactive",
         to: "/events/registration",
@@ -570,18 +627,18 @@ export function EventsDashboard() {
         to: "/events/fundraising?tab=sponsors",
       },
       {
-        label: "Donations Received", value: fmtINR(liveDonationTotal),
-        sub: liveDonationTotal > 0 ? "Community contributions" : "No donations yet",
+        label: "Donations Raised", value: fmtINR(liveDonationTotal),
+        sub: "Live community contributions",
         icon: Heart, color: "#EC4899", bg: "rgba(236,72,153,0.12)",
-        trend: liveDonationTotal > 0 ? "Thank donors" : "Awaiting donations",
+        trend: liveDonationTotal > 0 ? "Active" : "No donations yet",
         to: "/events/fundraising?tab=donations",
       },
-      {
-        label: "Food Prepared",   value: foodPct,
-        sub: foodPlates,
-        icon: Utensils, color: "#8B5CF6", bg: "rgba(139,92,246,0.12)", trend: foodTrend,
-        to: "/events/operations?tab=food",
-      },
+      // {
+      //   label: "Live Food Prepared", value: foodPlates,
+      //   sub: foodPct !== "—" ? `${foodPct} target reached` : "Live tracking",
+      //   icon: Utensils, color: "#8B5CF6", bg: "rgba(139,92,246,0.12)", trend: foodTrend,
+      //   to: "/events/operations?tab=food",
+      // },
       {
         label: "Auction Revenue", value: auctionRev,
         sub: auctionItems,
@@ -590,13 +647,14 @@ export function EventsDashboard() {
         to: "/events/fundraising?tab=auction",
       },
     ];
-  }, [useMock, stats, sponsorTotal, donationTotal, sponsors, registrations, todaySchedule, pendingTasks, events]);
+  }, [useMock, stats, sponsorTotal, donationTotal, sponsors, registrations, allUnifiedRegs, todaySchedule, pendingTasks, events]);
 
   // ── Derived: banner items ─────────────────────────────────────────────────
   const bannerItems: BannerItem[] = useMemo(() => {
     if (useMock) return MOCK_BANNERS;
-    if (events.length > 0) {
-      return events.slice(0, 4).map((ev, i) => eventToBanner(ev, i));
+    const runningEvents = events.filter(e => String(e.status || '').toUpperCase() !== "CANCELLED");
+    if (runningEvents.length > 0) {
+      return runningEvents.slice(0, 4).map((ev, i) => eventToBanner(ev, i));
     }
     return [
       {
@@ -615,16 +673,79 @@ export function EventsDashboard() {
   }, [useMock, events]);
 
   const currentBanner = bannerItems[Math.min(carouselIndex, bannerItems.length - 1)] || bannerItems[0];
+  const [isBannerHovered, setIsBannerHovered] = useState(false);
+
+  // Auto-move banner every 4.5s (pauses on hover)
+  useEffect(() => {
+    if (bannerItems.length <= 1 || isBannerHovered) return;
+    const timer = setInterval(() => {
+      setCarouselIndex((prev) => (prev + 1) % bannerItems.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [bannerItems.length, isBannerHovered]);
+
+  // Sync countdown target with active banner item
+  useEffect(() => {
+    if (currentBanner.targetDate) {
+      setCdTarget(currentBanner.targetDate);
+      setCdTime(currentBanner.targetTime || null);
+    }
+  }, [currentBanner]);
+
+  const handlePrevBanner = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCarouselIndex((prev) => (prev - 1 + bannerItems.length) % bannerItems.length);
+  };
+
+  const handleNextBanner = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCarouselIndex((prev) => (prev + 1) % bannerItems.length);
+  };
 
   // ── Derived: registration trend ───────────────────────────────────────────
   const regTrendData = useMemo(() => {
-    if (!useMock && analytics?.dailyRegistrations) return analytics.dailyRegistrations;
+    if (!useMock && analytics?.dailyRegistrations && analytics.dailyRegistrations.some((d: any) => (d.count || 0) > 0 || (d.vip || 0) > 0)) {
+      return analytics.dailyRegistrations;
+    }
     if (useMock) return MOCK_REG_TREND;
     const counts: Record<string, number> = {};
-    WEEK_DAYS.forEach(d => { counts[d] = 0; });
-    registrations.forEach(r => { counts[WEEK_DAYS[new Date(r.registeredAt).getDay()]]++; });
-    return WEEK_DAYS.map(d => ({ day: d, count: counts[d], vip: 0 }));
-  }, [useMock, analytics, registrations]);
+    const vipCounts: Record<string, number> = {};
+    WEEK_DAYS.forEach(d => { counts[d] = 0; vipCounts[d] = 0; });
+
+    registrations.forEach(r => {
+      if (r.registeredAt) {
+        try {
+          const d = new Date(r.registeredAt);
+          const dayIdx = d.getDay();
+          const dayName = WEEK_DAYS[dayIdx === 0 ? 6 : dayIdx - 1];
+          if (dayName) {
+            counts[dayName] = (counts[dayName] || 0) + 1;
+            if (r.status === "CONFIRMED") vipCounts[dayName] = (vipCounts[dayName] || 0) + 1;
+          }
+        } catch {}
+      }
+    });
+
+    allUnifiedRegs.forEach(r => {
+      const dateStr = (r as any).registeredAt || r.createdAt || r.eventDate;
+      if (dateStr) {
+        try {
+          const d = new Date(dateStr);
+          const dayIdx = isNaN(d.getTime()) ? 0 : d.getDay();
+          const dayName = WEEK_DAYS[dayIdx === 0 ? 6 : dayIdx - 1];
+          if (dayName) {
+            const devotees = r.devoteeCount || 1;
+            counts[dayName] = (counts[dayName] || 0) + devotees;
+            if (r.status === "CONFIRMED" || r.paymentStatus === "PAID") {
+              vipCounts[dayName] = (vipCounts[dayName] || 0) + devotees;
+            }
+          }
+        } catch {}
+      }
+    });
+
+    return WEEK_DAYS.map(d => ({ day: d, count: counts[d] || 0, vip: vipCounts[d] || 0 }));
+  }, [useMock, analytics, registrations, allUnifiedRegs]);
 
   // ── Derived: expense breakdown ────────────────────────────────────────────
   const budgetData = useMemo(() => {
@@ -647,18 +768,26 @@ export function EventsDashboard() {
 
   // ── Derived: pie categories ───────────────────────────────────────────────
   const pieData = useMemo(() => {
-    if (!useMock && analytics?.passCategories) return analytics.passCategories;
+    if (!useMock && analytics?.passCategories && analytics.passCategories.length > 0) return analytics.passCategories;
     if (useMock) return MOCK_PIE;
-    const byStatus: Record<string, number> = {};
-    registrations.forEach(r => { byStatus[r.status] = (byStatus[r.status] || 0) + 1; });
-    const entries = Object.entries(byStatus).map(([name, value], i) => ({
-      name: name === "CONFIRMED" ? "Confirmed" : name === "PENDING" ? "Pending" : name === "REJECTED" ? "Rejected" : name,
+    const byCat: Record<string, number> = {};
+    allUnifiedRegs.forEach(r => {
+      const cat = r.category || (r as any).passType || r.activityTitle || "Event Pass";
+      const count = r.devoteeCount || 1;
+      byCat[cat] = (byCat[cat] || 0) + count;
+    });
+    registrations.forEach(r => {
+      const status = r.status === "CONFIRMED" ? "Confirmed Passes" : "General Passes";
+      byCat[status] = (byCat[status] || 0) + 1;
+    });
+    const entries = Object.entries(byCat).map(([name, value], i) => ({
+      name,
       value,
       color: PIE_COLORS[i % PIE_COLORS.length],
     }));
     if (stats?.totalVolunteers) entries.push({ name: "Volunteers", value: stats.totalVolunteers, color: "#2563EB" });
     return entries;
-  }, [useMock, analytics, registrations, stats]);
+  }, [useMock, analytics, registrations, allUnifiedRegs, stats]);
 
   // ── Derived: today's schedule & duty chart data ───────────────────────────
   const scheduleDutyChartData = useMemo(() => {
@@ -676,7 +805,9 @@ export function EventsDashboard() {
       ];
     }
     const todayStr = new Date().toISOString().slice(0, 10);
-    const activeToday = events.filter(e => e.startDate <= todayStr && (!e.endDate || e.endDate >= todayStr));
+    const activeToday = events
+      .filter(e => String(e.status || '').toUpperCase() !== "CANCELLED")
+      .filter(e => e.startDate <= todayStr && (!e.endDate || e.endDate >= todayStr));
     const counts: Record<string, { programs: number; volunteers: number }> = {};
     timeSlots.forEach(t => { counts[t] = { programs: 0, volunteers: 0 }; });
 
@@ -717,9 +848,11 @@ export function EventsDashboard() {
         </div>
       )}
 
-      {/* ── Single Merged Unified Festival & Event Header Bar ── */}
+      {/* ── Single Merged Unified Festival & Event Header Bar with Auto-Move & Manual Navigation ── */}
       <div
-        className="relative rounded-xl overflow-hidden shadow-sm transition-all duration-300 border border-indigo-900/20"
+        onMouseEnter={() => setIsBannerHovered(true)}
+        onMouseLeave={() => setIsBannerHovered(false)}
+        className="relative rounded-xl overflow-hidden shadow-sm transition-all duration-300 border border-indigo-900/20 group/banner"
         style={{ background: currentBanner.bgGradient || "linear-gradient(135deg, #3730A3 0%, #4F46E5 40%, #7C3AED 72%, #9333EA 100%)" }}
       >
         {/* Dot grid texture */}
@@ -729,10 +862,10 @@ export function EventsDashboard() {
         <div className="absolute right-0 top-0 w-48 h-full rounded-full opacity-15 blur-3xl pointer-events-none z-0"
           style={{ background: "radial-gradient(circle, #FEF3C7 0%, transparent 70%)", transform: "translate(20%,-20%)" }} />
 
-        <div className="relative z-10 px-3 py-2 sm:px-3.5 sm:py-2.5 text-white flex flex-col lg:flex-row lg:items-center justify-between gap-2">
+        <div className="relative z-10 px-3 py-2 sm:px-3.5 sm:py-2.5 text-white flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
 
-          {/* Left: Festival Icon + Title + Metadata */}
-          <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
+          {/* Left: Single Festival Icon + Title + Metadata */}
+          <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
             <div className="relative w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-base shrink-0 shadow-xs overflow-hidden">
               <span className="text-base">{(useMock || events.length > 0) ? "🕉️" : "📅"}</span>
               {currentBanner.image && (
@@ -753,7 +886,8 @@ export function EventsDashboard() {
                 </span>
                 {(useMock || events.length > 0) ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 text-[9.5px] font-bold border border-emerald-400/30">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live · {events.length || 1} Event{events.length === 1 ? "" : "s"}
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    {bannerItems.length > 1 ? `Live · Event ${carouselIndex + 1} of ${bannerItems.length}` : `Live · 1 Event`}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-300 text-[9.5px] font-bold border border-slate-400/30">
@@ -779,6 +913,43 @@ export function EventsDashboard() {
               </div>
             </div>
           </div>
+
+          {/* Center: Manual Carousel Move Controls & Indicators when multiple events exist */}
+          {bannerItems.length > 1 && (
+            <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-xs px-2 py-1 rounded-xl border border-white/15 shrink-0 self-start lg:self-center shadow-xs">
+              <button
+                type="button"
+                onClick={handlePrevBanner}
+                className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                title="Previous Event"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <div className="flex items-center gap-1 px-1">
+                {bannerItems.map((_, dotIdx) => (
+                  <button
+                    key={dotIdx}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setCarouselIndex(dotIdx); }}
+                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                      dotIdx === carouselIndex
+                        ? "w-4 bg-amber-400 shadow-xs"
+                        : "w-1.5 bg-white/40 hover:bg-white/70"
+                    }`}
+                    title={`Go to Event ${dotIdx + 1}`}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={handleNextBanner}
+                className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                title="Next Event"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* Right: Countdown Ticker & Action Buttons */}
           <div className="flex flex-wrap items-center gap-2.5 shrink-0 justify-between lg:justify-end border-t lg:border-t-0 pt-2 lg:pt-0 border-white/10">
@@ -915,8 +1086,8 @@ export function EventsDashboard() {
               onClick={() => navigate("/events/registration")}
               className="text-[10.5px] font-bold text-[#4F46E5] bg-indigo-50 hover:bg-indigo-100 px-2.5 py-0.5 rounded-full border border-indigo-200 cursor-pointer transition-colors"
             >
-              {!useMock && stats
-                ? `Total: ${stats.totalRegistrations.toLocaleString()} Passes →`
+              {!useMock
+                ? `Total: ${liveRegCount.toLocaleString()} Passes →`
                 : "Total: 1,842 Passes →"}
             </button>
           </div>
@@ -1394,19 +1565,22 @@ export function EventsDashboard() {
           <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 min-h-[85vh] sm:min-h-[640px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp">
             <EventRegistrationWizard
               event={
-                (events && events.length > 0 && events[0]) ? events[0] : {
-                  id: "ev-1",
-                  title: "Ganesh Chaturthi Utsav 2026",
-                  ticketTypes: [
-                    {
-                      id: "ganesh-pass-2026",
-                      name: "Ganesh Utsav 2026 Pass",
-                      price: "250",
-                      qty: "2500",
-                      description: "All-access entry pass for Ganesh Chaturthi 2026 Mahotsav rituals, prasadam & cultural programs",
-                    },
-                  ],
-                }
+                (() => {
+                  const runningEvents = events.filter(e => String(e.status || '').toUpperCase() !== "CANCELLED");
+                  return (runningEvents && runningEvents.length > 0) ? (runningEvents[carouselIndex] || runningEvents[0]) : {
+                    id: "ev-1",
+                    title: "Ganesh Chaturthi Utsav 2026",
+                    ticketTypes: [
+                      {
+                        id: "ganesh-pass-2026",
+                        name: "Ganesh Utsav 2026 Pass",
+                        price: "250",
+                        qty: "2500",
+                        description: "All-access entry pass for Ganesh Chaturthi 2026 Mahotsav rituals, prasadam & cultural programs",
+                      },
+                    ],
+                  };
+                })()
               }
               onClose={() => setShowRegisterModal(false)}
             />
