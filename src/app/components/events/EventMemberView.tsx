@@ -1147,6 +1147,13 @@ export function EventMemberView() {
                   {activitiesList.length > 0 && (() => {
                     const act = activitiesList[0];
                     const existingPass = getExistingPassForActivity(act);
+                    if (!existingPass && act.availableSeats === 0) {
+                      return (
+                        <span className="ml-auto px-3.5 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-black rounded-xl whitespace-nowrap shrink-0 flex items-center gap-1.5 bg-gray-400 text-white opacity-70">
+                          Registration Closed
+                        </span>
+                      );
+                    }
                     return (
                       <button
                         type="button"
@@ -1427,7 +1434,9 @@ export function EventMemberView() {
                             <span className="font-black uppercase text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
                               {act.category}
                             </span>
-                            <span className="text-muted-foreground font-bold text-[10px]">{act.availableSeats} slots left</span>
+                            <span className={`font-bold text-[10px] ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                              {act.availableSeats === 0 ? "Registration Closed" : `${act.availableSeats} slots left`}
+                            </span>
                           </div>
                           <h4 className="text-xs sm:text-sm font-black text-foreground mt-1 line-clamp-1">
                             {act.title}
@@ -1453,6 +1462,13 @@ export function EventMemberView() {
                                 >
                                   <Edit3 className="w-3.5 h-3.5" /> Update Registration
                                 </button>
+                              );
+                            }
+                            if (act.availableSeats === 0) {
+                              return (
+                                <span className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-gray-400 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 opacity-70">
+                                  Registration Closed
+                                </span>
                               );
                             }
                             return (
@@ -2044,7 +2060,9 @@ export function EventMemberView() {
                                 <span className="font-black uppercase text-primary bg-primary/10 px-1.5 py-0.2 rounded border border-primary/20">
                                   {act.category}
                                 </span>
-                                <span className="text-muted-foreground font-semibold">{act.availableSeats} slots</span>
+                                <span className={`font-semibold ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                                  {act.availableSeats === 0 ? "Closed" : `${act.availableSeats} slots`}
+                                </span>
                               </div>
                               <h4 className="text-xs font-bold text-foreground mt-0.5 truncate">{act.title}</h4>
                               <p className="text-[10px] text-muted-foreground">
@@ -2069,6 +2087,13 @@ export function EventMemberView() {
                                     >
                                       <Edit3 className="w-3 h-3" /> Update Registration
                                     </button>
+                                  );
+                                }
+                                if (act.availableSeats === 0) {
+                                  return (
+                                    <span className="px-2.5 py-1 bg-gray-400 text-white text-[11px] font-bold rounded-lg flex items-center gap-1 opacity-70">
+                                      Registration Closed
+                                    </span>
                                   );
                                 }
                                 return (
