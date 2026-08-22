@@ -597,36 +597,54 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         if (!isNaN(numericId) && numericId > 0) {
           try {
             await eventService.updatePoojaRegistration(numericId, regPayload);
-          } catch (apiErr) {
-            console.warn("Backend pooja update API note:", apiErr);
+            showSuccess("🪔 Pooja registration updated successfully!");
+          } catch (apiErr: any) {
+            const errMsg = apiErr?.response?.data?.message || apiErr?.message || "Failed to update pooja registration.";
+            showWarning(errMsg);
+            return;
           }
         }
-        showSuccess("🪔 Pooja registration updated successfully!");
       } else {
         try {
           await eventService.createPoojaRegistration(regPayload);
-        } catch (apiErr) {
-          console.warn("Backend createRegistration API note, trying fallback register:", apiErr);
+          showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
+        } catch (apiErr: any) {
+          const errMsg = apiErr?.response?.data?.message || apiErr?.message || "";
+          console.warn("Backend createPoojaRegistration API note, trying fallback register:", apiErr);
+          if (errMsg && (errMsg.toLowerCase().includes("deadline") || errMsg.toLowerCase().includes("passed") || errMsg.toLowerCase().includes("cancelled") || errMsg.toLowerCase().includes("ended") || errMsg.toLowerCase().includes("full"))) {
+            showWarning(errMsg);
+            return;
+          }
           if (event?.id) {
             const numericEventId = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
             if (!isNaN(numericEventId) && numericEventId > 0) {
-              await eventService.register(numericEventId).catch(() => {});
+              try {
+                await eventService.register(numericEventId);
+                showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
+              } catch (regErr: any) {
+                const regErrMsg = regErr?.response?.data?.message || regErr?.message || "Registration deadline has passed. Contact admin for manual registration.";
+                showWarning(regErrMsg);
+                return;
+              }
+            }
+          } else {
+            if (errMsg) {
+              showWarning(errMsg);
+              return;
             }
           }
         }
-        showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
       }
 
       window.dispatchEvent(new Event("mana_activities_updated"));
-      window.dispatchEvent(new Event("mana_registrations_updated"));
       window.dispatchEvent(new Event("mana_registrations_updated"));
 
       setIsSuccess(true);
       if (onSuccess) onSuccess();
     } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || "Registration deadline has passed. Contact admin for manual registration.";
       console.error("Failed to process pooja registration:", err);
-      showWarning(isUpdateMode ? "Pooja registration updated locally." : "Pooja registration recorded locally.");
-      setIsSuccess(true);
+      showWarning(errMsg);
     } finally {
       setIsSubmitting(false);
     }

@@ -134,7 +134,18 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   const [existingReg, setExistingReg] = useState<any>(() => event?.existingRegistration || null);
   const isUpdateMode = Boolean(event?.isUpdateMode || existingReg);
   const existingRegId = event?.registrationId || existingReg?.id || (event as any)?.regId;
-  const isRegistrationEnded = isRegistrationClosed(event) && !isUpdateMode;
+  const activeEvent = eventDetails || event;
+  const deadlineStr = activeEvent?.registrationDeadline || activeEvent?.regDeadline || event?.registrationDeadline;
+  const isDeadlinePassed = Boolean(
+    deadlineStr &&
+    (() => {
+      const d = new Date(deadlineStr);
+      d.setHours(23, 59, 59, 999);
+      return new Date() > d;
+    })() &&
+    !isAnyAdmin
+  );
+  const isRegistrationEnded = (isRegistrationClosed(activeEvent) || isDeadlinePassed) && !isUpdateMode && !isAnyAdmin;
 
   const [formData, setFormData] = useState({
     category: "Standard Pass",
@@ -660,7 +671,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       }
     }
     if (isRegistrationEnded) {
-      showWarning("Registration for this event has ended.");
+      showWarning("Registration deadline has passed. Contact admin for manual registration.");
       return;
     }
     if (currentStep < 4) {
@@ -670,7 +681,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
   const handleComplete = async (modeOverride?: string) => {
     if (isRegistrationEnded) {
-      showWarning("Registration for this event has ended.");
+      showWarning("Registration deadline has passed. Contact admin for manual registration.");
       return;
     }
     if (!formData.gotram?.trim()) {
@@ -721,24 +732,43 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         if (!isNaN(numericId) && numericId > 0) {
           try {
             await eventService.updateRegistration(numericId, regPayload);
-          } catch (apiErr) {
-            console.warn("Backend update registration API warning:", apiErr);
+            showSuccess("Registration updated successfully!");
+          } catch (apiErr: any) {
+            const errMsg = apiErr?.response?.data?.message || apiErr?.message || "Failed to update registration.";
+            showWarning(errMsg);
+            return;
           }
         }
-        showSuccess("Registration updated successfully!");
       } else {
         try {
           await eventService.createRegistration(regPayload);
-        } catch (apiErr) {
-          console.warn("Backend createRegistration API note, trying fallback register:", apiErr);
+          showSuccess("Registration completed successfully!");
+        } catch (apiErr: any) {
+          const errMsg = apiErr?.response?.data?.message || apiErr?.message || "";
+          console.warn("Backend createRegistration API error:", apiErr);
+          if (errMsg && (errMsg.toLowerCase().includes("deadline") || errMsg.toLowerCase().includes("passed") || errMsg.toLowerCase().includes("cancelled") || errMsg.toLowerCase().includes("ended") || errMsg.toLowerCase().includes("full"))) {
+            showWarning(errMsg);
+            return;
+          }
           if (event?.id) {
             const numericEventId = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
             if (!isNaN(numericEventId) && numericEventId > 0) {
-              await eventService.register(numericEventId).catch(() => {});
+              try {
+                await eventService.register(numericEventId);
+                showSuccess("Registration completed successfully!");
+              } catch (regErr: any) {
+                const regErrMsg = regErr?.response?.data?.message || regErr?.message || "Registration deadline has passed. Contact admin for manual registration.";
+                showWarning(regErrMsg);
+                return;
+              }
+            }
+          } else {
+            if (errMsg) {
+              showWarning(errMsg);
+              return;
             }
           }
         }
-        showSuccess("Registration completed successfully!");
       }
 
       // ── Two-way sync: Save new attendees to Family Members profile in Dashboard ──
@@ -768,14 +798,16 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           console.warn("Family member auto-sync note:", famErr);
         }
       }
-    } catch (err) {
-      console.warn("Could not persist registration to backend API, saved locally:", err);
-      showWarning(isUpdateMode ? "Registration changes saved locally." : "Registration saved locally.");
+
+      window.dispatchEvent(new Event("mana_activities_updated"));
+      window.dispatchEvent(new Event("mana_registrations_updated"));
+      setFormData((prev) => ({ ...prev, paymentMode: selectedMode }));
+      setIsSuccess(true);
+    } catch (err: any) {
+      const errMsg = err?.response?.data?.message || err?.message || "Registration deadline has passed. Contact admin for manual registration.";
+      console.warn("Registration API error:", err);
+      showWarning(errMsg);
     }
-    window.dispatchEvent(new Event("mana_activities_updated"));
-    window.dispatchEvent(new Event("mana_registrations_updated"));
-    setFormData((prev) => ({ ...prev, paymentMode: selectedMode }));
-    setIsSuccess(true);
   };
 
   return (
@@ -862,9 +894,14 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           className="flex-1 flex flex-col justify-between p-4 sm:p-5 border border-border rounded-2xl overflow-y-auto space-y-4 shadow-sm"
         >
           {isRegistrationEnded && (
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
-              <Clock className="w-4 h-4 shrink-0" />
-              <span>Event registration has closed. New bookings are no longer available.</span>
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-start gap-2.5 animate-fadeIn">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+              <div>
+                <strong className="block text-xs font-extrabold text-amber-900 dark:text-amber-200">Registration Closed</strong>
+                <span className="text-[11.5px] font-semibold leading-relaxed">
+                  Registration deadline has passed. Contact admin for manual registration.
+                </span>
+              </div>
             </div>
           )}
           {/* STEP 1: Dynamic Pass Categories */}
@@ -1680,8 +1717,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
             )}
 
             {isRegistrationEnded ? (
-              <span className="px-4 py-2 rounded-xl bg-muted text-muted-foreground text-xs font-bold border border-border flex items-center gap-1.5 select-none">
-                <Clock className="w-3.5 h-3.5" /> Registration Closed
+              <span className="px-4 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs font-bold border border-amber-500/20 flex items-center gap-1.5 select-none">
+                <AlertCircle className="w-3.5 h-3.5" /> Registration Deadline Passed
               </span>
             ) : currentStep < 4 ? (
               <TouchButton variant="primary" size="sm" icon={ArrowRight} onClick={handleNextStep}>
