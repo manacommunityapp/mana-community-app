@@ -58,6 +58,7 @@ describe("authService - forgot password & reset password", () => {
       oldPassword: "OldPass123",
       newPassword: "NewPass456",
       confirmPassword: "NewPass456",
+      password: "NewPass456",
     });
     expect(result).toEqual(mockResponse);
   });
