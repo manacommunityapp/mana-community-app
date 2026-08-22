@@ -5,6 +5,8 @@ export interface TicketTypeItem {
   name: string;
   price: string | number;
   qty?: string | number;
+  seats?: string | number;
+  capacity?: string | number;
   description?: string;
 }
 
@@ -50,6 +52,7 @@ export interface EventResponse {
   isRegistered: boolean;
   createdAt: string;
   ticketTypes?: TicketTypeItem[];
+  ticketTypesJson?: string | null;
   paymentModes?: string[] | string;
   upiId?: string | null;
   scannerUrl?: string | null;
@@ -102,6 +105,7 @@ export interface EventRequest {
   status?: string;
   maxAttendees?: number;
   ticketTypes?: TicketTypeItem[];
+  ticketTypesJson?: string;
   paymentModes?: string[] | string;
   upiId?: string;
   scannerUrl?: string;

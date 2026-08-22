@@ -349,6 +349,10 @@ export function PoojaSevaSection() {
       alert("Please select a main event, pooja type, date, and fill all required fields.");
       return;
     }
+    if (form.isMultiDay && form.endDate && form.date && form.endDate < form.date) {
+      alert(`End date (${form.endDate}) cannot be earlier than start date (${form.date}).`);
+      return;
+    }
 
     const validStartTimes = (form.startTimes || []).filter(Boolean);
     const primaryStartTime = validStartTimes[0] || form.startTime || "08:30";

@@ -1865,15 +1865,21 @@ export function EventMemberView() {
                   existingRegistration: (selectedActivity as any)?.existingRegistration,
                   registrationId: (selectedActivity as any)?.registrationId,
                   isUpdateMode: (selectedActivity as any)?.isUpdateMode,
-                  ticketTypes: [
-                    {
-                      id: `pass-${selectedActivity.id}`,
-                      name: `${selectedActivity.title} Pass`,
-                      price: selectedActivity.fee || "0",
-                      qty: selectedActivity.availableSeats || 100,
-                      description: selectedActivity.description || `Entry & seva pass for ${selectedActivity.title}`,
-                    },
-                  ],
+                  availableSeats: selectedActivity.availableSeats,
+                  capacity: (selectedActivity as any)?.capacity ?? (selectedActivity as any)?.slots ?? selectedActivity.availableSeats,
+                  seats: (selectedActivity as any)?.seats ?? selectedActivity.availableSeats,
+                  ticketTypes: (selectedActivity as any)?.ticketTypes && (selectedActivity as any).ticketTypes.length > 0
+                    ? (selectedActivity as any).ticketTypes
+                    : [
+                        {
+                          id: `pass-${selectedActivity.id}`,
+                          name: `${selectedActivity.title} Pass`,
+                          price: selectedActivity.fee || "0",
+                          qty: selectedActivity.availableSeats ?? (selectedActivity as any)?.capacity ?? (selectedActivity as any)?.slots ?? 100,
+                          seats: selectedActivity.availableSeats ?? (selectedActivity as any)?.seats ?? (selectedActivity as any)?.capacity ?? (selectedActivity as any)?.slots ?? 100,
+                          description: selectedActivity.description || `Entry & seva pass for ${selectedActivity.title}`,
+                        },
+                      ],
                 }}
                 onClose={() => {
                   setSelectedActivity(null);

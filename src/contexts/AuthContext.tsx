@@ -80,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             permissions: me.permissions ?? [],
             enabledModules: me.enabledModules,
             menuPermissions: me.menuPermissions,
+            profilePicUrl: me.profilePicUrl,
           });
         })
         .catch((err) => {
@@ -121,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permissions: me.permissions ?? [],
         enabledModules: me.enabledModules,
         menuPermissions: me.menuPermissions,
+        profilePicUrl: me.profilePicUrl,
       };
       storeUser(updated);
       setUser(updated);

@@ -39,6 +39,10 @@ export interface TicketCategoryItem {
   name: string;
   price?: string | number;
   qty?: string | number;
+  seats?: string | number;
+  capacity?: string | number;
+  availableSeats?: string | number;
+  slots?: string | number;
   description?: string;
 }
 
@@ -69,6 +73,19 @@ const getCategoryIcon = (name: string) => {
   if (lower.includes("student") || lower.includes("child") || lower.includes("kid")) return Heart;
   if (lower.includes("individual") || lower.includes("single") || lower.includes("person") || lower.includes("general")) return User;
   return IndianRupee;
+};
+
+const calculateAge = (dob?: string | null): number => {
+  if (!dob) return 0;
+  const birthDate = new Date(dob);
+  if (isNaN(birthDate.getTime())) return 0;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age > 0 && age <= 130 ? age : 0;
 };
 
 export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = ({
@@ -136,7 +153,12 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     receiptUploaded: false,
     receiptUrl: "",
     membersCount: 1,
-    members: [{ name: authUser?.fullName || "", age: 0, gender: authUser?.gender || "Male", relationship: "Self (Head)" }],
+    members: [{
+      name: authUser?.fullName || "",
+      age: calculateAge(authUser?.dateOfBirth || (authUser as any)?.dob),
+      gender: authUser?.gender || "Male",
+      relationship: "Self (Head)"
+    }],
     photoUploaded: false,
     signatureSigned: true,
   });
@@ -163,10 +185,12 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           setFormData((prev) => {
             if (prev.members.length <= 1) {
               const primaryName = prev.fullName || authUser?.fullName || "Primary Devotee";
+              const userDob = authUser?.dateOfBirth || (authUser as any)?.dob;
+              const calculatedAge = calculateAge(userDob);
               const primaryMember = {
                 name: primaryName,
-                age: authUser?.dateOfBirth ? Math.max(18, new Date().getFullYear() - new Date(authUser.dateOfBirth).getFullYear()) : 30,
-                gender: authUser?.gender || "Male",
+                age: calculatedAge || (prev.members[0]?.age && prev.members[0].age > 0 ? prev.members[0].age : 30),
+                gender: authUser?.gender || prev.members[0]?.gender || "Male",
                 relationship: "Self (Head)",
               };
               const additional = validMembers
@@ -301,10 +325,13 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     };
   }, [event?.id, event?.title, (event as any)?.registrationId]);
 
-  // ── Auto-fill & synchronize logged in user details including Flat / Unit & Block ──
+  // ── Auto-fill & synchronize logged in user details including Flat / Unit & Block & Age from DOB ──
   useEffect(() => {
     if (authUser) {
       const flat = (authUser.block && authUser.flatNo) ? `${authUser.block}-${authUser.flatNo}` : (authUser.flatNo || "");
+      const userDob = authUser.dateOfBirth || (authUser as any)?.dob;
+      const userAge = calculateAge(userDob);
+
       setFormData((prev) => ({
         ...prev,
         fullName: prev.fullName || authUser.fullName || "",
@@ -312,9 +339,17 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         email: prev.email || authUser.email || "",
         flatNo: prev.flatNo || flat,
         gotram: prev.gotram || (authUser as any)?.gotram || "",
-        members: prev.members.length > 0 && !prev.members[0].name
-          ? [{ ...prev.members[0], name: authUser.fullName || "" }, ...prev.members.slice(1)]
-          : prev.members,
+        members: prev.members.length > 0
+          ? [
+              {
+                ...prev.members[0],
+                name: prev.members[0].name || authUser.fullName || "",
+                age: (!prev.members[0].age || prev.members[0].age === 0) && userAge > 0 ? userAge : (prev.members[0].age || userAge || 0),
+                gender: prev.members[0].gender || authUser.gender || "Male",
+              },
+              ...prev.members.slice(1),
+            ]
+          : [{ name: authUser.fullName || "", age: userAge || 0, gender: authUser.gender || "Male", relationship: "Self (Head)" }],
       }));
     }
 
@@ -323,6 +358,9 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       .then((u: any) => {
         if (u) {
           const flat = u.flatNo ? (u.block ? `${u.block}-${u.flatNo}` : u.flatNo) : "";
+          const userDob = u.dateOfBirth || u.dob || authUser?.dateOfBirth || (authUser as any)?.dob;
+          const userAge = calculateAge(userDob);
+
           setFormData((prev) => ({
             ...prev,
             fullName: prev.fullName || u.fullName || "",
@@ -330,14 +368,22 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
             email: prev.email || u.email || "",
             flatNo: prev.flatNo || flat,
             gotram: prev.gotram || u.gotram || (authUser as any)?.gotram || "",
-            members: prev.members.length > 0 && !prev.members[0].name
-              ? [{ ...prev.members[0], name: u.fullName || "" }, ...prev.members.slice(1)]
-              : prev.members,
+            members: prev.members.length > 0
+              ? [
+                  {
+                    ...prev.members[0],
+                    name: prev.members[0].name || u.fullName || "",
+                    age: (!prev.members[0].age || prev.members[0].age === 0) && userAge > 0 ? userAge : (prev.members[0].age || userAge || 0),
+                    gender: prev.members[0].gender || u.gender || authUser?.gender || "Male",
+                  },
+                  ...prev.members.slice(1),
+                ]
+              : [{ name: u.fullName || "", age: userAge || 0, gender: u.gender || "Male", relationship: "Self (Head)" }],
           }));
         }
       })
       .catch(() => {});
-  }, [authUser?.userId, authUser?.email]);
+  }, [authUser?.userId, authUser?.email, authUser?.dateOfBirth]);
 
   // ── Load Ticket Categories dynamically from Event Details ONLY ──
   useEffect(() => {
@@ -346,10 +392,6 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     async function loadEventTicketCategories() {
       let cats: TicketCategoryItem[] = [];
 
-      if (ticketCategories && ticketCategories.length > 0) {
-        cats = ticketCategories;
-      }
-
       let targetEvent: any = event;
       if (event?.id) {
         const rawDigits = String(event.id).replace(/\D/g, "");
@@ -357,7 +399,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           try {
             const freshEvent = await eventService.getEventById(Number(rawDigits));
             if (freshEvent && isSubscribed) {
-              targetEvent = freshEvent;
+              targetEvent = { ...event, ...freshEvent };
               setEventDetails((prev: any) => ({ ...prev, ...freshEvent }));
             }
           } catch {
@@ -366,43 +408,103 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         }
       }
 
+      if (ticketCategories && ticketCategories.length > 0) {
+        cats = ticketCategories.map((cat, idx) => {
+          const categorySeats =
+            cat.seats ??
+            cat.qty ??
+            (cat as any).quantity ??
+            cat.capacity ??
+            cat.availableSeats ??
+            cat.slots ??
+            (targetEvent?.availableSeats ?? targetEvent?.capacity ?? targetEvent?.seats ?? targetEvent?.slots);
+          return {
+            ...cat,
+            id: cat.id || `cat-${idx}`,
+            qty: categorySeats,
+            seats: categorySeats,
+          };
+        });
+      }
+
       if ((!cats || cats.length === 0) && targetEvent) {
         const rawTypes = targetEvent.ticketTypes || targetEvent.ticketCategories || targetEvent.passes;
         if (Array.isArray(rawTypes) && rawTypes.length > 0) {
           cats = rawTypes.map((item: any, idx: number) => {
+            const dynamicSeats =
+              item.seats ??
+              item.qty ??
+              item.quantity ??
+              item.capacity ??
+              item.availableSeats ??
+              item.slots ??
+              item.maxSeats ??
+              item.totalSeats ??
+              targetEvent.availableSeats ??
+              targetEvent.capacity ??
+              targetEvent.seats ??
+              targetEvent.slots ??
+              targetEvent.maxAttendees;
+
             if (typeof item === "string") {
-              return { id: `cat-${idx}`, name: item, price: "0", qty: 100, description: "General entry" };
+              return {
+                id: `cat-${idx}`,
+                name: item,
+                price: "0",
+                qty: dynamicSeats || 100,
+                seats: dynamicSeats || 100,
+                description: "General entry",
+              };
             }
             return {
               id: item.id || `cat-${idx}`,
               name: item.name || item.title || item.category || "Pass",
               price: item.price !== undefined ? item.price : item.fee !== undefined ? item.fee : 0,
-              qty: item.qty || item.quantity || item.capacity || item.availableSeats,
+              qty: dynamicSeats,
+              seats: dynamicSeats,
               description: item.description || item.desc,
             };
           });
         }
       }
 
-      if ((!cats || cats.length === 0) && targetEvent?.price !== undefined) {
+      if ((!cats || cats.length === 0) && (targetEvent?.price !== undefined || targetEvent?.title || targetEvent?.name)) {
+        const dynamicSeats =
+          targetEvent?.seats ??
+          targetEvent?.availableSeats ??
+          targetEvent?.capacity ??
+          targetEvent?.slots ??
+          targetEvent?.totalSeats ??
+          targetEvent?.maxParticipants ??
+          targetEvent?.targetPlates;
+
         cats = [
           {
             id: `pass-${targetEvent.id || "1"}`,
-            name: `${targetEvent.title || "Event"} Pass`,
+            name: `${targetEvent.title || targetEvent.name || "Event"} Pass`,
             price: targetEvent.price || targetEvent.fee || 0,
-            qty: 100,
+            qty: dynamicSeats || 100,
+            seats: dynamicSeats || 100,
             description: targetEvent.description || "Full event access pass",
           },
         ];
       }
 
       if (!cats || cats.length === 0) {
+        const fallbackSeats =
+          targetEvent?.seats ??
+          targetEvent?.availableSeats ??
+          targetEvent?.capacity ??
+          targetEvent?.slots ??
+          500;
+
         cats = [
           {
             id: "standard-pass",
             name: "Standard Entry Pass",
             price: "Free",
-            qty: 500,
+            qty: fallbackSeats,
+            seats: fallbackSeats,
             description: "General admission & prasadam",
           },
         ];
@@ -785,6 +887,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                   const selected = selectedCatId === catId;
                   const priceText = formatPrice(cat.price);
 
+                  const categorySeats = cat.seats ?? cat.qty ?? (cat as any).capacity ?? (cat as any).availableSeats ?? (cat as any).slots;
+
                   return (
                     <div
                       key={catId}
@@ -825,13 +929,13 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                       <div>
                         <h4 className="text-xs sm:text-sm font-black text-foreground">{cat.name}</h4>
                         <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">
-                          {cat.description || (cat.qty ? `${cat.qty} seats allocated` : "Standard event pass tier")}
+                          {cat.description || (categorySeats ? `${categorySeats} seats allocated` : "Standard event pass tier")}
                         </p>
                       </div>
 
-                      {cat.qty && (
+                      {categorySeats != null && categorySeats !== "" && (
                         <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[9.5px] font-bold text-muted-foreground">
-                          <span>Capacity: {cat.qty} passes</span>
+                          <span>Capacity: {categorySeats} {Number(categorySeats) === 1 ? "seat" : "seats"}</span>
                           {selected && <span className="text-primary font-extrabold">Selected ✓</span>}
                         </div>
                       )}
@@ -872,13 +976,20 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                       onClick={() => {
                         setRegisterOnBehalf(false);
                         setSelectedTargetUserId(null);
+                        const userDob = authUser?.dateOfBirth || (authUser as any)?.dob;
+                        const userAge = calculateAge(userDob);
                         setFormData((prev) => ({
                           ...prev,
                           fullName: authUser?.fullName || "",
                           email: authUser?.email || "",
                           phone: authUser?.phone || "",
                           flatNo: (authUser?.block && authUser?.flatNo) ? `${authUser.block}-${authUser.flatNo}` : (authUser?.flatNo || ""),
-                          members: prev.members.map((m, i) => i === 0 ? { ...m, name: authUser?.fullName || m.name } : m),
+                          members: prev.members.map((m, i) => i === 0 ? {
+                            ...m,
+                            name: authUser?.fullName || m.name,
+                            age: userAge || m.age || 0,
+                            gender: authUser?.gender || m.gender || "Male",
+                          } : m),
                         }));
                       }}
                       className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
@@ -900,7 +1011,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                           phone: "",
                           flatNo: "",
                           gotram: "",
-                          members: prev.members.map((m, i) => i === 0 ? { ...m, name: "" } : m),
+                          members: prev.members.map((m, i) => i === 0 ? { ...m, name: "", age: 0 } : m),
                         }));
                       }}
                       className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
@@ -972,13 +1083,19 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                                 setSelectedTargetUserId(u.id || null);
                                 setUserSearchQuery(u.fullName || u.email || "");
                                 setIsUserDropdownOpen(false);
+                                const userAge = calculateAge(u.dateOfBirth || u.dob);
                                 setFormData((prev) => ({
                                   ...prev,
                                   fullName: u.fullName || "",
                                   email: u.email || "",
                                   phone: u.phone || "",
                                   flatNo: flat,
-                                  members: prev.members.map((m, i) => i === 0 ? { ...m, name: u.fullName || m.name } : m),
+                                  members: prev.members.map((m, i) => i === 0 ? {
+                                    ...m,
+                                    name: u.fullName || m.name,
+                                    age: userAge || m.age || 0,
+                                    gender: u.gender || m.gender || "Male",
+                                  } : m),
                                 }));
                               }}
                               className="p-2.5 hover:bg-primary/10 cursor-pointer flex items-center justify-between text-xs transition-colors"
@@ -1253,8 +1370,11 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                         )}
                       </div>
                       <div className="col-span-6 sm:col-span-2">
-                        <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1">
-                          Age *
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-between">
+                          <span>Age *</span>
+                          {idx === 0 && mem.age > 0 && (
+                            <span className="text-[9px] text-primary font-semibold lowercase">from profile</span>
+                          )}
                         </label>
                         <input
                           type="number"

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * eventDeadlineUtils.ts
  *
  * Utilities to evaluate registration status, deadlines, and date/time expiry for
@@ -213,3 +213,33 @@ export function getRegistrationStatusLabel(item: any): { isClosed: boolean; labe
   }
   return { isClosed: false, label: "Open" };
 }
+
+/**
+ * Checks whether an end date is earlier than a start date.
+ */
+export function isEndDateBeforeStartDate(startDate?: string, endDate?: string): boolean {
+  if (!startDate || !endDate) return false;
+  return endDate.trim() < startDate.trim();
+}
+
+/**
+ * Checks whether an end time is earlier than or equal to a start time on the same day.
+ */
+export function isEndTimeBeforeStartTime(startTime?: string, endTime?: string): boolean {
+  if (!startTime || !endTime) return false;
+  const startComp = extractTimeComponents(startTime);
+  const endComp = extractTimeComponents(endTime);
+  if (!startComp || !endComp) return false;
+  const startMins = startComp.hours * 60 + startComp.minutes;
+  const endMins = endComp.hours * 60 + endComp.minutes;
+  return endMins <= startMins;
+}
+
+/**
+ * Checks whether a registration deadline date is after the event start date.
+ */
+export function isRegistrationDeadlineAfterStartDate(startDate?: string, deadline?: string): boolean {
+  if (!startDate || !deadline) return false;
+  return deadline.trim() > startDate.trim();
+}
+

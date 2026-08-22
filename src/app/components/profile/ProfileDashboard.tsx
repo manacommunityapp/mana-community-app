@@ -251,6 +251,7 @@ export function ProfileDashboard() {
         dateOfBirth: res.dob,
         flatNo: res.flatNo,
         block: res.block,
+        profilePicUrl: res.profilePicUrl,
       });
 
       toast.success("Profile saved and synchronized successfully!");
@@ -291,6 +292,7 @@ export function ProfileDashboard() {
       setProfile(res);
       updateUser({
         fullName: res.fullName,
+        profilePicUrl: res.profilePicUrl || finalUrl,
       });
       toast.success("Profile picture updated!");
     } catch (err) {

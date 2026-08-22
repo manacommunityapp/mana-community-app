@@ -14,6 +14,7 @@ import { FloatingChatBot } from "../../chat/FloatingChatBot";
 import { ChatProvider } from "../../../../contexts/ChatContext";
 import { NotificationBell } from "./NotificationBell";
 import { MobileHeaderActions } from "./MobileFloatingActions";
+import { profileService } from "../../../../services/common/profileService";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -61,6 +62,8 @@ function UserProfileMenu({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open]);
 
+  const userAvatar = user?.profilePicUrl || user?.profilePic;
+
   const initials = user?.fullName
     ? user.fullName
         .split(" ")
@@ -92,7 +95,24 @@ function UserProfileMenu({
         title="Profile & Account Menu"
         aria-expanded={open}
       >
-        <div className="h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-black bg-primary group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0">
+        {userAvatar ? (
+          <img
+            src={userAvatar}
+            alt={user?.fullName ?? "Profile"}
+            className="h-7 w-7 rounded-lg object-cover group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0 border border-border/80"
+            onError={(e) => {
+              (e.currentTarget as HTMLElement).style.display = "none";
+              const nextEl = e.currentTarget.nextElementSibling as HTMLElement | null;
+              if (nextEl) nextEl.style.display = "flex";
+            }}
+          />
+        ) : null}
+        <div
+          className={cn(
+            "h-7 w-7 rounded-lg flex items-center justify-center text-white text-xs font-black bg-primary group-hover:ring-2 group-hover:ring-primary/20 transition-all shrink-0",
+            userAvatar && "hidden"
+          )}
+        >
           {initials}
         </div>
         <span className="hidden sm:block text-xs font-extrabold text-foreground max-w-[100px] truncate">
@@ -111,7 +131,24 @@ function UserProfileMenu({
         <div className="absolute right-0 top-full mt-2 w-64 sm:w-72 bg-card border border-border rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150 flex flex-col">
           {/* User Info Header */}
           <div className="px-4 py-3.5 border-b border-border bg-muted/30 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl flex items-center justify-center text-white text-sm font-black bg-primary shadow-sm shrink-0">
+            {userAvatar ? (
+              <img
+                src={userAvatar}
+                alt={user?.fullName ?? "Profile"}
+                className="h-10 w-10 rounded-xl object-cover shadow-sm shrink-0 border border-border/80"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = "none";
+                  const nextEl = e.currentTarget.nextElementSibling as HTMLElement | null;
+                  if (nextEl) nextEl.style.display = "flex";
+                }}
+              />
+            ) : null}
+            <div
+              className={cn(
+                "h-10 w-10 rounded-xl flex items-center justify-center text-white text-sm font-black bg-primary shadow-sm shrink-0",
+                userAvatar && "hidden"
+              )}
+            >
               {initials}
             </div>
             <div className="min-w-0 flex-1">
@@ -210,8 +247,21 @@ export function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(() => location.pathname.startsWith("/community"));
   const [isFinanceOpen, setIsFinanceOpen] = useState(() => location.pathname.startsWith("/finance"));
-  const { user, isAdmin, isSuperAdmin, isAnyAdmin, logout, hasMenuPermission } = useAuth();
+  const { user, isAdmin, isSuperAdmin, isAnyAdmin, logout, hasMenuPermission, updateUser } = useAuth();
   const navigate = useNavigate();
+
+  // Fetch full profile if profilePicUrl isn't yet in cache
+  useEffect(() => {
+    if (user && !user.profilePicUrl) {
+      profileService.getProfile()
+        .then((p) => {
+          if (p?.profilePicUrl) {
+            updateUser({ profilePicUrl: p.profilePicUrl });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [user?.userId, user?.profilePicUrl, updateUser]);
 
   // Auto expand parent collapsible sub-menus when user is on a child route
   useEffect(() => {
@@ -320,6 +370,7 @@ export function Layout() {
   };
 
   const displayName = user?.fullName ?? "Community Member";
+  const userAvatar = user?.profilePicUrl || user?.profilePic;
   const roleLabel = user?.role === "SUPER_ADMIN" ? "Super Admin" 
                  : user?.role === "COMMUNITY_ADMIN" ? "Community Admin"
                  : isAdmin ? "Admin" 
@@ -361,7 +412,24 @@ export function Layout() {
         {/* User Info Card inside Sidebar */}
         <div className="mx-4 my-4 rounded-xl p-3 border border-sidebar-border bg-sidebar-accent/30">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0 bg-primary">
+            {userAvatar ? (
+              <img
+                src={userAvatar}
+                alt={displayName}
+                className="h-9 w-9 rounded-full object-cover flex-shrink-0 border border-sidebar-border"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = "none";
+                  const nextEl = e.currentTarget.nextElementSibling as HTMLElement | null;
+                  if (nextEl) nextEl.style.display = "flex";
+                }}
+              />
+            ) : null}
+            <div
+              className={cn(
+                "h-9 w-9 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0 bg-primary",
+                userAvatar && "hidden"
+              )}
+            >
               {user?.fullName ? user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() : "ME"}
             </div>
             <div className="flex-1 min-w-0 text-left">

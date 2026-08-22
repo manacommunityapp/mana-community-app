@@ -7,7 +7,7 @@ import {
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
   Zap, Star, ArrowRight, Trash2, PlusCircle, Link2,
-  Save, Bookmark, XCircle, Mail, CreditCard, QrCode, Phone, User, Info,
+  Save, Bookmark, XCircle, Mail, CreditCard, QrCode, Phone, User, Info, Loader2,
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
@@ -461,27 +461,42 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     if (synced.length > 0 && !expandedDay) setExpandedDay(synced[0].date);
   };
 
+  const isEndDateInvalid = Boolean(data.multiDay && data.endDate && data.startDate && data.endDate < data.startDate);
+  const isTimeInvalid = Boolean(
+    (!data.multiDay || data.startDate === data.endDate) &&
+    data.startTime &&
+    data.endTime &&
+    data.endTime <= data.startTime
+  );
+
   const handleStartDate = (val: string) => {
     update("startDate", val);
-    if (data.multiDay && data.endDate) syncDaySchedules(val, data.endDate);
+    if (data.multiDay) {
+      if (data.endDate && data.endDate < val) {
+        update("endDate", val);
+        syncDaySchedules(val, val);
+      } else if (data.endDate) {
+        syncDaySchedules(val, data.endDate);
+      }
+    }
   };
 
   const handleEndDate = (val: string) => {
     update("endDate", val);
-    if (data.multiDay && data.startDate) syncDaySchedules(data.startDate, val);
+    if (data.multiDay && data.startDate && val >= data.startDate) {
+      syncDaySchedules(data.startDate, val);
+    }
   };
 
   const handleMultiDayToggle = (v: boolean) => {
     update("multiDay", v);
     if (v) {
-      if (data.daySchedules.length === 0) {
-        const targetDate = data.startDate || new Date().toISOString().split("T")[0];
-        update("daySchedules", [{
-          date: targetDate,
-          activities: createDefaultSingleActivity(),
-        }]);
-        setExpandedDay(targetDate);
+      const targetStart = data.startDate || new Date().toISOString().split("T")[0];
+      const targetEnd = data.endDate && data.endDate >= targetStart ? data.endDate : targetStart;
+      if (!data.endDate || data.endDate < targetStart) {
+        update("endDate", targetEnd);
       }
+      syncDaySchedules(targetStart, targetEnd);
     } else {
       if (data.startDate) {
         update("daySchedules", [{
@@ -506,6 +521,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     };
     const updated = [...data.daySchedules, newDay];
     update("daySchedules", updated);
+    if (data.multiDay) {
+      update("endDate", nextDateStr);
+    }
     setExpandedDay(nextDateStr);
   };
 
@@ -513,6 +531,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     if (data.daySchedules.length <= 1) return;
     const updated = data.daySchedules.filter(ds => ds.date !== dateToRemove);
     update("daySchedules", updated);
+    if (data.multiDay && updated.length > 0) {
+      update("endDate", updated[updated.length - 1].date);
+    }
     if (expandedDay === dateToRemove) {
       setExpandedDay(updated[0]?.date || null);
     }
@@ -601,21 +622,60 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <FieldLabel required>{data.multiDay ? "Start Date" : "Event Date"}</FieldLabel>
-          <Input type="date" value={data.startDate} onChange={e => handleStartDate(e.target.value)} className={INPUT_CLS} />
+          <Input
+            type="date"
+            value={data.startDate}
+            onChange={e => handleStartDate(e.target.value)}
+            className={INPUT_CLS}
+          />
         </div>
         {data.multiDay && (
           <div className="animate-fade-in-up">
             <FieldLabel required>End Date</FieldLabel>
-            <Input type="date" value={data.endDate} onChange={e => handleEndDate(e.target.value)} className={INPUT_CLS} />
+            <Input
+              type="date"
+              value={data.endDate}
+              min={data.startDate || undefined}
+              onChange={e => handleEndDate(e.target.value)}
+              className={cn(
+                INPUT_CLS,
+                isEndDateInvalid && "border-rose-500 focus-visible:ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+              )}
+            />
+            {isEndDateInvalid && (
+              <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1.5 animate-fadeIn">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+                End date cannot be earlier than start date ({data.startDate}).
+              </p>
+            )}
           </div>
         )}
         <div>
           <FieldLabel required>Start Time</FieldLabel>
-          <Input type="time" value={data.startTime} onChange={e => update("startTime", e.target.value)} className={INPUT_CLS} />
+          <Input
+            type="time"
+            value={data.startTime}
+            onChange={e => update("startTime", e.target.value)}
+            className={INPUT_CLS}
+          />
         </div>
         <div>
           <FieldLabel required>End Time</FieldLabel>
-          <Input type="time" value={data.endTime} onChange={e => update("endTime", e.target.value)} className={INPUT_CLS} />
+          <Input
+            type="time"
+            value={data.endTime}
+            onChange={e => update("endTime", e.target.value)}
+            className={cn(
+              INPUT_CLS,
+              isTimeInvalid && "border-rose-500 focus-visible:ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+            )}
+          />
+          {isTimeInvalid && (
+            <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1.5 animate-fadeIn">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+              End time must be after start time ({data.startTime}).
+            </p>
+          )}
         </div>
       </div>
 
@@ -2424,6 +2484,7 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
     organizerName: primaryContact?.name || undefined,
     organizerContact: primaryContact?.phone || undefined,
     ticketTypes: data.ticketTypes,
+    ticketTypesJson: data.ticketTypes && data.ticketTypes.length > 0 ? JSON.stringify(data.ticketTypes) : undefined,
     paymentModes: data.enableOnlinePayment ? (data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(",") : undefined) : "Cash",
     upiId: data.enableOnlinePayment ? (data.upiId || undefined) : undefined,
     scannerUrl: data.enableOnlinePayment ? scannerImageUrl : undefined,
@@ -2441,32 +2502,46 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
 export function fromEventToFormData(ev: any): FormData {
   if (!ev) return { ...INITIAL_FORM_DATA };
 
-  const parts = (ev.location || "").split(", ");
-  const venueName = ev.venue || ev.venueName || parts[0] || "";
-  const venueAddress = ev.venueAddress || (parts.length > 2 ? parts.slice(1, -1).join(", ") : parts[1] || "");
-  const city = ev.city || (parts.length > 0 ? parts[parts.length - 1] : "") || "";
+  const rawLocation = ev.location || "";
+  const parts = rawLocation.split(", ").map((s: string) => s.trim()).filter(Boolean);
+  const venueName = ev.venue || ev.venueName || (parts.length > 0 ? parts[0] : rawLocation) || "";
+  const city = ev.city || (parts.length > 1 ? parts[parts.length - 1] : "") || "";
+  const venueAddress = ev.venueAddress || (parts.length > 2 ? parts.slice(1, -1).join(", ") : parts.length === 2 && parts[0] !== venueName ? parts[1] : "") || "";
 
-  const ticketTypes: TicketType[] = Array.isArray(ev.ticketTypes) && ev.ticketTypes.length > 0
-    ? ev.ticketTypes.map((t: any, i: number) => ({
+  let rawTicketTypes: any[] = [];
+  if (Array.isArray(ev.ticketTypes) && ev.ticketTypes.length > 0) {
+    rawTicketTypes = ev.ticketTypes;
+  } else if (ev.ticketTypesJson) {
+    try {
+      const parsed = typeof ev.ticketTypesJson === "string" ? JSON.parse(ev.ticketTypesJson) : ev.ticketTypesJson;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        rawTicketTypes = parsed;
+      }
+    } catch {}
+  }
+
+  const ticketTypes: TicketType[] = rawTicketTypes.length > 0
+    ? rawTicketTypes.map((t: any, i: number) => ({
         id: t.id || `t${i + 1}`,
-        name: t.name || "General",
+        name: t.name || (i === 0 ? "General" : `Tier ${i + 1}`),
         price: String(t.price ?? "0"),
-        qty: String(t.qty || t.capacity || ev.capacity || "100"),
+        qty: String(t.qty ?? t.seats ?? t.capacity ?? ev.capacity ?? ev.maxAttendees ?? "100"),
         description: t.description || "",
       }))
     : [
         {
           id: "t1",
           name: "General",
-          price: ev.price !== undefined ? String(ev.price) : "0",
-          qty: ev.capacity ? String(ev.capacity) : "100",
+          price: ev.price !== undefined && ev.price !== null ? String(ev.price) : "0",
+          qty: ev.capacity ? String(ev.capacity) : ev.maxAttendees ? String(ev.maxAttendees) : "100",
           description: "Open for all community members",
         },
       ];
 
+  const locTypeStr = String(ev.locationType || ev.visibility || "").toLowerCase();
   const visibility: FormData["visibility"] = 
-    ev.visibility === "public" || ev.locationType === "public" ? "public" :
-    ev.visibility === "invite" || ev.locationType === "invite" || ev.visibility === "private" ? "invite" :
+    locTypeStr === "public" || locTypeStr === "online" ? "public" :
+    locTypeStr === "invite" || locTypeStr === "private" ? "invite" :
     "community";
 
   const eventTypeLower = (ev.type || ev.category || ev.eventType || "").toLowerCase();
@@ -2475,7 +2550,7 @@ export function fromEventToFormData(ev: any): FormData {
   let contacts: EventContactItem[] = [];
   if (ev.contactsJson) {
     try {
-      const parsed = JSON.parse(ev.contactsJson);
+      const parsed = typeof ev.contactsJson === "string" ? JSON.parse(ev.contactsJson) : ev.contactsJson;
       if (Array.isArray(parsed) && parsed.length > 0) {
         contacts = parsed.map((c: any, i: number) => ({
           id: c.id || `c${i + 1}`,
@@ -2489,6 +2564,15 @@ export function fromEventToFormData(ev: any): FormData {
   }
   if (contacts.length === 0 && Array.isArray(ev.contactDetails) && ev.contactDetails.length > 0) {
     contacts = ev.contactDetails.map((c: any, i: number) => ({
+      id: c.id || `c${i + 1}`,
+      name: c.name || "",
+      phone: c.phone || "",
+      role: c.role || "Organizer",
+      notes: c.notes || "",
+    }));
+  }
+  if (contacts.length === 0 && Array.isArray(ev.contacts) && ev.contacts.length > 0) {
+    contacts = ev.contacts.map((c: any, i: number) => ({
       id: c.id || `c${i + 1}`,
       name: c.name || "",
       phone: c.phone || "",
@@ -2511,41 +2595,55 @@ export function fromEventToFormData(ev: any): FormData {
     contacts = [...DEFAULT_CONTACTS];
   }
 
-  const isManualOnly = ev.paymentModes && typeof ev.paymentModes === "string" && ev.paymentModes.trim().toLowerCase() === "cash";
+  const rawPaymentModes = ev.paymentModes
+    ? typeof ev.paymentModes === "string"
+      ? ev.paymentModes.split(",").map((s: string) => s.trim()).filter(Boolean)
+      : Array.isArray(ev.paymentModes)
+      ? ev.paymentModes
+      : ["UPI", "Card", "Cash"]
+    : ["UPI", "Card", "Cash"];
+
+  const isManualOnly = rawPaymentModes.length === 1 && rawPaymentModes[0].toLowerCase() === "cash";
   const enableOnlinePayment = ev.enableOnlinePayment !== undefined
     ? Boolean(ev.enableOnlinePayment)
     : isManualOnly
     ? false
-    : Boolean(ev.upiId || ev.scannerUrl || ev.scannerImage || (ev.paymentModes && !String(ev.paymentModes).toLowerCase().includes("cash only")));
+    : Boolean(ev.upiId || ev.scannerUrl || ev.scannerImage || rawPaymentModes.some((m: string) => m.toLowerCase() !== "cash"));
+
+  const startDate = ev.startDate ? String(ev.startDate).split("T")[0] : "";
+  const endDate = ev.endDate ? String(ev.endDate).split("T")[0] : startDate;
+  const startTime = ev.startTime ? String(ev.startTime).slice(0, 5) : "09:00";
+  const endTime = ev.endTime ? String(ev.endTime).slice(0, 5) : "18:00";
+  const multiDay = Boolean(endDate && startDate && endDate !== startDate);
 
   return {
-    title: ev.title || "",
+    title: ev.title || ev.name || "",
     eventType: matchedType,
-    category: ev.category || ev.type || "Festival",
+    category: ev.category || ev.type || matchedType || "Festival",
     description: ev.description || "",
     visibility,
-    startDate: ev.startDate || "",
-    endDate: ev.endDate || "",
-    startTime: ev.startTime || "09:00",
-    endTime: ev.endTime || "18:00",
-    multiDay: Boolean(ev.endDate && ev.endDate !== ev.startDate),
-    daySchedules: ev.daySchedules || [],
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    multiDay,
+    daySchedules: Array.isArray(ev.daySchedules) && ev.daySchedules.length > 0 ? ev.daySchedules : [],
     venueName,
     venueAddress,
     city,
-    capacity: ev.capacity ? String(ev.capacity) : ev.maxAttendees ? String(ev.maxAttendees) : "100",
+    capacity: ev.capacity !== undefined && ev.capacity !== null ? String(ev.capacity) : ev.maxAttendees !== undefined && ev.maxAttendees !== null ? String(ev.maxAttendees) : "100",
     registrationEnabled: ev.registrationEnabled !== undefined ? Boolean(ev.registrationEnabled) : true,
-    registrationDeadline: ev.registrationDeadline || "",
+    registrationDeadline: ev.registrationDeadline ? String(ev.registrationDeadline).split("T")[0] : "",
     ticketTypes,
     requireApproval: Boolean(ev.requireApproval),
     allowWaitlist: ev.allowWaitlist !== undefined ? Boolean(ev.allowWaitlist) : false,
     totalBudget: ev.totalBudget || (ev.budget ? String(ev.budget) : ""),
     budgetItems: ev.budgetItems && ev.budgetItems.length > 0 ? ev.budgetItems : [...DEFAULT_BUDGET_ITEMS],
     coverImageUrl: ev.imageUrl || ev.coverImageUrl || ev.coverImage || "",
-    tags: ev.tags || [],
+    tags: Array.isArray(ev.tags) ? ev.tags : [],
     registrationFormConfig: ev.registrationFormConfig || { ...GANESH_CHATURTHI_FORM_CONFIG },
     enableOnlinePayment,
-    paymentModes: ev.paymentModes ? (typeof ev.paymentModes === "string" ? ev.paymentModes.split(",") : ev.paymentModes) : ["UPI", "Card", "Cash"],
+    paymentModes: rawPaymentModes.length > 0 ? rawPaymentModes : ["UPI", "Card", "Cash"],
     upiId: ev.upiId || "",
     scannerUrl: ev.scannerUrl || ev.scannerImage || "",
     notes: ev.notes || "",
@@ -2580,7 +2678,7 @@ export function EventCreateWizard({
   const [publishing, setPublishing] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
   const [publishError, setPublishError] = useState("");
-  const [loadingEvent, setLoadingEvent] = useState(Boolean(eventId && !initialData));
+  const [loadingEvent, setLoadingEvent] = useState(false);
 
   let useMock = true;
   try { useMock = useEventMock().useMock; } catch {}
@@ -2590,23 +2688,28 @@ export function EventCreateWizard({
     return { ...INITIAL_FORM_DATA };
   });
 
-  // If eventId provided without full initialData, fetch it
+  // Fetch full details from database API whenever editing an event
   useEffect(() => {
-    if (eventId && !initialData && !useMock) {
-      const numId = typeof eventId === "string" ? parseInt(eventId.replace(/\D/g, ""), 10) : Number(eventId);
-      if (!isNaN(numId)) {
+    const rawId = eventId || initialData?.id;
+    if (rawId) {
+      const numId = typeof rawId === "string" ? parseInt(rawId.replace(/\D/g, ""), 10) : Number(rawId);
+      if (!isNaN(numId) && numId > 0) {
         setLoadingEvent(true);
         eventService.getById(numId)
           .then(ev => {
-            setFormData(fromEventToFormData(ev));
+            if (ev) {
+              setFormData(fromEventToFormData(ev));
+            }
           })
-          .catch(() => {})
+          .catch((err) => {
+            console.warn("Could not fetch full event by ID, falling back to initial data:", err);
+          })
           .finally(() => setLoadingEvent(false));
       }
     }
-  }, [eventId, initialData, useMock]);
+  }, [eventId, initialData?.id]);
 
-  // If initialData changes, update form data
+  // If initialData object reference changes, update form data
   useEffect(() => {
     if (initialData) {
       setFormData(fromEventToFormData(initialData));
@@ -2616,16 +2719,58 @@ export function EventCreateWizard({
   const update = (key: keyof FormData, value: any) =>
     setFormData(prev => ({ ...prev, [key]: value }));
 
+  const isEndDateInvalid = Boolean(
+    formData.multiDay &&
+    formData.endDate &&
+    formData.startDate &&
+    formData.endDate < formData.startDate
+  );
+
+  const isTimeInvalid = Boolean(
+    (!formData.multiDay || formData.startDate === formData.endDate) &&
+    formData.startTime &&
+    formData.endTime &&
+    formData.endTime <= formData.startTime
+  );
+
   const isDeadlineInvalid = Boolean(
     formData.registrationEnabled &&
     formData.registrationDeadline &&
     formData.startDate &&
-    new Date(formData.registrationDeadline) >= new Date(formData.startDate)
+    formData.registrationDeadline > formData.startDate
   );
 
+  const validateStep = (currentStep: number): string | null => {
+    if (currentStep === 1) {
+      if (!formData.title.trim()) return "Please enter an event title.";
+      if (!formData.category && !formData.eventType) return "Please select an event category.";
+    }
+    if (currentStep === 2) {
+      if (!formData.startDate) return "Event start date is required.";
+      if (formData.multiDay && !formData.endDate) return "End date is required for multi-day events.";
+      if (isEndDateInvalid) return `End date (${formData.endDate}) cannot be earlier than start date (${formData.startDate}).`;
+      if (isTimeInvalid) return `End time (${formData.endTime}) must be after start time (${formData.startTime}).`;
+    }
+    if (currentStep === 3) {
+      if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
+    }
+    return null;
+  };
+
+  const validateAll = (): string | null => {
+    if (!formData.title.trim()) return "Event title is required.";
+    if (!formData.startDate) return "Event start date is required.";
+    if (formData.multiDay && !formData.endDate) return "End date is required for multi-day events.";
+    if (isEndDateInvalid) return `End date (${formData.endDate}) cannot be earlier than start date (${formData.startDate}).`;
+    if (isTimeInvalid) return `End time (${formData.endTime}) must be after start time (${formData.startTime}).`;
+    if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
+    return null;
+  };
+
   const handleNext = () => {
-    if (step === 3 && isDeadlineInvalid) {
-      setPublishError(`Registration deadline must be before the event start date (${formData.startDate}).`);
+    const errorMsg = validateStep(step);
+    if (errorMsg) {
+      setPublishError(errorMsg);
       return;
     }
     setPublishError("");
@@ -2633,8 +2778,9 @@ export function EventCreateWizard({
   };
 
   const handleSaveDraft = async () => {
-    if (!formData.title.trim()) {
-      setPublishError("Please enter an event title before saving as draft.");
+    const errorMsg = validateAll();
+    if (errorMsg) {
+      setPublishError(errorMsg);
       return;
     }
     setSavingDraft(true);
@@ -2686,12 +2832,9 @@ export function EventCreateWizard({
   };
 
   const handlePublish = async () => {
-    if (!formData.title.trim()) {
-      setPublishError("Event title is required before publishing.");
-      return;
-    }
-    if (isDeadlineInvalid) {
-      setPublishError(`Registration deadline must be before the event start date (${formData.startDate}).`);
+    const errorMsg = validateAll();
+    if (errorMsg) {
+      setPublishError(errorMsg);
       return;
     }
     setPublishing(true);
@@ -2809,7 +2952,12 @@ export function EventCreateWizard({
               <h2 className="text-base font-extrabold text-slate-900">
                 {isEditing ? "Edit event details" : "Create new event"}
               </h2>
-              {formData.title && (
+              {loadingEvent && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200 animate-pulse">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Loading event...
+                </span>
+              )}
+              {!loadingEvent && formData.title && (
                 <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-50 border border-purple-100 text-xs font-semibold text-purple-700 max-w-[160px] truncate">
                   <Sparkles className="w-3 h-3 flex-shrink-0 text-purple-600" /> {formData.title}
                 </span>

@@ -904,6 +904,25 @@ export interface EngagementScoreResponse {
   badges: EngagementBadge[];
 }
 
+// ─── Committee Groups ────────────────────────────────────────────────────────
+
+export interface CommitteeGroupResponse {
+  id: number;
+  communityId: number;
+  name: string;
+  description?: string;
+  displayOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CommitteeGroupRequest {
+  name: string;
+  description?: string;
+  displayOrder?: number;
+}
+
 // ─── Community Directory ─────────────────────────────────────────────────────
 
 export interface CommunityLeaderResponse {
