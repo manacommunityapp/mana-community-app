@@ -180,16 +180,12 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<any[]>([]);
   const [saveNewMembersToProfile, setSaveNewMembersToProfile] = useState<boolean>(true);
 
-  // ── Load Saved Family Members from User Dashboard database ──
+  // ── Load Saved Family Members from Unified Family Service ──
   const loadSavedFamily = async () => {
     try {
       const dbMembers = await eventService.getFamilyMembers();
       if (Array.isArray(dbMembers) && dbMembers.length > 0) {
-        const dummyNames = new Set([
-          "Sunita Sharma", "Aarav Sharma", "Ananya Sharma",
-          "Sandeep Verma", "Ananya Verma", "Rahul Verma", "Priya Verma"
-        ]);
-        const validMembers = dbMembers.filter((m: any) => m && m.name && !dummyNames.has(m.name.trim()));
+        const validMembers = dbMembers.filter((m: any) => m && m.name && m.name.trim().length > 0);
         setSavedFamilyMembers(validMembers);
 
         // If fresh registration and user hasn't modified members list yet, auto-populate from saved family members!

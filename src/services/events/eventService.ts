@@ -1,4 +1,5 @@
 import { apiClient } from "../common/apiClient";
+import { familyService } from "../common/familyService";
 
 export interface TicketTypeItem {
   id?: string;
@@ -471,27 +472,20 @@ export const eventService = {
     return apiClient.delete<void>(`/events/venues/${id}`);
   },
 
-  async getFamilyMembers(eventId?: number): Promise<any[]> {
-    const qs = eventId ? `?eventId=${eventId}` : "";
-    return apiClient.get<any[]>(`/events/family-members${qs}`);
+  async getFamilyMembers(_eventId?: number): Promise<any[]> {
+    return familyService.getFamilyMembers();
   },
 
-  async addFamilyMember(data: any, eventId?: number | string): Promise<any> {
-    const numericEventId = parseNumericId(eventId);
-    const qs = numericEventId ? `?eventId=${numericEventId}` : "";
-    return apiClient.post<any>(`/events/family-members${qs}`, data);
+  async addFamilyMember(data: any, _eventId?: number | string): Promise<any> {
+    return familyService.addFamilyMember(data);
   },
 
   async updateFamilyMember(id: number | string, data: any): Promise<any> {
-    const numericId = parseNumericId(id);
-    if (!numericId) throw new Error(`Invalid family member ID: ${id}`);
-    return apiClient.put<any>(`/events/family-members/${numericId}`, data);
+    return familyService.updateFamilyMember(id, data);
   },
 
   async deleteFamilyMember(id: number | string): Promise<void> {
-    const numericId = parseNumericId(id);
-    if (!numericId) throw new Error(`Invalid family member ID: ${id}`);
-    return apiClient.delete<void>(`/events/family-members/${numericId}`);
+    return familyService.deleteFamilyMember(id);
   },
 
   async createRegistration(data: any): Promise<any> {

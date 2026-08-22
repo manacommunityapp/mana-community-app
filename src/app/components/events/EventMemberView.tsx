@@ -14,6 +14,7 @@ import {
   Search,
   MapPin,
   Clock,
+  ChevronLeft,
   ChevronRight,
   ChevronDown,
   ChevronUp,
@@ -193,24 +194,87 @@ export function EventMemberView() {
   const [showFamily, setShowFamily] = useState(false);
   const [passesList, setPassesList] = useState<UserPass[]>(() => (useMock ? INITIAL_PASSES : []));
   const [activitiesList, setActivitiesList] = useState<Activity[]>(() => (useMock ? INITIAL_ACTIVITIES : []));
+  const [mainEventsList, setMainEventsList] = useState<any[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
   const [loadingApiData, setLoadingApiData] = useState(false);
   const [loadingFamily, setLoadingFamily] = useState(false);
 
-  // Live Countdown Ticker
+  const DEFAULT_MOCK_MAIN_EVENTS = [
+    {
+      id: "1",
+      title: "Ganesh Chaturthi Utsav 2026",
+      category: "Grand Festival",
+      startDate: "2026-08-27",
+      endDate: "2026-09-06",
+      startTime: "08:30",
+      venue: "Main Community Grounds, Sector 4",
+      location: "Main Community Grounds, Sector 4",
+      coverImage: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
+      attendees: 1842,
+      price: 0,
+      description: "Grand 10-Day Festival, Cultural Competitions & Community Feasts",
+    },
+    {
+      id: "2",
+      title: "Diwali Mahotsav 2026",
+      category: "Grand Festival",
+      startDate: "2026-10-28",
+      endDate: "2026-11-02",
+      startTime: "18:00",
+      venue: "Central Amphitheatre & Grounds",
+      location: "Central Amphitheatre & Grounds",
+      coverImage: "https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1200&q=80",
+      attendees: 950,
+      price: 0,
+      description: "Festival of Lights Celebration, Aarti, Fireworks & Cultural Night",
+    },
+  ];
+
+  const bannerMainEvents = useMemo(() => {
+    if (mainEventsList.length > 0) return mainEventsList;
+    if (useMock) return DEFAULT_MOCK_MAIN_EVENTS;
+    const parentActs = activitiesList.filter(a => String(a.id).startsWith("event-"));
+    if (parentActs.length > 0) return parentActs;
+    return activitiesList.slice(0, 1);
+  }, [mainEventsList, useMock, activitiesList]);
+
+  // Hero Banner Carousel & Live Countdown Ticker (Main Events only)
+  const [heroBannerIndex, setHeroBannerIndex] = useState(0);
+  const [isHeroBannerHovered, setIsHeroBannerHovered] = useState(false);
   const [timeLeft, setTimeLeft] = useState(() => countdownFrom("2026-08-27", null));
 
+  // Auto-move hero banner every 4.5s (pauses on hover)
   useEffect(() => {
-    const targetDate = activitiesList.length > 0 && activitiesList[0]?.date ? activitiesList[0].date : "2026-08-27";
-    const targetTime = activitiesList.length > 0 && activitiesList[0]?.time ? activitiesList[0].time : null;
+    if (bannerMainEvents.length <= 1 || isHeroBannerHovered) return;
+    const timer = setInterval(() => {
+      setHeroBannerIndex((prev) => (prev + 1) % bannerMainEvents.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [bannerMainEvents.length, isHeroBannerHovered]);
+
+  const activeMainEvent = bannerMainEvents[Math.min(heroBannerIndex, bannerMainEvents.length - 1)] || bannerMainEvents[0];
+
+  useEffect(() => {
+    const targetDate = activeMainEvent?.startDate || activeMainEvent?.date || "2026-08-27";
+    const targetTime = activeMainEvent?.startTime || activeMainEvent?.time || null;
 
     setTimeLeft(countdownFrom(targetDate, targetTime));
     const interval = setInterval(() => {
       setTimeLeft(countdownFrom(targetDate, targetTime));
     }, 1000);
     return () => clearInterval(interval);
-  }, [activitiesList]);
+  }, [activeMainEvent]);
+
+  const handlePrevHeroBanner = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHeroBannerIndex((prev) => (prev - 1 + bannerMainEvents.length) % bannerMainEvents.length);
+  };
+
+  const handleNextHeroBanner = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHeroBannerIndex((prev) => (prev + 1) % bannerMainEvents.length);
+  };
 
   // Payment Upload & Verification States
   const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
@@ -277,6 +341,8 @@ export function EventMemberView() {
       const fetchedActivities: Activity[] = [];
 
       if (mainEvents && Array.isArray(mainEvents)) {
+        const running = mainEvents.filter((ev: any) => String(ev.status || "").toUpperCase() !== "CANCELLED");
+        setMainEventsList(running);
         mainEvents.forEach((ev: any) => {
           const initialCapacity = ev.capacity || ev.maxAttendees || 50;
           const booked = getBookedCount(`event-${ev.id}`, ev.title);
@@ -1052,7 +1118,9 @@ export function EventMemberView() {
 
             {/* Hero Community Event Banner (Interactive Mobile Optimized) */}
             <div
-              className="relative rounded-xl sm:rounded-2xl overflow-hidden shadow-sm transition-all duration-300 border border-indigo-900/20"
+              onMouseEnter={() => setIsHeroBannerHovered(true)}
+              onMouseLeave={() => setIsHeroBannerHovered(false)}
+              className="relative rounded-xl sm:rounded-2xl overflow-hidden shadow-sm transition-all duration-300 border border-indigo-900/20 group/herobanner"
               style={{
                 background:
                   "linear-gradient(135deg, rgb(79, 70, 229) 0%, rgb(124, 58, 237) 50%, rgb(99, 102, 241) 100%)",
@@ -1073,50 +1141,97 @@ export function EventMemberView() {
                 }}
               />
               <div className="relative z-10 p-2.5 sm:p-3.5 text-white space-y-2">
-                {/* ── Line 1: 🔥 Community Event & Events Available in a single line ── */}
-                <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto hide-scrollbar">
-                  <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs whitespace-nowrap shrink-0">
-                    🔥 Community Event
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[9px] sm:text-[9.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
-                    <span className={`w-1.5 h-1.5 rounded-full ${activitiesList.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
-                    <span>{activitiesList.length > 0 ? `${activitiesList.length} Events Available` : "0 Events Available"}</span>
-                  </span>
+                {/* ── Line 1: 🔥 Main Event Category & Events Available & Carousel Navigation Controller ── */}
+                <div className="flex items-center justify-between gap-1.5 flex-nowrap overflow-x-auto hide-scrollbar">
+                  <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
+                    <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs whitespace-nowrap shrink-0">
+                      🔥 {activeMainEvent?.category || activeMainEvent?.type || "Grand Festival"}
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[9px] sm:text-[9.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
+                      <span className={`w-1.5 h-1.5 rounded-full ${bannerMainEvents.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
+                      <span>{bannerMainEvents.length > 0 ? (bannerMainEvents.length > 1 ? `Live · Event ${heroBannerIndex + 1} of ${bannerMainEvents.length}` : "Live · 1 Event") : "0 Events Available"}</span>
+                    </span>
+                    {(activeMainEvent?.attendees ?? activeMainEvent?.registrationCount) != null && (
+                      <span className="text-[11px] font-semibold text-white/80 hidden sm:inline-flex items-center gap-1">
+                        <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {activeMainEvent.attendees ?? activeMainEvent.registrationCount ?? 0} registered
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Carousel Navigation Controller */}
+                  {bannerMainEvents.length > 1 && (
+                    <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-xs px-2 py-1 rounded-xl border border-white/15 shrink-0 self-start lg:self-center shadow-xs">
+                      <button
+                        type="button"
+                        onClick={handlePrevHeroBanner}
+                        className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                        title="Previous Event"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="flex items-center gap-1 px-1">
+                        {bannerMainEvents.map((_, dotIdx) => (
+                          <button
+                            key={dotIdx}
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setHeroBannerIndex(dotIdx); }}
+                            className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                              dotIdx === heroBannerIndex
+                                ? "w-4 bg-amber-400 shadow-xs"
+                                : "w-1.5 bg-white/40 hover:bg-white/70"
+                            }`}
+                            title={`Go to Event ${dotIdx + 1}`}
+                          />
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleNextHeroBanner}
+                        className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                        title="Next Event"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* ── Line 2: Event name and date and other event details wrapped in a single div ── */}
+                {/* ── Line 2: Main Event name and date and other details ── */}
                 <div className="min-w-0 bg-white/5 border border-white/10 rounded-lg p-2 sm:p-2.5 space-y-0.5">
                   <h2 className="text-sm sm:text-base font-black text-white leading-snug drop-shadow-sm truncate">
-                    {activitiesList.length > 0
-                      ? (activitiesList[0]?.title || "Maha Ganapathi Archana & Silver Shield Pooja")
+                    {bannerMainEvents.length > 0
+                      ? (activeMainEvent?.title || "Community Festival")
                       : "No Events Created Yet"}
                   </h2>
                   <div className="flex items-center gap-1.5 sm:gap-2 text-[10.5px] font-medium text-white/90 overflow-hidden">
                     <span className="flex items-center gap-1 shrink-0">
                       <Calendar className="w-3 h-3 text-amber-300 shrink-0" />
-                      <span className="whitespace-nowrap">{activitiesList.length > 0 ? (activitiesList[0]?.date || "22 Aug 2026") : "Upcoming"}</span>
+                      <span className="whitespace-nowrap">
+                        {activeMainEvent?.startDate || activeMainEvent?.date || "Upcoming"}
+                        {activeMainEvent?.endDate && activeMainEvent.endDate !== (activeMainEvent.startDate || activeMainEvent.date) ? ` – ${activeMainEvent.endDate}` : ""}
+                      </span>
                     </span>
                     <span className="text-white/40 shrink-0">·</span>
                     <span className="flex items-center gap-1 truncate max-w-[140px] sm:max-w-[220px]">
                       <MapPin className="w-3 h-3 text-indigo-200 shrink-0" />
-                      <span className="truncate">{activitiesList.length > 0 ? (activitiesList[0]?.venue || "Main Mandap, Gate 1") : "Community Center"}</span>
+                      <span className="truncate">{activeMainEvent?.venue || activeMainEvent?.location || activeMainEvent?.city || "Main Community Grounds"}</span>
                     </span>
-                    {activitiesList.length > 0 && activitiesList[0]?.time && (
+                    {(activeMainEvent?.startTime || activeMainEvent?.time) && (
                       <>
                         <span className="text-white/40 shrink-0">·</span>
                         <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                           <Clock className="w-3 h-3 text-amber-300 shrink-0" />
-                          <span className="whitespace-nowrap">{activitiesList[0]?.time}</span>
+                          <span className="whitespace-nowrap">{activeMainEvent.startTime || activeMainEvent.time}</span>
                         </span>
                       </>
                     )}
                   </div>
                 </div>
 
-                {/* ── Line 3: Start Time & Registration Button in a Single Line ── */}
+                {/* ── Line 3: Start Time & Registration Button ── */}
                 <div className="flex items-center justify-between gap-2 sm:gap-3 pt-0.5">
                   {/* Left: Start Time / Countdown Ticker in single clean row */}
-                  {activitiesList.length > 0 ? (
+                  {bannerMainEvents.length > 0 ? (
                     <div className="flex items-center gap-1.5 min-w-0 flex-wrap sm:flex-nowrap">
                       <span className="text-[9px] font-bold text-white/80 uppercase tracking-wider whitespace-nowrap">
                         Starts in:
@@ -1146,11 +1261,22 @@ export function EventMemberView() {
                     </div>
                   )}
 
-                  {/* Right: Registration / Pass Button moved to right */}
-                  {activitiesList.length > 0 && (() => {
-                    const act = activitiesList[0];
-                    const existingPass = getExistingPassForActivity(act);
-                    const isClosed = isRegistrationClosed(act);
+                  {/* Right: Registration / Pass Button for Main Event */}
+                  {bannerMainEvents.length > 0 && (() => {
+                    const actForReg: Activity = activitiesList.find(a => a.id === `event-${activeMainEvent?.id}` || a.title === activeMainEvent?.title) || {
+                      id: `event-${activeMainEvent?.id || 1}`,
+                      title: activeMainEvent?.title || "Main Event",
+                      category: activeMainEvent?.category || "Event",
+                      date: activeMainEvent?.startDate ? String(activeMainEvent.startDate) : "Upcoming",
+                      time: activeMainEvent?.startTime || "Morning",
+                      venue: activeMainEvent?.venue || activeMainEvent?.location || "Community Center",
+                      fee: activeMainEvent?.price ? Number(activeMainEvent.price) : 0,
+                      availableSeats: activeMainEvent?.capacity || 100,
+                      image: "📅",
+                      description: activeMainEvent?.description || "Community Parent Event",
+                    };
+                    const existingPass = getExistingPassForActivity(actForReg);
+                    const isClosed = isRegistrationClosed(actForReg);
                     if (isClosed && !existingPass) {
                       return (
                         <span className="ml-auto px-2.5 py-1 text-[10.5px] sm:text-[11px] font-bold rounded-lg bg-white/10 text-white/70 border border-white/20 whitespace-nowrap shrink-0 flex items-center gap-1">
@@ -1163,9 +1289,9 @@ export function EventMemberView() {
                         type="button"
                         onClick={() => {
                           if (existingPass) {
-                            handleOpenUpdateRegistration(act, existingPass);
+                            handleOpenUpdateRegistration(actForReg, existingPass);
                           } else {
-                            setSelectedActivity(act);
+                            setSelectedActivity(actForReg);
                           }
                         }}
                         className={`ml-auto px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10.5px] sm:text-[11px] font-black rounded-lg shadow-sm transition-all active:scale-95 cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5 ${

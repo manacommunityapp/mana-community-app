@@ -15,8 +15,13 @@ import {
   ShieldCheck,
   Bell,
   Clock,
+  ChevronLeft,
+  ChevronRight,
+  Ticket,
+  MapPin,
 } from "lucide-react";
 import { apiClient } from "../../../services/common/apiClient";
+import { eventService, type EventResponse } from "../../../services/events/eventService";
 
 interface UserStats {
   userName: string;
@@ -40,6 +45,9 @@ export function UserDashboard() {
     recentNotices: [],
   });
   const [loading, setLoading] = useState(true);
+  const [upcomingEvents, setUpcomingEvents] = useState<EventResponse[]>([]);
+  const [eventCarouselIndex, setEventCarouselIndex] = useState(0);
+  const [isEventHovered, setIsEventHovered] = useState(false);
 
   useEffect(() => {
     apiClient
@@ -51,7 +59,35 @@ export function UserDashboard() {
         console.error("Failed to load user dashboard stats:", err);
       })
       .finally(() => setLoading(false));
+
+    eventService.getAllEvents()
+      .then((evs) => {
+        const running = (evs || []).filter(e => String(e.status || "").toUpperCase() !== "CANCELLED");
+        setUpcomingEvents(running);
+      })
+      .catch((err) => console.warn("Notice: could not load events for user dashboard:", err));
   }, []);
+
+  // Auto-move event banner every 4.5s (pauses on hover)
+  useEffect(() => {
+    if (upcomingEvents.length <= 1 || isEventHovered) return;
+    const timer = setInterval(() => {
+      setEventCarouselIndex((prev) => (prev + 1) % upcomingEvents.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [upcomingEvents.length, isEventHovered]);
+
+  const activeEvent = upcomingEvents[Math.min(eventCarouselIndex, upcomingEvents.length - 1)];
+
+  const handlePrevEvent = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEventCarouselIndex((prev) => (prev - 1 + upcomingEvents.length) % upcomingEvents.length);
+  };
+
+  const handleNextEvent = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEventCarouselIndex((prev) => (prev + 1) % upcomingEvents.length);
+  };
 
   const quickModules = [
     { label: "Community Feed", icon: Sparkles, to: "/", color: "bg-blue-500/10 text-blue-600 border-blue-200" },
@@ -85,6 +121,115 @@ export function UserDashboard() {
           <Building2 className="h-64 w-64" />
         </div>
       </div>
+
+      {/* ── Live Event Showcase Banner with Auto-Move and Navigation Controls ── */}
+      {upcomingEvents.length > 0 && activeEvent && (
+        <div
+          onMouseEnter={() => setIsEventHovered(true)}
+          onMouseLeave={() => setIsEventHovered(false)}
+          className="relative rounded-2xl overflow-hidden shadow-md transition-all duration-300 border border-indigo-900/20"
+          style={{
+            background: "linear-gradient(135deg, #3730A3 0%, #4F46E5 40%, #7C3AED 72%, #9333EA 100%)",
+          }}
+        >
+          <div
+            className="absolute inset-0 opacity-[0.07] pointer-events-none z-0"
+            style={{ backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)", backgroundSize: "20px 20px" }}
+          />
+          <div
+            className="absolute right-0 top-0 w-48 h-full rounded-full opacity-15 blur-3xl pointer-events-none z-0"
+            style={{ background: "radial-gradient(circle, #FEF3C7 0%, transparent 70%)", transform: "translate(20%,-20%)" }}
+          />
+
+          <div className="relative z-10 p-3 sm:p-4 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
+              <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-lg shrink-0 shadow-xs overflow-hidden">
+                <span>🕉️</span>
+                {activeEvent.coverImage && (
+                  <img
+                    src={activeEvent.coverImage}
+                    alt={activeEvent.title}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onError={(e) => { e.currentTarget.style.display = "none"; }}
+                  />
+                )}
+              </div>
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-amber-400/20 text-amber-200 border border-amber-300/30 uppercase tracking-wider">
+                    🔥 {activeEvent.category || "Featured Event"}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 text-[9.5px] font-bold border border-emerald-400/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    {upcomingEvents.length > 1 ? `Live · Event ${eventCarouselIndex + 1} of ${upcomingEvents.length}` : `Live · 1 Event`}
+                  </span>
+                  {(activeEvent.attendees ?? (activeEvent as any).registrationCount) != null && (
+                    <span className="text-[11px] font-semibold text-white/80 hidden sm:inline-flex items-center gap-1">
+                      <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {activeEvent.attendees ?? (activeEvent as any).registrationCount ?? 0} registered
+                    </span>
+                  )}
+                </div>
+                <h2 className="text-sm sm:text-base font-bold text-white leading-tight drop-shadow-sm truncate">
+                  {activeEvent.title}
+                </h2>
+                <div className="flex flex-wrap items-center gap-2 text-[10.5px] font-normal text-white/80">
+                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-amber-300" /> {activeEvent.venue || activeEvent.location || "Community Grounds"}</span>
+                  <span className="text-white/30">·</span>
+                  <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3 text-indigo-200" /> {activeEvent.startDate}{activeEvent.endDate && activeEvent.endDate !== activeEvent.startDate ? ` – ${activeEvent.endDate}` : ""}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Navigation Controller & Action Link */}
+            <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
+              {upcomingEvents.length > 1 && (
+                <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-xs px-2 py-1 rounded-xl border border-white/15 shadow-xs">
+                  <button
+                    type="button"
+                    onClick={handlePrevEvent}
+                    className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                    title="Previous Event"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <div className="flex items-center gap-1 px-1">
+                    {upcomingEvents.map((_, dotIdx) => (
+                      <button
+                        key={dotIdx}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setEventCarouselIndex(dotIdx); }}
+                        className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                          dotIdx === eventCarouselIndex
+                            ? "w-4 bg-amber-400 shadow-xs"
+                            : "w-1.5 bg-white/40 hover:bg-white/70"
+                        }`}
+                        title={`Go to Event ${dotIdx + 1}`}
+                      />
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleNextEvent}
+                    className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                    title="Next Event"
+                  >
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              <Link
+                to="/events"
+                className="px-3.5 py-1.5 rounded-xl text-white text-xs font-bold shadow-sm transition-all hover:scale-105 active:scale-95 flex items-center gap-1.5"
+                style={{ background: "linear-gradient(135deg, #EA580C, #F97316)" }}
+              >
+                <span>View / Register</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Overview Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">

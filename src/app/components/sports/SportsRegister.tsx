@@ -4,6 +4,7 @@ import { Loader2, ArrowLeft, Info, Mail, ShieldCheck, CheckCircle2, Trophy } fro
 import { toast } from "sonner";
 import { sportsService } from "../../../services/sports/sportsService";
 import { otpService } from "../../../services/common/otpService";
+import { familyService, type FamilyMember } from "../../../services/common/familyService";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   CREATE_EDIT_EVENT_REGISTRATIONS,
@@ -294,6 +295,22 @@ export function SportsRegister() {
     relation: "",
     flatNumber: "",
   });
+
+  const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
+
+  useEffect(() => {
+    const fetchFamily = async () => {
+      try {
+        const members = await familyService.getFamilyMembers();
+        setSavedFamilyMembers(members);
+      } catch (err) {
+        console.warn("Could not load family members in SportsRegister:", err);
+      }
+    };
+    fetchFamily();
+    window.addEventListener("mana_family_updated", fetchFamily);
+    return () => window.removeEventListener("mana_family_updated", fetchFamily);
+  }, []);
 
   // Derived sport config
   const sportKey = detectSport(event?.sport?.name || "");
@@ -733,6 +750,55 @@ export function SportsRegister() {
                   </div>
                   <h3 className="text-sm font-bold text-foreground uppercase tracking-wide">Player Identity</h3>
                 </div>
+
+                {formData.regType === "family" && savedFamilyMembers.length > 0 && (
+                  <div className="mb-4 p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-2">
+                    <p className="text-xs font-bold text-foreground flex items-center justify-between">
+                      <span>👨‍👩‍👧 Choose from My Family Directory</span>
+                      <span className="text-[10px] text-primary font-normal">Synced with Profile</span>
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {savedFamilyMembers.map((m) => {
+                        const isSelected = formData.playerName.trim().toLowerCase() === m.name.trim().toLowerCase();
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              const rel = m.relation?.toUpperCase() || "";
+                              const mappedRel = rel.includes("SPOUSE") || rel.includes("WIFE") || rel.includes("HUSBAND")
+                                ? "SPOUSE"
+                                : rel.includes("SON") || rel.includes("DAUGHTER") || rel.includes("CHILD")
+                                ? "CHILD"
+                                : rel.includes("FATHER") || rel.includes("MOTHER") || rel.includes("PARENT")
+                                ? "PARENT"
+                                : rel.includes("BROTHER") || rel.includes("SISTER") || rel.includes("SIBLING")
+                                ? "SIBLING"
+                                : "OTHER";
+
+                              setFormData(prev => ({
+                                ...prev,
+                                playerName: m.name,
+                                age: m.age || prev.age,
+                                relation: mappedRel,
+                              }));
+                            }}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                              isSelected
+                                ? "bg-primary text-white border-primary shadow-xs"
+                                : "bg-card text-foreground border-border hover:border-primary/50"
+                            }`}
+                          >
+                            <span>{m.name}</span>
+                            <span className={`text-[10px] font-normal px-1.5 py-0.2 rounded-full ${isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
+                              {m.relation} {m.age ? `(${m.age}y)` : ""}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* Player Name */}

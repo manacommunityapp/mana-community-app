@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { userService } from "../../../services/common/userService";
+import { familyService, type FamilyMember } from "../../../services/common/familyService";
 import { eventService, type PoojaRegistrationRequest } from "../../../services/events/eventService";
 import { isRegistrationClosed, isPoojaSlotPassed } from "../../../utils/eventDeadlineUtils";
 import { showSuccess, showWarning } from "../../../utils/ToastUtils";
@@ -291,6 +292,22 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         });
     }
   }, [isAnyAdmin]);
+
+  // Load Saved Family Members from Unified Family Service
+  const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
+  useEffect(() => {
+    const fetchFamily = async () => {
+      try {
+        const members = await familyService.getFamilyMembers();
+        setSavedFamilyMembers(members);
+      } catch (err) {
+        console.warn("Could not load family members in Pooja modal:", err);
+      }
+    };
+    fetchFamily();
+    window.addEventListener("mana_family_updated", fetchFamily);
+    return () => window.removeEventListener("mana_family_updated", fetchFamily);
+  }, []);
 
   // Existing registration / Update mode detection
   const [existingReg, setExistingReg] = useState<any>(() => event?.existingRegistration || null);
@@ -938,6 +955,43 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 </div>
 
                 <div className="space-y-3">
+                  {savedFamilyMembers.length > 0 && (
+                    <div className="p-3 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-2">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                          <Flame className="w-3.5 h-3.5 text-amber-600" /> Select Yajaman from My Family
+                        </span>
+                        <span className="text-[10px] text-amber-700/70 dark:text-amber-400/70">Synced with Profile</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {savedFamilyMembers.map((m) => {
+                          const isSelected = devoteeName.trim().toLowerCase() === m.name.trim().toLowerCase();
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => {
+                                setDevoteeName(m.name);
+                                if (m.gotram) setGotram(m.gotram);
+                                if (m.phone) setDevoteePhone(m.phone);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                                isSelected
+                                  ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                                  : "bg-card text-foreground border-border hover:border-amber-400"
+                              }`}
+                            >
+                              <span>{m.name}</span>
+                              <span className={`text-[9px] font-medium px-1.5 py-0.2 rounded-full ${isSelected ? "bg-white/25 text-white" : "bg-muted text-muted-foreground"}`}>
+                                {m.relation}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="grid gap-3">
                     <label className="block text-[11px] font-bold text-foreground">
                       <span className="mb-1.5 block">Yajaman / Devotee Name</span>
