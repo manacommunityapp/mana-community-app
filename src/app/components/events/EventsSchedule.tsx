@@ -1587,7 +1587,7 @@ function EventsList() {
             status: (e.status?.toLowerCase() as EventStatus) || (e.startDate && new Date(e.startDate) > new Date() ? "upcoming" : "completed"),
             visibility: (e.visibility?.toLowerCase() as any) || "community",
             registrations: e.attendees ?? (e as any).registrationCount ?? (e as any).registrations ?? 0,
-            capacity: e.capacity ?? e.maxAttendees ?? 100,
+            capacity: e.maxAttendees ?? e.capacity ?? 100,
             coverImage: e.imageUrl || "",
             createdAt: e.createdAt || new Date().toISOString(),
           }));

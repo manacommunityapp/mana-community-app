@@ -34,13 +34,12 @@ const DUMMY_STATIC_NAMES = new Set([
   "rahul verma",
 ]);
 
-function getDefaultInitialMembers(): FamilyMember[] {
+function getSelfMember(): FamilyMember | null {
   const user = getStoredUser();
-  if (!user || !user.fullName) {
-    return [];
-  }
+  if (!user) return null;
+  const userName = (user.fullName || (user.email ? user.email.split("@")[0] : "Primary Member")).trim();
+  if (!userName) return null;
 
-  const userName = user.fullName;
   const userGender = user.gender || "Male";
   const userPhone = user.phone || "";
   const userEmail = user.email || "";
@@ -54,23 +53,57 @@ function getDefaultInitialMembers(): FamilyMember[] {
     }
   }
 
-  return [
-    {
-      id: "fam-self",
-      userId: user.userId ? Number(user.userId) : undefined,
-      name: userName,
+  return {
+    id: "fam-self",
+    userId: user.userId ? Number(user.userId) : undefined,
+    name: userName,
+    relation: "Self (Head)",
+    age: calculatedAge || 30,
+    dob: userDob,
+    gender: userGender,
+    phone: userPhone,
+    email: userEmail,
+    emergencyContact: true,
+    isDevotee: true,
+    notes: "Primary resident and household head",
+    createdAt: new Date().toISOString(),
+  };
+}
+
+function mergeWithSelf(members: FamilyMember[]): FamilyMember[] {
+  const self = getSelfMember();
+  if (!self) return members;
+
+  const cleanSelfName = self.name.trim().toLowerCase();
+
+  // Find if Self is already in the list
+  const existingSelfIdx = members.findIndex(
+    (m) =>
+      (m.name && m.name.trim().toLowerCase() === cleanSelfName) ||
+      (m.relation && (m.relation.toLowerCase().includes("self") || m.relation.toLowerCase().includes("head")))
+  );
+
+  let selfEntry: FamilyMember;
+  let otherMembers: FamilyMember[];
+
+  if (existingSelfIdx !== -1) {
+    selfEntry = {
+      ...self,
+      ...members[existingSelfIdx],
       relation: "Self (Head)",
-      age: calculatedAge,
-      dob: userDob,
-      gender: userGender,
-      phone: userPhone,
-      email: userEmail,
-      emergencyContact: true,
-      isDevotee: true,
-      notes: "Primary resident and household head",
-      createdAt: new Date().toISOString(),
-    },
-  ];
+    };
+    otherMembers = members.filter((_, idx) => idx !== existingSelfIdx);
+  } else {
+    selfEntry = self;
+    otherMembers = members;
+  }
+
+  // Filter out any stale dummy mock names
+  const cleanOthers = otherMembers.filter(
+    (m) => m && m.name && !DUMMY_STATIC_NAMES.has(m.name.trim().toLowerCase())
+  );
+
+  return [selfEntry, ...cleanOthers];
 }
 
 function getStoredMembers(): FamilyMember[] {
@@ -78,20 +111,15 @@ function getStoredMembers(): FamilyMember[] {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        // Filter out any stale dummy mock names from previous sessions
-        const clean = parsed.filter(
-          (m) => m && m.name && !DUMMY_STATIC_NAMES.has(m.name.trim().toLowerCase())
-        );
-        if (clean.length > 0) {
-          return clean;
-        }
+      if (Array.isArray(parsed)) {
+        return mergeWithSelf(parsed);
       }
     }
   } catch (err) {
     console.warn("Could not read family members from localStorage:", err);
   }
-  return getDefaultInitialMembers();
+  const self = getSelfMember();
+  return self ? [self] : [];
 }
 
 function persistMembers(members: FamilyMember[], notify = true): void {
@@ -107,7 +135,7 @@ function persistMembers(members: FamilyMember[], notify = true): void {
 
 export const familyService = {
   /**
-   * Get all family members for the current user.
+   * Get all family members for the current user, ALWAYS including Self (Head) as the first entry.
    * Tries backend API first with fallback to synchronized local repository.
    */
   async getFamilyMembers(_forceRefresh = false): Promise<FamilyMember[]> {
@@ -143,9 +171,10 @@ export const familyService = {
           createdAt: m.createdAt,
           updatedAt: m.updatedAt,
         }));
+        const fullList = mergeWithSelf(mapped);
         // Do NOT emit mana_family_updated on GET to prevent infinite event loop
-        persistMembers(mapped, false);
-        return mapped;
+        persistMembers(fullList, false);
+        return fullList;
       }
     } catch (err) {
       console.warn("Could not fetch family members from database API:", err);
