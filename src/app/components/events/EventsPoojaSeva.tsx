@@ -209,6 +209,14 @@ export function EventsPoojaSeva() {
     if (!poojaForm.name.trim()) { setFormError("Pooja name is required"); return; }
     if (!poojaForm.type) { setFormError("Pooja type is required"); return; }
     if (!poojaForm.date) { setFormError("Date is required"); return; }
+    if (poojaForm.isMultiDay && !poojaForm.endDate) {
+      setFormError("End date is required for multi-day pooja / seva.");
+      return;
+    }
+    if (poojaForm.isMultiDay && poojaForm.endDate && poojaForm.date && poojaForm.endDate < poojaForm.date) {
+      setFormError(`End date (${poojaForm.endDate}) cannot be earlier than start date (${poojaForm.date}).`);
+      return;
+    }
 
     const validStartTimes = poojaForm.startTimes.filter(Boolean);
     const calculatedTotalSlots = poojaForm.isMultiDay && poojaForm.timeSlotConfig.length > 0
@@ -634,8 +642,17 @@ export function EventsPoojaSeva() {
                     <label className="flex flex-col gap-1">
                       <span className="text-[10px] font-semibold text-slate-500">End Date</span>
                       <input type="date" value={poojaForm.endDate} onChange={e => set("endDate", e.target.value)}
-                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                        className={`border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 ${
+                          poojaForm.endDate && poojaForm.date && poojaForm.endDate < poojaForm.date
+                            ? "border-rose-400 focus:ring-rose-300 bg-rose-50/30 text-rose-900"
+                            : "border-slate-200 focus:ring-amber-300"
+                        }`}
                         min={poojaForm.date} required={poojaForm.isMultiDay} />
+                      {poojaForm.endDate && poojaForm.date && poojaForm.endDate < poojaForm.date && (
+                        <span className="text-[10px] font-semibold text-rose-600 flex items-center gap-1 mt-0.5">
+                          <AlertCircle className="w-3 h-3 shrink-0" /> End date cannot be before start date
+                        </span>
+                      )}
                     </label>
                   )}
                   <label className="flex flex-col gap-1">

@@ -1597,7 +1597,19 @@ export function Feed() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200">
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold text-slate-500 uppercase">Event Date & Time</label>
-                        <input type="datetime-local" className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500" value={eventDate} onChange={(e) => setEventDate(e.target.value)} />
+                        <input
+                          type="datetime-local"
+                          className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-500"
+                          value={eventDate}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const target = e.target;
+                            setEventDate(val);
+                            if (val && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(val)) {
+                              setTimeout(() => target.blur(), 700);
+                            }
+                          }}
+                        />
                       </div>
                       <div className="space-y-1">
                         <label className="text-[10px] font-bold text-slate-500 uppercase">Link Created Event</label>
@@ -2322,7 +2334,19 @@ const PostCard = React.memo(function PostCard({
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Event Date</label>
-                <input type="datetime-local" className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400" value={editEventDate} onChange={(e) => setEditEventDate(e.target.value)} />
+                <input
+                  type="datetime-local"
+                  className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-indigo-400"
+                  value={editEventDate}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const target = e.target;
+                    setEditEventDate(val);
+                    if (val && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(val)) {
+                      setTimeout(() => target.blur(), 700);
+                    }
+                  }}
+                />
               </div>
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-slate-500 uppercase">Venue</label>

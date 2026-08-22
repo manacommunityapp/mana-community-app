@@ -60,6 +60,8 @@ export interface StoredUser {
   flatNo?: string;
   block?: string;
   status?: string;
+  profilePicUrl?: string;
+  profilePic?: string;
   permissions?: string[];
   enabledModules?: string[];
   menuPermissions?: import("../../types/api").MenuRolePermissionResponse[];

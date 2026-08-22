@@ -118,6 +118,19 @@ function generateId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+function calculateAge(dob?: string | null): number {
+  if (!dob) return 0;
+  const birthDate = new Date(dob);
+  if (isNaN(birthDate.getTime())) return 0;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age > 0 && age <= 130 ? age : 0;
+}
+
 function getAgeCategory(age: number): string {
   const cat = AGE_CATEGORIES.find(c => age >= c.min && age <= c.max);
   return cat?.label ?? "";
@@ -1128,11 +1141,14 @@ export function EventPublicRegistration() {
   useEffect(() => {
     if (authUser) {
       const parts = (authUser.fullName || "").trim().split(" ");
+      const userDob = authUser.dateOfBirth || (authUser as any)?.dob;
+      const calculatedAge = calculateAge(userDob);
       setForm(prev => ({
         ...prev,
         firstName: parts[0] || prev.firstName,
         lastName: parts.slice(1).join(" ") || prev.lastName,
         email: authUser.email || prev.email,
+        age: prev.age || (calculatedAge > 0 ? String(calculatedAge) : ""),
       }));
     }
 
@@ -1142,12 +1158,15 @@ export function EventPublicRegistration() {
         if (u) {
           const parts = (u.fullName || "").trim().split(" ");
           const flat = u.flatNo ? (u.block ? `${u.block}-${u.flatNo}` : u.flatNo) : "";
+          const userDob = u.dateOfBirth || (u as any)?.dob || authUser?.dateOfBirth || (authUser as any)?.dob;
+          const calculatedAge = calculateAge(userDob);
           setForm(prev => ({
             ...prev,
             firstName: parts[0] || prev.firstName,
             lastName: parts.slice(1).join(" ") || prev.lastName,
             email: u.email || prev.email,
             phone: u.phone || prev.phone,
+            age: prev.age || (calculatedAge > 0 ? String(calculatedAge) : ""),
             gender: u.gender || prev.gender,
             flatNo: flat || prev.flatNo,
             colonyAddress: flat ? `${flat}, Mana Community, Miyapur, Hyderabad` : prev.colonyAddress,

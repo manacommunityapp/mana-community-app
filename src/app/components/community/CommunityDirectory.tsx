@@ -266,46 +266,20 @@ function groupLeaders(leaders: CommunityLeaderResponse[]): GroupedLeaders {
   return { executives, committees, other };
 }
 
-// ── "Who to Contact" mapping ────────────────────────────────────────────────
-
-interface ContactSuggestion {
-  issue: string;
-  icon: React.ReactNode;
-  keywords: string[];
-  fallbackKeywords: string[];
-  color: string;
-}
-
-const CONTACT_SUGGESTIONS: ContactSuggestion[] = [
-  { issue: "Maintenance & Repairs",    icon: <Wrench className="w-4 h-4" />,          keywords: ["maintenance"], fallbackKeywords: ["secretary"],       color: "text-orange-600 bg-orange-50 border-orange-200" },
-  { issue: "Financial & Accounts",     icon: <Banknote className="w-4 h-4" />,         keywords: ["treasurer", "finance"], fallbackKeywords: ["secretary"], color: "text-rose-600 bg-rose-50 border-rose-200" },
-  { issue: "Sports & Tournaments",     icon: <Trophy className="w-4 h-4" />,           keywords: ["sports"],  fallbackKeywords: ["director", "cultural"],       color: "text-sky-600 bg-sky-50 border-sky-200" },
-  { issue: "Cultural & Festivals",     icon: <Megaphone className="w-4 h-4" />,        keywords: ["cultural"], fallbackKeywords: ["vice president"],  color: "text-pink-600 bg-pink-50 border-pink-200" },
-  { issue: "Security & Gate Passes",   icon: <AlertTriangle className="w-4 h-4" />,    keywords: ["security"], fallbackKeywords: ["secretary"],       color: "text-red-600 bg-red-50 border-red-200" },
-  { issue: "Complaints & Helpdesk",    icon: <HelpCircle className="w-4 h-4" />,       keywords: ["grievance"], fallbackKeywords: ["president", "secretary"], color: "text-cyan-600 bg-cyan-50 border-cyan-200" },
-  { issue: "Resident Welfare",         icon: <HeartHandshake className="w-4 h-4" />,   keywords: ["welfare", "women", "senior"], fallbackKeywords: ["vice president"], color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
-  { issue: "Infrastructure & Civil",   icon: <Building2 className="w-4 h-4" />,        keywords: ["building", "infrastructure"], fallbackKeywords: ["maintenance", "director"], color: "text-amber-600 bg-amber-50 border-amber-200" },
-];
-
-function resolveContacts(
-  leaders: CommunityLeaderResponse[],
-  suggestions: ContactSuggestion[]
-): { issue: string; icon: React.ReactNode; color: string; leader: CommunityLeaderResponse | null }[] {
-  return suggestions.map((s) => {
-    let match: CommunityLeaderResponse | null = leaders.find((l) => {
-      const d = l.designation.toLowerCase();
-      const c = (l.committee || "").toLowerCase();
-      return s.keywords.some((kw) => d.includes(kw) || c.includes(kw));
-    }) || null;
-    if (!match) {
-      match = leaders.find((l) => {
-        const d = l.designation.toLowerCase();
-        return s.fallbackKeywords.some((kw) => d.includes(kw));
-      }) || null;
-    }
-    return { issue: s.issue, icon: s.icon, color: s.color, leader: match };
-  }).filter((r) => r.leader !== null);
-}
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  Wrench,
+  Shield,
+  Phone,
+  AlertTriangle,
+  HeartHandshake,
+  Trophy,
+  Sparkles,
+  Building2,
+  Landmark,
+  Banknote,
+  Megaphone,
+  HelpCircle,
+};
 
 type DirectoryTab = "leadership" | "committees" | "contact";
 
@@ -495,16 +469,18 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
       c.department.toLowerCase().includes(q) ||
       c.contactPerson.toLowerCase().includes(q) ||
       c.phoneNumber.toLowerCase().includes(q) ||
+      (c.secondaryPhone && c.secondaryPhone.toLowerCase().includes(q)) ||
       (c.designation && c.designation.toLowerCase().includes(q)) ||
-      (c.locationOrDesk && c.locationOrDesk.toLowerCase().includes(q))
+      (c.locationOrDesk && c.locationOrDesk.toLowerCase().includes(q)) ||
+      (c.availability && c.availability.toLowerCase().includes(q)) ||
+      (c.email && c.email.toLowerCase().includes(q))
     );
   }, [whoToCallDbList, searchQuery]);
 
   const { executives, committees, other } = useMemo(() => groupLeaders(filteredLeaders), [filteredLeaders]);
   const committeeNames = useMemo(() => Object.keys(committees).sort(), [committees]);
-  const contactMap = useMemo(() => resolveContacts(filteredLeaders, CONTACT_SUGGESTIONS), [filteredLeaders]);
   const hasCommittees = committeeNames.length > 0 || other.length > 0;
-  const hasWhoToCall = whoToCallDbList.length > 0 || contactMap.length > 0;
+  const hasWhoToCall = whoToCallDbList.length > 0;
 
   const gridClass = isModal ? "grid grid-cols-1 sm:grid-cols-2 gap-3" : "grid grid-cols-1 gap-2.5";
 
@@ -534,7 +510,7 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
   const tabs: { id: DirectoryTab; label: string; icon: React.ReactNode; count?: number }[] = [
     ...(executives.length > 0 || !hasWhoToCall ? [{ id: "leadership" as DirectoryTab, label: "Council", icon: <Landmark className="w-3.5 h-3.5" />, count: executives.length }] : []),
     ...(hasCommittees ? [{ id: "committees" as DirectoryTab, label: "Committees", icon: <Users className="w-3.5 h-3.5" />, count: committeeNames.length + (other.length > 0 ? 1 : 0) }] : []),
-    ...(hasWhoToCall ? [{ id: "contact" as DirectoryTab, label: "Who to Call", icon: <HelpCircle className="w-3.5 h-3.5" />, count: whoToCallDbList.length > 0 ? whoToCallDbList.length : undefined }] : []),
+    ...(hasWhoToCall ? [{ id: "contact" as DirectoryTab, label: "Who to Call", icon: <HelpCircle className="w-3.5 h-3.5" />, count: whoToCallDbList.length }] : []),
   ];
 
   const content = (
@@ -703,7 +679,7 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
             <p className="text-xs text-slate-500 font-medium px-1">
               Need assistance? Direct contacts for community departments and services:
             </p>
-            {whoToCallDbList.length > 0 ? (
+            {filteredWhoToCall.length > 0 ? (
               <div className={gridClass}>
                 {filteredWhoToCall.map((c) => {
                   const isEmergency = Boolean(c.isEmergency);
@@ -711,6 +687,7 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
                     ? "text-red-700 bg-red-50 border-red-200"
                     : c.color || "text-indigo-600 bg-indigo-50 border-indigo-200";
                   const [colorBase] = colorClass.split(" ");
+                  const IconComp = (c.icon && ICON_MAP[c.icon]) || (isEmergency ? AlertTriangle : Wrench);
                   return (
                     <div
                       key={c.id}
@@ -721,7 +698,7 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
                       <div className="flex items-start justify-between gap-2.5">
                         <div className="flex items-center gap-2.5 min-w-0 flex-1">
                           <div className={`p-2 rounded-xl bg-white shadow-2xs ${colorBase} shrink-0`}>
-                            {isEmergency ? <AlertTriangle className="w-4 h-4 text-red-600" /> : <Wrench className="w-4 h-4 text-indigo-600" />}
+                            <IconComp className={`w-4 h-4 ${isEmergency ? "text-red-600" : colorBase.includes("text-") ? colorBase : "text-indigo-600"}`} />
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-1.5 flex-wrap">
@@ -800,60 +777,16 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
                 })}
               </div>
             ) : (
-              <div className={gridClass}>
-                {contactMap.map(({ issue, icon, color, leader }) => {
-                  if (!leader) return null;
-                  const [colorBase] = color.split(" ");
-                  return (
-                    <div
-                      key={issue}
-                      className={`p-3.5 rounded-2xl border transition-all bg-white shadow-2xs hover:shadow-sm ${color}`}
-                    >
-                      <div className="flex items-start justify-between gap-2.5">
-                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                          <div className={`p-2 rounded-xl bg-white shadow-2xs ${colorBase} shrink-0`}>
-                            {icon}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <h4 className="text-xs font-bold text-slate-900 truncate">{issue}</h4>
-                            <p className="text-[11px] font-semibold text-slate-700 truncate mt-0.5">
-                              {leader.fullName} <span className="text-[10px] text-slate-500 font-normal">({leader.designation})</span>
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
-                        {leader.contactPhone && (
-                          <button
-                            type="button"
-                            onClick={() => handlePhoneClick(leader.fullName, leader.contactPhone!)}
-                            className="flex-1 py-1.5 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/70 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-2xs"
-                          >
-                            <Phone className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>Call</span>
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => openFloatingChatWithUser(String(leader.userId))}
-                          className="py-1.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/70 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs shrink-0"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
-                          <span>Chat</span>
-                        </button>
-                        {leader.contactEmail && (
-                          <a
-                            href={`mailto:${leader.contactEmail}`}
-                            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60 transition-all shrink-0 flex items-center justify-center cursor-pointer"
-                          >
-                            <Mail className="w-3.5 h-3.5" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="bg-white rounded-2xl p-6 text-center border border-slate-200/70">
+                <HelpCircle className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <p className="text-xs font-bold text-slate-700">
+                  {searchQuery ? "No contacts match your search" : "No Who to Call contacts added yet"}
+                </p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {searchQuery
+                    ? "Try adjusting your search keywords"
+                    : "Who to Call contacts created in the Admin Directory will appear here."}
+                </p>
               </div>
             )}
           </div>

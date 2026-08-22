@@ -1,9 +1,12 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   extractTimeComponents,
   parseFlexibleDateTime,
   isRegistrationClosed,
   isPoojaSlotPassed,
+  isEndDateBeforeStartDate,
+  isEndTimeBeforeStartTime,
+  isRegistrationDeadlineAfterStartDate,
 } from "./eventDeadlineUtils";
 
 describe("eventDeadlineUtils", () => {
@@ -41,4 +44,23 @@ describe("eventDeadlineUtils", () => {
     expect(isPoojaSlotPassed("2020-01-01", "08:30 AM")).toBe(true);
     expect(isPoojaSlotPassed("2099-01-01", "08:30 AM")).toBe(false);
   });
+
+  it("validates start date and end date constraints", () => {
+    expect(isEndDateBeforeStartDate("2026-09-01", "2026-08-30")).toBe(true);
+    expect(isEndDateBeforeStartDate("2026-09-01", "2026-09-01")).toBe(false);
+    expect(isEndDateBeforeStartDate("2026-09-01", "2026-09-05")).toBe(false);
+  });
+
+  it("validates start time and end time sequence on same date", () => {
+    expect(isEndTimeBeforeStartTime("10:00", "09:00")).toBe(true);
+    expect(isEndTimeBeforeStartTime("10:00", "10:00")).toBe(true);
+    expect(isEndTimeBeforeStartTime("09:00", "11:00")).toBe(false);
+  });
+
+  it("validates registration deadline vs event start date", () => {
+    expect(isRegistrationDeadlineAfterStartDate("2026-09-01", "2026-09-02")).toBe(true);
+    expect(isRegistrationDeadlineAfterStartDate("2026-09-01", "2026-09-01")).toBe(false);
+    expect(isRegistrationDeadlineAfterStartDate("2026-09-01", "2026-08-25")).toBe(false);
+  });
 });
+
