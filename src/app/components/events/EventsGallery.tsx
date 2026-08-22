@@ -11,6 +11,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { MANAGE_EVENT_MEDIA } from "../../../constants/permissions";
 import { FilterChip, FilterChipRow, ErrorBanner, LoadingSpinner, EmptyState } from "./shared";
 import { eventGalleryService, type EventGalleryItemResponse } from "../../../services/events/eventGalleryService";
+import { showError } from "../../../utils/ToastUtils";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { eventDayService, type EventDayResponse } from "../../../services/events/eventDayService";
 import { eventMediaCategoryService, type EventMediaCategoryResponse } from "../../../services/events/eventMediaCategoryService";
@@ -815,7 +816,7 @@ export function EventsGallery() {
       setSuccessMsg(`Media stored in AWS S3 and saved to PostgreSQL successfully! (${createdItems.length} items)`);
     } catch (err: any) {
       console.error("Failed to upload media:", err);
-      let rawMsg = err?.response?.data?.message || err?.message || "Failed to store media in AWS S3 cloud storage.";
+      let rawMsg = err?.message || "Failed to store media in AWS S3 cloud storage.";
       const lower = rawMsg.toLowerCase();
       let shortMsg = "Failed to upload file to AWS S3 storage.";
 
@@ -916,7 +917,7 @@ export function EventsGallery() {
     eventGalleryService.getByCommunity({
       dayTag: activeDayTag ?? undefined,
       category: activeCategory ?? undefined,
-    }).then(setItems).catch(() => {});
+    }).then(setItems).catch((err: any) => showError(err?.message || "Failed to load gallery"));
   }, [useMock, activeDayTag, activeCategory]);
 
   // ── Create day tag ────────────────────────────────────────────────────────
@@ -993,11 +994,10 @@ export function EventsGallery() {
             await eventGalleryService.deleteItem(id);
             successfulIds.push(id);
           } catch (e: any) {
-            console.error(`Error deleting gallery item ${id}:`, e);
-            let errMsg = e?.response?.data?.message || e?.message || "Server or network error";
-            if (e?.response?.status === 403) {
+            let errMsg = e?.message || "Server or network error";
+            if (errMsg.includes("403") || errMsg.toLowerCase().includes("forbidden")) {
               errMsg = "Permission denied — required permission: 'Manage Event Media'";
-            } else if (e?.response?.status === 404) {
+            } else if (errMsg.includes("404") || errMsg.toLowerCase().includes("not found")) {
               errMsg = "Media item not found or already deleted on server";
             }
             failedItems.push({ id, error: errMsg });
@@ -1024,7 +1024,7 @@ export function EventsGallery() {
       }
       setDeleteConfirmTarget(null);
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || "Failed to delete selected media items.");
+      setError(e?.message || "Failed to delete selected media items.");
     } finally {
       setDeleting(false);
     }

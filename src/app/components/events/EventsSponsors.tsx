@@ -981,7 +981,7 @@ export function EventsSponsors() {
       setShowAddSponsor(false);
       setSponsorForm(emptySponsorForm);
     } catch (err: any) {
-      setSponsorFormError(err?.response?.data?.message || err?.message || "Failed to add sponsor");
+      setSponsorFormError(err?.message || "Failed to add sponsor");
     } finally {
       setSavingSponsor(false);
     }
@@ -1039,7 +1039,7 @@ export function EventsSponsors() {
       setEditingSponsorId(null);
       setSponsorForm(emptySponsorForm);
     } catch (err: any) {
-      setSponsorFormError(err?.response?.data?.message || err?.message || "Failed to update sponsor");
+      setSponsorFormError(err?.message || "Failed to update sponsor");
     } finally {
       setSavingSponsor(false);
     }

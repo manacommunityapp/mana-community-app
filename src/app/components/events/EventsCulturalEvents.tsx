@@ -201,7 +201,7 @@ export function EventsCulturalEvents() {
         else { const resp = await eventService.createCulturalEvent(payload); setCulturalEvents(prev => [resp, ...prev]); }
       }
       setShowModal(false); setEditingId(null); setForm(emptyForm);
-    } catch (err: any) { setFormError(err?.response?.data?.message || err?.message || "Failed to save"); }
+    } catch (err: any) { setFormError(err?.message || "Failed to save"); }
     finally { setSaving(false); }
   };
 

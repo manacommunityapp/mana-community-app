@@ -10,6 +10,7 @@ import { communityDirectoryService } from "../../../services/community/community
 import { whoToCallService } from "../../../services/community/whoToCallService";
 import type { CommunityLeaderResponse, CommunityWhoToCallResponse, CommunityLeaderHistoryResponse } from "../../../types/api";
 import { useChat } from "../../../contexts/ChatContext";
+import { showError } from "../../../utils/ToastUtils";
 
 // ── Role styling ────────────────────────────────────────────────────────────
 
@@ -412,8 +413,8 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
     try {
       const logs = await communityDirectoryService.getLeaderHistory();
       setCouncilHistoryLogs(Array.isArray(logs) ? logs : []);
-    } catch (err) {
-      console.error("Failed to load council history:", err);
+    } catch (err: any) {
+      showError(err?.message || "Failed to load council history");
       setCouncilHistoryLogs([]);
     } finally {
       setLoadingCouncilHistory(false);
@@ -427,8 +428,8 @@ export function CommunityDirectory({ isModal = false, defaultExpanded = false, b
     let cancelled = false;
     setLoading(true);
     Promise.all([
-      communityDirectoryService.getDirectory().catch(() => []),
-      whoToCallService.getWhoToCallList().catch(() => []),
+      communityDirectoryService.getDirectory().catch((err: any) => { showError(err?.message || "Failed to load directory"); return []; }),
+      whoToCallService.getWhoToCallList().catch((err: any) => { showError(err?.message || "Failed to load contacts"); return []; }),
     ])
       .then(([dirData, whoToCallData]) => {
         if (!cancelled) {

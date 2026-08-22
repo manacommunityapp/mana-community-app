@@ -24,6 +24,7 @@ export interface ProgramFormDraft {
 import { useEventMock } from "./EventMockToggle";
 import { eventProgramService, type EventProgramResponse, type ActivityRegistrationResponse } from "../../../services/events/eventProgramService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
+import { showError } from "../../../utils/ToastUtils";
 import { eventNotificationService } from "../../../services/events/eventNotificationService";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -1107,8 +1108,8 @@ export function EventsPrograms() {
                     ...prev,
                     [currentDay]: (prev[currentDay] || []).map(p => p.id === updated.id ? updated : p),
                   }));
-                } catch (e) {
-                  console.error("Failed to update program live", e);
+                } catch (e: any) {
+                  showError(e?.message || "Failed to update program");
                 }
               }
             }

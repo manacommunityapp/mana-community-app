@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { useEventMock } from "./EventMockToggle";
+import { showError } from "../../../utils/ToastUtils";
 
 // ── Fallback Main Events List ──
 const FALLBACK_MAIN_EVENTS = [
@@ -337,8 +338,8 @@ export function PoojaSevaSection() {
       setShowAddTypeModal(false);
       setToast(`Pooja Type "${clean}" saved to database!`);
       setTimeout(() => setToast(""), 3500);
-    } catch (err) {
-      alert("Failed to save new pooja type to database.");
+    } catch (err: any) {
+      showError(err?.message || "Failed to save new pooja type");
     } finally {
       setAddingType(false);
     }
@@ -346,11 +347,11 @@ export function PoojaSevaSection() {
 
   const handleSubmit = async () => {
     if (!form.mainEventId || !form.name || !form.type || !form.date || (form.isMultiDay && !form.endDate)) {
-      alert("Please select a main event, pooja type, date, and fill all required fields.");
+      showError("Please select a main event, pooja type, date, and fill all required fields.");
       return;
     }
     if (form.isMultiDay && form.endDate && form.date && form.endDate < form.date) {
-      alert(`End date (${form.endDate}) cannot be earlier than start date (${form.date}).`);
+      showError(`End date (${form.endDate}) cannot be earlier than start date (${form.date}).`);
       return;
     }
 
@@ -904,8 +905,8 @@ export function CulturalEventsSection() {
       setShowAddCatModal(false);
       setToast(`Category "${clean}" saved to database!`);
       setTimeout(() => setToast(""), 3500);
-    } catch (err) {
-      alert("Failed to save new category to database.");
+    } catch (err: any) {
+      showError(err?.message || "Failed to save new category");
     } finally {
       setAddingCat(false);
     }
@@ -923,8 +924,8 @@ export function CulturalEventsSection() {
       setShowAddTypeModal(false);
       setToast(`Performance Type "${clean}" saved to database!`);
       setTimeout(() => setToast(""), 3500);
-    } catch (err) {
-      alert("Failed to save new performance type to database.");
+    } catch (err: any) {
+      showError(err?.message || "Failed to save new performance type");
     } finally {
       setAddingType(false);
     }
@@ -932,7 +933,7 @@ export function CulturalEventsSection() {
 
   const handleSubmit = async () => {
     if (!form.mainEventId || !form.name || !form.category || !form.date) {
-      alert("Please select a main event, category, and fill all required fields.");
+      showError("Please select a main event, category, and fill all required fields.");
       return;
     }
 
@@ -1297,8 +1298,8 @@ export function CompetitionsSection() {
       setShowAddCatModal(false);
       setToast(`Category "${clean}" saved to database!`);
       setTimeout(() => setToast(""), 3500);
-    } catch (err) {
-      alert("Failed to save new category to database.");
+    } catch (err: any) {
+      showError(err?.message || "Failed to save new category");
     } finally {
       setAddingCat(false);
     }
@@ -1316,8 +1317,8 @@ export function CompetitionsSection() {
       setShowAddAgeModal(false);
       setToast(`Age Group "${clean}" saved to database!`);
       setTimeout(() => setToast(""), 3500);
-    } catch (err) {
-      alert("Failed to save new age group to database.");
+    } catch (err: any) {
+      showError(err?.message || "Failed to save new age group");
     } finally {
       setAddingAge(false);
     }
@@ -1325,7 +1326,7 @@ export function CompetitionsSection() {
 
   const handleSubmit = async () => {
     if (!form.mainEventId || !form.name || !form.category || !form.date) {
-      alert("Please select a main event, category, and fill all required fields.");
+      showError("Please select a main event, category, and fill all required fields.");
       return;
     }
 
@@ -1678,7 +1679,7 @@ export function LunchDinnerSection() {
 
   const handleSubmit = async () => {
     if (!form.mainEventId || !form.name || !form.mealType || !form.date) {
-      alert("Please select a main event, meal type, and fill all required fields.");
+      showError("Please select a main event, meal type, and fill all required fields.");
       return;
     }
 

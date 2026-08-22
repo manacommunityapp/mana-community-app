@@ -661,7 +661,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             await eventService.updatePoojaRegistration(numericId, regPayload);
             showSuccess("🪔 Pooja registration updated successfully!");
           } catch (apiErr: any) {
-            const errMsg = apiErr?.response?.data?.message || apiErr?.message || "Failed to update pooja registration.";
+            const errMsg = apiErr?.message || "Failed to update pooja registration.";
             showWarning(errMsg);
             return;
           }
@@ -671,7 +671,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           await eventService.createPoojaRegistration(regPayload);
           showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
         } catch (apiErr: any) {
-          const errMsg = apiErr?.response?.data?.message || apiErr?.message || "";
+          const errMsg = apiErr?.message || "";
           console.warn("Backend createPoojaRegistration API note, trying fallback register:", apiErr);
           if (errMsg && (errMsg.toLowerCase().includes("deadline") || errMsg.toLowerCase().includes("passed") || errMsg.toLowerCase().includes("cancelled") || errMsg.toLowerCase().includes("ended") || errMsg.toLowerCase().includes("full"))) {
             showWarning(errMsg);
@@ -684,7 +684,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 await eventService.register(numericEventId);
                 showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
               } catch (regErr: any) {
-                const regErrMsg = regErr?.response?.data?.message || regErr?.message || "Registration deadline has passed. Contact admin for manual registration.";
+                const regErrMsg = regErr?.message || "Registration deadline has passed. Contact admin for manual registration.";
                 showWarning(regErrMsg);
                 return;
               }
@@ -704,7 +704,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       setIsSuccess(true);
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      const errMsg = err?.response?.data?.message || err?.message || "Registration deadline has passed. Contact admin for manual registration.";
+      const errMsg = err?.message || "Registration deadline has passed. Contact admin for manual registration.";
       console.error("Failed to process pooja registration:", err);
       showWarning(errMsg);
     } finally {

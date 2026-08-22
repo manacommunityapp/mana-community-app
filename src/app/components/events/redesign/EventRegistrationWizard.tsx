@@ -819,7 +819,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       setFormData((prev) => ({ ...prev, paymentMode: selectedMode }));
       setIsSuccess(true);
     } catch (err: any) {
-      const errMsg = err?.response?.data?.message || err?.message || "Registration deadline has passed. Contact admin for manual registration.";
+      const errMsg = err?.message || "Registration deadline has passed. Contact admin for manual registration.";
       console.warn("Registration API error:", err);
       showWarning(errMsg);
     }
@@ -914,7 +914,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
               <div>
                 <strong className="block text-xs font-extrabold text-rose-900 dark:text-rose-200">Event Capacity Reached (Housefull)</strong>
                 <span className="text-[11.5px] font-semibold leading-relaxed">
-                  This event has reached its maximum capacity limit of {maxEventCapacity} attendees. Registration is no longer accepted. Contact admin for manual registration or queries.
+                  This event has reached its maximum capacity limit. Registration is no longer accepted. Contact admin for manual registration or queries.
                 </span>
               </div>
             </div>
@@ -1744,11 +1744,11 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
             {isEventFull ? (
               <span className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-700 dark:text-rose-300 text-xs font-bold border border-rose-500/20 flex items-center gap-1.5 select-none">
-                <AlertCircle className="w-3.5 h-3.5" /> Event Full ({currentEventCount}/{maxEventCapacity})
+                <AlertCircle className="w-3.5 h-3.5" /> Registration Closed
               </span>
             ) : isRegistrationEnded ? (
               <span className="px-4 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 text-xs font-bold border border-amber-500/20 flex items-center gap-1.5 select-none">
-                <AlertCircle className="w-3.5 h-3.5" /> Registration Deadline Passed
+                <AlertCircle className="w-3.5 h-3.5" /> Registration Closed
               </span>
             ) : currentStep < 4 ? (
               <TouchButton variant="primary" size="sm" icon={ArrowRight} onClick={handleNextStep}>

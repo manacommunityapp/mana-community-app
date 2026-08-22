@@ -135,7 +135,7 @@ export function EventsDonations() {
       setShowAddForm(false);
       setDonationForm(emptyDonationForm);
     } catch (err: any) {
-      setFormError(err?.response?.data?.message || err?.message || "Failed to record donation");
+      setFormError(err?.message || "Failed to record donation");
     } finally {
       setSaving(false);
     }
@@ -198,7 +198,7 @@ export function EventsDonations() {
       setEditingDonationId(null);
       setDonationForm(emptyDonationForm);
     } catch (err: any) {
-      setFormError(err?.response?.data?.message || err?.message || "Failed to update donation");
+      setFormError(err?.message || "Failed to update donation");
     } finally {
       setSaving(false);
     }

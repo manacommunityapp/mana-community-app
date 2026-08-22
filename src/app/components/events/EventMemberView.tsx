@@ -48,6 +48,7 @@ import {
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { PoojaRegistrationModal } from "./PoojaRegistrationModal";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
+import { showError, showSuccess } from "../../../utils/ToastUtils";
 
 interface FamilyMember {
   id: string;
@@ -749,8 +750,9 @@ export function EventMemberView() {
     if (!useMock && !id.startsWith("fam-") && id !== "self") {
       try {
         await eventService.deleteFamilyMember(Number(id));
-      } catch (err) {
-        console.error("Failed to delete devotee from database:", err);
+      } catch (err: any) {
+        showError(err?.message || "Failed to delete devotee");
+        return;
       }
     }
     setFamilyMembers((prev) => prev.filter((m) => m.id !== id));
@@ -777,8 +779,9 @@ export function EventMemberView() {
         if (saved && saved.id) {
           createdId = String(saved.id);
         }
-      } catch (err) {
-        console.error("Failed to save devotee to database:", err);
+      } catch (err: any) {
+        showError(err?.message || "Failed to add family member");
+        return;
       }
     }
 
@@ -945,8 +948,7 @@ export function EventMemberView() {
           createdId = String(saved.id);
         }
       } catch (err: any) {
-        console.error("Failed to save event registration to database:", err);
-        alert(err?.message || "Registration failed. The activity capacity has been reached.");
+        showError(err?.message || "Registration failed. The activity capacity has been reached.");
         return;
       }
     }
@@ -970,7 +972,7 @@ export function EventMemberView() {
     };
 
     setPassesList((prev) => [newPass, ...prev]);
-    alert(`Success! Registered for ${selectedActivity.title}. E-Pass issued to ${attendeeLabel}!`);
+    showSuccess(`Registered for ${selectedActivity.title}. E-Pass issued to ${attendeeLabel}!`);
     setSelectedActivity(null);
     setPaymentReceiptUrl("");
     setTransactionId("");

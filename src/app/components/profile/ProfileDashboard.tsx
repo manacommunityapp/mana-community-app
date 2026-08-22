@@ -548,7 +548,6 @@ export function ProfileDashboard() {
     } catch (err: any) {
       console.error("Change password error:", err);
       const msg =
-        err?.response?.data?.message ||
         err?.message ||
         "Failed to update password. Please verify current password.";
       toast.error(msg);

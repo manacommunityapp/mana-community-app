@@ -277,7 +277,7 @@ export function EventsPoojaSeva() {
       setEditingPoojaId(null);
       setPoojaForm(emptyPoojaForm);
     } catch (err: any) {
-      setFormError(err?.response?.data?.message || err?.message || "Failed to save pooja");
+      setFormError(err?.message || "Failed to save pooja");
     } finally {
       setSaving(false);
     }

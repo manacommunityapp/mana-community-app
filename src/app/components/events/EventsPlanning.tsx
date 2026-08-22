@@ -4,6 +4,7 @@ import { useEventMock } from "./EventMockToggle";
 import { ErrorBanner, LoadingSpinner } from "./shared";
 import { eventTaskService, type EventTaskResponse } from "../../../services/events/eventTaskService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
+import { showError } from "../../../utils/ToastUtils";
 
 // Mock data — shown when toggle is "Mock Data"; live API used otherwise
 const milestones = [
@@ -92,7 +93,7 @@ export function EventsPlanning() {
     } else {
       eventTaskService.toggleDone(id)
         .then(updated => setLiveTasks(prev => prev.map(t => t.id === id ? { ...t, done: updated.done } : t)))
-        .catch(() => {});
+        .catch((err: any) => showError(err?.message || "Failed to update task status"));
     }
   };
 
@@ -132,7 +133,7 @@ export function EventsPlanning() {
       setShowAddForm(false);
       setTaskForm(emptyTaskForm);
     } catch (err: any) {
-      setFormError(err?.response?.data?.message || err?.message || "Failed to create task");
+      setFormError(err?.message || "Failed to create task");
     } finally {
       setSaving(false);
     }
@@ -189,7 +190,7 @@ export function EventsPlanning() {
       setEditingTaskId(null);
       setTaskForm(emptyTaskForm);
     } catch (err: any) {
-      setFormError(err?.response?.data?.message || err?.message || "Failed to update task");
+      setFormError(err?.message || "Failed to update task");
     } finally {
       setSaving(false);
     }

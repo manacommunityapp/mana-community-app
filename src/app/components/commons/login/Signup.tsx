@@ -314,9 +314,8 @@ export function Signup() {
     try {
       const data = await communityService.getCommunities(communityType);
       setCommunities(data || []);
-    } catch (err) {
-      console.error("Failed to fetch communities from backend service", err);
-      setCommunitiesError("Could not load communities from backend database. Please try again.");
+    } catch (err: any) {
+      setCommunitiesError(err?.message || "Could not load communities. Please try again.");
     } finally {
       setIsLoadingCommunities(false);
     }
