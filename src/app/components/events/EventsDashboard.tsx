@@ -5,7 +5,7 @@ import {
   Utensils, Gavel, ClipboardCheck, Star, Heart,
   Clock, MapPin, AlertCircle, Loader2,
   Sparkles, QrCode, UserPlus,
-  ChevronRight, Download, Bot, RefreshCw,
+  ChevronLeft, ChevronRight, Download, Bot, RefreshCw,
   Search, ChevronDown, ChevronUp, User,
 } from "lucide-react";
 import {
@@ -260,11 +260,48 @@ export function EventsDashboard() {
   const [expandedActivity, setExpandedActivity] = useState<string|null>(null);
 
   const fetchLiveRegistrations = () => {
-    if (useMock) { setAllUnifiedRegs(MOCK_REGS); return; }
+    if (useMock) {
+      setAllUnifiedRegs(MOCK_REGS.filter(r => String(r.status || '').toUpperCase() !== 'CANCELLED'));
+      return;
+    }
     setLoadingRegs(true);
-    eventService.getAllRegistrations()
-      .then((regs: any[]) => {
-        setAllUnifiedRegs(regs.map((r: any) => {
+    Promise.all([
+      eventService.getAllRegistrations().catch(() => []),
+      eventService.getAllEvents().catch(() => [])
+    ])
+      .then(([regs, evts]: [any[], any[]]) => {
+        // Collect cancelled event IDs and normalized titles
+        const cancelledEventIds = new Set<number>();
+        const cancelledEventTitles = new Set<string>();
+
+        if (Array.isArray(evts)) {
+          evts.forEach(ev => {
+            const evStatus = String(ev.status || '').toUpperCase();
+            if (evStatus === 'CANCELLED') {
+              if (ev.id != null) cancelledEventIds.add(Number(ev.id));
+              if (ev.title) cancelledEventTitles.add(ev.title.trim().toLowerCase());
+            }
+          });
+        }
+
+        const validRegs = (Array.isArray(regs) ? regs : []).filter((r: any) => {
+          // Exclude cancelled or rejected registrations
+          const regStatus = String(r.status || '').toUpperCase();
+          if (regStatus === 'CANCELLED' || regStatus === 'REJECTED') return false;
+
+          // Exclude if registration's eventStatus indicates cancellation
+          const regEvtStatus = String(r.eventStatus || '').toUpperCase();
+          if (regEvtStatus === 'CANCELLED') return false;
+
+          // Exclude if associated event is cancelled
+          if (r.eventId != null && cancelledEventIds.has(Number(r.eventId))) return false;
+          const actTitle = String(r.activityTitle || r.eventTitle || r.eventName || '').trim().toLowerCase();
+          if (actTitle && cancelledEventTitles.has(actTitle)) return false;
+
+          return true;
+        });
+
+        setAllUnifiedRegs(validRegs.map((r: any) => {
           let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
           if (r.membersJson) {
             try {
@@ -351,6 +388,7 @@ export function EventsDashboard() {
         const evs = eventsR.value;
         setEvents(evs);
         const upcoming = [...evs]
+          .filter(ev => String(ev.status || '').toUpperCase() !== "CANCELLED")
           .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
           .find(ev => new Date(ev.startDate).getTime() >= Date.now() - 86400000);
         if (upcoming) {
@@ -416,10 +454,12 @@ export function EventsDashboard() {
   // ── Phase 2: fetch registrations for the trend chart (needs eventId) ──
   useEffect(() => {
     if (useMock || events.length === 0) return;
-    const target = [...events]
+    const activeEvents = events.filter(e => String(e.status || '').toUpperCase() !== "CANCELLED");
+    if (activeEvents.length === 0) return;
+    const target = [...activeEvents]
       .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
       .find(ev => new Date(ev.startDate).getTime() >= Date.now() - 86400000)
-      ?? events[0];
+      ?? activeEvents[0];
     if (!target) return;
     eventService.getEventRegistrations(target.id)
       .then(regs => setRegistrations(regs))
@@ -439,10 +479,12 @@ export function EventsDashboard() {
   const todaySchedule = useMemo(() => {
     if (useMock) return MOCK_ACTIVITIES;
     const today = new Date().toISOString().slice(0, 10);
-    const filtered = events.filter(ev =>
-      ev.startDate === today ||
-      (ev.startDate <= today && (ev.endDate ?? ev.startDate) >= today)
-    );
+    const filtered = events
+      .filter(ev => String(ev.status || '').toUpperCase() !== "CANCELLED")
+      .filter(ev =>
+        ev.startDate === today ||
+        (ev.startDate <= today && (ev.endDate ?? ev.startDate) >= today)
+      );
     if (filtered.length === 0) return [];
     return filtered.slice(0, 4).map(ev => {
       const now = Date.now();
@@ -604,8 +646,9 @@ export function EventsDashboard() {
   // ── Derived: banner items ─────────────────────────────────────────────────
   const bannerItems: BannerItem[] = useMemo(() => {
     if (useMock) return MOCK_BANNERS;
-    if (events.length > 0) {
-      return events.slice(0, 4).map((ev, i) => eventToBanner(ev, i));
+    const runningEvents = events.filter(e => String(e.status || '').toUpperCase() !== "CANCELLED");
+    if (runningEvents.length > 0) {
+      return runningEvents.slice(0, 4).map((ev, i) => eventToBanner(ev, i));
     }
     return [
       {
@@ -624,6 +667,34 @@ export function EventsDashboard() {
   }, [useMock, events]);
 
   const currentBanner = bannerItems[Math.min(carouselIndex, bannerItems.length - 1)] || bannerItems[0];
+  const [isBannerHovered, setIsBannerHovered] = useState(false);
+
+  // Auto-move banner every 4.5s (pauses on hover)
+  useEffect(() => {
+    if (bannerItems.length <= 1 || isBannerHovered) return;
+    const timer = setInterval(() => {
+      setCarouselIndex((prev) => (prev + 1) % bannerItems.length);
+    }, 4500);
+    return () => clearInterval(timer);
+  }, [bannerItems.length, isBannerHovered]);
+
+  // Sync countdown target with active banner item
+  useEffect(() => {
+    if (currentBanner.targetDate) {
+      setCdTarget(currentBanner.targetDate);
+      setCdTime(currentBanner.targetTime || null);
+    }
+  }, [currentBanner]);
+
+  const handlePrevBanner = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCarouselIndex((prev) => (prev - 1 + bannerItems.length) % bannerItems.length);
+  };
+
+  const handleNextBanner = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCarouselIndex((prev) => (prev + 1) % bannerItems.length);
+  };
 
   // ── Derived: registration trend ───────────────────────────────────────────
   const regTrendData = useMemo(() => {
@@ -685,7 +756,9 @@ export function EventsDashboard() {
       ];
     }
     const todayStr = new Date().toISOString().slice(0, 10);
-    const activeToday = events.filter(e => e.startDate <= todayStr && (!e.endDate || e.endDate >= todayStr));
+    const activeToday = events
+      .filter(e => String(e.status || '').toUpperCase() !== "CANCELLED")
+      .filter(e => e.startDate <= todayStr && (!e.endDate || e.endDate >= todayStr));
     const counts: Record<string, { programs: number; volunteers: number }> = {};
     timeSlots.forEach(t => { counts[t] = { programs: 0, volunteers: 0 }; });
 
@@ -726,9 +799,11 @@ export function EventsDashboard() {
         </div>
       )}
 
-      {/* ── Single Merged Unified Festival & Event Header Bar ── */}
+      {/* ── Single Merged Unified Festival & Event Header Bar with Auto-Move & Manual Navigation ── */}
       <div
-        className="relative rounded-xl overflow-hidden shadow-sm transition-all duration-300 border border-indigo-900/20"
+        onMouseEnter={() => setIsBannerHovered(true)}
+        onMouseLeave={() => setIsBannerHovered(false)}
+        className="relative rounded-xl overflow-hidden shadow-sm transition-all duration-300 border border-indigo-900/20 group/banner"
         style={{ background: currentBanner.bgGradient || "linear-gradient(135deg, #3730A3 0%, #4F46E5 40%, #7C3AED 72%, #9333EA 100%)" }}
       >
         {/* Dot grid texture */}
@@ -738,109 +813,92 @@ export function EventsDashboard() {
         <div className="absolute right-0 top-0 w-48 h-full rounded-full opacity-15 blur-3xl pointer-events-none z-0"
           style={{ background: "radial-gradient(circle, #FEF3C7 0%, transparent 70%)", transform: "translate(20%,-20%)" }} />
 
-        <div className="relative z-10 px-3 py-2 sm:px-3.5 sm:py-2.5 text-white flex flex-col lg:flex-row lg:items-center justify-between gap-2">
+        <div className="relative z-10 px-3 py-2 sm:px-3.5 sm:py-2.5 text-white flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
 
-          {/* Left: Festival Icon + Title + Metadata — Next by next for multiple events */}
-          {bannerItems.length > 1 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 flex-1 min-w-0">
-              {bannerItems.map((item, idx) => {
-                const isSelected = idx === carouselIndex;
-                return (
-                  <div
-                    key={item.id || idx}
-                    onClick={() => setCarouselIndex(idx)}
-                    className={`flex items-start sm:items-center gap-2 p-2 rounded-xl border transition-all cursor-pointer ${
-                      isSelected
-                        ? "bg-white/20 border-white/40 shadow-sm ring-1 ring-white/30"
-                        : "bg-white/10 border-white/15 hover:bg-white/15 hover:border-white/25"
-                    }`}
-                  >
-                    <div className="relative w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-base shrink-0 shadow-xs overflow-hidden">
-                      <span className="text-base">{(useMock || events.length > 0) ? "🕉️" : "📅"}</span>
-                      {item.image && (
-                        <img
-                          src={item.image}
-                          alt={item.title}
-                          className="absolute inset-0 w-full h-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                          }}
-                        />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-amber-400/20 text-amber-200 border border-amber-300/30 uppercase tracking-wider">
-                          🔥 {item.category}
-                        </span>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 text-[9.5px] font-bold border border-emerald-400/30">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live · Event {idx + 1}
-                        </span>
-                        <span className="text-white/60 text-xs hidden sm:inline">·</span>
-                        <span className="text-[11px] font-semibold text-white/80 hidden sm:inline-flex items-center gap-1">
-                          <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {item.registered}
-                        </span>
-                      </div>
-                      <h2 className="text-sm sm:text-base font-bold text-white leading-tight drop-shadow-sm truncate">
-                        {item.title}
-                      </h2>
-                      <div className="flex flex-wrap items-center gap-2 text-[10px] font-normal text-white/75 mt-0.5">
-                        <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-amber-300" /> {item.location}</span>
-                        <span className="text-white/30">·</span>
-                        <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3 text-indigo-200" /> {item.date}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+          {/* Left: Single Festival Icon + Title + Metadata */}
+          <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+            <div className="relative w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-base shrink-0 shadow-xs overflow-hidden">
+              <span className="text-base">{(useMock || events.length > 0) ? "🕉️" : "📅"}</span>
+              {currentBanner.image && (
+                <img
+                  src={currentBanner.image}
+                  alt={currentBanner.title}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              )}
             </div>
-          ) : (
-            <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
-              <div className="relative w-8 h-8 rounded-lg bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-base shrink-0 shadow-xs overflow-hidden">
-                <span className="text-base">{(useMock || events.length > 0) ? "🕉️" : "📅"}</span>
-                {currentBanner.image && (
-                  <img
-                    src={currentBanner.image}
-                    alt={currentBanner.title}
-                    className="absolute inset-0 w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                    }}
-                  />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-amber-400/20 text-amber-200 border border-amber-300/30 uppercase tracking-wider">
+                  🔥 {currentBanner.category}
+                </span>
+                {(useMock || events.length > 0) ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 text-[9.5px] font-bold border border-emerald-400/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    {bannerItems.length > 1 ? `Live · Event ${carouselIndex + 1} of ${bannerItems.length}` : `Live · 1 Event`}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-300 text-[9.5px] font-bold border border-slate-400/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> 0 Events Available
+                  </span>
+                )}
+                {(useMock || events.length > 0) && (
+                  <>
+                    <span className="text-white/60 text-xs hidden sm:inline">·</span>
+                    <span className="text-[11px] font-semibold text-white/80 hidden sm:inline-flex items-center gap-1">
+                      <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {currentBanner.registered}
+                    </span>
+                  </>
                 )}
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-amber-400/20 text-amber-200 border border-amber-300/30 uppercase tracking-wider">
-                    🔥 {currentBanner.category}
-                  </span>
-                  {(useMock || events.length > 0) ? (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 text-[9.5px] font-bold border border-emerald-400/30">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live · {events.length || 1} Event{events.length === 1 ? "" : "s"}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-300 text-[9.5px] font-bold border border-slate-400/30">
-                      <span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> 0 Events Available
-                    </span>
-                  )}
-                  {(useMock || events.length > 0) && (
-                    <>
-                      <span className="text-white/60 text-xs hidden sm:inline">·</span>
-                      <span className="text-[11px] font-semibold text-white/80 hidden sm:inline-flex items-center gap-1">
-                        <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {currentBanner.registered}
-                      </span>
-                    </>
-                  )}
-                </div>
-                <h2 className="text-sm sm:text-base font-bold text-white leading-tight drop-shadow-sm truncate">
-                  {currentBanner.title}
-                </h2>
-                <div className="flex flex-wrap items-center gap-2 text-[10px] font-normal text-white/75 mt-0.5">
-                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-amber-300" /> {currentBanner.location}</span>
-                  <span className="text-white/30">·</span>
-                  <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3 text-indigo-200" /> {currentBanner.date}</span>
-                </div>
+              <h2 className="text-sm sm:text-base font-bold text-white leading-tight drop-shadow-sm truncate">
+                {currentBanner.title}
+              </h2>
+              <div className="flex flex-wrap items-center gap-2 text-[10px] font-normal text-white/75 mt-0.5">
+                <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-amber-300" /> {currentBanner.location}</span>
+                <span className="text-white/30">·</span>
+                <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3 text-indigo-200" /> {currentBanner.date}</span>
               </div>
+            </div>
+          </div>
+
+          {/* Center: Manual Carousel Move Controls & Indicators when multiple events exist */}
+          {bannerItems.length > 1 && (
+            <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-xs px-2 py-1 rounded-xl border border-white/15 shrink-0 self-start lg:self-center shadow-xs">
+              <button
+                type="button"
+                onClick={handlePrevBanner}
+                className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                title="Previous Event"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+              <div className="flex items-center gap-1 px-1">
+                {bannerItems.map((_, dotIdx) => (
+                  <button
+                    key={dotIdx}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setCarouselIndex(dotIdx); }}
+                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                      dotIdx === carouselIndex
+                        ? "w-4 bg-amber-400 shadow-xs"
+                        : "w-1.5 bg-white/40 hover:bg-white/70"
+                    }`}
+                    title={`Go to Event ${dotIdx + 1}`}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={handleNextBanner}
+                className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                title="Next Event"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
 
@@ -1458,19 +1516,22 @@ export function EventsDashboard() {
           <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 min-h-[85vh] sm:min-h-[640px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp">
             <EventRegistrationWizard
               event={
-                (events && events.length > 0) ? (events[carouselIndex] || events[0]) : {
-                  id: "ev-1",
-                  title: "Ganesh Chaturthi Utsav 2026",
-                  ticketTypes: [
-                    {
-                      id: "ganesh-pass-2026",
-                      name: "Ganesh Utsav 2026 Pass",
-                      price: "250",
-                      qty: "2500",
-                      description: "All-access entry pass for Ganesh Chaturthi 2026 Mahotsav rituals, prasadam & cultural programs",
-                    },
-                  ],
-                }
+                (() => {
+                  const runningEvents = events.filter(e => String(e.status || '').toUpperCase() !== "CANCELLED");
+                  return (runningEvents && runningEvents.length > 0) ? (runningEvents[carouselIndex] || runningEvents[0]) : {
+                    id: "ev-1",
+                    title: "Ganesh Chaturthi Utsav 2026",
+                    ticketTypes: [
+                      {
+                        id: "ganesh-pass-2026",
+                        name: "Ganesh Utsav 2026 Pass",
+                        price: "250",
+                        qty: "2500",
+                        description: "All-access entry pass for Ganesh Chaturthi 2026 Mahotsav rituals, prasadam & cultural programs",
+                      },
+                    ],
+                  };
+                })()
               }
               onClose={() => setShowRegisterModal(false)}
             />

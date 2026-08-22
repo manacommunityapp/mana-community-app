@@ -255,9 +255,35 @@ export function OrganizerDashboard({ initialTab = 'registrations' }: OrganizerDa
     setLoadingRegs(true);
     setRegError('');
     try {
-      const regs = await eventService.getAllRegistrations();
-      const mapped: UnifiedReg[] = Array.isArray(regs)
-        ? regs.map((r: any) => {
+      const [regs, evts] = await Promise.all([
+        eventService.getAllRegistrations().catch(() => []),
+        eventService.getAllEvents().catch(() => [])
+      ]);
+
+      const cancelledEventIds = new Set<number>();
+      const cancelledEventTitles = new Set<string>();
+      if (Array.isArray(evts)) {
+        evts.forEach((ev: any) => {
+          if (String(ev.status || '').toUpperCase() === 'CANCELLED') {
+            if (ev.id != null) cancelledEventIds.add(Number(ev.id));
+            if (ev.title) cancelledEventTitles.add(ev.title.trim().toLowerCase());
+          }
+        });
+      }
+
+      const activeRegs = Array.isArray(regs)
+        ? regs.filter((r: any) => {
+            const regStatus = String(r.status || '').toUpperCase();
+            if (regStatus === 'CANCELLED' || regStatus === 'REJECTED') return false;
+            if (String(r.eventStatus || '').toUpperCase() === 'CANCELLED') return false;
+            if (r.eventId != null && cancelledEventIds.has(Number(r.eventId))) return false;
+            const actTitle = String(r.activityTitle || r.eventName || r.eventTitle || '').trim().toLowerCase();
+            if (actTitle && cancelledEventTitles.has(actTitle)) return false;
+            return true;
+          })
+        : [];
+
+      const mapped: UnifiedReg[] = activeRegs.map((r: any) => {
             const rawCat = (r.category || '').toLowerCase();
             const cat: RegCategory = rawCat.includes('pooja') || rawCat.includes('seva')
               ? 'pooja'
@@ -316,8 +342,7 @@ export function OrganizerDashboard({ initialTab = 'registrations' }: OrganizerDa
               extra: extraParts.length > 0 ? extraParts.join(' · ') : undefined,
               createdAt: r.createdAt || r.registeredAt || new Date().toISOString(),
             };
-          })
-        : [];
+          });
 
       if (mapped.length > 0) {
         if (useMock) {

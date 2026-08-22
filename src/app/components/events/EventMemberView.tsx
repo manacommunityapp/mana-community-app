@@ -1469,7 +1469,6 @@ export function EventMemberView() {
                                 </button>
                               );
                             }
-                            const isClosed = isRegistrationClosed(act);
                             const isFull = act.availableSeats !== undefined && act.availableSeats <= 0;
                             if (isFull) {
                               return (

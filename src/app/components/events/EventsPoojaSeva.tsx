@@ -126,7 +126,12 @@ export function EventsPoojaSeva() {
       .then(([sevas, regs, types]) => {
         setPoojaSevas(sevas || []);
         const poojaRegs = (regs || [])
-          .filter((r: any) => r.category === "Pooja" || r.activityId?.startsWith("pooja-"))
+          .filter((r: any) => {
+            const regStatus = String(r.status || '').toUpperCase();
+            if (regStatus === 'CANCELLED' || regStatus === 'REJECTED') return false;
+            if (String(r.eventStatus || '').toUpperCase() === 'CANCELLED') return false;
+            return r.category === "Pooja" || r.activityId?.startsWith("pooja-");
+          })
           .map((r: any) => {
             let count = Number(r.devoteeCount ?? r.membersCount ?? 0);
             if (!count && r.membersJson) {
