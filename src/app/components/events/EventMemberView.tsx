@@ -820,7 +820,7 @@ export function EventMemberView() {
       },
       {
         id: "auction",
-        label: "Laddu Auction",
+        label: "Auction",
         icon: Gavel,
         color: "bg-cyan-500/10 text-cyan-600 border-cyan-300/30",
         badge: auctionBadge,

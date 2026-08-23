@@ -64,7 +64,7 @@ const schedule: Record<string, ScheduleItem[]> = {
   ],
   "Day 3 – Aug 29": [
     { id: "p16", time: "8:00 AM",  duration: "1h",  title: "Morning Puja & Havan",          type: "Ritual",       venue: "Main Stage",       icon: Star,   color: "#7c3aed" },
-    { id: "p17", time: "10:00 AM", duration: "2h",  title: "Laddu Auction",                  type: "Auction",      venue: "Auction Stage",    icon: Layers, color: "#0891b2" },
+    { id: "p17", time: "10:00 AM", duration: "2h",  title: "Auction",                        type: "Auction",      venue: "Auction Stage",    icon: Layers, color: "#0891b2" },
     { id: "p18", time: "12:00 PM", duration: "30m", title: "Special Lunch – Grand Feast",   type: "Food",         venue: "Dining Hall",      icon: Layers, color: "#10b981" },
     { id: "p19", time: "2:00 PM",  duration: "3h",  title: "Ganesh Visarjan Procession",     type: "Ritual",       venue: "Community Route",  icon: Star,   color: "#7c3aed" },
     { id: "p20", time: "6:00 PM",  duration: "1h",  title: "Thank You & Closing Ceremony",   type: "Ceremony",     venue: "Main Stage",       icon: Mic2,   color: "#d97706" },
