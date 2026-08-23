@@ -130,7 +130,7 @@ const sessions = [
 
 export function ProfileDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const activeTab = (searchParams.get("tab") as Tab) || "overview";
 
   const setActiveTab = (tab: Tab) => {
