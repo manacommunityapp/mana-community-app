@@ -1243,12 +1243,21 @@ export function CompetitionsSection() {
   const [addingCat, setAddingCat] = useState<boolean>(false);
   const [addingAge, setAddingAge] = useState<boolean>(false);
 
-  const [form, setForm] = useState({
-    mainEventId: "",
+  const [competitions, setCompetitions] = useState<any[]>([]);
+  const [loadingList, setLoadingList] = useState<boolean>(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState<boolean>(false);
+
+  const emptyForm = () => ({
+    mainEventId: mainEvents[0]?.id ?? "",
     name: "", category: "", ageGroup: "Kids (Under 12)", date: "", startTime: "",
     regDeadline: "", fee: "", isFree: true, maxParticipants: "50",
-    venue: "", judges: [], rules: "", isTeamEvent: false, teamSize: "1",
+    venue: "", judges: [] as string[], rules: "", isTeamEvent: false, teamSize: "1",
   });
+
+  const [form, setForm] = useState(emptyForm());
   const [toast, setToast] = useState("");
 
   // Load Competition Categories & Age Groups dynamically from DB
@@ -1283,6 +1292,33 @@ export function CompetitionsSection() {
       setForm((f) => ({ ...f, mainEventId: mainEvents[0].id }));
     }
   }, [mainEvents]);
+
+  // Load competitions list
+  useEffect(() => {
+    async function loadCompetitions() {
+      if (useMock) return;
+      try {
+        setLoadingList(true);
+        const data = await eventService.getCompetitions();
+        setCompetitions(data ?? []);
+      } catch {
+        // non-fatal
+      } finally {
+        setLoadingList(false);
+      }
+    }
+    loadCompetitions();
+  }, [useMock]);
+
+  const reloadCompetitions = async () => {
+    if (useMock) return;
+    try {
+      const data = await eventService.getCompetitions();
+      setCompetitions(data ?? []);
+    } catch {
+      // non-fatal
+    }
+  };
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -1324,44 +1360,72 @@ export function CompetitionsSection() {
     }
   };
 
+  const openEdit = (comp: any) => {
+    setEditingId(String(comp.id));
+    setForm({
+      mainEventId: String(comp.mainEventId ?? ""),
+      name: comp.name ?? "",
+      category: comp.category ?? "",
+      ageGroup: comp.ageGroup ?? "Kids (Under 12)",
+      date: comp.date ?? "",
+      startTime: comp.startTime ?? "",
+      regDeadline: comp.regDeadline ?? "",
+      fee: String(comp.fee ?? ""),
+      isFree: comp.isFree ?? true,
+      maxParticipants: String(comp.maxParticipants ?? "50"),
+      venue: comp.venue ?? "",
+      judges: [],
+      rules: comp.rules ?? "",
+      isTeamEvent: comp.isTeamEvent ?? false,
+      teamSize: String(comp.teamSize ?? "1"),
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeletingId(id);
+    try {
+      if (!useMock) await eventService.deleteCompetition(Number(id));
+      setCompetitions(prev => prev.filter(c => String(c.id) !== id));
+      setDeleteConfirmId(null);
+      setToast("Competition deleted.");
+      setTimeout(() => setToast(""), 2500);
+    } catch (e: any) {
+      showError(e?.message || "Failed to delete competition");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!form.mainEventId || !form.name || !form.category || !form.date) {
       showError("Please select a main event, category, and fill all required fields.");
       return;
     }
 
-    const itemObj = {
-      id: "comp-" + Date.now(),
-      title: form.name,
-      category: "Competitions",
-      type: form.category,
+    const payload = {
+      mainEventId: form.mainEventId,
+      name: form.name,
+      category: form.category,
       ageGroup: form.ageGroup,
       date: form.date,
-      time: form.startTime ? form.startTime : "Morning",
-      venue: form.venue || "Clubhouse Activity Room",
-      fee: form.isFree ? 0 : Number(form.fee || 100),
-      availableSeats: Number(form.maxParticipants || 50),
-      image: "🏆",
-      description: `Category: ${form.category}. Age Group: ${form.ageGroup}. Rules: ${form.rules || "Standard community contest rules."}`,
-      mainEventId: form.mainEventId,
+      startTime: form.startTime,
+      regDeadline: form.regDeadline,
+      fee: form.fee,
+      isFree: form.isFree,
+      maxParticipants: form.maxParticipants,
+      venue: form.venue,
+      rules: form.rules,
     };
 
     try {
       if (!useMock) {
-        await eventService.createCompetition({
-          mainEventId: form.mainEventId,
-          name: form.name,
-          category: form.category,
-          ageGroup: form.ageGroup,
-          date: form.date,
-          startTime: form.startTime,
-          regDeadline: form.regDeadline,
-          fee: form.fee,
-          isFree: form.isFree,
-          maxParticipants: form.maxParticipants,
-          venue: form.venue,
-          rules: form.rules,
-        });
+        if (editingId) {
+          await eventService.updateCompetition(Number(editingId), payload);
+        } else {
+          await eventService.createCompetition(payload);
+        }
+        await reloadCompetitions();
       }
     } catch (e) {
       console.warn("Backend save notice:", e);
@@ -1369,8 +1433,11 @@ export function CompetitionsSection() {
 
     window.dispatchEvent(new Event("mana_activities_updated"));
 
-    setToast(`Competition "${form.name}" saved to Database & published!`);
+    setToast(editingId ? `Competition "${form.name}" updated!` : `Competition "${form.name}" saved to Database & published!`);
     setTimeout(() => setToast(""), 3500);
+    setEditingId(null);
+    setShowForm(false);
+    setForm(emptyForm());
   };
 
   return (
@@ -1387,7 +1454,85 @@ export function CompetitionsSection() {
             <p className="text-xs opacity-90">Manage Rangoli, Drawing, Quiz, Cooking &amp; Talent contests under main event</p>
           </div>
         </div>
+        <button
+          onClick={() => { setEditingId(null); setForm(emptyForm()); setShowForm(true); }}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-sm"
+        >
+          <Plus className="w-3.5 h-3.5" /> Add Competition
+        </button>
       </div>
+
+      {/* Competitions list */}
+      {!useMock && (
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-border flex items-center justify-between">
+            <span className="font-bold text-sm text-foreground">All Competitions</span>
+            {loadingList && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+          </div>
+          {competitions.length === 0 && !loadingList ? (
+            <div className="px-4 py-8 text-center text-muted-foreground text-sm">No competitions yet. Add one above.</div>
+          ) : (
+            <div className="divide-y divide-border">
+              {competitions.map((comp) => (
+                <div key={comp.id} className="flex items-center gap-3 px-4 py-3">
+                  <Trophy className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm text-foreground truncate">{comp.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {comp.category}{comp.ageGroup ? ` · ${comp.ageGroup}` : ""}{comp.date ? ` · ${comp.date}` : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => openEdit(comp)}
+                      className="p-1.5 rounded-lg text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+                      title="Edit"
+                    >
+                      <Palette className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirmId(String(comp.id))}
+                      className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Delete confirmation */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-5 space-y-4 shadow-2xl">
+            <h3 className="font-bold text-foreground">Delete Competition?</h3>
+            <p className="text-sm text-muted-foreground">This cannot be undone.</p>
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                className="px-3.5 py-1.5 rounded-xl border border-border text-xs font-semibold text-muted-foreground hover:bg-muted cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirmId)}
+                disabled={deletingId === deleteConfirmId}
+                className="px-4 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+              >
+                {deletingId === deleteConfirmId ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Show form only when adding/editing */}
+      {showForm && (
 
       <SectionCard>
         <SectionHeading icon={Trophy} color="#3B82F6">Competition Details</SectionHeading>
@@ -1498,10 +1643,18 @@ export function CompetitionsSection() {
       </SectionCard>
 
       <div className="flex items-center justify-end gap-3 pt-2">
+        <button
+          onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm()); }}
+          className="px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground border border-border hover:bg-muted cursor-pointer"
+        >
+          Cancel
+        </button>
         <button onClick={handleSubmit} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs shadow-md hover:opacity-90 cursor-pointer flex items-center gap-2">
-          <Plus className="w-4 h-4" /> Save Competition
+          <Plus className="w-4 h-4" /> {editingId ? "Update Competition" : "Save Competition"}
         </button>
       </div>
+
+      )}
 
       {/* ─── CREATE NEW COMPETITION CATEGORY MODAL DIALOG ─── */}
       {showAddCatModal && (

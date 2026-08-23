@@ -434,6 +434,14 @@ export const eventService = {
     return apiClient.post<any>("/events/competitions", data);
   },
 
+  async updateCompetition(id: number, data: any): Promise<any> {
+    return apiClient.put<any>(`/events/competitions/${id}`, data);
+  },
+
+  async deleteCompetition(id: number): Promise<void> {
+    return apiClient.delete<void>(`/events/competitions/${id}`);
+  },
+
   async getLunchDinners(mainEventId?: number): Promise<any[]> {
     const qs = mainEventId ? `?mainEventId=${mainEventId}` : "";
     return apiClient.get<any[]>(`/events/lunch-dinners${qs}`);
