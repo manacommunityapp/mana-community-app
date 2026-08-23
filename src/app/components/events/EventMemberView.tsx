@@ -88,6 +88,7 @@ interface Activity {
 interface UserPass {
   id: string;
   activityId?: string;
+  category?: string;
   /** Pooja Seva's numeric DB id (e.g. 5 for "pooja-5") – NOT the parent event id */
   poojaSevaId?: string;
   /** Parent community event id */
@@ -812,19 +813,13 @@ export function EventMemberView() {
     ];
   }, [poojaCount, foodCount, culturalCount, compCount, passesList.length, useMock, liveStats]);
 
-  /**
-   * Returns the existing UserPass for the given activity if the user has already
-   * registered for it (on ANY day / slot) under the same main event.
-   *
-   * Matching strategy (in priority order):
-   *  1. Normalised numeric pooja-seva ID comparison ("pooja-5" == "5" == 5)
-   *  2. Exact title comparison scoped to the same mainEventId (if available)
-   *  3. Exact title comparison without scope (fallback for mock/unlinked data)
-   *  const isPoojaActivity = (cat?: string) =>
+  const isPoojaActivity = (cat?: string) =>
     Boolean(cat && (cat.toLowerCase().includes("pooja") || cat.toLowerCase().includes("seva")));
 
   const userActivePoojaPass = useMemo(() => {
-    return passesList.find((p) => isPoojaActivity(p.category) && p.status !== "CANCELLED");
+    return passesList.find(
+      (p) => (isPoojaActivity(p.category) || isPoojaActivity(p.passType) || Boolean(p.poojaSevaId)) && p.status !== "CANCELLED"
+    );
   }, [passesList]);
 
   /**
