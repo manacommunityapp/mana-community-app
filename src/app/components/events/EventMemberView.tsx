@@ -190,7 +190,7 @@ function countdownFrom(dateStr?: string | null, timeStr?: string | null) {
 }
 
 export function EventMemberView() {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const { useMock } = useEventMock();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -1643,14 +1643,16 @@ export function EventMemberView() {
                 <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5 sm:gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
                   <span>Quick Actions</span>
-                  {useMock ? (
-                    <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                      ⚡ Mock
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
-                    </span>
+                  {isSuperAdmin && (
+                    useMock ? (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                        ⚡ Mock
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
+                      </span>
+                    )
                   )}
                 </h3>
                 {selectedCategoryFilter && (
@@ -1747,7 +1749,7 @@ export function EventMemberView() {
                     </p>
                     <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                       {activitiesList.length === 0
-                        ? "Events and seva activities will appear here once published by the organizers. You can also toggle Mock Data mode in the top header to preview sample events."
+                        ? "Events and seva activities will appear here once published by the organizers."
                         : "Try clearing your category filter to view other scheduled sevas."}
                     </p>
                   </div>

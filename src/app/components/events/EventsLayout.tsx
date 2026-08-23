@@ -27,7 +27,11 @@ const navItems = [
 ];
 
 function DataModeToggle() {
+  const { isSuperAdmin } = useAuth();
   const { useMock, toggle } = useEventMock();
+
+  if (!isSuperAdmin) return null;
+
   return (
     <button
       onClick={toggle}
