@@ -1,8 +1,8 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import {
   CalendarDays, Calendar, MapPin, Users, IndianRupee, Image,
-  CheckCircle2, ChevronRight, ChevronLeft, Sparkles, Clock,
+  CheckCircle2, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Clock,
   Globe, Lock, Building2, Heart, Music, Utensils,
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
@@ -256,7 +256,25 @@ const STEPS = [
   { id: 8, label: "Review",             desc: "Verify & publish",              icon: Eye          },
 ];
 
-const BUDGET_CATEGORIES = ["Venue", "Food & Catering", "Decoration", "Audio / Visual", "Security", "Marketing", "Transport", "Volunteers", "Medical", "Other"];
+const BUDGET_CATEGORIES = [
+  "Venue & Mandap Setup",
+  "Food & Catering (Prasadam / Meals)",
+  "Decoration & Flower Arrangements",
+  "Audio / Visual, Sound & Stage Lighting",
+  "Pooja & Homam Ritual Samagri",
+  "Pandit & Priest Dakshina / Honorarium",
+  "Security, Bouncers & Gate Pass Desks",
+  "Marketing, Banners & Social Media",
+  "Transport, Logistics & Generator Power",
+  "Volunteers Honorarium & T-shirts",
+  "Prizes, Mementos, Trophies & Gifts",
+  "Photography, Drone & Videography",
+  "Waste Management & Post-event Cleaning",
+  "Medical Kit & First Aid",
+  "Permits, Police & Fire Licenses",
+  "Miscellaneous / Contingency Fund",
+  "Other",
+];
 
 const DEFAULT_TICKET_TYPES: TicketType[] = [
   { id: "t1", name: "General",   price: "0",   qty: "0", description: "Open for all community members" },
@@ -264,9 +282,9 @@ const DEFAULT_TICKET_TYPES: TicketType[] = [
 ];
 
 const DEFAULT_BUDGET_ITEMS: BudgetItem[] = [
-  { id: "b1", category: "Venue",            amount: "" },
-  { id: "b2", category: "Food & Catering",  amount: "" },
-  { id: "b3", category: "Decoration",       amount: "" },
+  { id: "b1", category: "Venue & Mandap Setup",                   amount: "" },
+  { id: "b2", category: "Food & Catering (Prasadam / Meals)",     amount: "" },
+  { id: "b3", category: "Decoration & Flower Arrangements",        amount: "" },
 ];
 
 const DEFAULT_CONTACTS: EventContactItem[] = [
@@ -2550,10 +2568,52 @@ function Step5FormTemplate({ data, update }: { data: FormData; update: (k: keyof
 
 /* ─── Step 6: Budget ─── */
 function Step6Budget({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
-  const addItem = () => update("budgetItems", [...data.budgetItems, { id: `b${Date.now()}`, category: "", amount: "" }]);
-  const removeItem = (id: string) => update("budgetItems", data.budgetItems.filter(b => b.id !== id));
-  const updateItem = (id: string, field: keyof BudgetItem, value: string) =>
+  const [customCategories, setCustomCategories] = useState<string[]>(() => {
+    const existing = (data.budgetItems || [])
+      .map(b => b.category?.trim())
+      .filter(c => c && !BUDGET_CATEGORIES.includes(c));
+    return Array.from(new Set(existing));
+  });
+
+  const [newCatInput, setNewCatInput] = useState<string>("");
+  const [showAddCatModal, setShowAddCatModal] = useState<boolean>(false);
+  const [customRowIds, setCustomRowIds] = useState<Set<string>>(new Set());
+
+  // Combined list of all available categories
+  const allCategories = useMemo(() => {
+    return Array.from(new Set([...BUDGET_CATEGORIES, ...customCategories]));
+  }, [customCategories]);
+
+  const addItem = (defaultCat = "") => {
+    const newItemId = `b${Date.now()}`;
+    const nextCat = defaultCat || allCategories[data.budgetItems.length % allCategories.length] || "Venue & Mandap Setup";
+    update("budgetItems", [...data.budgetItems, { id: newItemId, category: nextCat, amount: "" }]);
+  };
+
+  const removeItem = (id: string) => {
+    update("budgetItems", data.budgetItems.filter(b => b.id !== id));
+    setCustomRowIds(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const updateItem = (id: string, field: keyof BudgetItem, value: string) => {
     update("budgetItems", data.budgetItems.map(b => b.id === id ? { ...b, [field]: value } : b));
+  };
+
+  const handleCreateNewCategory = () => {
+    const trimmed = newCatInput.trim();
+    if (!trimmed) return;
+    if (!customCategories.includes(trimmed) && !BUDGET_CATEGORIES.includes(trimmed)) {
+      setCustomCategories(prev => [...prev, trimmed]);
+    }
+    // Automatically add a budget line with this new category
+    addItem(trimmed);
+    setNewCatInput("");
+    setShowAddCatModal(false);
+  };
 
   const totalAllocated = data.budgetItems.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0);
   const totalBudgetNum = parseFloat(data.totalBudget) || 0;
@@ -2562,7 +2622,7 @@ function Step6Budget({ data, update }: { data: FormData; update: (k: keyof FormD
 
   return (
     <div className="space-y-4 sm:space-y-7">
-      <SectionHeader icon={IndianRupee} title="Budget Planning" subtitle="Set a budget and allocate across categories" />
+      <SectionHeader icon={IndianRupee} title="Budget Planning" subtitle="Set a budget and allocate across categories or create custom categories" />
 
       <div>
         <FieldLabel>Total Event Budget</FieldLabel>
@@ -2615,54 +2675,238 @@ function Step6Budget({ data, update }: { data: FormData; update: (k: keyof FormD
       )}
 
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
           <div>
-            <h4 className="text-sm font-bold text-slate-700">Budget Breakdown</h4>
-            <p className="text-[11px] text-slate-400 mt-0.5">Allocate budget across expense categories</p>
+            <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span>Budget Breakdown</span>
+              <span className="px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                {data.budgetItems.length} {data.budgetItems.length === 1 ? "Line Item" : "Line Items"}
+              </span>
+            </h4>
+            <p className="text-[11px] text-slate-400 mt-0.5">Allocate budget across expense categories or create custom categories</p>
           </div>
-          <button onClick={addItem}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-all">
-            <Plus className="w-3.5 h-3.5" /> Add Line
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setShowAddCatModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50/80 hover:bg-indigo-100 border border-indigo-200 transition-all cursor-pointer shadow-2xs"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> + New Category
+            </button>
+            <button
+              type="button"
+              onClick={() => addItem()}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition-all shadow-xs cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Line
+            </button>
+          </div>
         </div>
+
         <div className="space-y-2.5">
-          {data.budgetItems.map((item) => (
-            <div key={item.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 animate-fade-in-up group">
-              <Select value={item.category} onValueChange={v => updateItem(item.id, "category", v)}>
-                <SelectTrigger className="flex-1 h-auto px-4 py-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus-visible:border-indigo-400">
-                  <SelectValue placeholder="Select category…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {BUDGET_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <div className="w-full sm:w-40 relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">₹</span>
-                <Input
-                  value={item.amount}
-                  type="number"
-                  min={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
-                  }}
-                  onChange={e => {
-                    const val = e.target.value;
-                    const parsed = parseFloat(val);
-                    const sanitized = isNaN(parsed) ? "" : String(Math.max(0, parsed));
-                    updateItem(item.id, "amount", val === "" ? "" : sanitized);
-                  }}
-                  placeholder="Amount"
-                  className={cn(INPUT_CLS, "pl-8")}
-                />
-              </div>
-              <button onClick={() => removeItem(item.id)}
-                className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1.5 rounded-lg hover:bg-rose-50 flex-shrink-0">
-                <Trash2 className="w-4 h-4" />
+          {data.budgetItems.length === 0 && (
+            <div className="p-8 rounded-2xl border-2 border-dashed border-slate-200 text-center space-y-2">
+              <p className="text-sm font-semibold text-slate-600">No budget lines added yet</p>
+              <p className="text-xs text-slate-400">Click &ldquo;Add Line&rdquo; or &ldquo;+ New Category&rdquo; to start allocating your event budget.</p>
+              <button
+                type="button"
+                onClick={() => addItem("Venue & Mandap Setup")}
+                className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition-all shadow-xs cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add First Budget Line
               </button>
             </div>
-          ))}
+          )}
+
+          {data.budgetItems.map((item, idx) => {
+            const isCustomInput = customRowIds.has(item.id) || (item.category && !allCategories.includes(item.category));
+
+            return (
+              <div
+                key={item.id}
+                className="p-3 sm:p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 transition-all hover:border-indigo-200 group"
+              >
+                <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-500 text-[11px] font-bold flex items-center justify-center shrink-0 hidden sm:flex">
+                  {idx + 1}
+                </span>
+
+                {/* Category Selection / Custom Input */}
+                {isCustomInput ? (
+                  <div className="flex-1 flex items-center gap-1.5">
+                    <Input
+                      autoFocus
+                      placeholder="Enter custom category name..."
+                      value={item.category === "__custom__" ? "" : item.category}
+                      onChange={e => updateItem(item.id, "category", e.target.value)}
+                      className={cn(INPUT_CLS, "h-10 text-xs font-bold text-indigo-900 flex-1")}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const trimmed = item.category.trim();
+                        if (trimmed && trimmed !== "__custom__") {
+                          setCustomCategories(prev => Array.from(new Set([...prev, trimmed])));
+                        }
+                        setCustomRowIds(prev => {
+                          const s = new Set(prev);
+                          s.delete(item.id);
+                          return s;
+                        });
+                      }}
+                      className="px-3 h-10 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold shrink-0 transition-colors cursor-pointer"
+                      title="Save category"
+                    >
+                      Save ✓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomRowIds(prev => {
+                          const s = new Set(prev);
+                          s.delete(item.id);
+                          return s;
+                        });
+                        updateItem(item.id, "category", allCategories[0] || "Venue & Mandap Setup");
+                      }}
+                      className="px-2.5 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-semibold shrink-0 cursor-pointer"
+                      title="Switch back to dropdown list"
+                    >
+                      List
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex-1 relative">
+                    <select
+                      value={item.category}
+                      onChange={e => {
+                        if (e.target.value === "__custom__") {
+                          setCustomRowIds(prev => new Set(prev).add(item.id));
+                          updateItem(item.id, "category", "");
+                        } else {
+                          updateItem(item.id, "category", e.target.value);
+                        }
+                      }}
+                      className="w-full h-10 px-3.5 pr-8 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 appearance-none cursor-pointer shadow-2xs"
+                    >
+                      <option value="">-- Select Budget Category --</option>
+                      <optgroup label="Standard Categories">
+                        {BUDGET_CATEGORIES.map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </optgroup>
+                      {customCategories.length > 0 && (
+                        <optgroup label="Custom Created Categories">
+                          {customCategories.map(c => (
+                            <option key={c} value={c}>⭐ {c}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      <option value="__custom__" className="font-bold text-indigo-600 bg-indigo-50">
+                        ➕ + Create New Category...
+                      </option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                )}
+
+                {/* Amount Input */}
+                <div className="w-full sm:w-44 relative">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">₹</span>
+                  <Input
+                    value={item.amount}
+                    type="number"
+                    min={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
+                    }}
+                    onChange={e => {
+                      const val = e.target.value;
+                      const parsed = parseFloat(val);
+                      const sanitized = isNaN(parsed) ? "" : String(Math.max(0, parsed));
+                      updateItem(item.id, "amount", val === "" ? "" : sanitized);
+                    }}
+                    placeholder="Allocated Amount"
+                    className={cn(INPUT_CLS, "h-10 pl-8 text-xs font-bold text-slate-900")}
+                  />
+                </div>
+
+                {/* Delete Button */}
+                <button
+                  type="button"
+                  onClick={() => removeItem(item.id)}
+                  className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-2 rounded-xl transition-all cursor-pointer flex-shrink-0 self-end sm:self-center"
+                  title="Remove line"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
+
+      {/* ── Create New Budget Category Modal ── */}
+      {showAddCatModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4" onClick={() => setShowAddCatModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-5 space-y-4 border border-slate-100 animate-scaleUp" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <h3 className="text-sm font-bold text-slate-800">Create Budget Category</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddCatModal(false)}
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 block">
+                Category Name <span className="text-rose-500">*</span>
+              </label>
+              <Input
+                autoFocus
+                placeholder="e.g. Stage LED Walls, Dhol Tasha, Fireworks"
+                value={newCatInput}
+                onChange={e => setNewCatInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleCreateNewCategory();
+                  }
+                }}
+                className={cn(INPUT_CLS, "text-xs font-semibold")}
+              />
+              <p className="text-[10.5px] text-slate-400">
+                Will be added to your budget categories and a new allocation line will be created.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowAddCatModal(false)}
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:bg-slate-100 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!newCatInput.trim()}
+                onClick={handleCreateNewCategory}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs disabled:opacity-50 transition-colors cursor-pointer"
+              >
+                Create &amp; Add Line
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
