@@ -209,6 +209,34 @@ export function EventMemberView() {
   const [loadingApiData, setLoadingApiData] = useState(false);
   const [loadingFamily, setLoadingFamily] = useState(false);
 
+  // Payment Upload & Verification States
+  const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
+  const [transactionId, setTransactionId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("UPI");
+  const [viewReceiptModal, setViewReceiptModal] = useState<string | null>(null);
+
+  // Manage Registration Modal States
+  const [managePassModal, setManagePassModal] = useState<UserPass | null>(null);
+  const [editParticipantName, setEditParticipantName] = useState("");
+  const [editAttendeeCount, setEditAttendeeCount] = useState(1);
+  const [editGotram, setEditGotram] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editFlatNo, setEditFlatNo] = useState("");
+  const [cancelConfirmMode, setCancelConfirmMode] = useState(false);
+  const [isSavingManage, setIsSavingManage] = useState(false);
+  const [manageSuccess, setManageSuccess] = useState<string | null>(null);
+  const [manageError, setManageError] = useState<string | null>(null);
+
+  // Modal State for Adding Dynamic Family Member
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [mobileQuickActionModal, setMobileQuickActionModal] = useState<any | null>(null);
+  const [newMember, setNewMember] = useState({
+    name: "",
+    relation: "Son",
+    age: "",
+    avatar: "👦",
+  });
+
   const DEFAULT_MOCK_MAIN_EVENTS = [
     {
       id: "1",
@@ -300,34 +328,6 @@ export function EventMemberView() {
     e.stopPropagation();
     setHeroBannerIndex((prev) => (prev + 1) % bannerMainEvents.length);
   };
-
-  // Payment Upload & Verification States
-  const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
-  const [transactionId, setTransactionId] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("UPI");
-  const [viewReceiptModal, setViewReceiptModal] = useState<string | null>(null);
-
-  // Manage Registration Modal States
-  const [managePassModal, setManagePassModal] = useState<UserPass | null>(null);
-  const [editParticipantName, setEditParticipantName] = useState("");
-  const [editAttendeeCount, setEditAttendeeCount] = useState(1);
-  const [editGotram, setEditGotram] = useState("");
-  const [editPhone, setEditPhone] = useState("");
-  const [editFlatNo, setEditFlatNo] = useState("");
-  const [cancelConfirmMode, setCancelConfirmMode] = useState(false);
-  const [isSavingManage, setIsSavingManage] = useState(false);
-  const [manageSuccess, setManageSuccess] = useState<string | null>(null);
-  const [manageError, setManageError] = useState<string | null>(null);
-
-  // Modal State for Adding Dynamic Family Member
-  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
-  const [mobileQuickActionModal, setMobileQuickActionModal] = useState<any | null>(null);
-  const [newMember, setNewMember] = useState({
-    name: "",
-    relation: "Son",
-    age: "",
-    avatar: "👦",
-  });
 
   // Fetch activities & main events & dashboard metrics from live REST API
   const fetchLiveDataFromBackend = async () => {
