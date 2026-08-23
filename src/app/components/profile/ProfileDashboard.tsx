@@ -620,22 +620,22 @@ export function ProfileDashboard() {
     <div className="space-y-0 -mt-4 sm:-mt-6 lg:-mt-8 -mx-4 sm:-mx-6 lg:-mx-8">
       <Toaster position="top-center" richColors />
 
-      {/* Cover Banner */}
-      <div className="h-28 sm:h-40 md:h-48 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 relative overflow-hidden">
+      {/* Cover Banner — Hidden on mobile, shown on tablet/desktop */}
+      <div className="hidden sm:block h-28 sm:h-40 md:h-48 bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 relative overflow-hidden">
         <div className="absolute -right-10 -bottom-10 w-44 sm:w-64 h-44 sm:h-64 bg-white/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute left-6 top-3 w-28 sm:w-44 h-28 sm:h-44 bg-indigo-400/20 rounded-full blur-xl pointer-events-none" />
         <div className="absolute right-1/3 bottom-0 w-20 h-20 bg-pink-300/10 rounded-full blur-xl pointer-events-none" />
       </div>
 
       {/* Profile Header */}
-      <div className="bg-card border-b border-border px-4 sm:px-6 lg:px-10 pb-0">
+      <div className="bg-card border-b border-border px-3.5 sm:px-6 lg:px-10 pb-0 pt-3 sm:pt-0">
         <div className="max-w-5xl mx-auto">
 
-          {/* ── Mobile: Compact horizontal row ── */}
-          <div className="flex items-end gap-3 -mt-10 sm:-mt-16 md:-mt-20 pb-3 sm:pb-5">
+          {/* ── Header Row: Avatar + Name + Meta + Actions ── */}
+          <div className="flex items-center sm:items-end gap-3 sm:gap-4 mt-0 sm:-mt-16 md:-mt-20 pb-3 sm:pb-5">
             {/* Avatar */}
             <div className="relative flex-shrink-0">
-              <div className="w-[72px] h-[72px] sm:w-36 sm:h-36 rounded-2xl sm:rounded-[2rem] overflow-hidden border-[3px] sm:border-4 border-card shadow-xl ring-2 sm:ring-4 ring-primary/20 bg-muted">
+              <div className="w-16 h-16 sm:w-36 sm:h-36 rounded-2xl sm:rounded-[2rem] overflow-hidden border-2 sm:border-4 border-card shadow-md sm:shadow-xl ring-2 sm:ring-4 ring-primary/20 bg-muted">
                 <img src={userAvatar} alt={profile.fullName} className="w-full h-full object-cover" />
                 {uploadingAvatar && (
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
@@ -643,12 +643,12 @@ export function ProfileDashboard() {
                   </div>
                 )}
               </div>
-              <div className="absolute top-1.5 right-1.5 sm:top-3 sm:right-3 w-2.5 h-2.5 sm:w-4 sm:h-4 bg-emerald-400 rounded-full border-2 border-white shadow" />
+              <div className="absolute top-1 right-1 sm:top-3 sm:right-3 w-2.5 h-2.5 sm:w-4 sm:h-4 bg-emerald-400 rounded-full border-2 border-white shadow" />
               <button
                 type="button"
                 disabled={uploadingAvatar}
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 bg-primary hover:bg-primary/90 text-white p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl shadow-lg transition-all hover:scale-110 active:scale-95 cursor-pointer disabled:opacity-50"
+                className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 bg-primary hover:bg-primary/90 text-white p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl shadow-md sm:shadow-lg transition-all hover:scale-110 active:scale-95 cursor-pointer disabled:opacity-50"
                 title="Change profile picture"
               >
                 <Camera className="w-3 h-3 sm:w-4 sm:h-4" />
@@ -657,7 +657,7 @@ export function ProfileDashboard() {
             </div>
 
             {/* Name + Role + Meta + Actions */}
-            <div className="flex-1 min-w-0 pb-0.5">
+            <div className="flex-1 min-w-0">
               {/* Name row with actions on same line */}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
@@ -665,24 +665,24 @@ export function ProfileDashboard() {
                     {profile.fullName}
                   </h1>
                   <div className="flex items-center flex-wrap gap-1 mt-0.5">
-                    <span className={cn("inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] sm:text-[11px] font-black uppercase tracking-wider", role.color)}>
+                    <span className={cn("inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[11px] font-black uppercase tracking-wider", role.color)}>
                       <role.icon className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {role.label}
                     </span>
                     {profile.kycStatus === "VERIFIED" && (
-                      <span className="inline-flex items-center gap-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-1.5 py-0.5 rounded-full text-[9px] sm:text-[11px] font-black uppercase tracking-wider">
+                      <span className="inline-flex items-center gap-0.5 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-1.5 py-0.5 rounded-full text-[9.5px] sm:text-[11px] font-black uppercase tracking-wider">
                         <ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> KYC ✓
                       </span>
                     )}
                   </div>
                 </div>
 
-                {/* Actions — compact on mobile */}
-                <div className="flex items-center gap-1.5 shrink-0 mt-1">
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
                     onClick={() => loadProfile(true)}
                     disabled={refreshing}
-                    className="p-2 sm:hidden bg-muted hover:bg-muted/80 text-foreground rounded-xl border border-border cursor-pointer disabled:opacity-60 transition-all"
+                    className="p-1.5 sm:hidden bg-muted hover:bg-muted/80 text-foreground rounded-xl border border-border cursor-pointer disabled:opacity-60 transition-all"
                     title="Refresh"
                   >
                     <RefreshCw className={cn("w-3.5 h-3.5", refreshing && "animate-spin text-primary")} />
@@ -690,15 +690,15 @@ export function ProfileDashboard() {
                   <button
                     type="button"
                     onClick={() => { if (activeTab !== "settings") setActiveTab("settings"); setIsEditing(!isEditing); }}
-                    className="flex items-center gap-1 px-2.5 py-2 sm:px-5 sm:py-2.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl transition-all shadow-md shadow-primary/25 text-[11px] sm:text-sm cursor-pointer"
+                    className="flex items-center gap-1 px-2.5 py-1.5 sm:px-5 sm:py-2.5 bg-primary hover:bg-primary/90 text-white font-bold rounded-xl transition-all shadow-sm sm:shadow-md sm:shadow-primary/25 text-xs sm:text-sm cursor-pointer"
                   >
                     <PenLine className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="hidden xs:inline sm:inline">{isEditing ? "Cancel" : "Edit"}</span>
+                    <span>{isEditing ? "Cancel" : "Edit"}</span>
                   </button>
                 </div>
               </div>
 
-              {/* Meta — single compact line on mobile */}
+              {/* Meta — single compact line */}
               <div className="flex items-center gap-2 mt-1.5 flex-wrap text-[10.5px] sm:text-xs text-muted-foreground">
                 <span className="flex items-center gap-0.5 font-medium">
                   <Building2 className="w-3 h-3 text-primary shrink-0" />
@@ -718,6 +718,7 @@ export function ProfileDashboard() {
               </div>
             </div>
           </div>
+
 
           {/* Desktop refresh — hidden on mobile (replaced by icon button above) */}
           <div className="hidden sm:flex items-center gap-2 mb-2 -mt-1">
