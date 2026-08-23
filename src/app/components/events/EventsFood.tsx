@@ -44,8 +44,7 @@ const MOCK_MEAL_SUMMARY: MealSummaryResponse = {
 };
 
 export function EventsFood() {
-  let useMock = true;
-  try { useMock = useEventMock().useMock; } catch {}
+  const { useMock } = useEventMock();
 
   const [liveEvents, setLiveEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
