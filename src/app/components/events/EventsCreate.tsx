@@ -3440,7 +3440,17 @@ export function EventCreateWizard({
   if (submitted) {
     const isDraft = submitType === "draft";
     return (
-      <div className="max-w-lg mx-auto text-center py-10 sm:py-16 animate-fade-in-up">
+      <div className="relative max-w-lg mx-auto text-center py-10 sm:py-16 animate-fade-in-up px-4">
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute top-2 right-2 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition-colors cursor-pointer shadow-xs"
+            title="Close (Esc)"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
         <div className={cn(
           "w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 flex items-center justify-center mx-auto mb-8 shadow-md",
           isDraft
@@ -3460,18 +3470,18 @@ export function EventCreateWizard({
         <div className="flex gap-3 justify-center">
           {isEditing ? (
             <button onClick={() => { setSubmitted(false); }}
-              className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition-all">
+              className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition-all cursor-pointer">
               Continue Editing
             </button>
           ) : (
             <button onClick={() => { setSubmitted(false); setStep(1); setFormData({ ...INITIAL_FORM_DATA }); }}
-              className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition-all">
+              className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition-all cursor-pointer">
               Create Another
             </button>
           )}
           {onClose && (
             <button onClick={onClose}
-              className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-all shadow-md">
+              className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-all shadow-md cursor-pointer">
               View All Events
             </button>
           )}
