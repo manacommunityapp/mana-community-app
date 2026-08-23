@@ -1895,11 +1895,30 @@ export function EventMemberView() {
                           : "bg-card hover:bg-accent/10 border-border hover:border-primary/40"
                       }`}
                     >
-                      <div
-                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl ${action.color} border flex items-center justify-center shadow-xs group-hover:scale-110 transition-transform shrink-0`}
-                      >
-                        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                      </div>
+                      {(() => {
+                        const isPoojaAvailable = action.id === "pooja" && poojaCount > 0;
+                        return (
+                          <div
+                            className={`relative w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl ${action.color} border flex items-center justify-center shadow-xs group-hover:scale-110 transition-transform shrink-0 ${
+                              isPoojaAvailable ? "ring-2 ring-amber-400/60 shadow-[0_0_12px_rgba(245,158,11,0.35)]" : ""
+                            }`}
+                          >
+                            {isPoojaAvailable && (
+                              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500 shadow-xs"></span>
+                              </span>
+                            )}
+                            <Icon
+                              className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                                isPoojaAvailable
+                                  ? "animate-pulse text-amber-500 fill-amber-500/25 drop-shadow-[0_0_6px_rgba(245,158,11,0.6)]"
+                                  : ""
+                              }`}
+                            />
+                          </div>
+                        );
+                      })()}
                       <div className="w-full mt-1.5 space-y-0.5">
                         <span className="text-[10.5px] sm:text-xs font-black text-foreground leading-tight block truncate w-full">
                           {action.label}
@@ -2228,12 +2247,18 @@ export function EventMemberView() {
 
         <button
           onClick={() => setMobileModal(mobileModal === "pooja" ? null : "pooja")}
-          className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer ${
+          className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer relative ${
             mobileModal === "pooja" || (!mobileModal && selectedCategoryFilter === "Pooja") ? "text-amber-600 font-black scale-105" : "text-muted-foreground font-semibold"
           }`}
         >
-          <Flame className="w-4 h-4" />
+          <Flame className={`w-4 h-4 ${poojaCount > 0 ? "animate-pulse text-amber-500 fill-amber-500/20" : ""}`} />
           <span className="text-[9.5px]">Pooja</span>
+          {poojaCount > 0 && (
+            <span className="absolute top-0.5 right-2 flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            </span>
+          )}
         </button>
 
         <button

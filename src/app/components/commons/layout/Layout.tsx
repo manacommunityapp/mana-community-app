@@ -1,5 +1,5 @@
 import { Outlet, NavLink, Link, useNavigate, useLocation } from "react-router";
-import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home } from "lucide-react";
+import { Users, Package, Store, Briefcase, Trophy, CalendarDays, Menu, X, UserCircle, ShieldCheck, Zap, Search, LogOut, MessageCircle, Layers, Gauge, ChevronDown, ChevronRight, ChevronLeft, Truck, Landmark, FileText, BarChart3, Receipt, ClipboardList, BookOpen, Shield, Megaphone, Building2, Headphones, Vote, Server, Sparkles, Home } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -151,34 +151,58 @@ function UserProfileMenu({
             >
               {initials}
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold text-foreground truncate">
-                {user?.fullName ?? "Community Member"}
-              </p>
-              <p className="text-[11px] text-muted-foreground truncate">
-                {user?.email ?? user?.phone ?? ""}
-              </p>
-              <span className="inline-block text-[10px] font-semibold px-2 py-0.5 mt-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-                {roleLabel}
-              </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-extrabold text-foreground truncate">{user?.fullName ?? "Community Member"}</p>
+              <p className="text-xs text-muted-foreground truncate">{user?.email || "user@community.org"}</p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-primary/10 text-primary border border-primary/20">
+                  {roleLabel}
+                </span>
+                {(user?.flatNo || user?.block) && (
+                  <span className="text-[10px] text-muted-foreground font-medium">
+                    Flat {user?.block ? `${user.block}-` : ""}{user?.flatNo}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Navigation & Action Links */}
-          <div className="p-1.5 space-y-0.5">
+          {/* Quick Actions Links */}
+          <div className="p-2 space-y-0.5 text-xs font-semibold">
             <button
               type="button"
               onClick={() => {
                 setOpen(false);
                 navigate("/profile");
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted/60 transition-colors cursor-pointer text-left"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
             >
-              <UserCircle className="h-4 w-4 text-primary shrink-0" />
-              <div>
-                <span className="block text-foreground">My Profile</span>
-                <span className="block text-[10px] text-muted-foreground font-normal">Account settings & personal info</span>
-              </div>
+              <UserCircle className="h-4 w-4 text-primary" />
+              <span>My Profile &amp; Settings</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                navigate("/events");
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
+            >
+              <CalendarDays className="h-4 w-4 text-amber-500" />
+              <span>Events &amp; My Passes</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                navigate("/sports");
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
+            >
+              <Trophy className="h-4 w-4 text-orange-500" />
+              <span>Sports &amp; Tournaments</span>
             </button>
 
             {isAnyAdmin && (
@@ -188,52 +212,26 @@ function UserProfileMenu({
                   setOpen(false);
                   navigate("/admin");
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted/60 transition-colors cursor-pointer text-left"
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-foreground hover:bg-muted transition-colors cursor-pointer text-left"
               >
-                <ShieldCheck className="h-4 w-4 text-indigo-500 shrink-0" />
-                <div>
-                  <span className="block text-foreground">Admin Hub</span>
-                  <span className="block text-[10px] text-muted-foreground font-normal">Platform management</span>
-                </div>
-              </button>
-            )}
-
-            {isSuperAdmin && (
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  navigate("/architecture");
-                }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-muted/60 transition-colors cursor-pointer text-left"
-              >
-                <Layers className="h-4 w-4 text-purple-500 shrink-0" />
-                <div>
-                  <span className="block text-foreground">Architecture Docs</span>
-                  <span className="block text-[10px] text-muted-foreground font-normal">System documentation</span>
-                </div>
+                <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                <span>Admin Hub</span>
               </button>
             )}
           </div>
 
-          {/* Divider */}
-          <div className="border-t border-border my-0.5" />
-
-          {/* Logout Action */}
-          <div className="p-1.5">
+          {/* Logout Action Footer */}
+          <div className="p-2 border-t border-border bg-muted/20">
             <button
               type="button"
               onClick={() => {
                 setOpen(false);
                 onLogout();
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-destructive hover:bg-destructive/10 transition-colors cursor-pointer text-left"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-destructive hover:bg-destructive/10 transition-colors cursor-pointer text-left text-xs font-bold"
             >
-              <LogOut className="h-4 w-4 text-destructive shrink-0" />
-              <div>
-                <span className="block text-destructive font-bold">Logout</span>
-                <span className="block text-[10px] text-destructive/70 font-normal">End your current session</span>
-              </div>
+              <LogOut className="h-4 w-4" />
+              <span>Sign Out</span>
             </button>
           </div>
         </div>
@@ -244,7 +242,14 @@ function UserProfileMenu({
 
 export function Layout() {
   const location = useLocation();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("mana_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(() => location.pathname.startsWith("/community"));
   const [isFinanceOpen, setIsFinanceOpen] = useState(() => location.pathname.startsWith("/finance"));
   const { user, isAdmin, isSuperAdmin, isAnyAdmin, logout, hasMenuPermission, updateUser } = useAuth();
@@ -277,8 +282,8 @@ export function Layout() {
   useEffect(() => {
     const handleGlobalEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (isSidebarOpen) {
-          setIsSidebarOpen(false);
+        if (isMobileSidebarOpen) {
+          setIsMobileSidebarOpen(false);
         }
         // Find topmost open modal overlay close button and trigger click if present
         const modalCloseButtons = Array.from(
@@ -295,7 +300,7 @@ export function Layout() {
 
     window.addEventListener("keydown", handleGlobalEscape);
     return () => window.removeEventListener("keydown", handleGlobalEscape);
-  }, [isSidebarOpen]);
+  }, [isMobileSidebarOpen]);
 
   // AuthContext fetches /users/me on boot and populates user.permissions
   const permissions = user?.permissions || [];
@@ -316,7 +321,19 @@ export function Layout() {
     "Professional Network": "JOBS",
   };
 
-  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+  const toggleSidebar = () => {
+    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
+      setIsSidebarCollapsed((prev) => {
+        const next = !prev;
+        try {
+          localStorage.setItem("mana_sidebar_collapsed", String(next));
+        } catch {}
+        return next;
+      });
+    } else {
+      setIsMobileSidebarOpen((prev) => !prev);
+    }
+  };
 
   const navLinks = [
     { to: "/", icon: Users, label: "Community Feed" },
@@ -375,443 +392,567 @@ export function Layout() {
                  : user?.role === "COMMUNITY_ADMIN" ? "Community Admin"
                  : isAdmin ? "Admin" 
                  : user?.role === "VENDOR" ? "Vendor" 
-                 : "Verified Member";
-
-  return (
-    <ChatProvider>
-      <div className="h-screen bg-background flex font-sans text-foreground">
-      {isSidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-xs" onClick={() => setIsSidebarOpen(false)} />
-      )}
-
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 transform transition-all duration-300 ease-in-out flex flex-col overflow-hidden bg-sidebar border-r border-sidebar-border shadow-[4px_0_20px_rgba(0,0,0,0.15)]",
-          isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full shadow-none"
+                 : "Verified Member";    <ChatProvider>
+      <div className="h-screen bg-background flex font-sans text-foreground overflow-hidden">
+        {/* Mobile Backdrop */}
+        {isMobileSidebarOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-xs lg:hidden transition-opacity"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
         )}
-      >
-        <div className="w-64 flex flex-col h-full bg-sidebar">
-        <div className="h-16 flex items-center px-5 border-b border-sidebar-border">
-          <Link
-            to="/"
-            onClick={() => setIsSidebarOpen(false)}
-            className="flex items-center gap-3 flex-1 hover:opacity-90 transition-opacity cursor-pointer"
-          >
-            <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary shadow-md shadow-primary/25">
-              <Zap className="h-5 w-5 text-white animate-pulse" />
-            </div>
-            <span className="font-black text-white tracking-tight text-base">
-              Mana Community
-            </span>
-          </Link>
-          <button className="text-white/40 hover:text-white/85 transition-colors p-1 rounded-lg hover:bg-white/10" onClick={() => setIsSidebarOpen(false)}>
-            <X className="h-5 w-5" />
-          </button>
-        </div>
 
-        {/* User Info Card inside Sidebar */}
-        <div className="mx-4 my-4 rounded-xl p-3 border border-sidebar-border bg-sidebar-accent/30">
-          <div className="flex items-center gap-3">
-            {userAvatar ? (
-              <img
-                src={userAvatar}
-                alt={displayName}
-                className="h-9 w-9 rounded-full object-cover flex-shrink-0 border border-sidebar-border"
-                onError={(e) => {
-                  (e.currentTarget as HTMLElement).style.display = "none";
-                  const nextEl = e.currentTarget.nextElementSibling as HTMLElement | null;
-                  if (nextEl) nextEl.style.display = "flex";
-                }}
-              />
-            ) : null}
+        {/* ─── Collapsible Sidebar (Full on Open, Icon-symbols only on Close) ─── */}
+        <aside
+          data-sidebar="content"
+          data-collapsible={isSidebarCollapsed ? "icon" : "offcanvas"}
+          className={cn(
+            "fixed inset-y-0 left-0 z-50 flex flex-col bg-sidebar border-r border-sidebar-border shadow-[4px_0_20px_rgba(0,0,0,0.15)] transition-[width,transform] duration-300 ease-in-out select-none",
+            // Mobile: slide in/out
+            isMobileSidebarOpen ? "translate-x-0 w-64 shadow-2xl" : "-translate-x-full lg:translate-x-0",
+            // Desktop: relative in-flow width
+            "lg:relative lg:z-30 lg:shadow-none",
+            isSidebarCollapsed ? "lg:w-[68px]" : "lg:w-64"
+          )}
+        >
+          <div className="flex flex-col h-full overflow-hidden w-full bg-sidebar">
+            {/* Header: App Logo & Collapse Action */}
             <div
               className={cn(
-                "h-9 w-9 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0 bg-primary",
-                userAvatar && "hidden"
+                "h-16 flex items-center border-b border-sidebar-border shrink-0 transition-all",
+                isSidebarCollapsed ? "justify-center px-2" : "justify-between px-4"
               )}
             >
-              {user?.fullName ? user.fullName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() : "ME"}
-            </div>
-            <div className="flex-1 min-w-0 text-left">
-              <p className="text-xs font-extrabold text-white/90 truncate leading-tight">{displayName}</p>
-              <div className="flex items-center gap-1 mt-1">
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping"></div>
-                <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">
-                  {roleLabel}
-                </span>
-                {loadingPermissions && (
-                  <span className="ml-1 flex h-1.5 w-1.5 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary"></span>
+              <Link
+                to="/"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                className="flex items-center gap-3 hover:opacity-90 transition-opacity min-w-0"
+                title="Mana Community"
+              >
+                <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary shadow-md shadow-primary/25">
+                  <Zap className="h-5 w-5 text-white animate-pulse" />
+                </div>
+                {!isSidebarCollapsed && (
+                  <span className="font-black text-white tracking-tight text-base truncate">
+                    Mana Community
                   </span>
                 )}
-              </div>
-            </div>
-          </div>
-        </div>
+              </Link>
 
-        <nav className="flex-1 px-4 space-y-0.5 overflow-y-auto">
-          {/* Nav Section Label */}
-          <div className="px-2 mb-2 mt-2">
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-white/30">
-              Navigation
-            </span>
-          </div>
-
-          {filteredNavLinks.map((link) => (
-            <NavLink
-              key={link.to}
-              to={link.to}
-              end={link.to === "/"}
-              onClick={() => setIsSidebarOpen(false)}
-              className={({ isActive }) =>
-                cn(
-                  "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                  isActive 
-                    ? "text-white bg-primary border-primary/25 shadow-sm" 
-                    : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                )
-              }
-            >
-              {({ isActive }) => (
-                <>
-                  <link.icon className={cn("h-4.5 w-4.5 mr-3 flex-shrink-0 transition-all", isActive ? "text-white" : "text-white/40 group-hover:text-white/80")} />
-                  {link.label}
-                  {isActive && (
-                    <div className="ml-auto h-1.5 w-1.5 rounded-full bg-white" />
-                  )}
-                </>
-              )}
-            </NavLink>
-          ))}
-
-          {/* Community Management Collapsible Group */}
-          {(isSuperAdmin || (enabledModules && enabledModules.includes("COMMUNITY_MGMT"))) && (
-          <div className="space-y-1">
-            <button
-              onClick={() => setIsCommunityOpen(!isCommunityOpen)}
-              className="w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 text-white/50 hover:text-white/85 hover:bg-white/5 cursor-pointer text-left focus:outline-none"
-            >
-              <Package className="h-4.5 w-4.5 mr-3 flex-shrink-0 text-white/40" />
-              <span className="flex-1">Community Mgmt</span>
-              {isCommunityOpen ? (
-                <ChevronDown className="h-3.5 w-3.5 text-white/85" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-white/40" />
-              )}
-            </button>
-
-            {isCommunityOpen && (
-              <div className="pl-5 space-y-0.5 animate-in slide-in-from-top-1 duration-150">
-                {(isSuperAdmin || hasMenuPermission("inventory", "view")) && (
-                <NavLink
-                  to="/community/inventory"
-                  onClick={() => setIsSidebarOpen(false)}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                      isActive
-                        ? "text-white bg-primary border-primary/25 shadow-sm"
-                        : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Package className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                      Inventory
-                    </>
-                  )}
-                </NavLink>
-                )}
-
-                {(isSuperAdmin || hasMenuPermission("inventory-management", "view")) && (
-                <NavLink
-                  to="/community/inventory-management"
-                  onClick={() => setIsSidebarOpen(false)}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                      isActive
-                        ? "text-white bg-primary border-primary/25 shadow-sm"
-                        : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Store className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                      Inventory Management
-                    </>
-                  )}
-                </NavLink>
-                )}
-
-                {(isSuperAdmin || hasMenuPermission("procurement", "view")) && (
-                <NavLink
-                  to="/community/procurement"
-                  onClick={() => setIsSidebarOpen(false)}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                      isActive
-                        ? "text-white bg-primary border-primary/25 shadow-sm"
-                        : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Truck className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                      Procurement
-                    </>
-                  )}
-                </NavLink>
-                )}
-
-                {(isSuperAdmin || hasMenuPermission("maintenance", "view")) && (
-                <NavLink
-                  to="/community/maintenance"
-                  onClick={() => setIsSidebarOpen(false)}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                      isActive
-                        ? "text-white bg-primary border-primary/25 shadow-sm"
-                        : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <CalendarDays className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                      Maintenance
-                    </>
-                  )}
-                </NavLink>
-                )}
-
-                {(isSuperAdmin || hasMenuPermission("audit", "view")) && (
-                <NavLink
-                  to="/community/audit"
-                  onClick={() => setIsSidebarOpen(false)}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                      isActive
-                        ? "text-white bg-primary border-primary/25 shadow-sm"
-                        : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <ClipboardList className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                      Asset Audit
-                    </>
-                  )}
-                </NavLink>
-                )}
-
-                {(isSuperAdmin || hasMenuPermission("resource-booking", "view")) && (
-                <NavLink
-                  to="/community/resource-booking"
-                  onClick={() => setIsSidebarOpen(false)}
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                      isActive
-                        ? "text-white bg-primary border-primary/25 shadow-sm"
-                        : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                    )
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Server className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                      Resource Booking
-                    </>
-                  )}
-                </NavLink>
-                )}
-              </div>
-            )}
-          </div>
-          )}
-
-          {/* Finance Management Collapsible Group */}
-          {(isSuperAdmin || (enabledModules && enabledModules.includes("FINANCE_MGMT"))) && (
-            <div className="space-y-1">
+              {/* Mobile Close X */}
               <button
-                onClick={() => setIsFinanceOpen(!isFinanceOpen)}
-                className="w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 text-white/50 hover:text-white/85 hover:bg-white/5 cursor-pointer text-left focus:outline-none"
+                type="button"
+                className="lg:hidden text-white/50 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
+                onClick={() => setIsMobileSidebarOpen(false)}
+                title="Close Navigation"
               >
-                <Landmark className="h-4.5 w-4.5 mr-3 flex-shrink-0 text-white/40" />
-                <span className="flex-1">Finance Mgmt</span>
-                {isFinanceOpen ? (
-                  <ChevronDown className="h-3.5 w-3.5 text-white/85" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5 text-white/40" />
-                )}
+                <X className="h-5 w-5" />
               </button>
+            </div>
 
-              {isFinanceOpen && (
-                <div className="pl-5 space-y-0.5 animate-in slide-in-from-top-1 duration-150">
-                  {(isSuperAdmin || hasMenuPermission("expenses", "view")) && (
-                  <NavLink
-                    to="/finance/expenses"
-                    onClick={() => setIsSidebarOpen(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                        isActive
-                          ? "text-white bg-primary border-primary/25 shadow-sm"
-                          : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                      )
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        <Receipt className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                        Expenses
-                      </>
+            {/* User Profile Info Card inside Sidebar */}
+            <div
+              className={cn(
+                "my-3 shrink-0 transition-all",
+                isSidebarCollapsed ? "px-2 flex justify-center" : "mx-4 rounded-xl p-3 border border-sidebar-border bg-sidebar-accent/30"
+              )}
+            >
+              {isSidebarCollapsed ? (
+                <div
+                  title={`${displayName} • ${roleLabel}`}
+                  className="cursor-pointer group flex items-center justify-center"
+                  onClick={() => setIsSidebarCollapsed(false)}
+                >
+                  {userAvatar ? (
+                    <img
+                      src={userAvatar}
+                      alt={displayName}
+                      className="h-9 w-9 rounded-xl object-cover border border-sidebar-border shadow-xs group-hover:scale-105 transition-transform"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = "none";
+                        const nextEl = e.currentTarget.nextElementSibling as HTMLElement | null;
+                        if (nextEl) nextEl.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className={cn(
+                      "h-9 w-9 rounded-xl flex items-center justify-center text-white text-xs font-black bg-primary shadow-xs group-hover:scale-105 transition-transform",
+                      userAvatar && "hidden"
                     )}
-                  </NavLink>
-                  )}
-
-                  {(isSuperAdmin || hasMenuPermission("invoices", "view")) && (
-                  <NavLink
-                    to="/finance/invoices"
-                    onClick={() => setIsSidebarOpen(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                        isActive
-                          ? "text-white bg-primary border-primary/25 shadow-sm"
-                          : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                      )
-                    }
                   >
-                    {({ isActive }) => (
-                      <>
-                        <FileText className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                        Invoices & Payments
-                      </>
+                    {user?.fullName ? user.fullName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() : "ME"}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  {userAvatar ? (
+                    <img
+                      src={userAvatar}
+                      alt={displayName}
+                      className="h-9 w-9 rounded-full object-cover flex-shrink-0 border border-sidebar-border"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = "none";
+                        const nextEl = e.currentTarget.nextElementSibling as HTMLElement | null;
+                        if (nextEl) nextEl.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className={cn(
+                      "h-9 w-9 rounded-full flex items-center justify-center text-white text-xs font-black flex-shrink-0 bg-primary",
+                      userAvatar && "hidden"
                     )}
-                  </NavLink>
-                  )}
-
-                  {(isSuperAdmin || hasMenuPermission("budget", "view")) && (
-                  <NavLink
-                    to="/finance/budget"
-                    onClick={() => setIsSidebarOpen(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                        isActive
-                          ? "text-white bg-primary border-primary/25 shadow-sm"
-                          : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                      )
-                    }
                   >
-                    {({ isActive }) => (
-                      <>
-                        <Landmark className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                        Budget Allocation
-                      </>
-                    )}
-                  </NavLink>
-                  )}
-
-                  {(isSuperAdmin || hasMenuPermission("reports", "view")) && (
-                  <NavLink
-                    to="/finance/reports"
-                    onClick={() => setIsSidebarOpen(false)}
-                    className={({ isActive }) =>
-                      cn(
-                        "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                        isActive
-                          ? "text-white bg-primary border-primary/25 shadow-sm"
-                          : "text-white/50 hover:text-white/85 hover:bg-white/5"
-                      )
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        <BarChart3 className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
-                        Financial Reports
-                      </>
-                    )}
-                  </NavLink>
-                  )}
+                    {user?.fullName ? user.fullName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() : "ME"}
+                  </div>
+                  <div className="flex-1 min-w-0 text-left">
+                    <p className="text-xs font-extrabold text-white/90 truncate leading-tight">{displayName}</p>
+                    <div className="flex items-center gap-1 mt-1">
+                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping"></div>
+                      <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">
+                        {roleLabel}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
-          )}
 
-          {filteredAdminLinks.length > 0 && (
-            <>
-              <div className="py-3 px-3">
-                <div className="h-px bg-white/10" />
-              </div>
-              <div className="px-2 mb-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-white/30">
-                  Admin Settings
-                </span>
-              </div>
-              {filteredAdminLinks.map((link) => (
+            {/* Navigation Links */}
+            <nav
+              className={cn(
+                "flex-1 space-y-1 overflow-y-auto hide-scrollbar transition-all pb-4",
+                isSidebarCollapsed ? "px-2" : "px-4"
+              )}
+            >
+              {/* Nav Section Label / Divider */}
+              {isSidebarCollapsed ? (
+                <div className="my-2 h-px bg-white/10 mx-1" />
+              ) : (
+                <div className="px-2 mb-2 mt-2">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-white/30">
+                    Navigation
+                  </span>
+                </div>
+              )}
+
+              {filteredNavLinks.map((link) => (
                 <NavLink
                   key={link.to}
                   to={link.to}
-                  onClick={() => setIsSidebarOpen(false)}
+                  end={link.to === "/"}
+                  title={isSidebarCollapsed ? link.label : undefined}
+                  onClick={() => setIsMobileSidebarOpen(false)}
                   className={({ isActive }) =>
                     cn(
-                      "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                      isActive 
-                        ? "text-white bg-primary border-primary/25 shadow-sm" 
-                        : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                      "flex items-center rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                      isSidebarCollapsed ? "justify-center h-10 w-10 mx-auto" : "px-3 py-2.5",
+                      isActive
+                        ? "text-white bg-primary border-primary/25 shadow-sm"
+                        : "text-white/50 hover:text-white/85 hover:bg-white/10"
                     )
                   }
                 >
                   {({ isActive }) => (
                     <>
-                      <link.icon className={cn("h-4.5 w-4.5 mr-3 flex-shrink-0", isActive ? "text-white" : "text-white/40 group-hover:text-white/80")} />
-                      {link.label}
-                      {isActive && (
+                      <link.icon
+                        className={cn(
+                          "h-4.5 w-4.5 flex-shrink-0 transition-all",
+                          isSidebarCollapsed ? "m-0" : "mr-3",
+                          isActive ? "text-white" : "text-white/40 group-hover:text-white/80"
+                        )}
+                      />
+                      {!isSidebarCollapsed && <span className="truncate">{link.label}</span>}
+                      {!isSidebarCollapsed && isActive && (
                         <div className="ml-auto h-1.5 w-1.5 rounded-full bg-white" />
                       )}
                     </>
                   )}
                 </NavLink>
               ))}
-            </>
-          )}
-        </nav>
 
-        </div>
-      </aside>
+              {/* Community Management Collapsible Group */}
+              {(isSuperAdmin || (enabledModules && enabledModules.includes("COMMUNITY_MGMT"))) && (
+                <div className="space-y-1">
+                  {isSidebarCollapsed ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSidebarCollapsed(false);
+                        setIsCommunityOpen(true);
+                      }}
+                      title="Community Management"
+                      className={cn(
+                        "h-10 w-10 flex items-center justify-center mx-auto rounded-xl transition-all text-white/50 hover:text-white hover:bg-white/10 cursor-pointer",
+                        location.pathname.startsWith("/community") && "text-white bg-primary/40 border border-primary/30"
+                      )}
+                    >
+                      <Package className="h-4.5 w-4.5" />
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsCommunityOpen(!isCommunityOpen)}
+                        className="w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 text-white/50 hover:text-white/85 hover:bg-white/5 cursor-pointer text-left focus:outline-none"
+                      >
+                        <Package className="h-4.5 w-4.5 mr-3 flex-shrink-0 text-white/40" />
+                        <span className="flex-1">Community Mgmt</span>
+                        {isCommunityOpen ? (
+                          <ChevronDown className="h-3.5 w-3.5 text-white/85" />
+                        ) : (
+                          <ChevronRight className="h-3.5 w-3.5 text-white/40" />
+                        )}
+                      </button>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <header className="bg-card border-b border-border h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 lg:px-8 sticky top-0 z-30 shadow-sm">
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Desktop Menu Button on Complete Left Side */}
-            <button
-              type="button"
-              onClick={toggleSidebar}
-              title="Toggle Navigation Menu"
-              className="hidden lg:flex p-2 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-xl transition-all border border-border hover:border-primary/30 shrink-0 cursor-pointer shadow-2xs items-center justify-center"
-            >
-              <Menu className="h-4.5 w-4.5" />
-            </button>
+                      {isCommunityOpen && (
+                        <div className="pl-5 space-y-0.5 animate-in slide-in-from-top-1 duration-150">
+                          {(isSuperAdmin || hasMenuPermission("inventory", "view")) && (
+                            <NavLink
+                              to="/community/inventory"
+                              onClick={() => setIsMobileSidebarOpen(false)}
+                              className={({ isActive }) =>
+                                cn(
+                                  "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                  isActive
+                                    ? "text-white bg-primary border-primary/25 shadow-sm"
+                                    : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                )
+                              }
+                            >
+                              {({ isActive }) => (
+                                <>
+                                  <Package className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                  Inventory
+                                </>
+                              )}
+                            </NavLink>
+                          )}
 
-            <Link
-              to="/"
-              className="font-extrabold text-sm sm:text-base text-foreground lg:hidden tracking-tight hover:opacity-85 transition-opacity cursor-pointer"
-            >
-              Mana Community
-            </Link>
+                          {(isSuperAdmin || hasMenuPermission("inventory-management", "view")) && (
+                            <NavLink
+                              to="/community/inventory-management"
+                              onClick={() => setIsMobileSidebarOpen(false)}
+                              className={({ isActive }) =>
+                                cn(
+                                  "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                  isActive
+                                    ? "text-white bg-primary border-primary/25 shadow-sm"
+                                    : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                )
+                              }
+                            >
+                              {({ isActive }) => (
+                                <>
+                                  <Store className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                  Inventory Management
+                                </>
+                              )}
+                            </NavLink>
+                          )}
+
+                          {(isSuperAdmin || hasMenuPermission("procurement", "view")) && (
+                            <NavLink
+                              to="/community/procurement"
+                              onClick={() => setIsMobileSidebarOpen(false)}
+                              className={({ isActive }) =>
+                                cn(
+                                  "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                  isActive
+                                    ? "text-white bg-primary border-primary/25 shadow-sm"
+                                    : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                )
+                              }
+                            >
+                              {({ isActive }) => (
+                                <>
+                                  <Truck className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                  Procurement
+                                </>
+                              )}
+                            </NavLink>
+                          )}
+
+                          {(isSuperAdmin || hasMenuPermission("maintenance", "view")) && (
+                            <NavLink
+                              to="/community/maintenance"
+                              onClick={() => setIsMobileSidebarOpen(false)}
+                              className={({ isActive }) =>
+                                cn(
+                                  "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                  isActive
+                                    ? "text-white bg-primary border-primary/25 shadow-sm"
+                                    : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                )
+                              }
+                            >
+                              {({ isActive }) => (
+                                <>
+                                  <CalendarDays className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                  Maintenance
+                                </>
+                              )}
+                            </NavLink>
+                          )}
+
+                          {(isSuperAdmin || hasMenuPermission("audit", "view")) && (
+                            <NavLink
+                              to="/community/audit"
+                              onClick={() => setIsMobileSidebarOpen(false)}
+                              className={({ isActive }) =>
+                                cn(
+                                  "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                  isActive
+                                    ? "text-white bg-primary border-primary/25 shadow-sm"
+                                    : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                )
+                              }
+                            >
+                              {({ isActive }) => (
+                                <>
+                                  <ClipboardList className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                  Asset Audit
+                                </>
+                              )}
+                            </NavLink>
+                          )}
+
+                          {(isSuperAdmin || hasMenuPermission("resource-booking", "view")) && (
+                            <NavLink
+                              to="/community/resource-booking"
+                              onClick={() => setIsMobileSidebarOpen(false)}
+                              className={({ isActive }) =>
+                                cn(
+                                  "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                  isActive
+                                    ? "text-white bg-primary border-primary/25 shadow-sm"
+                                    : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                )
+                              }
+                            >
+                              {({ isActive }) => (
+                                <>
+                                  <Server className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                  Resource Booking
+                                </>
+                              )}
+                            </NavLink>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Finance Management Collapsible Group */}
+              {(isSuperAdmin || (enabledModules && enabledModules.includes("FINANCE_MGMT"))) && (
+                <div className="space-y-1">
+                  {isSidebarCollapsed ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsSidebarCollapsed(false);
+                        setIsFinanceOpen(true);
+                      }}
+                      title="Finance Management"
+                      className={cn(
+                        "h-10 w-10 flex items-center justify-center mx-auto rounded-xl transition-all text-white/50 hover:text-white hover:bg-white/10 cursor-pointer",
+                        location.pathname.startsWith("/finance") && "text-white bg-primary/40 border border-primary/30"
+                      )}
+                    >
+                      <Landmark className="h-4.5 w-4.5" />
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsFinanceOpen(!isFinanceOpen)}
+                        className="w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 text-white/50 hover:text-white/85 hover:bg-white/5 cursor-pointer text-left focus:outline-none"
+                      >
+                        <Landmark className="h-4.5 w-4.5 mr-3 flex-shrink-0 text-white/40" />
+                        <span className="flex-1">Finance Mgmt</span>
+                        {isFinanceOpen ? (
+                          <ChevronDown className="h-3.5 w-3.5 text-white/85" />
+                        ) : (
+                          <ChevronRight className="h-3.5 w-3.5 text-white/40" />
+                        )}
+                      </button>
+
+                      {isFinanceOpen && (
+                        <div className="pl-5 space-y-0.5 animate-in slide-in-from-top-1 duration-150">
+                          {(isSuperAdmin || hasMenuPermission("expenses", "view")) && (
+                            <NavLink
+                              to="/finance/expenses"
+                              onClick={() => setIsMobileSidebarOpen(false)}
+                              className={({ isActive }) =>
+                                cn(
+                                  "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                  isActive
+                                    ? "text-white bg-primary border-primary/25 shadow-sm"
+                                    : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                )
+                              }
+                            >
+                              {({ isActive }) => (
+                                <>
+                                  <Receipt className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                  Expenses
+                                </>
+                              )}
+                            </NavLink>
+                          )}
+
+                          {(isSuperAdmin || hasMenuPermission("invoices", "view")) && (
+                            <NavLink
+                              to="/finance/invoices"
+                              onClick={() => setIsMobileSidebarOpen(false)}
+                              className={({ isActive }) =>
+                                cn(
+                                  "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                  isActive
+                                    ? "text-white bg-primary border-primary/25 shadow-sm"
+                                    : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                )
+                              }
+                            >
+                              {({ isActive }) => (
+                                <>
+                                  <FileText className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                  Invoices & Payments
+                                </>
+                              )}
+                            </NavLink>
+                          )}
+
+                          {(isSuperAdmin || hasMenuPermission("budget", "view")) && (
+                            <NavLink
+                              to="/finance/budget"
+                              onClick={() => setIsMobileSidebarOpen(false)}
+                              className={({ isActive }) =>
+                                cn(
+                                  "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                  isActive
+                                    ? "text-white bg-primary border-primary/25 shadow-sm"
+                                    : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                )
+                              }
+                            >
+                              {({ isActive }) => (
+                                <>
+                                  <Landmark className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                  Budget Allocation
+                                </>
+                              )}
+                            </NavLink>
+                          )}
+
+                          {(isSuperAdmin || hasMenuPermission("reports", "view")) && (
+                            <NavLink
+                              to="/finance/reports"
+                              onClick={() => setIsMobileSidebarOpen(false)}
+                              className={({ isActive }) =>
+                                cn(
+                                  "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                                  isActive
+                                    ? "text-white bg-primary border-primary/25 shadow-sm"
+                                    : "text-white/50 hover:text-white/85 hover:bg-white/5"
+                                )
+                              }
+                            >
+                              {({ isActive }) => (
+                                <>
+                                  <BarChart3 className={cn("h-4 w-4 mr-2.5 flex-shrink-0", isActive ? "text-white" : "text-white/40")} />
+                                  Financial Reports
+                                </>
+                              )}
+                            </NavLink>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Admin Links */}
+              {filteredAdminLinks.length > 0 && (
+                <>
+                  {isSidebarCollapsed ? (
+                    <div className="my-2 h-px bg-white/10 mx-1" />
+                  ) : (
+                    <>
+                      <div className="py-3 px-3">
+                        <div className="h-px bg-white/10" />
+                      </div>
+                      <div className="px-2 mb-2">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-white/30">
+                          Admin Settings
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  {filteredAdminLinks.map((link) => (
+                    <NavLink
+                      key={link.to}
+                      to={link.to}
+                      title={isSidebarCollapsed ? link.label : undefined}
+                      onClick={() => setIsMobileSidebarOpen(false)}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex items-center rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
+                          isSidebarCollapsed ? "justify-center h-10 w-10 mx-auto" : "px-3 py-2.5",
+                          isActive
+                            ? "text-white bg-primary border-primary/25 shadow-sm"
+                            : "text-white/50 hover:text-white/85 hover:bg-white/10"
+                        )
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <link.icon
+                            className={cn(
+                              "h-4.5 w-4.5 flex-shrink-0 transition-all",
+                              isSidebarCollapsed ? "m-0" : "mr-3",
+                              isActive ? "text-white" : "text-white/40 group-hover:text-white/80"
+                            )}
+                          />
+                          {!isSidebarCollapsed && <span className="truncate">{link.label}</span>}
+                          {!isSidebarCollapsed && isActive && (
+                            <div className="ml-auto h-1.5 w-1.5 rounded-full bg-white" />
+                          )}
+                        </>
+                      )}
+                    </NavLink>
+                  ))}
+                </>
+              )}
+            </nav>
           </div>
+        </aside>
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <header className="bg-card border-b border-border h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 lg:px-8 sticky top-0 z-30 shadow-sm">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Desktop Menu Toggle Button */}
+              <button
+                type="button"
+                onClick={toggleSidebar}
+                title={isSidebarCollapsed ? "Expand Sidebar Menu" : "Collapse to Icons"}
+                className="hidden lg:flex p-2 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-xl transition-all border border-border hover:border-primary/30 shrink-0 cursor-pointer shadow-2xs items-center justify-center active:scale-95"
+              >
+                <Menu className="h-4.5 w-4.5" />
+              </button>
+
+              <Link
+                to="/"
+                className="font-extrabold text-sm sm:text-base text-foreground lg:hidden tracking-tight hover:opacity-85 transition-opacity cursor-pointer"
+              >
+                Mana Community
+              </Link>
+            </div>
 
           {/* Search bar - desktop */}
           <div className="hidden lg:flex items-center gap-2 flex-1 max-w-sm ml-4">
