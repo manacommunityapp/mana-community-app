@@ -690,17 +690,17 @@ export function ProfileDashboard() {
                   <h1 className="text-base sm:text-2xl md:text-3xl font-black text-foreground tracking-tight leading-tight truncate pr-1">
                     {profile.fullName}
                   </h1>
-                  <div className="flex items-center flex-wrap gap-1.5 mt-1">
-                    <span className={cn("inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider", role.color)}>
-                      <role.icon className="w-3 h-3" /> {role.label}
+                  <div className="flex items-center gap-1.5 mt-1 whitespace-nowrap">
+                    <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[11px] font-black uppercase tracking-wider whitespace-nowrap shrink-0", role.color)}>
+                      <role.icon className="w-2.5 h-2.5 sm:w-3 sm:h-3" /> {role.label}
                     </span>
                     {profile.kycStatus === "VERIFIED" ? (
-                      <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
-                        <ShieldCheck className="w-3 h-3 text-emerald-600" /> KYC Verified
+                      <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[11px] font-black uppercase tracking-wider whitespace-nowrap shrink-0">
+                        <ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-600" /> KYC Verified
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 px-2.5 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black uppercase tracking-wider">
-                        <ShieldCheck className="w-3 h-3 text-amber-600" /> KYC {profile.kycStatus || "Pending"}
+                      <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 px-2 py-0.5 rounded-full text-[9.5px] sm:text-[11px] font-black uppercase tracking-wider whitespace-nowrap shrink-0">
+                        <ShieldCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-amber-600" /> KYC {profile.kycStatus || "Pending"}
                       </span>
                     )}
                   </div>
