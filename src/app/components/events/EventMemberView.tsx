@@ -1329,35 +1329,64 @@ export function EventMemberView() {
                   )}
                 </div>
 
-                {/* ── Line 2: Main Event name and date and other details ── */}
-                <div className="min-w-0 bg-white/5 border border-white/10 rounded-lg p-2 sm:p-2.5 space-y-0.5">
-                  <h2 className="text-sm sm:text-base font-black text-white leading-snug drop-shadow-sm truncate">
-                    {bannerMainEvents.length > 0
-                      ? (activeMainEvent?.title || "Community Festival")
-                      : "No Events Created Yet"}
-                  </h2>
-                  <div className="flex items-center gap-1.5 sm:gap-2 text-[10.5px] font-medium text-white/90 overflow-hidden">
-                    <span className="flex items-center gap-1 shrink-0">
-                      <Calendar className="w-3 h-3 text-amber-300 shrink-0" />
-                      <span className="whitespace-nowrap">
-                        {activeMainEvent?.startDate || activeMainEvent?.date || "Upcoming"}
-                        {activeMainEvent?.endDate && activeMainEvent.endDate !== (activeMainEvent.startDate || activeMainEvent.date) ? ` – ${activeMainEvent.endDate}` : ""}
-                      </span>
-                    </span>
-                    <span className="text-white/40 shrink-0">·</span>
-                    <span className="flex items-center gap-1 truncate max-w-[140px] sm:max-w-[220px]">
-                      <MapPin className="w-3 h-3 text-indigo-200 shrink-0" />
-                      <span className="truncate">{activeMainEvent?.venue || activeMainEvent?.location || activeMainEvent?.city || "Main Community Grounds"}</span>
-                    </span>
-                    {(activeMainEvent?.startTime || activeMainEvent?.time) && (
-                      <>
-                        <span className="text-white/40 shrink-0">·</span>
-                        <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
-                          <Clock className="w-3 h-3 text-amber-300 shrink-0" />
-                          <span className="whitespace-nowrap">{activeMainEvent.startTime || activeMainEvent.time}</span>
+                {/* ── Line 2: Main Event name, image and date and other details ── */}
+                <div className="min-w-0 bg-white/5 border border-white/10 rounded-lg p-2 sm:p-2.5">
+                  <div className="flex items-center gap-2.5 sm:gap-3">
+                    {(() => {
+                      const eventImg =
+                        activeMainEvent?.coverImage ||
+                        activeMainEvent?.coverImageUrl ||
+                        activeMainEvent?.imageUrl ||
+                        (activeMainEvent as any)?.bannerUrl ||
+                        (activeMainEvent as any)?.posterUrl;
+
+                      return (
+                        <div className="relative w-11 h-11 sm:w-14 sm:h-14 rounded-xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-lg shrink-0 shadow-xs overflow-hidden">
+                          <span>🕉️</span>
+                          {eventImg && (
+                            <img
+                              src={eventImg}
+                              alt={activeMainEvent?.title || "Event Image"}
+                              className="absolute inset-0 w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          )}
+                        </div>
+                      );
+                    })()}
+
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <h2 className="text-sm sm:text-base font-black text-white leading-snug drop-shadow-sm truncate">
+                        {bannerMainEvents.length > 0
+                          ? (activeMainEvent?.title || "Community Festival")
+                          : "No Events Created Yet"}
+                      </h2>
+                      <div className="flex items-center gap-1.5 sm:gap-2 text-[10.5px] font-medium text-white/90 overflow-hidden">
+                        <span className="flex items-center gap-1 shrink-0">
+                          <Calendar className="w-3 h-3 text-amber-300 shrink-0" />
+                          <span className="whitespace-nowrap">
+                            {activeMainEvent?.startDate || activeMainEvent?.date || "Upcoming"}
+                            {activeMainEvent?.endDate && activeMainEvent.endDate !== (activeMainEvent.startDate || activeMainEvent.date) ? ` – ${activeMainEvent.endDate}` : ""}
+                          </span>
                         </span>
-                      </>
-                    )}
+                        <span className="text-white/40 shrink-0">·</span>
+                        <span className="flex items-center gap-1 truncate max-w-[140px] sm:max-w-[220px]">
+                          <MapPin className="w-3 h-3 text-indigo-200 shrink-0" />
+                          <span className="truncate">{activeMainEvent?.venue || activeMainEvent?.location || activeMainEvent?.city || "Main Community Grounds"}</span>
+                        </span>
+                        {(activeMainEvent?.startTime || activeMainEvent?.time) && (
+                          <>
+                            <span className="text-white/40 shrink-0">·</span>
+                            <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
+                              <Clock className="w-3 h-3 text-amber-300 shrink-0" />
+                              <span className="whitespace-nowrap">{activeMainEvent.startTime || activeMainEvent.time}</span>
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
