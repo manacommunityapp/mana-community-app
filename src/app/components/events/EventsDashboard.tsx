@@ -6,7 +6,7 @@ import {
   Clock, MapPin, AlertCircle, Loader2,
   Sparkles, QrCode, UserPlus,
   ChevronLeft, ChevronRight, Download, Bot, RefreshCw,
-  Search, ChevronDown, ChevronUp, User,
+  Search, ChevronDown, ChevronUp, User, X,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
