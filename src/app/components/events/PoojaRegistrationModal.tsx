@@ -65,6 +65,7 @@ export interface PoojaRegistrationModalProps {
     timeSlotConfig?: any;
     /** Parent community event id — used for correct registration deduplication scoping */
     mainEventId?: string | number;
+    status?: string;
   };
   onSuccess?: () => void;
 }
@@ -315,7 +316,11 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [existingReg, setExistingReg] = useState<any>(() => event?.existingRegistration || null);
   const isUpdateMode = Boolean(event?.isUpdateMode || existingReg);
   const existingRegId = event?.registrationId || existingReg?.id || (event as any)?.regId;
-  const isPoojaClosed = isRegistrationClosed(event) && !isUpdateMode;
+  const isPoojaCancelled =
+    String(event?.status || "").toUpperCase() === "CANCELLED" ||
+    String((event as any)?.parentStatus || "").toUpperCase() === "CANCELLED" ||
+    String((event as any)?.eventStatus || "").toUpperCase() === "CANCELLED";
+  const isPoojaClosed = (isRegistrationClosed(event) || isPoojaCancelled) && !isUpdateMode;
   const maxPoojaSlots = Number(event?.availableSeats ?? event?.slots ?? 0);
   const isPoojaFull = !isUpdateMode && event?.availableSeats !== undefined && Number(event?.availableSeats) <= 0;
 
@@ -839,7 +844,18 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             hoverScale={false}
             className="flex-1 flex flex-col justify-between p-4 sm:p-5 border border-border rounded-2xl overflow-y-auto space-y-4 shadow-xs my-2 bg-muted/20"
           >
-            {isUpdateMode && (
+            {isPoojaCancelled && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div>
+                  <p>Event / Pooja Cancelled</p>
+                  <p className="font-normal mt-0.5 text-rose-600 dark:text-rose-400">
+                    This event has been cancelled by the organisers. Registrations are not available.
+                  </p>
+                </div>
+              </div>
+            )}
+            {isUpdateMode && !isPoojaCancelled && (
               <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-start gap-2">
                 <RefreshCw className="w-4 h-4 shrink-0 mt-0.5" />
                 <div>

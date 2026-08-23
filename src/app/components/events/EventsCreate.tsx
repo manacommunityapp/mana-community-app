@@ -6,7 +6,7 @@ import {
   Globe, Lock, Building2, Heart, Music, Utensils,
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
-  Zap, Star, ArrowRight, Trash2, PlusCircle, Link2,
+  Zap, Star, ArrowRight, Trash2, PlusCircle, Link2, Flame,
   Save, Bookmark, XCircle, Mail, CreditCard, QrCode, Phone, User, Info, Loader2,
 } from "lucide-react";
 import { Input } from "../ui/input";
@@ -259,8 +259,8 @@ const STEPS = [
 const BUDGET_CATEGORIES = ["Venue", "Food & Catering", "Decoration", "Audio / Visual", "Security", "Marketing", "Transport", "Volunteers", "Medical", "Other"];
 
 const DEFAULT_TICKET_TYPES: TicketType[] = [
-  { id: "t1", name: "General",   price: "0",   qty: "100", description: "Open for all community members" },
-  { id: "t2", name: "Volunteer", price: "0",   qty: "50",  description: "Volunteer registration & duty pass" },
+  { id: "t1", name: "General",   price: "0",   qty: "0", description: "Open for all community members" },
+  { id: "t2", name: "Volunteer", price: "0",   qty: "0", description: "Volunteer registration & duty pass" },
 ];
 
 const DEFAULT_BUDGET_ITEMS: BudgetItem[] = [
@@ -436,6 +436,75 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [notifDayLabel, setNotifDayLabel] = useState<string | undefined>(undefined);
   const [notifActivityTitle, setNotifActivityTitle] = useState<string | undefined>(undefined);
+  const [savedPoojaEvents, setSavedPoojaEvents] = useState<any[]>([]);
+  const [loadingPoojaEvents, setLoadingPoojaEvents] = useState(false);
+
+  useEffect(() => {
+    setLoadingPoojaEvents(true);
+    eventService.getPoojaSevas()
+      .then((res) => {
+        if (Array.isArray(res)) {
+          setSavedPoojaEvents(res);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not load saved pooja sevas:", err);
+      })
+      .finally(() => {
+        setLoadingPoojaEvents(false);
+      });
+  }, []);
+
+  const getPoojaEventsForDay = (dateStr: string) => {
+    if (!dateStr) return [];
+    return savedPoojaEvents.filter((p) => {
+      if (p.date === dateStr || p.startDate === dateStr) return true;
+      if ((p.isMultiDay || p.multiDay) && p.startDate && p.endDate) {
+        return dateStr >= p.startDate && dateStr <= p.endDate;
+      }
+      if (p.date && p.endDate && p.endDate >= p.date) {
+        return dateStr >= p.date && dateStr <= p.endDate;
+      }
+      return false;
+    });
+  };
+
+  const importPoojaToDayAgenda = (dateStr: string, pooja: any) => {
+    const actTime = (Array.isArray(pooja.startTimes) && pooja.startTimes.length > 0)
+      ? pooja.startTimes[0]
+      : pooja.startTime || "08:30";
+    const cleanTime = String(actTime).split(/[–-]/)[0].trim();
+    const newAct: ScheduleActivity = {
+      id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      categoryType: "Pooja & Seva",
+      name: pooja.name || "Pooja Seva",
+      needsRegistration: true,
+      registrationFee: pooja.fee ? String(pooja.fee) : "0",
+      slots: pooja.slots ? String(pooja.slots) : "50",
+      startTime: cleanTime,
+      endTime: "",
+      description: pooja.notes || pooja.type || "",
+      venue: pooja.mandap || pooja.venue || "Main Mandap",
+    };
+    const targetDay = data.daySchedules.find(ds => ds.date === dateStr);
+    if (!targetDay) {
+      const newDay: DaySchedule = {
+        date: dateStr,
+        activities: [newAct],
+      };
+      const updated = [...data.daySchedules, newDay].sort((a, b) => a.date.localeCompare(b.date));
+      update("daySchedules", updated);
+    } else {
+      const updated = data.daySchedules.map(ds =>
+        ds.date === dateStr
+          ? { ...ds, activities: [...ds.activities, newAct] }
+          : ds
+      );
+      update("daySchedules", updated);
+    }
+    setExpandedDay(dateStr);
+    showSuccess(`Linked "${pooja.name}" to ${formatDayLabel(dateStr)} agenda`);
+  };
 
   const createDefaultSingleActivity = (): ScheduleActivity[] => [
     {
@@ -737,6 +806,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         </div>
 
         {/* Multi-Day Dropdown Day Selector */}
+        {/* Multi-Day Dropdown Day Selector */}
         {data.multiDay && allDaysInRange.length > 0 && (
           <div className="p-3.5 bg-indigo-50/40 border border-indigo-100 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-3">
             <div className="flex-1">
@@ -753,9 +823,10 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                 {allDaysInRange.map((dStr, idx) => {
                   const dayObj = data.daySchedules.find(ds => ds.date === dStr);
                   const count = dayObj?.activities?.filter(a => a.name?.trim()).length || 0;
+                  const poojaCount = getPoojaEventsForDay(dStr).length;
                   return (
                     <option key={dStr} value={dStr}>
-                      Day {idx + 1} • {formatDayLabel(dStr)} {count > 0 ? `(${count} activities configured)` : "(Not configured yet)"}
+                      Day {idx + 1} • {formatDayLabel(dStr)} {count > 0 ? `(${count} activities configured)` : "(Not configured yet)"} {poojaCount > 0 ? `• 🪔 ${poojaCount} Saved Pooja Sub-Event${poojaCount > 1 ? "s" : ""}` : ""}
                     </option>
                   );
                 })}
@@ -769,6 +840,36 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                 className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl h-10 sm:mt-5 cursor-pointer shrink-0 shadow-xs"
               >
                 <Plus className="w-3.5 h-3.5" /> Add Activity to Selected Day
+              </Button>
+            )}
+          </div>
+        )}
+
+        {savedPoojaEvents.length > 0 && (
+          <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-2xs shrink-0">
+                <Flame className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                  {savedPoojaEvents.length} Saved Pooja & Seva Sub-Event{savedPoojaEvents.length > 1 ? "s" : ""} Available in Database
+                </p>
+                <p className="text-[10.5px] text-amber-700 font-medium">
+                  {expandedDay
+                    ? `Showing day-wise details below for ${formatDayLabel(expandedDay)}. Click "Link to Agenda" to sync.`
+                    : "Select a day from the dropdown above to view and link day-wise pooja details directly to your event agenda."}
+                </p>
+              </div>
+            </div>
+            {dayCount === 0 && allDaysInRange.length > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleSelectDay(allDaysInRange[0])}
+                className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl gap-1 shrink-0 cursor-pointer shadow-xs"
+              >
+                <Calendar className="w-3.5 h-3.5" /> Configure Day 1
               </Button>
             )}
           </div>
@@ -852,6 +953,112 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
                   {isExpanded && (
                     <div className="px-3 sm:px-4 pb-3 pt-2 bg-white space-y-2.5 animate-fade-in-up">
+                      {/* Saved Day-Wise Pooja Sub-Events Section */}
+                      {(() => {
+                        const dayPoojas = getPoojaEventsForDay(day.date);
+                        if (dayPoojas.length === 0) return null;
+                        return (
+                          <div className="p-3 sm:p-3.5 rounded-xl bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-50/90 border border-amber-200/90 space-y-2.5 shadow-2xs">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-2xs shrink-0">
+                                  <Flame className="w-3.5 h-3.5" />
+                                </div>
+                                <div>
+                                  <h5 className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                                    Saved Pooja & Seva Sub-Events for {formatDayLabel(day.date)}
+                                    <span className="text-[9.5px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-200/70 text-amber-900 border border-amber-300/60">
+                                      {dayPoojas.length} In Database
+                                    </span>
+                                  </h5>
+                                  <p className="text-[10px] text-amber-800/80">
+                                    These pooja sub-events are saved in the database for this event date. Click "Link to Agenda" to include in day activities.
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              {dayPoojas.map((pooja, pIdx) => {
+                                const isAlreadyInAgenda = day.activities.some(
+                                  a => a.name?.toLowerCase().trim() === pooja.name?.toLowerCase().trim()
+                                );
+                                const timeStr = Array.isArray(pooja.startTimes) && pooja.startTimes.length > 0
+                                  ? pooja.startTimes.join(", ")
+                                  : pooja.startTime || pooja.time || "Scheduled Time";
+
+                                return (
+                                  <div
+                                    key={pooja.id || pIdx}
+                                    className="p-2.5 rounded-lg bg-white border border-amber-200/80 shadow-2xs space-y-1.5"
+                                  >
+                                    <div className="flex items-start justify-between gap-1.5">
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                          <span className="text-xs font-extrabold text-slate-800 truncate">
+                                            {pooja.name}
+                                          </span>
+                                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">
+                                            {pooja.type || "Pooja Seva"}
+                                          </span>
+                                          {pooja.isFree || pooja.fee == 0 || !pooja.fee ? (
+                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
+                                              FREE
+                                            </span>
+                                          ) : (
+                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800">
+                                              ₹{pooja.fee}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {isAlreadyInAgenda ? (
+                                        <span className="text-[9.5px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-0.5 shrink-0">
+                                          <Check className="w-2.5 h-2.5" /> In Agenda
+                                        </span>
+                                      ) : (
+                                        <button
+                                          type="button"
+                                          onClick={() => importPoojaToDayAgenda(day.date, pooja)}
+                                          className="text-[9.5px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md border border-indigo-200 flex items-center gap-0.5 transition-all cursor-pointer shrink-0 shadow-2xs"
+                                        >
+                                          <Plus className="w-2.5 h-2.5 text-indigo-600" /> Link to Agenda
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-slate-600">
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                        <span className="truncate">{timeStr}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <MapPin className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                        <span className="truncate">{pooja.mandap || pooja.venue || "Main Mandap"}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <User className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                        <span className="truncate">{pooja.pandit || pooja.priestName || "Priest Assigned"}</span>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <Users className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                                        <span>{pooja.slots || pooja.availableSeats || "50"} Devotee Slots</span>
+                                      </div>
+                                    </div>
+
+                                    {Array.isArray(pooja.items) && pooja.items.length > 0 && (
+                                      <div className="pt-1 border-t border-amber-100 text-[9.5px] text-amber-900 truncate">
+                                        <span className="font-bold">Items:</span> {pooja.items.filter(Boolean).join(", ")}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {day.activities.length === 0 && (
                         <div className="p-4 text-center border border-dashed border-indigo-200 rounded-2xl bg-indigo-50/30 space-y-2">
                           <p className="text-xs font-bold text-slate-700">No activities added for {formatDayLabel(day.date)} yet</p>
@@ -1146,8 +1353,22 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
           </div>
           <div>
             <FieldLabel hint="Optional">Max Capacity</FieldLabel>
-            <Input type="number" value={data.capacity} onChange={e => update("capacity", e.target.value)}
-              placeholder="e.g. 500" className={cn(INPUT_CLS, "sm:w-48")} />
+            <Input
+              type="number"
+              min={0}
+              value={data.capacity}
+              onKeyDown={(e) => {
+                if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
+              }}
+              onChange={e => {
+                const val = e.target.value;
+                const parsed = parseInt(val, 10);
+                const sanitized = isNaN(parsed) ? "" : String(Math.max(0, parsed));
+                update("capacity", val === "" ? "" : sanitized);
+              }}
+              placeholder="e.g. 500"
+              className={cn(INPUT_CLS, "sm:w-48")}
+            />
           </div>
         </div>
       </div>
@@ -1215,7 +1436,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
   };
 
   const addTicket = () => {
-    const newTicket: TicketType = { id: `t${Date.now()}`, name: "", price: "0", qty: "", description: "" };
+    const newTicket: TicketType = { id: `t${Date.now()}`, name: "", price: "0", qty: "0", description: "" };
     update("ticketTypes", [...data.ticketTypes, newTicket]);
   };
   const removeTicket = (id: string) => update("ticketTypes", data.ticketTypes.filter(t => t.id !== id));
@@ -1424,13 +1645,41 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
                     </div>
                     <div>
                       <FieldLabel>Price (₹)</FieldLabel>
-                      <Input type="number" value={ticket.price} onChange={e => updateTicket(ticket.id, "price", e.target.value)}
-                        placeholder="0 = Free" className={INPUT_CLS} />
+                      <Input
+                        type="number"
+                        min={0}
+                        value={ticket.price}
+                        onKeyDown={(e) => {
+                          if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
+                        }}
+                        onChange={e => {
+                          const val = e.target.value;
+                          const parsed = parseFloat(val);
+                          const sanitized = isNaN(parsed) ? "" : String(Math.max(0, parsed));
+                          updateTicket(ticket.id, "price", val === "" ? "" : sanitized);
+                        }}
+                        placeholder="0 = Free"
+                        className={INPUT_CLS}
+                      />
                     </div>
                     <div>
                       <FieldLabel>Seats</FieldLabel>
-                      <Input type="number" value={ticket.qty} onChange={e => updateTicket(ticket.id, "qty", e.target.value)}
-                        placeholder="Capacity" className={INPUT_CLS} />
+                      <Input
+                        type="number"
+                        min={0}
+                        value={ticket.qty}
+                        onKeyDown={(e) => {
+                          if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
+                        }}
+                        onChange={e => {
+                          const val = e.target.value;
+                          const parsed = parseInt(val, 10);
+                          const sanitized = isNaN(parsed) ? "" : String(Math.max(0, parsed));
+                          updateTicket(ticket.id, "qty", val === "" ? "" : sanitized);
+                        }}
+                        placeholder="0"
+                        className={INPUT_CLS}
+                      />
                     </div>
                   </div>
                   <div>
@@ -2317,8 +2566,22 @@ function Step6Budget({ data, update }: { data: FormData; update: (k: keyof FormD
         <FieldLabel>Total Event Budget</FieldLabel>
         <div className="relative sm:w-64">
           <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">₹</span>
-          <Input type="number" value={data.totalBudget} onChange={e => update("totalBudget", e.target.value)}
-            placeholder="e.g. 500000" className={cn(INPUT_CLS, "pl-8 text-base font-semibold")} />
+          <Input
+            type="number"
+            min={0}
+            value={data.totalBudget}
+            onKeyDown={(e) => {
+              if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
+            }}
+            onChange={e => {
+              const val = e.target.value;
+              const parsed = parseFloat(val);
+              const sanitized = isNaN(parsed) ? "" : String(Math.max(0, parsed));
+              update("totalBudget", val === "" ? "" : sanitized);
+            }}
+            placeholder="e.g. 500000"
+            className={cn(INPUT_CLS, "pl-8 text-base font-semibold")}
+          />
         </div>
       </div>
 
@@ -2373,8 +2636,22 @@ function Step6Budget({ data, update }: { data: FormData; update: (k: keyof FormD
               </Select>
               <div className="w-full sm:w-40 relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-bold">₹</span>
-                <Input value={item.amount} onChange={e => updateItem(item.id, "amount", e.target.value)}
-                  type="number" placeholder="Amount" className={cn(INPUT_CLS, "pl-8")} />
+                <Input
+                  value={item.amount}
+                  type="number"
+                  min={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
+                  }}
+                  onChange={e => {
+                    const val = e.target.value;
+                    const parsed = parseFloat(val);
+                    const sanitized = isNaN(parsed) ? "" : String(Math.max(0, parsed));
+                    updateItem(item.id, "amount", val === "" ? "" : sanitized);
+                  }}
+                  placeholder="Amount"
+                  className={cn(INPUT_CLS, "pl-8")}
+                />
               </div>
               <button onClick={() => removeItem(item.id)}
                 className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1.5 rounded-lg hover:bg-rose-50 flex-shrink-0">
@@ -2744,7 +3021,7 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
     organizerName: primaryContact?.name || undefined,
     organizerContact: primaryContact?.phone || undefined,
     ticketTypes: data.ticketTypes,
-    ticketTypesJson: data.ticketTypes && data.ticketTypes.length > 0 ? JSON.stringify(data.ticketTypes) : undefined,
+    ticketTypesJson: undefined,
     paymentModes: data.enableOnlinePayment ? (data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(",") : undefined) : "Cash",
     upiId: data.enableOnlinePayment ? (data.upiId || undefined) : undefined,
     scannerUrl: data.enableOnlinePayment ? scannerImageUrl : undefined,
