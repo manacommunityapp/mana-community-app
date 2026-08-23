@@ -48,7 +48,7 @@ import {
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { PoojaRegistrationModal } from "./PoojaRegistrationModal";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
-import { showError, showSuccess } from "../../../utils/ToastUtils";
+import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 
 interface FamilyMember {
   id: string;
@@ -820,39 +820,78 @@ export function EventMemberView() {
    *  1. Normalised numeric pooja-seva ID comparison ("pooja-5" == "5" == 5)
    *  2. Exact title comparison scoped to the same mainEventId (if available)
    *  3. Exact title comparison without scope (fallback for mock/unlinked data)
-   *
-   * CANCELLED registrations are always excluded.
+   *  const isPoojaActivity = (cat?: string) =>
+    Boolean(cat && (cat.toLowerCase().includes("pooja") || cat.toLowerCase().includes("seva")));
+
+  const userActivePoojaPass = useMemo(() => {
+    return passesList.find((p) => isPoojaActivity(p.category) && p.status !== "CANCELLED");
+  }, [passesList]);
+
+  /**
+   * Safe matching between an Activity and user's booked Passes list.
+   * Prevents ID collision between different types (e.g. comp-1 vs pooja-1).
    */
   const getExistingPassForActivity = (act: Activity): UserPass | undefined => {
     if (!passesList || passesList.length === 0) return undefined;
 
-    // Extract the numeric part of the activity id — "pooja-5" → "5"
-    const actIdNumeric = String(act.id || "").replace(/\D/g, "");
+    const actIdStr = String(act.id || "").trim();
+    const actIdNumeric = actIdStr.replace(/\D/g, "");
+    const isActPooja = isPoojaActivity(act.category);
+    const isActComp = act.category?.toLowerCase().includes("competition") || actIdStr.startsWith("comp-");
+    const isActCult = act.category?.toLowerCase().includes("cultural") || actIdStr.startsWith("cult-");
     const cleanActTitle = (act.title || "").trim().toLowerCase();
     const actMainEventId = act.mainEventId ? String(act.mainEventId) : null;
 
     return passesList.find((p) => {
       if (p.status === "CANCELLED") return false;
 
-      // ── Strategy 1: Normalised numeric pooja-seva ID match ──────────────────
-      // Handle all 3 storage variants: "pooja-5", "5", 5
-      const passActIdNumeric = p.poojaSevaId || String(p.activityId || "").replace(/\D/g, "");
+      const passActIdStr = String(p.activityId || "").trim();
+      const passPoojaIdStr = p.poojaSevaId ? String(p.poojaSevaId).trim() : "";
+      const isPassPooja = isPoojaActivity(p.category) || Boolean(p.poojaSevaId);
+      const isPassComp = p.category?.toLowerCase().includes("competition") || passActIdStr.startsWith("comp-");
+      const isPassCult = p.category?.toLowerCase().includes("cultural") || passActIdStr.startsWith("cult-");
 
-      if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
-        // IDs match — this is definitely the same Pooja Seva
+      // Strategy 1: Exact activityId string match (e.g. "pooja-1" === "pooja-1")
+      if (passActIdStr && actIdStr && passActIdStr === actIdStr) {
         return true;
       }
 
-      // ── Strategy 2: Exact title match scoped to same mainEventId ────────────
-      const cleanPassTitle = (p.title || "").trim().toLowerCase();
-      const passMainEventId = p.mainEventId ? String(p.mainEventId) : null;
+      // Strategy 2: Direct poojaSevaId matching (strictly only when both are pooja)
+      if (isActPooja && isPassPooja) {
+        if (passPoojaIdStr && (passPoojaIdStr === actIdStr || passPoojaIdStr === actIdNumeric)) {
+          return true;
+        }
+        const passActIdNumeric = passActIdStr.replace(/\D/g, "");
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric && (passActIdStr.startsWith("pooja-") || actIdStr.startsWith("pooja-"))) {
+          return true;
+        }
+      }
 
+      // Strategy 3: Type/category matching for comp/cult
+      if (isActComp && isPassComp) {
+        const passActIdNumeric = passActIdStr.replace(/\D/g, "");
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
+          return true;
+        }
+      }
+      if (isActCult && isPassCult) {
+        const passActIdNumeric = passActIdStr.replace(/\D/g, "");
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
+          return true;
+        }
+      }
+
+      // Strategy 4: Exact title match (requires matching categories)
+      const cleanPassTitle = (p.title || "").trim().toLowerCase();
       if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) {
-        // If both have mainEventId, enforce same-parent-event scope
+        if (isActPooja !== isPassPooja) return false;
+        if (isActComp !== isPassComp) return false;
+        if (isActCult !== isPassCult) return false;
+
+        const passMainEventId = p.mainEventId ? String(p.mainEventId) : null;
         if (actMainEventId && passMainEventId) {
           return actMainEventId === passMainEventId;
         }
-        // ── Strategy 3: Fallback — title match without mainEventId scope ──────
         return true;
       }
 
@@ -1745,8 +1784,24 @@ export function EventMemberView() {
                           </span>
                           {(() => {
                             const existingPass = getExistingPassForActivity(act);
+                            const isThisActPooja = isPoojaActivity(act.category);
+                            const isOtherPoojaBooked = isThisActPooja && !existingPass && Boolean(userActivePoojaPass);
                             const isClosed = isRegistrationClosed(act);
+                            const isFull = act.availableSeats !== undefined && act.availableSeats <= 0;
+
                             if (existingPass) {
+                              if (isThisActPooja) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenUpdateRegistration(act, existingPass)}
+                                    className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95 border border-amber-500"
+                                    title="Reschedule your booked pooja slot"
+                                  >
+                                    <RefreshCw className="w-3.5 h-3.5" /> Reschedule Slot
+                                  </button>
+                                );
+                              }
                               return (
                                 <button
                                   type="button"
@@ -1757,7 +1812,27 @@ export function EventMemberView() {
                                 </button>
                               );
                             }
-                            const isFull = act.availableSeats !== undefined && act.availableSeats <= 0;
+
+                            if (isOtherPoojaBooked) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const registeredAct = activitiesList.find(a => getExistingPassForActivity(a) && isPoojaActivity(a.category));
+                                    if (registeredAct && userActivePoojaPass) {
+                                      handleOpenUpdateRegistration(registeredAct, userActivePoojaPass);
+                                    } else if (userActivePoojaPass) {
+                                      showWarning(`You are already registered for "${userActivePoojaPass.title}". Only one pooja slot is allowed per family. You can reschedule your existing slot.`);
+                                    }
+                                  }}
+                                  className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-bold rounded-xl border border-amber-500/30 flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
+                                  title={`You have already booked a slot for "${userActivePoojaPass?.title}". Click to reschedule your existing slot.`}
+                                >
+                                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600" /> Slot Booked
+                                </button>
+                              );
+                            }
+
                             if (isFull) {
                               return (
                                 <span className="px-3 py-1.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl border border-rose-500/20 flex items-center gap-1.5 select-none">
@@ -2865,9 +2940,27 @@ export function EventMemberView() {
                               </span>
                               {(() => {
                                 const existingPass = getExistingPassForActivity(act);
+                                const isThisActPooja = isPoojaActivity(act.category);
+                                const isOtherPoojaBooked = isThisActPooja && !existingPass && Boolean(userActivePoojaPass);
                                 const isClosed = isRegistrationClosed(act);
                                 const isFull = act.availableSeats !== undefined && act.availableSeats <= 0;
+
                                 if (existingPass) {
+                                  if (isThisActPooja) {
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setMobileQuickActionModal(null);
+                                          handleOpenUpdateRegistration(act, existingPass);
+                                        }}
+                                        className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-amber-500"
+                                        title="Reschedule your booked pooja slot"
+                                      >
+                                        <RefreshCw className="w-3 h-3" /> Reschedule Slot
+                                      </button>
+                                    );
+                                  }
                                   return (
                                     <button
                                       type="button"
@@ -2881,6 +2974,28 @@ export function EventMemberView() {
                                     </button>
                                   );
                                 }
+
+                                if (isOtherPoojaBooked) {
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setMobileQuickActionModal(null);
+                                        const registeredAct = activitiesList.find(a => getExistingPassForActivity(a) && isPoojaActivity(a.category));
+                                        if (registeredAct && userActivePoojaPass) {
+                                          handleOpenUpdateRegistration(registeredAct, userActivePoojaPass);
+                                        } else if (userActivePoojaPass) {
+                                          showWarning(`You are already registered for "${userActivePoojaPass.title}". Only one pooja slot is allowed per family. You can reschedule your existing slot.`);
+                                        }
+                                      }}
+                                      className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[11px] font-bold rounded-lg border border-amber-500/30 flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                                      title={`You have already booked a slot for "${userActivePoojaPass?.title}". Click to reschedule your existing slot.`}
+                                    >
+                                      <ShieldCheck className="w-3 h-3 text-amber-600" /> Slot Booked
+                                    </button>
+                                  );
+                                }
+
                                 if (isFull) {
                                   return (
                                     <span className="px-2.5 py-1 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[11px] font-bold rounded-lg border border-rose-500/20 flex items-center gap-1 select-none">
