@@ -48,7 +48,10 @@ export function Login() {
   const onSubmit = async (data: LoginFormValues) => {
     setServiceError(false);
     try {
-      await login({ identifier: data.identifier.trim(), password: data.password });
+      const id = data.identifier.trim();
+      const isMobile = /^\d{10}$/.test(id);
+      const normalizedIdentifier = isMobile ? id : id.toLowerCase();
+      await login({ identifier: normalizedIdentifier, password: data.password });
       toast.success("Welcome back!");
       navigate(redirectTo);
     } catch (err) {
