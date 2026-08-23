@@ -148,6 +148,7 @@ export function ProfileDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -183,6 +184,7 @@ export function ProfileDashboard() {
     try {
       const res = await profileService.getProfile();
       setProfile(res);
+      setImageError(false);
       setFormData({
         fullName: res.fullName || "",
         email: res.email || "",
@@ -203,6 +205,7 @@ export function ProfileDashboard() {
         dateOfBirth: res.dob,
         flatNo: res.flatNo,
         block: res.block,
+        profilePicUrl: res.profilePicUrl,
       });
 
       // Synchronize into Family Table as Self (Head)
@@ -600,7 +603,16 @@ export function ProfileDashboard() {
   }
 
   const role = getRoleConfig(profile.role);
-  const userAvatar = profile.profilePicUrl || defaultAvatar;
+  const userAvatar = profile.profilePicUrl || user?.profilePicUrl || "";
+  const initials = (profile.fullName || user?.fullName || "User")
+    .trim()
+    .split(/\s+/)
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "U";
+
   const unitDisplay = profile.block || profile.flatNo
     ? `${profile.block ? `Block ${profile.block}` : ""}${profile.block && profile.flatNo ? " - " : ""}${profile.flatNo ? `Flat ${profile.flatNo}` : ""}`
     : "No Unit Assigned";
@@ -635,11 +647,25 @@ export function ProfileDashboard() {
           <div className="flex items-center sm:items-end gap-3 sm:gap-4 mt-0 sm:-mt-16 md:-mt-20 pb-3 sm:pb-5">
             {/* Avatar */}
             <div className="relative flex-shrink-0">
-              <div className="w-16 h-16 sm:w-36 sm:h-36 rounded-2xl sm:rounded-[2rem] overflow-hidden border-2 sm:border-4 border-card shadow-md sm:shadow-xl ring-2 sm:ring-4 ring-primary/20 bg-muted">
-                <img src={userAvatar} alt={profile.fullName} className="w-full h-full object-cover" />
+              <div className="w-16 h-16 sm:w-36 sm:h-36 rounded-2xl sm:rounded-[2rem] overflow-hidden border-2 sm:border-4 border-card shadow-md sm:shadow-xl ring-2 sm:ring-4 ring-primary/20 bg-muted flex items-center justify-center relative">
+                {userAvatar && !imageError ? (
+                  <img
+                    src={userAvatar}
+                    alt={profile.fullName}
+                    className="w-full h-full object-cover"
+                    onError={() => setImageError(true)}
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white font-black select-none">
+                    <span className="text-xl sm:text-4xl tracking-wider">
+                      {initials}
+                    </span>
+                  </div>
+                )}
                 {uploadingAvatar && (
-                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                    <Loader2 className="w-5 h-5 text-white animate-spin" />
+                  <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center gap-1 z-10">
+                    <Loader2 className="w-5 h-5 sm:w-7 sm:h-7 text-white animate-spin" />
+                    <span className="text-[9px] text-white/90 font-bold hidden sm:inline">Uploading...</span>
                   </div>
                 )}
               </div>
@@ -648,7 +674,7 @@ export function ProfileDashboard() {
                 type="button"
                 disabled={uploadingAvatar}
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 bg-primary hover:bg-primary/90 text-white p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl shadow-md sm:shadow-lg transition-all hover:scale-110 active:scale-95 cursor-pointer disabled:opacity-50"
+                className="absolute -bottom-1 -right-1 sm:-bottom-2 sm:-right-2 bg-primary hover:bg-primary/90 text-white p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl shadow-md sm:shadow-lg transition-all hover:scale-110 active:scale-95 cursor-pointer disabled:opacity-50 z-20"
                 title="Change profile picture"
               >
                 <Camera className="w-3 h-3 sm:w-4 sm:h-4" />
