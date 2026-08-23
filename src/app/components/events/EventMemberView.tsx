@@ -253,14 +253,30 @@ export function EventMemberView() {
   const [isHeroBannerHovered, setIsHeroBannerHovered] = useState(false);
   const [timeLeft, setTimeLeft] = useState(() => countdownFrom("2026-08-27", null));
 
-  // Auto-move hero banner every 4.5s (pauses on hover)
+  // Auto-move hero banner every 4.5s (pauses on hover or when any modal/registration is open)
   useEffect(() => {
-    if (bannerMainEvents.length <= 1 || isHeroBannerHovered) return;
+    if (
+      bannerMainEvents.length <= 1 ||
+      isHeroBannerHovered ||
+      Boolean(selectedActivity) ||
+      Boolean(managePassModal) ||
+      Boolean(showAddMemberModal) ||
+      Boolean(mobileQuickActionModal) ||
+      Boolean(showQRPass)
+    ) return;
     const timer = setInterval(() => {
       setHeroBannerIndex((prev) => (prev + 1) % bannerMainEvents.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, [bannerMainEvents.length, isHeroBannerHovered]);
+  }, [
+    bannerMainEvents.length,
+    isHeroBannerHovered,
+    selectedActivity,
+    managePassModal,
+    showAddMemberModal,
+    mobileQuickActionModal,
+    showQRPass,
+  ]);
 
   const activeMainEvent = bannerMainEvents[Math.min(heroBannerIndex, bannerMainEvents.length - 1)] || bannerMainEvents[0];
 

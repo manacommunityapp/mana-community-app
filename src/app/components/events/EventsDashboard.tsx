@@ -202,9 +202,10 @@ export function EventsDashboard() {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [showAICopilot, setShowAICopilot] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [selectedRegisterEvent, setSelectedRegisterEvent] = useState<any>(null);
   const [showQRModal, setShowQRModal] = useState(false);
 
-  useEscapeKey(() => setShowRegisterModal(false), showRegisterModal);
+  useEscapeKey(() => { setShowRegisterModal(false); setSelectedRegisterEvent(null); }, showRegisterModal);
   useEscapeKey(() => setShowQRModal(false), showQRModal);
   useEscapeKey(() => setShowAICopilot(false), showAICopilot);
 
@@ -675,14 +676,21 @@ export function EventsDashboard() {
   const currentBanner = bannerItems[Math.min(carouselIndex, bannerItems.length - 1)] || bannerItems[0];
   const [isBannerHovered, setIsBannerHovered] = useState(false);
 
-  // Auto-move banner every 4.5s (pauses on hover)
+  // Auto-move banner every 4.5s (pauses on hover and when any modal is open)
   useEffect(() => {
-    if (bannerItems.length <= 1 || isBannerHovered) return;
+    if (
+      bannerItems.length <= 1 ||
+      isBannerHovered ||
+      showRegisterModal ||
+      showAICopilot ||
+      showQRModal ||
+      Boolean(selectedRegisterEvent)
+    ) return;
     const timer = setInterval(() => {
       setCarouselIndex((prev) => (prev + 1) % bannerItems.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, [bannerItems.length, isBannerHovered]);
+  }, [bannerItems.length, isBannerHovered, showRegisterModal, showAICopilot, showQRModal, selectedRegisterEvent]);
 
   // Sync countdown target with active banner item
   useEffect(() => {
@@ -990,7 +998,13 @@ export function EventsDashboard() {
                 <button onClick={() => setShowQRModal(true)} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white border border-white/20 text-[11px] font-bold transition-all shadow-xs cursor-pointer">
                   <QrCode className="w-3.5 h-3.5 text-amber-300" /> My Pass
                 </button>
-                <button onClick={() => setShowRegisterModal(true)}
+                <button
+                  onClick={() => {
+                    const runningEvents = events.filter(e => String(e.status || '').toUpperCase() !== "CANCELLED");
+                    const targetEvent = (runningEvents && runningEvents.length > 0) ? (runningEvents[carouselIndex] || runningEvents[0]) : currentBanner;
+                    setSelectedRegisterEvent(targetEvent);
+                    setShowRegisterModal(true);
+                  }}
                   className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-white text-[11px] font-black shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-all"
                   style={{ background: "linear-gradient(135deg, #EA580C, #F97316)", boxShadow: "0 4px 12px rgba(234,88,12,0.35)" }}
                 >
@@ -1563,7 +1577,7 @@ export function EventsDashboard() {
       {showRegisterModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto cursor-pointer"
-          onClick={() => setShowRegisterModal(false)}
+          onClick={() => { setShowRegisterModal(false); setSelectedRegisterEvent(null); }}
         >
           <div
             className="relative w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 min-h-[85vh] sm:min-h-[640px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp cursor-default"
@@ -1571,7 +1585,7 @@ export function EventsDashboard() {
           >
             <button
               type="button"
-              onClick={() => setShowRegisterModal(false)}
+              onClick={() => { setShowRegisterModal(false); setSelectedRegisterEvent(null); }}
               className="absolute top-4 right-4 z-20 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-400 dark:hover:text-slate-200 flex items-center justify-center transition-colors cursor-pointer"
               title="Close modal (Esc)"
             >
@@ -1579,6 +1593,7 @@ export function EventsDashboard() {
             </button>
             <EventRegistrationWizard
               event={
+                selectedRegisterEvent ||
                 (() => {
                   const runningEvents = events.filter(e => String(e.status || '').toUpperCase() !== "CANCELLED");
                   return (runningEvents && runningEvents.length > 0) ? (runningEvents[carouselIndex] || runningEvents[0]) : {
@@ -1596,7 +1611,7 @@ export function EventsDashboard() {
                   };
                 })()
               }
-              onClose={() => setShowRegisterModal(false)}
+              onClose={() => { setShowRegisterModal(false); setSelectedRegisterEvent(null); }}
             />
           </div>
         </div>
