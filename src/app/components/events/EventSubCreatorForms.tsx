@@ -1533,127 +1533,127 @@ export function CompetitionsSection() {
 
       {/* Show form only when adding/editing */}
       {showForm && (
-
-      <SectionCard>
-        <SectionHeading icon={Trophy} color="#3B82F6">Competition Details</SectionHeading>
-        <div className="space-y-4">
-          <Col>
-            <Label required>Select Main Event (Parent Event)</Label>
-            <Select value={form.mainEventId} onChange={(v) => set("mainEventId", v)}>
-              <option value="">{loadingMainEvents ? "Loading events from database..." : "Select Main Festival / Event…"}</option>
-              {mainEvents.map((e) => (
-                <option key={e.id} value={e.id}>{e.title}</option>
-              ))}
-            </Select>
-          </Col>
-          <Col>
-            <Label required>Competition Title</Label>
-            <Input value={form.name} onChange={(v) => set("name", v)} placeholder="e.g. Eco-Ganesha Rangoli Championship 2026" />
-          </Col>
-          <Row>
-            {/* Category Dropdown + New Category Button */}
-            <Col>
-              <div className="flex items-center justify-between">
-                <Label required>Category</Label>
-                <button
-                  type="button"
-                  onClick={() => setShowAddCatModal(true)}
-                  className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer mb-1"
-                >
-                  <Plus className="w-3 h-3" /> Create Category
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Select value={form.category} onChange={(v) => set("category", v)} className="flex-1">
-                  <option value="">{loadingCats ? "Loading categories..." : "Select competition category…"}</option>
-                  {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+        <>
+          <SectionCard>
+            <SectionHeading icon={Trophy} color="#3B82F6">Competition Details</SectionHeading>
+            <div className="space-y-4">
+              <Col>
+                <Label required>Select Main Event (Parent Event)</Label>
+                <Select value={form.mainEventId} onChange={(v) => set("mainEventId", v)}>
+                  <option value="">{loadingMainEvents ? "Loading events from database..." : "Select Main Festival / Event…"}</option>
+                  {mainEvents.map((e) => (
+                    <option key={e.id} value={e.id}>{e.title}</option>
+                  ))}
                 </Select>
-                <button
-                  type="button"
-                  onClick={() => setShowAddCatModal(true)}
-                  className="px-3 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
-                  title="Create new Competition Category in database"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">New Category</span>
-                </button>
-              </div>
-            </Col>
+              </Col>
+              <Col>
+                <Label required>Competition Title</Label>
+                <Input value={form.name} onChange={(v) => set("name", v)} placeholder="e.g. Eco-Ganesha Rangoli Championship 2026" />
+              </Col>
+              <Row>
+                {/* Category Dropdown + New Category Button */}
+                <Col>
+                  <div className="flex items-center justify-between">
+                    <Label required>Category</Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCatModal(true)}
+                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer mb-1"
+                    >
+                      <Plus className="w-3 h-3" /> Create Category
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select value={form.category} onChange={(v) => set("category", v)} className="flex-1">
+                      <option value="">{loadingCats ? "Loading categories..." : "Select competition category…"}</option>
+                      {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </Select>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCatModal(true)}
+                      className="px-3 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
+                      title="Create new Competition Category in database"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">New Category</span>
+                    </button>
+                  </div>
+                </Col>
 
-            {/* Age Group Dropdown + New Age Group Button */}
-            <Col>
-              <div className="flex items-center justify-between">
-                <Label required>Age Group</Label>
-                <button
-                  type="button"
-                  onClick={() => setShowAddAgeModal(true)}
-                  className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer mb-1"
-                >
-                  <Plus className="w-3 h-3" /> Create Age Group
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Select value={form.ageGroup} onChange={(v) => set("ageGroup", v)} className="flex-1">
-                  <option value="">{loadingAgeGroups ? "Loading age groups..." : "Select age group…"}</option>
-                  {ageGroups.map((a) => <option key={a} value={a}>{a}</option>)}
-                </Select>
-                <button
-                  type="button"
-                  onClick={() => setShowAddAgeModal(true)}
-                  className="px-3 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
-                  title="Create new Age Group in database"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">New Age Group</span>
-                </button>
-              </div>
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <Label required>Date</Label>
-              <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
-            </Col>
-            <Col>
-              <Label required>Start Time</Label>
-              <Input type="time" value={form.startTime} onChange={(v) => set("startTime", v)} />
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <Label>Max Participants / Teams</Label>
-              <Input type="number" value={form.maxParticipants} onChange={(v) => set("maxParticipants", v)} placeholder="50" />
-            </Col>
-            <Col>
-              <Label>Venue / Hall</Label>
-              <Input value={form.venue} onChange={(v) => set("venue", v)} placeholder="Clubhouse Activity Room" />
-            </Col>
-          </Row>
-        </div>
-      </SectionCard>
+                {/* Age Group Dropdown + New Age Group Button */}
+                <Col>
+                  <div className="flex items-center justify-between">
+                    <Label required>Age Group</Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddAgeModal(true)}
+                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer mb-1"
+                    >
+                      <Plus className="w-3 h-3" /> Create Age Group
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select value={form.ageGroup} onChange={(v) => set("ageGroup", v)} className="flex-1">
+                      <option value="">{loadingAgeGroups ? "Loading age groups..." : "Select age group…"}</option>
+                      {ageGroups.map((a) => <option key={a} value={a}>{a}</option>)}
+                    </Select>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddAgeModal(true)}
+                      className="px-3 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
+                      title="Create new Age Group in database"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">New Age Group</span>
+                    </button>
+                  </div>
+                </Col>
+              </Row>
+              <Row>
+                <Col>
+                  <Label required>Date</Label>
+                  <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+                </Col>
+                <Col>
+                  <Label required>Start Time</Label>
+                  <Input type="time" value={form.startTime} onChange={(v) => set("startTime", v)} />
+                </Col>
+              </Row>
+              <Row>
+                <Col>
+                  <Label>Max Participants / Teams</Label>
+                  <Input type="number" value={form.maxParticipants} onChange={(v) => set("maxParticipants", v)} placeholder="50" />
+                </Col>
+                <Col>
+                  <Label>Venue / Hall</Label>
+                  <Input value={form.venue} onChange={(v) => set("venue", v)} placeholder="Clubhouse Activity Room" />
+                </Col>
+              </Row>
+            </div>
+          </SectionCard>
 
-      <SectionCard>
-        <SectionHeading icon={ShieldCheck} color="#10B981">Rules &amp; Evaluation Criteria</SectionHeading>
-        <div className="space-y-4">
-          <Col>
-            <Label>Rules &amp; Guidelines</Label>
-            <Textarea rows={4} value={form.rules} onChange={(v) => set("rules", v)} placeholder="1. Time limit: 45 minutes&#10;2. Eco-friendly colors only&#10;3. Judging based on creativity & neatness" />
-          </Col>
-        </div>
-      </SectionCard>
+          <SectionCard>
+            <SectionHeading icon={ShieldCheck} color="#10B981">Rules &amp; Evaluation Criteria</SectionHeading>
+            <div className="space-y-4">
+              <Col>
+                <Label>Rules &amp; Guidelines</Label>
+                <Textarea rows={4} value={form.rules} onChange={(v) => set("rules", v)} placeholder="1. Time limit: 45 minutes&#10;2. Eco-friendly colors only&#10;3. Judging based on creativity & neatness" />
+              </Col>
+            </div>
+          </SectionCard>
 
-      <div className="flex items-center justify-end gap-3 pt-2">
-        <button
-          onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm()); }}
-          className="px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground border border-border hover:bg-muted cursor-pointer"
-        >
-          Cancel
-        </button>
-        <button onClick={handleSubmit} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs shadow-md hover:opacity-90 cursor-pointer flex items-center gap-2">
-          <Plus className="w-4 h-4" /> {editingId ? "Update Competition" : "Save Competition"}
-        </button>
-      </div>
-
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm()); }}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground border border-border hover:bg-muted cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button onClick={handleSubmit} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs shadow-md hover:opacity-90 cursor-pointer flex items-center gap-2">
+              <Plus className="w-4 h-4" /> {editingId ? "Update Competition" : "Save Competition"}
+            </button>
+          </div>
+        </>
       )}
 
       {/* ─── CREATE NEW COMPETITION CATEGORY MODAL DIALOG ─── */}
