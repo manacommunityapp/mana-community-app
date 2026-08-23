@@ -425,7 +425,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             return false;
           });
 
-          // If the user already has a registration for THIS specific pooja, allow them to update to next slot time
+          // If the user already has a registration for THIS specific pooja, allow them to reschedule to another slot time
           if (currentEventReg) {
             setExistingReg(currentEventReg);
             setAlreadyRegisteredTitle(null);
@@ -438,7 +438,22 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             }
             if (currentEventReg.flatNo) setDevoteeFlat(currentEventReg.flatNo);
           } else {
-            setAlreadyRegisteredTitle(null);
+            // Check if user already has ANY other pooja booking in this community festival
+            const otherPoojaReg = activeRegs.find(
+              (r: any) =>
+                r.status !== "CANCELLED" &&
+                (r.category?.toLowerCase().includes("pooja") ||
+                  r.category?.toLowerCase().includes("seva") ||
+                  r.activityTitle?.toLowerCase().includes("pooja") ||
+                  r.activityTitle?.toLowerCase().includes("seva") ||
+                  r.eventName?.toLowerCase().includes("pooja") ||
+                  r.eventName?.toLowerCase().includes("seva"))
+            );
+            if (otherPoojaReg) {
+              setAlreadyRegisteredTitle(otherPoojaReg.activityTitle || otherPoojaReg.eventName || "Pooja Seva");
+            } else {
+              setAlreadyRegisteredTitle(null);
+            }
           }
 
           // Gotram from database event registration
@@ -562,10 +577,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const selectedDateDisplay = currentDay?.dateStr || selectedDateValue || baseDate;
 
   const steps = [
-    { num: 1, title: "Date & Slot" },
+    { num: 1, title: isUpdateMode ? "Reschedule Slot" : "Date & Slot" },
     { num: 2, title: "Registrant" },
     { num: 3, title: "Prasadam" },
-    { num: 4, title: isUpdateMode ? "Confirm Update" : isFreeEvent ? "Confirm" : "Payment" },
+    { num: 4, title: isUpdateMode ? "Confirm Reschedule" : isFreeEvent ? "Confirm" : "Payment" },
   ];
 
   const handleNext = () => {
@@ -750,9 +765,9 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           <div className="min-w-0 pr-3">
             <div className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider mb-0.5">
               {isUpdateMode ? (
-                <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                  <Edit3 className="w-3 h-3" />
-                  <span>Update Pooja Registration</span>
+                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Reschedule Pooja Slot</span>
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-primary">
@@ -856,23 +871,23 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               </div>
             )}
             {isUpdateMode && !isPoojaCancelled && (
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-start gap-2">
-                <RefreshCw className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-start gap-2">
+                <RefreshCw className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
                 <div>
-                  <p>Update Pooja Registration</p>
-                  <p className="font-normal mt-0.5 text-emerald-600 dark:text-emerald-400">
-                    You have an active pass for this Pooja seva. You can select the next slot time or update devotee details below.
+                  <p>Reschedule Booked Pooja Slot</p>
+                  <p className="font-normal mt-0.5 text-amber-700 dark:text-amber-400">
+                    You currently have an active booked slot. Select a new date and ritual time slot below to reschedule your session.
                   </p>
                 </div>
               </div>
             )}
             {alreadyRegisteredTitle && !isUpdateMode && (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-bold flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
+                <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
                 <div>
-                  <p>You are already registered for <strong>{alreadyRegisteredTitle}</strong>.</p>
+                  <p>Slot Already Booked for <strong>{alreadyRegisteredTitle}</strong>.</p>
                   <p className="font-normal mt-0.5 text-amber-600 dark:text-amber-500">
-                    You can update your registration to select the next slot time.
+                    You have already registered for a Pooja seva in this event. Only one booking per family is allowed. Please reschedule your existing booked slot instead of registering a new one.
                   </p>
                 </div>
               </div>
@@ -1159,11 +1174,11 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               <div className="space-y-3.5 flex-1">
                 <div className="border-b border-border pb-2">
                   <h3 className="text-sm font-extrabold text-foreground">
-                    {isUpdateMode ? "Review & Confirm Updates" : isFreeEvent ? "Review & Confirmation" : "Review & Contribution"}
+                    {isUpdateMode ? "Review & Confirm Reschedule" : isFreeEvent ? "Review & Confirmation" : "Review & Contribution"}
                   </h3>
                   <p className="text-[11px] text-muted-foreground">
                     {isUpdateMode
-                      ? "Verify your updated session, Gotram, and prasadam collection details"
+                      ? "Verify your rescheduled session, Gotram, and prasadam collection details"
                       : "Confirm your Pooja booking details before completing registration"}
                   </p>
                 </div>
@@ -1215,11 +1230,11 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
             <div className="space-y-1">
               <h3 className="text-lg font-black text-foreground">
-                {isUpdateMode ? "Pooja Registration Updated Successfully!" : "Pooja Seva Booked Successfully!"}
+                {isUpdateMode ? "Pooja Slot Rescheduled Successfully!" : "Pooja Seva Booked Successfully!"}
               </h3>
               <p className="text-xs text-muted-foreground">
                 {isUpdateMode
-                  ? "Your holy Sankalpam updates have been synchronized with the Temple Committee."
+                  ? "Your holy Sankalpam slot has been rescheduled with the Temple Committee."
                   : "Your holy Sankalpam details have been registered with the Temple Committee."}
               </p>
             </div>
@@ -1228,7 +1243,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               <div className="flex items-center justify-between border-b border-border pb-2">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-primary block">
-                    {isUpdateMode ? "Updated Sankalpam Pass" : "Sankalpam Pass"}
+                    {isUpdateMode ? "Rescheduled Sankalpam Pass" : "Sankalpam Pass"}
                   </span>
                   <strong className="text-sm font-black text-foreground">{poojaTitle}</strong>
                 </div>
@@ -1287,7 +1302,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
             {alreadyRegisteredTitle && !isUpdateMode ? (
               <span className="px-4 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold border border-amber-500/20 flex items-center gap-1.5 select-none">
-                <ShieldCheck className="w-3.5 h-3.5" /> Already Registered
+                <ShieldCheck className="w-3.5 h-3.5" /> Slot Already Booked
               </span>
             ) : isPoojaFull ? (
               <span className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold border border-rose-500/20 flex items-center gap-1.5 select-none">
@@ -1313,7 +1328,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               >
                 {isUpdateMode ? (
                   <>
-                    <span>Update Registration</span>
+                    <span>Confirm Reschedule</span>
                     <RefreshCw className="w-3.5 h-3.5" />
                   </>
                 ) : (
