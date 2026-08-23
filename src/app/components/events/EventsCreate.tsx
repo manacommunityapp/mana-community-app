@@ -2026,14 +2026,16 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
                   <p className="text-[11px] text-rose-600 font-semibold">{uploadError}</p>
                 )}
 
-                <div>
-                  <Input
-                    value={data.scannerUrl}
-                    onChange={(e) => update("scannerUrl", e.target.value)}
-                    placeholder="Or paste QR image URL (https://...)"
-                    className={cn(INPUT_CLS, "h-8 text-[11px]")}
-                  />
-                </div>
+                {!data.scannerUrl && (
+                  <div>
+                    <Input
+                      value={data.scannerUrl}
+                      onChange={(e) => update("scannerUrl", e.target.value)}
+                      placeholder="Or paste QR image URL (https://...)"
+                      className={cn(INPUT_CLS, "h-8 text-[11px]")}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -2668,12 +2670,17 @@ function Step6Budget({ data, update }: { data: FormData; update: (k: keyof FormD
 /* ─── Step 7: Media ─── */
 function Step7Media({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   const [tagInput, setTagInput] = useState("");
-  const [imageMode, setImageMode] = useState<"upload" | "url">(data.coverImageUrl && !data.coverImageUrl.startsWith("data:") ? "url" : "upload");
+  const [imageMode, setImageMode] = useState<"upload" | "url">("upload");
   const [dragOver, setDragOver] = useState(false);
   const [fileName, setFileName] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
   const [imageUploadError, setImageUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isCloudStorageUrl = (url?: string) => {
+    if (!url) return false;
+    return url.includes("amazonaws.com") || url.includes(".s3.") || url.startsWith("blob:") || url.startsWith("data:");
+  };
 
   const handleFile = async (file: File) => {
     if (!file.type.startsWith("image/")) return;
@@ -2685,13 +2692,12 @@ function Step7Media({ data, update }: { data: FormData; update: (k: keyof FormDa
       const res = await fileUploadService.upload(file, "EVENT", "event-create", undefined, "cover-image");
       if (res?.url) {
         update("coverImageUrl", res.url);
-        setImageMode("url");
       } else {
         throw new Error("Upload completed without an image URL.");
       }
     } catch (err) {
       console.warn("Cover image upload failed:", err);
-      setImageUploadError("Cover image upload failed. Please try again or paste an image URL.");
+      setImageUploadError("Cover image upload failed. Please try again or upload another file.");
       setFileName("");
       if (fileInputRef.current) fileInputRef.current.value = "";
     } finally {
@@ -2731,30 +2737,37 @@ function Step7Media({ data, update }: { data: FormData; update: (k: keyof FormDa
 
         {/* Upload / URL tabs */}
         <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl w-fit mb-4">
-          <button onClick={() => setImageMode("upload")}
+          <button
+            type="button"
+            onClick={() => setImageMode("upload")}
             className={cn(
-              "flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all",
+              "flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer",
               imageMode === "upload"
                 ? "bg-white text-indigo-700 shadow-sm"
                 : "text-slate-500 hover:text-slate-700"
             )}>
             <Upload className="w-3.5 h-3.5" /> Upload File
           </button>
-          <button onClick={() => setImageMode("url")}
+          <button
+            type="button"
+            onClick={() => setImageMode("url")}
             className={cn(
-              "flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all",
+              "flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer",
               imageMode === "url"
                 ? "bg-white text-indigo-700 shadow-sm"
                 : "text-slate-500 hover:text-slate-700"
             )}>
-            <Link2 className="w-3.5 h-3.5" /> Paste URL
+            <Link2 className="w-3.5 h-3.5" /> Paste Image Link
           </button>
         </div>
 
         {imageMode === "url" ? (
-          <Input value={data.coverImageUrl.startsWith("data:") ? "" : data.coverImageUrl}
+          <Input
+            value={isCloudStorageUrl(data.coverImageUrl) ? "" : data.coverImageUrl}
             onChange={e => { update("coverImageUrl", e.target.value); setFileName(""); setImageUploadError(""); }}
-            placeholder="https://images.unsplash.com/…" className={INPUT_CLS} />
+            placeholder="https://images.unsplash.com/…"
+            className={INPUT_CLS}
+          />
         ) : (
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
@@ -2768,14 +2781,33 @@ function Step7Media({ data, update }: { data: FormData; update: (k: keyof FormDa
         {data.coverImageUrl ? (
           <div className="mt-3 h-52 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 shadow-inner relative group">
             <img src={data.coverImageUrl} alt="Cover preview" className="w-full h-full object-cover" onError={() => {}} />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4">
-              {fileName && (
-                <span className="text-xs text-white/80 font-medium truncate max-w-[60%]">{fileName}</span>
-              )}
-              <button onClick={clearImage}
-                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/20 backdrop-blur-sm text-white text-xs font-bold hover:bg-white/30 transition-all">
-                <Trash2 className="w-3 h-3" /> Remove
-              </button>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-90 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-white/90 font-bold bg-black/40 backdrop-blur-xs px-2.5 py-1 rounded-lg border border-white/10">
+                  ✓ Image Selected
+                </span>
+                {fileName && (
+                  <span className="text-xs text-white/80 font-medium truncate max-w-[200px]">{fileName}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {imageMode === "upload" && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/25 backdrop-blur-sm text-white text-xs font-bold hover:bg-white/40 transition-all cursor-pointer"
+                  >
+                    <Upload className="w-3 h-3" /> Change File
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={clearImage}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600/80 backdrop-blur-sm text-white text-xs font-bold hover:bg-rose-600 transition-all cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3" /> Remove
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -2804,7 +2836,7 @@ function Step7Media({ data, update }: { data: FormData; update: (k: keyof FormDa
                     <span className="text-indigo-600 font-bold">{uploadingImage ? "Uploading..." : "Click to upload"}</span>
                     {!uploadingImage && " or drag & drop"}
                   </p>
-                  <p className="text-[10px] text-slate-400 mt-1">PNG, JPG, WEBP up to 5MB</p>
+                  <p className="text-[10px] text-slate-400 mt-1">PNG, JPG, WEBP, AVIF up to 5MB</p>
                 </>
               ) : (
                 <>
