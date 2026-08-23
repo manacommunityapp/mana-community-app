@@ -146,10 +146,23 @@ export function isRegistrationClosed(item: any): boolean {
   if (!item) return false;
 
   // 1. Explicit closed flags
-  if (item.registrationClosed === true || item.isRegistrationClosed === true || item.isClosed === true) {
+  if (
+    item.registrationClosed === true ||
+    item.isRegistrationClosed === true ||
+    item.isClosed === true ||
+    item.is_registration_closed === true ||
+    item.is_closed === true ||
+    item.isExpired === true
+  ) {
     return true;
   }
-  if (item.registrationOpen === false || item.registrationEnabled === false) {
+  if (
+    item.registrationOpen === false ||
+    item.registrationEnabled === false ||
+    item.isRegistrationOpen === false ||
+    item.registration_open === false ||
+    item.is_open === false
+  ) {
     return true;
   }
   if (item.status) {
@@ -162,17 +175,31 @@ export function isRegistrationClosed(item: any): boolean {
   const now = new Date();
 
   // 2. Explicit Registration Deadline / End Date & Time
-  const regDeadline = item.registrationDeadline || item.regDeadline || item.deadline;
+  const regDeadline =
+    item.registrationDeadline ||
+    item.registration_deadline ||
+    item.regDeadline ||
+    item.deadline;
   if (regDeadline) {
-    const deadlineDate = parseFlexibleDateTime(regDeadline, item.registrationEndTime || item.regEndTime);
+    const deadlineDate = parseFlexibleDateTime(
+      regDeadline,
+      item.registrationEndTime || item.registration_end_time || item.regEndTime
+    );
     if (deadlineDate && !isNaN(deadlineDate.getTime())) {
       if (now.getTime() > deadlineDate.getTime()) return true;
     }
   }
 
-  const regEndDate = item.registrationEndDate || item.regEndDate;
+  const regEndDate =
+    item.registrationEndDate ||
+    item.registration_end_date ||
+    item.regEndDate;
   if (regEndDate) {
-    const regEndTime = item.registrationEndTime || item.regEndTime || item.endTime;
+    const regEndTime =
+      item.registrationEndTime ||
+      item.registration_end_time ||
+      item.regEndTime ||
+      item.endTime;
     const deadlineDate = parseFlexibleDateTime(regEndDate, regEndTime);
     if (deadlineDate && !isNaN(deadlineDate.getTime())) {
       if (now.getTime() > deadlineDate.getTime()) return true;
@@ -181,8 +208,24 @@ export function isRegistrationClosed(item: any): boolean {
 
   // 3. Event / Pooja Activity Schedule End Date & Time
   // If the activity or event itself has completed/ended
-  const targetEndDate = item.endDate || item.date || item.startDate || item.slotDate;
-  const targetEndTime = item.endTime || item.time || item.startTime || item.slotTime;
+  const targetEndDate =
+    item.endDate ||
+    item.end_date ||
+    item.date ||
+    item.eventDate ||
+    item.event_date ||
+    item.startDate ||
+    item.start_date ||
+    item.slotDate;
+  const targetEndTime =
+    item.endTime ||
+    item.end_time ||
+    item.time ||
+    item.eventTime ||
+    item.event_time ||
+    item.startTime ||
+    item.start_time ||
+    item.slotTime;
 
   if (targetEndDate) {
     const eventEndDateTime = parseFlexibleDateTime(targetEndDate, targetEndTime);

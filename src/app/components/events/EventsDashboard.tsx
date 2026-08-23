@@ -19,6 +19,7 @@ import { GatePassModal } from "./GatePassModal";
 import { useEventMock } from "./EventMockToggle";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
+import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import {
   eventService,
   type DashboardStatsResponse,
@@ -998,18 +999,35 @@ export function EventsDashboard() {
                 <button onClick={() => setShowQRModal(true)} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white border border-white/20 text-[11px] font-bold transition-all shadow-xs cursor-pointer">
                   <QrCode className="w-3.5 h-3.5 text-amber-300" /> My Pass
                 </button>
-                <button
-                  onClick={() => {
-                    const runningEvents = events.filter(e => String(e.status || '').toUpperCase() !== "CANCELLED");
-                    const targetEvent = (runningEvents && runningEvents.length > 0) ? (runningEvents[carouselIndex] || runningEvents[0]) : currentBanner;
-                    setSelectedRegisterEvent(targetEvent);
-                    setShowRegisterModal(true);
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-white text-[11px] font-black shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-all"
-                  style={{ background: "linear-gradient(135deg, #EA580C, #F97316)", boxShadow: "0 4px 12px rgba(234,88,12,0.35)" }}
-                >
-                  <UserPlus className="w-3.5 h-3.5" /> Register
-                </button>
+                {(() => {
+                  const runningEvents = events.filter(e => String(e.status || '').toUpperCase() !== "CANCELLED");
+                  const targetEvent = (runningEvents && runningEvents.length > 0) ? (runningEvents[carouselIndex] || runningEvents[0]) : currentBanner;
+                  const isClosed = isRegistrationClosed(targetEvent);
+
+                  if (isClosed) {
+                    return (
+                      <span
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/15 text-white/80 border border-white/20 text-[11px] font-semibold select-none"
+                        title="Registration for this event has ended or date has expired"
+                      >
+                        <Clock className="w-3.5 h-3.5 text-rose-300" /> Registration Closed
+                      </span>
+                    );
+                  }
+
+                  return (
+                    <button
+                      onClick={() => {
+                        setSelectedRegisterEvent(targetEvent);
+                        setShowRegisterModal(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-white text-[11px] font-black shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-all"
+                      style={{ background: "linear-gradient(135deg, #EA580C, #F97316)", boxShadow: "0 4px 12px rgba(234,88,12,0.35)" }}
+                    >
+                      <UserPlus className="w-3.5 h-3.5" /> Register
+                    </button>
+                  );
+                })()}
               </div>
             ) : (
               <div className="flex items-center gap-2">
