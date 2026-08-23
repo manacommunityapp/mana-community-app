@@ -201,6 +201,7 @@ export function EventMemberView() {
   const [activeTab, setActiveTab] = useState<"home" | "passes" | "auction">("home");
   const [showQRPass, setShowQRPass] = useState<UserPass | null>(null);
   const [showFamily, setShowFamily] = useState(false);
+  const [showHeroSubEvents, setShowHeroSubEvents] = useState(false);
   const [mobileModal, setMobileModal] = useState<"pooja" | "meals" | "passes" | "family" | null>(null);
   const [passesList, setPassesList] = useState<UserPass[]>(() => (useMock ? INITIAL_PASSES : []));
   const [activitiesList, setActivitiesList] = useState<Activity[]>(() => (useMock ? INITIAL_ACTIVITIES : []));
@@ -316,6 +317,55 @@ export function EventMemberView() {
   ]);
 
   const activeMainEvent = bannerMainEvents[Math.min(heroBannerIndex, bannerMainEvents.length - 1)] || bannerMainEvents[0];
+
+  const eventSubActivities = useMemo(() => {
+    if (!activeMainEvent) return [];
+    return activitiesList.filter((a) => {
+      // Exclude the parent main event itself
+      if (
+        a.id === `event-${activeMainEvent.id}` ||
+        a.id === String(activeMainEvent.id) ||
+        a.title?.trim().toLowerCase() === activeMainEvent.title?.trim().toLowerCase()
+      ) {
+        return false;
+      }
+      // Check mainEventId linkage
+      if (a.mainEventId != null && activeMainEvent.id != null) {
+        if (
+          String(a.mainEventId) === String(activeMainEvent.id) ||
+          String(a.mainEventId) === `event-${activeMainEvent.id}`
+        ) {
+          return true;
+        }
+      }
+      if ((a as any)?.eventId != null && activeMainEvent.id != null) {
+        if (
+          String((a as any).eventId) === String(activeMainEvent.id) ||
+          String((a as any).eventId) === `event-${activeMainEvent.id}`
+        ) {
+          return true;
+        }
+      }
+      // Check date overlap with main event date range
+      const mainStart = activeMainEvent.startDate || activeMainEvent.date;
+      const mainEnd = activeMainEvent.endDate || mainStart;
+      if (mainStart && a.date) {
+        if (a.date >= mainStart && (!mainEnd || a.date <= mainEnd)) {
+          return true;
+        }
+      }
+      if ((a as any)?.startDate && mainStart) {
+        if ((a as any).startDate >= mainStart && (!mainEnd || (a as any).startDate <= mainEnd)) {
+          return true;
+        }
+      }
+      // If only 1 main event exists in banner, link all sub-events to it
+      if (bannerMainEvents.length === 1) {
+        return true;
+      }
+      return false;
+    });
+  }, [activeMainEvent, activitiesList, bannerMainEvents.length]);
 
   useEffect(() => {
     const targetDate = activeMainEvent?.startDate || activeMainEvent?.date || "2026-08-27";
@@ -796,12 +846,12 @@ export function EventMemberView() {
         category: "Cultural",
       },
       {
-        id: "competitions",
-        label: "Competitions",
-        icon: Trophy,
+        id: "family",
+        label: "Family Members",
+        icon: Users,
         color: "bg-blue-500/10 text-blue-600 border-blue-300/30",
-        badge: compCount > 0 ? `${compCount} Contest${compCount === 1 ? "" : "s"}` : "0 Contests",
-        category: "Competitions",
+        badge: `${familyMembers.length} Member${familyMembers.length === 1 ? "" : "s"}`,
+        action: "family",
       },
       {
         id: "passes",
@@ -836,7 +886,7 @@ export function EventMemberView() {
         category: "Auction",
       },
     ];
-  }, [poojaCount, foodCount, culturalCount, compCount, passesList.length, useMock, liveStats]);
+  }, [poojaCount, foodCount, culturalCount, familyMembers.length, passesList.length, useMock, liveStats]);
 
   const isPoojaActivity = (cat?: string) =>
     Boolean(cat && (cat.toLowerCase().includes("pooja") || cat.toLowerCase().includes("seva")));
@@ -1449,6 +1499,139 @@ export function EventMemberView() {
                   </div>
                 </div>
 
+                {/* ── Sub-Events for this Main Community Event (Pooja Sevas, Cultural, Competitions, Mahaprasadam) ── */}
+                {eventSubActivities.length > 0 && (
+                  <div className="space-y-1.5 pt-0.5 animate-fade-in-up">
+                    <button
+                      type="button"
+                      onClick={() => setShowHeroSubEvents(!showHeroSubEvents)}
+                      className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur-xs transition-all cursor-pointer select-none text-left group shadow-xs active:scale-[0.99]"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs">🪔</span>
+                        <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-200">
+                          Festival Sub-Events &amp; Sevas
+                        </span>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-400/25 text-amber-100 border border-amber-300/30">
+                          {eventSubActivities.length} Available
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-[9.5px] font-bold text-white/85 group-hover:text-white">
+                        <span>{showHeroSubEvents ? "Hide Sub-Events" : "Show Sub-Events"}</span>
+                        {showHeroSubEvents ? (
+                          <ChevronUp className="w-3.5 h-3.5 text-amber-300" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5 text-amber-300" />
+                        )}
+                      </div>
+                    </button>
+
+                    {showHeroSubEvents && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-56 sm:max-h-64 overflow-y-auto pr-0.5 custom-scrollbar animate-fade-in-up">
+                        {eventSubActivities.map((subAct) => {
+                          const existingPass = getExistingPassForActivity(subAct);
+                          const isClosed = isRegistrationClosed(subAct);
+                          const catLower = subAct.category?.toLowerCase() || "";
+                          const isPooja = catLower.includes("pooja") || catLower.includes("seva");
+                          const isCultural = catLower.includes("cultural") || catLower.includes("dance") || catLower.includes("music") || catLower.includes("bhajan");
+                          const isComp = catLower.includes("comp");
+                          const isFood = catLower.includes("food") || catLower.includes("lunch") || catLower.includes("dinner") || catLower.includes("prasad");
+
+                          const iconBadge = isPooja ? "🪔" : isCultural ? "🎭" : isComp ? "🏆" : isFood ? "🍲" : "✨";
+                          const catBadgeBg = isPooja
+                            ? "bg-amber-400/20 text-amber-200 border-amber-300/30"
+                            : isCultural
+                            ? "bg-purple-400/20 text-purple-200 border-purple-300/30"
+                            : isComp
+                            ? "bg-sky-400/20 text-sky-200 border-sky-300/30"
+                            : "bg-emerald-400/20 text-emerald-200 border-emerald-300/30";
+
+                          return (
+                            <div
+                              key={subAct.id}
+                              className="p-2 sm:p-2.5 rounded-xl bg-black/35 hover:bg-black/45 border border-white/15 backdrop-blur-xs transition-all flex flex-col justify-between gap-1.5 group shadow-xs"
+                            >
+                              <div className="flex items-start justify-between gap-1.5">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs">{iconBadge}</span>
+                                    <h4 className="text-xs font-bold text-white leading-tight truncate group-hover:text-amber-200 transition-colors">
+                                      {subAct.title}
+                                    </h4>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-[9.5px] text-white/75 mt-0.5 flex-wrap">
+                                    <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-bold border uppercase ${catBadgeBg}`}>
+                                      {subAct.category || "Seva"}
+                                    </span>
+                                    <span className="flex items-center gap-0.5">
+                                      <Calendar className="w-2.5 h-2.5 text-amber-300 shrink-0" />
+                                      <span>{subAct.date}</span>
+                                    </span>
+                                    <span className="text-white/30">·</span>
+                                    <span className="flex items-center gap-0.5">
+                                      <Clock className="w-2.5 h-2.5 text-indigo-200 shrink-0" />
+                                      <span>{subAct.time}</span>
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  {subAct.fee > 0 ? (
+                                    <span className="text-[10.5px] font-black text-amber-300">₹{subAct.fee}</span>
+                                  ) : (
+                                    <span className="text-[9.5px] font-black text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-400/30">
+                                      FREE
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-white/10 text-[9.5px]">
+                                <span className="text-white/70 truncate flex items-center gap-1">
+                                  <MapPin className="w-2.5 h-2.5 text-slate-300 shrink-0" />
+                                  <span className="truncate max-w-[110px]">{subAct.venue || "Temple Mandap"}</span>
+                                  {subAct.availableSeats != null && (
+                                    <span className="text-amber-200/90 font-medium ml-1">({subAct.availableSeats} slots)</span>
+                                  )}
+                                </span>
+
+                                {existingPass ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenUpdateRegistration(subAct, existingPass);
+                                    }}
+                                    className="px-2 py-0.5 text-[9.5px] font-black rounded-md bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-400/40 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
+                                  >
+                                    <Edit3 className="w-2.5 h-2.5" />
+                                    <span>Update Pass</span>
+                                  </button>
+                                ) : isClosed ? (
+                                  <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-white/10 text-white/60 border border-white/10 shrink-0">
+                                    Closed
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedActivity(subAct);
+                                    }}
+                                    className="px-2.5 py-0.5 text-[9.5px] font-black rounded-md bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
+                                  >
+                                    <Ticket className="w-2.5 h-2.5" />
+                                    <span>{isPooja ? "Book Seva" : "Register"}</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* ── Line 3: Start Time & Registration Button ── */}
                 <div className="flex items-center justify-between gap-2 sm:gap-3 pt-0.5">
                   {/* Left: Start Time / Countdown Ticker in single clean row */}
@@ -1531,20 +1714,21 @@ export function EventMemberView() {
             </div>
 
             {/* Dynamic Collapsible Family Members Section */}
-            <div className="bg-card border border-border rounded-2xl p-3 sm:p-4 shadow-xs space-y-3 transition-all">
+            <div className="hidden sm:block bg-card border border-border rounded-2xl p-3 sm:p-4 shadow-xs space-y-3 transition-all">
               <div
-                className="flex items-center justify-between cursor-pointer select-none"
-                onClick={() => setShowFamily(!showFamily)}
+                className="flex items-center justify-between cursor-pointer select-none group"
+                onClick={() => setShowAddMemberModal(true)}
+                title="Click to add new family member"
               >
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                  <div className="p-2 rounded-xl bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
                     <Users className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5 group-hover:text-primary transition-colors">
                       Family Members ({familyMembers.length})
                       <span className="text-[10px] text-muted-foreground font-normal hidden sm:inline">
-                        ({showFamily ? "Tap to collapse" : "Tap to view"})
+                        (Click to add member)
                       </span>
                     </h3>
                   </div>
@@ -1566,7 +1750,12 @@ export function EventMemberView() {
 
                   <button
                     type="button"
-                    className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowFamily(!showFamily);
+                    }}
+                    className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors cursor-pointer"
+                    title={showFamily ? "Collapse list" : "Expand list"}
                   >
                     {showFamily ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
@@ -1669,7 +1858,7 @@ export function EventMemberView() {
                     onClick={() => setSelectedCategoryFilter(null)}
                     className="text-[10px] sm:text-[10.5px] font-bold text-rose-600 bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/20 hover:bg-rose-500/20 transition-all flex items-center gap-1 cursor-pointer"
                   >
-                    <X className="w-3 h-3" /> Clear: {selectedCategoryFilter}
+                    <X className="w-3.5 h-3.5" /> Clear: {selectedCategoryFilter}
                   </button>
                 )}
               </div>
@@ -1683,6 +1872,10 @@ export function EventMemberView() {
                     <button
                       key={action.id}
                       onClick={() => {
+                        if (action.action === "family" || action.id === "family") {
+                          setShowAddMemberModal(true);
+                          return;
+                        }
                         const isMobileScreen = typeof window !== "undefined" && window.innerWidth < 768;
                         if (isMobileScreen) {
                           setMobileQuickActionModal(action);
