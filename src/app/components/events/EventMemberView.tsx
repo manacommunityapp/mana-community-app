@@ -49,6 +49,7 @@ import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { PoojaRegistrationModal } from "./PoojaRegistrationModal";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
+import { useEscapeKey } from "../../../hooks/useEscapeKey";
 
 interface FamilyMember {
   id: string;
@@ -236,6 +237,14 @@ export function EventMemberView() {
     age: "",
     avatar: "👦",
   });
+
+  useEscapeKey(() => setMobileQuickActionModal(null), Boolean(mobileQuickActionModal));
+  useEscapeKey(() => setMobileModal(null), Boolean(mobileModal));
+  useEscapeKey(() => setShowQRPass(null), Boolean(showQRPass));
+  useEscapeKey(() => setViewReceiptModal(null), Boolean(viewReceiptModal));
+  useEscapeKey(() => setShowAddMemberModal(false), showAddMemberModal);
+  useEscapeKey(() => { if (!isSavingManage) { setManagePassModal(null); setCancelConfirmMode(false); } }, Boolean(managePassModal));
+  useEscapeKey(() => { setSelectedActivity(null); }, Boolean(selectedActivity));
 
   const DEFAULT_MOCK_MAIN_EVENTS = [
     {
@@ -2075,8 +2084,14 @@ export function EventMemberView() {
 
       {/* ─── MOBILE POOJA & SEVA MODAL / BOTTOM SHEET ─── */}
       {mobileModal === "pooja" && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
-          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col">
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn cursor-pointer"
+          onClick={() => setMobileModal(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-3 sm:hidden" />
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2.5">
@@ -2085,17 +2100,19 @@ export function EventMemberView() {
                 </div>
                 <div>
                   <h3 className="font-black text-foreground text-base flex items-center gap-2">
-                    Pooja & Seva Services
+                    Pooja &amp; Seva Services
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-800">
                       Live
                     </span>
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">Book sankalpams, homams & gotram sevas for family</p>
+                  <p className="text-[11px] text-muted-foreground">Book sankalpams, homams &amp; gotram sevas for family</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setMobileModal(null)}
-                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2203,9 +2220,9 @@ export function EventMemberView() {
               </button>
               <button
                 onClick={() => setMobileModal(null)}
-                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer flex items-center gap-1"
               >
-                Close
+                <X className="w-3.5 h-3.5" /> Close
               </button>
             </div>
           </div>
@@ -2214,8 +2231,14 @@ export function EventMemberView() {
 
       {/* ─── MOBILE MEALS & ANNADANAM MODAL / BOTTOM SHEET ─── */}
       {mobileModal === "meals" && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
-          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col">
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn cursor-pointer"
+          onClick={() => setMobileModal(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-3 sm:hidden" />
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2.5">
@@ -2224,17 +2247,19 @@ export function EventMemberView() {
                 </div>
                 <div>
                   <h3 className="font-black text-foreground text-base flex items-center gap-2">
-                    Meals & Annadanam
+                    Meals &amp; Annadanam
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/40 text-orange-600 border border-orange-200 dark:border-orange-800">
                       Community Feast
                     </span>
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">Lunch/Dinner feast schedules & food counter tokens</p>
+                  <p className="text-[11px] text-muted-foreground">Lunch/Dinner feast schedules &amp; food counter tokens</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setMobileModal(null)}
-                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2246,7 +2271,7 @@ export function EventMemberView() {
                 <div className="space-y-0.5">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400">☀️ Maha Prasadam Lunch</p>
                   <p className="font-extrabold text-foreground text-xs">12:30 PM – 03:00 PM</p>
-                  <p className="text-[10px] text-muted-foreground">Main Dining Hall, Counter A & B</p>
+                  <p className="text-[10px] text-muted-foreground">Main Dining Hall, Counter A &amp; B</p>
                 </div>
                 <div className="space-y-0.5">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400">🌙 Evening Utsav Dinner</p>
@@ -2336,9 +2361,9 @@ export function EventMemberView() {
               </button>
               <button
                 onClick={() => setMobileModal(null)}
-                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer flex items-center gap-1"
               >
-                Close
+                <X className="w-3.5 h-3.5" /> Close
               </button>
             </div>
           </div>
@@ -2347,8 +2372,14 @@ export function EventMemberView() {
 
       {/* ─── MOBILE PASSES & TICKETS MODAL / BOTTOM SHEET ─── */}
       {mobileModal === "passes" && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
-          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col">
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn cursor-pointer"
+          onClick={() => setMobileModal(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-3 sm:hidden" />
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2.5">
@@ -2366,8 +2397,10 @@ export function EventMemberView() {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setMobileModal(null)}
-                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2444,9 +2477,9 @@ export function EventMemberView() {
               </button>
               <button
                 onClick={() => setMobileModal(null)}
-                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer flex items-center gap-1"
               >
-                Close
+                <X className="w-3.5 h-3.5" /> Close
               </button>
             </div>
           </div>
@@ -2455,8 +2488,14 @@ export function EventMemberView() {
 
       {/* ─── MOBILE FAMILY DIRECTORY MODAL / BOTTOM SHEET ─── */}
       {mobileModal === "family" && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
-          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col">
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn cursor-pointer"
+          onClick={() => setMobileModal(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-3 sm:hidden" />
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2.5">
@@ -2470,12 +2509,14 @@ export function EventMemberView() {
                       {familyMembers.length} Members
                     </span>
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">Unified profile directory across Events & Sports</p>
+                  <p className="text-[11px] text-muted-foreground">Unified profile directory across Events &amp; Sports</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setMobileModal(null)}
-                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2550,10 +2591,14 @@ export function EventMemberView() {
 
       {/* ─── ADD FAMILY MEMBER MODAL (MOBILE BOTTOM-SHEET) ─── */}
       {showAddMemberModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
+          onClick={() => setShowAddMemberModal(false)}
+        >
           <form
             onSubmit={handleAddFamilyMemberSubmit}
-            className="w-full max-w-sm bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto cursor-default"
           >
             {/* Mobile Drag Indicator */}
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-2 sm:hidden" />
@@ -2566,7 +2611,8 @@ export function EventMemberView() {
               <button
                 type="button"
                 onClick={() => setShowAddMemberModal(false)}
-                className="text-muted-foreground hover:text-foreground cursor-pointer"
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2762,14 +2808,22 @@ export function EventMemberView() {
 
       {/* ─── QR GATE PASS MODAL (DIGITAL PASS WALLET) ─── */}
       {showQRPass && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="w-full max-w-sm bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl text-center animate-fadeIn relative">
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
+          onClick={() => setShowQRPass(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl text-center animate-fadeIn relative cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Mobile Drag Indicator */}
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-2 mb-2 sm:hidden" />
 
             <button
+              type="button"
               onClick={() => setShowQRPass(null)}
-              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground cursor-pointer"
+              className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors absolute right-4 top-4 shrink-0 shadow-2xs"
+              title="Close modal (Esc)"
             >
               <X className="w-4 h-4" />
             </button>
@@ -2792,23 +2846,39 @@ export function EventMemberView() {
               <p className="font-mono text-[11px] text-primary font-bold">{showQRPass.regId}</p>
             </div>
 
-            <button
-              onClick={() => {
-                handleDownloadPDFPass(showQRPass);
-                setShowQRPass(null);
-              }}
-              className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95"
-            >
-              <Download className="w-4 h-4" /> Download / Save PDF E-Pass
-            </button>
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  handleDownloadPDFPass(showQRPass);
+                  setShowQRPass(null);
+                }}
+                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95"
+              >
+                <Download className="w-4 h-4" /> Download / Save PDF E-Pass
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowQRPass(null)}
+                className="w-full py-2 bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold rounded-xl cursor-pointer transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ─── QUICK ACTION MODAL (MOBILE VIEW ONLY) ─── */}
+      {/* ─── QUICK ACTION MODAL (MOBILE VIEW ONLY - Pooja, Lunch/Meals, My Passes, Donate, Auction, Cultural, Competitions, Volunteers) ─── */}
       {mobileQuickActionModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xl animate-in slide-in-from-bottom-5 duration-200 max-h-[85vh] flex flex-col">
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200 cursor-pointer"
+          onClick={() => setMobileQuickActionModal(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xl animate-in slide-in-from-bottom-5 duration-200 max-h-[85vh] flex flex-col cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Mobile Drag Indicator */}
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-1 sm:hidden" />
 
@@ -2835,7 +2905,8 @@ export function EventMemberView() {
               <button
                 type="button"
                 onClick={() => setMobileQuickActionModal(null)}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -3044,6 +3115,32 @@ export function EventMemberView() {
                   );
                 })()
               )}
+            </div>
+
+            {/* Modal Footer with Close Button and Feed Link */}
+            <div className="pt-2.5 border-t border-border flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  if (mobileQuickActionModal.action === "passes") {
+                    setActiveTab("passes");
+                  } else if (mobileQuickActionModal.category) {
+                    setSelectedCategoryFilter(mobileQuickActionModal.category);
+                    setActiveTab("home");
+                  }
+                  setMobileQuickActionModal(null);
+                }}
+                className="text-xs font-bold text-primary hover:underline cursor-pointer"
+              >
+                {mobileQuickActionModal.action === "passes" ? "View Full Passes Dashboard →" : `View all ${mobileQuickActionModal.label} in feed →`}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileQuickActionModal(null)}
+                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer flex items-center gap-1"
+              >
+                <X className="w-3.5 h-3.5" /> Close
+              </button>
             </div>
           </div>
         </div>
