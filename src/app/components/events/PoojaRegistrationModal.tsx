@@ -480,17 +480,24 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             }
             if (currentEventReg.flatNo) setDevoteeFlat(currentEventReg.flatNo);
           } else {
-            // Check if user already has ANY other pooja booking in this community festival
-            const otherPoojaReg = activeRegs.find(
-              (r: any) =>
-                r.status !== "CANCELLED" &&
-                (r.category?.toLowerCase().includes("pooja") ||
-                  r.category?.toLowerCase().includes("seva") ||
-                  r.activityTitle?.toLowerCase().includes("pooja") ||
-                  r.activityTitle?.toLowerCase().includes("seva") ||
-                  r.eventName?.toLowerCase().includes("pooja") ||
-                  r.eventName?.toLowerCase().includes("seva"))
-            );
+            // Check if user already has another POOJA SUB-EVENT booking in THIS specific parent event
+            // Note: Main event passes (e.g. activityId "event-123") or unrelated events must NOT trigger this.
+            const otherPoojaReg = activeRegs.find((r: any) => {
+              if (r.status === "CANCELLED") return false;
+              const regActId = String(r.activityId || "");
+              // Only match actual pooja sub-events, never main event tickets/passes
+              const isPoojaSubEvent = regActId.startsWith("pooja-") || (r.category?.toUpperCase() === "POOJA" && !regActId.startsWith("event-"));
+              if (!isPoojaSubEvent) return false;
+
+              // Must be strictly scoped to the same parent mainEventId
+              const regMainEventId = r.mainEventId ? String(r.mainEventId) : null;
+              if (currentMainEventId && regMainEventId && currentMainEventId === regMainEventId) {
+                const regActIdNumeric = regActId.replace(/\D/g, "");
+                return regActIdNumeric !== currentSevaIdNumeric;
+              }
+              return false;
+            });
+
             if (otherPoojaReg) {
               setAlreadyRegisteredTitle(otherPoojaReg.activityTitle || otherPoojaReg.eventName || "Pooja Seva");
             } else {
