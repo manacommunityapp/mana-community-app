@@ -519,6 +519,29 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     }).catch(() => {});
   }, []);
 
+  const [addingTypeForActId, setAddingTypeForActId] = useState<string | null>(null);
+  const [newPoojaTypeName, setNewPoojaTypeName] = useState("");
+  const [addingType, setAddingType] = useState(false);
+  const [addTypeError, setAddTypeError] = useState("");
+
+  const handleAddPoojaType = async (actId: string, actDate: string) => {
+    const clean = newPoojaTypeName.trim();
+    if (!clean) return;
+    setAddingType(true);
+    setAddTypeError("");
+    try {
+      const created = await eventService.createPoojaType(clean);
+      setPoojaTypeOptions(prev => prev.some(t => t.name === created.name) ? prev : [...prev, { id: created.id, name: created.name }]);
+      updateActivity(actDate, actId, "poojaType", created.name);
+      setAddingTypeForActId(null);
+      setNewPoojaTypeName("");
+    } catch {
+      setAddTypeError("Failed to save type. Try again.");
+    } finally {
+      setAddingType(false);
+    }
+  };
+
   const createDefaultSingleActivity = (): ScheduleActivity[] => [
     {
       id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
@@ -1045,28 +1068,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                     className={cn(INPUT_CLS, "bg-white font-medium")}
                                   />
                                 </div>
-                              ) : currentCategory === "Pooja & Seva" ? (
-                                <div>
-                                  <FieldLabel required>Pooja Type</FieldLabel>
-                                  <select
-                                    value={act.poojaType || ""}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      if (val === "__new__") return;
-                                      updateActivity(day.date, act.id, "poojaType", val);
-                                    }}
-                                    className={cn(INPUT_CLS, "bg-white cursor-pointer")}
-                                  >
-                                    <option value="">— Select Pooja Type —</option>
-                                    {poojaTypeOptions.map(t => (
-                                      <option key={t.id} value={t.name}>{t.name}</option>
-                                    ))}
-                                  </select>
-                                  {act.poojaType && !poojaTypeOptions.some(t => t.name === act.poojaType) && (
-                                    <p className="text-[10px] text-amber-600 mt-0.5">New type &quot;{act.poojaType}&quot; will be created on save.</p>
-                                  )}
-                                </div>
-                              ) : (
+                              ) : currentCategory !== "Pooja & Seva" ? (
                                 <div>
                                   <FieldLabel>Syncs To</FieldLabel>
                                   <div className="px-3 py-[7px] rounded-[0.625rem] bg-indigo-50/60 border border-indigo-100 text-[12px] font-semibold text-indigo-700 flex items-center gap-1.5">
@@ -1081,11 +1083,16 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                     </span>
                                   </div>
                                 </div>
-                              )}
+                              ) : null}
                             </div>
 
-                            {/* Row 2: Title and Times */}
-                            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2.5 items-end">
+                            {/* Row 2: Title + (Pooja Type if Pooja & Seva) + Times */}
+                            <div className={cn(
+                              "grid gap-2.5 items-end",
+                              currentCategory === "Pooja & Seva"
+                                ? "grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto]"
+                                : "grid-cols-1 sm:grid-cols-[1fr_auto_auto]"
+                            )}>
                               <div>
                                 <div className="flex items-center justify-between mb-1">
                                   <FieldLabel required>Activity / Event Title</FieldLabel>
@@ -1124,6 +1131,78 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   </div>
                                 )}
                               </div>
+
+                              {/* Pooja Type — only for Pooja & Seva, beside Activity Title */}
+                              {currentCategory === "Pooja & Seva" && (
+                                <div className="w-full sm:min-w-[180px]">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <FieldLabel required>Pooja Type</FieldLabel>
+                                    {addingTypeForActId !== act.id && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                        className="text-[11px] font-bold text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-0.5 cursor-pointer"
+                                      >
+                                        <Plus className="w-3 h-3" /> Add New
+                                      </button>
+                                    )}
+                                  </div>
+                                  {addingTypeForActId === act.id ? (
+                                    <div className="space-y-1">
+                                      <div className="flex gap-1">
+                                        <Input
+                                          value={newPoojaTypeName}
+                                          onChange={(e) => { setNewPoojaTypeName(e.target.value); setAddTypeError(""); }}
+                                          placeholder="New type name..."
+                                          className={cn(INPUT_CLS, "bg-white flex-1 text-xs")}
+                                          autoFocus
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") { e.preventDefault(); handleAddPoojaType(act.id, day.date); }
+                                            if (e.key === "Escape") { setAddingTypeForActId(null); setNewPoojaTypeName(""); }
+                                          }}
+                                        />
+                                        <button
+                                          type="button"
+                                          disabled={addingType || !newPoojaTypeName.trim()}
+                                          onClick={() => handleAddPoojaType(act.id, day.date)}
+                                          className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold disabled:opacity-50 shrink-0 transition-all"
+                                        >
+                                          {addingType ? "…" : "Save"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => { setAddingTypeForActId(null); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                          className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 text-[10px] font-bold shrink-0"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                      {addTypeError && <p className="text-[10px] text-rose-500">{addTypeError}</p>}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5">
+                                      <select
+                                        value={act.poojaType || ""}
+                                        onChange={(e) => updateActivity(day.date, act.id, "poojaType", e.target.value)}
+                                        className={cn(INPUT_CLS, "bg-white cursor-pointer flex-1")}
+                                      >
+                                        <option value="">— Select Type —</option>
+                                        {poojaTypeOptions.map(t => (
+                                          <option key={t.id} value={t.name}>{t.name}</option>
+                                        ))}
+                                      </select>
+                                      <button
+                                        type="button"
+                                        onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                        className="p-[7px] rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition shrink-0 shadow-2xs active:scale-95"
+                                        title="Create new Pooja Type"
+                                      >
+                                        <Plus className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
 
                               <div className="w-full sm:w-36">
                                 <FieldLabel required>From</FieldLabel>
