@@ -21,7 +21,7 @@ import {
 import { useAuth } from "../../../contexts/AuthContext";
 import { userService } from "../../../services/common/userService";
 import { familyService, type FamilyMember } from "../../../services/common/familyService";
-import { eventService, type PoojaRegistrationRequest } from "../../../services/events/eventService";
+import { eventService, type PoojaRegistrationRequest, type PoojaScheduleDto } from "../../../services/events/eventService";
 import { isRegistrationClosed, isPoojaSlotPassed } from "../../../utils/eventDeadlineUtils";
 import { showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
@@ -128,6 +128,22 @@ function normalizeSlotStartTime(time: string): string {
 function makeSlotSelectionKey(day: DaySchedule | undefined, slot: DaySlotOption | undefined): string {
   if (!day || !slot) return "";
   return `${day.dateValue || day.dateStr}__${normalizeSlotStartTime(slot.time)}__${slot.name}`;
+}
+
+function makeLiveScheduleKey(scheduleDate: string, startTime: string): string {
+  // Drop seconds from "HH:mm:ss" so "08:30:00" and "08:30" both produce "08:30"
+  const t = String(startTime).replace(/:\d{2}$/, "");
+  return `${scheduleDate}__${t}`;
+}
+
+function getLiveSlotInfo(
+  map: Map<string, { scheduleId: number; availLeft: number }>,
+  dateValue: string | undefined,
+  slotTime: string
+): { scheduleId: number; availLeft: number } | undefined {
+  if (!dateValue) return undefined;
+  const normalized = normalizeSlotStartTime(slotTime).replace(/:\d{2}$/, "");
+  return map.get(`${dateValue}__${normalized}`);
 }
 
 function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule[] {
@@ -263,6 +279,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [selectedSlotTime, setSelectedSlotTime] = useState<string>("08:30 AM – 10:00 AM");
   const [selectedSlotName, setSelectedSlotName] = useState<string>("Morning Homam");
   const [selectedSlotKey, setSelectedSlotKey] = useState<string>("");
+  const [liveSchedules, setLiveSchedules] = useState<PoojaScheduleDto[]>([]);
+  const [schedulesLoading, setSchedulesLoading] = useState<boolean>(false);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(null);
+  const [reservationError, setReservationError] = useState<string | null>(null);
   const [gotram, setGotram] = useState<string>(
     () => event?.gotram || event?.existingRegistration?.gotram || ""
   );
@@ -295,6 +315,17 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         });
     }
   }, [isAnyAdmin]);
+
+  // Fetch live schedule availability from the booking engine
+  useEffect(() => {
+    const poojaId = event?.id ? Number(String(event.id).replace(/\D/g, "")) : 0;
+    if (!poojaId || poojaId <= 0) return;
+    setSchedulesLoading(true);
+    eventService.getSchedulesByPooja(poojaId)
+      .then((schedules) => { if (Array.isArray(schedules)) setLiveSchedules(schedules); })
+      .catch(() => {/* best effort — fall back to static slot counts */})
+      .finally(() => setSchedulesLoading(false));
+  }, [event?.id]);
 
   // Load Saved Family Members from Unified Family Service
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
@@ -551,6 +582,20 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
     return buildPoojaScheduleDays(event, defaultSlots);
   }, [event?.id, event?.startDate, event?.date, event?.endDate, event?.time, poojaTitle, totalSlotsCount, event?.timeSlotConfig]);
 
+  // Build lookup map: "dateValue__startTime" → {scheduleId, availLeft} from live backend data
+  const liveSlotInfoMap = React.useMemo(() => {
+    const map = new Map<string, { scheduleId: number; availLeft: number }>();
+    for (const sch of liveSchedules) {
+      if (sch.status === "BLOCKED" || sch.status === "CLOSED") continue;
+      const key = makeLiveScheduleKey(sch.scheduleDate, sch.startTime);
+      map.set(key, {
+        scheduleId: sch.id,
+        availLeft: Math.min(sch.availableFamilies, sch.availableDevotees),
+      });
+    }
+    return map;
+  }, [liveSchedules]);
+
   // Sync initial selection to first day / first slot of created pooja
   useEffect(() => {
     if (scheduleDays.length > 0) {
@@ -576,6 +621,14 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const selectedDateValue = currentDay?.dateValue || currentDay?.dateStr || "";
   const selectedDateDisplay = currentDay?.dateStr || selectedDateValue || baseDate;
 
+  // Re-sync selectedScheduleId when live schedules arrive after the initial slot selection
+  useEffect(() => {
+    if (!currentDay || !selectedSlot) return;
+    const liveInfo = getLiveSlotInfo(liveSlotInfoMap, currentDay.dateValue, selectedSlot.time);
+    setSelectedScheduleId(liveInfo?.scheduleId ?? null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveSlotInfoMap]);
+
   const steps = [
     { num: 1, title: isUpdateMode ? "Reschedule Slot" : "Date & Slot" },
     { num: 2, title: "Registrant" },
@@ -600,9 +653,13 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       showWarning("Please select one pooja date and one time slot.");
       return;
     }
-    if (currentStep === 1 && selectedSlot && selectedSlot.left <= 0) {
-      showWarning("The selected time slot is full. Please choose another session.");
-      return;
+    if (currentStep === 1 && selectedSlot) {
+      const liveInfo = getLiveSlotInfo(liveSlotInfoMap, currentDay?.dateValue, selectedSlot.time);
+      const effectiveLeft = liveInfo !== undefined ? liveInfo.availLeft : selectedSlot.left;
+      if (effectiveLeft <= 0) {
+        showWarning("The selected time slot is full. Please choose another session.");
+        return;
+      }
     }
     if (currentStep < 4) {
       setCurrentStep((prev) => prev + 1);
@@ -632,13 +689,40 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       showWarning("Please select one pooja date and one time slot.");
       return;
     }
-    if (selectedSlot && selectedSlot.left <= 0) {
-      showWarning("The selected time slot is full. Please choose another session.");
-      return;
+    if (selectedSlot) {
+      const liveInfo = getLiveSlotInfo(liveSlotInfoMap, currentDay?.dateValue, selectedSlot.time);
+      const effectiveLeft = liveInfo !== undefined ? liveInfo.availLeft : selectedSlot.left;
+      if (effectiveLeft <= 0) {
+        showWarning("The selected time slot is full. Please choose another session.");
+        return;
+      }
     }
 
     setIsSubmitting(true);
+    setReservationError(null);
     try {
+      // ── Pre-hold a capacity slot if the live booking engine is wired ──
+      let reservationId: number | undefined;
+      if (selectedScheduleId) {
+        const idempotencyKey = (typeof crypto !== "undefined" && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        try {
+          const reservation = await eventService.reserveSlot(selectedScheduleId, {
+            idempotencyKey,
+            familyCount: 1,
+            devoteeCount: 1,
+          });
+          reservationId = reservation.reservationId;
+        } catch (reserveErr: any) {
+          const errMsg = reserveErr?.message || "This slot is full or no longer available. Please choose another session.";
+          showWarning(errMsg);
+          setReservationError(errMsg);
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       // ── Resolve eventId: should be the PARENT community event id, NOT the pooja seva's own id.
       // When mainEventId is present, use it.  Fall back to stripping pooja's numeric id only as last resort.
       const resolvedParentEventId: number = (() => {
@@ -690,6 +774,8 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         paymentMethod: numericFee === 0 ? "Free Seva" : paymentMode,
         prasadamMode,
         status: "CONFIRMED",
+        ...(selectedScheduleId ? { scheduleId: selectedScheduleId } : {}),
+        ...(reservationId ? { reservationId } : {}),
       };
 
       if (isUpdateMode && existingRegId) {
@@ -941,6 +1027,8 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                             setSelectedSlotTime(firstSlot.time);
                             setSelectedSlotName(firstSlot.name);
                             setSelectedSlotKey(makeSlotSelectionKey(d, firstSlot));
+                            const liveInfo = getLiveSlotInfo(liveSlotInfoMap, d.dateValue, firstSlot.time);
+                            setSelectedScheduleId(liveInfo?.scheduleId ?? null);
                           }
                         }}
                         className={`p-3 rounded-2xl border-2 transition-all cursor-pointer select-none text-left ${
@@ -972,20 +1060,24 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                       const slotKey = makeSlotSelectionKey(currentDay, s);
                       const isSlotSelected = selectedSlotKey === slotKey;
                       const isSlotPassed = isPoojaSlotPassed(currentDay.dateValue, s.time) || isPoojaClosed;
+                      const liveInfo = getLiveSlotInfo(liveSlotInfoMap, currentDay.dateValue, s.time);
+                      const displayLeft = liveInfo !== undefined ? liveInfo.availLeft : s.left;
+                      const isSlotFull = liveInfo !== undefined && liveInfo.availLeft <= 0;
 
                       return (
                         <div
                           key={slotKey}
                           onClick={() => {
-                            if (isSlotPassed) return;
+                            if (isSlotPassed || isSlotFull) return;
                             setSelectedSlotTime(s.time);
                             setSelectedSlotName(s.name);
                             setSelectedSlotKey(slotKey);
+                            setSelectedScheduleId(liveInfo?.scheduleId ?? null);
                           }}
                           className={`p-3 rounded-2xl border-2 transition-all cursor-pointer ${
                             isSlotSelected
                               ? "border-primary bg-primary/10 ring-2 ring-primary/20"
-                              : isSlotPassed
+                              : isSlotPassed || isSlotFull
                               ? "border-border bg-muted/40 opacity-60 cursor-not-allowed"
                               : "border-border bg-card hover:border-primary/50"
                           }`}
@@ -995,9 +1087,19 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                               <span className="block text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">{s.name}</span>
                               <strong className="block mt-1 text-xs font-black text-foreground">{s.time}</strong>
                             </div>
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 shrink-0">
-                              {s.left} left
-                            </span>
+                            {schedulesLoading ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-muted/50 text-muted-foreground border border-border shrink-0">
+                                <Loader2 className="w-2.5 h-2.5 animate-spin inline" />
+                              </span>
+                            ) : isSlotFull ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-600 border border-rose-500/20 shrink-0">
+                                Full
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 shrink-0">
+                                {displayLeft} left
+                              </span>
+                            )}
                           </div>
                         </div>
                       );

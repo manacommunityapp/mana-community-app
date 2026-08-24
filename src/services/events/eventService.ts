@@ -189,6 +189,40 @@ export interface PoojaRegistrationRequest {
   paymentMethod?: string;
   prasadamMode?: string;
   status?: string;
+  scheduleId?: number;
+  reservationId?: number;
+}
+
+export interface PoojaScheduleDto {
+  id: number;
+  poojaId: number;
+  poojaName: string;
+  scheduleDate: string;
+  startTime: string;
+  endTime: string;
+  familyCapacity: number;
+  devoteeCapacity: number;
+  status: "OPEN" | "LIMITED" | "FULL" | "BLOCKED" | "CLOSED";
+  availableFamilies: number;
+  availableDevotees: number;
+  nextTokenSeq: number;
+}
+
+export interface PoojaReserveRequest {
+  idempotencyKey: string;
+  familyCount?: number;
+  devoteeCount?: number;
+}
+
+export interface PoojaReserveResponse {
+  reservationId: number;
+  scheduleId: number;
+  idempotencyKey: string;
+  reservedFamilyCount: number;
+  reservedDevoteeCount: number;
+  expiresAt: string;
+  status: string;
+  tokenNumber: number;
 }
 
 export interface PendingActionItemResponse {
@@ -637,5 +671,42 @@ export const eventService = {
       }
     }
     return apiClient.post<any>("/events/registrations?adminOverride=true", data);
+  },
+
+  async getSchedulesByPooja(poojaId: number): Promise<PoojaScheduleDto[]> {
+    return apiClient.get<PoojaScheduleDto[]>(`/events/pooja-schedules?poojaId=${poojaId}`);
+  },
+
+  async reserveSlot(scheduleId: number, body: PoojaReserveRequest): Promise<PoojaReserveResponse> {
+    return apiClient.post<PoojaReserveResponse>(`/events/pooja-schedules/${scheduleId}/reserve`, body);
+  },
+
+  async createPoojaSchedule(data: {
+    poojaId: number;
+    scheduleDate: string;
+    startTime: string;
+    endTime: string;
+    familyCapacity: number;
+    devoteeCapacity: number;
+  }): Promise<PoojaScheduleDto> {
+    return apiClient.post<PoojaScheduleDto>("/events/pooja-schedules", data);
+  },
+
+  async updatePoojaSchedule(id: number, data: {
+    scheduleDate?: string;
+    startTime?: string;
+    endTime?: string;
+    familyCapacity?: number;
+    devoteeCapacity?: number;
+  }): Promise<PoojaScheduleDto> {
+    return apiClient.put<PoojaScheduleDto>(`/events/pooja-schedules/${id}`, data);
+  },
+
+  async updatePoojaScheduleStatus(id: number, status: string): Promise<PoojaScheduleDto> {
+    return apiClient.patch<PoojaScheduleDto>(`/events/pooja-schedules/${id}/status?status=${status}`, {});
+  },
+
+  async deletePoojaSchedule(id: number): Promise<void> {
+    return apiClient.delete<void>(`/events/pooja-schedules/${id}`);
   },
 };
