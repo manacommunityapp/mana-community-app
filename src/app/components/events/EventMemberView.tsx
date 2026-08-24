@@ -2442,7 +2442,7 @@ export function EventMemberView() {
                       key={action.id}
                       onClick={() => {
                         if (action.action === "family" || action.id === "family") {
-                          setShowAddMemberModal(true);
+                          setMobileModal("family");
                           return;
                         }
                         const isMobileScreen = typeof window !== "undefined" && window.innerWidth < 768;
