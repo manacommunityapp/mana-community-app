@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { MessageCircle, X, Sparkles } from "lucide-react";
 import { ConversationsList } from "./ConversationsList";
 import { ChatWindow } from "./ChatWindow";
@@ -6,6 +6,7 @@ import { useChat } from "../../../contexts/ChatContext";
 import { useAuth } from "../../../contexts/AuthContext";
 
 export function FloatingChat() {
+  const [isButtonHovered, setIsButtonHovered] = useState(false);
   const {
     conversations,
     messages,
@@ -155,12 +156,12 @@ export function FloatingChat() {
 
       {/* ── Launcher ── */}
       <div className={`fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-50 font-sans ${isOpen ? "hidden sm:block" : "block"}`}>
-        <div className="group relative flex items-center justify-end">
-          {/* hover label (desktop) */}
-          {!isOpen && (
+        <div className="relative flex items-center justify-end">
+          {/* hover label (desktop) - strictly shown when hovering the exact chat icon button */}
+          {!isOpen && isButtonHovered && (
             <span
               className="hidden sm:block mr-3 px-3 py-1.5 rounded-full text-xs font-semibold text-white whitespace-nowrap
-                         opacity-0 translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-200 pointer-events-none"
+                         animate-in fade-in slide-in-from-right-2 duration-150 pointer-events-none shadow-xl"
               style={{ background: "rgba(28,27,74,0.92)", boxShadow: "0 6px 18px rgba(0,0,0,0.3)", border: "1px solid rgba(99,102,241,0.3)" }}
             >
               Chat with your community
@@ -169,7 +170,10 @@ export function FloatingChat() {
 
           <button
             onClick={toggleOpen}
-            aria-label={isOpen ? "Close chat" : "Open community chat"}
+            onMouseEnter={() => setIsButtonHovered(true)}
+            onMouseLeave={() => setIsButtonHovered(false)}
+            title={isOpen ? "Close chat" : "Chat with your community"}
+            aria-label={isOpen ? "Close chat" : "Chat with your community"}
             className="relative h-10 w-10 sm:h-14 sm:w-14 rounded-full flex items-center justify-center text-white
                        shadow-lg sm:shadow-xl hover:scale-105 active:scale-95 transition-transform cursor-pointer"
             style={{

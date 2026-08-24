@@ -88,6 +88,8 @@ export function EventsInvoices() {
   const [savingCat, setSavingCat] = useState(false);
   const [catError, setCatError] = useState("");
 
+  const [selectedEventId, setSelectedEventId] = useState<number | "ALL">("ALL");
+
   const load = () => {
     setLoading(true);
     setError("");
@@ -99,11 +101,15 @@ export function EventsInvoices() {
 
     // Load events dropdown data
     eventService
-      .getUpcomingEvents()
+      .getAll()
       .then((evts) => {
-        setEvents(evts);
-        if (evts.length > 0 && !form.eventId) {
-          setForm((f) => ({ ...f, eventId: String(evts[0].id) }));
+        const activeList = (evts || []).filter(e => {
+          const s = String(e.status || "").toUpperCase();
+          return s !== "CANCELLED" && s !== "CLOSED" && s !== "ARCHIVED";
+        });
+        setEvents(activeList);
+        if (activeList.length > 0 && !form.eventId) {
+          setForm((f) => ({ ...f, eventId: String(activeList[0].id) }));
         }
       })
       .catch(() => {});
@@ -123,10 +129,29 @@ export function EventsInvoices() {
     load();
   }, []);
 
+  const filteredInvoices = invoices.filter(inv => {
+    if (selectedEventId !== "ALL" && inv.eventId !== selectedEventId) return false;
+    return true;
+  });
+
   const generateNextInvoiceNum = (existing: EventInvoiceResponse[]) => {
     const year = new Date().getFullYear();
     const nextSeq = existing.length + 1;
     return `INV-${year}-${String(nextSeq).padStart(4, "0")}`;
+  };
+
+  const exportCSV = () => {
+    const headers = "Invoice #,Vendor,Date,Due Date,Category,Amount (INR),Tax (INR),Total (INR),Status,Notes,Created By\n";
+    const rows = filteredInvoices.map(inv =>
+      `"${inv.invoiceNumber ?? `#${inv.id}`}","${(inv.vendorName || "").replace(/"/g, '""')}","${inv.invoiceDate ?? ""}","${inv.dueDate ?? ""}","${inv.category || ""}","${inv.amount}","${inv.taxAmount}","${inv.totalAmount}","${inv.status}","${(inv.notes || "").replace(/"/g, '""')}","${inv.createdByName || ""}"`
+    ).join("\n");
+    const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `event_invoices_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,7 +181,7 @@ export function EventsInvoices() {
 
   const openCreate = () => {
     const autoInvNum = generateNextInvoiceNum(invoices);
-    const defaultEvId = events.length > 0 ? String(events[0].id) : "";
+    const defaultEvId = selectedEventId !== "ALL" ? String(selectedEventId) : (events.length > 0 ? String(events[0].id) : "");
     const defaultCat = dbCategories.length > 0 ? dbCategories[0].code : "OTHER";
 
     setForm({
@@ -252,9 +277,10 @@ export function EventsInvoices() {
     }
   };
 
-  const totalAmount = invoices.reduce((s, inv) => s + inv.totalAmount, 0);
-  const pendingCount = invoices.filter((inv) => inv.status === "PENDING").length;
-  const paidAmount = invoices.filter((inv) => inv.status === "PAID").reduce((s, inv) => s + inv.totalAmount, 0);
+  const totalAmount = filteredInvoices.reduce((s, inv) => s + inv.totalAmount, 0);
+  const pendingCount = filteredInvoices.filter((inv) => inv.status === "PENDING").length;
+  const pendingAmount = filteredInvoices.filter((inv) => inv.status === "PENDING").reduce((s, inv) => s + inv.totalAmount, 0);
+  const paidAmount = filteredInvoices.filter((inv) => inv.status === "PAID").reduce((s, inv) => s + inv.totalAmount, 0);
 
   const handleAddCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -269,7 +295,6 @@ export function EventsInvoices() {
       setShowAddCatModal(false);
       setNewCatName("");
     } catch (err: unknown) {
-      // Fallback for offline/mock mode:
       const fallbackCode = newCatName.trim().toUpperCase().replace(/\s+/g, "_");
       const fallbackObj = { name: newCatName.trim(), code: fallbackCode };
       setDbCategories((prev) => [...prev, fallbackObj]);
@@ -284,31 +309,69 @@ export function EventsInvoices() {
   return (
     <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base sm:text-lg font-bold text-slate-800">Event Invoices</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Track vendor invoices and payments</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-violet-500/10 text-violet-600 flex items-center justify-center flex-shrink-0">
+            <FileText className="w-5 h-5 text-violet-600" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+              Event Invoices & Billing
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 border border-violet-200">
+                {filteredInvoices.length} Invoices
+              </span>
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">Track vendor bills, GST tax breakdowns & approvals</p>
+          </div>
         </div>
-        <button
-          onClick={openCreate}
-          className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-indigo-600 to-violet-500 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm hover:opacity-90 transition"
-        >
-          <Plus className="w-3.5 h-3.5" /> Add Invoice
-        </button>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {events.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+              <select
+                value={selectedEventId}
+                onChange={(e) => setSelectedEventId(e.target.value === "ALL" ? "ALL" : Number(e.target.value))}
+                className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer max-w-[180px] sm:max-w-[220px] truncate"
+              >
+                <option value="ALL">🌟 All Events</option>
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold rounded-xl transition cursor-pointer"
+          >
+            Export CSV
+          </button>
+
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-1.5 px-3 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-sm transition cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Invoice
+          </button>
+        </div>
       </div>
 
       {/* Error banner */}
       {error && <ErrorBanner message={error} />}
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {[
           { label: "Total Invoiced", value: fmtINR(totalAmount), icon: IndianRupee, color: "#6366f1", bg: "#eef2ff" },
-          { label: "Pending",        value: String(pendingCount), icon: Clock,      color: "#d97706", bg: "#fffbeb" },
-          { label: "Total Paid",     value: fmtINR(paidAmount),  icon: TrendingDown,color: "#10b981", bg: "#ecfdf5" },
+          { label: "Pending Approval", value: String(pendingCount), icon: Clock, color: "#d97706", bg: "#fffbeb" },
+          { label: "Pending Amount", value: fmtINR(pendingAmount), icon: IndianRupee, color: "#f59e0b", bg: "#fef3c7" },
+          { label: "Total Paid", value: fmtINR(paidAmount), icon: TrendingDown, color: "#10b981", bg: "#ecfdf5" },
         ].map((s, i) => (
-          <div key={i} className="bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)]">
-            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-2" style={{ background: s.bg }}>
+          <div key={i} className="bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
+            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center mb-2 mx-auto" style={{ background: s.bg }}>
               <s.icon className="w-4 h-4" style={{ color: s.color }} />
             </div>
             <p className="text-sm sm:text-lg font-black" style={{ color: s.color }}>{s.value}</p>
@@ -321,10 +384,10 @@ export function EventsInvoices() {
       <div className="bg-white rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
         {loading ? (
           <LoadingSpinner label="Loading invoices…" className="py-12" />
-        ) : invoices.length === 0 ? (
+        ) : filteredInvoices.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-14 text-slate-400">
             <FileText className="w-10 h-10 mb-3 opacity-30" />
-            <p className="text-sm font-medium">No invoices yet</p>
+            <p className="text-sm font-medium">No invoices match selected criteria</p>
             <p className="text-xs mt-1">Click &quot;Add Invoice&quot; to upload your first invoice</p>
           </div>
         ) : (
@@ -340,7 +403,7 @@ export function EventsInvoices() {
                 </tr>
               </thead>
               <tbody>
-                {invoices.map((inv) => {
+                {filteredInvoices.map((inv) => {
                   const badge = statusBadge(inv.status);
                   return (
                     <tr key={inv.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">

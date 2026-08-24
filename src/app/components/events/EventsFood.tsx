@@ -1,36 +1,68 @@
-import { useState, useEffect } from "react";
-import { TrendingDown, Plus, UtensilsCrossed, Loader2, CheckCircle2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  TrendingDown, Plus, UtensilsCrossed, Loader2, CheckCircle2, Calendar, MapPin,
+  Sparkles, Clock, Users, User, ArrowRight, Download, Pencil, Trash2, X, AlertCircle,
+  Package, ShoppingBag
+} from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { ErrorBanner, LoadingSpinner } from "./shared";
 import { foodEventService } from "../../../services/food/foodEventService";
-import { eventProgramService, type MealSummaryResponse, type MealRegistrationRequest, type MealRegistrationResponse } from "../../../services/events/eventProgramService";
+import {
+  eventProgramService,
+  type MealSummaryResponse,
+  type MealRegistrationRequest,
+  type MealRegistrationResponse,
+} from "../../../services/events/eventProgramService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 
-const menuItems = [
-  { name: "Pulihora",         qty: 800,  unit: "plates", prepared: 650, status: "In Progress" },
-  { name: "Curd Rice",        qty: 600,  unit: "plates", prepared: 600, status: "Ready"       },
-  { name: "Sweet Pongal",     qty: 500,  unit: "plates", prepared: 500, status: "Ready"       },
-  { name: "Vada",             qty: 1200, unit: "pieces", prepared: 900, status: "In Progress" },
-  { name: "Payasam",          qty: 700,  unit: "cups",   prepared: 0,   status: "Pending"     },
-  { name: "Prasadam Laddu",   qty: 2000, unit: "pieces", prepared: 1500,status: "In Progress" },
-  { name: "Coconut Water",    qty: 400,  unit: "pieces", prepared: 400, status: "Ready"       },
-];
-
-// Mock data — foodEventService used when toggle is "Live API"
-const ingredients = [
-  { item: "Rice",       required: "250 kg", available: "260 kg", status: "ok"  },
-  { item: "Ghee",       required: "30 L",   available: "28 L",   status: "low" },
-  { item: "Sugar",      required: "80 kg",  available: "90 kg",  status: "ok"  },
-  { item: "Dal",        required: "40 kg",  available: "35 kg",  status: "low" },
-  { item: "Tamarind",   required: "15 kg",  available: "18 kg",  status: "ok"  },
-  { item: "Milk",       required: "200 L",  available: "180 L",  status: "low" },
-];
-
-const statusStyle: Record<string, { bg: string; text: string }> = {
-  Ready:       { bg: "bg-emerald-50", text: "text-emerald-700" },
-  "In Progress":{ bg: "bg-amber-50",  text: "text-amber-700"   },
-  Pending:     { bg: "bg-slate-100",  text: "text-slate-500"   },
+type LunchDinner = {
+  id: number;
+  communityId?: number;
+  mainEventId?: number;
+  name: string;
+  mealType: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  venue?: string;
+  targetPlates?: number;
+  caterer?: string;
+  dietType?: string;
+  fee?: number;
+  isFree?: boolean;
+  menuItems?: string[];
+  notes?: string;
 };
+
+interface IngredientStock {
+  id: string;
+  item: string;
+  required: string;
+  available: string;
+  unit: string;
+  status: "ok" | "low" | "critical";
+  category: string;
+}
+
+const DEFAULT_INGREDIENTS: IngredientStock[] = [
+  { id: "ING-1", item: "Sona Masoori Rice", required: "250", available: "260", unit: "kg", status: "ok", category: "Grains" },
+  { id: "ING-2", item: "Pure Desi Ghee", required: "30", available: "24", unit: "L", status: "low", category: "Dairy" },
+  { id: "ING-3", item: "Refined Sugar", required: "80", available: "90", unit: "kg", status: "ok", category: "Groceries" },
+  { id: "ING-4", item: "Toor Dal", required: "40", available: "32", unit: "kg", status: "low", category: "Pulses" },
+  { id: "ING-5", item: "Tamarind", required: "15", available: "18", unit: "kg", status: "ok", category: "Spices" },
+  { id: "ING-6", item: "Cow Milk", required: "200", available: "150", unit: "L", status: "low", category: "Dairy" },
+  { id: "ING-7", item: "Cashews & Raisins", required: "12", available: "14", unit: "kg", status: "ok", category: "Dry Fruits" },
+];
+
+const mockMenuItems = [
+  { name: "Pulihora", qty: 800, unit: "plates", prepared: 650, status: "In Progress" },
+  { name: "Curd Rice", qty: 600, unit: "plates", prepared: 600, status: "Ready" },
+  { name: "Sweet Pongal", qty: 500, unit: "plates", prepared: 500, status: "Ready" },
+  { name: "Vada", qty: 1200, unit: "pieces", prepared: 900, status: "In Progress" },
+  { name: "Payasam", qty: 700, unit: "cups", prepared: 0, status: "Pending" },
+  { name: "Prasadam Laddu", qty: 2000, unit: "pieces", prepared: 1500, status: "In Progress" },
+  { name: "Coconut Water", qty: 400, unit: "pieces", prepared: 400, status: "Ready" },
+];
 
 const MOCK_MEAL_SUMMARY: MealSummaryResponse = {
   eventId: 1,
@@ -46,12 +78,15 @@ const MOCK_MEAL_SUMMARY: MealSummaryResponse = {
 export function EventsFood() {
   const { useMock } = useEventMock();
 
-  const [liveEvents, setLiveEvents] = useState<any[]>([]);
+  const [liveMeals, setLiveMeals] = useState<LunchDinner[]>([]);
+  const [liveRegistrations, setLiveRegistrations] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mealSummary, setMealSummary] = useState<MealSummaryResponse | null>(null);
   const [events, setEvents] = useState<EventResponse[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+
+  // Meal Preferences Form State
   const [showMealReg, setShowMealReg] = useState(false);
   const [dietaryPref, setDietaryPref] = useState("VEG");
   const [allergies, setAllergies] = useState("");
@@ -60,33 +95,42 @@ export function EventsFood() {
   const [mealSaved, setMealSaved] = useState(false);
   const [existingMealReg, setExistingMealReg] = useState<MealRegistrationResponse | null>(null);
 
-  useEffect(() => {
-    if (useMock) {
-      setMealSummary(MOCK_MEAL_SUMMARY);
-      return;
-    }
-    setLoading(true);
-    setError("");
-    foodEventService.getEvents()
-      .then(res => setLiveEvents(res.content ?? []))
-      .catch(e => {
-        if (e?.message?.toLowerCase().includes("403") || e?.status === 403 || String(e?.message ?? "").includes("Access Denied")) {
-        } else {
-          setError(e.message ?? "Failed to load food events");
-        }
-      })
-      .finally(() => setLoading(false));
+  // Ingredient Stock State
+  const [stockList, setStockList] = useState<IngredientStock[]>(DEFAULT_INGREDIENTS);
+  const [showStockModal, setShowStockModal] = useState(false);
+  const [stockForm, setStockForm] = useState({ item: "", required: "", available: "", unit: "kg", category: "Groceries" });
 
-    eventService.getAllEvents()
-      .then((evts: EventResponse[]) => {
-        if (evts.length > 0) {
-          eventProgramService.getMealSummary(evts[0].id)
-            .then(setMealSummary)
-            .catch(() => {});
-        }
-      })
-      .catch(() => {});
-  }, [useMock]);
+  // Add / Edit Meal Modal State
+  const [showMealModal, setShowMealModal] = useState(false);
+  const [editingMealId, setEditingMealId] = useState<number | null>(null);
+  const [mealForm, setMealForm] = useState({
+    name: "",
+    mealType: "Lunch",
+    date: new Date().toISOString().slice(0, 10),
+    startTime: "12:30",
+    endTime: "14:30",
+    venue: "Main Dining Hall",
+    targetPlates: 500,
+    caterer: "Temple Kitchen Staff",
+    dietType: "VEG",
+    fee: 0,
+    isFree: true,
+    menuItems: "Pulihora, Curd Rice, Sweet Pongal, Vada, Payasam",
+  });
+  const [savingMealBatch, setSavingMealBatch] = useState(false);
+
+  // Devotee Quick Pass RSVP Modal
+  const [showRsvpModal, setShowRsvpModal] = useState(false);
+  const [rsvpMeal, setRsvpMeal] = useState<LunchDinner | null>(null);
+  const [rsvpForm, setRsvpForm] = useState({
+    participantName: "",
+    phone: "",
+    devoteeCount: 1,
+    dietPreference: "VEG",
+    notes: "",
+  });
+  const [savingRsvp, setSavingRsvp] = useState(false);
+  const [rsvpSuccess, setRsvpSuccess] = useState(false);
 
   useEffect(() => {
     eventService.getAll().then(evts => {
@@ -98,6 +142,36 @@ export function EventsFood() {
       if (activeList.length > 0) setSelectedEventId(activeList[0].id);
     }).catch(() => {});
   }, []);
+
+  const loadData = () => {
+    if (useMock) {
+      setMealSummary(MOCK_MEAL_SUMMARY);
+      return;
+    }
+    setLoading(true);
+    setError("");
+
+    Promise.all([
+      eventService.getLunchDinners(selectedEventId ?? undefined).catch(() => []),
+      eventService.getAllRegistrations().catch(() => []),
+      selectedEventId ? eventProgramService.getMealSummary(selectedEventId).catch(() => null) : Promise.resolve(null),
+    ])
+      .then(([mList, regs, summary]) => {
+        setLiveMeals(mList ?? []);
+        setLiveRegistrations(regs ?? []);
+        if (summary) setMealSummary(summary);
+      })
+      .catch((e) => {
+        if (!e?.message?.toLowerCase().includes("403")) {
+          setError(e.message ?? "Failed to load food operations data");
+        }
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [useMock, selectedEventId]);
 
   useEffect(() => {
     if (!selectedEventId || useMock) return;
@@ -112,6 +186,41 @@ export function EventsFood() {
       })
       .catch(() => {});
   }, [selectedEventId, useMock]);
+
+  const selectedEvent = useMemo(() => {
+    return events.find(e => e.id === selectedEventId) || null;
+  }, [events, selectedEventId]);
+
+  const eventScopedMeals = useMemo(() => {
+    if (!selectedEventId) return liveMeals;
+    return liveMeals.filter(m => {
+      if (m.mainEventId === selectedEventId) return true;
+      if (selectedEvent && selectedEvent.startDate && selectedEvent.endDate) {
+        return m.date >= selectedEvent.startDate && m.date <= selectedEvent.endDate;
+      }
+      return false;
+    });
+  }, [liveMeals, selectedEventId, selectedEvent]);
+
+  const totalPlannedPlates = useMemo(() => {
+    if (useMock) return mockMenuItems.reduce((a, m) => a + m.qty, 0);
+    return eventScopedMeals.reduce((a, m) => a + (m.targetPlates || 500), 0);
+  }, [useMock, eventScopedMeals]);
+
+  const totalBookedAttendees = useMemo(() => {
+    if (useMock) return mockMenuItems.reduce((a, m) => a + m.prepared, 0);
+    return liveRegistrations
+      .filter(r => {
+        const s = String(r.status || "").toUpperCase();
+        if (s === "CANCELLED" || s === "REJECTED") return false;
+        return eventScopedMeals.some(m => r.activityId === `meal-${m.id}` || r.activityId === `food-${m.id}` || r.activityTitle === m.name);
+      })
+      .reduce((a, r) => a + (Number(r.devoteeCount ?? r.membersCount ?? 1) || 1), 0);
+  }, [useMock, liveRegistrations, eventScopedMeals]);
+
+  const readyPct = totalPlannedPlates > 0 ? Math.min(100, Math.round((totalBookedAttendees / totalPlannedPlates) * 100)) : 0;
+
+  const lowStockCount = stockList.filter(s => s.status !== "ok").length;
 
   const initMealDays = () => {
     if (mealSummary && mealSummary.days.length > 0) {
@@ -141,7 +250,7 @@ export function EventsFood() {
         });
       }
       setMealSaved(true);
-      setTimeout(() => { setMealSaved(false); setShowMealReg(false); }, 1500);
+      setTimeout(() => { setMealSaved(false); setShowMealReg(false); loadData(); }, 1200);
     } catch (err: any) {
       setError(err?.message || "Failed to save meal preferences");
     } finally {
@@ -157,99 +266,423 @@ export function EventsFood() {
     setMealDays(prev => prev.map((d, i) => i === idx ? { ...d, headCount: Math.max(1, val) } : d));
   };
 
-  const totalPlanned = menuItems.reduce((a, m) => a + m.qty, 0);
-  const totalPrepared = menuItems.reduce((a, m) => a + m.prepared, 0);
+  // Add / Edit Meal Batch
+  const openCreateMealModal = () => {
+    setEditingMealId(null);
+    setMealForm({
+      name: "",
+      mealType: "Lunch",
+      date: selectedEvent?.startDate || new Date().toISOString().slice(0, 10),
+      startTime: "12:30",
+      endTime: "14:30",
+      venue: "Main Dining Hall",
+      targetPlates: 500,
+      caterer: "Temple Kitchen Staff",
+      dietType: "VEG",
+      fee: 0,
+      isFree: true,
+      menuItems: "Pulihora, Curd Rice, Sweet Pongal, Vada, Payasam",
+    });
+    setShowMealModal(true);
+  };
 
-  const foodKpis = useMock
-    ? [
-        { label: "Total Planned",  value: `${totalPlanned.toLocaleString()}`,   color: "#4f46e5" },
-        { label: "Prepared",       value: `${totalPrepared.toLocaleString()}`,   color: "#10b981" },
-        { label: "Ready %",        value: `${Math.round(totalPrepared/totalPlanned*100)}%`, color: "#6366f1" },
-        { label: "Kitchen Teams",  value: "6",                                   color: "#7c3aed" },
-      ]
-    : [
-        { label: "Food Events",    value: String(liveEvents.length),              color: "#4f46e5" },
-        { label: "Total Planned",  value: `${totalPlanned.toLocaleString()}`,   color: "#10b981" },
-        { label: "Ready %",        value: `${Math.round(totalPrepared/totalPlanned*100)}%`, color: "#6366f1" },
-        { label: "Kitchen Teams",  value: "6",                                   color: "#7c3aed" },
-      ];
+  const openEditMealModal = (m: LunchDinner) => {
+    setEditingMealId(m.id);
+    setMealForm({
+      name: m.name,
+      mealType: m.mealType || "Lunch",
+      date: m.date,
+      startTime: m.startTime || "12:30",
+      endTime: m.endTime || "14:30",
+      venue: m.venue || "Main Dining Hall",
+      targetPlates: m.targetPlates || 500,
+      caterer: m.caterer || "Temple Kitchen Staff",
+      dietType: m.dietType || "VEG",
+      fee: m.fee || 0,
+      isFree: m.isFree ?? (m.fee === 0),
+      menuItems: Array.isArray(m.menuItems) ? m.menuItems.join(", ") : (m.notes || ""),
+    });
+    setShowMealModal(true);
+  };
+
+  const handleSaveMealBatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mealForm.name.trim()) return;
+    setSavingMealBatch(true);
+    setError("");
+    try {
+      const payload: any = {
+        mainEventId: selectedEventId || 1,
+        name: mealForm.name.trim(),
+        mealType: mealForm.mealType,
+        date: mealForm.date,
+        startTime: mealForm.startTime,
+        endTime: mealForm.endTime,
+        venue: mealForm.venue,
+        targetPlates: Number(mealForm.targetPlates) || 500,
+        caterer: mealForm.caterer,
+        dietType: mealForm.dietType,
+        fee: mealForm.isFree ? 0 : Number(mealForm.fee) || 0,
+        isFree: mealForm.isFree,
+        menuItems: mealForm.menuItems.split(",").map(s => s.trim()).filter(Boolean),
+        notes: mealForm.menuItems,
+      };
+
+      if (editingMealId) {
+        await eventService.updateLunchDinner(editingMealId, payload);
+      } else {
+        await eventService.createLunchDinner(payload);
+      }
+
+      setShowMealModal(false);
+      loadData();
+    } catch (err: any) {
+      setError(err?.message || "Failed to save meal batch");
+    } finally {
+      setSavingMealBatch(false);
+    }
+  };
+
+  const handleDeleteMeal = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this meal course?")) return;
+    try {
+      await eventService.deleteLunchDinner(id);
+      loadData();
+    } catch (err: any) {
+      setError(err?.message || "Failed to delete meal course");
+    }
+  };
+
+  // Restock / Add Stock Item
+  const handleSaveStock = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stockForm.item.trim()) return;
+    const reqNum = parseFloat(stockForm.required) || 0;
+    const availNum = parseFloat(stockForm.available) || 0;
+    const status: "ok" | "low" | "critical" = availNum >= reqNum ? "ok" : (availNum < reqNum * 0.5 ? "critical" : "low");
+
+    const existingIdx = stockList.findIndex(s => s.item.toLowerCase() === stockForm.item.toLowerCase());
+    if (existingIdx >= 0) {
+      setStockList(prev => prev.map((s, i) => i === existingIdx ? { ...s, required: stockForm.required, available: stockForm.available, status } : s));
+    } else {
+      setStockList(prev => [...prev, {
+        id: `ING-${Date.now()}`,
+        item: stockForm.item.trim(),
+        required: stockForm.required,
+        available: stockForm.available,
+        unit: stockForm.unit,
+        status,
+        category: stockForm.category,
+      }]);
+    }
+    setShowStockModal(false);
+    setStockForm({ item: "", required: "", available: "", unit: "kg", category: "Groceries" });
+  };
+
+  // Devotee RSVP
+  const openRsvpModal = (m: LunchDinner) => {
+    setRsvpMeal(m);
+    setRsvpForm({ participantName: "", phone: "", devoteeCount: 1, dietPreference: m.dietType || "VEG", notes: "" });
+    setRsvpSuccess(false);
+    setShowRsvpModal(true);
+  };
+
+  const handleRsvpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rsvpMeal || !rsvpForm.participantName.trim()) return;
+    setSavingRsvp(true);
+    try {
+      await eventService.createRegistration({
+        eventId: selectedEventId || 1,
+        mainEventId: selectedEventId || 1,
+        activityId: `meal-${rsvpMeal.id}`,
+        activityTitle: rsvpMeal.name,
+        activityType: "LUNCH_DINNER",
+        participantName: rsvpForm.participantName.trim(),
+        phone: rsvpForm.phone.trim(),
+        devoteeCount: rsvpForm.devoteeCount,
+        bookingFee: (rsvpMeal.fee || 0) * rsvpForm.devoteeCount,
+        paymentStatus: (rsvpMeal.isFree || (rsvpMeal.fee || 0) === 0) ? "FREE" : "PAID",
+        notes: `Diet: ${rsvpForm.dietPreference} · ${rsvpForm.notes}`,
+      });
+      setRsvpSuccess(true);
+      setTimeout(() => { setShowRsvpModal(false); loadData(); }, 1200);
+    } catch (err: any) {
+      setError(err?.message || "Failed to book food pass");
+    } finally {
+      setSavingRsvp(false);
+    }
+  };
+
+  // Export CSV
+  const exportCateringCSV = () => {
+    const headers = "Meal Course,Type,Date,Start Time,End Time,Venue,Caterer,Target Plates,Booked Plates,Diet Type,Fee (INR),Menu Items\n";
+    const rows = eventScopedMeals.map(m => {
+      const booked = liveRegistrations
+        .filter(r => r.activityId === `meal-${m.id}` || r.activityId === `food-${m.id}` || r.activityTitle === m.name)
+        .reduce((a, r) => a + (Number(r.devoteeCount ?? 1) || 1), 0);
+      const menu = Array.isArray(m.menuItems) ? m.menuItems.join("; ") : (m.notes || "");
+      return `"${m.name.replace(/"/g, '""')}","${m.mealType}","${m.date}","${m.startTime || ""}","${m.endTime || ""}","${m.venue || ""}","${m.caterer || ""}","${m.targetPlates || 500}","${booked}","${m.dietType || "VEG"}","${m.fee || 0}","${menu.replace(/"/g, '""')}"`;
+    }).join("\n");
+
+    const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `catering_logistics_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div className="space-y-3 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header & Event Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center flex-shrink-0">
+            <UtensilsCrossed className="w-5 h-5 text-orange-600" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+              Food & Catering Operations
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                {eventScopedMeals.length} Live Batches
+              </span>
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Live catering, prasadam scheduling, plates capacity & devotee preferences
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {events.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+              <Calendar className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+              <select
+                value={selectedEventId ?? ""}
+                onChange={(e) => setSelectedEventId(Number(e.target.value))}
+                className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer max-w-[180px] sm:max-w-[220px] truncate"
+              >
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.title} {ev.startDate ? `(${ev.startDate})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <button
+            onClick={exportCateringCSV}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold rounded-xl transition cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" /> Export Sheet
+          </button>
+
+          <button
+            onClick={openCreateMealModal}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white transition-all shadow-sm cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Meal Course
+          </button>
+        </div>
+      </div>
+
+      {/* Scoped Event Banner */}
+      {selectedEvent && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-orange-50/70 border border-orange-200/80 text-xs text-orange-950 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-orange-600 font-bold">📅 Active Event:</span>
+            <span className="font-extrabold text-slate-900">{selectedEvent.title}</span>
+            {selectedEvent.startDate && (
+              <span className="text-slate-600 font-medium">
+                ({selectedEvent.startDate} {selectedEvent.endDate ? `to ${selectedEvent.endDate}` : ""})
+              </span>
+            )}
+          </div>
+          {selectedEvent.location && (
+            <span className="text-[11px] text-slate-500 flex items-center gap-1">
+              <MapPin className="w-3 h-3 text-orange-500" /> {selectedEvent.location}
+            </span>
+          )}
+        </div>
+      )}
+
       {error && <ErrorBanner message={error} />}
-      {loading && <LoadingSpinner label="Loading food events…" />}
+      {loading && <LoadingSpinner label="Loading food operations data…" />}
+
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-        {foodKpis.map((s, i) => (
+        {[
+          { label: "Scheduled Meals", value: String(eventScopedMeals.length || 4), color: "#f97316", sub: "Kitchen batches" },
+          { label: "Target Plates", value: totalPlannedPlates.toLocaleString("en-IN"), color: "#4f46e5", sub: "Total capacity" },
+          { label: "Booked Plates", value: totalBookedAttendees.toLocaleString("en-IN"), color: "#10b981", sub: `${readyPct}% capacity` },
+          { label: "Kitchen Teams", value: "6", color: "#7c3aed", sub: "Active caterers" },
+        ].map((s, i) => (
           <div
             key={s.label}
-            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center`}
+            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center`}
           >
             <p className="text-lg sm:text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
             <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5 sm:mt-1">{s.label}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{s.sub}</p>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
-        {/* Menu preparation status */}
+        {/* Menu preparation & live meal courses */}
         <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
           <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50">
-            <h2 className="font-bold text-slate-800">Menu Preparation</h2>
-            <button className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm">
-              <Plus className="w-3.5 h-3.5" /> Add Item
+            <h2 className="font-bold text-slate-800">Menu Preparation & Batches</h2>
+            <button
+              onClick={openCreateMealModal}
+              className="flex items-center gap-1 text-xs font-bold text-orange-600 hover:underline cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Course
             </button>
           </div>
           <div className="p-3 sm:p-6 space-y-3 sm:space-y-4">
-            {menuItems.map((item, i) => {
-              const ss = statusStyle[item.status] || { bg: "bg-emerald-50", text: "text-emerald-700" };
-              const pct = Math.round((item.prepared / item.qty) * 100);
-              return (
-                <div key={item.name} className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)}`}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs sm:text-sm font-semibold text-slate-800">{item.name}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${ss.bg} ${ss.text}`}>{item.status}</span>
+            {!useMock && eventScopedMeals.length > 0 ? (
+              eventScopedMeals.map((m) => {
+                const bookedCount = liveRegistrations
+                  .filter(r => r.activityId === `meal-${m.id}` || r.activityId === `food-${m.id}` || r.activityTitle === m.name)
+                  .reduce((a, r) => a + (Number(r.devoteeCount ?? 1) || 1), 0);
+                const target = m.targetPlates || 500;
+                const pct = Math.min(100, Math.round((bookedCount / target) * 100));
+
+                return (
+                  <div key={m.id} className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 space-y-2 hover:border-orange-200 transition-all">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-800 text-xs sm:text-sm">{m.name}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                          {m.mealType}
+                        </span>
+                        {m.dietType && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">
+                            {m.dietType}
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700">
+                          {m.isFree ? "Free" : `₹${m.fee}`}
+                        </span>
+                      </div>
+                      <span className="text-xs text-slate-500 font-medium tabular-nums">
+                        <span className="font-bold text-orange-600">{bookedCount}</span> / {target} plates
+                      </span>
                     </div>
-                    <span className="text-xs text-slate-500 font-medium tabular-nums">
-                      {item.prepared} / {item.qty} {item.unit}
-                    </span>
+
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        style={{ width: `${pct}%` }}
+                        className={`h-full rounded-full transition-all ${
+                          pct >= 90 ? "bg-rose-500" : pct >= 60 ? "bg-orange-500" : "bg-emerald-500"
+                        }`}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 flex-wrap gap-2">
+                      <div className="flex items-center gap-3">
+                        <span>📅 {m.date} {m.startTime ? `· ${m.startTime}` : ""}</span>
+                        <span>👨‍🍳 {m.caterer || "Temple Kitchen"}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 ml-auto">
+                        <button
+                          onClick={() => openRsvpModal(m)}
+                          className="px-2 py-1 rounded-lg text-[10px] font-bold bg-orange-100 text-orange-800 hover:bg-orange-200 transition-colors cursor-pointer"
+                        >
+                          RSVP Pass
+                        </button>
+                        <button
+                          onClick={() => openEditMealModal(m)}
+                          className="p-1 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-md transition cursor-pointer"
+                          title="Edit Meal"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteMeal(m.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition cursor-pointer"
+                          title="Delete Meal"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      style={{ width: `${pct}%` }}
-                      className={`h-full rounded-full transition-[width] duration-700 ease-out ${
-                        pct === 100 ? "bg-emerald-500" : pct > 60 ? "bg-orange-500" : "bg-amber-400"
-                      }`} />
+                );
+              })
+            ) : (
+              mockMenuItems.map((item, i) => {
+                const pct = Math.round((item.prepared / item.qty) * 100);
+                return (
+                  <div key={item.name} className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)}`}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs sm:text-sm font-semibold text-slate-800">{item.name}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">{item.status}</span>
+                      </div>
+                      <span className="text-xs text-slate-500 font-medium tabular-nums">
+                        {item.prepared} / {item.qty} {item.unit}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        style={{ width: `${pct}%` }}
+                        className={`h-full rounded-full transition-[width] duration-700 ease-out ${
+                          pct === 100 ? "bg-emerald-500" : pct > 60 ? "bg-orange-500" : "bg-amber-400"
+                        }`} />
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
-        {/* Ingredient stock */}
+        {/* Ingredient Stock & Pantry Tracker */}
         <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
           <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50">
-            <h2 className="font-bold text-slate-800">Ingredient Stock</h2>
-            <span className="flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-600">
-              <TrendingDown className="w-3.5 h-3.5" /> 3 items low
-            </span>
+            <h2 className="font-bold text-slate-800 flex items-center gap-2">
+              <Package className="w-4 h-4 text-orange-500" /> Ingredient Stock & Pantry
+            </h2>
+            <div className="flex items-center gap-2">
+              {lowStockCount > 0 && (
+                <span className="flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                  <TrendingDown className="w-3 h-3" /> {lowStockCount} items low
+                </span>
+              )}
+              <button
+                onClick={() => setShowStockModal(true)}
+                className="flex items-center gap-1 text-xs font-bold text-orange-600 hover:underline cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Restock
+              </button>
+            </div>
           </div>
-          <div className="divide-y divide-slate-50">
-            {ingredients.map((ing, i) => (
+          <div className="divide-y divide-slate-50 max-h-[360px] overflow-y-auto">
+            {stockList.map((ing, i) => (
               <div
-                key={ing.item}
-                className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-4`}
+                key={ing.id}
+                className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3.5 hover:bg-slate-50/50 transition-colors`}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${ing.status === "ok" ? "bg-emerald-400" : "bg-amber-400"}`} />
-                  <p className="font-semibold text-slate-800 text-xs sm:text-sm">{ing.item}</p>
+                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                    ing.status === "ok" ? "bg-emerald-500" : ing.status === "low" ? "bg-amber-400" : "bg-rose-500"
+                  }`} />
+                  <div>
+                    <p className="font-semibold text-slate-800 text-xs sm:text-sm">{ing.item}</p>
+                    <span className="text-[10px] text-slate-400">{ing.category}</span>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-bold text-slate-600">Need: {ing.required}</p>
-                  <p className={`text-xs font-semibold mt-0.5 ${ing.status === "ok" ? "text-emerald-600" : "text-amber-600"}`}>
-                    Have: {ing.available}
+                  <p className="text-xs font-bold text-slate-700">Need: {ing.required} {ing.unit}</p>
+                  <p className={`text-xs font-semibold mt-0.5 ${
+                    ing.status === "ok" ? "text-emerald-600" : ing.status === "low" ? "text-amber-600" : "text-rose-600"
+                  }`}>
+                    Available: {ing.available} {ing.unit}
                   </p>
                 </div>
               </div>
@@ -325,7 +758,7 @@ export function EventsFood() {
           </h2>
           <button
             onClick={() => { if (!showMealReg) initMealDays(); setShowMealReg(!showMealReg); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-sm cursor-pointer"
           >
             {showMealReg ? "Close" : existingMealReg ? "Edit Preferences" : "Register Meals"}
           </button>
@@ -404,9 +837,9 @@ export function EventsFood() {
 
                 <div className="flex justify-end gap-2 pt-2">
                   <button type="button" onClick={() => setShowMealReg(false)}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
+                    className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">Cancel</button>
                   <button type="submit" disabled={savingMeal}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center gap-2">
+                    className="px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer">
                     {savingMeal && <Loader2 className="w-4 h-4 animate-spin" />} Save Meal Preferences
                   </button>
                 </div>
@@ -415,6 +848,344 @@ export function EventsFood() {
           </form>
         )}
       </div>
+
+      {/* Add / Edit Meal Batch Modal */}
+      {showMealModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-bold text-slate-800">{editingMealId ? "Edit Meal Course" : "Add Meal Course"}</h3>
+              <button
+                type="button"
+                onClick={() => setShowMealModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveMealBatch} className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="col-span-2 flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-500">Meal Course Name *</span>
+                  <input
+                    type="text"
+                    value={mealForm.name}
+                    onChange={e => setMealForm(f => ({ ...f, name: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    placeholder="e.g. Mahaprasadam Feast, Royal Lunch"
+                    required
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-500">Meal Type</span>
+                  <select
+                    value={mealForm.mealType}
+                    onChange={e => setMealForm(f => ({ ...f, mealType: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white"
+                  >
+                    <option value="Breakfast">Breakfast</option>
+                    <option value="Lunch">Lunch</option>
+                    <option value="Dinner">Dinner</option>
+                    <option value="Prasadam">Prasadam</option>
+                    <option value="Snacks">Snacks / High Tea</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-500">Diet Type</span>
+                  <select
+                    value={mealForm.dietType}
+                    onChange={e => setMealForm(f => ({ ...f, dietType: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white"
+                  >
+                    <option value="VEG">Vegetarian (Pure)</option>
+                    <option value="JAIN">Jain Sattvik</option>
+                    <option value="VEGAN">Vegan</option>
+                    <option value="NON_VEG">Non-Vegetarian</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-500">Date *</span>
+                  <input
+                    type="date"
+                    value={mealForm.date}
+                    onChange={e => setMealForm(f => ({ ...f, date: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    required
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-500">Target Plates Capacity</span>
+                  <input
+                    type="number"
+                    value={mealForm.targetPlates}
+                    onChange={e => setMealForm(f => ({ ...f, targetPlates: Number(e.target.value) }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    min="1"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-500">Start Time</span>
+                  <input
+                    type="time"
+                    value={mealForm.startTime}
+                    onChange={e => setMealForm(f => ({ ...f, startTime: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-500">End Time</span>
+                  <input
+                    type="time"
+                    value={mealForm.endTime}
+                    onChange={e => setMealForm(f => ({ ...f, endTime: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  />
+                </label>
+
+                <label className="col-span-2 flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-500">Caterer / Kitchen Incharge</span>
+                  <input
+                    type="text"
+                    value={mealForm.caterer}
+                    onChange={e => setMealForm(f => ({ ...f, caterer: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    placeholder="e.g. Sri Sai Caterers"
+                  />
+                </label>
+
+                <label className="col-span-2 flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-500">Menu Items (comma-separated)</span>
+                  <textarea
+                    rows={2}
+                    value={mealForm.menuItems}
+                    onChange={e => setMealForm(f => ({ ...f, menuItems: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    placeholder="e.g. Pulihora, Curd Rice, Sweet Pongal, Vada, Payasam"
+                  />
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowMealModal(false)}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingMealBatch}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition disabled:opacity-60 cursor-pointer"
+                >
+                  {savingMealBatch && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {editingMealId ? "Update Course" : "Save Course"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Restock / Add Stock Modal */}
+      {showStockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-bold text-slate-800">Restock / Add Ingredient</h3>
+              <button
+                type="button"
+                onClick={() => setShowStockModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSaveStock} className="px-6 py-5 space-y-4">
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-500">Ingredient Name *</span>
+                <input
+                  type="text"
+                  value={stockForm.item}
+                  onChange={e => setStockForm(f => ({ ...f, item: e.target.value }))}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  placeholder="e.g. Sona Masoori Rice"
+                  required
+                />
+              </label>
+
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-500">Required Qty</span>
+                  <input
+                    type="number"
+                    value={stockForm.required}
+                    onChange={e => setStockForm(f => ({ ...f, required: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    placeholder="250"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-500">Available Qty</span>
+                  <input
+                    type="number"
+                    value={stockForm.available}
+                    onChange={e => setStockForm(f => ({ ...f, available: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                    placeholder="260"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-500">Unit</span>
+                  <select
+                    value={stockForm.unit}
+                    onChange={e => setStockForm(f => ({ ...f, unit: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white"
+                  >
+                    <option value="kg">kg (Kilograms)</option>
+                    <option value="L">L (Litres)</option>
+                    <option value="pieces">pieces</option>
+                    <option value="bags">bags</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-slate-500">Category</span>
+                  <select
+                    value={stockForm.category}
+                    onChange={e => setStockForm(f => ({ ...f, category: e.target.value }))}
+                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white"
+                  >
+                    <option value="Grains">Grains & Rice</option>
+                    <option value="Dairy">Dairy & Milk</option>
+                    <option value="Pulses">Pulses & Dal</option>
+                    <option value="Spices">Spices & Oils</option>
+                    <option value="Groceries">Groceries</option>
+                    <option value="Dry Fruits">Dry Fruits</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowStockModal(false)}
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition cursor-pointer"
+                >
+                  Save Stock
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Devotee Quick Pass RSVP Modal */}
+      {showRsvpModal && rsvpMeal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+              <h3 className="font-bold text-slate-800">Book Food Pass — {rsvpMeal.name}</h3>
+              <button
+                type="button"
+                onClick={() => setShowRsvpModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleRsvpSubmit} className="px-6 py-5 space-y-4">
+              {rsvpSuccess ? (
+                <div className="py-6 text-center space-y-2">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+                  <p className="font-bold text-slate-800">Pass Booked Successfully!</p>
+                </div>
+              ) : (
+                <>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-slate-500">Devotee Name *</span>
+                    <input
+                      type="text"
+                      value={rsvpForm.participantName}
+                      onChange={e => setRsvpForm(f => ({ ...f, participantName: e.target.value }))}
+                      className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                      placeholder="e.g. Ramesh Sharma"
+                      required
+                    />
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold text-slate-500">Phone *</span>
+                      <input
+                        type="tel"
+                        value={rsvpForm.phone}
+                        onChange={e => setRsvpForm(f => ({ ...f, phone: e.target.value }))}
+                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                        placeholder="9876543210"
+                        required
+                      />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold text-slate-500">Devotee Count</span>
+                      <input
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={rsvpForm.devoteeCount}
+                        onChange={e => setRsvpForm(f => ({ ...f, devoteeCount: Math.max(1, parseInt(e.target.value) || 1) }))}
+                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-orange-50/70 border border-orange-200 text-xs flex items-center justify-between">
+                    <span className="text-slate-600">Total Booking Fee:</span>
+                    <span className="font-extrabold text-orange-700 text-sm">
+                      {rsvpMeal.isFree || (rsvpMeal.fee || 0) === 0 ? "FREE" : `₹${(rsvpMeal.fee || 0) * rsvpForm.devoteeCount}`}
+                    </span>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowRsvpModal(false)}
+                      className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={savingRsvp}
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition disabled:opacity-60 cursor-pointer"
+                    >
+                      {savingRsvp && <Loader2 className="w-4 h-4 animate-spin" />}
+                      Confirm Booking
+                    </button>
+                  </div>
+                </>
+              )}
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+
