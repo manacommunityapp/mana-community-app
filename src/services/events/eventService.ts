@@ -225,6 +225,66 @@ export interface PoojaReserveResponse {
   tokenNumber: number;
 }
 
+export interface EventAuctionItemResponse {
+  id: number;
+  eventId?: number | null;
+  eventTitle?: string | null;
+  name: string;
+  description?: string | null;
+  category?: string | null;
+  basePrice: number;
+  currentBid: number;
+  minIncrement: number;
+  imageEmoji?: string | null;
+  imageUrl?: string | null;
+  status: "UPCOMING" | "LIVE" | "CLOSED";
+  sortOrder: number;
+  bidCount: number;
+  leaderName?: string | null;
+  closedAt?: string | null;
+  createdAt?: string | null;
+}
+
+export interface EventAuctionItemRequest {
+  eventId?: number | null;
+  name: string;
+  description?: string;
+  category?: string;
+  basePrice: number;
+  minIncrement?: number;
+  imageEmoji?: string;
+  imageUrl?: string;
+  status?: "UPCOMING" | "LIVE" | "CLOSED";
+  sortOrder?: number;
+}
+
+export interface EventAuctionBidResponse {
+  id: number;
+  itemId: number;
+  itemName: string;
+  eventId?: number | null;
+  bidderUserId?: number | null;
+  bidderName: string;
+  amount: number;
+  bidAt: string;
+  timeAgo: string;
+}
+
+export interface EventAuctionStatsResponse {
+  totalRevenue: number;
+  totalItems: number;
+  liveItemsCount: number;
+  closedItemsCount: number;
+  upcomingItemsCount: number;
+  totalBidsCount: number;
+  leaderboard: {
+    rank: number;
+    name: string;
+    totalAmount: number;
+    bidCount: number;
+  }[];
+}
+
 export interface PendingActionItemResponse {
   id: string;
   task: string;
@@ -708,5 +768,43 @@ export const eventService = {
 
   async deletePoojaSchedule(id: number): Promise<void> {
     return apiClient.delete<void>(`/events/pooja-schedules/${id}`);
+  },
+
+  async getAuctionItems(eventId?: number): Promise<EventAuctionItemResponse[]> {
+    const qs = eventId ? `?eventId=${eventId}` : "";
+    return apiClient.get<EventAuctionItemResponse[]>(`/events/auction-items${qs}`);
+  },
+
+  async getAuctionItem(id: number): Promise<EventAuctionItemResponse> {
+    return apiClient.get<EventAuctionItemResponse>(`/events/auction-items/${id}`);
+  },
+
+  async createAuctionItem(data: EventAuctionItemRequest): Promise<EventAuctionItemResponse> {
+    return apiClient.post<EventAuctionItemResponse>("/events/auction-items", data);
+  },
+
+  async updateAuctionItem(id: number, data: EventAuctionItemRequest): Promise<EventAuctionItemResponse> {
+    return apiClient.put<EventAuctionItemResponse>(`/events/auction-items/${id}`, data);
+  },
+
+  async deleteAuctionItem(id: number): Promise<void> {
+    return apiClient.delete<void>(`/events/auction-items/${id}`);
+  },
+
+  async placeAuctionBid(itemId: number, amount: number): Promise<EventAuctionItemResponse> {
+    return apiClient.post<EventAuctionItemResponse>(`/events/auction-items/${itemId}/bid`, { itemId, amount });
+  },
+
+  async getAuctionBids(itemId: number): Promise<EventAuctionBidResponse[]> {
+    return apiClient.get<EventAuctionBidResponse[]>(`/events/auction-items/${itemId}/bids`);
+  },
+
+  async getRecentAuctionBids(): Promise<EventAuctionBidResponse[]> {
+    return apiClient.get<EventAuctionBidResponse[]>("/events/auction-items/recent-bids");
+  },
+
+  async getAuctionStats(eventId?: number): Promise<EventAuctionStatsResponse> {
+    const qs = eventId ? `?eventId=${eventId}` : "";
+    return apiClient.get<EventAuctionStatsResponse>(`/events/auction-items/stats${qs}`);
   },
 };
