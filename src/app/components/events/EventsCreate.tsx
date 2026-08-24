@@ -3339,12 +3339,21 @@ export function fromEventToFormData(ev: any): FormData {
     } catch {}
   }
 
+  // Extract saved capacity - prioritize true total capacity fields over remaining/available seats
+  const savedCapacity = ev.capacity !== undefined && ev.capacity !== null && String(ev.capacity).trim() !== ""
+    ? String(ev.capacity)
+    : ev.maxAttendees !== undefined && ev.maxAttendees !== null && String(ev.maxAttendees).trim() !== ""
+    ? String(ev.maxAttendees)
+    : ev.totalCapacity !== undefined && ev.totalCapacity !== null && String(ev.totalCapacity).trim() !== ""
+    ? String(ev.totalCapacity)
+    : "100";
+
   const ticketTypes: TicketType[] = rawTicketTypes.length > 0
     ? rawTicketTypes.map((t: any, i: number) => ({
         id: t.id || `t${i + 1}`,
         name: t.name || (i === 0 ? "General" : `Tier ${i + 1}`),
         price: String(t.price ?? "0"),
-        qty: String(t.qty ?? t.seats ?? t.capacity ?? ev.capacity ?? ev.maxAttendees ?? "100"),
+        qty: String(t.capacity ?? t.seats ?? t.qty ?? t.maxSeats ?? savedCapacity ?? "100"),
         description: t.description || "",
       }))
     : [
@@ -3352,7 +3361,7 @@ export function fromEventToFormData(ev: any): FormData {
           id: "t1",
           name: "General",
           price: ev.price !== undefined && ev.price !== null ? String(ev.price) : "0",
-          qty: ev.capacity ? String(ev.capacity) : ev.maxAttendees ? String(ev.maxAttendees) : "100",
+          qty: savedCapacity,
           description: "Open for all community members",
         },
       ];
@@ -3450,7 +3459,7 @@ export function fromEventToFormData(ev: any): FormData {
     venueName,
     venueAddress,
     city,
-    capacity: ev.capacity !== undefined && ev.capacity !== null ? String(ev.capacity) : ev.maxAttendees !== undefined && ev.maxAttendees !== null ? String(ev.maxAttendees) : "100",
+    capacity: savedCapacity,
     registrationEnabled: ev.registrationEnabled !== undefined ? Boolean(ev.registrationEnabled) : true,
     registrationDeadline: ev.registrationDeadline ? String(ev.registrationDeadline).split("T")[0] : "",
     ticketTypes,
@@ -3527,13 +3536,6 @@ export function EventCreateWizard({
       }
     }
   }, [eventId, initialData?.id]);
-
-  // If initialData object reference changes, update form data
-  useEffect(() => {
-    if (initialData) {
-      setFormData(fromEventToFormData(initialData));
-    }
-  }, [initialData]);
 
   const update = (key: keyof FormData, value: any) =>
     setFormData(prev => ({ ...prev, [key]: value }));

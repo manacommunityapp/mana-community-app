@@ -1038,37 +1038,42 @@ export function EventsDashboard() {
 
           {/* Center: Manual Carousel Move Controls & Indicators when multiple events exist */}
           {bannerItems.length > 1 && (
-            <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-xs px-2 py-1 rounded-xl border border-white/15 shrink-0 self-start lg:self-center shadow-xs">
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-black/40 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-white/25 shrink-0 self-start lg:self-center shadow-md">
               <button
                 type="button"
                 onClick={handlePrevBanner}
-                className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                className="w-7 h-7 rounded-lg bg-white/90 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 hover:scale-105"
                 title="Previous Event"
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
               </button>
-              <div className="flex items-center gap-1 px-1">
-                {bannerItems.map((_, dotIdx) => (
-                  <button
-                    key={dotIdx}
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setCarouselIndex(dotIdx); }}
-                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                      dotIdx === carouselIndex
-                        ? "w-4 bg-amber-400 shadow-xs"
-                        : "w-1.5 bg-white/40 hover:bg-white/70"
-                    }`}
-                    title={`Go to Event ${dotIdx + 1}`}
-                  />
-                ))}
+              <div className="flex items-center gap-1.5 px-1">
+                <span className="text-[10px] sm:text-[11px] font-black text-amber-300 tracking-wide select-none">
+                  {carouselIndex + 1}<span className="text-white/60 font-normal">/{bannerItems.length}</span>
+                </span>
+                <div className="hidden sm:flex items-center gap-1">
+                  {bannerItems.map((_, dotIdx) => (
+                    <button
+                      key={dotIdx}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setCarouselIndex(dotIdx); }}
+                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                        dotIdx === carouselIndex
+                          ? "w-4 bg-amber-400 shadow-xs"
+                          : "w-1.5 bg-white/40 hover:bg-white/80"
+                      }`}
+                      title={`Go to Event ${dotIdx + 1}`}
+                    />
+                  ))}
+                </div>
               </div>
               <button
                 type="button"
                 onClick={handleNextBanner}
-                className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                className="w-7 h-7 rounded-lg bg-white/90 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 hover:scale-105"
                 title="Next Event"
               >
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
               </button>
             </div>
           )}
