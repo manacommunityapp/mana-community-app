@@ -105,6 +105,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   );
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [categories, setCategories] = useState<TicketCategoryItem[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<string>("");
   const [eventDetails, setEventDetails] = useState<any>(event || null);
@@ -172,7 +173,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     emergencyContact: "",
     flatNo: (authUser?.block && authUser?.flatNo) ? `${authUser.block}-${authUser.flatNo}` : (authUser?.flatNo || ""),
     colonyAddress: "",
-    poojaSlot: "Morning Aarti (07:00 AM - 11:00 AM)",
+    poojaSlot: "",
     paymentMode: "UPI",
     transactionRef: "",
     receiptUploaded: false,
@@ -702,6 +703,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   };
 
   const handleComplete = async (modeOverride?: string) => {
+    if (isSubmitting) return;
     if (isEventFull) {
       showWarning(`This event has reached its maximum capacity of ${maxEventCapacity} attendees.`);
       return;
@@ -724,6 +726,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       ? "PENDING"
       : "PAID";
 
+    setIsSubmitting(true);
     try {
       const resolvedMainEventId: number | undefined = (() => {
         if (event?.mainEventId) {
@@ -737,33 +740,57 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         return undefined;
       })();
 
+      const resolvedActivityId = event?.id
+        ? (String(event.id).startsWith("event-") || String(event.id).startsWith("pooja-") || String(event.id).startsWith("food-") || String(event.id).startsWith("comp-") || String(event.id).startsWith("cult-") ? String(event.id) : `event-${event.id}`)
+        : (resolvedMainEventId ? `event-${resolvedMainEventId}` : undefined);
+
+      const resolvedEventDate = event?.date || event?.startDate || new Date().toISOString().slice(0, 10);
+      const resolvedEventTime =
+        (event?.startTime && event?.endTime ? `${event.startTime} - ${event.endTime}` : undefined) ||
+        event?.time ||
+        event?.startTime ||
+        (formData.poojaSlot && formData.poojaSlot.trim().length > 0 ? formData.poojaSlot : undefined) ||
+        "All Day";
+
+      const primaryAttendeeName = formData.fullName.trim() || authUser?.fullName || "Devotee";
+      const primaryPhone = formData.phone.trim() || authUser?.phone || "";
+      const primaryEmail = formData.email.trim() || authUser?.email || "";
+      const primaryFlat = formData.flatNo?.trim() || (authUser?.block && authUser?.flatNo ? `${authUser.block}-${authUser.flatNo}` : authUser?.flatNo) || "";
+
       const regPayload = {
         eventId: resolvedMainEventId || 1,
         mainEventId: resolvedMainEventId,
-        activityId: event?.id ? String(event.id) : undefined,
+        activityId: resolvedActivityId,
         eventName: event?.title || "Community Festival",
         activityTitle: event?.title || "Community Festival",
         category: formData.category || event?.category || "Event",
-        primaryName: formData.fullName,
-        participantName: formData.fullName,
-        phone: formData.phone,
-        email: formData.email,
-        gotram: formData.gotram || undefined,
-        flatNo: formData.flatNo,
+        passType: formData.category || event?.category || "Event",
+        primaryName: primaryAttendeeName,
+        participantName: primaryAttendeeName,
+        phone: primaryPhone,
+        email: primaryEmail,
+        gotram: formData.gotram?.trim() || undefined,
+        flatNo: primaryFlat,
         membersCount: Math.max(1, formData.members.length || 1),
         devoteeCount: Math.max(1, formData.members.length || 1),
-        attendingDevotees: formData.members.map((m) => m.name).filter(Boolean).join(", "),
-        membersJson: JSON.stringify(formData.members.map(m => ({ ...m, age: Math.max(0, Math.min(120, Number(m.age) || 0)) }))),
-        eventDate: event?.date || "2026",
-        eventTime: event?.time || formData.poojaSlot,
-        venue: event?.venue || "Community Mandap",
+        attendingDevotees: formData.members.map((m) => m.name).filter(Boolean).join(", ") || primaryAttendeeName,
+        membersJson: JSON.stringify(formData.members.map(m => ({
+          name: m.name?.trim() || "",
+          age: Math.max(0, Math.min(120, Number(m.age) || 0)),
+          gender: m.gender || "Male",
+          relationship: m.relationship || "Self",
+        }))),
+        eventDate: resolvedEventDate,
+        eventTime: resolvedEventTime,
+        venue: event?.venue || event?.location || "Community Mandap",
         bookingFee: Math.max(0, (isAnyAdmin && adminPaymentStatus === "FREE") ? 0 : (formData.numericPrice || 0)),
         paymentStatus,
         paymentMethod: selectedMode,
         paymentReceiptUrl: formData.receiptUrl || undefined,
         transactionId: formData.transactionRef || undefined,
-        userId: selectedTargetUserId || undefined,
-        user: selectedTargetUserId ? { id: selectedTargetUserId } : undefined,
+        status: isAnyAdmin ? "CONFIRMED" : (selectedMode === "Pay Later" ? "PENDING" : "CONFIRMED"),
+        userId: selectedTargetUserId || (authUser?.userId ? Number(authUser.userId) : (authUser as any)?.id ? Number((authUser as any).id) : undefined),
+        user: (selectedTargetUserId || authUser?.userId || (authUser as any)?.id) ? { id: selectedTargetUserId || (authUser?.userId ? Number(authUser.userId) : Number((authUser as any)?.id)) } : undefined,
       };
 
       if (isUpdateMode && existingRegId) {
@@ -788,28 +815,23 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           showSuccess("Registration completed successfully!");
         } catch (apiErr: any) {
           const errMsg = apiErr?.response?.data?.message || apiErr?.message || "";
+          const status = apiErr?.response?.status;
           console.warn("Backend createRegistration API error:", apiErr);
-          if (errMsg && (errMsg.toLowerCase().includes("deadline") || errMsg.toLowerCase().includes("passed") || errMsg.toLowerCase().includes("cancelled") || errMsg.toLowerCase().includes("ended") || errMsg.toLowerCase().includes("full"))) {
-            showWarning(errMsg);
+          if (status === 409 || (errMsg && (
+            errMsg.toLowerCase().includes("already registered") ||
+            errMsg.toLowerCase().includes("already have an active registration") ||
+            errMsg.toLowerCase().includes("deadline") ||
+            errMsg.toLowerCase().includes("passed") ||
+            errMsg.toLowerCase().includes("cancelled") ||
+            errMsg.toLowerCase().includes("ended") ||
+            errMsg.toLowerCase().includes("full")
+          ))) {
+            showWarning(errMsg || "You are already registered for this event.");
             return;
           }
-          if (event?.id) {
-            const numericEventId = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
-            if (!isNaN(numericEventId) && numericEventId > 0) {
-              try {
-                await eventService.register(numericEventId);
-                showSuccess("Registration completed successfully!");
-              } catch (regErr: any) {
-                const regErrMsg = regErr?.response?.data?.message || regErr?.message || "Registration deadline has passed. Contact admin for manual registration.";
-                showWarning(regErrMsg);
-                return;
-              }
-            }
-          } else {
-            if (errMsg) {
-              showWarning(errMsg);
-              return;
-            }
+          if (errMsg) {
+            showWarning(errMsg);
+            return;
           }
         }
       }
@@ -847,9 +869,11 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       setFormData((prev) => ({ ...prev, paymentMode: selectedMode }));
       setIsSuccess(true);
     } catch (err: any) {
-      const errMsg = err?.message || "Registration deadline has passed. Contact admin for manual registration.";
+      const errMsg = err?.response?.data?.message || err?.message || "Registration failed. Please check your details and try again.";
       console.warn("Registration API error:", err);
       showWarning(errMsg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1838,15 +1862,29 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                 {formData.numericPrice > 0 && !isUpdateMode && (
                   <button
                     type="button"
+                    disabled={isSubmitting}
                     onClick={() => handleComplete("Pay Later")}
-                    className="px-3.5 py-2 rounded-xl border border-border bg-muted hover:bg-muted/80 text-foreground text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                    className="px-3.5 py-2 rounded-xl border border-border bg-muted hover:bg-muted/80 text-foreground text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Clock className="w-3.5 h-3.5 text-amber-500" />
-                    Pay Later
+                    {isSubmitting ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
+                    ) : (
+                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    )}
+                    {isSubmitting ? "Processing..." : "Pay Later"}
                   </button>
                 )}
-                <TouchButton variant="primary" size="sm" icon={isUpdateMode ? RefreshCw : CheckCircle2} onClick={() => handleComplete()}>
-                  {isUpdateMode
+                <TouchButton
+                  variant="primary"
+                  size="sm"
+                  disabled={isSubmitting}
+                  icon={isSubmitting ? Loader2 : (isUpdateMode ? RefreshCw : CheckCircle2)}
+                  className={`cursor-pointer ${isSubmitting ? "opacity-75 cursor-not-allowed" : ""}`}
+                  onClick={() => handleComplete()}
+                >
+                  {isSubmitting
+                    ? "Processing Registration..."
+                    : isUpdateMode
                     ? "Update Registration"
                     : formData.numericPrice === 0
                     ? "Complete Free Registration"

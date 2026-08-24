@@ -241,6 +241,7 @@ export function EventMemberView() {
   const [editFlatNo, setEditFlatNo] = useState("");
   const [cancelConfirmMode, setCancelConfirmMode] = useState(false);
   const [isSavingManage, setIsSavingManage] = useState(false);
+  const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
   const [manageSuccess, setManageSuccess] = useState<string | null>(null);
   const [manageError, setManageError] = useState<string | null>(null);
 
@@ -1295,96 +1296,102 @@ export function EventMemberView() {
   };
 
   const handleBookingSubmit = async () => {
+    if (isBookingSubmitting) return;
     if (!selectedActivity) return;
-    const attendingNames = familyMembers
-      .filter((f) => selectedMembers.includes(f.id))
-      .map((f) => f.name)
-      .join(", ");
+    setIsBookingSubmitting(true);
+    try {
+      const attendingNames = familyMembers
+        .filter((f) => selectedMembers.includes(f.id))
+        .map((f) => f.name)
+        .join(", ");
 
-    const attendeeLabel = attendingNames || user?.fullName || (user?.email ? user.email.split("@")[0] : "Devotee");
-    const regCode = `MNA-2026-${(selectedActivity.category || "EVT").toUpperCase().slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const attendeeLabel = attendingNames || user?.fullName || (user?.email ? user.email.split("@")[0] : "Devotee");
+      const regCode = `MNA-2026-${(selectedActivity.category || "EVT").toUpperCase().slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const isPaid = (selectedActivity.fee || 0) > 0;
-    const resolvedMainId: number | undefined = (() => {
-      if (selectedActivity.mainEventId) {
-        const n = Number(String(selectedActivity.mainEventId).replace(/\D/g, ""));
-        if (!isNaN(n) && n > 0) return n;
-      }
-      if ((selectedActivity as any).eventId) {
-        const n = Number(String((selectedActivity as any).eventId).replace(/\D/g, ""));
-        if (!isNaN(n) && n > 0) return n;
-      }
-      if (activeMainEvent?.id) {
-        const n = typeof activeMainEvent.id === "number" ? activeMainEvent.id : Number(String(activeMainEvent.id).replace(/\D/g, ""));
-        if (!isNaN(n) && n > 0) return n;
-      }
-      return undefined;
-    })();
-
-    const passPayload = {
-      regCode,
-      activityId: selectedActivity.id,
-      mainEventId: resolvedMainId,
-      eventId: resolvedMainId,
-      activityTitle: selectedActivity.title,
-      category: selectedActivity.category,
-      passType: `${selectedActivity.category} Registration Pass`,
-      participantName: attendeeLabel,
-      attendingDevotees: attendingNames,
-      devoteeCount: Math.max(1, selectedMembers.length),
-      eventDate: selectedActivity.date,
-      eventTime: selectedActivity.time,
-      venue: selectedActivity.venue,
-      bookingFee: (selectedActivity.fee || 0) * Math.max(1, selectedMembers.length),
-      paymentStatus: isPaid ? "PAID" : "FREE",
-      paymentReceiptUrl: isPaid && paymentReceiptUrl ? paymentReceiptUrl : undefined,
-      transactionId: isPaid && transactionId ? transactionId : undefined,
-      paymentMethod: isPaid ? paymentMethod : undefined,
-      status: "CONFIRMED",
-      qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${regCode}`,
-    };
-
-    let createdId = "pass-" + Date.now();
-
-    if (!useMock) {
-      try {
-        const isPooja = selectedActivity.category?.toLowerCase().includes("pooja");
-        const saved = isPooja
-          ? await eventService.createPoojaRegistration(passPayload as any)
-          : await eventService.createRegistration(passPayload);
-        if (saved && saved.id) {
-          createdId = String(saved.id);
+      const isPaid = (selectedActivity.fee || 0) > 0;
+      const resolvedMainId: number | undefined = (() => {
+        if (selectedActivity.mainEventId) {
+          const n = Number(String(selectedActivity.mainEventId).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
         }
-      } catch (err: any) {
-        showError(err?.message || "Registration failed. The activity capacity has been reached.");
-        return;
+        if ((selectedActivity as any).eventId) {
+          const n = Number(String((selectedActivity as any).eventId).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
+        }
+        if (activeMainEvent?.id) {
+          const n = typeof activeMainEvent.id === "number" ? activeMainEvent.id : Number(String(activeMainEvent.id).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
+        }
+        return undefined;
+      })();
+
+      const passPayload = {
+        regCode,
+        activityId: selectedActivity.id,
+        mainEventId: resolvedMainId,
+        eventId: resolvedMainId,
+        activityTitle: selectedActivity.title,
+        category: selectedActivity.category,
+        passType: `${selectedActivity.category} Registration Pass`,
+        participantName: attendeeLabel,
+        attendingDevotees: attendingNames,
+        devoteeCount: Math.max(1, selectedMembers.length),
+        eventDate: selectedActivity.date,
+        eventTime: selectedActivity.time,
+        venue: selectedActivity.venue,
+        bookingFee: (selectedActivity.fee || 0) * Math.max(1, selectedMembers.length),
+        paymentStatus: isPaid ? "PAID" : "FREE",
+        paymentReceiptUrl: isPaid && paymentReceiptUrl ? paymentReceiptUrl : undefined,
+        transactionId: isPaid && transactionId ? transactionId : undefined,
+        paymentMethod: isPaid ? paymentMethod : undefined,
+        status: "CONFIRMED",
+        qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${regCode}`,
+      };
+
+      let createdId = "pass-" + Date.now();
+
+      if (!useMock) {
+        try {
+          const isPooja = selectedActivity.category?.toLowerCase().includes("pooja");
+          const saved = isPooja
+            ? await eventService.createPoojaRegistration(passPayload as any)
+            : await eventService.createRegistration(passPayload);
+          if (saved && saved.id) {
+            createdId = String(saved.id);
+          }
+        } catch (err: any) {
+          showError(err?.response?.data?.message || err?.message || "Registration failed. The activity capacity has been reached.");
+          return;
+        }
       }
+
+      const newPass: UserPass = {
+        id: createdId,
+        passType: passPayload.passType,
+        title: passPayload.activityTitle,
+        participantName: passPayload.participantName,
+        regId: regCode,
+        date: passPayload.eventDate,
+        time: passPayload.eventTime,
+        venue: passPayload.venue,
+        status: "CONFIRMED",
+        qrCodeUrl: passPayload.qrCodeUrl,
+        bookingFee: passPayload.bookingFee,
+        paymentStatus: passPayload.paymentStatus,
+        paymentReceiptUrl: passPayload.paymentReceiptUrl,
+        transactionId: passPayload.transactionId,
+        paymentMethod: passPayload.paymentMethod,
+      };
+
+      setPassesList((prev) => [newPass, ...prev]);
+      showSuccess(`Registered for ${selectedActivity.title}. E-Pass issued to ${attendeeLabel}!`);
+      setSelectedActivity(null);
+      setPaymentReceiptUrl("");
+      setTransactionId("");
+      setActiveTab("passes");
+    } finally {
+      setIsBookingSubmitting(false);
     }
-
-    const newPass: UserPass = {
-      id: createdId,
-      passType: passPayload.passType,
-      title: passPayload.activityTitle,
-      participantName: passPayload.participantName,
-      regId: regCode,
-      date: passPayload.eventDate,
-      time: passPayload.eventTime,
-      venue: passPayload.venue,
-      status: "CONFIRMED",
-      qrCodeUrl: passPayload.qrCodeUrl,
-      bookingFee: passPayload.bookingFee,
-      paymentStatus: passPayload.paymentStatus,
-      paymentReceiptUrl: passPayload.paymentReceiptUrl,
-      transactionId: passPayload.transactionId,
-      paymentMethod: passPayload.paymentMethod,
-    };
-
-    setPassesList((prev) => [newPass, ...prev]);
-    showSuccess(`Registered for ${selectedActivity.title}. E-Pass issued to ${attendeeLabel}!`);
-    setSelectedActivity(null);
-    setPaymentReceiptUrl("");
-    setTransactionId("");
-    setActiveTab("passes");
   };
 
   const handleDownloadPDFPass = (pass: UserPass) => {

@@ -691,6 +691,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   };
 
   const handleBookingConfirm = async (paymentMode: string = "UPI") => {
+    if (isSubmitting) return;
     if (alreadyRegisteredTitle && !isUpdateMode) {
       showWarning("You are already registered for this pooja seva. Only one registration per family per event is allowed.");
       return;
@@ -803,7 +804,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             await eventService.updatePoojaRegistration(numericId, regPayload);
             showSuccess("🪔 Pooja registration updated successfully!");
           } catch (apiErr: any) {
-            const errMsg = apiErr?.message || "Failed to update pooja registration.";
+            const errMsg = apiErr?.response?.data?.message || apiErr?.message || "Failed to update pooja registration.";
             showWarning(errMsg);
             return;
           }
@@ -814,29 +815,24 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           if (savedReg?.regCode) setRegistrationCode(savedReg.regCode);
           showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
         } catch (apiErr: any) {
-          const errMsg = apiErr?.message || "";
-          console.warn("Backend createPoojaRegistration API note, trying fallback register:", apiErr);
-          if (errMsg && (errMsg.toLowerCase().includes("deadline") || errMsg.toLowerCase().includes("passed") || errMsg.toLowerCase().includes("cancelled") || errMsg.toLowerCase().includes("ended") || errMsg.toLowerCase().includes("full"))) {
-            showWarning(errMsg);
+          const errMsg = apiErr?.response?.data?.message || apiErr?.message || "";
+          const status = apiErr?.response?.status;
+          console.warn("Backend createPoojaRegistration API note:", apiErr);
+          if (status === 409 || (errMsg && (
+            errMsg.toLowerCase().includes("already registered") ||
+            errMsg.toLowerCase().includes("already have an active registration") ||
+            errMsg.toLowerCase().includes("deadline") ||
+            errMsg.toLowerCase().includes("passed") ||
+            errMsg.toLowerCase().includes("cancelled") ||
+            errMsg.toLowerCase().includes("ended") ||
+            errMsg.toLowerCase().includes("full")
+          ))) {
+            showWarning(errMsg || "You are already registered for this pooja seva.");
             return;
           }
-          if (event?.id) {
-            const numericEventId = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
-            if (!isNaN(numericEventId) && numericEventId > 0) {
-              try {
-                await eventService.register(numericEventId);
-                showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
-              } catch (regErr: any) {
-                const regErrMsg = regErr?.message || "Registration deadline has passed. Contact admin for manual registration.";
-                showWarning(regErrMsg);
-                return;
-              }
-            }
-          } else {
-            if (errMsg) {
-              showWarning(errMsg);
-              return;
-            }
+          if (errMsg) {
+            showWarning(errMsg);
+            return;
           }
         }
       }
@@ -847,7 +843,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       setIsSuccess(true);
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      const errMsg = err?.message || "Registration deadline has passed. Contact admin for manual registration.";
+      const errMsg = err?.response?.data?.message || err?.message || "Registration failed. Please try again.";
       console.error("Failed to process pooja registration:", err);
       showWarning(errMsg);
     } finally {
@@ -1467,9 +1463,14 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 disabled={isSubmitting}
                 variant="primary"
                 size="sm"
-                className="cursor-pointer"
+                className={`cursor-pointer ${isSubmitting ? "opacity-75 cursor-not-allowed" : ""}`}
               >
-                {isUpdateMode ? (
+                {isSubmitting ? (
+                  <>
+                    <span>Processing Registration...</span>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  </>
+                ) : isUpdateMode ? (
                   <>
                     <span>Confirm Reschedule</span>
                     <RefreshCw className="w-3.5 h-3.5" />

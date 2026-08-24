@@ -159,6 +159,7 @@ export interface RegistrationResponse {
 
 export interface PoojaRegistrationRequest {
   eventId: number;
+  mainEventId?: number;
   activityId?: string;
   eventName: string;
   activityTitle: string;
