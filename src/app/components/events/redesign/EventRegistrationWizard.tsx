@@ -878,7 +878,26 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   };
 
   return (
-    <div className="flex flex-col justify-between h-full min-h-[520px] sm:min-h-[580px] space-y-3.5">
+    <div className="relative flex flex-col justify-between h-full min-h-[520px] sm:min-h-[580px] space-y-3.5">
+      {/* Submitting Loading Overlay to prevent multiple clicks and show clear loading state */}
+      {isSubmitting && (
+        <div className="absolute inset-0 z-50 rounded-2xl sm:rounded-3xl bg-background/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-fadeIn select-none pointer-events-auto shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shadow-lg animate-pulse mb-3.5">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+          <h4 className="text-base font-extrabold text-foreground tracking-tight">
+            {isUpdateMode ? "Updating Your Registration..." : "Processing Your Registration..."}
+          </h4>
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">
+            Please wait while we confirm your registration details and generate your pass. Do not refresh or click again.
+          </p>
+          <div className="mt-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold border border-primary/20">
+            <Sparkles className="w-3.5 h-3.5 animate-spin" />
+            <span>Securing seats & syncing passes...</span>
+          </div>
+        </div>
+      )}
+
       {/* Wizard Header */}
       <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
         <div className="min-w-0 pr-3">

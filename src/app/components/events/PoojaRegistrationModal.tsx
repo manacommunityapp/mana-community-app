@@ -861,7 +861,26 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn">
-      <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-card text-card-foreground rounded-3xl p-4 sm:p-6 shadow-2xl border border-border min-h-[85vh] sm:min-h-[620px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp">
+      <div className="relative w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-card text-card-foreground rounded-3xl p-4 sm:p-6 shadow-2xl border border-border min-h-[85vh] sm:min-h-[620px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp">
+        {/* Submitting Loading Overlay to block multiple clicks and display progress */}
+        {isSubmitting && (
+          <div className="absolute inset-0 z-50 rounded-3xl bg-background/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-fadeIn select-none pointer-events-auto shadow-2xl">
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shadow-lg animate-pulse mb-3.5">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+            <h4 className="text-base font-extrabold text-foreground tracking-tight">
+              {isUpdateMode ? "Rescheduling Pooja Seva..." : "Booking Pooja Seva & Issuing Pass..."}
+            </h4>
+            <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">
+              Please wait while we confirm your Sankalpam slot and generate your digital pass. Do not refresh or click again.
+            </p>
+            <div className="mt-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-bold border border-amber-500/20">
+              <Flame className="w-3.5 h-3.5 text-amber-500" />
+              <span>Registering devotee & confirming session...</span>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
           <div className="min-w-0 pr-3">
             <div className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider mb-0.5">

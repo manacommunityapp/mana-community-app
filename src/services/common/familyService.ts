@@ -142,10 +142,10 @@ export const familyService = {
     try {
       let res: any[] | null = null;
       try {
-        res = await apiClient.get<any[]>("/events/family-members");
+        res = await apiClient.get<any[]>("/users/family-members");
       } catch {
         try {
-          res = await apiClient.get<any[]>("/users/family-members");
+          res = await apiClient.get<any[]>("/events/family-members");
         } catch {
           // fallback
         }
@@ -216,11 +216,23 @@ export const familyService = {
       avatar: (data as any).avatar || (newMember.gender === "Female" ? (Number(newMember.age) < 18 ? "👧" : "👩") : (Number(newMember.age) < 18 ? "👦" : "👨")),
       gothram: newMember.gotram || undefined,
       gotram: newMember.gotram || undefined,
+      dob: newMember.dob || undefined,
+      phone: newMember.phone || undefined,
+      email: newMember.email || undefined,
+      bloodGroup: newMember.bloodGroup || undefined,
+      emergencyContact: newMember.emergencyContact,
+      isDevotee: newMember.isDevotee,
+      notes: newMember.notes || undefined,
       status: "ACTIVE",
     };
 
     try {
-      const serverRes = await apiClient.post<any>("/events/family-members", serverPayload);
+      let serverRes: any = null;
+      try {
+        serverRes = await apiClient.post<any>("/users/family-members", serverPayload);
+      } catch {
+        serverRes = await apiClient.post<any>("/events/family-members", serverPayload);
+      }
       if (serverRes && serverRes.id) {
         newMember.id = serverRes.id;
       }
@@ -271,10 +283,21 @@ export const familyService = {
         avatar: (data as any).avatar || (updatedMember.gender === "Female" ? "👩" : "👨"),
         gothram: updatedMember.gotram || (data as any).gothram,
         gotram: updatedMember.gotram || (data as any).gothram,
+        dob: updatedMember.dob || undefined,
+        phone: updatedMember.phone || undefined,
+        email: updatedMember.email || undefined,
+        bloodGroup: updatedMember.bloodGroup || undefined,
+        emergencyContact: updatedMember.emergencyContact,
+        isDevotee: updatedMember.isDevotee,
+        notes: updatedMember.notes || undefined,
         status: (data as any).status || "ACTIVE",
       };
       try {
-        await apiClient.put<any>(`/events/family-members/${id}`, serverPayload);
+        try {
+          await apiClient.put<any>(`/users/family-members/${id}`, serverPayload);
+        } catch {
+          await apiClient.put<any>(`/events/family-members/${id}`, serverPayload);
+        }
       } catch (err) {
         console.warn("Failed to update family member on server:", err);
       }
@@ -296,7 +319,11 @@ export const familyService = {
 
     if (isRealId) {
       try {
-        await apiClient.delete<void>(`/events/family-members/${id}`);
+        try {
+          await apiClient.delete<void>(`/users/family-members/${id}`);
+        } catch {
+          await apiClient.delete<void>(`/events/family-members/${id}`);
+        }
       } catch (err) {
         console.warn("Failed to delete family member on server:", err);
       }
