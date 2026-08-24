@@ -543,7 +543,11 @@ export function EventsPrograms({ initialEventId, onEventChange }: EventsPrograms
     async function loadEvents() {
       try {
         const evts = await eventService.getAll().catch(() => eventService.getUpcomingEvents());
-        const validList = Array.isArray(evts) ? evts.filter(e => e && e.id) : [];
+        const rawList = Array.isArray(evts) ? evts.filter(e => e && e.id) : [];
+        const validList = rawList.filter(e => {
+          const s = String(e.status || "").toUpperCase();
+          return s !== "CANCELLED" && s !== "CLOSED" && s !== "ARCHIVED";
+        });
         setEvents(validList);
         if (validList.length > 0) {
           setSelectedEventId(prev => {
