@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router";
 import { cn } from "../../ui/utils";
 import {
-  LayoutDashboard, FolderOpen, Server, CalendarDays, DollarSign, Scale,
+  LayoutDashboard, FolderOpen, Server, CalendarDays, IndianRupee, Scale,
   Wrench, Tag, BarChart3, Plus, Pencil, Trash2, Eye, Check, X, Loader2,
   ChevronDown, Search, Filter, ArrowUpDown,
 } from "lucide-react";
@@ -26,7 +26,7 @@ const TABS: { id: TabId; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "categories", label: "Categories", icon: FolderOpen },
   { id: "resources", label: "Resources", icon: Server },
   { id: "bookings", label: "Bookings", icon: CalendarDays },
-  { id: "pricing", label: "Pricing", icon: DollarSign },
+  { id: "pricing", label: "Pricing", icon: IndianRupee },
   { id: "rules", label: "Rules", icon: Scale },
   { id: "maintenance", label: "Maintenance", icon: Wrench },
   { id: "coupons", label: "Coupons", icon: Tag },
@@ -148,7 +148,7 @@ function DashboardTab() {
   const cards = [
     { label: "Total Resources", value: stats.totalResources, icon: Server },
     { label: "Bookings (Month)", value: stats.totalBookings, icon: CalendarDays },
-    { label: "Revenue (Month)", value: `$${stats.revenue.toLocaleString()}`, icon: DollarSign },
+    { label: "Revenue (Month)", value: `₹${stats.revenue.toLocaleString()}`, icon: IndianRupee },
     { label: "Occupancy Rate", value: `${stats.occupancyRate}%`, icon: BarChart3 },
   ];
 

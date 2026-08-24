@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router";
 import {
   Shield, Users, Eye, Pencil, Trash2, ChevronDown, ChevronRight,
   CheckCircle2, Lock, Unlock, RotateCcw, Save, Loader2, Crown,
-  Briefcase, Banknote, Wrench, DollarSign, Sparkles, UserCheck,
+  Briefcase, Banknote, Wrench, IndianRupee, Sparkles, UserCheck,
   MessageSquare, ShoppingBag, DoorOpen, Building, Bell,
   Headphones, Trophy, UtensilsCrossed, Package, CalendarDays,
   Settings, Truck, ChefHat, CalendarCheck, BarChart2, Star, ShieldAlert,
@@ -99,7 +99,7 @@ const KNOWN_ROLE_META: Record<string, { label: string; color: string; icon: Elem
   SPORTS_ADMIN: { label: "Sports Admin", color: "#0891b2", icon: Briefcase },
   MEMBER:       { label: "Member",       color: "#059669", icon: UserCheck },
   VENDOR:       { label: "Vendor",       color: "#d97706", icon: Banknote },
-  CASHIER:      { label: "Cashier",      color: "#be185d", icon: DollarSign },
+  CASHIER:      { label: "Cashier",      color: "#be185d", icon: IndianRupee },
   STAFF:        { label: "Staff",        color: "#64748b", icon: Wrench },
   USER:         { label: "User",         color: "#8b5cf6", icon: Users },
 };
@@ -124,7 +124,7 @@ function mapRoleNameToDef(name: string): SystemRoleDef {
 /* ─── Default fallback roles (never includes SUPER_ADMIN or COMMUNITY_ADMIN) ─── */
 const DEFAULT_SYSTEM_ROLES: SystemRoleDef[] = sortRoles([
   { name: "ADMIN",        label: "Admin",        color: "#4f46e5", icon: Crown },
-  { name: "CASHIER",      label: "Cashier",      color: "#be185d", icon: DollarSign },
+  { name: "CASHIER",      label: "Cashier",      color: "#be185d", icon: IndianRupee },
   { name: "MEMBER",       label: "Member",       color: "#059669", icon: UserCheck },
   { name: "SPORTS_ADMIN", label: "Sports Admin", color: "#0891b2", icon: Briefcase },
   { name: "STAFF",        label: "Staff",        color: "#64748b", icon: Wrench },

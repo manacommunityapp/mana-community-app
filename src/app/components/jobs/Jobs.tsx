@@ -1,5 +1,5 @@
 import {
-  Briefcase, Building2, MapPin, DollarSign, Clock, Users, Plus, X,
+  Briefcase, Building2, MapPin, IndianRupee, Clock, Users, Plus, X,
   Loader2, Search, ChevronDown, ArrowUpRight, CheckCircle, Send
 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -187,7 +187,7 @@ export function Jobs() {
                   <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
                     {job.location && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {job.location}</span>}
                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {jobTypeLabels[job.jobType] || job.jobType}</span>
-                    {job.salary && <span className="flex items-center gap-1"><DollarSign className="w-3 h-3" /> {job.salary}</span>}
+                    {job.salary && <span className="flex items-center gap-1"><IndianRupee className="w-3 h-3" /> {job.salary}</span>}
                     <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {job.applicationCount} applicant{job.applicationCount !== 1 ? "s" : ""}</span>
                     <span>{timeAgo(job.createdAt)}</span>
                   </div>
@@ -237,7 +237,7 @@ function JobDetailModal({ job, onClose, onApply, onCloseJob }: {
         <div className="flex flex-wrap gap-3 text-xs text-slate-500">
           {job.location && <span className="flex items-center gap-1 bg-slate-50 px-2.5 py-1 rounded-lg"><MapPin className="w-3 h-3" /> {job.location}</span>}
           <span className="flex items-center gap-1 bg-slate-50 px-2.5 py-1 rounded-lg"><Clock className="w-3 h-3" /> {jobTypeLabels[job.jobType] || job.jobType}</span>
-          {job.salary && <span className="flex items-center gap-1 bg-slate-50 px-2.5 py-1 rounded-lg"><DollarSign className="w-3 h-3" /> {job.salary}</span>}
+          {job.salary && <span className="flex items-center gap-1 bg-slate-50 px-2.5 py-1 rounded-lg"><IndianRupee className="w-3 h-3" /> {job.salary}</span>}
         </div>
 
         {job.description && (

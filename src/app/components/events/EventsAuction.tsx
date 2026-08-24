@@ -16,7 +16,8 @@ import {
   Trash2,
   Loader2,
   Tag,
-  DollarSign
+  IndianRupee,
+} from "lucide-react";
 import {
   eventService,
   type EventAuctionItemResponse,
@@ -366,7 +367,7 @@ export function EventsAuction() {
       {/* Real-time KPI Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {[
-          { label: "Total Raised", value: `₹${Number(totalRevenue).toLocaleString("en-IN")}`, icon: DollarSign, color: "#10b981", bg: "bg-emerald-50 text-emerald-600" },
+          { label: "Total Raised", value: `₹${Number(totalRevenue).toLocaleString("en-IN")}`, icon: IndianRupee, color: "#10b981", bg: "bg-emerald-50 text-emerald-600" },
           { label: "Live Items", value: liveCount, icon: Flame, color: "#ef4444", bg: "bg-rose-50 text-rose-600" },
           { label: "Total Bids Placed", value: totalBids, icon: Gavel, color: "#f59e0b", bg: "bg-amber-50 text-amber-600" },
           { label: "Highest Bid", value: `₹${Number(highestBid).toLocaleString("en-IN")}`, icon: Trophy, color: "#6366f1", bg: "bg-indigo-50 text-indigo-600" },

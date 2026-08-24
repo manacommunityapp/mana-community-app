@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  Search, SlidersHorizontal, Briefcase, MapPin, Clock, DollarSign,
+  Search, SlidersHorizontal, Briefcase, MapPin, Clock, IndianRupee,
   Building2, Bookmark, BookmarkCheck, Zap,
   Star, Users, CheckCircle, Share2,
   ChevronRight, ExternalLink, FileText, Send, Award, TrendingUp
@@ -109,7 +109,7 @@ function JobCard({ job, isSelected, onClick, onSave, onApply }: { job: Job; isSe
 
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500 mt-2">
             <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-indigo-500" />{job.location}</span>
-            <span className="flex items-center gap-1"><DollarSign className="w-3 h-3 text-emerald-500" />{job.salary}</span>
+            <span className="flex items-center gap-1"><IndianRupee className="w-3 h-3 text-emerald-500" />{job.salary}</span>
             <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-amber-500" />{job.postedAt}</span>
           </div>
 
@@ -169,7 +169,7 @@ function JobDetailPanel({ job, onClose, onApply, onSave }: { job: Job | null; on
 
         <div className="grid grid-cols-3 gap-3 mt-4">
           {[
-            { label: "Salary", value: job.salary, icon: DollarSign },
+            { label: "Salary", value: job.salary, icon: IndianRupee },
             { label: "Experience", value: job.experience, icon: Star },
             { label: "Applicants", value: job.applicants, icon: Users },
           ].map(({ label, value, icon: Icon }) => (

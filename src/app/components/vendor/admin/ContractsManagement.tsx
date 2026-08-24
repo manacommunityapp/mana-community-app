@@ -6,7 +6,7 @@ import {
   Plus,
   Calendar,
   Eye,
-  DollarSign,
+  IndianRupee,
 } from "lucide-react";
 import { Card, CardContent } from "../../ui/card";
 import { Badge } from "../../ui/badge";
@@ -244,7 +244,7 @@ export function ContractsManagement() {
                         </TableCell>
                         <TableCell className="hidden md:table-cell">
                           <div className="flex items-center gap-1 text-sm font-medium text-foreground">
-                            <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                            <IndianRupee className="h-3.5 w-3.5 text-muted-foreground" />
                             {formatCurrency(c.value)}
                           </div>
                         </TableCell>

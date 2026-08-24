@@ -46,7 +46,7 @@ import {
   Edit3,
   Info,
   Zap,
-  DollarSign,
+  IndianRupee,
   History,
 } from "lucide-react";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
