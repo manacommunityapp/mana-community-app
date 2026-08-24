@@ -433,12 +433,11 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         cats = ticketCategories.map((cat, idx) => {
           const categorySeats =
             cat.seats ??
+            cat.capacity ??
             cat.qty ??
             (cat as any).quantity ??
-            cat.capacity ??
-            cat.availableSeats ??
             cat.slots ??
-            (targetEvent?.availableSeats ?? targetEvent?.capacity ?? targetEvent?.seats ?? targetEvent?.slots);
+            (targetEvent?.capacity ?? targetEvent?.maxAttendees ?? targetEvent?.seats ?? targetEvent?.slots ?? targetEvent?.availableSeats);
           return {
             ...cat,
             id: cat.id || `cat-${idx}`,
@@ -454,18 +453,17 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           cats = rawTypes.map((item: any, idx: number) => {
             const dynamicSeats =
               item.seats ??
+              item.capacity ??
               item.qty ??
               item.quantity ??
-              item.capacity ??
-              item.availableSeats ??
               item.slots ??
               item.maxSeats ??
               item.totalSeats ??
-              targetEvent.availableSeats ??
               targetEvent.capacity ??
+              targetEvent.maxAttendees ??
               targetEvent.seats ??
               targetEvent.slots ??
-              targetEvent.maxAttendees;
+              targetEvent.availableSeats;
 
             if (typeof item === "string") {
               return {

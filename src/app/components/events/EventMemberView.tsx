@@ -80,6 +80,11 @@ interface Activity {
   mandap?: string;
   pandit?: string;
   slots?: number | string;
+  capacity?: number;
+  maxAttendees?: number;
+  totalCapacity?: number;
+  seats?: number;
+  ticketTypes?: any[];
   isFree?: boolean;
   existingRegistration?: any;
   registrationId?: string | number;
