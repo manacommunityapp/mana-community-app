@@ -78,6 +78,7 @@ interface TicketType { id: string; name: string; price: string; qty: string; des
 interface BudgetItem { id: string; category: string; amount: string; }
 export interface ScheduleActivity {
   id: string;
+  subEventId?: number;
   categoryType: string; // "Pooja & Seva" | "Lunch" | "Dinner" | "Cultural Events" | "Competitions" | "Other"
   customType?: string;
   name: string;
@@ -160,7 +161,7 @@ export async function syncActivitiesToScheduleSubmodules(
           type: "Pooja",
           date: day.date,
           startTime: act.startTime || "08:30",
-          mandap: act.description || act.venue || "Main Temple Mandap",
+          mandap: act.venue || act.description || "Main Temple Mandap",
           slots: String(slotsNum),
           fee: String(feeNum),
           isFree: feeNum === 0,
@@ -168,7 +169,11 @@ export async function syncActivitiesToScheduleSubmodules(
           notes: act.description || "",
         };
         try {
-          await eventService.createPoojaSeva(payload);
+          if (act.subEventId) {
+            await eventService.updatePoojaSeva(act.subEventId, payload);
+          } else {
+            await eventService.createPoojaSeva(payload);
+          }
         } catch (e) {
           console.warn("Database save pooja notice:", e);
         }
@@ -180,7 +185,7 @@ export async function syncActivitiesToScheduleSubmodules(
           date: day.date,
           startTime: act.startTime || (cat === "Lunch" ? "12:00" : "19:00"),
           endTime: act.endTime || (cat === "Lunch" ? "14:00" : "21:00"),
-          venue: act.description || act.venue || "Community Dining Hall",
+          venue: act.venue || act.description || "Community Dining Hall",
           targetPlates: slotsNum,
           dietType: "Vegetarian",
           fee: feeNum,
@@ -189,7 +194,11 @@ export async function syncActivitiesToScheduleSubmodules(
           notes: act.description || "",
         };
         try {
-          await eventService.createLunchDinner(payload);
+          if (act.subEventId) {
+            await eventService.updateLunchDinner(act.subEventId, payload);
+          } else {
+            await eventService.createLunchDinner(payload);
+          }
         } catch (e) {
           console.warn("Database save meal notice:", e);
         }
@@ -200,13 +209,17 @@ export async function syncActivitiesToScheduleSubmodules(
           category: "Classical Dance & Music",
           date: day.date,
           startTime: act.startTime || "18:00",
-          stage: act.description || act.venue || "Main Stage",
+          stage: act.venue || act.description || "Main Stage",
           requirements: "Sound system & lighting",
           fee: feeNum,
           isFree: feeNum === 0,
         };
         try {
-          await eventService.createCulturalEvent(payload);
+          if (act.subEventId) {
+            await eventService.updateCulturalEvent(act.subEventId, payload);
+          } else {
+            await eventService.createCulturalEvent(payload);
+          }
         } catch (e) {
           console.warn("Database save cultural notice:", e);
         }
@@ -218,13 +231,17 @@ export async function syncActivitiesToScheduleSubmodules(
           ageGroup: "Open",
           date: day.date,
           startTime: act.startTime || "10:00",
-          venue: act.description || act.venue || "Auditorium",
+          venue: act.venue || act.description || "Auditorium",
           fee: String(feeNum),
           isFree: feeNum === 0,
           maxParticipants: String(slotsNum),
         };
         try {
-          await eventService.createCompetition(payload);
+          if (act.subEventId) {
+            await eventService.updateCompetition(act.subEventId, payload);
+          } else {
+            await eventService.createCompetition(payload);
+          }
         } catch (e) {
           console.warn("Database save competition notice:", e);
         }
@@ -465,75 +482,12 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [notifDayLabel, setNotifDayLabel] = useState<string | undefined>(undefined);
   const [notifActivityTitle, setNotifActivityTitle] = useState<string | undefined>(undefined);
-  const [savedPoojaEvents, setSavedPoojaEvents] = useState<any[]>([]);
-  const [loadingPoojaEvents, setLoadingPoojaEvents] = useState(false);
 
   useEffect(() => {
-    setLoadingPoojaEvents(true);
-    eventService.getPoojaSevas()
-      .then((res) => {
-        if (Array.isArray(res)) {
-          setSavedPoojaEvents(res);
-        }
-      })
-      .catch((err) => {
-        console.warn("Could not load saved pooja sevas:", err);
-      })
-      .finally(() => {
-        setLoadingPoojaEvents(false);
-      });
-  }, []);
-
-  const getPoojaEventsForDay = (dateStr: string) => {
-    if (!dateStr) return [];
-    return savedPoojaEvents.filter((p) => {
-      if (p.date === dateStr || p.startDate === dateStr) return true;
-      if ((p.isMultiDay || p.multiDay) && p.startDate && p.endDate) {
-        return dateStr >= p.startDate && dateStr <= p.endDate;
-      }
-      if (p.date && p.endDate && p.endDate >= p.date) {
-        return dateStr >= p.date && dateStr <= p.endDate;
-      }
-      return false;
-    });
-  };
-
-  const importPoojaToDayAgenda = (dateStr: string, pooja: any) => {
-    const actTime = (Array.isArray(pooja.startTimes) && pooja.startTimes.length > 0)
-      ? pooja.startTimes[0]
-      : pooja.startTime || "08:30";
-    const cleanTime = String(actTime).split(/[–-]/)[0].trim();
-    const newAct: ScheduleActivity = {
-      id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      categoryType: "Pooja & Seva",
-      name: pooja.name || "Pooja Seva",
-      needsRegistration: true,
-      registrationFee: pooja.fee ? String(pooja.fee) : "0",
-      slots: pooja.slots ? String(pooja.slots) : "50",
-      startTime: cleanTime,
-      endTime: "",
-      description: pooja.notes || pooja.type || "",
-      venue: pooja.mandap || pooja.venue || "Main Mandap",
-    };
-    const targetDay = data.daySchedules.find(ds => ds.date === dateStr);
-    if (!targetDay) {
-      const newDay: DaySchedule = {
-        date: dateStr,
-        activities: [newAct],
-      };
-      const updated = [...data.daySchedules, newDay].sort((a, b) => a.date.localeCompare(b.date));
-      update("daySchedules", updated);
-    } else {
-      const updated = data.daySchedules.map(ds =>
-        ds.date === dateStr
-          ? { ...ds, activities: [...ds.activities, newAct] }
-          : ds
-      );
-      update("daySchedules", updated);
+    if (!expandedDay && data.daySchedules.length > 0) {
+      setExpandedDay(data.daySchedules[0].date);
     }
-    setExpandedDay(dateStr);
-    showSuccess(`Linked "${pooja.name}" to ${formatDayLabel(dateStr)} agenda`);
-  };
+  }, [data.daySchedules, expandedDay]);
 
   const createDefaultSingleActivity = (): ScheduleActivity[] => [
     {
@@ -848,10 +802,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                 {allDaysInRange.map((dStr, idx) => {
                   const dayObj = data.daySchedules.find(ds => ds.date === dStr);
                   const count = dayObj?.activities?.filter(a => a.name?.trim()).length || 0;
-                  const poojaCount = getPoojaEventsForDay(dStr).length;
                   return (
                     <option key={dStr} value={dStr}>
-                      Day {idx + 1} • {formatDayLabel(dStr)} {count > 0 ? `(${count} activities configured)` : "(Not configured yet)"} {poojaCount > 0 ? `• 🪔 ${poojaCount} Saved Pooja Sub-Event${poojaCount > 1 ? "s" : ""}` : ""}
+                      Day {idx + 1} • {formatDayLabel(dStr)} {count > 0 ? `(${count} activities configured)` : "(Not configured yet)"}
                     </option>
                   );
                 })}
@@ -948,112 +901,6 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
                   {isExpanded && (
                     <div className="px-3 sm:px-4 pb-3 pt-2 bg-white space-y-2.5 animate-fade-in-up">
-                      {/* Saved Day-Wise Pooja Sub-Events Section */}
-                      {(() => {
-                        const dayPoojas = getPoojaEventsForDay(day.date);
-                        if (dayPoojas.length === 0) return null;
-                        return (
-                          <div className="p-3 sm:p-3.5 rounded-xl bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-50/90 border border-amber-200/90 space-y-2.5 shadow-2xs">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-2xs shrink-0">
-                                  <Flame className="w-3.5 h-3.5" />
-                                </div>
-                                <div>
-                                  <h5 className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                                    Saved Pooja & Seva Sub-Events for {formatDayLabel(day.date)}
-                                    <span className="text-[9.5px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-200/70 text-amber-900 border border-amber-300/60">
-                                      {dayPoojas.length} In Database
-                                    </span>
-                                  </h5>
-                                  <p className="text-[10px] text-amber-800/80">
-                                    These pooja sub-events are saved in the database for this event date. Click "Link to Agenda" to include in day activities.
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {dayPoojas.map((pooja, pIdx) => {
-                                const isAlreadyInAgenda = day.activities.some(
-                                  a => a.name?.toLowerCase().trim() === pooja.name?.toLowerCase().trim()
-                                );
-                                const timeStr = Array.isArray(pooja.startTimes) && pooja.startTimes.length > 0
-                                  ? pooja.startTimes.join(", ")
-                                  : pooja.startTime || pooja.time || "Scheduled Time";
-
-                                return (
-                                  <div
-                                    key={pooja.id || pIdx}
-                                    className="p-2.5 rounded-lg bg-white border border-amber-200/80 shadow-2xs space-y-1.5"
-                                  >
-                                    <div className="flex items-start justify-between gap-1.5">
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                          <span className="text-xs font-extrabold text-slate-800 truncate">
-                                            {pooja.name}
-                                          </span>
-                                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">
-                                            {pooja.type || "Pooja Seva"}
-                                          </span>
-                                          {pooja.isFree || pooja.fee == 0 || !pooja.fee ? (
-                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
-                                              FREE
-                                            </span>
-                                          ) : (
-                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800">
-                                              ₹{pooja.fee}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                      {isAlreadyInAgenda ? (
-                                        <span className="text-[9.5px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-0.5 shrink-0">
-                                          <Check className="w-2.5 h-2.5" /> In Agenda
-                                        </span>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => importPoojaToDayAgenda(day.date, pooja)}
-                                          className="text-[9.5px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md border border-indigo-200 flex items-center gap-0.5 transition-all cursor-pointer shrink-0 shadow-2xs"
-                                        >
-                                          <Plus className="w-2.5 h-2.5 text-indigo-600" /> Link to Agenda
-                                        </button>
-                                      )}
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-slate-600">
-                                      <div className="flex items-center gap-1">
-                                        <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                        <span className="truncate">{timeStr}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <MapPin className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                        <span className="truncate">{pooja.mandap || pooja.venue || "Main Mandap"}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <User className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                        <span className="truncate">{pooja.pandit || pooja.priestName || "Priest Assigned"}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <Users className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                        <span>{pooja.slots || pooja.availableSeats || "50"} Devotee Slots</span>
-                                      </div>
-                                    </div>
-
-                                    {Array.isArray(pooja.items) && pooja.items.length > 0 && (
-                                      <div className="pt-1 border-t border-amber-100 text-[9.5px] text-amber-900 truncate">
-                                        <span className="font-bold">Items:</span> {pooja.items.filter(Boolean).join(", ")}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })()}
-
                       {day.activities.length === 0 && (
                         <div className="p-4 text-center border border-dashed border-indigo-200 rounded-2xl bg-indigo-50/30 space-y-2">
                           <p className="text-xs font-bold text-slate-700">No activities added for {formatDayLabel(day.date)} yet</p>
@@ -3104,12 +2951,21 @@ function Step8Review({ data }: { data: FormData }) {
   const totalAllocated = data.budgetItems.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
 
   const warnings: string[] = [];
-  if (!data.title) warnings.push("Event title is required.");
-  if (!data.eventType) warnings.push("Please select an event type.");
+  if (!data.title?.trim()) warnings.push("Event title is required.");
+  if (!data.eventType?.trim()) warnings.push("Please select an event type.");
+  if (!data.description?.trim()) warnings.push("Event description is required.");
   if (!data.startDate) warnings.push("Start date is required.");
-  if (!data.venueName) warnings.push("Venue name is required.");
-  if (data.registrationEnabled && data.registrationDeadline && data.startDate && new Date(data.registrationDeadline) >= new Date(data.startDate)) {
-    warnings.push(`Registration deadline (${data.registrationDeadline}) must be before the event start date (${data.startDate}).`);
+  if (data.multiDay && !data.endDate) warnings.push("End date is required for multi-day events.");
+  if (!data.startTime?.trim()) warnings.push("Start time is required.");
+  if (!data.endTime?.trim()) warnings.push("End time is required.");
+  if (!data.venueName?.trim()) warnings.push("Venue name is required.");
+  if (!data.city?.trim()) warnings.push("City is required.");
+  if (!data.venueAddress?.trim()) warnings.push("Venue address is required.");
+  if (data.enableOnlinePayment && (!data.paymentModes || data.paymentModes.length === 0)) {
+    warnings.push("At least one accepted payment mode is required when online payment is enabled.");
+  }
+  if (data.registrationEnabled && data.registrationDeadline && data.startDate && new Date(data.registrationDeadline) > new Date(data.startDate)) {
+    warnings.push(`Registration deadline (${data.registrationDeadline}) must be on or before the event start date (${data.startDate}).`);
   }
 
   const reviewSections = [
@@ -3486,21 +3342,184 @@ export function EventCreateWizard({
     return { ...INITIAL_FORM_DATA };
   });
 
-  // Fetch full details from database API whenever editing an event
+  // Fetch full details and all sub-events from database API whenever editing an event
   useEffect(() => {
     const rawId = eventId || initialData?.id;
     if (rawId) {
       const numId = typeof rawId === "string" ? parseInt(rawId.replace(/\D/g, ""), 10) : Number(rawId);
       if (!isNaN(numId) && numId > 0) {
         setLoadingEvent(true);
-        eventService.getById(numId)
-          .then(ev => {
-            if (ev) {
-              setFormData(fromEventToFormData(ev));
+        Promise.all([
+          eventService.getById(numId).catch(() => null),
+          eventService.getPoojaSevas(numId).catch(() => []),
+          eventService.getCulturalEvents(numId).catch(() => []),
+          eventService.getCompetitions(numId).catch(() => []),
+          eventService.getLunchDinners(numId).catch(() => []),
+        ])
+          .then(([ev, poojas, cults, comps, meals]) => {
+            const baseEvent = ev || initialData;
+            if (baseEvent) {
+              const baseForm = fromEventToFormData(baseEvent);
+
+              // Map all sub-events into daySchedules
+              const daysMap = new Map<string, ScheduleActivity[]>();
+
+              // If baseForm already had daySchedules, preserve them
+              if (Array.isArray(baseForm.daySchedules)) {
+                for (const ds of baseForm.daySchedules) {
+                  if (ds.date) {
+                    daysMap.set(ds.date, [...ds.activities]);
+                  }
+                }
+              }
+
+              // Ensure start date and all days in range are initialized
+              const startD = baseForm.startDate;
+              const endD = baseForm.multiDay && baseForm.endDate ? baseForm.endDate : startD;
+              if (startD) {
+                const allDays = getDaysBetween(startD, endD);
+                for (const d of allDays) {
+                  if (!daysMap.has(d)) {
+                    daysMap.set(d, []);
+                  }
+                }
+              }
+
+              // 1. Merge Pooja Sevas
+              if (Array.isArray(poojas)) {
+                for (const p of poojas) {
+                  const pDate = p.date || p.startDate || startD;
+                  if (!pDate) continue;
+                  if (!daysMap.has(pDate)) daysMap.set(pDate, []);
+                  const list = daysMap.get(pDate)!;
+                  const actTime = (Array.isArray(p.startTimes) && p.startTimes.length > 0)
+                    ? p.startTimes[0]
+                    : p.startTime || "08:30";
+                  const cleanTime = String(actTime).split(/[–-]/)[0].trim();
+                  const existingIdx = list.findIndex(a => a.subEventId === p.id || (a.categoryType === "Pooja & Seva" && a.name === p.name));
+                  const actObj: ScheduleActivity = {
+                    id: `pooja-${p.id}`,
+                    subEventId: p.id,
+                    categoryType: "Pooja & Seva",
+                    name: p.name || "Pooja Seva",
+                    needsRegistration: true,
+                    registrationFee: p.fee ? String(p.fee) : "0",
+                    slots: p.slots ? String(p.slots) : "50",
+                    startTime: cleanTime,
+                    endTime: p.endTime || "",
+                    description: p.notes || p.description || "",
+                    venue: p.mandap || p.venue || "Main Mandap",
+                  };
+                  if (existingIdx >= 0) {
+                    list[existingIdx] = actObj;
+                  } else {
+                    list.push(actObj);
+                  }
+                }
+              }
+
+              // 2. Merge Cultural Events
+              if (Array.isArray(cults)) {
+                for (const c of cults) {
+                  const cDate = c.date || startD;
+                  if (!cDate) continue;
+                  if (!daysMap.has(cDate)) daysMap.set(cDate, []);
+                  const list = daysMap.get(cDate)!;
+                  const existingIdx = list.findIndex(a => a.subEventId === c.id || (a.categoryType === "Cultural Events" && a.name === c.name));
+                  const actObj: ScheduleActivity = {
+                    id: `cult-${c.id}`,
+                    subEventId: c.id,
+                    categoryType: "Cultural Events",
+                    name: c.name || "Cultural Event",
+                    needsRegistration: Boolean(c.needsRegistration),
+                    registrationFee: c.fee ? String(c.fee) : "0",
+                    slots: c.slots ? String(c.slots) : "200",
+                    startTime: c.startTime || "18:00",
+                    endTime: c.endTime || "",
+                    description: c.description || c.requirements || "",
+                    venue: c.stage || c.venue || "Main Stage",
+                  };
+                  if (existingIdx >= 0) {
+                    list[existingIdx] = actObj;
+                  } else {
+                    list.push(actObj);
+                  }
+                }
+              }
+
+              // 3. Merge Competitions
+              if (Array.isArray(comps)) {
+                for (const cmp of comps) {
+                  const cmpDate = cmp.date || startD;
+                  if (!cmpDate) continue;
+                  if (!daysMap.has(cmpDate)) daysMap.set(cmpDate, []);
+                  const list = daysMap.get(cmpDate)!;
+                  const existingIdx = list.findIndex(a => a.subEventId === cmp.id || (a.categoryType === "Competitions" && a.name === cmp.name));
+                  const actObj: ScheduleActivity = {
+                    id: `comp-${cmp.id}`,
+                    subEventId: cmp.id,
+                    categoryType: "Competitions",
+                    name: cmp.name || "Competition",
+                    needsRegistration: true,
+                    registrationFee: cmp.fee ? String(cmp.fee) : "0",
+                    slots: cmp.maxParticipants || cmp.slots ? String(cmp.maxParticipants || cmp.slots) : "50",
+                    startTime: cmp.startTime || "10:00",
+                    endTime: cmp.endTime || "",
+                    description: cmp.description || (cmp.ageGroup ? `Age Group: ${cmp.ageGroup}` : ""),
+                    venue: cmp.venue || "Auditorium",
+                  };
+                  if (existingIdx >= 0) {
+                    list[existingIdx] = actObj;
+                  } else {
+                    list.push(actObj);
+                  }
+                }
+              }
+
+              // 4. Merge Lunch / Dinners
+              if (Array.isArray(meals)) {
+                for (const m of meals) {
+                  const mDate = m.date || startD;
+                  if (!mDate) continue;
+                  if (!daysMap.has(mDate)) daysMap.set(mDate, []);
+                  const list = daysMap.get(mDate)!;
+                  const isDinner = (m.mealType?.toLowerCase() === "dinner" || m.name?.toLowerCase().includes("dinner"));
+                  const catType = isDinner ? "Dinner" : "Lunch";
+                  const existingIdx = list.findIndex(a => a.subEventId === m.id || ((a.categoryType === "Lunch" || a.categoryType === "Dinner") && a.name === m.name));
+                  const actObj: ScheduleActivity = {
+                    id: `meal-${m.id}`,
+                    subEventId: m.id,
+                    categoryType: catType,
+                    name: m.name || (isDinner ? "Community Mahaprasadam Dinner" : "Community Mahaprasadam Lunch"),
+                    needsRegistration: Boolean(m.needsRegistration),
+                    registrationFee: m.fee ? String(m.fee) : "0",
+                    slots: m.targetPlates || m.slots ? String(m.targetPlates || m.slots) : "500",
+                    startTime: m.startTime || (isDinner ? "19:00" : "12:30"),
+                    endTime: m.endTime || (isDinner ? "21:00" : "14:30"),
+                    description: m.notes || m.description || (Array.isArray(m.menuItems) ? m.menuItems.join(", ") : ""),
+                    venue: m.venue || "Community Dining Hall",
+                  };
+                  if (existingIdx >= 0) {
+                    list[existingIdx] = actObj;
+                  } else {
+                    list.push(actObj);
+                  }
+                }
+              }
+
+              // Sort days chronologically
+              const sortedDates = Array.from(daysMap.keys()).sort();
+              const builtDaySchedules: DaySchedule[] = sortedDates.map(d => ({
+                date: d,
+                activities: daysMap.get(d) || [],
+              }));
+
+              baseForm.daySchedules = builtDaySchedules;
+              setFormData(baseForm);
             }
           })
           .catch((err) => {
-            console.warn("Could not fetch full event by ID, falling back to initial data:", err);
+            console.warn("Could not fetch full event and sub-events by ID, falling back to initial data:", err);
           })
           .finally(() => setLoadingEvent(false));
       }
@@ -3534,13 +3553,19 @@ export function EventCreateWizard({
   const validateStep = (currentStep: number): string | null => {
     if (currentStep === 1) {
       if (!formData.title.trim()) return "Please enter an event title.";
-      if (!formData.category && !formData.eventType) return "Please select an event category.";
+      if (!formData.category && !formData.eventType) return "Please select an event category / type.";
+      if (!formData.description.trim()) return "Event description is required.";
     }
     if (currentStep === 2) {
       if (!formData.startDate) return "Event start date is required.";
       if (formData.multiDay && !formData.endDate) return "End date is required for multi-day events.";
       if (isEndDateInvalid) return `End date (${formData.endDate}) cannot be earlier than start date (${formData.startDate}).`;
+      if (!formData.startTime?.trim()) return "Event start time is required.";
+      if (!formData.endTime?.trim()) return "Event end time is required.";
       if (isTimeInvalid) return `End time (${formData.endTime}) must be after start time (${formData.startTime}).`;
+      if (!formData.venueName?.trim()) return "Venue name is required.";
+      if (!formData.city?.trim()) return "City is required.";
+      if (!formData.venueAddress?.trim()) return "Venue address is required.";
     }
     if (currentStep === 3) {
       if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
@@ -3552,15 +3577,32 @@ export function EventCreateWizard({
         }
       }
     }
+    if (currentStep === 4) {
+      if (formData.enableOnlinePayment && (!formData.paymentModes || formData.paymentModes.length === 0)) {
+        return "Please select at least one accepted payment mode when online payment is enabled.";
+      }
+    }
     return null;
   };
 
   const validateAll = (): string | null => {
+    // Step 1 — Basics
     if (!formData.title.trim()) return "Event title is required.";
+    if (!formData.eventType && !formData.category) return "Please select an event type / category.";
+    if (!formData.description.trim()) return "Event description is required.";
+
+    // Step 2 — Schedule & Venue
     if (!formData.startDate) return "Event start date is required.";
     if (formData.multiDay && !formData.endDate) return "End date is required for multi-day events.";
     if (isEndDateInvalid) return `End date (${formData.endDate}) cannot be earlier than start date (${formData.startDate}).`;
+    if (!formData.startTime?.trim()) return "Event start time is required.";
+    if (!formData.endTime?.trim()) return "Event end time is required.";
     if (isTimeInvalid) return `End time (${formData.endTime}) must be after start time (${formData.startTime}).`;
+    if (!formData.venueName?.trim()) return "Venue name is required.";
+    if (!formData.city?.trim()) return "City is required.";
+    if (!formData.venueAddress?.trim()) return "Venue address is required.";
+
+    // Step 3 — Registration
     if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
     const maxCap = formData.capacity ? parseInt(formData.capacity, 10) : 0;
     if (maxCap > 0 && formData.ticketTypes && formData.ticketTypes.length > 0) {
@@ -3569,6 +3611,12 @@ export function EventCreateWizard({
         return `Total seats across all ticket categories (${totalCategorySeats}) cannot exceed Event Max Capacity (${maxCap}). Please adjust category seat allocations.`;
       }
     }
+
+    // Step 4 — Payment
+    if (formData.enableOnlinePayment && (!formData.paymentModes || formData.paymentModes.length === 0)) {
+      return "Please select at least one accepted payment mode when online payment is enabled.";
+    }
+
     return null;
   };
 
