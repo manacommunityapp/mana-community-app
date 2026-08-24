@@ -868,6 +868,55 @@ export function EventMemberView() {
   const culturalCount = useMemo(() => activitiesList.filter((a) => a.category === "Cultural").length, [activitiesList]);
   const compCount = useMemo(() => activitiesList.filter((a) => a.category === "Competitions").length, [activitiesList]);
 
+  const isPoojaActivity = (cat?: string) =>
+    Boolean(cat && (cat.toLowerCase().includes("pooja") || cat.toLowerCase().includes("seva")));
+
+  const activePasses = useMemo(() => {
+    return passesList.filter((p) => {
+      if (p.isEventCancelled || p.status === "CANCELLED") return false;
+      if (p.isEventExpired || p.status === "EXPIRED") return false;
+      if (p.isEventClosed || p.status === "CLOSED") return false;
+      return p.status === "CONFIRMED" || p.status === "PENDING APPROVAL" || !p.status;
+    });
+  }, [passesList]);
+
+  const cancelledPasses = useMemo(() => {
+    return passesList.filter((p) => p.isEventCancelled || p.status === "CANCELLED");
+  }, [passesList]);
+
+  const expiredPasses = useMemo(() => {
+    return passesList.filter((p) => (p.isEventExpired || p.status === "EXPIRED") && !p.isEventCancelled && p.status !== "CANCELLED");
+  }, [passesList]);
+
+  const closedPasses = useMemo(() => {
+    return passesList.filter((p) => (p.isEventClosed || p.status === "CLOSED") && !p.isEventCancelled && p.status !== "CANCELLED" && !p.isEventExpired);
+  }, [passesList]);
+
+  const displayedPasses = useMemo(() => {
+    let list = passesList;
+    if (passesFilter === "ACTIVE") list = activePasses;
+    else if (passesFilter === "CANCELLED") list = cancelledPasses;
+    else if (passesFilter === "EXPIRED") list = expiredPasses;
+    else if (passesFilter === "CLOSED") list = closedPasses;
+
+    if (!passesSearch.trim()) return list;
+    const q = passesSearch.trim().toLowerCase();
+    return list.filter((p) =>
+      (p.title || "").toLowerCase().includes(q) ||
+      (p.participantName || "").toLowerCase().includes(q) ||
+      (p.regId || "").toLowerCase().includes(q) ||
+      (p.gotram || "").toLowerCase().includes(q) ||
+      (p.passType || "").toLowerCase().includes(q)
+    );
+  }, [passesList, passesFilter, activePasses, cancelledPasses, expiredPasses, closedPasses, passesSearch]);
+
+  const displayedMobilePasses = useMemo(() => {
+    if (mobilePassesFilter === "ACTIVE") return activePasses;
+    if (mobilePassesFilter === "CANCELLED") return cancelledPasses;
+    if (mobilePassesFilter === "EXPIRED") return expiredPasses;
+    return passesList;
+  }, [passesList, mobilePassesFilter, activePasses, cancelledPasses, expiredPasses]);
+
   const dynamicQuickActions = useMemo(() => {
     const volunteerBadge = useMock
       ? "12 Teams Duty"
@@ -931,7 +980,7 @@ export function EventMemberView() {
         label: "My Passes",
         icon: Ticket,
         color: "bg-indigo-500/10 text-indigo-600 border-indigo-300/30",
-        badge: `${passesList.length} Active`,
+        badge: `${activePasses.length} Active`,
         action: "passes",
       },
       {
@@ -959,23 +1008,20 @@ export function EventMemberView() {
         category: "Auction",
       },
     ];
-  }, [poojaCount, foodCount, culturalCount, familyMembers.length, passesList.length, useMock, liveStats]);
-
-  const isPoojaActivity = (cat?: string) =>
-    Boolean(cat && (cat.toLowerCase().includes("pooja") || cat.toLowerCase().includes("seva")));
+  }, [poojaCount, foodCount, culturalCount, familyMembers.length, activePasses.length, useMock, liveStats]);
 
   const userActivePoojaPass = useMemo(() => {
-    return passesList.find(
-      (p) => (isPoojaActivity(p.category) || isPoojaActivity(p.passType) || Boolean(p.poojaSevaId)) && p.status !== "CANCELLED"
+    return activePasses.find(
+      (p) => (isPoojaActivity(p.category) || isPoojaActivity(p.passType) || Boolean(p.poojaSevaId))
     );
-  }, [passesList]);
+  }, [activePasses]);
 
   /**
    * Safe matching between an Activity and user's booked Passes list.
    * Prevents ID collision between different types (e.g. comp-1 vs pooja-1).
    */
   const getExistingPassForActivity = (act: Activity): UserPass | undefined => {
-    if (!passesList || passesList.length === 0) return undefined;
+    if (!activePasses || activePasses.length === 0) return undefined;
 
     const actIdStr = String(act.id || "").trim();
     const actIdNumeric = actIdStr.replace(/\D/g, "");
@@ -985,8 +1031,8 @@ export function EventMemberView() {
     const cleanActTitle = (act.title || "").trim().toLowerCase();
     const actMainEventId = act.mainEventId ? String(act.mainEventId) : null;
 
-    return passesList.find((p) => {
-      if (p.status === "CANCELLED") return false;
+    return activePasses.find((p) => {
+      if (p.status === "CANCELLED" || p.isEventCancelled || p.isEventExpired) return false;
 
       const passActIdStr = String(p.activityId || "").trim();
       const passPoojaIdStr = p.poojaSevaId ? String(p.poojaSevaId).trim() : "";
@@ -2177,97 +2223,266 @@ export function EventMemberView() {
         {/* ─── PASSES VIEW TAB ─── */}
         {activeTab === "passes" && (
           <div className="space-y-4 animate-fadeIn">
-            <div className="flex items-center justify-between border-b border-border pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
               <div>
-                <h3 className="text-base font-black text-foreground">My Active E-Passes &amp; Tokens ({passesList.length})</h3>
-                <p className="text-xs text-muted-foreground">Digital gate passes for event entry &amp; seva participation</p>
+                <h3 className="text-base font-black text-foreground flex items-center gap-2">
+                  My E-Passes &amp; Tokens
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                    {activePasses.length} Active
+                  </span>
+                  {cancelledPasses.length > 0 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                      {cancelledPasses.length} Cancelled
+                    </span>
+                  )}
+                  {expiredPasses.length > 0 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                      {expiredPasses.length} Expired
+                    </span>
+                  )}
+                </h3>
+                <p className="text-xs text-muted-foreground">Digital gate passes for venue entry, pooja sevas &amp; food tokens</p>
               </div>
               <button
                 onClick={() => setActiveTab("home")}
-                className="px-3 py-1.5 rounded-xl bg-muted text-foreground text-xs font-bold hover:bg-muted/80 transition-colors cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-muted text-foreground text-xs font-bold hover:bg-muted/80 transition-colors cursor-pointer w-fit"
               >
-                ← Back
+                ← Back to Dashboard
               </button>
             </div>
 
-            {passesList.length === 0 ? (
+            {/* Filter Tabs & Search Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                <button
+                  type="button"
+                  onClick={() => setPassesFilter("ACTIVE")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                    passesFilter === "ACTIVE"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                  Active Passes ({activePasses.length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPassesFilter("CANCELLED")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                    passesFilter === "CANCELLED"
+                      ? "bg-rose-600 text-white shadow-xs"
+                      : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-rose-400" />
+                  Event Cancelled ({cancelledPasses.length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setPassesFilter("EXPIRED")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                    passesFilter === "EXPIRED"
+                      ? "bg-amber-600 text-white shadow-xs"
+                      : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  Expired / Concluded ({expiredPasses.length})
+                </button>
+
+                {closedPasses.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setPassesFilter("CLOSED")}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 ${
+                      passesFilter === "CLOSED"
+                        ? "bg-slate-700 text-white shadow-xs"
+                        : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                    }`}
+                  >
+                    <span className="w-2 h-2 rounded-full bg-slate-400" />
+                    Closed ({closedPasses.length})
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setPassesFilter("ALL")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    passesFilter === "ALL"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  All ({passesList.length})
+                </button>
+              </div>
+
+              <div className="relative w-full sm:w-60">
+                <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={passesSearch}
+                  onChange={(e) => setPassesSearch(e.target.value)}
+                  placeholder="Search passes..."
+                  className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-card border border-border text-xs focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+            </div>
+
+            {displayedPasses.length === 0 ? (
               <div className="p-8 text-center bg-card border border-border rounded-2xl space-y-3">
                 <Ticket className="w-8 h-8 text-muted-foreground mx-auto" />
-                <p className="text-sm font-bold text-foreground">No Passes Issued Yet</p>
-                <p className="text-xs text-muted-foreground">Register for any Pooja, Cultural or Competition event to get your QR E-Pass.</p>
-                <button
-                  onClick={() => setActiveTab("home")}
-                  className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl cursor-pointer"
-                >
-                  Browse Events
-                </button>
+                <p className="text-sm font-bold text-foreground">
+                  {passesFilter === "ACTIVE"
+                    ? "No Active Passes"
+                    : passesFilter === "CANCELLED"
+                    ? "No Cancelled Passes"
+                    : passesFilter === "EXPIRED"
+                    ? "No Expired / Past Passes"
+                    : "No Passes Found"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {passesFilter === "ACTIVE"
+                    ? "Register for an upcoming Pooja, Cultural program, or Competition to generate your active digital entry pass."
+                    : "Passes matching the selected criteria will appear here."}
+                </p>
+                {passesFilter === "ACTIVE" && (
+                  <button
+                    onClick={() => setActiveTab("home")}
+                    className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl cursor-pointer"
+                  >
+                    Browse Events
+                  </button>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                {passesList.map((p) => (
-                  <div key={p.id} className="p-4 sm:p-5 rounded-2xl bg-card border border-border shadow-xs space-y-3 flex flex-col justify-between hover:border-primary/40 transition-all">
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between border-b border-border pb-2">
-                        <div>
-                          <span className="text-[10px] font-extrabold text-primary uppercase block">{p.passType}</span>
-                          <h4 className="text-xs sm:text-sm font-bold text-foreground">{p.title}</h4>
+                {displayedPasses.map((p) => {
+                  const isCancelled = p.isEventCancelled || p.status === "CANCELLED";
+                  const isExpired = (p.isEventExpired || p.status === "EXPIRED") && !isCancelled;
+                  const isClosed = (p.isEventClosed || p.status === "CLOSED") && !isCancelled && !isExpired;
+
+                  return (
+                    <div
+                      key={p.id}
+                      className={`p-4 sm:p-5 rounded-2xl bg-card border shadow-xs space-y-3 flex flex-col justify-between transition-all ${
+                        isCancelled
+                          ? "border-rose-300 dark:border-rose-900/60 bg-rose-50/20 dark:bg-rose-950/10"
+                          : isExpired
+                          ? "border-amber-300 dark:border-amber-900/60 bg-amber-50/20 dark:bg-amber-950/10"
+                          : isClosed
+                          ? "border-slate-300 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/20"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between border-b border-border pb-2">
+                          <div>
+                            <span className="text-[10px] font-extrabold text-primary uppercase block">{p.passType}</span>
+                            <h4 className="text-xs sm:text-sm font-bold text-foreground">{p.title}</h4>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            {isCancelled ? (
+                              <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-rose-500/10 text-rose-600 border border-rose-500/20">
+                                🚫 Event Cancelled
+                              </span>
+                            ) : isExpired ? (
+                              <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                                ⏰ Expired / Past
+                              </span>
+                            ) : isClosed ? (
+                              <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-slate-500/10 text-slate-600 border border-slate-500/20">
+                                🔒 Closed
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                                🟢 {p.status || "CONFIRMED"}
+                              </span>
+                            )}
+
+                            {p.bookingFee && p.bookingFee > 0 ? (
+                              <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
+                                ₹{p.bookingFee} ({p.paymentStatus || "PAID"})
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-slate-500/10 text-slate-600 border border-slate-500/20">
+                                FREE
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0">
-                          <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                            {p.status}
-                          </span>
-                          {p.bookingFee && p.bookingFee > 0 ? (
-                            <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-indigo-500/10 text-indigo-600 border border-indigo-500/20">
-                              ₹{p.bookingFee} ({p.paymentStatus || "PAID"})
-                            </span>
-                          ) : (
-                            <span className="px-1.5 py-0.5 rounded text-[8.5px] font-bold bg-slate-500/10 text-slate-600 border border-slate-500/20">
-                              FREE
-                            </span>
+
+                        {/* Cancellation / Expiry Alert Banner */}
+                        {isCancelled && (
+                          <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 text-[11px] space-y-0.5">
+                            <p className="font-bold flex items-center gap-1">
+                              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                              {p.statusReason || "Event or registration has been cancelled"}
+                            </p>
+                            <p className="text-[10px] text-rose-600/80">This pass is void and cannot be scanned at the venue gate.</p>
+                          </div>
+                        )}
+
+                        {isExpired && (
+                          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-[11px]">
+                            <p className="font-semibold flex items-center gap-1">
+                              <Clock className="w-3 h-3 shrink-0" />
+                              Event concluded on {p.date}. Pass archived.
+                            </p>
+                          </div>
+                        )}
+
+                        <div className="text-xs text-muted-foreground space-y-1">
+                          <p>Attendee: <strong className="text-foreground">{p.participantName}</strong></p>
+                          <p>Date &amp; Time: <strong className="text-foreground">{p.date} • {p.time}</strong></p>
+                          <p className="font-mono text-[10.5px] text-muted-foreground/80">Reg ID: {p.regId}</p>
+                          {p.transactionId && (
+                            <p className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
+                              Txn: {p.transactionId}
+                            </p>
                           )}
                         </div>
-                      </div>
 
-                      <div className="text-xs text-muted-foreground space-y-1">
-                        <p>Attendee: <strong className="text-foreground">{p.participantName}</strong></p>
-                        <p>Date &amp; Time: <strong className="text-foreground">{p.date} • {p.time}</strong></p>
-                        <p className="font-mono text-[10.5px] text-muted-foreground/80">Reg ID: {p.regId}</p>
-                        {p.transactionId && (
-                          <p className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
-                            Txn: {p.transactionId}
-                          </p>
+                        {p.paymentReceiptUrl && (
+                          <div className="pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setViewReceiptModal(p.paymentReceiptUrl!)}
+                              className="text-[10.5px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer bg-primary/5 px-2 py-1 rounded-lg border border-primary/20 w-fit"
+                            >
+                              <Receipt className="w-3 h-3" /> View Payment Receipt
+                            </button>
+                          </div>
                         )}
                       </div>
 
-                      {p.paymentReceiptUrl && (
-                        <div className="pt-1">
-                          <button
-                            type="button"
-                            onClick={() => setViewReceiptModal(p.paymentReceiptUrl!)}
-                            className="text-[10.5px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer bg-primary/5 px-2 py-1 rounded-lg border border-primary/20 w-fit"
-                          >
-                            <Receipt className="w-3 h-3" /> View Payment Receipt
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => openManageModal(p)}
+                          className="flex-1 py-2.5 bg-muted hover:bg-accent border border-border hover:border-primary/40 text-foreground text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-xs active:scale-95"
+                        >
+                          <Settings className="w-3.5 h-3.5" /> Details
+                        </button>
+                        <button
+                          onClick={() => setShowQRPass(p)}
+                          className={`flex-[2] py-2.5 text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95 ${
+                            isCancelled
+                              ? "bg-slate-700 hover:bg-slate-800 text-white"
+                              : isExpired
+                              ? "bg-amber-700 hover:bg-amber-800 text-white"
+                              : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
+                          }`}
+                        >
+                          <QrCode className="w-4 h-4" /> {isCancelled ? "View Void Pass" : isExpired ? "View Archived Pass" : "View QR Pass"}
+                        </button>
+                      </div>
                     </div>
-
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => openManageModal(p)}
-                        className="flex-1 py-2.5 bg-muted hover:bg-accent border border-border hover:border-primary/40 text-foreground text-xs font-bold rounded-xl flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-xs active:scale-95"
-                      >
-                        <Settings className="w-3.5 h-3.5" /> Manage
-                      </button>
-                      <button
-                        onClick={() => setShowQRPass(p)}
-                        className="flex-[2] py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95"
-                      >
-                        <QrCode className="w-4 h-4" /> View QR Pass
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -2679,12 +2894,12 @@ export function EventMemberView() {
                 </div>
                 <div>
                   <h3 className="font-black text-foreground text-base flex items-center gap-2">
-                    My Event Entry Passes
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 border border-indigo-200 dark:border-indigo-800">
-                      {passesList.length} Active
+                    My Event Passes
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200 dark:border-emerald-800">
+                      {activePasses.length} Active
                     </span>
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">Scan QR codes at festival gate and dining hall</p>
+                  <p className="text-[11px] text-muted-foreground">Digital QR passes for festival entry &amp; dining</p>
                 </div>
               </div>
               <button
@@ -2697,62 +2912,160 @@ export function EventMemberView() {
               </button>
             </div>
 
+            {/* Mobile Filter Chips */}
+            <div className="flex items-center gap-1.5 py-2.5 overflow-x-auto scrollbar-none border-b border-border/60">
+              <button
+                type="button"
+                onClick={() => setMobilePassesFilter("ACTIVE")}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  mobilePassesFilter === "ACTIVE"
+                    ? "bg-emerald-600 text-white shadow-2xs"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                Active ({activePasses.length})
+              </button>
+              {cancelledPasses.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setMobilePassesFilter("CANCELLED")}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    mobilePassesFilter === "CANCELLED"
+                      ? "bg-rose-600 text-white shadow-2xs"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  Cancelled ({cancelledPasses.length})
+                </button>
+              )}
+              {expiredPasses.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setMobilePassesFilter("EXPIRED")}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    mobilePassesFilter === "EXPIRED"
+                      ? "bg-amber-600 text-white shadow-2xs"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  Expired ({expiredPasses.length})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setMobilePassesFilter("ALL")}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  mobilePassesFilter === "ALL"
+                    ? "bg-primary text-primary-foreground shadow-2xs"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                All ({passesList.length})
+              </button>
+            </div>
+
             <div className="overflow-y-auto py-3 space-y-3 flex-1 text-xs">
-              {passesList.length === 0 ? (
+              {displayedMobilePasses.length === 0 ? (
                 <div className="text-center py-10 space-y-3 text-muted-foreground">
                   <Ticket className="w-10 h-10 mx-auto text-muted-foreground/40" />
-                  <p className="font-bold text-foreground">No Passes Found</p>
-                  <p className="text-xs max-w-xs mx-auto">Register for festival events or poojas to receive your digital QR entry pass.</p>
-                  <button
-                    onClick={() => {
-                      setMobileModal(null);
-                      setActiveTab("home");
-                    }}
-                    className="px-4 py-2 bg-primary text-white font-bold rounded-xl text-xs shadow-sm cursor-pointer"
-                  >
-                    Browse Festival Events
-                  </button>
+                  <p className="font-bold text-foreground">
+                    {mobilePassesFilter === "ACTIVE" ? "No Active Passes Found" : "No Passes in this category"}
+                  </p>
+                  <p className="text-xs max-w-xs mx-auto">
+                    {mobilePassesFilter === "ACTIVE"
+                      ? "Register for festival events or poojas to receive your digital QR entry pass."
+                      : "No passes match the current filter selection."}
+                  </p>
+                  {mobilePassesFilter === "ACTIVE" && (
+                    <button
+                      onClick={() => {
+                        setMobileModal(null);
+                        setActiveTab("home");
+                      }}
+                      className="px-4 py-2 bg-primary text-white font-bold rounded-xl text-xs shadow-sm cursor-pointer"
+                    >
+                      Browse Festival Events
+                    </button>
+                  )}
                 </div>
               ) : (
-                passesList.map((pass) => (
-                  <div
-                    key={pass.id}
-                    className="p-4 rounded-2xl bg-card border border-border shadow-sm space-y-3 relative overflow-hidden"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1 min-w-0">
-                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 border border-indigo-200 dark:border-indigo-800">
-                          {pass.passType || "Entry Pass"}
-                        </span>
-                        <h4 className="font-bold text-foreground text-sm truncate">{pass.title}</h4>
-                        <p className="text-[11px] text-muted-foreground font-mono">Pass #{pass.regId || pass.id}</p>
+                displayedMobilePasses.map((pass) => {
+                  const isCancelled = pass.isEventCancelled || pass.status === "CANCELLED";
+                  const isExpired = (pass.isEventExpired || pass.status === "EXPIRED") && !isCancelled;
+
+                  return (
+                    <div
+                      key={pass.id}
+                      className={`p-4 rounded-2xl bg-card border shadow-sm space-y-2.5 relative overflow-hidden ${
+                        isCancelled
+                          ? "border-rose-300 dark:border-rose-900/60 bg-rose-50/20 dark:bg-rose-950/10"
+                          : isExpired
+                          ? "border-amber-300 dark:border-amber-900/60 bg-amber-50/20 dark:bg-amber-950/10"
+                          : "border-border"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 border border-indigo-200 dark:border-indigo-800">
+                              {pass.passType || "Entry Pass"}
+                            </span>
+                            {isCancelled ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-700">
+                                🚫 Cancelled
+                              </span>
+                            ) : isExpired ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">
+                                ⏰ Expired
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                                🟢 {pass.status || "CONFIRMED"}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="font-bold text-foreground text-sm truncate">{pass.title}</h4>
+                          <p className="text-[11px] text-muted-foreground font-mono">Pass #{pass.regId || pass.id}</p>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            setMobileModal(null);
+                            setShowQRPass(pass);
+                          }}
+                          className={`p-2.5 rounded-xl shrink-0 cursor-pointer flex flex-col items-center gap-1 transition-all ${
+                            isCancelled
+                              ? "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-300"
+                              : isExpired
+                              ? "bg-amber-100 dark:bg-amber-950/50 text-amber-700 border border-amber-300"
+                              : "bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800"
+                          }`}
+                          title="Show QR Pass"
+                        >
+                          <QrCode className="w-5 h-5" />
+                          <span className="text-[9px] font-bold">QR Pass</span>
+                        </button>
                       </div>
 
-                      <button
-                        onClick={() => {
-                          setMobileModal(null);
-                          setShowQRPass(pass);
-                        }}
-                        className="p-2.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200 dark:border-indigo-800 shrink-0 cursor-pointer flex flex-col items-center gap-1"
-                        title="Show Entry QR Code"
-                      >
-                        <QrCode className="w-5 h-5" />
-                        <span className="text-[9px] font-bold">Show QR</span>
-                      </button>
-                    </div>
+                      {isCancelled && (
+                        <p className="text-[10px] text-rose-600 font-medium">
+                          ⚠️ {pass.statusReason || "Event or booking was cancelled"}
+                        </p>
+                      )}
 
-                    <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground pt-2 border-t border-border/60">
-                      <div>
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80">Devotee</p>
-                        <p className="font-semibold text-foreground truncate">{pass.participantName}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80">Attendees</p>
-                        <p className="font-semibold text-foreground">{pass.devoteeCount || 1} Member(s)</p>
+                      <div className="grid grid-cols-2 gap-2 text-[11px] text-muted-foreground pt-2 border-t border-border/60">
+                        <div>
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80">Devotee</p>
+                          <p className="font-semibold text-foreground truncate">{pass.participantName}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/80">Attendees</p>
+                          <p className="font-semibold text-foreground">{pass.devoteeCount || 1} Member(s)</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
 
@@ -2764,7 +3077,7 @@ export function EventMemberView() {
                 }}
                 className="text-xs font-bold text-indigo-600 hover:text-indigo-700 cursor-pointer"
               >
-                Open Full Passes Dashboard →
+                Open Full Passes Ledger →
               </button>
               <button
                 onClick={() => setMobileModal(null)}
@@ -3119,43 +3432,111 @@ export function EventMemberView() {
               <X className="w-4 h-4" />
             </button>
 
-            <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-600 inline-block shadow-2xs">
-              <QrCode className="w-8 h-8" />
-            </div>
+            {(() => {
+              const isCancelled = showQRPass.isEventCancelled || showQRPass.status === "CANCELLED";
+              const isExpired = (showQRPass.isEventExpired || showQRPass.status === "EXPIRED") && !isCancelled;
+              const isClosed = (showQRPass.isEventClosed || showQRPass.status === "CLOSED") && !isCancelled && !isExpired;
 
-            <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-primary">{showQRPass.passType}</span>
-              <h3 className="text-base font-black text-foreground mt-0.5">{showQRPass.title}</h3>
-            </div>
+              return (
+                <>
+                  <div className={`p-3 rounded-2xl inline-block shadow-2xs ${
+                    isCancelled
+                      ? "bg-rose-500/10 text-rose-600"
+                      : isExpired
+                      ? "bg-amber-500/10 text-amber-600"
+                      : "bg-indigo-500/10 text-indigo-600"
+                  }`}>
+                    <QrCode className="w-8 h-8" />
+                  </div>
 
-            <div className="p-4 bg-white rounded-2xl border border-slate-200 inline-block shadow-sm">
-              <img src={showQRPass.qrCodeUrl} alt="QR Gate Pass" className="w-40 h-40 mx-auto" />
-            </div>
+                  <div>
+                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-primary">{showQRPass.passType}</span>
+                      {isCancelled ? (
+                        <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950/60 text-rose-700 border border-rose-200">
+                          🚫 VOID / CANCELLED
+                        </span>
+                      ) : isExpired ? (
+                        <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-700 border border-amber-200">
+                          ⏰ EXPIRED PASS
+                        </span>
+                      ) : (
+                        <span className="text-[9.5px] font-black px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 border border-emerald-200">
+                          🟢 ACTIVE &amp; VALID
+                        </span>
+                      )}
+                    </div>
+                    <h3 className="text-base font-black text-foreground">{showQRPass.title}</h3>
+                  </div>
 
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>Attendee: <strong className="text-foreground">{showQRPass.participantName}</strong></p>
-              <p className="font-mono text-[11px] text-primary font-bold">{showQRPass.regId}</p>
-            </div>
+                  {/* Status Banner */}
+                  {isCancelled ? (
+                    <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 text-xs font-semibold text-left space-y-0.5">
+                      <p className="font-bold flex items-center gap-1">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        Pass is Invalid for Admission
+                      </p>
+                      <p className="text-[11px] text-rose-600/80">
+                        {showQRPass.statusReason || "This event was cancelled. This QR code will be rejected at gate scanners."}
+                      </p>
+                    </div>
+                  ) : isExpired ? (
+                    <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium text-left">
+                      <p className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 shrink-0" />
+                        This event concluded on {showQRPass.date}.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs font-semibold text-left flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                      <span>Ready to scan at Festival Gate &amp; Food Counters</span>
+                    </div>
+                  )}
 
-            <div className="space-y-2 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  handleDownloadPDFPass(showQRPass);
-                  setShowQRPass(null);
-                }}
-                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95"
-              >
-                <Download className="w-4 h-4" /> Download / Save PDF E-Pass
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowQRPass(null)}
-                className="w-full py-2 bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold rounded-xl cursor-pointer transition-colors"
-              >
-                Close
-              </button>
-            </div>
+                  <div className={`p-4 bg-white rounded-2xl border inline-block shadow-sm relative ${
+                    isCancelled ? "border-rose-300 opacity-60" : "border-slate-200"
+                  }`}>
+                    <img src={showQRPass.qrCodeUrl} alt="QR Gate Pass" className="w-40 h-40 mx-auto" />
+                    {isCancelled && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[1px] rounded-2xl">
+                        <span className="px-3 py-1 bg-rose-600 text-white font-black text-xs uppercase tracking-widest rounded-lg shadow-lg rotate-[-12deg]">
+                          CANCELLED
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>Attendee: <strong className="text-foreground">{showQRPass.participantName}</strong></p>
+                    <p className="font-mono text-[11px] text-primary font-bold">{showQRPass.regId}</p>
+                    <p className="text-[11px]">{showQRPass.venue} • {showQRPass.date} ({showQRPass.time})</p>
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    {!isCancelled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleDownloadPDFPass(showQRPass);
+                          setShowQRPass(null);
+                        }}
+                        className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95"
+                      >
+                        <Download className="w-4 h-4" /> Download / Save PDF E-Pass
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setShowQRPass(null)}
+                      className="w-full py-2 bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold rounded-xl cursor-pointer transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
