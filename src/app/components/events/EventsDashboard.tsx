@@ -301,7 +301,8 @@ export function EventsDashboard() {
       eventService.getAllEvents().catch(() => [])
     ])
       .then(([regs, evts]: [any[], any[]]) => {
-        // Collect cancelled event IDs and normalized titles
+        const activeEventsById = new Map<number, any>();
+        const activeEventsByTitle = new Map<string, any>();
         const cancelledEventIds = new Set<number>();
         const cancelledEventTitles = new Set<string>();
 
@@ -311,6 +312,9 @@ export function EventsDashboard() {
             if (evStatus === 'CANCELLED') {
               if (ev.id != null) cancelledEventIds.add(Number(ev.id));
               if (ev.title) cancelledEventTitles.add(ev.title.trim().toLowerCase());
+            } else {
+              if (ev.id != null) activeEventsById.set(Number(ev.id), ev);
+              if (ev.title) activeEventsByTitle.set(ev.title.trim().toLowerCase(), ev);
             }
           });
         }
@@ -323,7 +327,28 @@ export function EventsDashboard() {
           return;
         }
 
-        const mapped: UnifiedReg[] = rawList.map((r: any) => {
+        const activeRegs = rawList.filter((r: any) => {
+          const rawStatus = String(r.status || '').toUpperCase();
+          if (rawStatus === 'CANCELLED' || rawStatus === 'REJECTED') return false;
+          if (String(r.eventStatus || '').toUpperCase() === 'CANCELLED') return false;
+
+          const numEventId = r.mainEventId != null ? Number(r.mainEventId) : (r.eventId != null ? Number(r.eventId) : null);
+          const actTitle = String(r.activityTitle || r.eventName || r.eventTitle || '').trim().toLowerCase();
+
+          if (numEventId != null && cancelledEventIds.has(numEventId)) return false;
+          if (actTitle && cancelledEventTitles.has(actTitle)) return false;
+
+          // If database events exist, ensure the parent/main event actually exists and is active
+          if (evts && evts.length > 0) {
+            const exists = (numEventId != null && activeEventsById.has(numEventId)) || (actTitle && activeEventsByTitle.has(actTitle));
+            if (numEventId != null || actTitle) {
+              if (!exists) return false;
+            }
+          }
+          return true;
+        });
+
+        const mapped: UnifiedReg[] = activeRegs.map((r: any) => {
           let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
           if (r.membersJson) {
             try {
@@ -346,16 +371,6 @@ export function EventsDashboard() {
           }
           if (!attendeeCount) attendeeCount = 1;
 
-          const isParentEvCancelled =
-            (r.eventId != null && cancelledEventIds.has(Number(r.eventId))) ||
-            (r.mainEventId != null && cancelledEventIds.has(Number(r.mainEventId))) ||
-            (r.activityTitle && cancelledEventTitles.has(String(r.activityTitle).trim().toLowerCase())) ||
-            (r.eventTitle && cancelledEventTitles.has(String(r.eventTitle).trim().toLowerCase())) ||
-            String(r.eventStatus || '').toUpperCase() === 'CANCELLED';
-
-          const rawStatus = String(r.status || 'CONFIRMED').toUpperCase();
-          const finalStatus = isParentEvCancelled && rawStatus !== 'CANCELLED' ? 'CANCELLED' : rawStatus;
-
           let category: RegCat = 'event';
           const catStr = String(r.category || '').toLowerCase();
           const actId = String(r.activityId || '').toLowerCase();
@@ -368,16 +383,16 @@ export function EventsDashboard() {
             id: r.id,
             regCode: r.regCode || `REG-${r.id}`,
             category,
-            activityTitle: r.activityTitle || r.eventTitle || (isParentEvCancelled ? 'Event (Cancelled)' : 'Event'),
-            participantName: r.participantName || r.userName || 'N/A',
+            activityTitle: r.activityTitle || r.eventName || r.eventTitle || 'Community Event',
+            participantName: r.participantName || r.primaryName || r.userName || 'N/A',
             email: r.userEmail || r.email,
             phone: r.phone,
             extra: r.gotram ? `Gotram: ${r.gotram}` : r.ageGroup,
             devoteeCount: attendeeCount,
             bookingFee: r.bookingFee ?? 0,
-            paymentStatus: r.paymentStatus || (finalStatus === 'CANCELLED' ? 'CANCELLED' : 'N/A'),
-            status: finalStatus,
-            isEventCancelled: isParentEvCancelled,
+            paymentStatus: r.paymentStatus || 'PAID',
+            status: r.status || 'CONFIRMED',
+            isEventCancelled: false,
             eventDate: r.eventDate,
             eventTime: r.eventTime,
             venue: r.venue,
