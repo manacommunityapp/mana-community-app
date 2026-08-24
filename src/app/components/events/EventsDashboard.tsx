@@ -6,7 +6,7 @@ import {
   Clock, MapPin, AlertCircle, Loader2,
   Sparkles, QrCode, UserPlus,
   ChevronLeft, ChevronRight, Download, Bot, RefreshCw,
-  Search, ChevronDown, ChevronUp, User, X,
+  Search, ChevronDown, ChevronUp, User, X, Info,
 } from "lucide-react";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -16,6 +16,7 @@ import { GlassCard, TouchButton, StatusChip, BottomSheet } from "./redesign/Even
 import { EventAICopilotDrawer } from "./redesign/EventAICopilotDrawer";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { GatePassModal } from "./GatePassModal";
+import { EventCompleteDetailsModal } from "./EventCompleteDetailsModal";
 import { useEventMock } from "./EventMockToggle";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
@@ -138,6 +139,7 @@ interface BannerItem {
   date: string; registered: string; category: string;
   bgGradient: string; targetDate: string; targetTime: string | null;
   image?: string | null;
+  raw?: any;
 }
 
 function eventToBanner(ev: EventResponse, idx: number): BannerItem {
@@ -153,6 +155,7 @@ function eventToBanner(ev: EventResponse, idx: number): BannerItem {
     targetDate: ev.startDate,
     targetTime: ev.startTime,
     image: ev.imageUrl || ev.coverImageUrl || ev.coverImage || null,
+    raw: ev,
   };
 }
 
@@ -205,10 +208,12 @@ export function EventsDashboard() {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [selectedRegisterEvent, setSelectedRegisterEvent] = useState<any>(null);
   const [showQRModal, setShowQRModal] = useState(false);
+  const [showEventDetailsModal, setShowEventDetailsModal] = useState<any | null>(null);
 
   useEscapeKey(() => { setShowRegisterModal(false); setSelectedRegisterEvent(null); }, showRegisterModal);
   useEscapeKey(() => setShowQRModal(false), showQRModal);
   useEscapeKey(() => setShowAICopilot(false), showAICopilot);
+  useEscapeKey(() => setShowEventDetailsModal(null), Boolean(showEventDetailsModal));
 
   // ── Countdown (ticks every second, seeded from first upcoming event) ──
   const [cdTarget, setCdTarget] = useState("2026-08-27");
@@ -958,6 +963,20 @@ export function EventsDashboard() {
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-500/20 text-slate-300 text-[9.5px] font-bold border border-slate-400/30">
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> 0 Events Available
                   </span>
+                )}
+                {(currentBanner.raw || currentBanner.title) && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowEventDetailsModal(currentBanner.raw || currentBanner);
+                    }}
+                    className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white text-[9px] sm:text-[9.5px] font-extrabold border border-white/30 backdrop-blur-md shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
+                    title="View complete event information, sub-events, and logistics"
+                  >
+                    <Info className="w-3 h-3 text-amber-300" />
+                    <span>Details</span>
+                  </button>
                 )}
                 {(useMock || events.length > 0) && (
                   <>
@@ -1733,6 +1752,18 @@ export function EventsDashboard() {
       )}
 
       <GatePassModal isOpen={showQRModal} onClose={() => setShowQRModal(false)} />
+
+      {/* ── Complete Event Details Modal (Sub-Events, Sevas, Meals, Volunteers) ── */}
+      <EventCompleteDetailsModal
+        isOpen={Boolean(showEventDetailsModal)}
+        onClose={() => setShowEventDetailsModal(null)}
+        event={showEventDetailsModal}
+        isAdmin={true}
+        onBookActivity={(act) => {
+          setSelectedRegisterEvent(act);
+          setShowRegisterModal(true);
+        }}
+      />
     </div>
   );
 }

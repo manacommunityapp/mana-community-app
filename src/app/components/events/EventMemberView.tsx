@@ -44,9 +44,11 @@ import {
   RefreshCw,
   CheckCircle,
   Edit3,
+  Info,
 } from "lucide-react";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { PoojaRegistrationModal } from "./PoojaRegistrationModal";
+import { EventCompleteDetailsModal } from "./EventCompleteDetailsModal";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
@@ -206,6 +208,7 @@ export function EventMemberView() {
   const [showQRPass, setShowQRPass] = useState<UserPass | null>(null);
   const [showFamily, setShowFamily] = useState(false);
   const [showHeroSubEvents, setShowHeroSubEvents] = useState(false);
+  const [detailedEvent, setDetailedEvent] = useState<any | null>(null);
   const [mobileModal, setMobileModal] = useState<"pooja" | "meals" | "passes" | "family" | null>(null);
   const [passesList, setPassesList] = useState<UserPass[]>(() => (useMock ? INITIAL_PASSES : []));
   const [passesFilter, setPassesFilter] = useState<"ACTIVE" | "CANCELLED" | "EXPIRED" | "CLOSED" | "ALL">("ACTIVE");
@@ -1512,6 +1515,20 @@ export function EventMemberView() {
                       <span className={`w-1.5 h-1.5 rounded-full ${bannerMainEvents.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
                       <span>{bannerMainEvents.length > 0 ? (bannerMainEvents.length > 1 ? `Live · Event ${heroBannerIndex + 1} of ${bannerMainEvents.length}` : "Live · 1 Event") : "0 Events Available"}</span>
                     </span>
+                    {activeMainEvent && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDetailedEvent(activeMainEvent);
+                        }}
+                        className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white text-[9px] sm:text-[9.5px] font-extrabold border border-white/30 backdrop-blur-md shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
+                        title="View complete event information, sub-events, and schedule"
+                      >
+                        <Info className="w-3 h-3 text-amber-300" />
+                        <span>Details</span>
+                      </button>
+                    )}
                     {(activeMainEvent?.attendees ?? activeMainEvent?.registrationCount) != null && (
                       <span className="text-[11px] font-semibold text-white/80 hidden sm:inline-flex items-center gap-1">
                         <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {activeMainEvent.attendees ?? activeMainEvent.registrationCount ?? 0} registered
@@ -4079,6 +4096,17 @@ export function EventMemberView() {
           </div>
         </div>
       )}
+
+      {/* ─── COMPLETE EVENT DETAILS MODAL (FULL SUB-EVENTS & LOGISTICS) ─── */}
+      <EventCompleteDetailsModal
+        isOpen={Boolean(detailedEvent)}
+        onClose={() => setDetailedEvent(null)}
+        event={detailedEvent}
+        allActivities={activitiesList}
+        onBookActivity={(act) => {
+          setSelectedActivity(act);
+        }}
+      />
     </div>
   );
 }

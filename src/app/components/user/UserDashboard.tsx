@@ -19,9 +19,11 @@ import {
   ChevronRight,
   Ticket,
   MapPin,
+  Info,
 } from "lucide-react";
 import { apiClient } from "../../../services/common/apiClient";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
+import { EventCompleteDetailsModal } from "../events/EventCompleteDetailsModal";
 
 interface UserStats {
   userName: string;
@@ -48,6 +50,7 @@ export function UserDashboard() {
   const [upcomingEvents, setUpcomingEvents] = useState<EventResponse[]>([]);
   const [eventCarouselIndex, setEventCarouselIndex] = useState(0);
   const [isEventHovered, setIsEventHovered] = useState(false);
+  const [showEventDetailsModal, setShowEventDetailsModal] = useState<any | null>(null);
 
   useEffect(() => {
     apiClient
@@ -179,6 +182,20 @@ export function UserDashboard() {
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                       {upcomingEvents.length > 1 ? `Live · Event ${eventCarouselIndex + 1} of ${upcomingEvents.length}` : `Live · 1 Event`}
                     </span>
+                    {activeEvent && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowEventDetailsModal(activeEvent);
+                        }}
+                        className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white text-[9px] sm:text-[9.5px] font-extrabold border border-white/30 backdrop-blur-md shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
+                        title="View complete event information, sub-events, and schedule"
+                      >
+                        <Info className="w-3 h-3 text-amber-300" />
+                        <span>Details</span>
+                      </button>
+                    )}
                     {(activeEvent.attendees ?? (activeEvent as any).registrationCount) != null && (
                       <span className="text-[11px] font-semibold text-white/80 hidden sm:inline-flex items-center gap-1">
                         <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {activeEvent.attendees ?? (activeEvent as any).registrationCount ?? 0} registered
@@ -486,6 +503,13 @@ export function UserDashboard() {
           </div>
         </div>
       )}
+
+      {/* ── Complete Event Details Modal (Overview, Sevas, Meals, Stage Shows) ── */}
+      <EventCompleteDetailsModal
+        isOpen={Boolean(showEventDetailsModal)}
+        onClose={() => setShowEventDetailsModal(null)}
+        event={showEventDetailsModal}
+      />
     </div>
   );
 }
