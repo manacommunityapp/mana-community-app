@@ -1896,6 +1896,8 @@ export function EventsPoojaSeva() {
             </form>
           </div>
         </div>
+      )}
+
       {/* ── Create New Pooja Type Modal ── */}
       {showAddTypeModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
