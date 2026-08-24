@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mana Community — Event Module Architecture & Technical Specification</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Outfit:wght@500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Mermaid.js for interactive diagrams -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({ startOnLoad: true, theme: 'neutral' });
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    h1, h2, h3, h4, .brand-font { font-family: 'Outfit', sans-serif; }
+    code, pre { font-family: 'JetBrains Mono', monospace; }
+    .glass-card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); }
+    .dark .glass-card { background: rgba(15, 23, 42, 0.85); }
+    @media print {
+      .no-print { display: none; }
+      body { background: white !important; color: black !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased selection:bg-indigo-500 selection:text-white">
+
+  <!-- TOP HEADER NAV -->
+  <header class="sticky top-0 z-50 bg-slate-900/95 text-white backdrop-blur-md border-b border-slate-800 shadow-lg px-4 sm:px-8 py-3.5 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center font-black text-white text-lg shadow-md">
+        🕉️
+      </div>
+      <div>
+        <h1 class="text-base sm:text-lg font-black tracking-tight leading-tight">Mana Community Platform</h1>
+        <p class="text-[11px] text-amber-300 font-medium tracking-wide uppercase">Complete Event Module Architecture &amp; Specification</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2 no-print">
+      <button onclick="window.print()" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold flex items-center gap-1.5 transition-all border border-white/15 cursor-pointer">
+        🖨️ Print / PDF
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-12">
+
+    <!-- HERO SECTION -->
+    <section class="relative rounded-3xl overflow-hidden bg-gradient-to-br from-indigo-950 via-slate-900 to-slate-950 text-white p-6 sm:p-10 shadow-2xl border border-indigo-900/40">
+      <div class="absolute right-0 top-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="relative z-10 space-y-4 max-w-4xl">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-amber-400/20 text-amber-300 border border-amber-300/30">
+            System Architecture Specification
+          </span>
+          <span class="px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+            v2.4 Live in Production
+          </span>
+        </div>
+        <h2 class="text-3xl sm:text-4xl lg:text-5xl font-black leading-tight tracking-tight">
+          Event &amp; Grand Festival Management Module
+        </h2>
+        <p class="text-sm sm:text-base text-slate-300 leading-relaxed">
+          Comprehensive technical specification covering the Dual-Persona frontend architecture, backend Spring Boot REST services, multi-day pooja slot capacity management, digital QR gate passes, <em>Annadanam</em> kitchen operations, and normalized database schemas.
+        </p>
+      </div>
+    </section>
+
+    <!-- SECTION 1: DUAL PERSONA ARCHITECTURE -->
+    <section class="space-y-6">
+      <div class="border-b border-slate-200 pb-3 flex items-center justify-between">
+        <div>
+          <h3 class="text-2xl font-black text-slate-900 flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-sm font-bold">1</span>
+            Dual-Persona Architecture &amp; User Experience
+          </h3>
+          <p class="text-xs text-slate-500 mt-1">Seamless separation between Organizer Control Hub and Devotee/Community Member Portal</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Card 1: Admin Hub -->
+        <div class="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-md space-y-4 hover:border-indigo-500/40 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-700 flex items-center justify-center text-xl">
+              👑
+            </div>
+            <div>
+              <h4 class="text-lg font-bold text-slate-900">Admin &amp; Organizer Control Hub</h4>
+              <p class="text-xs text-slate-500">Route: <code>/events</code> (for Committee &amp; Admins)</p>
+            </div>
+          </div>
+          <ul class="space-y-2 text-xs text-slate-600">
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-500 font-bold">✓</span>
+              <span><strong>Festival Master Creation:</strong> Multi-step wizard to setup festival schedules, banner images, ticket classes, and venues.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-500 font-bold">✓</span>
+              <span><strong>Sub-Activity Modules:</strong> Configure Pooja Sevas, Meal menus, Cultural concerts, and Competitions.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-500 font-bold">✓</span>
+              <span><strong>Unified Registration Ledger:</strong> Search, filter by category/status, check-in attendees, and view payment receipts.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-500 font-bold">✓</span>
+              <span><strong>Logistics &amp; Kitchen:</strong> Real-time <em>Annadanam</em> food preparation progress and volunteer duty allocations.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-emerald-500 font-bold">✓</span>
+              <span><strong>Fundraising &amp; Sponsors:</strong> Sponsor pledges, community donations, budget vs. actual expenses, and auction bids.</span>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Card 2: Devotee View -->
+        <div class="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-md space-y-4 hover:border-amber-500/40 transition-all">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl">
+              🪔
+            </div>
+            <div>
+              <h4 class="text-lg font-bold text-slate-900">Devotee &amp; Member Portal</h4>
+              <p class="text-xs text-slate-500">Route: <code>/events</code> (for Community Residents)</p>
+            </div>
+          </div>
+          <ul class="space-y-2 text-xs text-slate-600">
+            <li class="flex items-start gap-2">
+              <span class="text-amber-500 font-bold">✓</span>
+              <span><strong>Live Hero Banner &amp; Details:</strong> Interactive countdown and "Details" modal for complete event prospectus.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-amber-500 font-bold">✓</span>
+              <span><strong>Sacred Pooja Booking:</strong> Select date &amp; time slots with family members, <em>Gotram</em>, and Sankalpam.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-amber-500 font-bold">✓</span>
+              <span><strong>Meal / Annadanam Tokens:</strong> Reserve lunch/dinner dining hall plate passes with instant token generation.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-amber-500 font-bold">✓</span>
+              <span><strong>Digital QR Gate Passes:</strong> Segregated pass views (Active, Cancelled, Expired, Closed) with gate scanner QR codes.</span>
+            </li>
+            <li class="flex items-start gap-2">
+              <span class="text-amber-500 font-bold">✓</span>
+              <span><strong>Self-Service Management:</strong> Devotees can update attending counts or cancel passes with automatic slot restoration.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: FRONTEND UI & SERVICE LAYER -->
+    <section class="space-y-6">
+      <div class="border-b border-slate-200 pb-3">
+        <h3 class="text-2xl font-black text-slate-900 flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-sm font-bold">2</span>
+          Frontend Pages, Modals &amp; API Services
+        </h3>
+        <p class="text-xs text-slate-500 mt-1">Component architecture in <code>mana-community-app/src/app/components/events/</code></p>
+      </div>
+
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+              <th class="p-3.5">Component File</th>
+              <th class="p-3.5">Route / Trigger</th>
+              <th class="p-3.5">Key Features &amp; Capabilities</th>
+              <th class="p-3.5">Associated Services</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <tr class="hover:bg-slate-50">
+              <td class="p-3.5 font-bold text-indigo-700"><code>EventDashboardWrapper.tsx</code></td>
+              <td class="p-3.5"><code>/events</code></td>
+              <td class="p-3.5">Dynamic router resolving logged-in role to render Admin Hub vs Devotee Member View.</td>
+              <td class="p-3.5"><code>AuthContext</code></td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="p-3.5 font-bold text-indigo-700"><code>EventsDashboard.tsx</code></td>
+              <td class="p-3.5"><code>/events</code> (Admin)</td>
+              <td class="p-3.5">Admin cockpit: Live analytics charts, KPI strips, registration ledger, countdown, Details modal trigger.</td>
+              <td class="p-3.5"><code>eventService</code>, <code>eventSponsorService</code>, <code>eventExpenseService</code></td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="p-3.5 font-bold text-indigo-700"><code>EventMemberView.tsx</code></td>
+              <td class="p-3.5"><code>/events</code> (Member)</td>
+              <td class="p-3.5">Devotee portal: Category feeds, pooja booking wizard, passes dashboard with active/cancelled filters.</td>
+              <td class="p-3.5"><code>eventService</code>, <code>familyService</code></td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="p-3.5 font-bold text-indigo-700"><code>EventCompleteDetailsModal.tsx</code></td>
+              <td class="p-3.5">"Details" Button</td>
+              <td class="p-3.5">6-tab deep-dive modal: Overview, Pooja Sevas, Meals, Cultural/Competitions, Duty roster, Sponsors.</td>
+              <td class="p-3.5"><code>eventService</code>, <code>eventSponsorService</code></td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="p-3.5 font-bold text-indigo-700"><code>EventsOperations.tsx</code></td>
+              <td class="p-3.5"><code>/events/operations</code></td>
+              <td class="p-3.5">Logistics engine: Kitchen food plate preparation tracker, volunteer roster, duty checklists.</td>
+              <td class="p-3.5"><code>eventService</code>, <code>eventTaskService</code></td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="p-3.5 font-bold text-indigo-700"><code>EventScheduleView.tsx</code></td>
+              <td class="p-3.5"><code>/events/schedule</code></td>
+              <td class="p-3.5">Time-wise agenda view: Poojas, cultural stage programs, competition timings, dining hall schedule.</td>
+              <td class="p-3.5"><code>eventProgramService</code>, <code>eventService</code></td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="p-3.5 font-bold text-indigo-700"><code>EventFundraisingView.tsx</code></td>
+              <td class="p-3.5"><code>/events/fundraising</code></td>
+              <td class="p-3.5">Financial management: Sponsor tiers, community donation pledges, Laddu auctions, expense vouchers.</td>
+              <td class="p-3.5"><code>eventSponsorService</code>, <code>eventDonationService</code>, <code>eventExpenseService</code></td>
+            </tr>
+            <tr class="hover:bg-slate-50">
+              <td class="p-3.5 font-bold text-indigo-700"><code>GatePassModal.tsx</code></td>
+              <td class="p-3.5">QR Pass Click</td>
+              <td class="p-3.5">High-resolution QR code generator with valid gate status, check-in markers, or cancellation watermark.</td>
+              <td class="p-3.5"><code>eventService</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 3: DATABASE SCHEMA & TABLES -->
+    <section class="space-y-6">
+      <div class="border-b border-slate-200 pb-3">
+        <h3 class="text-2xl font-black text-slate-900 flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-sm font-bold">3</span>
+          Normalized Database Schema (20+ Tables)
+        </h3>
+        <p class="text-xs text-slate-500 mt-1">Backend JPA entities mapped to relational database tables</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Table Group 1: Core Events & Registrations -->
+        <div class="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
+          <h4 class="text-sm font-black text-slate-900 flex items-center gap-2">
+            <span>📅</span> Core Events &amp; Registration Ledger
+          </h4>
+          <div class="space-y-2 text-xs">
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p class="font-bold text-indigo-900"><code>community_events</code></p>
+              <p class="text-slate-500 text-[11px]">Primary event definition table</p>
+              <p class="mt-1 text-slate-700"><code>id, community_id, title, description, type, start_date, end_date, start_time, end_time, venue, capacity, max_attendees, price, status, image_url, organizer_name, organizer_contact, registration_deadline</code></p>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p class="font-bold text-indigo-900"><code>event_booking_registrations</code></p>
+              <p class="text-slate-500 text-[11px]">Unified registration ledger for passes, poojas, meals &amp; competitions</p>
+              <p class="mt-1 text-slate-700"><code>id, user_id, community_id, main_event_id, activity_id, reg_code, activity_title, category, participant_name, gotram, devotee_count, members_json, event_date, event_time, venue, booking_fee, payment_status, payment_method, transaction_id, payment_receipt_url, status, cancellation_reason, cancelled_at, checked_in, checked_in_at</code></p>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p class="font-bold text-indigo-900"><code>event_venues</code></p>
+              <p class="text-slate-500 text-[11px]">Physical venue spaces, mandaps, and dining halls</p>
+              <p class="mt-1 text-slate-700"><code>id, community_id, name, location_type, capacity, address, amenities, contact_person, status</code></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table Group 2: Pooja Sevas & Rituals -->
+        <div class="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
+          <h4 class="text-sm font-black text-slate-900 flex items-center gap-2">
+            <span>🪔</span> Sacred Rituals &amp; Pooja Seva Slots
+          </h4>
+          <div class="space-y-2 text-xs">
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p class="font-bold text-indigo-900"><code>pooja_sevas</code></p>
+              <p class="text-slate-500 text-[11px]">Pooja rituals attached to festivals</p>
+              <p class="mt-1 text-slate-700"><code>id, community_id, main_event_id, name, type, pandit, mandap, start_date, end_date, start_time, is_multi_day, slots, fee, is_free, notes, status</code></p>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p class="font-bold text-indigo-900"><code>pooja_seva_day_time_slots</code></p>
+              <p class="text-slate-500 text-[11px]">Granular multi-day slot inventory table</p>
+              <p class="mt-1 text-slate-700"><code>id, pooja_seva_id, slot_date, start_time, end_time, slot_count</code></p>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p class="font-bold text-indigo-900"><code>pooja_types</code></p>
+              <p class="text-slate-500 text-[11px]">Master classification of Vedic rituals</p>
+              <p class="mt-1 text-slate-700"><code>id, name, description, standard_duration_mins, default_fee</code></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table Group 3: Annadanam & Feasts -->
+        <div class="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
+          <h4 class="text-sm font-black text-slate-900 flex items-center gap-2">
+            <span>🍲</span> Annadanam &amp; Dining Logistics
+          </h4>
+          <div class="space-y-2 text-xs">
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p class="font-bold text-indigo-900"><code>lunch_dinners</code></p>
+              <p class="text-slate-500 text-[11px]">Community meal courses &amp; target plate capacity</p>
+              <p class="mt-1 text-slate-700"><code>id, community_id, main_event_id, name, meal_type, date, start_time, end_time, venue, target_plates, plates_served, caterer, menu_items_json, fee, is_free</code></p>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p class="font-bold text-indigo-900"><code>meal_registrations</code></p>
+              <p class="text-slate-500 text-[11px]">Meal token issues and dining hall redemption tracking</p>
+              <p class="mt-1 text-slate-700"><code>id, meal_id, user_id, reg_code, token_count, redeemed, redeemed_at</code></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table Group 4: Cultural, Competitions & Operations -->
+        <div class="p-5 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
+          <h4 class="text-sm font-black text-slate-900 flex items-center gap-2">
+            <span>🎭</span> Stage Shows, Contests &amp; Operations
+          </h4>
+          <div class="space-y-2 text-xs">
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p class="font-bold text-indigo-900"><code>cultural_events</code> &amp; <code>competitions</code></p>
+              <p class="text-slate-500 text-[11px]">Stage programs, classical performances &amp; community contests</p>
+              <p class="mt-1 text-slate-700"><code>id, main_event_id, title, category_id, age_group, stage_venue, date, start_time, max_participants, entry_fee, rules</code></p>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p class="font-bold text-indigo-900"><code>event_tasks</code> &amp; <code>event_volunteers</code></p>
+              <p class="text-slate-500 text-[11px]">Volunteer department rosters &amp; duty execution</p>
+              <p class="mt-1 text-slate-700"><code>id, main_event_id, title, department, assigned_to_user_id, due_date, is_done, shift_start, shift_end</code></p>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+              <p class="font-bold text-indigo-900"><code>event_sponsors</code> &amp; <code>event_donations</code></p>
+              <p class="text-slate-500 text-[11px]">Financial revenue, sponsorships &amp; seva donations</p>
+              <p class="mt-1 text-slate-700"><code>id, main_event_id, sponsor_name, tier, amount_pledged, amount_received, donor_name, payment_method, receipt_url</code></p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SECTION 4: COMPLETE END-TO-END FLOWS (MERMAID) -->
+    <section class="space-y-6">
+      <div class="border-b border-slate-200 pb-3">
+        <h3 class="text-2xl font-black text-slate-900 flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-sm font-bold">4</span>
+          Interactive System Sequence Flows
+        </h3>
+        <p class="text-xs text-slate-500 mt-1">Lifecycle interactions between Client, Spring Boot Service Layer, and Database</p>
+      </div>
+
+      <!-- FLOW 1 -->
+      <div class="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+        <h4 class="text-base font-bold text-indigo-950 flex items-center gap-2">
+          <span>🔄</span> Flow 1: Devotee Pooja Slot Booking with Automatic Capacity Decrement
+        </h4>
+        <div class="mermaid p-2 bg-slate-50 rounded-2xl border border-slate-100 overflow-x-auto text-xs">
+sequenceDiagram
+    autonumber
+    actor Devotee as Devotee / User
+    participant UI as EventMemberView
+    participant Controller as EventBookingRegistrationController
+    participant Service as EventBookingRegistrationServiceImpl
+    participant SlotRepo as PoojaSevaRepository
+    participant DB as event_booking_registrations
+
+    Devotee->>UI: Select Pooja Seva & click "Book Seva Slot"
+    UI->>UI: Select Date, Time Slot, Gotram & Attending Family
+    UI->>Controller: POST /api/events/registrations
+    Controller->>Service: createRegistration(reg, user, communityId)
+    Service->>Service: Validate non-duplicate active booking
+    Service->>SlotRepo: Decrement slot capacity by devoteeCount
+    SlotRepo-->>SlotRepo: Update pooja_seva_day_time_slots (slots = slots - N)
+    Service->>Service: Generate unique regCode (e.g. POOJA-4921)
+    Service->>DB: Save registration with status='CONFIRMED'
+    DB-->>Service: Saved Entity
+    Service-->>Controller: Return EventBookingRegistration
+    Controller-->>UI: 201 Created (with QR Code payload)
+    UI->>Devotee: Display Valid Digital Gate Pass
+        </div>
+      </div>
+
+      <!-- FLOW 2 -->
+      <div class="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+        <h4 class="text-base font-bold text-indigo-950 flex items-center gap-2">
+          <span>🛡️</span> Flow 2: QR Gate Pass Scanning &amp; Real-time Verification
+        </h4>
+        <div class="mermaid p-2 bg-slate-50 rounded-2xl border border-slate-100 overflow-x-auto text-xs">
+sequenceDiagram
+    autonumber
+    actor GateStaff as Security / Gate Volunteer
+    participant Scanner as Gate Scanner Device
+    participant API as /api/events/registrations/{id}
+    participant DB as event_booking_registrations
+
+    GateStaff->>Scanner: Scan Devotee's QR Code Pass
+    Scanner->>API: GET /api/events/registrations/{id} or verify regCode
+    API->>DB: Fetch registration & parent event status
+    
+    alt Event or Registration is CANCELLED
+        API-->>Scanner: 🚫 CANCELLED / VOID Pass (Red Banner)
+        Scanner->>GateStaff: Deny Gate Admission
+    else Event Date has Expired
+        API-->>Scanner: ⏰ EXPIRED Pass (Amber Alert)
+        Scanner->>GateStaff: Concluded Event Notice
+    else Pass is ACTIVE & VALID
+        API->>DB: UPDATE checked_in=true, checked_in_at=NOW()
+        API-->>Scanner: ✅ VALID GATE PASS (Green Confirmation)
+        Scanner->>GateStaff: Admit Devotee & Family
+    end
+        </div>
+      </div>
+
+      <!-- FLOW 3 -->
+      <div class="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
+        <h4 class="text-base font-bold text-indigo-950 flex items-center gap-2">
+          <span>♻️</span> Flow 3: Pass Cancellation with Automatic Slot Capacity Restoration
+        </h4>
+        <div class="mermaid p-2 bg-slate-50 rounded-2xl border border-slate-100 overflow-x-auto text-xs">
+sequenceDiagram
+    autonumber
+    actor Devotee as Devotee / Admin
+    participant UI as ManagePassModal / DetailsModal
+    participant API as POST /api/events/registrations/{id}/cancel
+    participant Service as EventBookingRegistrationServiceImpl
+    participant SlotRepo as PoojaSevaRepo / MealRepo / CompRepo
+    participant DB as event_booking_registrations
+
+    Devotee->>UI: Click "Cancel Registration" & enter Reason
+    UI->>API: POST /api/events/registrations/{id}/cancel?reason=...
+    API->>Service: cancelRegistration(id, reason, user)
+    Service->>DB: Set status='CANCELLED', cancellationReason=reason, cancelledAt=NOW()
+    Service->>SlotRepo: incrementActivitySlots(registration)
+    Note over Service,SlotRepo: Automatically restores booked seats/plates to Pooja or Meal
+    SlotRepo-->>SlotRepo: Update slots = slots + devoteeCount
+    DB-->>Service: Saved Entity
+    Service-->>API: 204 No Content
+    API-->>UI: Success Notification
+    UI->>Devotee: Pass marked CANCELLED with watermark, slots freed for others
+        </div>
+      </div>
+
+    </section>
+
+    <!-- SECTION 5: BACKEND REST ENDPOINTS SUMMARY -->
+    <section class="space-y-6">
+      <div class="border-b border-slate-200 pb-3">
+        <h3 class="text-2xl font-black text-slate-900 flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-sm font-bold">5</span>
+          REST API Endpoint Reference
+        </h3>
+        <p class="text-xs text-slate-500 mt-1">Complete REST API routes exposed by Spring Boot <code>@RestController</code> classes</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+        <div class="p-4 rounded-2xl bg-slate-900 text-slate-200 space-y-2 border border-slate-800">
+          <p class="font-bold text-amber-400 font-sans text-sm">Festivals &amp; Parent Events (<code>EventController</code>)</p>
+          <p><span class="text-emerald-400">GET</span>    /api/events</p>
+          <p><span class="text-blue-400">POST</span>   /api/events</p>
+          <p><span class="text-emerald-400">GET</span>    /api/events/{id}</p>
+          <p><span class="text-yellow-400">PUT</span>    /api/events/{id}</p>
+          <p><span class="text-rose-400">DELETE</span> /api/events/{id}</p>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-slate-900 text-slate-200 space-y-2 border border-slate-800">
+          <p class="font-bold text-amber-400 font-sans text-sm">Registrations &amp; Passes (<code>EventBookingRegistrationController</code>)</p>
+          <p><span class="text-emerald-400">GET</span>    /api/events/registrations/my?status=ACTIVE</p>
+          <p><span class="text-emerald-400">GET</span>    /api/events/registrations?status=CONFIRMED</p>
+          <p><span class="text-blue-400">POST</span>   /api/events/registrations</p>
+          <p><span class="text-blue-400">POST</span>   /api/events/registrations/{id}/cancel?reason=...</p>
+          <p><span class="text-rose-400">DELETE</span> /api/events/registrations/{id}?permanent=false</p>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-slate-900 text-slate-200 space-y-2 border border-slate-800">
+          <p class="font-bold text-amber-400 font-sans text-sm">Pooja Sevas &amp; Meals (<code>PoojaSevaController</code>, <code>LunchDinnerController</code>)</p>
+          <p><span class="text-emerald-400">GET</span>    /api/events/pooja-sevas?mainEventId={id}</p>
+          <p><span class="text-blue-400">POST</span>   /api/events/pooja-sevas</p>
+          <p><span class="text-emerald-400">GET</span>    /api/events/lunch-dinners?mainEventId={id}</p>
+          <p><span class="text-blue-400">POST</span>   /api/events/lunch-dinners</p>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-slate-900 text-slate-200 space-y-2 border border-slate-800">
+          <p class="font-bold text-amber-400 font-sans text-sm">Fundraising &amp; Operations (<code>EventSponsorController</code>, <code>EventTaskController</code>)</p>
+          <p><span class="text-emerald-400">GET</span>    /api/events/sponsors?eventId={id}</p>
+          <p><span class="text-emerald-400">GET</span>    /api/events/donations?eventId={id}</p>
+          <p><span class="text-emerald-400">GET</span>    /api/events/tasks?eventId={id}</p>
+          <p><span class="text-yellow-400">PATCH</span>  /api/events/tasks/{id}/toggle</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-16 bg-slate-900 text-slate-400 py-6 text-center text-xs border-t border-slate-800">
+    <p>Mana Community Platform — Event Module Technical Documentation &amp; Architecture Specification</p>
+    <p class="mt-1 text-slate-500">Generated for pair-programming &amp; architectural review • Version 2.4</p>
+  </footer>
+
+</body>
+</html>
