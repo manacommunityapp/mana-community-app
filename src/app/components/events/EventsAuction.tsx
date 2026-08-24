@@ -17,8 +17,6 @@ import {
   Loader2,
   Tag,
   DollarSign
-} from "lucide-react";
-import { useEventMock } from "./EventMockToggle";
 import {
   eventService,
   type EventAuctionItemResponse,
@@ -61,7 +59,6 @@ const emptyForm: EventAuctionItemRequest = {
 };
 
 export function EventsAuction() {
-  const { useMock } = useEventMock();
   const [items, setItems] = useState<EventAuctionItemResponse[]>([]);
   const [stats, setStats] = useState<EventAuctionStatsResponse | null>(null);
   const [recentBids, setRecentBids] = useState<EventAuctionBidResponse[]>([]);
@@ -102,6 +99,9 @@ export function EventsAuction() {
           return s !== "CANCELLED" && s !== "CLOSED" && s !== "ARCHIVED";
         });
         setEvents(activeList);
+        if (activeList.length > 0) {
+          setSelectedEventId(activeList[0].id);
+        }
       })
       .catch(() => {});
   }, []);
@@ -128,7 +128,24 @@ export function EventsAuction() {
 
   useEffect(() => {
     loadData();
-  }, [useMock, selectedEventId]);
+
+    // Background polling every 8s for live real-time bidding updates without loading spinner flicker
+    const interval = setInterval(() => {
+      Promise.all([
+        eventService.getAuctionItems(selectedEventId || undefined),
+        eventService.getRecentAuctionBids().catch(() => []),
+        eventService.getAuctionStats(selectedEventId || undefined).catch(() => null),
+      ])
+        .then(([fetchedItems, fetchedRecentBids, fetchedStats]) => {
+          setItems(fetchedItems || []);
+          setRecentBids(fetchedRecentBids || []);
+          setStats(fetchedStats);
+        })
+        .catch(() => {});
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [selectedEventId]);
 
   // Open Create Modal
   const openCreateModal = () => {

@@ -28,6 +28,7 @@ import {
   type PendingActionItemResponse,
   type EventResponse,
   type RegistrationResponse,
+  type EventAuctionStatsResponse,
 } from "../../../services/events/eventService";
 import { eventSponsorService, type EventSponsorResponse } from "../../../services/events/eventSponsorService";
 import { eventDonationService } from "../../../services/events/eventDonationService";
@@ -238,6 +239,7 @@ export function EventsDashboard() {
   const [tasks, setTasks]               = useState<EventTaskResponse[]>([]);
   const [pendingActionItems, setPendingActionItems] = useState<PendingActionItemResponse[]>([]);
   const [registrations, setRegistrations] = useState<RegistrationResponse[]>([]);
+  const [auctionStats, setAuctionStats] = useState<EventAuctionStatsResponse | null>(null);
   const [tasksDone, setTasksDone]       = useState<Record<string, boolean>>({});
 
   // ── Registered Users section state ──
@@ -449,9 +451,11 @@ export function EventsDashboard() {
       eventExpenseService.getAll(),
       eventTaskService.getAll(),
       eventService.getPendingActionItems(),
-    ]).then(([statsR, analyticsR, eventsR, poojasR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR]) => {
+      eventService.getAuctionStats().catch(() => null),
+    ]).then(([statsR, analyticsR, eventsR, poojasR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR, auctionStatsR]) => {
       if (statsR.status === "fulfilled") setStats(statsR.value);
       if (analyticsR.status === "fulfilled") setAnalytics(analyticsR.value);
+      if (auctionStatsR.status === "fulfilled" && auctionStatsR.value) setAuctionStats(auctionStatsR.value);
 
       if (eventsR.status === "fulfilled") {
         const evs = Array.isArray(eventsR.value) ? eventsR.value : [];
@@ -679,8 +683,20 @@ export function EventsDashboard() {
       : "No data yet";
     const foodTrend = stats?.foodPlatesCount ? "Live tracking" : "No active menu";
 
-    const auctionRev   = fmtINR(stats?.auctionRevenue ?? 0);
-    const auctionItems = `${stats?.auctionItemCount ?? 0} items sold`;
+    const liveAuctionRev = (stats?.auctionRevenue != null && stats.auctionRevenue > 0)
+      ? stats.auctionRevenue
+      : (auctionStats?.totalRevenue != null ? Number(auctionStats.totalRevenue) : 0);
+    const liveAuctionCount = (stats?.auctionItemCount != null && stats.auctionItemCount > 0)
+      ? stats.auctionItemCount
+      : (auctionStats?.closedItemsCount != null && auctionStats.closedItemsCount > 0
+          ? auctionStats.closedItemsCount
+          : (auctionStats?.totalBidsCount ? auctionStats.totalItems : (auctionStats?.totalItems ?? 0)));
+
+    const auctionRev   = fmtINR(liveAuctionRev);
+    const auctionItems = liveAuctionCount > 0
+      ? `${liveAuctionCount} item${liveAuctionCount > 1 ? 's' : ''} sold`
+      : "0 items sold";
+    const auctionTrend = liveAuctionCount > 0 || (auctionStats?.liveItemsCount ?? 0) > 0 ? "Live now" : "No Active Auction";
 
     // Today's schedule & duty: exact counts from backend (events active today)
     const todayCount          = stats?.todaysScheduleCount ?? 0;
@@ -759,11 +775,11 @@ export function EventsDashboard() {
         label: "Auction Revenue", value: auctionRev,
         sub: auctionItems,
         icon: Gavel, color: "#06B6D4", bg: "rgba(6,182,212,0.12)",
-        trend: (stats?.auctionItemCount ?? 0) > 0 ? "Bids active" : "No Active Auction",
+        trend: auctionTrend,
         to: "/events/fundraising?tab=auction",
       },
     ];
-  }, [useMock, stats, sponsorTotal, donationTotal, sponsors, registrations, allUnifiedRegs, todaySchedule, pendingTasks, events]);
+  }, [useMock, stats, auctionStats, sponsorTotal, donationTotal, sponsors, registrations, allUnifiedRegs, todaySchedule, pendingTasks, events]);
 
   // ── Derived: banner items ─────────────────────────────────────────────────
   const bannerItems: BannerItem[] = useMemo(() => {
@@ -1178,7 +1194,7 @@ export function EventsDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
         {kpis.map((kpi: any, idx) => {
           const Icon = kpi.icon;
-          const isLiveCard = !useMock && idx < 6;
+          const isLiveCard = !useMock;
           const isSkeleton = isLiveCard && loading;
           return (
             <div
