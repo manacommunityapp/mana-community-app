@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
+import { TimePicker } from "../ui/time-picker";
 
 type LunchDinner = {
   id: number;
@@ -408,14 +409,14 @@ export function EventsLunchDinner() {
                   <span className="text-xs font-semibold text-slate-600">Date *</span>
                   <input type="date" value={form.date} onChange={e => set("date", e.target.value)} className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300" required />
                 </label>
-                <label className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-600">Start Time</span>
-                  <input type="time" value={form.startTime} onChange={e => set("startTime", e.target.value)} className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300" />
-                </label>
-                <label className="flex flex-col gap-1">
+                  <TimePicker value={form.startTime} onChange={v => set("startTime", v)} />
+                </div>
+                <div className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-600">End Time</span>
-                  <input type="time" value={form.endTime} onChange={e => set("endTime", e.target.value)} className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300" />
-                </label>
+                  <TimePicker value={form.endTime} onChange={v => set("endTime", v)} />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

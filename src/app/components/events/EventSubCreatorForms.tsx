@@ -1,26 +1,34 @@
 import { useState, useEffect } from "react";
 import {
   Flame, Music, Trophy, Plus, Trash2, Check, ChevronDown,
-  Clock, MapPin, Users, IndianRupee, CalendarDays, FileText,
+  Clock, MapPin, Users, IndianRupee, Calendar, CalendarDays, FileText,
   Star, Mic, Palette, BookOpen, AlertCircle, CheckCircle2,
   Tag, ShieldCheck, Gift, Layers, Loader2, X, UtensilsCrossed, Utensils, Coffee
 } from "lucide-react";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { useEventMock } from "./EventMockToggle";
 import { showError } from "../../../utils/ToastUtils";
+import { TimePicker } from "../ui/time-picker";
+
+export interface MainEventOption {
+  id: string;
+  title: string;
+  startDate?: string | null;
+  endDate?: string | null;
+}
 
 // ── Fallback Main Events List ──
-const FALLBACK_MAIN_EVENTS = [
-  { id: "1", title: "Ganesh Chaturthi Grand Festival 2026" },
-  { id: "2", title: "Navratri Garba & Dandiya Mahotsav 2026" },
-  { id: "3", title: "Diwali Grand Community Celebration 2026" },
-  { id: "4", title: "Annual Community Sports & Cultural Meet 2026" },
+const FALLBACK_MAIN_EVENTS: MainEventOption[] = [
+  { id: "1", title: "Ganesh Chaturthi Grand Festival 2026", startDate: "2026-08-27", endDate: "2026-08-29" },
+  { id: "2", title: "Navratri Garba & Dandiya Mahotsav 2026", startDate: "2026-10-10", endDate: "2026-10-19" },
+  { id: "3", title: "Diwali Grand Community Celebration 2026", startDate: "2026-11-08", endDate: "2026-11-08" },
+  { id: "4", title: "Annual Community Sports & Cultural Meet 2026", startDate: "2026-12-15", endDate: "2026-12-18" },
 ];
 
 // ── Custom Hook to fetch Main Events dynamically from DB ──
 export function useMainEvents() {
   const { useMock } = useEventMock();
-  const [mainEvents, setMainEvents] = useState<{ id: string; title: string }[]>(FALLBACK_MAIN_EVENTS);
+  const [mainEvents, setMainEvents] = useState<MainEventOption[]>(FALLBACK_MAIN_EVENTS);
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -33,7 +41,14 @@ export function useMainEvents() {
         setLoading(true);
         const data = await eventService.getUpcomingEvents();
         if (data && data.length > 0) {
-          setMainEvents(data.map((e) => ({ id: String(e.id), title: e.title })));
+          setMainEvents(
+            data.map((e) => ({
+              id: String(e.id),
+              title: e.title,
+              startDate: e.startDate,
+              endDate: e.endDate,
+            }))
+          );
         } else {
           setMainEvents(FALLBACK_MAIN_EVENTS);
         }
@@ -268,13 +283,20 @@ export function PoojaSevaSection() {
 
     if (form.isMultiDay && form.date && form.endDate) {
       const days: string[] = [];
-      const cur = new Date(form.date + "T00:00:00");
-      const end = new Date(form.endDate + "T00:00:00");
-      let limit = 0;
-      while (cur <= end && limit < 30) {
-        days.push(cur.toISOString().split("T")[0]);
-        cur.setDate(cur.getDate() + 1);
-        limit++;
+      const [sy, sm, sd] = form.date.split("-").map(Number);
+      const [ey, em, ed] = form.endDate.split("-").map(Number);
+      if (sy && sm && sd && ey && em && ed) {
+        const cur = new Date(sy, sm - 1, sd, 12, 0, 0);
+        const end = new Date(ey, em - 1, ed, 12, 0, 0);
+        let limit = 0;
+        while (cur <= end && limit < 60) {
+          const y = cur.getFullYear();
+          const m = String(cur.getMonth() + 1).padStart(2, "0");
+          const d = String(cur.getDate()).padStart(2, "0");
+          days.push(`${y}-${m}-${d}`);
+          cur.setDate(cur.getDate() + 1);
+          limit++;
+        }
       }
       const existing = form.timeSlotConfig || [];
       const defaultCount = Number(form.slots) || 20;
@@ -447,9 +469,48 @@ export function PoojaSevaSection() {
             <Select value={form.mainEventId} onChange={(v) => set("mainEventId", v)}>
               <option value="">{loadingEvents ? "Loading events from database..." : "Select Main Festival / Event…"}</option>
               {mainEvents.map((e) => (
-                <option key={e.id} value={e.id}>{e.title}</option>
+                <option key={e.id} value={e.id}>
+                  {e.title} ({e.startDate || "No date"}{e.endDate && e.endDate !== e.startDate ? ` – ${e.endDate}` : ""})
+                </option>
               ))}
             </Select>
+
+            {(() => {
+              const selectedParent = mainEvents.find((e) => String(e.id) === String(form.mainEventId));
+              if (!selectedParent) return null;
+              return (
+                <div className="p-3 mt-2 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between flex-wrap gap-2 text-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Calendar className="w-4 h-4 text-amber-600 shrink-0" />
+                    <div>
+                      <span className="font-bold text-foreground">{selectedParent.title}: </span>
+                      <span className="font-extrabold text-amber-700 dark:text-amber-300 bg-background px-2 py-0.5 rounded-md border border-border shadow-2xs">
+                        📅 {selectedParent.startDate || "N/A"}
+                        {selectedParent.endDate && selectedParent.endDate !== selectedParent.startDate ? ` to ${selectedParent.endDate}` : ""}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedParent.startDate) {
+                        set("date", selectedParent.startDate);
+                        if (selectedParent.endDate && selectedParent.endDate !== selectedParent.startDate) {
+                          set("isMultiDay", true);
+                          set("endDate", selectedParent.endDate);
+                        } else {
+                          set("isMultiDay", false);
+                          set("endDate", "");
+                        }
+                      }
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-background hover:bg-amber-500/10 rounded-lg border border-border transition-all cursor-pointer shadow-2xs active:scale-95 flex items-center gap-1 shrink-0"
+                  >
+                    <span>Auto-fill Dates</span>
+                  </button>
+                </div>
+              );
+            })()}
           </Col>
           <Row>
             <Col>
@@ -548,12 +609,13 @@ export function PoojaSevaSection() {
                     {(form.startTimes || ["08:30"]).map((t, idx) => (
                       <div key={idx} className="flex items-center gap-2 p-2 rounded-xl bg-background border border-border">
                         <span className="text-[11px] font-bold text-muted-foreground w-12 shrink-0">Slot {idx + 1}:</span>
-                        <Input
-                          type="time"
-                          value={t}
-                          onChange={(v) => handleTimeSlotChange(idx, v)}
-                          className="flex-1"
-                        />
+                        <div className="flex-1 min-w-0">
+                          <TimePicker
+                            value={t}
+                            onChange={(v) => handleTimeSlotChange(idx, v)}
+                            size="sm"
+                          />
+                        </div>
                         {form.startTimes && form.startTimes.length > 1 && (
                           <button
                             type="button"
@@ -606,12 +668,13 @@ export function PoojaSevaSection() {
                     {(form.startTimes || ["08:30"]).map((t, idx) => (
                       <div key={idx} className="flex items-center gap-2 p-2 rounded-xl bg-background border border-border">
                         <span className="text-[11px] font-bold text-muted-foreground w-12 shrink-0">Slot {idx + 1}:</span>
-                        <Input
-                          type="time"
-                          value={t}
-                          onChange={(v) => handleTimeSlotChange(idx, v)}
-                          className="flex-1"
-                        />
+                        <div className="flex-1 min-w-0">
+                          <TimePicker
+                            value={t}
+                            onChange={(v) => handleTimeSlotChange(idx, v)}
+                            size="sm"
+                          />
+                        </div>
                         {form.startTimes && form.startTimes.length > 1 && (
                           <button
                             type="button"
@@ -689,7 +752,8 @@ export function PoojaSevaSection() {
               ) : (
                 <div className="space-y-2.5">
                   {Array.from(new Set((form.timeSlotConfig || []).map((e) => e.slotDate as string))).map((date) => {
-                    const dateObj = new Date(date + "T00:00:00");
+                    const [y, m, d] = (date || "").split("-").map(Number);
+                    const dateObj = y && m && d ? new Date(y, m - 1, d, 12, 0, 0) : new Date();
                     const dayLabel = dateObj.toLocaleDateString("en-IN", {
                       weekday: "short",
                       day: "numeric",
@@ -1101,7 +1165,7 @@ export function CulturalEventsSection() {
             </Col>
             <Col>
               <Label required>Start Time</Label>
-              <Input type="time" value={form.startTime} onChange={(v) => set("startTime", v)} />
+              <TimePicker value={form.startTime} onChange={(v) => set("startTime", v)} />
             </Col>
           </Row>
           <div className="flex flex-wrap gap-4">
@@ -1533,127 +1597,127 @@ export function CompetitionsSection() {
 
       {/* Show form only when adding/editing */}
       {showForm && (
-
-      <SectionCard>
-        <SectionHeading icon={Trophy} color="#3B82F6">Competition Details</SectionHeading>
-        <div className="space-y-4">
-          <Col>
-            <Label required>Select Main Event (Parent Event)</Label>
-            <Select value={form.mainEventId} onChange={(v) => set("mainEventId", v)}>
-              <option value="">{loadingMainEvents ? "Loading events from database..." : "Select Main Festival / Event…"}</option>
-              {mainEvents.map((e) => (
-                <option key={e.id} value={e.id}>{e.title}</option>
-              ))}
-            </Select>
-          </Col>
-          <Col>
-            <Label required>Competition Title</Label>
-            <Input value={form.name} onChange={(v) => set("name", v)} placeholder="e.g. Eco-Ganesha Rangoli Championship 2026" />
-          </Col>
-          <Row>
-            {/* Category Dropdown + New Category Button */}
-            <Col>
-              <div className="flex items-center justify-between">
-                <Label required>Category</Label>
-                <button
-                  type="button"
-                  onClick={() => setShowAddCatModal(true)}
-                  className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer mb-1"
-                >
-                  <Plus className="w-3 h-3" /> Create Category
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Select value={form.category} onChange={(v) => set("category", v)} className="flex-1">
-                  <option value="">{loadingCats ? "Loading categories..." : "Select competition category…"}</option>
-                  {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+        <>
+          <SectionCard>
+            <SectionHeading icon={Trophy} color="#3B82F6">Competition Details</SectionHeading>
+            <div className="space-y-4">
+              <Col>
+                <Label required>Select Main Event (Parent Event)</Label>
+                <Select value={form.mainEventId} onChange={(v) => set("mainEventId", v)}>
+                  <option value="">{loadingMainEvents ? "Loading events from database..." : "Select Main Festival / Event…"}</option>
+                  {mainEvents.map((e) => (
+                    <option key={e.id} value={e.id}>{e.title}</option>
+                  ))}
                 </Select>
-                <button
-                  type="button"
-                  onClick={() => setShowAddCatModal(true)}
-                  className="px-3 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
-                  title="Create new Competition Category in database"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">New Category</span>
-                </button>
-              </div>
-            </Col>
+              </Col>
+              <Col>
+                <Label required>Competition Title</Label>
+                <Input value={form.name} onChange={(v) => set("name", v)} placeholder="e.g. Eco-Ganesha Rangoli Championship 2026" />
+              </Col>
+              <Row>
+                {/* Category Dropdown + New Category Button */}
+                <Col>
+                  <div className="flex items-center justify-between">
+                    <Label required>Category</Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCatModal(true)}
+                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer mb-1"
+                    >
+                      <Plus className="w-3 h-3" /> Create Category
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select value={form.category} onChange={(v) => set("category", v)} className="flex-1">
+                      <option value="">{loadingCats ? "Loading categories..." : "Select competition category…"}</option>
+                      {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </Select>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCatModal(true)}
+                      className="px-3 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
+                      title="Create new Competition Category in database"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">New Category</span>
+                    </button>
+                  </div>
+                </Col>
 
-            {/* Age Group Dropdown + New Age Group Button */}
-            <Col>
-              <div className="flex items-center justify-between">
-                <Label required>Age Group</Label>
-                <button
-                  type="button"
-                  onClick={() => setShowAddAgeModal(true)}
-                  className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer mb-1"
-                >
-                  <Plus className="w-3 h-3" /> Create Age Group
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Select value={form.ageGroup} onChange={(v) => set("ageGroup", v)} className="flex-1">
-                  <option value="">{loadingAgeGroups ? "Loading age groups..." : "Select age group…"}</option>
-                  {ageGroups.map((a) => <option key={a} value={a}>{a}</option>)}
-                </Select>
-                <button
-                  type="button"
-                  onClick={() => setShowAddAgeModal(true)}
-                  className="px-3 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
-                  title="Create new Age Group in database"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">New Age Group</span>
-                </button>
-              </div>
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <Label required>Date</Label>
-              <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
-            </Col>
-            <Col>
-              <Label required>Start Time</Label>
-              <Input type="time" value={form.startTime} onChange={(v) => set("startTime", v)} />
-            </Col>
-          </Row>
-          <Row>
-            <Col>
-              <Label>Max Participants / Teams</Label>
-              <Input type="number" value={form.maxParticipants} onChange={(v) => set("maxParticipants", v)} placeholder="50" />
-            </Col>
-            <Col>
-              <Label>Venue / Hall</Label>
-              <Input value={form.venue} onChange={(v) => set("venue", v)} placeholder="Clubhouse Activity Room" />
-            </Col>
-          </Row>
-        </div>
-      </SectionCard>
+                {/* Age Group Dropdown + New Age Group Button */}
+                <Col>
+                  <div className="flex items-center justify-between">
+                    <Label required>Age Group</Label>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddAgeModal(true)}
+                      className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 cursor-pointer mb-1"
+                    >
+                      <Plus className="w-3 h-3" /> Create Age Group
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select value={form.ageGroup} onChange={(v) => set("ageGroup", v)} className="flex-1">
+                      <option value="">{loadingAgeGroups ? "Loading age groups..." : "Select age group…"}</option>
+                      {ageGroups.map((a) => <option key={a} value={a}>{a}</option>)}
+                    </Select>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddAgeModal(true)}
+                      className="px-3 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-300 border border-blue-500/20 text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs"
+                      title="Create new Age Group in database"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">New Age Group</span>
+                    </button>
+                  </div>
+                </Col>
+              </Row>
+              <Row>
+                <Col>
+                  <Label required>Date</Label>
+                  <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+                </Col>
+                <Col>
+                  <Label required>Start Time</Label>
+                  <TimePicker value={form.startTime} onChange={(v) => set("startTime", v)} />
+                </Col>
+              </Row>
+              <Row>
+                <Col>
+                  <Label>Max Participants / Teams</Label>
+                  <Input type="number" value={form.maxParticipants} onChange={(v) => set("maxParticipants", v)} placeholder="50" />
+                </Col>
+                <Col>
+                  <Label>Venue / Hall</Label>
+                  <Input value={form.venue} onChange={(v) => set("venue", v)} placeholder="Clubhouse Activity Room" />
+                </Col>
+              </Row>
+            </div>
+          </SectionCard>
 
-      <SectionCard>
-        <SectionHeading icon={ShieldCheck} color="#10B981">Rules &amp; Evaluation Criteria</SectionHeading>
-        <div className="space-y-4">
-          <Col>
-            <Label>Rules &amp; Guidelines</Label>
-            <Textarea rows={4} value={form.rules} onChange={(v) => set("rules", v)} placeholder="1. Time limit: 45 minutes&#10;2. Eco-friendly colors only&#10;3. Judging based on creativity & neatness" />
-          </Col>
-        </div>
-      </SectionCard>
+          <SectionCard>
+            <SectionHeading icon={ShieldCheck} color="#10B981">Rules &amp; Evaluation Criteria</SectionHeading>
+            <div className="space-y-4">
+              <Col>
+                <Label>Rules &amp; Guidelines</Label>
+                <Textarea rows={4} value={form.rules} onChange={(v) => set("rules", v)} placeholder="1. Time limit: 45 minutes&#10;2. Eco-friendly colors only&#10;3. Judging based on creativity & neatness" />
+              </Col>
+            </div>
+          </SectionCard>
 
-      <div className="flex items-center justify-end gap-3 pt-2">
-        <button
-          onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm()); }}
-          className="px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground border border-border hover:bg-muted cursor-pointer"
-        >
-          Cancel
-        </button>
-        <button onClick={handleSubmit} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs shadow-md hover:opacity-90 cursor-pointer flex items-center gap-2">
-          <Plus className="w-4 h-4" /> {editingId ? "Update Competition" : "Save Competition"}
-        </button>
-      </div>
-
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button
+              onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm()); }}
+              className="px-4 py-2 rounded-xl text-xs font-semibold text-muted-foreground border border-border hover:bg-muted cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button onClick={handleSubmit} className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-xs shadow-md hover:opacity-90 cursor-pointer flex items-center gap-2">
+              <Plus className="w-4 h-4" /> {editingId ? "Update Competition" : "Save Competition"}
+            </button>
+          </div>
+        </>
       )}
 
       {/* ─── CREATE NEW COMPETITION CATEGORY MODAL DIALOG ─── */}
@@ -1947,11 +2011,11 @@ export function LunchDinnerSection() {
             </Col>
             <Col>
               <Label required>Start Time</Label>
-              <Input type="time" value={form.startTime} onChange={(v) => set("startTime", v)} />
+              <TimePicker value={form.startTime} onChange={(v) => set("startTime", v)} />
             </Col>
             <Col>
               <Label required>End Time</Label>
-              <Input type="time" value={form.endTime} onChange={(v) => set("endTime", v)} />
+              <TimePicker value={form.endTime} onChange={(v) => set("endTime", v)} />
             </Col>
           </Row>
 

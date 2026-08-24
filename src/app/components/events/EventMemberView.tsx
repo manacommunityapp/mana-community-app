@@ -49,6 +49,7 @@ import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { PoojaRegistrationModal } from "./PoojaRegistrationModal";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
+import { useEscapeKey } from "../../../hooks/useEscapeKey";
 
 interface FamilyMember {
   id: string;
@@ -190,7 +191,7 @@ function countdownFrom(dateStr?: string | null, timeStr?: string | null) {
 }
 
 export function EventMemberView() {
-  const { user } = useAuth();
+  const { user, isSuperAdmin } = useAuth();
   const { useMock } = useEventMock();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -200,6 +201,7 @@ export function EventMemberView() {
   const [activeTab, setActiveTab] = useState<"home" | "passes" | "auction">("home");
   const [showQRPass, setShowQRPass] = useState<UserPass | null>(null);
   const [showFamily, setShowFamily] = useState(false);
+  const [showHeroSubEvents, setShowHeroSubEvents] = useState(false);
   const [mobileModal, setMobileModal] = useState<"pooja" | "meals" | "passes" | "family" | null>(null);
   const [passesList, setPassesList] = useState<UserPass[]>(() => (useMock ? INITIAL_PASSES : []));
   const [activitiesList, setActivitiesList] = useState<Activity[]>(() => (useMock ? INITIAL_ACTIVITIES : []));
@@ -208,6 +210,42 @@ export function EventMemberView() {
   const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
   const [loadingApiData, setLoadingApiData] = useState(false);
   const [loadingFamily, setLoadingFamily] = useState(false);
+
+  // Payment Upload & Verification States
+  const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
+  const [transactionId, setTransactionId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("UPI");
+  const [viewReceiptModal, setViewReceiptModal] = useState<string | null>(null);
+
+  // Manage Registration Modal States
+  const [managePassModal, setManagePassModal] = useState<UserPass | null>(null);
+  const [editParticipantName, setEditParticipantName] = useState("");
+  const [editAttendeeCount, setEditAttendeeCount] = useState(1);
+  const [editGotram, setEditGotram] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editFlatNo, setEditFlatNo] = useState("");
+  const [cancelConfirmMode, setCancelConfirmMode] = useState(false);
+  const [isSavingManage, setIsSavingManage] = useState(false);
+  const [manageSuccess, setManageSuccess] = useState<string | null>(null);
+  const [manageError, setManageError] = useState<string | null>(null);
+
+  // Modal State for Adding Dynamic Family Member
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [mobileQuickActionModal, setMobileQuickActionModal] = useState<any | null>(null);
+  const [newMember, setNewMember] = useState({
+    name: "",
+    relation: "Son",
+    age: "",
+    avatar: "👦",
+  });
+
+  useEscapeKey(() => setMobileQuickActionModal(null), Boolean(mobileQuickActionModal));
+  useEscapeKey(() => setMobileModal(null), Boolean(mobileModal));
+  useEscapeKey(() => setShowQRPass(null), Boolean(showQRPass));
+  useEscapeKey(() => setViewReceiptModal(null), Boolean(viewReceiptModal));
+  useEscapeKey(() => setShowAddMemberModal(false), showAddMemberModal);
+  useEscapeKey(() => { if (!isSavingManage) { setManagePassModal(null); setCancelConfirmMode(false); } }, Boolean(managePassModal));
+  useEscapeKey(() => { setSelectedActivity(null); }, Boolean(selectedActivity));
 
   const DEFAULT_MOCK_MAIN_EVENTS = [
     {
@@ -253,16 +291,81 @@ export function EventMemberView() {
   const [isHeroBannerHovered, setIsHeroBannerHovered] = useState(false);
   const [timeLeft, setTimeLeft] = useState(() => countdownFrom("2026-08-27", null));
 
-  // Auto-move hero banner every 4.5s (pauses on hover)
+  // Auto-move hero banner every 4.5s (pauses on hover or when any modal/registration is open)
   useEffect(() => {
-    if (bannerMainEvents.length <= 1 || isHeroBannerHovered) return;
+    if (
+      bannerMainEvents.length <= 1 ||
+      isHeroBannerHovered ||
+      Boolean(selectedActivity) ||
+      Boolean(managePassModal) ||
+      Boolean(showAddMemberModal) ||
+      Boolean(mobileQuickActionModal) ||
+      Boolean(showQRPass)
+    ) return;
     const timer = setInterval(() => {
       setHeroBannerIndex((prev) => (prev + 1) % bannerMainEvents.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, [bannerMainEvents.length, isHeroBannerHovered]);
+  }, [
+    bannerMainEvents.length,
+    isHeroBannerHovered,
+    selectedActivity,
+    managePassModal,
+    showAddMemberModal,
+    mobileQuickActionModal,
+    showQRPass,
+  ]);
 
   const activeMainEvent = bannerMainEvents[Math.min(heroBannerIndex, bannerMainEvents.length - 1)] || bannerMainEvents[0];
+
+  const eventSubActivities = useMemo(() => {
+    if (!activeMainEvent) return [];
+    return activitiesList.filter((a) => {
+      // Exclude the parent main event itself
+      if (
+        a.id === `event-${activeMainEvent.id}` ||
+        a.id === String(activeMainEvent.id) ||
+        a.title?.trim().toLowerCase() === activeMainEvent.title?.trim().toLowerCase()
+      ) {
+        return false;
+      }
+      // Check mainEventId linkage
+      if (a.mainEventId != null && activeMainEvent.id != null) {
+        if (
+          String(a.mainEventId) === String(activeMainEvent.id) ||
+          String(a.mainEventId) === `event-${activeMainEvent.id}`
+        ) {
+          return true;
+        }
+      }
+      if ((a as any)?.eventId != null && activeMainEvent.id != null) {
+        if (
+          String((a as any).eventId) === String(activeMainEvent.id) ||
+          String((a as any).eventId) === `event-${activeMainEvent.id}`
+        ) {
+          return true;
+        }
+      }
+      // Check date overlap with main event date range
+      const mainStart = activeMainEvent.startDate || activeMainEvent.date;
+      const mainEnd = activeMainEvent.endDate || mainStart;
+      if (mainStart && a.date) {
+        if (a.date >= mainStart && (!mainEnd || a.date <= mainEnd)) {
+          return true;
+        }
+      }
+      if ((a as any)?.startDate && mainStart) {
+        if ((a as any).startDate >= mainStart && (!mainEnd || (a as any).startDate <= mainEnd)) {
+          return true;
+        }
+      }
+      // If only 1 main event exists in banner, link all sub-events to it
+      if (bannerMainEvents.length === 1) {
+        return true;
+      }
+      return false;
+    });
+  }, [activeMainEvent, activitiesList, bannerMainEvents.length]);
 
   useEffect(() => {
     const targetDate = activeMainEvent?.startDate || activeMainEvent?.date || "2026-08-27";
@@ -284,34 +387,6 @@ export function EventMemberView() {
     e.stopPropagation();
     setHeroBannerIndex((prev) => (prev + 1) % bannerMainEvents.length);
   };
-
-  // Payment Upload & Verification States
-  const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
-  const [transactionId, setTransactionId] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("UPI");
-  const [viewReceiptModal, setViewReceiptModal] = useState<string | null>(null);
-
-  // Manage Registration Modal States
-  const [managePassModal, setManagePassModal] = useState<UserPass | null>(null);
-  const [editParticipantName, setEditParticipantName] = useState("");
-  const [editAttendeeCount, setEditAttendeeCount] = useState(1);
-  const [editGotram, setEditGotram] = useState("");
-  const [editPhone, setEditPhone] = useState("");
-  const [editFlatNo, setEditFlatNo] = useState("");
-  const [cancelConfirmMode, setCancelConfirmMode] = useState(false);
-  const [isSavingManage, setIsSavingManage] = useState(false);
-  const [manageSuccess, setManageSuccess] = useState<string | null>(null);
-  const [manageError, setManageError] = useState<string | null>(null);
-
-  // Modal State for Adding Dynamic Family Member
-  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
-  const [mobileQuickActionModal, setMobileQuickActionModal] = useState<any | null>(null);
-  const [newMember, setNewMember] = useState({
-    name: "",
-    relation: "Son",
-    age: "",
-    avatar: "👦",
-  });
 
   // Fetch activities & main events & dashboard metrics from live REST API
   const fetchLiveDataFromBackend = async () => {
@@ -771,12 +846,12 @@ export function EventMemberView() {
         category: "Cultural",
       },
       {
-        id: "competitions",
-        label: "Competitions",
-        icon: Trophy,
+        id: "family",
+        label: "Family Members",
+        icon: Users,
         color: "bg-blue-500/10 text-blue-600 border-blue-300/30",
-        badge: compCount > 0 ? `${compCount} Contest${compCount === 1 ? "" : "s"}` : "0 Contests",
-        category: "Competitions",
+        badge: `${familyMembers.length} Member${familyMembers.length === 1 ? "" : "s"}`,
+        action: "family",
       },
       {
         id: "passes",
@@ -804,14 +879,14 @@ export function EventMemberView() {
       },
       {
         id: "auction",
-        label: "Laddu Auction",
+        label: "Auction",
         icon: Gavel,
         color: "bg-cyan-500/10 text-cyan-600 border-cyan-300/30",
         badge: auctionBadge,
         category: "Auction",
       },
     ];
-  }, [poojaCount, foodCount, culturalCount, compCount, passesList.length, useMock, liveStats]);
+  }, [poojaCount, foodCount, culturalCount, familyMembers.length, passesList.length, useMock, liveStats]);
 
   const isPoojaActivity = (cat?: string) =>
     Boolean(cat && (cat.toLowerCase().includes("pooja") || cat.toLowerCase().includes("seva")));
@@ -1424,6 +1499,139 @@ export function EventMemberView() {
                   </div>
                 </div>
 
+                {/* ── Sub-Events for this Main Community Event (Pooja Sevas, Cultural, Competitions, Mahaprasadam) ── */}
+                {eventSubActivities.length > 0 && (
+                  <div className="space-y-1.5 pt-0.5 animate-fade-in-up">
+                    <button
+                      type="button"
+                      onClick={() => setShowHeroSubEvents(!showHeroSubEvents)}
+                      className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur-xs transition-all cursor-pointer select-none text-left group shadow-xs active:scale-[0.99]"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs">🪔</span>
+                        <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-200">
+                          Festival Sub-Events &amp; Sevas
+                        </span>
+                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-400/25 text-amber-100 border border-amber-300/30">
+                          {eventSubActivities.length} Available
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-[9.5px] font-bold text-white/85 group-hover:text-white">
+                        <span>{showHeroSubEvents ? "Hide Sub-Events" : "Show Sub-Events"}</span>
+                        {showHeroSubEvents ? (
+                          <ChevronUp className="w-3.5 h-3.5 text-amber-300" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5 text-amber-300" />
+                        )}
+                      </div>
+                    </button>
+
+                    {showHeroSubEvents && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-56 sm:max-h-64 overflow-y-auto pr-0.5 custom-scrollbar animate-fade-in-up">
+                        {eventSubActivities.map((subAct) => {
+                          const existingPass = getExistingPassForActivity(subAct);
+                          const isClosed = isRegistrationClosed(subAct);
+                          const catLower = subAct.category?.toLowerCase() || "";
+                          const isPooja = catLower.includes("pooja") || catLower.includes("seva");
+                          const isCultural = catLower.includes("cultural") || catLower.includes("dance") || catLower.includes("music") || catLower.includes("bhajan");
+                          const isComp = catLower.includes("comp");
+                          const isFood = catLower.includes("food") || catLower.includes("lunch") || catLower.includes("dinner") || catLower.includes("prasad");
+
+                          const iconBadge = isPooja ? "🪔" : isCultural ? "🎭" : isComp ? "🏆" : isFood ? "🍲" : "✨";
+                          const catBadgeBg = isPooja
+                            ? "bg-amber-400/20 text-amber-200 border-amber-300/30"
+                            : isCultural
+                            ? "bg-purple-400/20 text-purple-200 border-purple-300/30"
+                            : isComp
+                            ? "bg-sky-400/20 text-sky-200 border-sky-300/30"
+                            : "bg-emerald-400/20 text-emerald-200 border-emerald-300/30";
+
+                          return (
+                            <div
+                              key={subAct.id}
+                              className="p-2 sm:p-2.5 rounded-xl bg-black/35 hover:bg-black/45 border border-white/15 backdrop-blur-xs transition-all flex flex-col justify-between gap-1.5 group shadow-xs"
+                            >
+                              <div className="flex items-start justify-between gap-1.5">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="text-xs">{iconBadge}</span>
+                                    <h4 className="text-xs font-bold text-white leading-tight truncate group-hover:text-amber-200 transition-colors">
+                                      {subAct.title}
+                                    </h4>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 text-[9.5px] text-white/75 mt-0.5 flex-wrap">
+                                    <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-bold border uppercase ${catBadgeBg}`}>
+                                      {subAct.category || "Seva"}
+                                    </span>
+                                    <span className="flex items-center gap-0.5">
+                                      <Calendar className="w-2.5 h-2.5 text-amber-300 shrink-0" />
+                                      <span>{subAct.date}</span>
+                                    </span>
+                                    <span className="text-white/30">·</span>
+                                    <span className="flex items-center gap-0.5">
+                                      <Clock className="w-2.5 h-2.5 text-indigo-200 shrink-0" />
+                                      <span>{subAct.time}</span>
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="text-right shrink-0">
+                                  {subAct.fee > 0 ? (
+                                    <span className="text-[10.5px] font-black text-amber-300">₹{subAct.fee}</span>
+                                  ) : (
+                                    <span className="text-[9.5px] font-black text-emerald-300 bg-emerald-500/20 px-1.5 py-0.5 rounded border border-emerald-400/30">
+                                      FREE
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-white/10 text-[9.5px]">
+                                <span className="text-white/70 truncate flex items-center gap-1">
+                                  <MapPin className="w-2.5 h-2.5 text-slate-300 shrink-0" />
+                                  <span className="truncate max-w-[110px]">{subAct.venue || "Temple Mandap"}</span>
+                                  {subAct.availableSeats != null && (
+                                    <span className="text-amber-200/90 font-medium ml-1">({subAct.availableSeats} slots)</span>
+                                  )}
+                                </span>
+
+                                {existingPass ? (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenUpdateRegistration(subAct, existingPass);
+                                    }}
+                                    className="px-2 py-0.5 text-[9.5px] font-black rounded-md bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-400/40 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
+                                  >
+                                    <Edit3 className="w-2.5 h-2.5" />
+                                    <span>Update Pass</span>
+                                  </button>
+                                ) : isClosed ? (
+                                  <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-white/10 text-white/60 border border-white/10 shrink-0">
+                                    Closed
+                                  </span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedActivity(subAct);
+                                    }}
+                                    className="px-2.5 py-0.5 text-[9.5px] font-black rounded-md bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
+                                  >
+                                    <Ticket className="w-2.5 h-2.5" />
+                                    <span>{isPooja ? "Book Seva" : "Register"}</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* ── Line 3: Start Time & Registration Button ── */}
                 <div className="flex items-center justify-between gap-2 sm:gap-3 pt-0.5">
                   {/* Left: Start Time / Countdown Ticker in single clean row */}
@@ -1506,20 +1714,21 @@ export function EventMemberView() {
             </div>
 
             {/* Dynamic Collapsible Family Members Section */}
-            <div className="bg-card border border-border rounded-2xl p-3 sm:p-4 shadow-xs space-y-3 transition-all">
+            <div className="hidden sm:block bg-card border border-border rounded-2xl p-3 sm:p-4 shadow-xs space-y-3 transition-all">
               <div
-                className="flex items-center justify-between cursor-pointer select-none"
-                onClick={() => setShowFamily(!showFamily)}
+                className="flex items-center justify-between cursor-pointer select-none group"
+                onClick={() => setShowAddMemberModal(true)}
+                title="Click to add new family member"
               >
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                  <div className="p-2 rounded-xl bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
                     <Users className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5 group-hover:text-primary transition-colors">
                       Family Members ({familyMembers.length})
                       <span className="text-[10px] text-muted-foreground font-normal hidden sm:inline">
-                        ({showFamily ? "Tap to collapse" : "Tap to view"})
+                        (Click to add member)
                       </span>
                     </h3>
                   </div>
@@ -1541,7 +1750,12 @@ export function EventMemberView() {
 
                   <button
                     type="button"
-                    className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowFamily(!showFamily);
+                    }}
+                    className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors cursor-pointer"
+                    title={showFamily ? "Collapse list" : "Expand list"}
                   >
                     {showFamily ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                   </button>
@@ -1627,14 +1841,16 @@ export function EventMemberView() {
                 <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5 sm:gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
                   <span>Quick Actions</span>
-                  {useMock ? (
-                    <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                      ⚡ Mock
-                    </span>
-                  ) : (
-                    <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
-                    </span>
+                  {isSuperAdmin && (
+                    useMock ? (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                        ⚡ Mock
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
+                      </span>
+                    )
                   )}
                 </h3>
                 {selectedCategoryFilter && (
@@ -1642,7 +1858,7 @@ export function EventMemberView() {
                     onClick={() => setSelectedCategoryFilter(null)}
                     className="text-[10px] sm:text-[10.5px] font-bold text-rose-600 bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/20 hover:bg-rose-500/20 transition-all flex items-center gap-1 cursor-pointer"
                   >
-                    <X className="w-3 h-3" /> Clear: {selectedCategoryFilter}
+                    <X className="w-3.5 h-3.5" /> Clear: {selectedCategoryFilter}
                   </button>
                 )}
               </div>
@@ -1656,6 +1872,10 @@ export function EventMemberView() {
                     <button
                       key={action.id}
                       onClick={() => {
+                        if (action.action === "family" || action.id === "family") {
+                          setShowAddMemberModal(true);
+                          return;
+                        }
                         const isMobileScreen = typeof window !== "undefined" && window.innerWidth < 768;
                         if (isMobileScreen) {
                           setMobileQuickActionModal(action);
@@ -1675,11 +1895,30 @@ export function EventMemberView() {
                           : "bg-card hover:bg-accent/10 border-border hover:border-primary/40"
                       }`}
                     >
-                      <div
-                        className={`w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl ${action.color} border flex items-center justify-center shadow-xs group-hover:scale-110 transition-transform shrink-0`}
-                      >
-                        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                      </div>
+                      {(() => {
+                        const isPoojaAvailable = action.id === "pooja" && poojaCount > 0;
+                        return (
+                          <div
+                            className={`relative w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl ${action.color} border flex items-center justify-center shadow-xs group-hover:scale-110 transition-transform shrink-0 ${
+                              isPoojaAvailable ? "ring-2 ring-amber-400/60 shadow-[0_0_12px_rgba(245,158,11,0.35)]" : ""
+                            }`}
+                          >
+                            {isPoojaAvailable && (
+                              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500 shadow-xs"></span>
+                              </span>
+                            )}
+                            <Icon
+                              className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                                isPoojaAvailable
+                                  ? "animate-pulse text-amber-500 fill-amber-500/25 drop-shadow-[0_0_6px_rgba(245,158,11,0.6)]"
+                                  : ""
+                              }`}
+                            />
+                          </div>
+                        );
+                      })()}
                       <div className="w-full mt-1.5 space-y-0.5">
                         <span className="text-[10.5px] sm:text-xs font-black text-foreground leading-tight block truncate w-full">
                           {action.label}
@@ -1731,7 +1970,7 @@ export function EventMemberView() {
                     </p>
                     <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                       {activitiesList.length === 0
-                        ? "Events and seva activities will appear here once published by the organizers. You can also toggle Mock Data mode in the top header to preview sample events."
+                        ? "Events and seva activities will appear here once published by the organizers."
                         : "Try clearing your category filter to view other scheduled sevas."}
                     </p>
                   </div>
@@ -2008,12 +2247,18 @@ export function EventMemberView() {
 
         <button
           onClick={() => setMobileModal(mobileModal === "pooja" ? null : "pooja")}
-          className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer ${
+          className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer relative ${
             mobileModal === "pooja" || (!mobileModal && selectedCategoryFilter === "Pooja") ? "text-amber-600 font-black scale-105" : "text-muted-foreground font-semibold"
           }`}
         >
-          <Flame className="w-4 h-4" />
+          <Flame className={`w-4 h-4 ${poojaCount > 0 ? "animate-pulse text-amber-500 fill-amber-500/20" : ""}`} />
           <span className="text-[9.5px]">Pooja</span>
+          {poojaCount > 0 && (
+            <span className="absolute top-0.5 right-2 flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+            </span>
+          )}
         </button>
 
         <button
@@ -2057,8 +2302,14 @@ export function EventMemberView() {
 
       {/* ─── MOBILE POOJA & SEVA MODAL / BOTTOM SHEET ─── */}
       {mobileModal === "pooja" && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
-          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col">
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn cursor-pointer"
+          onClick={() => setMobileModal(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-3 sm:hidden" />
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2.5">
@@ -2067,17 +2318,19 @@ export function EventMemberView() {
                 </div>
                 <div>
                   <h3 className="font-black text-foreground text-base flex items-center gap-2">
-                    Pooja & Seva Services
+                    Pooja &amp; Seva Services
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-800">
                       Live
                     </span>
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">Book sankalpams, homams & gotram sevas for family</p>
+                  <p className="text-[11px] text-muted-foreground">Book sankalpams, homams &amp; gotram sevas for family</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setMobileModal(null)}
-                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2185,9 +2438,9 @@ export function EventMemberView() {
               </button>
               <button
                 onClick={() => setMobileModal(null)}
-                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer flex items-center gap-1"
               >
-                Close
+                <X className="w-3.5 h-3.5" /> Close
               </button>
             </div>
           </div>
@@ -2196,8 +2449,14 @@ export function EventMemberView() {
 
       {/* ─── MOBILE MEALS & ANNADANAM MODAL / BOTTOM SHEET ─── */}
       {mobileModal === "meals" && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
-          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col">
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn cursor-pointer"
+          onClick={() => setMobileModal(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-3 sm:hidden" />
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2.5">
@@ -2206,17 +2465,19 @@ export function EventMemberView() {
                 </div>
                 <div>
                   <h3 className="font-black text-foreground text-base flex items-center gap-2">
-                    Meals & Annadanam
+                    Meals &amp; Annadanam
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/40 text-orange-600 border border-orange-200 dark:border-orange-800">
                       Community Feast
                     </span>
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">Lunch/Dinner feast schedules & food counter tokens</p>
+                  <p className="text-[11px] text-muted-foreground">Lunch/Dinner feast schedules &amp; food counter tokens</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setMobileModal(null)}
-                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2228,7 +2489,7 @@ export function EventMemberView() {
                 <div className="space-y-0.5">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400">☀️ Maha Prasadam Lunch</p>
                   <p className="font-extrabold text-foreground text-xs">12:30 PM – 03:00 PM</p>
-                  <p className="text-[10px] text-muted-foreground">Main Dining Hall, Counter A & B</p>
+                  <p className="text-[10px] text-muted-foreground">Main Dining Hall, Counter A &amp; B</p>
                 </div>
                 <div className="space-y-0.5">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-orange-700 dark:text-orange-400">🌙 Evening Utsav Dinner</p>
@@ -2318,9 +2579,9 @@ export function EventMemberView() {
               </button>
               <button
                 onClick={() => setMobileModal(null)}
-                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer flex items-center gap-1"
               >
-                Close
+                <X className="w-3.5 h-3.5" /> Close
               </button>
             </div>
           </div>
@@ -2329,8 +2590,14 @@ export function EventMemberView() {
 
       {/* ─── MOBILE PASSES & TICKETS MODAL / BOTTOM SHEET ─── */}
       {mobileModal === "passes" && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
-          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col">
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn cursor-pointer"
+          onClick={() => setMobileModal(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-3 sm:hidden" />
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2.5">
@@ -2348,8 +2615,10 @@ export function EventMemberView() {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setMobileModal(null)}
-                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2426,9 +2695,9 @@ export function EventMemberView() {
               </button>
               <button
                 onClick={() => setMobileModal(null)}
-                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer"
+                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer flex items-center gap-1"
               >
-                Close
+                <X className="w-3.5 h-3.5" /> Close
               </button>
             </div>
           </div>
@@ -2437,8 +2706,14 @@ export function EventMemberView() {
 
       {/* ─── MOBILE FAMILY DIRECTORY MODAL / BOTTOM SHEET ─── */}
       {mobileModal === "family" && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
-          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col">
+        <div
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn cursor-pointer"
+          onClick={() => setMobileModal(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 shadow-2xl animate-scaleUp max-h-[85vh] flex flex-col cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-3 sm:hidden" />
             <div className="flex items-center justify-between pb-3 border-b border-border">
               <div className="flex items-center gap-2.5">
@@ -2452,12 +2727,14 @@ export function EventMemberView() {
                       {familyMembers.length} Members
                     </span>
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">Unified profile directory across Events & Sports</p>
+                  <p className="text-[11px] text-muted-foreground">Unified profile directory across Events &amp; Sports</p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setMobileModal(null)}
-                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2532,10 +2809,14 @@ export function EventMemberView() {
 
       {/* ─── ADD FAMILY MEMBER MODAL (MOBILE BOTTOM-SHEET) ─── */}
       {showAddMemberModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
+          onClick={() => setShowAddMemberModal(false)}
+        >
           <form
             onSubmit={handleAddFamilyMemberSubmit}
-            className="w-full max-w-sm bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-sm bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-5 space-y-4 shadow-2xl animate-fadeIn max-h-[90vh] overflow-y-auto cursor-default"
           >
             {/* Mobile Drag Indicator */}
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-2 sm:hidden" />
@@ -2548,7 +2829,8 @@ export function EventMemberView() {
               <button
                 type="button"
                 onClick={() => setShowAddMemberModal(false)}
-                className="text-muted-foreground hover:text-foreground cursor-pointer"
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -2744,14 +3026,22 @@ export function EventMemberView() {
 
       {/* ─── QR GATE PASS MODAL (DIGITAL PASS WALLET) ─── */}
       {showQRPass && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="w-full max-w-sm bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl text-center animate-fadeIn relative">
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 cursor-pointer"
+          onClick={() => setShowQRPass(null)}
+        >
+          <div
+            className="w-full max-w-sm bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-6 space-y-4 shadow-2xl text-center animate-fadeIn relative cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Mobile Drag Indicator */}
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-2 mb-2 sm:hidden" />
 
             <button
+              type="button"
               onClick={() => setShowQRPass(null)}
-              className="absolute right-4 top-4 text-muted-foreground hover:text-foreground cursor-pointer"
+              className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors absolute right-4 top-4 shrink-0 shadow-2xs"
+              title="Close modal (Esc)"
             >
               <X className="w-4 h-4" />
             </button>
@@ -2774,23 +3064,39 @@ export function EventMemberView() {
               <p className="font-mono text-[11px] text-primary font-bold">{showQRPass.regId}</p>
             </div>
 
-            <button
-              onClick={() => {
-                handleDownloadPDFPass(showQRPass);
-                setShowQRPass(null);
-              }}
-              className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95"
-            >
-              <Download className="w-4 h-4" /> Download / Save PDF E-Pass
-            </button>
+            <div className="space-y-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  handleDownloadPDFPass(showQRPass);
+                  setShowQRPass(null);
+                }}
+                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-xs active:scale-95"
+              >
+                <Download className="w-4 h-4" /> Download / Save PDF E-Pass
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowQRPass(null)}
+                className="w-full py-2 bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold rounded-xl cursor-pointer transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* ─── QUICK ACTION MODAL (MOBILE VIEW ONLY) ─── */}
+      {/* ─── QUICK ACTION MODAL (MOBILE VIEW ONLY - Pooja, Lunch/Meals, My Passes, Donate, Auction, Cultural, Competitions, Volunteers) ─── */}
       {mobileQuickActionModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xl animate-in slide-in-from-bottom-5 duration-200 max-h-[85vh] flex flex-col">
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 animate-in fade-in duration-200 cursor-pointer"
+          onClick={() => setMobileQuickActionModal(null)}
+        >
+          <div
+            className="w-full max-w-lg bg-card border-t sm:border border-border text-card-foreground rounded-t-3xl sm:rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-2xl animate-in slide-in-from-bottom-5 duration-200 max-h-[85vh] flex flex-col cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Mobile Drag Indicator */}
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto -mt-1 mb-1 sm:hidden" />
 
@@ -2817,7 +3123,8 @@ export function EventMemberView() {
               <button
                 type="button"
                 onClick={() => setMobileQuickActionModal(null)}
-                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shrink-0 shadow-2xs"
+                title="Close modal (Esc)"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -3026,6 +3333,32 @@ export function EventMemberView() {
                   );
                 })()
               )}
+            </div>
+
+            {/* Modal Footer with Close Button and Feed Link */}
+            <div className="pt-2.5 border-t border-border flex items-center justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  if (mobileQuickActionModal.action === "passes") {
+                    setActiveTab("passes");
+                  } else if (mobileQuickActionModal.category) {
+                    setSelectedCategoryFilter(mobileQuickActionModal.category);
+                    setActiveTab("home");
+                  }
+                  setMobileQuickActionModal(null);
+                }}
+                className="text-xs font-bold text-primary hover:underline cursor-pointer"
+              >
+                {mobileQuickActionModal.action === "passes" ? "View Full Passes Dashboard →" : `View all ${mobileQuickActionModal.label} in feed →`}
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileQuickActionModal(null)}
+                className="px-4 py-1.5 rounded-xl bg-muted text-muted-foreground hover:text-foreground text-xs font-semibold cursor-pointer flex items-center gap-1"
+              >
+                <X className="w-3.5 h-3.5" /> Close
+              </button>
             </div>
           </div>
         </div>

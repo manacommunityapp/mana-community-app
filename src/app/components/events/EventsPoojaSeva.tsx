@@ -3,10 +3,12 @@ import {
   Flame, Plus, Loader2, AlertCircle, Pencil, Trash2, Users, Clock, MapPin,
   Calendar, IndianRupee, X, Star, ChevronDown, ChevronUp, User, Ban,
   CheckCircle2, Search, UserPlus, Edit3, Save, Phone, Mail, FileText, AlertTriangle,
+  CalendarDays, LayoutList, ShieldOff, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useEventMock } from "./EventMockToggle";
-import { eventService, type EventResponse } from "../../../services/events/eventService";
+import { eventService, type EventResponse, type PoojaScheduleDto } from "../../../services/events/eventService";
+import { TimePicker, TimeSelect } from "../ui/time-picker";
 
 type TimeSlotEntry = { slotDate: string | null; startTime: string; slotCount: number };
 
@@ -126,6 +128,13 @@ export function EventsPoojaSeva() {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // New Pooja Type creation modal state
+  const [showAddTypeModal, setShowAddTypeModal] = useState(false);
+  const [newTypeName, setNewTypeName] = useState("");
+  const [newTypeDesc, setNewTypeDesc] = useState("");
+  const [addingType, setAddingType] = useState(false);
+  const [addTypeError, setAddTypeError] = useState("");
+
   // Admin Registration Management state
   const [showRegModal, setShowRegModal] = useState(false);
   const [editingReg, setEditingReg] = useState<BookingRegistration | null>(null);
@@ -133,10 +142,22 @@ export function EventsPoojaSeva() {
   const [regForm, setRegForm] = useState(emptyRegForm);
   const [regFormError, setRegFormError] = useState("");
   const [savingReg, setSavingReg] = useState(false);
+  const [regSelectedScheduleId, setRegSelectedScheduleId] = useState<number | null>(null);
+  const [regSchedulesLoading, setRegSchedulesLoading] = useState(false);
+  const [regSchedules, setRegSchedules] = useState<PoojaScheduleDto[]>([]);
 
   // Per-pooja search and status filter state
   const [regSearch, setRegSearch] = useState<Record<number, string>>({});
   const [regFilterStatus, setRegFilterStatus] = useState<Record<number, string>>({});
+
+  // Schedule management state
+  const [expandedSchedulesPoojaId, setExpandedSchedulesPoojaId] = useState<number | null>(null);
+  const [schedulesPerPooja, setSchedulesPerPooja] = useState<Record<number, PoojaScheduleDto[]>>({});
+  const [schedulesLoading, setSchedulesLoading] = useState<Record<number, boolean>>({});
+  const [showAddScheduleForm, setShowAddScheduleForm] = useState<number | null>(null);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const emptyScheduleForm = { scheduleDate: "", startTime: "08:30", endTime: "10:00", familyCapacity: 10, devoteeCapacity: 30 };
+  const [scheduleForm, setScheduleForm] = useState(emptyScheduleForm);
 
   // Confirmation modals
   const [deleteConfirmReg, setDeleteConfirmReg] = useState<BookingRegistration | null>(null);
@@ -347,6 +368,31 @@ export function EventsPoojaSeva() {
     }
   };
 
+  const handleCreatePoojaType = async () => {
+    if (!newTypeName.trim()) {
+      setAddTypeError("Please enter a valid Pooja Type name.");
+      return;
+    }
+    const clean = newTypeName.trim();
+    try {
+      setAddingType(true);
+      setAddTypeError("");
+      if (!useMock) {
+        await eventService.createPoojaType(clean, newTypeDesc.trim() || undefined);
+      }
+      setPoojaTypes(prev => (prev.includes(clean) ? prev : [...prev, clean]));
+      set("type", clean);
+      setNewTypeName("");
+      setNewTypeDesc("");
+      setShowAddTypeModal(false);
+      toast.success(`Pooja Type "${clean}" created in database!`);
+    } catch (err: any) {
+      setAddTypeError(err?.message || "Failed to create pooja type in database");
+    } finally {
+      setAddingType(false);
+    }
+  };
+
   const handleDelete = async (p: PoojaSeva) => {
     if (!confirm(`Delete "${p.name}"?`)) return;
     if (useMock) {
@@ -363,10 +409,101 @@ export function EventsPoojaSeva() {
     }
   };
 
+  /* ─── Schedule Management ─── */
+  const loadSchedulesForPooja = async (poojaId: number) => {
+    setSchedulesLoading(prev => ({ ...prev, [poojaId]: true }));
+    try {
+      const schedules = await eventService.getSchedulesByPooja(poojaId);
+      setSchedulesPerPooja(prev => ({ ...prev, [poojaId]: schedules || [] }));
+    } catch {
+      setSchedulesPerPooja(prev => ({ ...prev, [poojaId]: [] }));
+    } finally {
+      setSchedulesLoading(prev => ({ ...prev, [poojaId]: false }));
+    }
+  };
+
+  const toggleSchedulesPanel = (poojaId: number) => {
+    if (expandedSchedulesPoojaId === poojaId) {
+      setExpandedSchedulesPoojaId(null);
+      setShowAddScheduleForm(null);
+    } else {
+      setExpandedSchedulesPoojaId(poojaId);
+      setShowAddScheduleForm(null);
+      setScheduleForm(emptyScheduleForm);
+      loadSchedulesForPooja(poojaId);
+    }
+  };
+
+  const handleSaveSchedule = async (poojaId: number) => {
+    if (!scheduleForm.scheduleDate || !scheduleForm.startTime || !scheduleForm.endTime) return;
+    setSavingSchedule(true);
+    try {
+      const created = await eventService.createPoojaSchedule({
+        poojaId,
+        scheduleDate: scheduleForm.scheduleDate,
+        startTime: scheduleForm.startTime,
+        endTime: scheduleForm.endTime,
+        familyCapacity: Number(scheduleForm.familyCapacity) || 10,
+        devoteeCapacity: Number(scheduleForm.devoteeCapacity) || 30,
+      });
+      setSchedulesPerPooja(prev => ({
+        ...prev,
+        [poojaId]: [...(prev[poojaId] || []), created].sort((a, b) =>
+          a.scheduleDate.localeCompare(b.scheduleDate) || a.startTime.localeCompare(b.startTime)
+        ),
+      }));
+      setShowAddScheduleForm(null);
+      setScheduleForm(emptyScheduleForm);
+      toast.success("Schedule created successfully");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to create schedule");
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
+
+  const handleScheduleStatusChange = async (poojaId: number, scheduleId: number, newStatus: string) => {
+    try {
+      const updated = await eventService.updatePoojaScheduleStatus(scheduleId, newStatus);
+      setSchedulesPerPooja(prev => ({
+        ...prev,
+        [poojaId]: (prev[poojaId] || []).map(s => s.id === scheduleId ? updated : s),
+      }));
+      toast.success(`Schedule status updated to ${newStatus}`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update status");
+    }
+  };
+
+  const handleDeleteSchedule = async (poojaId: number, schedule: PoojaScheduleDto) => {
+    if (!confirm(`Delete schedule on ${schedule.scheduleDate} at ${schedule.startTime}?`)) return;
+    try {
+      await eventService.deletePoojaSchedule(schedule.id);
+      setSchedulesPerPooja(prev => ({
+        ...prev,
+        [poojaId]: (prev[poojaId] || []).filter(s => s.id !== schedule.id),
+      }));
+      toast.success("Schedule deleted");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete schedule");
+    }
+  };
+
   /* ─── Admin Registration Actions (Add, Edit, Cancel, Delete) ─── */
+  const fetchRegSchedules = (pooja: PoojaSeva) => {
+    setRegSchedules([]);
+    setRegSelectedScheduleId(null);
+    setRegSchedulesLoading(true);
+    eventService.getSchedulesByPooja(pooja.id)
+      .then(s => setRegSchedules(Array.isArray(s) ? s : []))
+      .catch(() => setRegSchedules([]))
+      .finally(() => setRegSchedulesLoading(false));
+  };
+
   const handleOpenAddReg = (pooja: PoojaSeva) => {
     setSelectedPoojaForReg(pooja);
     setEditingReg(null);
+    setRegSelectedScheduleId(null);
     setRegForm({
       ...emptyRegForm,
       eventDate: pooja.date,
@@ -378,11 +515,13 @@ export function EventsPoojaSeva() {
     });
     setRegFormError("");
     setShowRegModal(true);
+    fetchRegSchedules(pooja);
   };
 
   const handleOpenEditReg = (pooja: PoojaSeva, reg: BookingRegistration) => {
     setSelectedPoojaForReg(pooja);
     setEditingReg(reg);
+    setRegSelectedScheduleId((reg as any).scheduleId ?? null);
     setRegForm({
       participantName: reg.participantName || "",
       attendingDevotees: reg.attendingDevotees || "",
@@ -400,6 +539,7 @@ export function EventsPoojaSeva() {
     });
     setRegFormError("");
     setShowRegModal(true);
+    fetchRegSchedules(pooja);
   };
 
   const handleSaveRegistration = async (e: React.FormEvent) => {
@@ -428,6 +568,7 @@ export function EventsPoojaSeva() {
       status: regForm.status,
       notes: regForm.notes.trim() || undefined,
       mainEventId: undefined,
+      ...(regSelectedScheduleId ? { scheduleId: regSelectedScheduleId } : {}),
     };
 
     setSavingReg(true);
@@ -473,6 +614,8 @@ export function EventsPoojaSeva() {
       setEditingReg(null);
       setSelectedPoojaForReg(null);
       setRegForm(emptyRegForm);
+      setRegSelectedScheduleId(null);
+      setRegSchedules([]);
       window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
     } catch (err: any) {
       setRegFormError(err?.message || "Failed to save registration");
@@ -548,13 +691,20 @@ export function EventsPoojaSeva() {
   };
 
   const getDayRange = (startDate: string, endDate: string): string[] => {
-    if (!startDate || !endDate) return [];
+    if (!startDate) return [];
+    if (!endDate || endDate === startDate) return [startDate];
     const days: string[] = [];
-    const cur = new Date(startDate + "T00:00:00");
-    const end = new Date(endDate + "T00:00:00");
+    const [sy, sm, sd] = startDate.split("-").map(Number);
+    const [ey, em, ed] = endDate.split("-").map(Number);
+    if (!sy || !sm || !sd || !ey || !em || !ed) return [startDate];
+    const cur = new Date(sy, sm - 1, sd, 12, 0, 0);
+    const end = new Date(ey, em - 1, ed, 12, 0, 0);
     let limit = 0;
-    while (cur <= end && limit < 30) {
-      days.push(cur.toISOString().split("T")[0]);
+    while (cur <= end && limit < 60) {
+      const y = cur.getFullYear();
+      const m = String(cur.getMonth() + 1).padStart(2, "0");
+      const d = String(cur.getDate()).padStart(2, "0");
+      days.push(`${y}-${m}-${d}`);
       cur.setDate(cur.getDate() + 1);
       limit++;
     }
@@ -687,6 +837,23 @@ export function EventsPoojaSeva() {
                           <UserPlus className="w-3.5 h-3.5" />
                           <span className="hidden sm:inline">Add Devotee</span>
                         </button>
+                        <button
+                          onClick={() => toggleSchedulesPanel(pooja.id)}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold shadow-2xs transition-all cursor-pointer border ${
+                            expandedSchedulesPoojaId === pooja.id
+                              ? "bg-indigo-600 text-white border-indigo-600"
+                              : "bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                          }`}
+                          title="Manage booking schedules"
+                        >
+                          <CalendarDays className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Schedules</span>
+                          {(schedulesPerPooja[pooja.id]?.length ?? 0) > 0 && (
+                            <span className={`text-[9px] font-black px-1.5 py-0.2 rounded-full ${expandedSchedulesPoojaId === pooja.id ? "bg-white/25 text-white" : "bg-indigo-100 text-indigo-700"}`}>
+                              {schedulesPerPooja[pooja.id].length}
+                            </span>
+                          )}
+                        </button>
                         <button onClick={() => openEditModal(pooja)}
                           className="p-1.5 rounded-lg hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 transition-colors cursor-pointer" title="Edit Pooja">
                           <Pencil className="w-3.5 h-3.5" />
@@ -727,6 +894,164 @@ export function EventsPoojaSeva() {
                     </div>
                   </div>
                 </div>
+
+                {/* ── Schedule Management Panel ── */}
+                {expandedSchedulesPoojaId === pooja.id && (
+                  <div className="mt-3 pt-3 border-t border-slate-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-indigo-700 flex items-center gap-1.5">
+                        <CalendarDays className="w-3.5 h-3.5" /> Booking Schedules
+                        <span className="text-[10px] font-normal text-slate-400">(live capacity slots for member booking)</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddScheduleForm(showAddScheduleForm === pooja.id ? null : pooja.id);
+                          setScheduleForm(emptyScheduleForm);
+                        }}
+                        className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg border border-indigo-200 transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3" /> Add Schedule
+                      </button>
+                    </div>
+
+                    {/* Add Schedule Form */}
+                    {showAddScheduleForm === pooja.id && (
+                      <div className="bg-indigo-50/50 border border-indigo-200/60 rounded-xl p-3 space-y-2.5">
+                        <p className="text-[10px] font-bold text-indigo-700 uppercase tracking-wider">New Schedule Entry</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold text-slate-600">Date *</span>
+                            <input
+                              type="date"
+                              value={scheduleForm.scheduleDate}
+                              onChange={e => setScheduleForm(f => ({ ...f, scheduleDate: e.target.value }))}
+                              className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                            />
+                          </label>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold text-slate-600">Start Time *</span>
+                            <TimePicker
+                              value={scheduleForm.startTime}
+                              onChange={v => setScheduleForm(f => ({ ...f, startTime: v }))}
+                              size="sm"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold text-slate-600">End Time *</span>
+                            <TimePicker
+                              value={scheduleForm.endTime}
+                              onChange={v => setScheduleForm(f => ({ ...f, endTime: v }))}
+                              size="sm"
+                            />
+                          </div>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold text-slate-600">Family Capacity</span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={scheduleForm.familyCapacity}
+                              onChange={e => setScheduleForm(f => ({ ...f, familyCapacity: Number(e.target.value) || 10 }))}
+                              className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                            />
+                          </label>
+                          <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold text-slate-600">Devotee Capacity</span>
+                            <input
+                              type="number"
+                              min="1"
+                              value={scheduleForm.devoteeCapacity}
+                              onChange={e => setScheduleForm(f => ({ ...f, devoteeCapacity: Number(e.target.value) || 30 }))}
+                              className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                            />
+                          </label>
+                        </div>
+                        <div className="flex items-center justify-end gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setShowAddScheduleForm(null)}
+                            className="text-xs text-slate-500 hover:text-slate-700 px-3 py-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={savingSchedule || !scheduleForm.scheduleDate}
+                            onClick={() => handleSaveSchedule(pooja.id)}
+                            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+                          >
+                            {savingSchedule ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                            Create Schedule
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Schedule List */}
+                    {schedulesLoading[pooja.id] ? (
+                      <div className="flex items-center justify-center py-4 text-slate-400 text-xs gap-1.5">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading schedules...
+                      </div>
+                    ) : (schedulesPerPooja[pooja.id] || []).length === 0 ? (
+                      <div className="text-center py-4 text-xs text-slate-400 border border-dashed border-slate-200 rounded-xl">
+                        <CalendarDays className="w-6 h-6 text-slate-300 mx-auto mb-1" />
+                        No schedules yet — click &ldquo;Add Schedule&rdquo; to create the first booking slot.
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {(schedulesPerPooja[pooja.id] || []).map(sch => {
+                          const statusColor: Record<string, string> = {
+                            OPEN: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                            LIMITED: "bg-amber-50 text-amber-700 border-amber-200",
+                            FULL: "bg-rose-50 text-rose-700 border-rose-200",
+                            BLOCKED: "bg-slate-100 text-slate-500 border-slate-200",
+                            CLOSED: "bg-slate-100 text-slate-500 border-slate-200",
+                          };
+                          return (
+                            <div key={sch.id} className="bg-white rounded-xl border border-slate-200 px-3 py-2.5 flex items-center gap-3 flex-wrap">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                <span className="text-xs font-bold text-slate-800">{sch.scheduleDate}</span>
+                                <Clock className="w-3 h-3 text-slate-400 shrink-0 ml-1" />
+                                <span className="text-xs text-slate-600">{sch.startTime} – {sch.endTime}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                                <span className="font-semibold text-indigo-600">{sch.availableFamilies}/{sch.familyCapacity} families</span>
+                                <span>·</span>
+                                <span className="font-semibold text-emerald-600">{sch.availableDevotees}/{sch.devoteeCapacity} devotees</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${statusColor[sch.status] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
+                                  {sch.status}
+                                </span>
+                                <select
+                                  value={sch.status}
+                                  onChange={e => handleScheduleStatusChange(pooja.id, sch.id, e.target.value)}
+                                  className="text-[10px] border border-slate-200 rounded-lg px-1.5 py-0.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 cursor-pointer"
+                                  title="Change schedule status"
+                                >
+                                  <option value="OPEN">OPEN</option>
+                                  <option value="LIMITED">LIMITED</option>
+                                  <option value="FULL">FULL</option>
+                                  <option value="BLOCKED">BLOCKED</option>
+                                  <option value="CLOSED">CLOSED</option>
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteSchedule(pooja.id, sch)}
+                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete schedule"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Expand toggle for registrations */}
                 <button
@@ -1039,57 +1364,145 @@ export function EventsPoojaSeva() {
                 </div>
               </div>
 
-              {/* Slot Date & Time selection */}
+              {/* Live Schedule Picker */}
               <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-200/60 space-y-2.5">
-                <p className="font-bold text-amber-800 uppercase tracking-wide">Pooja Slot Selection</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Slot Date</label>
-                    {selectedPoojaForReg.multiDay && selectedPoojaForReg.endDate ? (
-                      <select
-                        value={regForm.eventDate}
-                        onChange={e => setRegForm({ ...regForm, eventDate: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
-                      >
-                        {getDayRange(selectedPoojaForReg.date, selectedPoojaForReg.endDate).map(d => (
-                          <option key={d} value={d}>
-                            {new Date(d + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} ({d})
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="date"
-                        value={regForm.eventDate}
-                        onChange={e => setRegForm({ ...regForm, eventDate: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
-                      />
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Slot Time</label>
-                    {selectedPoojaForReg.startTimes && selectedPoojaForReg.startTimes.length > 0 ? (
-                      <select
-                        value={regForm.eventTime}
-                        onChange={e => setRegForm({ ...regForm, eventTime: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
-                      >
-                        {selectedPoojaForReg.startTimes.map(t => (
-                          <option key={t} value={t}>⏰ {t}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        placeholder="08:30 AM"
-                        value={regForm.eventTime}
-                        onChange={e => setRegForm({ ...regForm, eventTime: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
-                      />
-                    )}
-                  </div>
+                <div className="flex items-center justify-between">
+                  <p className="font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1.5">
+                    <CalendarDays className="w-3.5 h-3.5" /> Select Booking Slot
+                  </p>
+                  {regSelectedScheduleId && (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Schedule Linked
+                    </span>
+                  )}
                 </div>
+
+                {regSchedulesLoading ? (
+                  <div className="flex items-center justify-center py-4 text-slate-400 text-xs gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading live schedules…
+                  </div>
+                ) : regSchedules.length > 0 ? (
+                  <>
+                    <p className="text-[10px] text-amber-700">Select a live booking slot — selection links this registration to the capacity engine.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {regSchedules.map(sch => {
+                        const isSelected = regSelectedScheduleId === sch.id;
+                        const isUnavailable = sch.status === "BLOCKED" || sch.status === "CLOSED" || sch.status === "FULL";
+                        const statusColor: Record<string, string> = {
+                          OPEN: "text-emerald-700",
+                          LIMITED: "text-amber-600",
+                          FULL: "text-rose-600",
+                          BLOCKED: "text-slate-400",
+                          CLOSED: "text-slate-400",
+                        };
+                        return (
+                          <button
+                            key={sch.id}
+                            type="button"
+                            disabled={isUnavailable}
+                            onClick={() => {
+                              setRegSelectedScheduleId(sch.id);
+                              setRegForm(f => ({ ...f, eventDate: sch.scheduleDate, eventTime: sch.startTime }));
+                            }}
+                            className={`p-2.5 rounded-xl border-2 text-left transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
+                              isSelected
+                                ? "border-amber-500 bg-amber-50 shadow-xs ring-2 ring-amber-300/50"
+                                : "border-slate-200 bg-white hover:border-amber-400"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-1">
+                              <div className="min-w-0">
+                                <span className="block text-[10px] font-extrabold text-slate-500 uppercase">
+                                  {new Date(sch.scheduleDate + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+                                </span>
+                                <span className="block text-xs font-bold text-slate-800 mt-0.5">
+                                  {sch.startTime} – {sch.endTime}
+                                </span>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className={`block text-[9px] font-extrabold uppercase ${statusColor[sch.status] || "text-slate-500"}`}>
+                                  {sch.status}
+                                </span>
+                                <span className="block text-[9px] text-slate-500 mt-0.5">
+                                  {sch.availableFamilies}/{sch.familyCapacity} fam · {sch.availableDevotees}/{sch.devoteeCapacity} dev
+                                </span>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <span className="mt-1.5 text-[9px] font-bold text-amber-700 flex items-center gap-0.5">
+                                <CheckCircle2 className="w-3 h-3" /> Selected
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRegSelectedScheduleId(null)}
+                      className="text-[10px] text-slate-400 hover:text-slate-600 underline"
+                    >
+                      Clear selection (no schedule link)
+                    </button>
+                  </>
+                ) : (
+                  /* Fallback: no live schedules — show manual date/time inputs */
+                  <>
+                    <p className="text-[10px] text-amber-600">No live schedules found. Enter slot date and time manually.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1 text-[11px]">Slot Date</label>
+                        {selectedPoojaForReg.multiDay && selectedPoojaForReg.endDate ? (
+                          <select
+                            value={regForm.eventDate}
+                            onChange={e => setRegForm({ ...regForm, eventDate: e.target.value })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
+                          >
+                            {getDayRange(selectedPoojaForReg.date, selectedPoojaForReg.endDate).map(d => {
+                              const [y, m, day] = (d || "").split("-").map(Number);
+                              const dt = y && m && day ? new Date(y, m - 1, day, 12, 0, 0) : new Date();
+                              const dayText = dt.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+                              return (
+                                <option key={d} value={d}>
+                                  {dayText} ({d})
+                                </option>
+                              );
+                            })}
+                          </select>
+                        ) : (
+                          <input
+                            type="date"
+                            value={regForm.eventDate}
+                            onChange={e => setRegForm({ ...regForm, eventDate: e.target.value })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1 text-[11px]">Slot Time</label>
+                        {selectedPoojaForReg.startTimes && selectedPoojaForReg.startTimes.length > 0 ? (
+                          <select
+                            value={regForm.eventTime}
+                            onChange={e => setRegForm({ ...regForm, eventTime: e.target.value })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
+                          >
+                            {selectedPoojaForReg.startTimes.map(t => (
+                              <option key={t} value={t}>⏰ {t}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            placeholder="08:30 AM"
+                            value={regForm.eventTime}
+                            onChange={e => setRegForm({ ...regForm, eventTime: e.target.value })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Status & Payment Settings */}
@@ -1275,15 +1688,84 @@ export function EventsPoojaSeva() {
                 </div>
               )}
 
-              {!useMock && events.length > 0 && (
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-slate-600">Parent Event</span>
-                  <select value={poojaForm.mainEventId} onChange={e => set("mainEventId", e.target.value)}
-                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white">
-                    <option value="">Select event (optional)</option>
-                    {activeEvents.map(ev => <option key={ev.id} value={String(ev.id)}>{ev.title}</option>)}
-                  </select>
-                </label>
+              {!useMock && events.length > 0 && (() => {
+                const selectedParentEvent = activeEvents.find(ev => String(ev.id) === String(poojaForm.mainEventId));
+                return (
+                  <div className="space-y-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold text-slate-600">Parent Event</span>
+                      <select value={poojaForm.mainEventId} onChange={e => set("mainEventId", e.target.value)}
+                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white">
+                        <option value="">Select event (optional)</option>
+                        {activeEvents.map(ev => (
+                          <option key={ev.id} value={String(ev.id)}>
+                            {ev.title} ({ev.startDate || "No date"}{ev.endDate && ev.endDate !== ev.startDate ? ` – ${ev.endDate}` : ""})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    {selectedParentEvent && (
+                      <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CalendarDays className="w-4 h-4 text-amber-600 shrink-0" />
+                          <div>
+                            <span className="font-bold text-slate-800">{selectedParentEvent.title}: </span>
+                            <span className="font-extrabold text-amber-900 bg-white px-2 py-0.5 rounded-md border border-amber-200 shadow-2xs">
+                              📅 {selectedParentEvent.startDate || "No Start Date"}
+                              {selectedParentEvent.endDate && selectedParentEvent.endDate !== selectedParentEvent.startDate
+                                ? ` to ${selectedParentEvent.endDate}`
+                                : ""}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedParentEvent.startDate) {
+                              set("date", selectedParentEvent.startDate);
+                              if (selectedParentEvent.endDate && selectedParentEvent.endDate !== selectedParentEvent.startDate) {
+                                set("isMultiDay", true);
+                                set("endDate", selectedParentEvent.endDate);
+                              } else {
+                                set("isMultiDay", false);
+                                set("endDate", "");
+                              }
+                            }
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-bold text-amber-800 bg-white hover:bg-amber-100/80 rounded-lg border border-amber-200 transition-all cursor-pointer shadow-2xs active:scale-95 flex items-center gap-1 shrink-0"
+                        >
+                          <span>Auto-fill Dates</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {useMock && (
+                <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4 text-amber-600 shrink-0" />
+                    <div>
+                      <span className="font-bold text-slate-800">Festival Event Dates: </span>
+                      <span className="font-extrabold text-amber-900 bg-white px-2 py-0.5 rounded-md border border-amber-200 shadow-2xs">
+                        📅 2026-08-27 to 2026-08-29
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      set("date", "2026-08-27");
+                      set("isMultiDay", true);
+                      set("endDate", "2026-08-29");
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-bold text-amber-800 bg-white hover:bg-amber-100/80 rounded-lg border border-amber-200 transition-all cursor-pointer shadow-2xs active:scale-95"
+                  >
+                    Auto-fill Dates
+                  </button>
+                </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
@@ -1293,14 +1775,48 @@ export function EventsPoojaSeva() {
                     className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
                     placeholder="e.g. Ganesh Abhishekam" required />
                 </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-slate-600">Pooja Type *</span>
-                  <select value={poojaForm.type} onChange={e => set("type", e.target.value)}
-                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white" required>
-                    <option value="">Select type</option>
-                    {poojaTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </label>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-600">Pooja Type *</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddTypeModal(true);
+                        setNewTypeName("");
+                        setNewTypeDesc("");
+                        setAddTypeError("");
+                      }}
+                      className="text-[11px] font-bold text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" /> Add New
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={poojaForm.type}
+                      onChange={e => set("type", e.target.value)}
+                      className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+                      required
+                    >
+                      <option value="">Select type</option>
+                      {poojaTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddTypeModal(true);
+                        setNewTypeName("");
+                        setNewTypeDesc("");
+                        setAddTypeError("");
+                      }}
+                      className="px-2.5 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 text-xs font-bold transition flex items-center gap-1 cursor-pointer shrink-0 shadow-2xs active:scale-95"
+                      title="Create new Pooja Type in database"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add</span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {/* Date section */}
@@ -1360,12 +1876,23 @@ export function EventsPoojaSeva() {
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {poojaForm.startTimes.map((t, idx) => (
-                      <div key={idx} className="flex items-center gap-1.5">
-                        <input type="time" value={t} onChange={e => updateTimeSlot(idx, e.target.value)}
-                          className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                      <div key={idx} className="flex items-center gap-1.5 min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <TimePicker
+                            value={t}
+                            onChange={val => updateTimeSlot(idx, val)}
+                            size="sm"
+                          />
+                        </div>
                         {poojaForm.startTimes.length > 1 && (
-                          <button type="button" onClick={() => removeTimeSlot(idx)}
-                            className="p-1 text-rose-400 hover:text-rose-600"><X className="w-3.5 h-3.5" /></button>
+                          <button
+                            type="button"
+                            onClick={() => removeTimeSlot(idx)}
+                            className="p-1 text-rose-400 hover:text-rose-600 cursor-pointer shrink-0"
+                            title="Remove time slot"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         )}
                       </div>
                     ))}
@@ -1465,7 +1992,8 @@ export function EventsPoojaSeva() {
                   ) : (
                     <div className="space-y-2.5">
                       {Array.from(new Set(poojaForm.timeSlotConfig.map(e => e.slotDate as string))).map(date => {
-                        const dateObj = new Date(date + "T00:00:00");
+                        const [y, m, d] = (date || "").split("-").map(Number);
+                        const dateObj = y && m && d ? new Date(y, m - 1, d, 12, 0, 0) : new Date();
                         const dayLabel = dateObj.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
                         const dayEntries = poojaForm.timeSlotConfig.filter(e => e.slotDate === date);
                         const dayTotal = dayEntries.reduce((a, c) => a + (Number(c.slotCount) || 0), 0);
@@ -1561,6 +2089,98 @@ export function EventsPoojaSeva() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Create New Pooja Type Modal ── */}
+      {showAddTypeModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-amber-50 via-white to-amber-50/30">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                  <Flame className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-800 text-sm">Create New Pooja Type</h4>
+                  <p className="text-[11px] text-slate-500">Save custom temple ritual type to database</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddTypeModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-4.5 h-4.5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-3.5">
+              {addTypeError && (
+                <div className="flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" /> {addTypeError}
+                </div>
+              )}
+
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-700">Pooja Type Name *</span>
+                <input
+                  type="text"
+                  autoFocus
+                  value={newTypeName}
+                  onChange={(e) => setNewTypeName(e.target.value)}
+                  placeholder="e.g. Rudrabhishekam, Lakshmi Kubera Homa, Chandi Path..."
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleCreatePoojaType();
+                    }
+                  }}
+                />
+              </label>
+
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-700">Description (Optional)</span>
+                <input
+                  type="text"
+                  value={newTypeDesc}
+                  onChange={(e) => setNewTypeDesc(e.target.value)}
+                  placeholder="Brief notes or ritual purpose..."
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                />
+              </label>
+            </div>
+
+            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowAddTypeModal(false)}
+                className="px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={addingType || !newTypeName.trim()}
+                onClick={handleCreatePoojaType}
+                className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {addingType ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving to DB...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Save Pooja Type</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
