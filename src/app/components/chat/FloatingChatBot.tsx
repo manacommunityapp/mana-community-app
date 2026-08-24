@@ -4,10 +4,12 @@ import { X } from "lucide-react";
 import AppFlowChatbot from "./AppFlowChatbot";
 import ManaChat from "./ManaChat";
 import { AI_AGENT_CHATBOT_ENABLED } from "../../../config/featureFlags";
+import { useIsModalActive } from "../../hooks/useIsModalActive";
 
 export function FloatingChatBot() {
   const [isOpen, setIsOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const isModalActive = useIsModalActive();
 
   // Close when clicking outside the panel
   useEffect(() => {
@@ -29,16 +31,20 @@ export function FloatingChatBot() {
   }, [isOpen]);
 
   return (
-    <>
+    <div className="floating-chatbot-container">
       {/* ── Mobile Dim Backdrop ── */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm sm:hidden animate-in fade-in duration-200"
+          className="fixed inset-0 z-35 bg-black/60 backdrop-blur-sm sm:hidden animate-in fade-in duration-200"
           onClick={() => setIsOpen(false)}
         />
       )}
 
-      <div className="fixed bottom-36 right-4 sm:bottom-24 sm:right-6 z-50 font-sans">
+      <div
+        className={`fixed bottom-36 right-4 sm:bottom-24 sm:right-6 z-30 font-sans floating-action-launcher transition-all duration-200 ${
+          isModalActive && !isOpen ? "opacity-0 pointer-events-none translate-y-4" : "opacity-100"
+        }`}
+      >
         {/* Panel */}
         {isOpen && (
           <div
@@ -110,11 +116,11 @@ export function FloatingChatBot() {
       `}</style>
 
       {/* Floating devotional Ganesha button above AI Chatbot */}
-      {!isOpen && (
+      {!isOpen && !isModalActive && (
         <Link
           to="/events"
           title="Open Events Dashboard"
-          className="ganesh-animated-idol absolute -top-14 right-0 sm:-top-18 sm:right-0.5 flex items-center justify-center h-10 w-10 sm:h-14 sm:w-14 rounded-full overflow-hidden shadow-2xl border-2 border-amber-400/90 p-0.5 bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-500 hover:scale-110 active:scale-95 transition-all cursor-pointer z-50"
+          className="ganesh-animated-idol absolute -top-14 right-0 sm:-top-18 sm:right-0.5 flex items-center justify-center h-10 w-10 sm:h-14 sm:w-14 rounded-full overflow-hidden shadow-2xl border-2 border-amber-400/90 p-0.5 bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-500 hover:scale-110 active:scale-95 transition-all cursor-pointer z-30"
           style={{
             boxShadow: "0 6px 20px rgba(245, 158, 11, 0.55)",
           }}
@@ -146,6 +152,6 @@ export function FloatingChatBot() {
         />
       </button>
     </div>
-    </>
+  </div>
   );
 }

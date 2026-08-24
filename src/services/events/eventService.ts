@@ -191,6 +191,7 @@ export interface PoojaRegistrationRequest {
   status?: string;
   scheduleId?: number;
   reservationId?: number;
+  targetUserId?: number;
 }
 
 export interface PoojaScheduleDto {
@@ -702,13 +703,14 @@ export const eventService = {
     }
   },
 
-  async cancelRegistration(id: number | string): Promise<void> {
+  async cancelRegistration(id: number | string, reason?: string): Promise<void> {
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
+    const qs = reason ? `?reason=${encodeURIComponent(reason)}` : "";
     try {
-      await apiClient.delete<void>(`/events/pooja-registrations/${numericId}`);
+      await apiClient.delete<void>(`/events/pooja-registrations/${numericId}${qs}`);
     } catch {
-      await apiClient.delete<void>(`/events/registrations/${numericId}`);
+      await apiClient.delete<void>(`/events/registrations/${numericId}${qs}`);
     }
   },
 
@@ -724,8 +726,9 @@ export const eventService = {
 
   async adminCreateRegistration(data: any): Promise<any> {
     if (data?.category?.toLowerCase() === "pooja") {
+      const targetParam = data.targetUserId ? `&targetUserId=${data.targetUserId}` : "";
       try {
-        return await apiClient.post<any>("/events/pooja-registrations?adminOverride=true", data);
+        return await apiClient.post<any>(`/events/pooja-registrations?adminOverride=true${targetParam}`, data);
       } catch {
         // fallback
       }

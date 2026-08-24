@@ -140,3 +140,23 @@
   border-color: rgba(99, 102, 241, 0.5);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
+
+/* ─── Modal & Dialog Stacking Hierarchy ─── */
+/* Ensure floating chat / bot launchers stay below any active modal dialogs / backdrops */
+.floating-action-launcher {
+  z-index: 30 !important;
+}
+
+body:has([role="dialog"]:not(.floating-chat-panel):not(.floating-chatbot-panel)),
+body:has([role="alertdialog"]:not(.floating-chat-panel):not(.floating-chatbot-panel)),
+body:has([aria-modal="true"]:not(.floating-chat-panel):not(.floating-chatbot-panel)),
+body:has(.modal-backdrop),
+body:has(.swal2-container) {
+  .floating-action-launcher {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: translateY(12px) scale(0.92) !important;
+    transition: opacity 0.18s ease, transform 0.18s ease !important;
+  }
+}
+

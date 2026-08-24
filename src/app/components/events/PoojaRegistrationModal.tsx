@@ -776,6 +776,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         status: "CONFIRMED",
         ...(selectedScheduleId ? { scheduleId: selectedScheduleId } : {}),
         ...(reservationId ? { reservationId } : {}),
+        ...(selectedTargetUserId ? { targetUserId: selectedTargetUserId } : {}),
       };
 
       if (isUpdateMode && existingRegId) {

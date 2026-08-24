@@ -4,9 +4,11 @@ import { ConversationsList } from "./ConversationsList";
 import { ChatWindow } from "./ChatWindow";
 import { useChat } from "../../../contexts/ChatContext";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useIsModalActive } from "../../hooks/useIsModalActive";
 
 export function FloatingChat() {
   const [isButtonHovered, setIsButtonHovered] = useState(false);
+  const isModalActive = useIsModalActive();
   const {
     conversations,
     messages,
@@ -58,11 +60,11 @@ export function FloatingChat() {
   };
 
   return (
-    <>
+    <div className="floating-chat-container">
       {/* ── Mobile dim backdrop ── */}
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm sm:hidden animate-in fade-in duration-200"
+          className="fixed inset-0 z-35 bg-black/50 backdrop-blur-sm sm:hidden animate-in fade-in duration-200"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -71,7 +73,7 @@ export function FloatingChat() {
           Mobile: near full-screen sheet. Desktop: floating card above the launcher. */}
       {isOpen && (
         <div
-          className="fixed z-50 flex flex-col overflow-hidden border border-slate-700/50 font-sans
+          className="floating-chat-panel fixed z-40 flex flex-col overflow-hidden border border-slate-700/50 font-sans
                      inset-x-2.5 bottom-3 top-10
                      sm:inset-auto sm:bottom-24 sm:right-6 sm:top-auto sm:left-auto
                      sm:w-[24rem] sm:h-[600px] sm:max-h-[80vh]
@@ -155,10 +157,14 @@ export function FloatingChat() {
       )}
 
       {/* ── Launcher ── */}
-      <div className={`fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-50 font-sans ${isOpen ? "hidden sm:block" : "block"}`}>
+      <div
+        className={`fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-30 font-sans floating-action-launcher transition-all duration-200 ${
+          isOpen ? "hidden sm:block" : isModalActive ? "opacity-0 pointer-events-none translate-y-4" : "block opacity-100"
+        }`}
+      >
         <div className="relative flex items-center justify-end">
           {/* hover label (desktop) - strictly shown when hovering the exact chat icon button */}
-          {!isOpen && isButtonHovered && (
+          {!isOpen && !isModalActive && isButtonHovered && (
             <span
               className="hidden sm:block mr-3 px-3 py-1.5 rounded-full text-xs font-semibold text-white whitespace-nowrap
                          animate-in fade-in slide-in-from-right-2 duration-150 pointer-events-none shadow-xl"
@@ -207,6 +213,6 @@ export function FloatingChat() {
           </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
