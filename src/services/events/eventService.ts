@@ -115,6 +115,7 @@ export interface EventRequest {
   contactsJson?: string;
   paymentInstructions?: string;
   registrationDeadline?: string;
+  draftStep?: number;
 }
 
 export interface DashboardStatsResponse {

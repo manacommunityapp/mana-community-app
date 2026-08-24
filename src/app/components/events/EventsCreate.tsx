@@ -263,7 +263,14 @@ const EVENT_TYPES = [
   { value: "other",       label: "Other",          icon: Globe,         color: "#64748b", bg: "#f8fafc" },
 ];
 
-const STEPS = [
+interface StepItem {
+  id: number;
+  label: string;
+  desc: string;
+  icon: any;
+}
+
+const STEPS: StepItem[] = [
   { id: 1, label: "Basics",             desc: "Name, type & visibility",       icon: CalendarDays },
   { id: 2, label: "Schedule",           desc: "Date, time & venue",            icon: Clock        },
   { id: 3, label: "Registration",       desc: "Tickets & categories",          icon: Ticket       },
@@ -3099,7 +3106,7 @@ function Step8Review({ data }: { data: FormData }) {
   );
 }
 
-export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLISHED"): EventRequest {
+export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLISHED", draftStep?: number): EventRequest {
   const primaryContact = data.contacts?.[0];
   const coverImageUrl = persistedMediaUrl(data.coverImageUrl);
   const scannerImageUrl = persistedMediaUrl(data.scannerUrl);
@@ -3141,6 +3148,7 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
     category: data.eventType || undefined,
     status: statusOverride || "PUBLISHED",
     registrationDeadline: data.registrationEnabled && data.registrationDeadline ? data.registrationDeadline : undefined,
+    draftStep: draftStep !== undefined ? draftStep : (statusOverride === "DRAFT" ? 1 : undefined),
   };
 }
 
@@ -3270,6 +3278,18 @@ export function fromEventToFormData(ev: any): FormData {
   const endTime = ev.endTime ? String(ev.endTime).slice(0, 5) : "18:00";
   const multiDay = Boolean(endDate && startDate && endDate !== startDate);
 
+  let rawDaySchedules: DaySchedule[] = Array.isArray(ev.daySchedules) && ev.daySchedules.length > 0 ? ev.daySchedules : [];
+  if (!multiDay && startDate) {
+    const matching = rawDaySchedules.filter((ds: DaySchedule) => ds.date === startDate);
+    if (matching.length > 0) {
+      rawDaySchedules = matching;
+    } else if (rawDaySchedules.length > 0) {
+      rawDaySchedules = [{ date: startDate, activities: rawDaySchedules.flatMap((ds: DaySchedule) => ds.activities || []) }];
+    }
+  } else if (multiDay && startDate && endDate) {
+    rawDaySchedules = rawDaySchedules.filter((ds: DaySchedule) => ds.date >= startDate && ds.date <= endDate);
+  }
+
   return {
     title: ev.title || ev.name || "",
     eventType: matchedType,
@@ -3281,7 +3301,7 @@ export function fromEventToFormData(ev: any): FormData {
     startTime,
     endTime,
     multiDay,
-    daySchedules: Array.isArray(ev.daySchedules) && ev.daySchedules.length > 0 ? ev.daySchedules : [],
+    daySchedules: rawDaySchedules,
     venueName,
     venueAddress,
     city,
@@ -3326,7 +3346,22 @@ export function EventCreateWizard({
 }: EventCreateWizardProps) {
   useEscapeKey(onClose);
   const isEditing = isEdit || !!eventId || !!initialData;
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => {
+    const rawId = eventId || initialData?.id;
+    if (initialData?.draftStep && typeof initialData.draftStep === "number" && initialData.draftStep >= 1 && initialData.draftStep <= 8) {
+      return initialData.draftStep;
+    }
+    if (rawId) {
+      try {
+        const localSaved = localStorage.getItem(`mana_draft_step_${rawId}`);
+        if (localSaved && !isNaN(Number(localSaved))) {
+          const s = parseInt(localSaved, 10);
+          if (s >= 1 && s <= 8) return s;
+        }
+      } catch {}
+    }
+    return 1;
+  });
   const [submitted, setSubmitted] = useState(false);
   const [submitType, setSubmitType] = useState<"published" | "draft">("published");
   const [publishing, setPublishing] = useState(false);
@@ -3361,26 +3396,35 @@ export function EventCreateWizard({
             if (baseEvent) {
               const baseForm = fromEventToFormData(baseEvent);
 
-              // Map all sub-events into daySchedules
+              // Map all sub-events into daySchedules strictly within event's configured dates
               const daysMap = new Map<string, ScheduleActivity[]>();
-
-              // If baseForm already had daySchedules, preserve them
-              if (Array.isArray(baseForm.daySchedules)) {
-                for (const ds of baseForm.daySchedules) {
-                  if (ds.date) {
-                    daysMap.set(ds.date, [...ds.activities]);
-                  }
-                }
-              }
-
-              // Ensure start date and all days in range are initialized
               const startD = baseForm.startDate;
               const endD = baseForm.multiDay && baseForm.endDate ? baseForm.endDate : startD;
-              if (startD) {
-                const allDays = getDaysBetween(startD, endD);
-                for (const d of allDays) {
-                  if (!daysMap.has(d)) {
-                    daysMap.set(d, []);
+              const validDaysList = startD ? (baseForm.multiDay ? getDaysBetween(startD, endD) : [startD]) : [];
+              const validDaysSet = new Set(validDaysList);
+
+              const resolveDay = (rawDate?: string): string | null => {
+                if (!startD) return null;
+                if (!baseForm.multiDay) return startD;
+                if (rawDate && validDaysSet.has(rawDate)) return rawDate;
+                return startD;
+              };
+
+              for (const d of validDaysList) {
+                daysMap.set(d, []);
+              }
+
+              // If baseForm already had daySchedules, preserve them within valid days
+              if (Array.isArray(baseForm.daySchedules)) {
+                for (const ds of baseForm.daySchedules) {
+                  const targetDay = resolveDay(ds.date);
+                  if (targetDay && daysMap.has(targetDay) && Array.isArray(ds.activities)) {
+                    for (const act of ds.activities) {
+                      const list = daysMap.get(targetDay)!;
+                      if (!list.some(a => a.id === act.id || (a.name === act.name && a.startTime === act.startTime))) {
+                        list.push(act);
+                      }
+                    }
                   }
                 }
               }
@@ -3388,9 +3432,8 @@ export function EventCreateWizard({
               // 1. Merge Pooja Sevas
               if (Array.isArray(poojas)) {
                 for (const p of poojas) {
-                  const pDate = p.date || p.startDate || startD;
-                  if (!pDate) continue;
-                  if (!daysMap.has(pDate)) daysMap.set(pDate, []);
+                  const pDate = resolveDay(p.date || p.startDate);
+                  if (!pDate || !daysMap.has(pDate)) continue;
                   const list = daysMap.get(pDate)!;
                   const actTime = (Array.isArray(p.startTimes) && p.startTimes.length > 0)
                     ? p.startTimes[0]
@@ -3421,9 +3464,8 @@ export function EventCreateWizard({
               // 2. Merge Cultural Events
               if (Array.isArray(cults)) {
                 for (const c of cults) {
-                  const cDate = c.date || startD;
-                  if (!cDate) continue;
-                  if (!daysMap.has(cDate)) daysMap.set(cDate, []);
+                  const cDate = resolveDay(c.date);
+                  if (!cDate || !daysMap.has(cDate)) continue;
                   const list = daysMap.get(cDate)!;
                   const existingIdx = list.findIndex(a => a.subEventId === c.id || (a.categoryType === "Cultural Events" && a.name === c.name));
                   const actObj: ScheduleActivity = {
@@ -3450,9 +3492,8 @@ export function EventCreateWizard({
               // 3. Merge Competitions
               if (Array.isArray(comps)) {
                 for (const cmp of comps) {
-                  const cmpDate = cmp.date || startD;
-                  if (!cmpDate) continue;
-                  if (!daysMap.has(cmpDate)) daysMap.set(cmpDate, []);
+                  const cmpDate = resolveDay(cmp.date);
+                  if (!cmpDate || !daysMap.has(cmpDate)) continue;
                   const list = daysMap.get(cmpDate)!;
                   const existingIdx = list.findIndex(a => a.subEventId === cmp.id || (a.categoryType === "Competitions" && a.name === cmp.name));
                   const actObj: ScheduleActivity = {
@@ -3479,9 +3520,8 @@ export function EventCreateWizard({
               // 4. Merge Lunch / Dinners
               if (Array.isArray(meals)) {
                 for (const m of meals) {
-                  const mDate = m.date || startD;
-                  if (!mDate) continue;
-                  if (!daysMap.has(mDate)) daysMap.set(mDate, []);
+                  const mDate = resolveDay(m.date);
+                  if (!mDate || !daysMap.has(mDate)) continue;
                   const list = daysMap.get(mDate)!;
                   const isDinner = (m.mealType?.toLowerCase() === "dinner" || m.name?.toLowerCase().includes("dinner"));
                   const catType = isDinner ? "Dinner" : "Lunch";
@@ -3507,8 +3547,8 @@ export function EventCreateWizard({
                 }
               }
 
-              // Sort days chronologically
-              const sortedDates = Array.from(daysMap.keys()).sort();
+              // Only construct day schedules for valid dates
+              const sortedDates = validDaysList.length > 0 ? validDaysList : (startD ? [startD] : []);
               const builtDaySchedules: DaySchedule[] = sortedDates.map(d => ({
                 date: d,
                 activities: daysMap.get(d) || [],
@@ -3516,6 +3556,23 @@ export function EventCreateWizard({
 
               baseForm.daySchedules = builtDaySchedules;
               setFormData(baseForm);
+
+              // If draft, resume to saved draft step
+              const isDraft = String(baseEvent.status || "").toLowerCase() === "draft";
+              if (isDraft || baseEvent.draftStep) {
+                const draftS = baseEvent.draftStep;
+                if (typeof draftS === "number" && draftS >= 1 && draftS <= 8) {
+                  setStep(draftS);
+                } else {
+                  try {
+                    const localSaved = localStorage.getItem(`mana_draft_step_${rawId}`);
+                    if (localSaved && !isNaN(Number(localSaved))) {
+                      const s = parseInt(localSaved, 10);
+                      if (s >= 1 && s <= 8) setStep(s);
+                    }
+                  } catch {}
+                }
+              }
             }
           })
           .catch((err) => {
@@ -3606,7 +3663,7 @@ export function EventCreateWizard({
     if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
     const maxCap = formData.capacity ? parseInt(formData.capacity, 10) : 0;
     if (maxCap > 0 && formData.ticketTypes && formData.ticketTypes.length > 0) {
-      const totalCategorySeats = formData.ticketTypes.reduce((sum, t) => sum + (parseInt(t.qty || "0", 10) || 0), 0);
+      const totalCategorySeats = formData.ticketTypes.reduce((sum: number, t: any) => sum + (parseInt(t.qty || "0", 10) || 0), 0);
       if (totalCategorySeats > maxCap) {
         return `Total seats across all ticket categories (${totalCategorySeats}) cannot exceed Event Max Capacity (${maxCap}). Please adjust category seat allocations.`;
       }
@@ -3639,13 +3696,14 @@ export function EventCreateWizard({
     setSavingDraft(true);
     setPublishError("");
     try {
-      const reqPayload = toEventRequest(formData, "DRAFT");
+      const reqPayload = toEventRequest(formData, "DRAFT", step);
       let resultEvent: any = {
         ...(initialData || {}),
         ...formData,
         id: eventId || (initialData as any)?.id || "EVT-" + Date.now(),
         venue: formData.venueName,
         status: "draft",
+        draftStep: step,
       };
 
       if (!useMock) {
@@ -3661,6 +3719,13 @@ export function EventCreateWizard({
           const resp = await eventService.create(reqPayload);
           if (resp) resultEvent = resp;
         }
+      }
+
+      const targetId = resultEvent.id || eventId || (initialData as any)?.id;
+      if (targetId) {
+        try {
+          localStorage.setItem(`mana_draft_step_${targetId}`, String(step));
+        } catch {}
       }
 
       await syncActivitiesToScheduleSubmodules(formData.daySchedules, formData.title, resultEvent.id);
@@ -3693,13 +3758,14 @@ export function EventCreateWizard({
     setPublishing(true);
     setPublishError("");
     try {
-      const reqPayload = toEventRequest(formData, "PUBLISHED");
+      const reqPayload = toEventRequest(formData, "PUBLISHED", 1);
       let resultEvent: any = {
         ...(initialData || {}),
         ...formData,
         id: eventId || (initialData as any)?.id || "EVT-" + Date.now(),
         venue: formData.venueName,
         status: "upcoming",
+        draftStep: undefined,
       };
 
       if (!useMock) {
@@ -3715,6 +3781,13 @@ export function EventCreateWizard({
           const resp = await eventService.create(reqPayload);
           if (resp) resultEvent = resp;
         }
+      }
+
+      const targetId = resultEvent.id || eventId || (initialData as any)?.id;
+      if (targetId) {
+        try {
+          localStorage.removeItem(`mana_draft_step_${targetId}`);
+        } catch {}
       }
 
       await syncActivitiesToScheduleSubmodules(formData.daySchedules, formData.title, resultEvent.id);
