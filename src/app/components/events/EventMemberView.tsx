@@ -107,7 +107,11 @@ interface UserPass {
   date: string;
   time: string;
   venue: string;
-  status: "CONFIRMED" | "PENDING APPROVAL" | "CANCELLED" | string;
+  status: "CONFIRMED" | "PENDING APPROVAL" | "CANCELLED" | "EXPIRED" | "CLOSED" | string;
+  isEventCancelled?: boolean;
+  isEventExpired?: boolean;
+  isEventClosed?: boolean;
+  statusReason?: string;
   qrCodeUrl: string;
   bookingFee?: number;
   paymentStatus?: string;
@@ -204,6 +208,9 @@ export function EventMemberView() {
   const [showHeroSubEvents, setShowHeroSubEvents] = useState(false);
   const [mobileModal, setMobileModal] = useState<"pooja" | "meals" | "passes" | "family" | null>(null);
   const [passesList, setPassesList] = useState<UserPass[]>(() => (useMock ? INITIAL_PASSES : []));
+  const [passesFilter, setPassesFilter] = useState<"ACTIVE" | "CANCELLED" | "EXPIRED" | "CLOSED" | "ALL">("ACTIVE");
+  const [mobilePassesFilter, setMobilePassesFilter] = useState<"ACTIVE" | "CANCELLED" | "EXPIRED" | "ALL">("ACTIVE");
+  const [passesSearch, setPassesSearch] = useState<string>("");
   const [activitiesList, setActivitiesList] = useState<Activity[]>(() => (useMock ? INITIAL_ACTIVITIES : []));
   const [mainEventsList, setMainEventsList] = useState<any[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
@@ -695,63 +702,129 @@ export function EventMemberView() {
     }
 
     try {
-      const liveRegs = await eventService.getMyRegistrations();
+      const [liveRegs, allEvents] = await Promise.all([
+        eventService.getMyRegistrations().catch(() => []),
+        eventService.getAll().catch(() => []),
+      ]);
+
+      const eventsById = new Map<string, any>();
+      const eventsByTitle = new Map<string, any>();
+      (allEvents || []).forEach((ev: any) => {
+        if (ev.id != null) eventsById.set(String(ev.id), ev);
+        if (ev.title) eventsByTitle.set(ev.title.trim().toLowerCase(), ev);
+      });
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+
       if (Array.isArray(liveRegs) && liveRegs.length > 0) {
-        const mappedPasses: UserPass[] = liveRegs
-          .filter((r: any) => r.status !== "CANCELLED")
-          .map((r: any) => {
-            let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
-            if (!attendeeCount && r.membersJson) {
-              try {
-                const parsed = JSON.parse(r.membersJson);
-                if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
-              } catch {}
-            }
-            if (!attendeeCount && r.attendingDevotees) {
-              try {
-                const parsed = JSON.parse(r.attendingDevotees);
-                if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
-                else if (typeof r.attendingDevotees === 'string') {
-                  const parts = r.attendingDevotees.split(',').map((s: string) => s.trim()).filter(Boolean);
-                  if (parts.length > 0) attendeeCount = parts.length;
-                }
-              } catch {
-                const parts = String(r.attendingDevotees).split(',').map((s: string) => s.trim()).filter(Boolean);
+        const mappedPasses: UserPass[] = liveRegs.map((r: any) => {
+          let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
+          if (!attendeeCount && r.membersJson) {
+            try {
+              const parsed = JSON.parse(r.membersJson);
+              if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
+            } catch {}
+          }
+          if (!attendeeCount && r.attendingDevotees) {
+            try {
+              const parsed = JSON.parse(r.attendingDevotees);
+              if (Array.isArray(parsed) && parsed.length > 0) attendeeCount = parsed.length;
+              else if (typeof r.attendingDevotees === "string") {
+                const parts = r.attendingDevotees.split(",").map((s: string) => s.trim()).filter(Boolean);
                 if (parts.length > 0) attendeeCount = parts.length;
               }
+            } catch {
+              const parts = String(r.attendingDevotees).split(",").map((s: string) => s.trim()).filter(Boolean);
+              if (parts.length > 0) attendeeCount = parts.length;
             }
-            if (!attendeeCount) attendeeCount = 1;
+          }
+          if (!attendeeCount) attendeeCount = 1;
 
-            return {
-              id: String(r.id),
-              // activityId is stored as "pooja-5" or "5" — normalise to full "pooja-N" form when possible
-              activityId: r.activityId ? String(r.activityId) : undefined,
-              // Canonical numeric-only id of the Pooja Seva for normalised matching
-              poojaSevaId: r.activityId ? String(r.activityId).replace(/\D/g, "") || undefined : undefined,
-              // Parent community event id (different from the pooja seva's own id)
-              mainEventId: r.mainEventId != null ? String(r.mainEventId) : undefined,
-              eventId: r.eventId ? String(r.eventId) : undefined,
-              passType: r.passType || `${r.category || "Event"} Registration Pass`,
-              title: r.activityTitle || r.eventName || "Community Event",
-              participantName: r.participantName || r.primaryName || "Devotee",
-              phone: r.phone,
-              flatNo: r.flatNo,
-              devoteeCount: attendeeCount,
-              attendingDevotees: r.attendingDevotees,
-              gotram: r.gotram,
-              regId: r.regCode || `MNA-2026-${r.id}`,
-              date: r.eventDate || "Upcoming",
-              time: r.eventTime || "Scheduled",
-              venue: r.venue || "Community Venue",
-              status: (r.status === "PENDING APPROVAL" ? "PENDING APPROVAL" : "CONFIRMED"),
-              qrCodeUrl: r.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${r.regCode || r.id}`,
-              bookingFee: r.bookingFee,
-              paymentStatus: r.paymentStatus,
-              paymentReceiptUrl: r.paymentReceiptUrl,
-              transactionId: r.transactionId,
-              paymentMethod: r.paymentMethod,
-            };
-          });
+          // Cross-reference parent event
+          const parentEvent = (r.mainEventId != null && eventsById.get(String(r.mainEventId))) ||
+                              (r.eventId != null && eventsById.get(String(r.eventId))) ||
+                              (r.eventName && eventsByTitle.get(r.eventName.trim().toLowerCase())) ||
+                              (r.activityTitle && eventsByTitle.get(r.activityTitle.trim().toLowerCase())) ||
+                              null;
+
+          const regStatusStr = String(r.status || "").toUpperCase();
+          const parentStatusStr = parentEvent ? String(parentEvent.status || "").toUpperCase() : "";
+
+          const isCancelled = regStatusStr === "CANCELLED" ||
+                              regStatusStr === "REJECTED" ||
+                              r.isCancelled === true ||
+                              parentStatusStr === "CANCELLED";
+
+          const isClosed = regStatusStr === "CLOSED" ||
+                           parentStatusStr === "CLOSED" ||
+                           Boolean(parentEvent && isRegistrationClosed(parentEvent));
+
+          let isExpired = false;
+          if (parentEvent) {
+            if (parentStatusStr === "COMPLETED" || parentStatusStr === "ARCHIVED") {
+              isExpired = true;
+            } else if (parentEvent.endDate && parentEvent.endDate < todayStr) {
+              isExpired = true;
+            } else if (parentEvent.startDate && !parentEvent.endDate && parentEvent.startDate < todayStr) {
+              isExpired = true;
+            }
+          } else if (r.eventDate && r.eventDate < todayStr && !r.eventDate.includes("Upcoming")) {
+            isExpired = true;
+          }
+
+          let finalStatus = "CONFIRMED";
+          let statusReason = "Active Valid Entry E-Pass";
+
+          if (isCancelled) {
+            finalStatus = "CANCELLED";
+            statusReason = parentStatusStr === "CANCELLED"
+              ? "Event was cancelled by temple committee"
+              : (r.cancellationReason || "Registration has been cancelled");
+          } else if (isExpired) {
+            finalStatus = "EXPIRED";
+            statusReason = "Event has concluded (Expired Pass)";
+          } else if (isClosed) {
+            finalStatus = "CLOSED";
+            statusReason = "Event registrations are now closed";
+          } else if (regStatusStr === "PENDING APPROVAL" || regStatusStr === "PENDING") {
+            finalStatus = "PENDING APPROVAL";
+            statusReason = "Awaiting committee approval / verification";
+          }
+
+          return {
+            id: String(r.id),
+            // activityId is stored as "pooja-5" or "5" — normalise to full "pooja-N" form when possible
+            activityId: r.activityId ? String(r.activityId) : undefined,
+            // Canonical numeric-only id of the Pooja Seva for normalised matching
+            poojaSevaId: r.activityId ? String(r.activityId).replace(/\D/g, "") || undefined : undefined,
+            // Parent community event id (different from the pooja seva's own id)
+            mainEventId: r.mainEventId != null ? String(r.mainEventId) : undefined,
+            eventId: r.eventId ? String(r.eventId) : undefined,
+            passType: r.passType || `${r.category || "Event"} Registration Pass`,
+            title: r.activityTitle || r.eventName || (parentEvent ? parentEvent.title : "Community Event"),
+            participantName: r.participantName || r.primaryName || "Devotee",
+            phone: r.phone,
+            flatNo: r.flatNo,
+            devoteeCount: attendeeCount,
+            attendingDevotees: r.attendingDevotees,
+            gotram: r.gotram,
+            regId: r.regCode || `MNA-2026-${r.id}`,
+            date: r.eventDate || (parentEvent?.startDate ? String(parentEvent.startDate) : "Upcoming"),
+            time: r.eventTime || (parentEvent?.startTime ? String(parentEvent.startTime) : "Scheduled"),
+            venue: r.venue || (parentEvent?.location ? String(parentEvent.location) : "Community Venue"),
+            status: finalStatus,
+            isEventCancelled: isCancelled,
+            isEventExpired: isExpired,
+            isEventClosed: isClosed,
+            statusReason,
+            qrCodeUrl: r.qrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${r.regCode || r.id}`,
+            bookingFee: r.bookingFee,
+            paymentStatus: r.paymentStatus,
+            paymentReceiptUrl: r.paymentReceiptUrl,
+            transactionId: r.transactionId,
+            paymentMethod: r.paymentMethod,
+          };
+        });
         setPassesList(mappedPasses);
         return;
       }
