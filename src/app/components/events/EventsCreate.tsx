@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { SectionHeader, FieldLabel, ToggleRow } from "./shared";
 
 import { cn } from "../ui/utils";
+import { TimePicker } from "../ui/time-picker";
 import { useAuth } from "../../../contexts/AuthContext";
 import { CREATE_EVENT, MANAGE_EVENT_DASHBOARD } from "../../../constants/permissions";
 import { useEventMock } from "./EventMockToggle";
@@ -423,20 +424,30 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
 
 /* ─── Step 2: Schedule ─── */
 function getDaysBetween(start: string, end: string): string[] {
-  if (!start || !end) return [];
+  if (!start) return [];
+  if (!end || end === start) return [start];
   const days: string[] = [];
-  const d = new Date(start);
-  const last = new Date(end);
-  while (d <= last && days.length < 30) {
-    days.push(d.toISOString().slice(0, 10));
+  const [sy, sm, sd] = start.split("-").map(Number);
+  const [ey, em, ed] = end.split("-").map(Number);
+  if (!sy || !sm || !sd || !ey || !em || !ed) return [start];
+  const d = new Date(sy, sm - 1, sd, 12, 0, 0);
+  const last = new Date(ey, em - 1, ed, 12, 0, 0);
+  let limit = 0;
+  while (d <= last && limit < 60) {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    days.push(`${year}-${month}-${day}`);
     d.setDate(d.getDate() + 1);
+    limit++;
   }
   return days;
 }
 
 function formatDayLabel(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" });
+  const [y, m, d] = (dateStr || "").split("-").map(Number);
+  const dt = y && m && d ? new Date(y, m - 1, d, 12, 0, 0) : new Date();
+  return dt.toLocaleDateString("en-IN", { weekday: "short", month: "short", day: "numeric" });
 }
 
 const FESTIVAL_AGENDA_PLACEHOLDERS: ScheduleActivity[] = [
@@ -761,22 +772,18 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         )}
         <div>
           <FieldLabel required>Start Time</FieldLabel>
-          <Input
-            type="time"
+          <TimePicker
             value={data.startTime}
-            onChange={e => update("startTime", e.target.value)}
-            className={INPUT_CLS}
+            onChange={v => update("startTime", v)}
           />
         </div>
         <div>
           <FieldLabel required>End Time</FieldLabel>
-          <Input
-            type="time"
+          <TimePicker
             value={data.endTime}
-            onChange={e => update("endTime", e.target.value)}
+            onChange={v => update("endTime", v)}
             className={cn(
-              INPUT_CLS,
-              isTimeInvalid && "border-rose-500 focus-visible:ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+              isTimeInvalid && "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
             )}
           />
           {isTimeInvalid && (
@@ -1253,22 +1260,20 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                 )}
                               </div>
 
-                              <div className="w-full sm:w-28">
+                              <div className="w-full sm:w-36">
                                 <FieldLabel required>From</FieldLabel>
-                                <Input
-                                  type="time"
+                                <TimePicker
                                   value={act.startTime}
-                                  onChange={(e) => updateActivity(day.date, act.id, "startTime", e.target.value)}
-                                  className={cn(INPUT_CLS, "bg-white font-medium")}
+                                  onChange={(v) => updateActivity(day.date, act.id, "startTime", v)}
+                                  size="sm"
                                 />
                               </div>
-                              <div className="w-full sm:w-28">
+                              <div className="w-full sm:w-36">
                                 <FieldLabel required>To</FieldLabel>
-                                <Input
-                                  type="time"
+                                <TimePicker
                                   value={act.endTime}
-                                  onChange={(e) => updateActivity(day.date, act.id, "endTime", e.target.value)}
-                                  className={cn(INPUT_CLS, "bg-white font-medium")}
+                                  onChange={(v) => updateActivity(day.date, act.id, "endTime", v)}
+                                  size="sm"
                                 />
                               </div>
                             </div>

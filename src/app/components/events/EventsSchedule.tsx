@@ -24,6 +24,7 @@ import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 import { cn } from "../ui/utils";
+import { TimePicker } from "../ui/time-picker";
 import { useAuth } from "../../../contexts/AuthContext";
 import { CREATE_EVENT, MANAGE_EVENT_DASHBOARD } from "../../../constants/permissions";
 import { EventsPlanning } from "./EventsPlanning";
@@ -646,8 +647,11 @@ function NotificationDialog({ event, onClose }: { event: EventItem; onClose: () 
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-slate-600">Time</Label>
-                      <Input type="time" className="text-xs h-9 bg-white"
-                        value={scheduleTime} onChange={e => setScheduleTime(e.target.value)} />
+                      <TimePicker
+                        value={scheduleTime}
+                        onChange={v => setScheduleTime(v)}
+                        size="sm"
+                      />
                     </div>
                   </div>
 

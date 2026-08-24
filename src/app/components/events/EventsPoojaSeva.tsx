@@ -8,6 +8,7 @@ import {
 import { toast } from "sonner";
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse, type PoojaScheduleDto } from "../../../services/events/eventService";
+import { TimePicker, TimeSelect } from "../ui/time-picker";
 
 type TimeSlotEntry = { slotDate: string | null; startTime: string; slotCount: number };
 
@@ -690,13 +691,20 @@ export function EventsPoojaSeva() {
   };
 
   const getDayRange = (startDate: string, endDate: string): string[] => {
-    if (!startDate || !endDate) return [];
+    if (!startDate) return [];
+    if (!endDate || endDate === startDate) return [startDate];
     const days: string[] = [];
-    const cur = new Date(startDate + "T00:00:00");
-    const end = new Date(endDate + "T00:00:00");
+    const [sy, sm, sd] = startDate.split("-").map(Number);
+    const [ey, em, ed] = endDate.split("-").map(Number);
+    if (!sy || !sm || !sd || !ey || !em || !ed) return [startDate];
+    const cur = new Date(sy, sm - 1, sd, 12, 0, 0);
+    const end = new Date(ey, em - 1, ed, 12, 0, 0);
     let limit = 0;
-    while (cur <= end && limit < 30) {
-      days.push(cur.toISOString().split("T")[0]);
+    while (cur <= end && limit < 60) {
+      const y = cur.getFullYear();
+      const m = String(cur.getMonth() + 1).padStart(2, "0");
+      const d = String(cur.getDate()).padStart(2, "0");
+      days.push(`${y}-${m}-${d}`);
       cur.setDate(cur.getDate() + 1);
       limit++;
     }
@@ -921,24 +929,22 @@ export function EventsPoojaSeva() {
                               className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
                             />
                           </label>
-                          <label className="flex flex-col gap-1">
+                          <div className="flex flex-col gap-1">
                             <span className="text-[10px] font-semibold text-slate-600">Start Time *</span>
-                            <input
-                              type="time"
+                            <TimePicker
                               value={scheduleForm.startTime}
-                              onChange={e => setScheduleForm(f => ({ ...f, startTime: e.target.value }))}
-                              className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                              onChange={v => setScheduleForm(f => ({ ...f, startTime: v }))}
+                              size="sm"
                             />
-                          </label>
-                          <label className="flex flex-col gap-1">
+                          </div>
+                          <div className="flex flex-col gap-1">
                             <span className="text-[10px] font-semibold text-slate-600">End Time *</span>
-                            <input
-                              type="time"
+                            <TimePicker
                               value={scheduleForm.endTime}
-                              onChange={e => setScheduleForm(f => ({ ...f, endTime: e.target.value }))}
-                              className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
+                              onChange={v => setScheduleForm(f => ({ ...f, endTime: v }))}
+                              size="sm"
                             />
-                          </label>
+                          </div>
                           <label className="flex flex-col gap-1">
                             <span className="text-[10px] font-semibold text-slate-600">Family Capacity</span>
                             <input
@@ -1452,11 +1458,16 @@ export function EventsPoojaSeva() {
                             onChange={e => setRegForm({ ...regForm, eventDate: e.target.value })}
                             className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
                           >
-                            {getDayRange(selectedPoojaForReg.date, selectedPoojaForReg.endDate).map(d => (
-                              <option key={d} value={d}>
-                                {new Date(d + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} ({d})
-                              </option>
-                            ))}
+                            {getDayRange(selectedPoojaForReg.date, selectedPoojaForReg.endDate).map(d => {
+                              const [y, m, day] = (d || "").split("-").map(Number);
+                              const dt = y && m && day ? new Date(y, m - 1, day, 12, 0, 0) : new Date();
+                              const dayText = dt.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+                              return (
+                                <option key={d} value={d}>
+                                  {dayText} ({d})
+                                </option>
+                              );
+                            })}
                           </select>
                         ) : (
                           <input
@@ -1677,15 +1688,84 @@ export function EventsPoojaSeva() {
                 </div>
               )}
 
-              {!useMock && events.length > 0 && (
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-slate-600">Parent Event</span>
-                  <select value={poojaForm.mainEventId} onChange={e => set("mainEventId", e.target.value)}
-                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white">
-                    <option value="">Select event (optional)</option>
-                    {activeEvents.map(ev => <option key={ev.id} value={String(ev.id)}>{ev.title}</option>)}
-                  </select>
-                </label>
+              {!useMock && events.length > 0 && (() => {
+                const selectedParentEvent = activeEvents.find(ev => String(ev.id) === String(poojaForm.mainEventId));
+                return (
+                  <div className="space-y-2">
+                    <label className="flex flex-col gap-1">
+                      <span className="text-xs font-semibold text-slate-600">Parent Event</span>
+                      <select value={poojaForm.mainEventId} onChange={e => set("mainEventId", e.target.value)}
+                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white">
+                        <option value="">Select event (optional)</option>
+                        {activeEvents.map(ev => (
+                          <option key={ev.id} value={String(ev.id)}>
+                            {ev.title} ({ev.startDate || "No date"}{ev.endDate && ev.endDate !== ev.startDate ? ` – ${ev.endDate}` : ""})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    {selectedParentEvent && (
+                      <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CalendarDays className="w-4 h-4 text-amber-600 shrink-0" />
+                          <div>
+                            <span className="font-bold text-slate-800">{selectedParentEvent.title}: </span>
+                            <span className="font-extrabold text-amber-900 bg-white px-2 py-0.5 rounded-md border border-amber-200 shadow-2xs">
+                              📅 {selectedParentEvent.startDate || "No Start Date"}
+                              {selectedParentEvent.endDate && selectedParentEvent.endDate !== selectedParentEvent.startDate
+                                ? ` to ${selectedParentEvent.endDate}`
+                                : ""}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedParentEvent.startDate) {
+                              set("date", selectedParentEvent.startDate);
+                              if (selectedParentEvent.endDate && selectedParentEvent.endDate !== selectedParentEvent.startDate) {
+                                set("isMultiDay", true);
+                                set("endDate", selectedParentEvent.endDate);
+                              } else {
+                                set("isMultiDay", false);
+                                set("endDate", "");
+                              }
+                            }
+                          }}
+                          className="px-2.5 py-1 text-[11px] font-bold text-amber-800 bg-white hover:bg-amber-100/80 rounded-lg border border-amber-200 transition-all cursor-pointer shadow-2xs active:scale-95 flex items-center gap-1 shrink-0"
+                        >
+                          <span>Auto-fill Dates</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {useMock && (
+                <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="w-4 h-4 text-amber-600 shrink-0" />
+                    <div>
+                      <span className="font-bold text-slate-800">Festival Event Dates: </span>
+                      <span className="font-extrabold text-amber-900 bg-white px-2 py-0.5 rounded-md border border-amber-200 shadow-2xs">
+                        📅 2026-08-27 to 2026-08-29
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      set("date", "2026-08-27");
+                      set("isMultiDay", true);
+                      set("endDate", "2026-08-29");
+                    }}
+                    className="px-2.5 py-1 text-[11px] font-bold text-amber-800 bg-white hover:bg-amber-100/80 rounded-lg border border-amber-200 transition-all cursor-pointer shadow-2xs active:scale-95"
+                  >
+                    Auto-fill Dates
+                  </button>
+                </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">
@@ -1796,12 +1876,23 @@ export function EventsPoojaSeva() {
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {poojaForm.startTimes.map((t, idx) => (
-                      <div key={idx} className="flex items-center gap-1.5">
-                        <input type="time" value={t} onChange={e => updateTimeSlot(idx, e.target.value)}
-                          className="flex-1 border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300" />
+                      <div key={idx} className="flex items-center gap-1.5 min-w-0">
+                        <div className="flex-1 min-w-0">
+                          <TimePicker
+                            value={t}
+                            onChange={val => updateTimeSlot(idx, val)}
+                            size="sm"
+                          />
+                        </div>
                         {poojaForm.startTimes.length > 1 && (
-                          <button type="button" onClick={() => removeTimeSlot(idx)}
-                            className="p-1 text-rose-400 hover:text-rose-600"><X className="w-3.5 h-3.5" /></button>
+                          <button
+                            type="button"
+                            onClick={() => removeTimeSlot(idx)}
+                            className="p-1 text-rose-400 hover:text-rose-600 cursor-pointer shrink-0"
+                            title="Remove time slot"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         )}
                       </div>
                     ))}
@@ -1901,7 +1992,8 @@ export function EventsPoojaSeva() {
                   ) : (
                     <div className="space-y-2.5">
                       {Array.from(new Set(poojaForm.timeSlotConfig.map(e => e.slotDate as string))).map(date => {
-                        const dateObj = new Date(date + "T00:00:00");
+                        const [y, m, d] = (date || "").split("-").map(Number);
+                        const dateObj = y && m && d ? new Date(y, m - 1, d, 12, 0, 0) : new Date();
                         const dayLabel = dateObj.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
                         const dayEntries = poojaForm.timeSlotConfig.filter(e => e.slotDate === date);
                         const dayTotal = dayEntries.reduce((a, c) => a + (Number(c.slotCount) || 0), 0);

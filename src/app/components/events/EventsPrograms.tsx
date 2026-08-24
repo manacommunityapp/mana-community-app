@@ -32,6 +32,7 @@ import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
+import { TimePicker, formatTime12Hour } from "../ui/time-picker";
 
 const defaultDays = ["Day 1 – Aug 27", "Day 2 – Aug 28", "Day 3 – Aug 29"];
 
@@ -415,7 +416,7 @@ export function EditProgramModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs font-bold text-slate-700 block mb-1">Time</Label>
-              <Input value={time} onChange={e => setTime(e.target.value)} className="h-9 text-xs" placeholder="e.g. 10:00 AM" />
+              <TimePicker value={time} onChange={v => setTime(formatTime12Hour(v))} size="sm" />
             </div>
             <div>
               <Label className="text-xs font-bold text-slate-700 block mb-1">Duration</Label>
@@ -1129,11 +1130,10 @@ export function EventsPrograms({ initialEventId, onEventChange }: EventsPrograms
                         <Label className="text-xs font-bold text-slate-700 block mb-1 flex items-center gap-1">
                           <Clock className="w-3 h-3 text-indigo-500" /> Start Time
                         </Label>
-                        <Input
+                        <TimePicker
                           value={draft.time}
-                          onChange={e => updateDraftProgram(draft.id, "time", e.target.value)}
-                          placeholder="10:00 AM"
-                          className="h-8 text-xs rounded-xl border-slate-200 bg-white"
+                          onChange={v => updateDraftProgram(draft.id, "time", formatTime12Hour(v))}
+                          size="sm"
                         />
                       </div>
                       <div>
