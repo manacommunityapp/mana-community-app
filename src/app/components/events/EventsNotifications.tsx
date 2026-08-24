@@ -67,8 +67,12 @@ export function EventsNotifications() {
   useEffect(() => {
     eventService.getAll()
       .then(evts => {
-        setEvents(evts);
-        if (evts.length > 0) setSelectedEventId(evts[0].id);
+        const activeList = (evts || []).filter(e => {
+          const s = String(e.status || "").toUpperCase();
+          return s !== "CANCELLED" && s !== "CLOSED" && s !== "ARCHIVED";
+        });
+        setEvents(activeList);
+        if (activeList.length > 0) setSelectedEventId(activeList[0].id);
       })
       .catch(() => {});
   }, []);

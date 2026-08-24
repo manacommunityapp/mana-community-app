@@ -1,12 +1,30 @@
-import { useState, useEffect } from "react";
-import { TrendingDown, Plus, UtensilsCrossed, Loader2, CheckCircle2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { TrendingDown, Plus, UtensilsCrossed, Loader2, CheckCircle2, Calendar, MapPin, Sparkles, Clock, Users, User, ArrowRight } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { ErrorBanner, LoadingSpinner } from "./shared";
 import { foodEventService } from "../../../services/food/foodEventService";
 import { eventProgramService, type MealSummaryResponse, type MealRegistrationRequest, type MealRegistrationResponse } from "../../../services/events/eventProgramService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 
-const menuItems = [
+type LunchDinner = {
+  id: number;
+  mainEventId?: number;
+  name: string;
+  mealType: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  venue?: string;
+  targetPlates?: number;
+  caterer?: string;
+  dietType?: string;
+  fee?: number;
+  isFree?: boolean;
+  menuItems?: string[];
+  notes?: string;
+};
+
+const mockMenuItems = [
   { name: "Pulihora",         qty: 800,  unit: "plates", prepared: 650, status: "In Progress" },
   { name: "Curd Rice",        qty: 600,  unit: "plates", prepared: 600, status: "Ready"       },
   { name: "Sweet Pongal",     qty: 500,  unit: "plates", prepared: 500, status: "Ready"       },
@@ -16,7 +34,6 @@ const menuItems = [
   { name: "Coconut Water",    qty: 400,  unit: "pieces", prepared: 400, status: "Ready"       },
 ];
 
-// Mock data — foodEventService used when toggle is "Live API"
 const ingredients = [
   { item: "Rice",       required: "250 kg", available: "260 kg", status: "ok"  },
   { item: "Ghee",       required: "30 L",   available: "28 L",   status: "low" },
@@ -47,6 +64,8 @@ export function EventsFood() {
   const { useMock } = useEventMock();
 
   const [liveEvents, setLiveEvents] = useState<any[]>([]);
+  const [liveMeals, setLiveMeals] = useState<LunchDinner[]>([]);
+  const [liveRegistrations, setLiveRegistrations] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mealSummary, setMealSummary] = useState<MealSummaryResponse | null>(null);
@@ -61,34 +80,6 @@ export function EventsFood() {
   const [existingMealReg, setExistingMealReg] = useState<MealRegistrationResponse | null>(null);
 
   useEffect(() => {
-    if (useMock) {
-      setMealSummary(MOCK_MEAL_SUMMARY);
-      return;
-    }
-    setLoading(true);
-    setError("");
-    foodEventService.getEvents()
-      .then(res => setLiveEvents(res.content ?? []))
-      .catch(e => {
-        if (e?.message?.toLowerCase().includes("403") || e?.status === 403 || String(e?.message ?? "").includes("Access Denied")) {
-        } else {
-          setError(e.message ?? "Failed to load food events");
-        }
-      })
-      .finally(() => setLoading(false));
-
-    eventService.getAllEvents()
-      .then((evts: EventResponse[]) => {
-        if (evts.length > 0) {
-          eventProgramService.getMealSummary(evts[0].id)
-            .then(setMealSummary)
-            .catch(() => {});
-        }
-      })
-      .catch(() => {});
-  }, [useMock]);
-
-  useEffect(() => {
     eventService.getAll().then(evts => {
       const activeList = (evts || []).filter(e => {
         const s = String(e.status || "").toUpperCase();
@@ -98,6 +89,38 @@ export function EventsFood() {
       if (activeList.length > 0) setSelectedEventId(activeList[0].id);
     }).catch(() => {});
   }, []);
+
+  const loadData = () => {
+    if (useMock) {
+      setMealSummary(MOCK_MEAL_SUMMARY);
+      return;
+    }
+    setLoading(true);
+    setError("");
+
+    Promise.all([
+      foodEventService.getEvents().catch(() => ({ content: [] })),
+      eventService.getLunchDinners().catch(() => []),
+      eventService.getAllRegistrations().catch(() => []),
+      selectedEventId ? eventProgramService.getMealSummary(selectedEventId).catch(() => null) : Promise.resolve(null),
+    ])
+      .then(([fEvents, mList, regs, summary]) => {
+        setLiveEvents(fEvents.content ?? []);
+        setLiveMeals(mList ?? []);
+        setLiveRegistrations(regs ?? []);
+        if (summary) setMealSummary(summary);
+      })
+      .catch((e) => {
+        if (!e?.message?.toLowerCase().includes("403")) {
+          setError(e.message ?? "Failed to load food operations data");
+        }
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [useMock, selectedEventId]);
 
   useEffect(() => {
     if (!selectedEventId || useMock) return;
@@ -141,7 +164,7 @@ export function EventsFood() {
         });
       }
       setMealSaved(true);
-      setTimeout(() => { setMealSaved(false); setShowMealReg(false); }, 1500);
+      setTimeout(() => { setMealSaved(false); setShowMealReg(false); loadData(); }, 1200);
     } catch (err: any) {
       setError(err?.message || "Failed to save meal preferences");
     } finally {
@@ -157,74 +180,211 @@ export function EventsFood() {
     setMealDays(prev => prev.map((d, i) => i === idx ? { ...d, headCount: Math.max(1, val) } : d));
   };
 
-  const totalPlanned = menuItems.reduce((a, m) => a + m.qty, 0);
-  const totalPrepared = menuItems.reduce((a, m) => a + m.prepared, 0);
+  const selectedEvent = useMemo(() => {
+    return events.find(e => e.id === selectedEventId) || null;
+  }, [events, selectedEventId]);
 
-  const foodKpis = useMock
-    ? [
-        { label: "Total Planned",  value: `${totalPlanned.toLocaleString()}`,   color: "#4f46e5" },
-        { label: "Prepared",       value: `${totalPrepared.toLocaleString()}`,   color: "#10b981" },
-        { label: "Ready %",        value: `${Math.round(totalPrepared/totalPlanned*100)}%`, color: "#6366f1" },
-        { label: "Kitchen Teams",  value: "6",                                   color: "#7c3aed" },
-      ]
-    : [
-        { label: "Food Events",    value: String(liveEvents.length),              color: "#4f46e5" },
-        { label: "Total Planned",  value: `${totalPlanned.toLocaleString()}`,   color: "#10b981" },
-        { label: "Ready %",        value: `${Math.round(totalPrepared/totalPlanned*100)}%`, color: "#6366f1" },
-        { label: "Kitchen Teams",  value: "6",                                   color: "#7c3aed" },
-      ];
+  const eventScopedMeals = useMemo(() => {
+    if (!selectedEventId) return liveMeals;
+    return liveMeals.filter(m => {
+      if (m.mainEventId === selectedEventId) return true;
+      if (selectedEvent && selectedEvent.startDate && selectedEvent.endDate) {
+        return m.date >= selectedEvent.startDate && m.date <= selectedEvent.endDate;
+      }
+      return false;
+    });
+  }, [liveMeals, selectedEventId, selectedEvent]);
+
+  const totalPlannedPlates = useMemo(() => {
+    if (useMock) return mockMenuItems.reduce((a, m) => a + m.qty, 0);
+    return eventScopedMeals.reduce((a, m) => a + (m.targetPlates || 500), 0);
+  }, [useMock, eventScopedMeals]);
+
+  const totalBookedAttendees = useMemo(() => {
+    if (useMock) return mockMenuItems.reduce((a, m) => a + m.prepared, 0);
+    return liveRegistrations
+      .filter(r => {
+        const s = String(r.status || "").toUpperCase();
+        if (s === "CANCELLED" || s === "REJECTED") return false;
+        return eventScopedMeals.some(m => r.activityId === `meal-${m.id}` || r.activityId === `food-${m.id}` || r.activityTitle === m.name);
+      })
+      .reduce((a, r) => a + (Number(r.devoteeCount ?? r.membersCount ?? 1) || 1), 0);
+  }, [useMock, liveRegistrations, eventScopedMeals]);
+
+  const readyPct = totalPlannedPlates > 0 ? Math.round((totalBookedAttendees / totalPlannedPlates) * 100) : 0;
 
   return (
-    <div className="space-y-3 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header & Event Selector */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center flex-shrink-0">
+            <UtensilsCrossed className="w-5 h-5 text-orange-600" />
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+              Food & Catering Operations
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                {eventScopedMeals.length} Sessions
+              </span>
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Live catering, prasadam scheduling, plates capacity & devotee preferences
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {events.length > 0 && (
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+              <Calendar className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+              <select
+                value={selectedEventId ?? ""}
+                onChange={(e) => setSelectedEventId(Number(e.target.value))}
+                className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer max-w-[180px] sm:max-w-[220px] truncate"
+              >
+                {events.map((ev) => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.title} {ev.startDate ? `(${ev.startDate})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <a
+            href="/events/schedule?tab=lunchDinner"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white transition-all shadow-sm cursor-pointer"
+          >
+            Manage Schedule <ArrowRight className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      </div>
+
+      {/* Scoped Event Banner */}
+      {selectedEvent && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-orange-50/70 border border-orange-200/80 text-xs text-orange-950 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span className="text-orange-600 font-bold">📅 Active Event:</span>
+            <span className="font-extrabold text-slate-900">{selectedEvent.title}</span>
+            {selectedEvent.startDate && (
+              <span className="text-slate-600 font-medium">
+                ({selectedEvent.startDate} {selectedEvent.endDate ? `to ${selectedEvent.endDate}` : ""})
+              </span>
+            )}
+          </div>
+          {selectedEvent.location && (
+            <span className="text-[11px] text-slate-500 flex items-center gap-1">
+              <MapPin className="w-3 h-3 text-orange-500" /> {selectedEvent.location}
+            </span>
+          )}
+        </div>
+      )}
+
       {error && <ErrorBanner message={error} />}
-      {loading && <LoadingSpinner label="Loading food events…" />}
+      {loading && <LoadingSpinner label="Loading food operations data…" />}
+
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
-        {foodKpis.map((s, i) => (
+        {[
+          { label: "Scheduled Meals", value: String(eventScopedMeals.length || 4), color: "#f97316", sub: "Kitchen batches" },
+          { label: "Target Plates", value: totalPlannedPlates.toLocaleString("en-IN"), color: "#4f46e5", sub: "Total capacity" },
+          { label: "Booked Plates", value: totalBookedAttendees.toLocaleString("en-IN"), color: "#10b981", sub: `${readyPct}% capacity` },
+          { label: "Kitchen Teams", value: "6", color: "#7c3aed", sub: "Active caterers" },
+        ].map((s, i) => (
           <div
             key={s.label}
-            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-2.5 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center`}
+            className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} bg-white rounded-2xl p-3 sm:p-5 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center`}
           >
             <p className="text-lg sm:text-2xl font-black" style={{ color: s.color }}>{s.value}</p>
             <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wide mt-0.5 sm:mt-1">{s.label}</p>
+            <p className="text-[10px] text-slate-500 mt-0.5 font-medium">{s.sub}</p>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
-        {/* Menu preparation status */}
+        {/* Menu preparation & live meal courses */}
         <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
           <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50">
-            <h2 className="font-bold text-slate-800">Menu Preparation</h2>
-            <button className="flex items-center gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm">
-              <Plus className="w-3.5 h-3.5" /> Add Item
-            </button>
+            <h2 className="font-bold text-slate-800">Menu Preparation & Batches</h2>
+            <a
+              href="/events/schedule?tab=lunchDinner"
+              className="flex items-center gap-1 text-xs font-bold text-orange-600 hover:underline cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Meal
+            </a>
           </div>
           <div className="p-3 sm:p-6 space-y-3 sm:space-y-4">
-            {menuItems.map((item, i) => {
-              const ss = statusStyle[item.status] || { bg: "bg-emerald-50", text: "text-emerald-700" };
-              const pct = Math.round((item.prepared / item.qty) * 100);
-              return (
-                <div key={item.name} className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)}`}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs sm:text-sm font-semibold text-slate-800">{item.name}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${ss.bg} ${ss.text}`}>{item.status}</span>
+            {!useMock && eventScopedMeals.length > 0 ? (
+              eventScopedMeals.map((m, i) => {
+                const bookedCount = liveRegistrations
+                  .filter(r => r.activityId === `meal-${m.id}` || r.activityId === `food-${m.id}` || r.activityTitle === m.name)
+                  .reduce((a, r) => a + (Number(r.devoteeCount ?? 1) || 1), 0);
+                const target = m.targetPlates || 500;
+                const pct = Math.min(100, Math.round((bookedCount / target) * 100));
+
+                return (
+                  <div key={m.id} className="p-3 rounded-xl bg-slate-50/70 border border-slate-100 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-slate-800 text-xs sm:text-sm">{m.name}</span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                          {m.mealType}
+                        </span>
+                        {m.dietType && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">
+                            {m.dietType}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-slate-500 font-medium tabular-nums">
+                        <span className="font-bold text-orange-600">{bookedCount}</span> / {target} plates
+                      </span>
                     </div>
-                    <span className="text-xs text-slate-500 font-medium tabular-nums">
-                      {item.prepared} / {item.qty} {item.unit}
-                    </span>
+
+                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                      <div
+                        style={{ width: `${pct}%` }}
+                        className={`h-full rounded-full transition-all ${
+                          pct >= 90 ? "bg-rose-500" : pct >= 60 ? "bg-orange-500" : "bg-emerald-500"
+                        }`}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
+                      <span>📅 {m.date} {m.startTime ? `· ${m.startTime}` : ""}</span>
+                      <span>👨‍🍳 {m.caterer || "Temple Kitchen"}</span>
+                    </div>
                   </div>
-                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      style={{ width: `${pct}%` }}
-                      className={`h-full rounded-full transition-[width] duration-700 ease-out ${
-                        pct === 100 ? "bg-emerald-500" : pct > 60 ? "bg-orange-500" : "bg-amber-400"
-                      }`} />
+                );
+              })
+            ) : (
+              mockMenuItems.map((item, i) => {
+                const ss = statusStyle[item.status] || { bg: "bg-emerald-50", text: "text-emerald-700" };
+                const pct = Math.round((item.prepared / item.qty) * 100);
+                return (
+                  <div key={item.name} className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)}`}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs sm:text-sm font-semibold text-slate-800">{item.name}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${ss.bg} ${ss.text}`}>{item.status}</span>
+                      </div>
+                      <span className="text-xs text-slate-500 font-medium tabular-nums">
+                        {item.prepared} / {item.qty} {item.unit}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        style={{ width: `${pct}%` }}
+                        className={`h-full rounded-full transition-[width] duration-700 ease-out ${
+                          pct === 100 ? "bg-emerald-500" : pct > 60 ? "bg-orange-500" : "bg-amber-400"
+                        }`} />
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
@@ -325,7 +485,7 @@ export function EventsFood() {
           </h2>
           <button
             onClick={() => { if (!showMealReg) initMealDays(); setShowMealReg(!showMealReg); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-sm cursor-pointer"
           >
             {showMealReg ? "Close" : existingMealReg ? "Edit Preferences" : "Register Meals"}
           </button>
@@ -404,9 +564,9 @@ export function EventsFood() {
 
                 <div className="flex justify-end gap-2 pt-2">
                   <button type="button" onClick={() => setShowMealReg(false)}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
+                    className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer">Cancel</button>
                   <button type="submit" disabled={savingMeal}
-                    className="px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center gap-2">
+                    className="px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center gap-2 cursor-pointer">
                     {savingMeal && <Loader2 className="w-4 h-4 animate-spin" />} Save Meal Preferences
                   </button>
                 </div>
@@ -418,3 +578,4 @@ export function EventsFood() {
     </div>
   );
 }
+
