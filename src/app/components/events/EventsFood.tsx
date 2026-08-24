@@ -392,7 +392,7 @@ export function EventsFood() {
     if (!rsvpMeal || !rsvpForm.participantName.trim()) return;
     setSavingRsvp(true);
     try {
-      await eventService.registerForActivity({
+      await eventService.createRegistration({
         eventId: selectedEventId || 1,
         mainEventId: selectedEventId || 1,
         activityId: `meal-${rsvpMeal.id}`,
