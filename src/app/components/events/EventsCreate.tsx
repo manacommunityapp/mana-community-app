@@ -3110,12 +3110,14 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
   const primaryContact = data.contacts?.[0];
   const coverImageUrl = persistedMediaUrl(data.coverImageUrl);
   const scannerImageUrl = persistedMediaUrl(data.scannerUrl);
-  const contactPayload = (data.contacts || []).map(({ id, name, phone, role, notes }) => ({
+  const contactPayload = (data.contacts || []).map(({ id, name, phone, role, notes }, idx) => ({
     id,
     name,
     phone,
     role,
     notes,
+    displayOrder: idx + 1,
+    isPrimary: idx === 0,
   }));
   return {
     title: data.title,
@@ -3136,6 +3138,7 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
     organizerContact: primaryContact?.phone || undefined,
     ticketTypes: data.ticketTypes,
     ticketTypesJson: undefined,
+    contacts: contactPayload,
     paymentModes: data.enableOnlinePayment ? (data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(",") : undefined) : "Cash",
     upiId: data.enableOnlinePayment ? (data.upiId || undefined) : undefined,
     scannerUrl: data.enableOnlinePayment ? scannerImageUrl : undefined,
@@ -3210,7 +3213,23 @@ export function fromEventToFormData(ev: any): FormData {
   const matchedType = EVENT_TYPES.find(t => t.value === eventTypeLower || t.label.toLowerCase() === eventTypeLower)?.value || (eventTypeLower || "festival");
 
   let contacts: EventContactItem[] = [];
-  if (ev.contactsJson) {
+  if (Array.isArray(ev.contacts) && ev.contacts.length > 0) {
+    contacts = ev.contacts.map((c: any, i: number) => ({
+      id: c.id || `c${i + 1}`,
+      name: c.name || "",
+      phone: c.phone || "",
+      role: c.role || "Organizer",
+      notes: c.notes || "",
+    }));
+  } else if (Array.isArray(ev.contactDetails) && ev.contactDetails.length > 0) {
+    contacts = ev.contactDetails.map((c: any, i: number) => ({
+      id: c.id || `c${i + 1}`,
+      name: c.name || "",
+      phone: c.phone || "",
+      role: c.role || "Organizer",
+      notes: c.notes || "",
+    }));
+  } else if (ev.contactsJson) {
     try {
       const parsed = typeof ev.contactsJson === "string" ? JSON.parse(ev.contactsJson) : ev.contactsJson;
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -3223,15 +3242,6 @@ export function fromEventToFormData(ev: any): FormData {
         }));
       }
     } catch {}
-  }
-  if (contacts.length === 0 && Array.isArray(ev.contactDetails) && ev.contactDetails.length > 0) {
-    contacts = ev.contactDetails.map((c: any, i: number) => ({
-      id: c.id || `c${i + 1}`,
-      name: c.name || "",
-      phone: c.phone || "",
-      role: c.role || "Organizer",
-      notes: c.notes || "",
-    }));
   }
   if (contacts.length === 0 && Array.isArray(ev.contacts) && ev.contacts.length > 0) {
     contacts = ev.contacts.map((c: any, i: number) => ({

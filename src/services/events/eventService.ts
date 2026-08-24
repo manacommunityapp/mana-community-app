@@ -60,6 +60,7 @@ export interface EventResponse {
   scannerImage?: string | null;
   notes?: string | null;
   contactsJson?: string | null;
+  contacts?: EventContactPerson[];
   contactDetails?: EventContactPerson[];
   paymentInstructions?: string | null;
 }
@@ -113,6 +114,7 @@ export interface EventRequest {
   scannerImage?: string;
   notes?: string;
   contactsJson?: string;
+  contacts?: EventContactPerson[];
   paymentInstructions?: string;
   registrationDeadline?: string;
   draftStep?: number;
