@@ -870,36 +870,6 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
           </div>
         )}
 
-        {savedPoojaEvents.length > 0 && (
-          <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-2xs shrink-0">
-                <Flame className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                  {savedPoojaEvents.length} Saved Pooja & Seva Sub-Event{savedPoojaEvents.length > 1 ? "s" : ""} Available in Database
-                </p>
-                <p className="text-[10.5px] text-amber-700 font-medium">
-                  {expandedDay
-                    ? `Showing day-wise details below for ${formatDayLabel(expandedDay)}. Click "Link to Agenda" to sync.`
-                    : "Select a day from the dropdown above to view and link day-wise pooja details directly to your event agenda."}
-                </p>
-              </div>
-            </div>
-            {dayCount === 0 && allDaysInRange.length > 0 && (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => handleSelectDay(allDaysInRange[0])}
-                className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl gap-1 shrink-0 cursor-pointer shadow-xs"
-              >
-                <Calendar className="w-3.5 h-3.5" /> Configure Day 1
-              </Button>
-            )}
-          </div>
-        )}
-
         {dayCount === 0 && (
           <div className="p-5 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 space-y-2.5">
             <Zap className="w-6 h-6 text-indigo-400 mx-auto" />
