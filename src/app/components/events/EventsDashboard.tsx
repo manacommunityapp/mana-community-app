@@ -428,19 +428,57 @@ export function EventsDashboard() {
       eventService.getDashboardStats(),
       eventService.getDashboardAnalytics(),
       eventService.getAllEvents(),
+      eventService.getPoojaSevas(),
       eventSponsorService.getAll(),
       eventDonationService.getAll(),
       eventExpenseService.getAll(),
       eventTaskService.getAll(),
       eventService.getPendingActionItems(),
-    ]).then(([statsR, analyticsR, eventsR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR]) => {
+    ]).then(([statsR, analyticsR, eventsR, poojasR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR]) => {
       if (statsR.status === "fulfilled") setStats(statsR.value);
       if (analyticsR.status === "fulfilled") setAnalytics(analyticsR.value);
 
       if (eventsR.status === "fulfilled") {
-        const evs = eventsR.value;
-        setEvents(evs);
-        const upcoming = [...evs]
+        const evs = Array.isArray(eventsR.value) ? eventsR.value : [];
+        const standalonePoojas: any[] = [];
+        if (poojasR.status === "fulfilled" && Array.isArray(poojasR.value)) {
+          poojasR.value.forEach((p: any) => {
+            if (String(p.status || "").toUpperCase() === "CANCELLED") return;
+            const isStandalone = (p.mainEventId == null || p.mainEventId === "" || p.mainEventId === 0) &&
+                                 (p.eventId == null || p.eventId === "" || p.eventId === 0);
+            if (isStandalone) {
+              standalonePoojas.push({
+                id: `pooja-${p.id}`,
+                rawId: p.id,
+                isStandalonePooja: true,
+                title: p.name || p.title || "Pooja Seva",
+                category: p.category || "Pooja & Seva",
+                type: "Pooja & Seva",
+                startDate: p.startDate || p.date || "Upcoming",
+                endDate: p.endDate || p.startDate || p.date,
+                startTime: p.startTime || p.time || "Morning",
+                endTime: p.endTime,
+                venue: p.mandap || "Main Temple Mandap",
+                location: p.mandap || "Main Temple Mandap",
+                mandap: p.mandap,
+                pandit: p.pandit,
+                isMultiDay: Boolean(p.isMultiDay || (p.startDate && p.endDate && p.startDate !== p.endDate)),
+                slots: p.slots,
+                price: p.isFree ? 0 : Number(p.fee || 501),
+                fee: p.isFree ? 0 : Number(p.fee || 501),
+                isFree: p.isFree,
+                imageUrl: p.coverImage || p.imageUrl || "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
+                description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || p.description || "Sacred Pooja Seva Sankalpam"}`,
+                attendees: 0,
+                registrationCount: 0,
+                status: "ACTIVE",
+              });
+            }
+          });
+        }
+        const combinedEvents = [...evs, ...standalonePoojas];
+        setEvents(combinedEvents);
+        const upcoming = [...combinedEvents]
           .filter(ev => String(ev.status || '').toUpperCase() !== "CANCELLED")
           .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
           .find(ev => new Date(ev.startDate).getTime() >= Date.now() - 86400000);
@@ -474,7 +512,7 @@ export function EventsDashboard() {
         setPendingActionItems(pendingActionsR.value);
       }
 
-      const anyFailed = [statsR, analyticsR, eventsR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR].some(r => r.status === "rejected");
+      const anyFailed = [statsR, analyticsR, eventsR, poojasR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR].some(r => r.status === "rejected");
       if (anyFailed) setError("Some data failed to load — partial results shown.");
     }).finally(() => setLoading(false));
   }

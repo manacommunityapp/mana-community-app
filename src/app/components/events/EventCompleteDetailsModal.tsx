@@ -149,12 +149,6 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
             })));
           }
         }
-              description: p.notes || `Pandit: ${p.pandit || "Temple Priest"}. Sankalpam included.`,
-              pandit: p.pandit,
-              mandap: p.mandap,
-            })));
-          }
-        }
 
         if (mealsRes.status === "fulfilled" && Array.isArray(mealsRes.value) && mealsRes.value.length > 0) {
           const list = numId ? mealsRes.value.filter((m: any) => m.mainEventId == numId || m.eventId == numId) : mealsRes.value;

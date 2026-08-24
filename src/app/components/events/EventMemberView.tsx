@@ -1659,23 +1659,25 @@ export function EventMemberView() {
                     <button
                       type="button"
                       onClick={() => setShowHeroSubEvents(!showHeroSubEvents)}
-                      className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur-xs transition-all cursor-pointer select-none text-left group shadow-xs active:scale-[0.99]"
+                      className="w-full flex items-center justify-between px-2.5 sm:px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 backdrop-blur-xs transition-all cursor-pointer select-none text-left group shadow-xs active:scale-[0.99] gap-2"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs">🪔</span>
-                        <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-200">
-                          Festival Sub-Events &amp; Sevas
+                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+                        <span className="text-xs shrink-0">🪔</span>
+                        <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-200 truncate">
+                          Sub-Events &amp; Sevas
                         </span>
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-400/25 text-amber-100 border border-amber-300/30">
-                          {eventSubActivities.length} Available
+                        <span className="shrink-0 text-[9px] sm:text-[9.5px] font-black px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-xs border border-amber-300 flex items-center gap-1 leading-none">
+                          <span>{eventSubActivities.length}</span>
+                          <span>Available</span>
                         </span>
                       </div>
-                      <div className="flex items-center gap-1 text-[9.5px] font-bold text-white/85 group-hover:text-white">
-                        <span>{showHeroSubEvents ? "Hide Sub-Events" : "Show Sub-Events"}</span>
+                      <div className="flex items-center gap-1 text-[9.5px] font-bold text-white/90 group-hover:text-white shrink-0">
+                        <span className="hidden sm:inline">{showHeroSubEvents ? "Hide Sub-Events" : "Show Sub-Events"}</span>
+                        <span className="sm:hidden">{showHeroSubEvents ? "Hide" : "View"}</span>
                         {showHeroSubEvents ? (
-                          <ChevronUp className="w-3.5 h-3.5 text-amber-300" />
+                          <ChevronUp className="w-3.5 h-3.5 text-amber-300 shrink-0" />
                         ) : (
-                          <ChevronDown className="w-3.5 h-3.5 text-amber-300" />
+                          <ChevronDown className="w-3.5 h-3.5 text-amber-300 shrink-0" />
                         )}
                       </div>
                     </button>
