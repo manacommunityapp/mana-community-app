@@ -709,8 +709,13 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       }
     }
 
-    // Detect a slot change in update mode so we can use the reschedule endpoint
-    const slotChangedInUpdateMode = isUpdateMode && selectedScheduleId !== null && selectedScheduleId !== existingReg?.scheduleId;
+    // Detect a slot change in update mode so we can use the reschedule endpoint.
+    // Only reschedule when the EXISTING scheduleId is known (non-null) AND the user picked a different one.
+    // If existingReg.scheduleId is null (old registration before scheduleId tracking), fall back to a plain update.
+    const slotChangedInUpdateMode = isUpdateMode &&
+      selectedScheduleId !== null &&
+      existingReg?.scheduleId != null &&
+      selectedScheduleId !== existingReg.scheduleId;
 
     setIsSubmitting(true);
     setReservationError(null);
