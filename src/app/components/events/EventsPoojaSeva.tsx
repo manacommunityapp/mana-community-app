@@ -141,6 +141,9 @@ export function EventsPoojaSeva() {
   const [regForm, setRegForm] = useState(emptyRegForm);
   const [regFormError, setRegFormError] = useState("");
   const [savingReg, setSavingReg] = useState(false);
+  const [regSelectedScheduleId, setRegSelectedScheduleId] = useState<number | null>(null);
+  const [regSchedulesLoading, setRegSchedulesLoading] = useState(false);
+  const [regSchedules, setRegSchedules] = useState<PoojaScheduleDto[]>([]);
 
   // Per-pooja search and status filter state
   const [regSearch, setRegSearch] = useState<Record<number, string>>({});
@@ -486,9 +489,20 @@ export function EventsPoojaSeva() {
   };
 
   /* ─── Admin Registration Actions (Add, Edit, Cancel, Delete) ─── */
+  const fetchRegSchedules = (pooja: PoojaSeva) => {
+    setRegSchedules([]);
+    setRegSelectedScheduleId(null);
+    setRegSchedulesLoading(true);
+    eventService.getSchedulesByPooja(pooja.id)
+      .then(s => setRegSchedules(Array.isArray(s) ? s : []))
+      .catch(() => setRegSchedules([]))
+      .finally(() => setRegSchedulesLoading(false));
+  };
+
   const handleOpenAddReg = (pooja: PoojaSeva) => {
     setSelectedPoojaForReg(pooja);
     setEditingReg(null);
+    setRegSelectedScheduleId(null);
     setRegForm({
       ...emptyRegForm,
       eventDate: pooja.date,
@@ -500,11 +514,13 @@ export function EventsPoojaSeva() {
     });
     setRegFormError("");
     setShowRegModal(true);
+    fetchRegSchedules(pooja);
   };
 
   const handleOpenEditReg = (pooja: PoojaSeva, reg: BookingRegistration) => {
     setSelectedPoojaForReg(pooja);
     setEditingReg(reg);
+    setRegSelectedScheduleId((reg as any).scheduleId ?? null);
     setRegForm({
       participantName: reg.participantName || "",
       attendingDevotees: reg.attendingDevotees || "",
@@ -522,6 +538,7 @@ export function EventsPoojaSeva() {
     });
     setRegFormError("");
     setShowRegModal(true);
+    fetchRegSchedules(pooja);
   };
 
   const handleSaveRegistration = async (e: React.FormEvent) => {
@@ -550,6 +567,7 @@ export function EventsPoojaSeva() {
       status: regForm.status,
       notes: regForm.notes.trim() || undefined,
       mainEventId: undefined,
+      ...(regSelectedScheduleId ? { scheduleId: regSelectedScheduleId } : {}),
     };
 
     setSavingReg(true);
@@ -595,6 +613,8 @@ export function EventsPoojaSeva() {
       setEditingReg(null);
       setSelectedPoojaForReg(null);
       setRegForm(emptyRegForm);
+      setRegSelectedScheduleId(null);
+      setRegSchedules([]);
       window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
     } catch (err: any) {
       setRegFormError(err?.message || "Failed to save registration");
@@ -1338,57 +1358,140 @@ export function EventsPoojaSeva() {
                 </div>
               </div>
 
-              {/* Slot Date & Time selection */}
+              {/* Live Schedule Picker */}
               <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-200/60 space-y-2.5">
-                <p className="font-bold text-amber-800 uppercase tracking-wide">Pooja Slot Selection</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Slot Date</label>
-                    {selectedPoojaForReg.multiDay && selectedPoojaForReg.endDate ? (
-                      <select
-                        value={regForm.eventDate}
-                        onChange={e => setRegForm({ ...regForm, eventDate: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
-                      >
-                        {getDayRange(selectedPoojaForReg.date, selectedPoojaForReg.endDate).map(d => (
-                          <option key={d} value={d}>
-                            {new Date(d + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} ({d})
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="date"
-                        value={regForm.eventDate}
-                        onChange={e => setRegForm({ ...regForm, eventDate: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
-                      />
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">Slot Time</label>
-                    {selectedPoojaForReg.startTimes && selectedPoojaForReg.startTimes.length > 0 ? (
-                      <select
-                        value={regForm.eventTime}
-                        onChange={e => setRegForm({ ...regForm, eventTime: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
-                      >
-                        {selectedPoojaForReg.startTimes.map(t => (
-                          <option key={t} value={t}>⏰ {t}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        placeholder="08:30 AM"
-                        value={regForm.eventTime}
-                        onChange={e => setRegForm({ ...regForm, eventTime: e.target.value })}
-                        className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300"
-                      />
-                    )}
-                  </div>
+                <div className="flex items-center justify-between">
+                  <p className="font-bold text-amber-800 uppercase tracking-wide flex items-center gap-1.5">
+                    <CalendarDays className="w-3.5 h-3.5" /> Select Booking Slot
+                  </p>
+                  {regSelectedScheduleId && (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Schedule Linked
+                    </span>
+                  )}
                 </div>
+
+                {regSchedulesLoading ? (
+                  <div className="flex items-center justify-center py-4 text-slate-400 text-xs gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading live schedules…
+                  </div>
+                ) : regSchedules.length > 0 ? (
+                  <>
+                    <p className="text-[10px] text-amber-700">Select a live booking slot — selection links this registration to the capacity engine.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {regSchedules.map(sch => {
+                        const isSelected = regSelectedScheduleId === sch.id;
+                        const isUnavailable = sch.status === "BLOCKED" || sch.status === "CLOSED" || sch.status === "FULL";
+                        const statusColor: Record<string, string> = {
+                          OPEN: "text-emerald-700",
+                          LIMITED: "text-amber-600",
+                          FULL: "text-rose-600",
+                          BLOCKED: "text-slate-400",
+                          CLOSED: "text-slate-400",
+                        };
+                        return (
+                          <button
+                            key={sch.id}
+                            type="button"
+                            disabled={isUnavailable}
+                            onClick={() => {
+                              setRegSelectedScheduleId(sch.id);
+                              setRegForm(f => ({ ...f, eventDate: sch.scheduleDate, eventTime: sch.startTime }));
+                            }}
+                            className={`p-2.5 rounded-xl border-2 text-left transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
+                              isSelected
+                                ? "border-amber-500 bg-amber-50 shadow-xs ring-2 ring-amber-300/50"
+                                : "border-slate-200 bg-white hover:border-amber-400"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-1">
+                              <div className="min-w-0">
+                                <span className="block text-[10px] font-extrabold text-slate-500 uppercase">
+                                  {new Date(sch.scheduleDate + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}
+                                </span>
+                                <span className="block text-xs font-bold text-slate-800 mt-0.5">
+                                  {sch.startTime} – {sch.endTime}
+                                </span>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className={`block text-[9px] font-extrabold uppercase ${statusColor[sch.status] || "text-slate-500"}`}>
+                                  {sch.status}
+                                </span>
+                                <span className="block text-[9px] text-slate-500 mt-0.5">
+                                  {sch.availableFamilies}/{sch.familyCapacity} fam · {sch.availableDevotees}/{sch.devoteeCapacity} dev
+                                </span>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <span className="mt-1.5 text-[9px] font-bold text-amber-700 flex items-center gap-0.5">
+                                <CheckCircle2 className="w-3 h-3" /> Selected
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRegSelectedScheduleId(null)}
+                      className="text-[10px] text-slate-400 hover:text-slate-600 underline"
+                    >
+                      Clear selection (no schedule link)
+                    </button>
+                  </>
+                ) : (
+                  /* Fallback: no live schedules — show manual date/time inputs */
+                  <>
+                    <p className="text-[10px] text-amber-600">No live schedules found. Enter slot date and time manually.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1 text-[11px]">Slot Date</label>
+                        {selectedPoojaForReg.multiDay && selectedPoojaForReg.endDate ? (
+                          <select
+                            value={regForm.eventDate}
+                            onChange={e => setRegForm({ ...regForm, eventDate: e.target.value })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
+                          >
+                            {getDayRange(selectedPoojaForReg.date, selectedPoojaForReg.endDate).map(d => (
+                              <option key={d} value={d}>
+                                {new Date(d + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })} ({d})
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="date"
+                            value={regForm.eventDate}
+                            onChange={e => setRegForm({ ...regForm, eventDate: e.target.value })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1 text-[11px]">Slot Time</label>
+                        {selectedPoojaForReg.startTimes && selectedPoojaForReg.startTimes.length > 0 ? (
+                          <select
+                            value={regForm.eventTime}
+                            onChange={e => setRegForm({ ...regForm, eventTime: e.target.value })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
+                          >
+                            {selectedPoojaForReg.startTimes.map(t => (
+                              <option key={t} value={t}>⏰ {t}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="text"
+                            placeholder="08:30 AM"
+                            value={regForm.eventTime}
+                            onChange={e => setRegForm({ ...regForm, eventTime: e.target.value })}
+                            className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Status & Payment Settings */}
