@@ -1060,6 +1060,8 @@ export function EventMemberView() {
     const isActPooja = isPoojaActivity(act.category);
     const isActComp = act.category?.toLowerCase().includes("competition") || actIdStr.startsWith("comp-");
     const isActCult = act.category?.toLowerCase().includes("cultural") || actIdStr.startsWith("cult-");
+    const isActFood = act.category?.toLowerCase().includes("food") || act.category?.toLowerCase().includes("meal") || actIdStr.startsWith("meal-") || actIdStr.startsWith("food-");
+    const isMainEvent = actIdStr.startsWith("event-") || (!isActPooja && !isActComp && !isActCult && !isActFood);
     const cleanActTitle = (act.title || "").trim().toLowerCase();
     const actMainEventId = act.mainEventId ? String(act.mainEventId) : null;
 
@@ -1067,53 +1069,75 @@ export function EventMemberView() {
       if (p.status === "CANCELLED" || p.isEventCancelled || p.isEventExpired) return false;
 
       const passActIdStr = String(p.activityId || "").trim();
+      const passActIdNumeric = passActIdStr.replace(/\D/g, "");
       const passPoojaIdStr = p.poojaSevaId ? String(p.poojaSevaId).trim() : "";
-      const isPassPooja = isPoojaActivity(p.category) || Boolean(p.poojaSevaId);
+      const isPassPooja = isPoojaActivity(p.category) || isPoojaActivity(p.passType) || Boolean(p.poojaSevaId) || passActIdStr.startsWith("pooja-");
       const isPassComp = p.category?.toLowerCase().includes("competition") || passActIdStr.startsWith("comp-");
       const isPassCult = p.category?.toLowerCase().includes("cultural") || passActIdStr.startsWith("cult-");
+      const isPassFood = p.category?.toLowerCase().includes("meal") || p.category?.toLowerCase().includes("food") || passActIdStr.startsWith("meal-") || passActIdStr.startsWith("food-");
+      const isPassMainEvent = passActIdStr.startsWith("event-") || (!isPassPooja && !isPassComp && !isPassCult && !isPassFood);
+      const cleanPassTitle = (p.title || "").trim().toLowerCase();
+      const passMainEventId = p.mainEventId ? String(p.mainEventId) : (p.eventId ? String(p.eventId) : null);
 
-      // Strategy 1: Exact activityId string match (e.g. "pooja-1" === "pooja-1")
+      // Strategy 1: Exact activityId string match (e.g. "pooja-1" === "pooja-1" or "event-15" === "event-15")
       if (passActIdStr && actIdStr && passActIdStr === actIdStr) {
         return true;
       }
 
-      // Strategy 2: Direct poojaSevaId matching (strictly only when both are pooja)
-      if (isActPooja && isPassPooja) {
-        if (passPoojaIdStr && (passPoojaIdStr === actIdStr || passPoojaIdStr === actIdNumeric)) {
+      // Strategy 2: Main Event ID & Cross-reference matching (e.g. event-15, mainEventId: 15, eventId: 15)
+      if (isMainEvent && isPassMainEvent) {
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
           return true;
         }
-        const passActIdNumeric = passActIdStr.replace(/\D/g, "");
-        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric && (passActIdStr.startsWith("pooja-") || actIdStr.startsWith("pooja-"))) {
+        if (actIdNumeric && passMainEventId && actIdNumeric === passMainEventId) {
+          return true;
+        }
+        if (passActIdStr === `event-${actIdNumeric}` || actIdStr === `event-${passActIdNumeric}`) {
           return true;
         }
       }
 
-      // Strategy 3: Type/category matching for comp/cult
+      // Strategy 3: Direct poojaSevaId matching (strictly only when both are pooja)
+      if (isActPooja && isPassPooja) {
+        if (passPoojaIdStr && (passPoojaIdStr === actIdStr || passPoojaIdStr === actIdNumeric)) {
+          return true;
+        }
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
+          return true;
+        }
+      }
+
+      // Strategy 4: Type/category matching for comp/cult/food
       if (isActComp && isPassComp) {
-        const passActIdNumeric = passActIdStr.replace(/\D/g, "");
         if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
           return true;
         }
       }
       if (isActCult && isPassCult) {
-        const passActIdNumeric = passActIdStr.replace(/\D/g, "");
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
+          return true;
+        }
+      }
+      if (isActFood && isPassFood) {
         if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
           return true;
         }
       }
 
-      // Strategy 4: Exact title match (requires matching categories)
-      const cleanPassTitle = (p.title || "").trim().toLowerCase();
-      if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) {
-        if (isActPooja !== isPassPooja) return false;
-        if (isActComp !== isPassComp) return false;
-        if (isActCult !== isPassCult) return false;
-
-        const passMainEventId = p.mainEventId ? String(p.mainEventId) : null;
-        if (actMainEventId && passMainEventId) {
-          return actMainEventId === passMainEventId;
+      // Strategy 5: Exact or contained title match
+      if (cleanPassTitle && cleanActTitle) {
+        if (cleanPassTitle === cleanActTitle || cleanPassTitle.includes(cleanActTitle) || cleanActTitle.includes(cleanPassTitle)) {
+          if (isActPooja && isPassPooja) return true;
+          if (isActComp && isPassComp) return true;
+          if (isActCult && isPassCult) return true;
+          if (isActFood && isPassFood) return true;
+          if (isMainEvent && isPassMainEvent) {
+            if (actMainEventId && passMainEventId) {
+              return actMainEventId === passMainEventId;
+            }
+            return true;
+          }
         }
-        return true;
       }
 
       return false;
