@@ -154,6 +154,11 @@ export function EventsCulturalEvents() {
     };
   }, [useMock]);
 
+  const activeEvents = events.filter(ev => {
+    const s = String(ev.status || "").toUpperCase();
+    return s !== "CANCELLED" && s !== "CLOSED" && s !== "ARCHIVED";
+  });
+
   const getRegs = (ce: CulturalEvent) =>
     useMock
       ? registrations.filter(r => r.activityId === `cultural-${ce.id}`)
@@ -161,7 +166,7 @@ export function EventsCulturalEvents() {
 
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
 
-  const openCreate = () => { setEditingId(null); setForm({ ...emptyForm, mainEventId: events[0] ? String(events[0].id) : "" }); setFormError(""); setShowModal(true); };
+  const openCreate = () => { setEditingId(null); setForm({ ...emptyForm, mainEventId: activeEvents[0] ? String(activeEvents[0].id) : "" }); setFormError(""); setShowModal(true); };
 
   const openEdit = (ce: CulturalEvent) => {
     setEditingId(ce.id);
@@ -381,14 +386,48 @@ export function EventsCulturalEvents() {
             <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
               {formError && <div className="flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700"><AlertCircle className="w-4 h-4 flex-shrink-0" /> {formError}</div>}
 
-              {!useMock && events.length > 0 && (
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-slate-600">Parent Event</span>
-                  <select value={form.mainEventId} onChange={e => set("mainEventId", e.target.value)} className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white">
-                    <option value="">Select event (optional)</option>
-                    {events.map(ev => <option key={ev.id} value={String(ev.id)}>{ev.title}</option>)}
-                  </select>
-                </label>
+              {!useMock && activeEvents.length > 0 && (
+                <div className="space-y-1.5">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold text-slate-600">Parent Event</span>
+                    <select
+                      value={form.mainEventId}
+                      onChange={e => {
+                        const val = e.target.value;
+                        set("mainEventId", val);
+                        const selEv = activeEvents.find(x => String(x.id) === val);
+                        if (selEv?.startDate && !form.date) {
+                          set("date", selEv.startDate);
+                        }
+                      }}
+                      className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white"
+                    >
+                      <option value="">Select active event (optional)</option>
+                      {activeEvents.map(ev => (
+                        <option key={ev.id} value={String(ev.id)}>
+                          {ev.title} {ev.startDate ? `(${ev.startDate}${ev.endDate && ev.endDate !== ev.startDate ? ` to ${ev.endDate}` : ""})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {(() => {
+                    const selEv = activeEvents.find(x => String(x.id) === String(form.mainEventId));
+                    if (!selEv) return null;
+                    return (
+                      <div className="p-2.5 rounded-xl bg-violet-50/80 border border-violet-200/70 text-xs text-violet-950 flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <span className="text-violet-600">📅 Event Dates:</span>
+                          <span>{selEv.startDate || "N/A"} {selEv.endDate && selEv.endDate !== selEv.startDate ? `to ${selEv.endDate}` : ""}</span>
+                        </div>
+                        {selEv.location && (
+                          <div className="text-[11px] text-violet-800 flex items-center gap-1">
+                            <span>📍 {selEv.location}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
               )}
 
               <div className="grid grid-cols-2 gap-3">

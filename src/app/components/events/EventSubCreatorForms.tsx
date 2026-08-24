@@ -39,10 +39,14 @@ export function useMainEvents() {
       }
       try {
         setLoading(true);
-        const data = await eventService.getUpcomingEvents();
-        if (data && data.length > 0) {
+        const data = await eventService.getAll().catch(() => eventService.getUpcomingEvents());
+        const activeOnly = (data || []).filter((e) => {
+          const s = String(e.status || "").toUpperCase();
+          return s !== "CANCELLED" && s !== "CLOSED" && s !== "ARCHIVED";
+        });
+        if (activeOnly && activeOnly.length > 0) {
           setMainEvents(
-            data.map((e) => ({
+            activeOnly.map((e) => ({
               id: String(e.id),
               title: e.title,
               startDate: e.startDate,

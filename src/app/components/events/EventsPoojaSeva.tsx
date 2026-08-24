@@ -258,7 +258,10 @@ export function EventsPoojaSeva() {
     });
   };
 
-  const activeEvents = events.filter(ev => String(ev.status || "").toUpperCase() !== "CANCELLED");
+  const activeEvents = events.filter(ev => {
+    const s = String(ev.status || "").toUpperCase();
+    return s !== "CANCELLED" && s !== "CLOSED" && s !== "ARCHIVED";
+  });
 
   const openCreateModal = () => {
     setEditingPoojaId(null);
