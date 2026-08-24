@@ -244,12 +244,13 @@ export function Layout() {
   const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     try {
-      return localStorage.getItem("mana_sidebar_collapsed") === "true";
+      const stored = localStorage.getItem("mana_sidebar_collapsed");
+      if (stored !== null) return stored === "true";
+      return typeof window !== "undefined" && window.innerWidth < 1024;
     } catch {
       return false;
     }
   });
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isCommunityOpen, setIsCommunityOpen] = useState(() => location.pathname.startsWith("/community"));
   const [isFinanceOpen, setIsFinanceOpen] = useState(() => location.pathname.startsWith("/finance"));
   const { user, isAdmin, isSuperAdmin, isAnyAdmin, logout, hasMenuPermission, updateUser } = useAuth();
@@ -282,8 +283,8 @@ export function Layout() {
   useEffect(() => {
     const handleGlobalEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (isMobileSidebarOpen) {
-          setIsMobileSidebarOpen(false);
+        if (!isSidebarCollapsed && typeof window !== "undefined" && window.innerWidth < 1024) {
+          setIsSidebarCollapsed(true);
         }
         // Find topmost open modal overlay close button and trigger click if present
         const modalCloseButtons = Array.from(
@@ -300,7 +301,7 @@ export function Layout() {
 
     window.addEventListener("keydown", handleGlobalEscape);
     return () => window.removeEventListener("keydown", handleGlobalEscape);
-  }, [isMobileSidebarOpen]);
+  }, [isSidebarCollapsed]);
 
   // AuthContext fetches /users/me on boot and populates user.permissions
   const permissions = user?.permissions || [];
@@ -322,16 +323,18 @@ export function Layout() {
   };
 
   const toggleSidebar = () => {
-    if (typeof window !== "undefined" && window.innerWidth >= 1024) {
-      setIsSidebarCollapsed((prev) => {
-        const next = !prev;
-        try {
-          localStorage.setItem("mana_sidebar_collapsed", String(next));
-        } catch {}
-        return next;
-      });
-    } else {
-      setIsMobileSidebarOpen((prev) => !prev);
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("mana_sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const handleNavClick = () => {
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setIsSidebarCollapsed(true);
     }
   };
 
@@ -392,27 +395,28 @@ export function Layout() {
                  : user?.role === "COMMUNITY_ADMIN" ? "Community Admin"
                  : isAdmin ? "Admin" 
                  : user?.role === "VENDOR" ? "Vendor" 
-                 : "Verified Member";    <ChatProvider>
+                 : "Verified Member";
+
+  return (
+    <ChatProvider>
       <div className="h-screen bg-background flex font-sans text-foreground overflow-hidden">
-        {/* Mobile Backdrop */}
-        {isMobileSidebarOpen && (
+        {/* Mobile Backdrop when Sidebar is Expanded */}
+        {!isSidebarCollapsed && (
           <div
             className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-xs lg:hidden transition-opacity"
-            onClick={() => setIsMobileSidebarOpen(false)}
+            onClick={() => setIsSidebarCollapsed(true)}
           />
         )}
 
-        {/* ─── Collapsible Sidebar (Full on Open, Icon-symbols only on Close) ─── */}
+        {/* ─── Collapsible Sidebar (Full on Open, Icon-symbols only on Close - Mobile & Desktop) ─── */}
         <aside
           data-sidebar="content"
           data-collapsible={isSidebarCollapsed ? "icon" : "offcanvas"}
           className={cn(
-            "fixed inset-y-0 left-0 z-50 flex flex-col bg-sidebar border-r border-sidebar-border shadow-[4px_0_20px_rgba(0,0,0,0.15)] transition-[width,transform] duration-300 ease-in-out select-none",
-            // Mobile: slide in/out
-            isMobileSidebarOpen ? "translate-x-0 w-64 shadow-2xl" : "-translate-x-full lg:translate-x-0",
-            // Desktop: relative in-flow width
-            "lg:relative lg:z-30 lg:shadow-none",
-            isSidebarCollapsed ? "lg:w-[68px]" : "lg:w-64"
+            "flex flex-col bg-sidebar border-r border-sidebar-border transition-[width,transform] duration-300 ease-in-out select-none shrink-0 z-50 h-screen",
+            !isSidebarCollapsed
+              ? "fixed inset-y-0 left-0 w-64 shadow-2xl lg:relative lg:shadow-none"
+              : "relative w-[58px] sm:w-[68px] shadow-none"
           )}
         >
           <div className="flex flex-col h-full overflow-hidden w-full bg-sidebar">
@@ -425,7 +429,11 @@ export function Layout() {
             >
               <Link
                 to="/"
-                onClick={() => setIsMobileSidebarOpen(false)}
+                onClick={() => {
+                  if (typeof window !== "undefined" && window.innerWidth < 1024) {
+                    setIsSidebarCollapsed(true);
+                  }
+                }}
                 className="flex items-center gap-3 hover:opacity-90 transition-opacity min-w-0"
                 title="Mana Community"
               >
@@ -439,15 +447,17 @@ export function Layout() {
                 )}
               </Link>
 
-              {/* Mobile Close X */}
-              <button
-                type="button"
-                className="lg:hidden text-white/50 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10"
-                onClick={() => setIsMobileSidebarOpen(false)}
-                title="Close Navigation"
-              >
-                <X className="h-5 w-5" />
-              </button>
+              {/* Close Button when expanded */}
+              {!isSidebarCollapsed && (
+                <button
+                  type="button"
+                  className="text-white/50 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10 cursor-pointer"
+                  onClick={() => setIsSidebarCollapsed(true)}
+                  title="Close Navigation"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              )}
             </div>
 
             {/* User Profile Info Card inside Sidebar */}
@@ -543,7 +553,7 @@ export function Layout() {
                   to={link.to}
                   end={link.to === "/"}
                   title={isSidebarCollapsed ? link.label : undefined}
-                  onClick={() => setIsMobileSidebarOpen(false)}
+                  onClick={handleNavClick}
                   className={({ isActive }) =>
                     cn(
                       "flex items-center rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
@@ -611,7 +621,7 @@ export function Layout() {
                           {(isSuperAdmin || hasMenuPermission("inventory", "view")) && (
                             <NavLink
                               to="/community/inventory"
-                              onClick={() => setIsMobileSidebarOpen(false)}
+                              onClick={handleNavClick}
                               className={({ isActive }) =>
                                 cn(
                                   "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
@@ -633,7 +643,7 @@ export function Layout() {
                           {(isSuperAdmin || hasMenuPermission("inventory-management", "view")) && (
                             <NavLink
                               to="/community/inventory-management"
-                              onClick={() => setIsMobileSidebarOpen(false)}
+                              onClick={handleNavClick}
                               className={({ isActive }) =>
                                 cn(
                                   "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
@@ -655,7 +665,7 @@ export function Layout() {
                           {(isSuperAdmin || hasMenuPermission("procurement", "view")) && (
                             <NavLink
                               to="/community/procurement"
-                              onClick={() => setIsMobileSidebarOpen(false)}
+                              onClick={handleNavClick}
                               className={({ isActive }) =>
                                 cn(
                                   "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
@@ -677,7 +687,7 @@ export function Layout() {
                           {(isSuperAdmin || hasMenuPermission("maintenance", "view")) && (
                             <NavLink
                               to="/community/maintenance"
-                              onClick={() => setIsMobileSidebarOpen(false)}
+                              onClick={handleNavClick}
                               className={({ isActive }) =>
                                 cn(
                                   "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
@@ -699,7 +709,7 @@ export function Layout() {
                           {(isSuperAdmin || hasMenuPermission("audit", "view")) && (
                             <NavLink
                               to="/community/audit"
-                              onClick={() => setIsMobileSidebarOpen(false)}
+                              onClick={handleNavClick}
                               className={({ isActive }) =>
                                 cn(
                                   "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
@@ -721,7 +731,7 @@ export function Layout() {
                           {(isSuperAdmin || hasMenuPermission("resource-booking", "view")) && (
                             <NavLink
                               to="/community/resource-booking"
-                              onClick={() => setIsMobileSidebarOpen(false)}
+                              onClick={handleNavClick}
                               className={({ isActive }) =>
                                 cn(
                                   "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
@@ -785,7 +795,7 @@ export function Layout() {
                           {(isSuperAdmin || hasMenuPermission("expenses", "view")) && (
                             <NavLink
                               to="/finance/expenses"
-                              onClick={() => setIsMobileSidebarOpen(false)}
+                              onClick={handleNavClick}
                               className={({ isActive }) =>
                                 cn(
                                   "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
@@ -807,7 +817,7 @@ export function Layout() {
                           {(isSuperAdmin || hasMenuPermission("invoices", "view")) && (
                             <NavLink
                               to="/finance/invoices"
-                              onClick={() => setIsMobileSidebarOpen(false)}
+                              onClick={handleNavClick}
                               className={({ isActive }) =>
                                 cn(
                                   "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
@@ -829,7 +839,7 @@ export function Layout() {
                           {(isSuperAdmin || hasMenuPermission("budget", "view")) && (
                             <NavLink
                               to="/finance/budget"
-                              onClick={() => setIsMobileSidebarOpen(false)}
+                              onClick={handleNavClick}
                               className={({ isActive }) =>
                                 cn(
                                   "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
@@ -851,7 +861,7 @@ export function Layout() {
                           {(isSuperAdmin || hasMenuPermission("reports", "view")) && (
                             <NavLink
                               to="/finance/reports"
-                              onClick={() => setIsMobileSidebarOpen(false)}
+                              onClick={handleNavClick}
                               className={({ isActive }) =>
                                 cn(
                                   "flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
@@ -898,7 +908,7 @@ export function Layout() {
                       key={link.to}
                       to={link.to}
                       title={isSidebarCollapsed ? link.label : undefined}
-                      onClick={() => setIsMobileSidebarOpen(false)}
+                      onClick={handleNavClick}
                       className={({ isActive }) =>
                         cn(
                           "flex items-center rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
@@ -936,12 +946,12 @@ export function Layout() {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <header className="bg-card border-b border-border h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 lg:px-8 sticky top-0 z-30 shadow-sm">
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Desktop Menu Toggle Button */}
+              {/* Menu Toggle Button (Visible on Mobile, Tablet & Desktop) */}
               <button
                 type="button"
                 onClick={toggleSidebar}
                 title={isSidebarCollapsed ? "Expand Sidebar Menu" : "Collapse to Icons"}
-                className="hidden lg:flex p-2 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-xl transition-all border border-border hover:border-primary/30 shrink-0 cursor-pointer shadow-2xs items-center justify-center active:scale-95"
+                className="flex p-2 text-muted-foreground hover:text-foreground hover:bg-muted/60 rounded-xl transition-all border border-border hover:border-primary/30 shrink-0 cursor-pointer shadow-2xs items-center justify-center active:scale-95"
               >
                 <Menu className="h-4.5 w-4.5" />
               </button>
