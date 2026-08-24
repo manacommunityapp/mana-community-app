@@ -45,6 +45,9 @@ import {
   CheckCircle,
   Edit3,
   Info,
+  Zap,
+  IndianRupee,
+  History,
 } from "lucide-react";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { PoojaRegistrationModal } from "./PoojaRegistrationModal";
@@ -91,6 +94,8 @@ interface Activity {
   isUpdateMode?: boolean;
   /** ID of the parent community/top-level event this sub-event belongs to */
   mainEventId?: string | number;
+  /** Raw database auction item object if category is Auction */
+  rawAuctionItem?: any;
 }
 
 interface UserPass {
@@ -176,6 +181,31 @@ const INITIAL_ACTIVITIES: Activity[] = [
     image: "🎨",
     description: "Clay provided on spot. Bring your own decorations. Top 3 winner trophies.",
   },
+  {
+    id: "act-5",
+    title: "Ganesh Maha Laddu (21 kg) - Holy Prasadam Auction",
+    category: "Auction",
+    date: "🔴 Live Bidding",
+    time: "Bidding in Progress",
+    venue: "Main Temple Mandap, Gate 1",
+    fee: 28000,
+    availableSeats: 1,
+    image: "🪔",
+    description: "Sacred festival 21kg Ganesh Laddu prasadam blessed during Maha Aarti. Highest Bid: ₹28,000 by Venkat R. (12 bids)",
+    rawAuctionItem: {
+      id: 1,
+      name: "Ganesh Maha Laddu (21 kg)",
+      category: "Prasadam",
+      description: "Sacred festival 21kg Ganesh Laddu prasadam blessed during Maha Aarti",
+      basePrice: 5000,
+      currentBid: 28000,
+      minIncrement: 1000,
+      imageEmoji: "🪔",
+      status: "LIVE",
+      bidCount: 12,
+      leaderName: "Venkat R.",
+    },
+  },
 ];
 
 const INITIAL_PASSES: UserPass[] = [];
@@ -199,6 +229,290 @@ function countdownFrom(dateStr?: string | null, timeStr?: string | null) {
     mins: Math.floor((diff % 3600000) / 60000),
     secs: Math.floor((diff % 60000) / 1000),
   };
+}
+
+interface MemberAuctionBidModalProps {
+  activity: Activity;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function MemberAuctionBidModal({ activity, onClose, onSuccess }: MemberAuctionBidModalProps) {
+  const item = activity.rawAuctionItem || {
+    id: typeof activity.id === "string" ? Number(activity.id.replace(/\D/g, "")) : activity.id,
+    name: activity.title,
+    category: activity.category || "General",
+    description: activity.description,
+    basePrice: activity.fee || 5000,
+    currentBid: activity.fee || 0,
+    minIncrement: 500,
+    imageEmoji: activity.image || "🪔",
+    status: "LIVE",
+    bidCount: 0,
+    leaderName: null,
+  };
+
+  const itemId = typeof item.id === "number" ? item.id : Number(String(item.id).replace(/\D/g, "")) || 1;
+  const isLive = item.status === "LIVE";
+  const isClosed = item.status === "CLOSED";
+  const minInc = item.minIncrement || 500;
+  const currentBid = Number(item.currentBid) || 0;
+  const basePrice = Number(item.basePrice) || 0;
+  const nextMinBid = item.bidCount === 0 || currentBid === 0 ? basePrice : currentBid + minInc;
+
+  const [bidAmount, setBidAmount] = useState<number>(nextMinBid);
+  const [bidsHistory, setBidsHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const loadHistory = async () => {
+    if (!itemId) return;
+    setLoadingHistory(true);
+    try {
+      const bids = await eventService.getAuctionBids(itemId);
+      setBidsHistory(bids || []);
+    } catch {
+      // fallback
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    loadHistory();
+    setBidAmount(nextMinBid);
+  }, [itemId, nextMinBid]);
+
+  const handlePlaceBid = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (bidAmount < nextMinBid) {
+      setError(`Minimum required bid amount is ₹${nextMinBid.toLocaleString("en-IN")}`);
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+      await eventService.placeAuctionBid(itemId, bidAmount);
+      showSuccess(`🎉 Bid of ₹${bidAmount.toLocaleString("en-IN")} placed successfully on ${item.name}!`);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || "Failed to place bid.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg sm:max-w-xl bg-card border border-border text-card-foreground rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto relative animate-scaleUp"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close Button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shadow-2xs z-10"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Header with Item Details */}
+        <div className="flex items-start gap-3.5 pr-8">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-3xl sm:text-4xl flex items-center justify-center shrink-0">
+            {item.imageEmoji || "🪔"}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                {item.category || "Festival Auction"}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  isLive
+                    ? "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                    : isClosed
+                    ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700"
+                    : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                }`}
+              >
+                {isLive && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />}
+                {isLive ? "Live Bidding" : isClosed ? "Closed / Won" : "Upcoming"}
+              </span>
+            </div>
+            <h3 className="text-base sm:text-lg font-black text-foreground mt-1 leading-snug">
+              {item.name}
+            </h3>
+            {item.description && (
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                {item.description}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Pricing & High Bidder Banner */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3.5 rounded-2xl bg-muted/40 border border-border/80 text-xs">
+          <div>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase">Base Price</span>
+            <p className="font-bold text-foreground text-sm">₹{basePrice.toLocaleString("en-IN")}</p>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase">Current Highest Bid</span>
+            <p className="font-black text-emerald-600 text-base sm:text-lg">
+              {currentBid > 0 ? `₹${currentBid.toLocaleString("en-IN")}` : "No bids yet"}
+            </p>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase">Leading Devotee</span>
+            <p className="font-bold text-foreground truncate">
+              {item.leaderName ? `👑 ${item.leaderName}` : "—"}
+            </p>
+            <span className="text-[10px] text-muted-foreground">{item.bidCount || 0} total bids</span>
+          </div>
+        </div>
+
+        {/* Bidding Form if LIVE */}
+        {isLive && (
+          <form onSubmit={handlePlaceBid} className="space-y-3 p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-amber-600" /> Enter Your Bid Amount (₹)
+              </label>
+              <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                Min: ₹{nextMinBid.toLocaleString("en-IN")}
+              </span>
+            </div>
+
+            {/* Quick Increment Preset Chips */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">Quick Add:</span>
+              {[500, 1000, 2000, 5000, 10000].map((inc) => {
+                const targetVal = Math.max(nextMinBid, (currentBid || basePrice) + inc);
+                return (
+                  <button
+                    key={inc}
+                    type="button"
+                    onClick={() => setBidAmount(targetVal)}
+                    className="px-2 py-1 rounded-lg text-[10.5px] font-extrabold bg-card border border-border text-foreground hover:bg-amber-100 hover:border-amber-300 dark:hover:bg-amber-900/40 transition-colors cursor-pointer"
+                  >
+                    +₹{inc.toLocaleString("en-IN")}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom Input */}
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-sm text-muted-foreground">₹</span>
+              <input
+                type="number"
+                min={nextMinBid}
+                step={minInc}
+                value={bidAmount}
+                onChange={(e) => setBidAmount(Number(e.target.value))}
+                className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-border bg-background text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+              />
+            </div>
+
+            {error && (
+              <p className="text-xs font-semibold text-rose-600 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" /> {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting || bidAmount < nextMinBid}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs sm:text-sm font-black shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
+            >
+              {submitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Gavel className="w-4 h-4" />
+              )}
+              Place Sacred Bid of ₹{bidAmount.toLocaleString("en-IN")}
+            </button>
+          </form>
+        )}
+
+        {/* If CLOSED */}
+        {isClosed && (
+          <div className="p-4 rounded-2xl bg-muted/60 border border-border text-center space-y-1.5">
+            <Trophy className="w-8 h-8 text-amber-500 mx-auto" />
+            <p className="text-xs font-bold text-foreground">Auction Item Closed</p>
+            {item.leaderName ? (
+              <p className="text-xs text-emerald-600 font-extrabold">
+                🎉 Won by {item.leaderName} for ₹{currentBid.toLocaleString("en-IN")}!
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">No bids were placed before close.</p>
+            )}
+          </div>
+        )}
+
+        {/* Live Bid History Section */}
+        <div className="space-y-2 pt-2 border-t border-border">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
+              <History className="w-3.5 h-3.5 text-primary" /> Live Devotee Bidding History
+            </span>
+            <button
+              type="button"
+              onClick={loadHistory}
+              disabled={loadingHistory}
+              className="text-[11px] text-primary hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <RefreshCw className={`w-3 h-3 ${loadingHistory ? "animate-spin" : ""}`} /> Refresh Bids
+            </button>
+          </div>
+
+          <div className="max-h-40 overflow-y-auto space-y-1.5 hide-scrollbar">
+            {loadingHistory && bidsHistory.length === 0 ? (
+              <div className="py-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" /> Loading bids…
+              </div>
+            ) : bidsHistory.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-3">
+                No bids recorded yet. Be the first devotee to bid!
+              </p>
+            ) : (
+              bidsHistory.map((b: any, idx: number) => (
+                <div
+                  key={b.id || idx}
+                  className={`flex items-center justify-between p-2 rounded-xl text-xs border ${
+                    idx === 0
+                      ? "bg-amber-500/10 border-amber-500/30 text-foreground font-bold"
+                      : "bg-muted/30 border-border/50 text-muted-foreground"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm">{idx === 0 ? "👑" : "👤"}</span>
+                    <span className="truncate">{b.bidderName || "Devotee"}</span>
+                    {idx === 0 && (
+                      <span className="text-[9px] font-black uppercase text-amber-700 dark:text-amber-400 bg-amber-200/60 dark:bg-amber-900/60 px-1.5 py-0.2 rounded">
+                        Highest
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-extrabold text-foreground">₹{Number(b.amount).toLocaleString("en-IN")}</span>
+                    <span className="text-[10px] text-muted-foreground">{b.timeAgo || "recent"}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function EventMemberView() {
@@ -393,7 +707,7 @@ export function EventMemberView() {
 
     try {
       setLoadingApiData(true);
-      const [allEvents, poojas, culturals, comps, meals, stats, allRegistrations] = await Promise.all([
+      const [allEvents, poojas, culturals, comps, meals, stats, allRegistrations, auctionItems] = await Promise.all([
         eventService.getAllEvents().catch(() => eventService.getUpcomingEvents()).catch(() => []),
         eventService.getPoojaSevas().catch(() => []),
         eventService.getCulturalEvents().catch(() => []),
@@ -401,6 +715,7 @@ export function EventMemberView() {
         eventService.getLunchDinners().catch(() => []),
         eventService.getDashboardStats().catch(() => null),
         eventService.getAllRegistrations().catch(() => []),
+        eventService.getAuctionItems().catch(() => []),
       ]);
 
       setLiveStats(stats);
@@ -659,7 +974,35 @@ export function EventMemberView() {
         });
       }
 
+      if (auctionItems && Array.isArray(auctionItems)) {
+        auctionItems.forEach((item: any) => {
+          if (String(item.status || "").toUpperCase() === "CANCELLED") return;
+          if (item.eventId != null) {
+            const eid = String(item.eventId);
+            if (cancelledEventIds.has(eid) || cancelledEventIds.has(`event-${eid}`)) return;
+            if (allEvents && allEvents.length > 0 && !activeEventIds.has(eid) && !activeEventIds.has(`event-${eid}`)) return;
+          }
 
+          const currentBidNum = Number(item.currentBid) || 0;
+          const basePriceNum = Number(item.basePrice) || 0;
+          const displayPrice = currentBidNum > 0 ? currentBidNum : basePriceNum;
+
+          fetchedActivities.push({
+            id: `auction-${item.id || Date.now()}`,
+            title: item.name || "Festival Auction Item",
+            category: "Auction",
+            date: item.status === "LIVE" ? "🔴 Live Bidding" : item.status === "CLOSED" ? "🏁 Closed" : "⏳ Upcoming Auction",
+            time: item.status === "LIVE" ? "Bidding in Progress" : "Auction Floor",
+            venue: item.eventTitle || "Main Festival Stage / Temple Mandap",
+            fee: displayPrice,
+            availableSeats: item.status === "CLOSED" ? 0 : 1,
+            image: item.imageEmoji || "🪔",
+            description: `${item.description || "Holy festival fundraising auction."}${item.leaderName ? ` Highest Bid: ₹${displayPrice.toLocaleString("en-IN")} by ${item.leaderName} (${item.bidCount || 0} bids)` : ` Base Price: ₹${basePriceNum.toLocaleString("en-IN")}`}`,
+            mainEventId: item.eventId != null ? String(item.eventId) : undefined,
+            rawAuctionItem: item,
+          });
+        });
+      }
 
       setActivitiesList(fetchedActivities);
     } catch (err) {
@@ -899,6 +1242,10 @@ export function EventMemberView() {
   const foodCount = useMemo(() => activitiesList.filter((a) => a.category === "Food").length, [activitiesList]);
   const culturalCount = useMemo(() => activitiesList.filter((a) => a.category === "Cultural").length, [activitiesList]);
   const compCount = useMemo(() => activitiesList.filter((a) => a.category === "Competitions").length, [activitiesList]);
+  const auctionCount = useMemo(
+    () => activitiesList.filter((a) => a.category?.toLowerCase() === "auction" || Boolean(a.rawAuctionItem)).length,
+    [activitiesList]
+  );
 
   const isPoojaActivity = (cat?: string) =>
     Boolean(cat && (cat.toLowerCase().includes("pooja") || cat.toLowerCase().includes("seva")));
@@ -970,9 +1317,11 @@ export function EventMemberView() {
 
     const auctionBadge = useMock
       ? "₹18,500 Bid"
+      : auctionCount > 0
+      ? `${auctionCount} Live Item${auctionCount === 1 ? "" : "s"}`
       : liveStats?.auctionRevenue !== undefined && liveStats.auctionRevenue > 0
       ? `₹${liveStats.auctionRevenue.toLocaleString()} Bid`
-      : "No Bids";
+      : "0 Items";
 
     return [
       {
@@ -1040,7 +1389,7 @@ export function EventMemberView() {
         category: "Auction",
       },
     ];
-  }, [poojaCount, foodCount, culturalCount, familyMembers.length, activePasses.length, useMock, liveStats]);
+  }, [poojaCount, foodCount, culturalCount, compCount, auctionCount, familyMembers.length, activePasses.length, useMock, liveStats]);
 
   const userActivePoojaPass = useMemo(() => {
     return activePasses.find(
@@ -2301,6 +2650,31 @@ export function EventMemberView() {
                                 </span>
                               );
                             }
+                            if (act.category?.toLowerCase() === "auction" || Boolean(act.rawAuctionItem)) {
+                              const isLive = act.rawAuctionItem?.status === "LIVE";
+                              const isClosed = act.rawAuctionItem?.status === "CLOSED";
+                              if (isClosed) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedActivity(act)}
+                                    className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-muted hover:bg-muted/80 text-muted-foreground text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                                  >
+                                    <Trophy className="w-3.5 h-3.5 text-amber-500" /> View Winner
+                                  </button>
+                                );
+                              }
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedActivity(act)}
+                                  className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95"
+                                >
+                                  <Gavel className="w-3.5 h-3.5" /> {isLive ? "Place Live Bid" : "View Auction"}
+                                </button>
+                              );
+                            }
+
                             return (
                               <button
                                 type="button"
@@ -3427,9 +3801,20 @@ export function EventMemberView() {
         </div>
       )}
 
-      {/* ─── EVENT REGISTRATION PORTAL WIZARD / DEDICATED POOJA REGISTRATION MODAL ─── */}
+      {/* ─── EVENT REGISTRATION PORTAL WIZARD / DEDICATED POOJA REGISTRATION MODAL / AUCTION BID MODAL ─── */}
       {selectedActivity && (
-        selectedActivity.category?.toLowerCase().includes("pooja") || selectedActivity.category?.toLowerCase().includes("seva") ? (
+        selectedActivity.category?.toLowerCase() === "auction" || Boolean(selectedActivity.rawAuctionItem) ? (
+          <MemberAuctionBidModal
+            activity={selectedActivity}
+            onClose={() => {
+              setSelectedActivity(null);
+              fetchLiveDataFromBackend();
+            }}
+            onSuccess={() => {
+              fetchLiveDataFromBackend();
+            }}
+          />
+        ) : selectedActivity.category?.toLowerCase().includes("pooja") || selectedActivity.category?.toLowerCase().includes("seva") ? (
           <PoojaRegistrationModal
             event={{
               id: selectedActivity.id,
@@ -3868,6 +4253,22 @@ export function EventMemberView() {
                                     </span>
                                   );
                                 }
+                                if (act.category?.toLowerCase() === "auction" || Boolean(act.rawAuctionItem)) {
+                                  const isLive = act.rawAuctionItem?.status === "LIVE";
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedActivity(act);
+                                        setMobileQuickActionModal(null);
+                                      }}
+                                      className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                                    >
+                                      <Gavel className="w-3 h-3" /> {isLive ? "Place Live Bid" : "View Auction"}
+                                    </button>
+                                  );
+                                }
+
                                 return (
                                   <button
                                     type="button"

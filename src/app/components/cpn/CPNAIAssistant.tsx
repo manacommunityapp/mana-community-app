@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   Bot, Send, Mic, Sparkles, FileText, Target,
-  MessageSquare, DollarSign, Map, Mail, Swords,
+  MessageSquare, IndianRupee, Map, Mail, Swords,
   ChevronRight, User,
   RotateCcw, Download, Copy, CheckCheck
 } from "lucide-react";
@@ -37,7 +37,7 @@ const AI_FEATURES: Feature[] = [
   { id: "resume",    icon: FileText,  label: "Resume Review",      desc: "Get detailed AI feedback on your resume",           color: "bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-900" },
   { id: "skill",     icon: Target,    label: "Skill Gap Analysis",  desc: "Find missing skills for your dream role",           color: "bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-900" },
   { id: "interview", icon: Swords,    label: "Interview Prep",      desc: "Practice answers with AI coaching",                color: "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900" },
-  { id: "salary",    icon: DollarSign,label: "Salary Prediction",   desc: "Know your market value instantly",                  color: "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900" },
+  { id: "salary",    icon: IndianRupee,label: "Salary Prediction",   desc: "Know your market value instantly",                  color: "bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-900" },
   { id: "roadmap",   icon: Map,       label: "Career Roadmap",      desc: "Plan your 5-year career path with AI",              color: "bg-pink-50 dark:bg-pink-955/30 text-pink-600 dark:text-pink-400 border-pink-200 dark:border-pink-900" },
   { id: "cover",     icon: Mail,      label: "Cover Letter",        desc: "Generate tailored cover letters",                   color: "bg-teal-50 dark:bg-teal-950/30 text-teal-600 dark:text-teal-400 border-teal-200 dark:border-teal-900" },
   { id: "mock",      icon: MessageSquare, label: "Mock Interview",  desc: "Simulate real interviews with AI",                  color: "bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-900" },

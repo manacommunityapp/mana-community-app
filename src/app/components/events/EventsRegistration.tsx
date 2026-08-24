@@ -362,7 +362,7 @@ function AddRegistrantDialog({
   const canSave = form.name.trim() && form.email.trim();
 
   const handleSave = async () => {
-    if (!canSave) return;
+    if (!canSave || saving) return;
     setSaving(true);
     setError("");
 
@@ -960,21 +960,33 @@ export function EventsRegistration() {
   const [sortBy, setSortBy] = useState<"time" | "name" | "status" | "checkin">("time");
 
   const loadRegistrations = () => {
-    if (useMock || !selectedEventId) return;
+    if (useMock || !selectedEventId) {
+      setLiveRegistrants([]);
+      return;
+    }
     setLoading(true);
     setError("");
     eventService.getEventRegistrations(selectedEventId)
-      .then(data => setLiveRegistrants(mapLiveRegistrations(data)))
+      .then(data => {
+        const activeRows = (data || []).filter((r: any) => String(r.status || "").toUpperCase() !== "CANCELLED");
+        setLiveRegistrants(mapLiveRegistrations(activeRows));
+      })
       .catch(e => setError(e.message ?? "Failed to load registrations"))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     if (useMock) return;
-    eventService.getUpcomingEvents()
+    eventService.getAllEvents()
       .then(evts => {
-        setEvents(evts);
-        if (evts.length > 0) setSelectedEventId(evts[0].id);
+        const activeEvents = (evts || []).filter(e => String(e.status || "").toUpperCase() !== "CANCELLED");
+        setEvents(activeEvents);
+        if (activeEvents.length > 0) {
+          setSelectedEventId(prev => (prev && activeEvents.some(e => e.id === prev) ? prev : activeEvents[0].id));
+        } else {
+          setSelectedEventId(null);
+          setLiveRegistrants([]);
+        }
       })
       .catch(() => {});
   }, [useMock]);

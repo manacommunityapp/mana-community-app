@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { Search, ArrowLeft, DollarSign } from "lucide-react";
+import { Search, ArrowLeft, IndianRupee } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -244,7 +244,7 @@ export function ServiceBrowse() {
                       {offering.categoryName}
                     </Badge>
                     <span className="flex items-center gap-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                      <DollarSign className="w-3 h-3" />
+                      <IndianRupee className="w-3 h-3" />
                       {offering.basePrice} {PRICING_LABELS[offering.pricingUnit] ?? offering.pricingUnit}
                     </span>
                   </div>

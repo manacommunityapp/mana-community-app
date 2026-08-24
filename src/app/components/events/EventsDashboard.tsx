@@ -28,6 +28,7 @@ import {
   type PendingActionItemResponse,
   type EventResponse,
   type RegistrationResponse,
+  type EventAuctionStatsResponse,
 } from "../../../services/events/eventService";
 import { eventSponsorService, type EventSponsorResponse } from "../../../services/events/eventSponsorService";
 import { eventDonationService } from "../../../services/events/eventDonationService";
@@ -238,6 +239,7 @@ export function EventsDashboard() {
   const [tasks, setTasks]               = useState<EventTaskResponse[]>([]);
   const [pendingActionItems, setPendingActionItems] = useState<PendingActionItemResponse[]>([]);
   const [registrations, setRegistrations] = useState<RegistrationResponse[]>([]);
+  const [auctionStats, setAuctionStats] = useState<EventAuctionStatsResponse | null>(null);
   const [tasksDone, setTasksDone]       = useState<Record<string, boolean>>({});
 
   // ── Registered Users section state ──
@@ -301,7 +303,8 @@ export function EventsDashboard() {
       eventService.getAllEvents().catch(() => [])
     ])
       .then(([regs, evts]: [any[], any[]]) => {
-        // Collect cancelled event IDs and normalized titles
+        const activeEventsById = new Map<number, any>();
+        const activeEventsByTitle = new Map<string, any>();
         const cancelledEventIds = new Set<number>();
         const cancelledEventTitles = new Set<string>();
 
@@ -311,6 +314,9 @@ export function EventsDashboard() {
             if (evStatus === 'CANCELLED') {
               if (ev.id != null) cancelledEventIds.add(Number(ev.id));
               if (ev.title) cancelledEventTitles.add(ev.title.trim().toLowerCase());
+            } else {
+              if (ev.id != null) activeEventsById.set(Number(ev.id), ev);
+              if (ev.title) activeEventsByTitle.set(ev.title.trim().toLowerCase(), ev);
             }
           });
         }
@@ -323,7 +329,28 @@ export function EventsDashboard() {
           return;
         }
 
-        const mapped: UnifiedReg[] = rawList.map((r: any) => {
+        const activeRegs = rawList.filter((r: any) => {
+          const rawStatus = String(r.status || '').toUpperCase();
+          if (rawStatus === 'CANCELLED' || rawStatus === 'REJECTED') return false;
+          if (String(r.eventStatus || '').toUpperCase() === 'CANCELLED') return false;
+
+          const numEventId = r.mainEventId != null ? Number(r.mainEventId) : (r.eventId != null ? Number(r.eventId) : null);
+          const actTitle = String(r.activityTitle || r.eventName || r.eventTitle || '').trim().toLowerCase();
+
+          if (numEventId != null && cancelledEventIds.has(numEventId)) return false;
+          if (actTitle && cancelledEventTitles.has(actTitle)) return false;
+
+          // If database events exist, ensure the parent/main event actually exists and is active
+          if (evts && evts.length > 0) {
+            const exists = (numEventId != null && activeEventsById.has(numEventId)) || (actTitle && activeEventsByTitle.has(actTitle));
+            if (numEventId != null || actTitle) {
+              if (!exists) return false;
+            }
+          }
+          return true;
+        });
+
+        const mapped: UnifiedReg[] = activeRegs.map((r: any) => {
           let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
           if (r.membersJson) {
             try {
@@ -346,16 +373,6 @@ export function EventsDashboard() {
           }
           if (!attendeeCount) attendeeCount = 1;
 
-          const isParentEvCancelled =
-            (r.eventId != null && cancelledEventIds.has(Number(r.eventId))) ||
-            (r.mainEventId != null && cancelledEventIds.has(Number(r.mainEventId))) ||
-            (r.activityTitle && cancelledEventTitles.has(String(r.activityTitle).trim().toLowerCase())) ||
-            (r.eventTitle && cancelledEventTitles.has(String(r.eventTitle).trim().toLowerCase())) ||
-            String(r.eventStatus || '').toUpperCase() === 'CANCELLED';
-
-          const rawStatus = String(r.status || 'CONFIRMED').toUpperCase();
-          const finalStatus = isParentEvCancelled && rawStatus !== 'CANCELLED' ? 'CANCELLED' : rawStatus;
-
           let category: RegCat = 'event';
           const catStr = String(r.category || '').toLowerCase();
           const actId = String(r.activityId || '').toLowerCase();
@@ -368,16 +385,16 @@ export function EventsDashboard() {
             id: r.id,
             regCode: r.regCode || `REG-${r.id}`,
             category,
-            activityTitle: r.activityTitle || r.eventTitle || (isParentEvCancelled ? 'Event (Cancelled)' : 'Event'),
-            participantName: r.participantName || r.userName || 'N/A',
+            activityTitle: r.activityTitle || r.eventName || r.eventTitle || 'Community Event',
+            participantName: r.participantName || r.primaryName || r.userName || 'N/A',
             email: r.userEmail || r.email,
             phone: r.phone,
             extra: r.gotram ? `Gotram: ${r.gotram}` : r.ageGroup,
             devoteeCount: attendeeCount,
             bookingFee: r.bookingFee ?? 0,
-            paymentStatus: r.paymentStatus || (finalStatus === 'CANCELLED' ? 'CANCELLED' : 'N/A'),
-            status: finalStatus,
-            isEventCancelled: isParentEvCancelled,
+            paymentStatus: r.paymentStatus || 'PAID',
+            status: r.status || 'CONFIRMED',
+            isEventCancelled: false,
             eventDate: r.eventDate,
             eventTime: r.eventTime,
             venue: r.venue,
@@ -434,9 +451,11 @@ export function EventsDashboard() {
       eventExpenseService.getAll(),
       eventTaskService.getAll(),
       eventService.getPendingActionItems(),
-    ]).then(([statsR, analyticsR, eventsR, poojasR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR]) => {
+      eventService.getAuctionStats().catch(() => null),
+    ]).then(([statsR, analyticsR, eventsR, poojasR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR, auctionStatsR]) => {
       if (statsR.status === "fulfilled") setStats(statsR.value);
       if (analyticsR.status === "fulfilled") setAnalytics(analyticsR.value);
+      if (auctionStatsR.status === "fulfilled" && auctionStatsR.value) setAuctionStats(auctionStatsR.value);
 
       if (eventsR.status === "fulfilled") {
         const evs = Array.isArray(eventsR.value) ? eventsR.value : [];
@@ -664,8 +683,20 @@ export function EventsDashboard() {
       : "No data yet";
     const foodTrend = stats?.foodPlatesCount ? "Live tracking" : "No active menu";
 
-    const auctionRev   = fmtINR(stats?.auctionRevenue ?? 0);
-    const auctionItems = `${stats?.auctionItemCount ?? 0} items sold`;
+    const liveAuctionRev = (stats?.auctionRevenue != null && stats.auctionRevenue > 0)
+      ? stats.auctionRevenue
+      : (auctionStats?.totalRevenue != null ? Number(auctionStats.totalRevenue) : 0);
+    const liveAuctionCount = (stats?.auctionItemCount != null && stats.auctionItemCount > 0)
+      ? stats.auctionItemCount
+      : (auctionStats?.closedItemsCount != null && auctionStats.closedItemsCount > 0
+          ? auctionStats.closedItemsCount
+          : (auctionStats?.totalBidsCount ? auctionStats.totalItems : (auctionStats?.totalItems ?? 0)));
+
+    const auctionRev   = fmtINR(liveAuctionRev);
+    const auctionItems = liveAuctionCount > 0
+      ? `${liveAuctionCount} item${liveAuctionCount > 1 ? 's' : ''} sold`
+      : "0 items sold";
+    const auctionTrend = liveAuctionCount > 0 || (auctionStats?.liveItemsCount ?? 0) > 0 ? "Live now" : "No Active Auction";
 
     // Today's schedule & duty: exact counts from backend (events active today)
     const todayCount          = stats?.todaysScheduleCount ?? 0;
@@ -744,11 +775,11 @@ export function EventsDashboard() {
         label: "Auction Revenue", value: auctionRev,
         sub: auctionItems,
         icon: Gavel, color: "#06B6D4", bg: "rgba(6,182,212,0.12)",
-        trend: (stats?.auctionItemCount ?? 0) > 0 ? "Bids active" : "No Active Auction",
+        trend: auctionTrend,
         to: "/events/fundraising?tab=auction",
       },
     ];
-  }, [useMock, stats, sponsorTotal, donationTotal, sponsors, registrations, allUnifiedRegs, todaySchedule, pendingTasks, events]);
+  }, [useMock, stats, auctionStats, sponsorTotal, donationTotal, sponsors, registrations, allUnifiedRegs, todaySchedule, pendingTasks, events]);
 
   // ── Derived: banner items ─────────────────────────────────────────────────
   const bannerItems: BannerItem[] = useMemo(() => {
@@ -1163,7 +1194,7 @@ export function EventsDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
         {kpis.map((kpi: any, idx) => {
           const Icon = kpi.icon;
-          const isLiveCard = !useMock && idx < 6;
+          const isLiveCard = !useMock;
           const isSkeleton = isLiveCard && loading;
           return (
             <div

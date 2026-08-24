@@ -260,13 +260,20 @@ export function OrganizerDashboard({ initialTab = 'registrations' }: OrganizerDa
         eventService.getAllEvents().catch(() => [])
       ]);
 
+      const activeEventsById = new Map<number, any>();
+      const activeEventsByTitle = new Map<string, any>();
       const cancelledEventIds = new Set<number>();
       const cancelledEventTitles = new Set<string>();
+
       if (Array.isArray(evts)) {
         evts.forEach((ev: any) => {
-          if (String(ev.status || '').toUpperCase() === 'CANCELLED') {
+          const evStatus = String(ev.status || '').toUpperCase();
+          if (evStatus === 'CANCELLED') {
             if (ev.id != null) cancelledEventIds.add(Number(ev.id));
             if (ev.title) cancelledEventTitles.add(ev.title.trim().toLowerCase());
+          } else {
+            if (ev.id != null) activeEventsById.set(Number(ev.id), ev);
+            if (ev.title) activeEventsByTitle.set(ev.title.trim().toLowerCase(), ev);
           }
         });
       }
@@ -276,9 +283,20 @@ export function OrganizerDashboard({ initialTab = 'registrations' }: OrganizerDa
             const regStatus = String(r.status || '').toUpperCase();
             if (regStatus === 'CANCELLED' || regStatus === 'REJECTED') return false;
             if (String(r.eventStatus || '').toUpperCase() === 'CANCELLED') return false;
-            if (r.eventId != null && cancelledEventIds.has(Number(r.eventId))) return false;
+
+            const numEventId = r.mainEventId != null ? Number(r.mainEventId) : (r.eventId != null ? Number(r.eventId) : null);
             const actTitle = String(r.activityTitle || r.eventName || r.eventTitle || '').trim().toLowerCase();
+
+            if (numEventId != null && cancelledEventIds.has(numEventId)) return false;
             if (actTitle && cancelledEventTitles.has(actTitle)) return false;
+
+            // Ensure parent/main event exists and is not cancelled
+            if (evts && evts.length > 0) {
+              const exists = (numEventId != null && activeEventsById.has(numEventId)) || (actTitle && activeEventsByTitle.has(actTitle));
+              if (numEventId != null || actTitle) {
+                if (!exists) return false;
+              }
+            }
             return true;
           })
         : [];
