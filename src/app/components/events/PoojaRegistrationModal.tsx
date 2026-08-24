@@ -1286,44 +1286,43 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               <div className="space-y-3.5 flex-1">
                 <div className="border-b border-border pb-2">
                   <h3 className="text-sm font-extrabold text-foreground">Prasadam Collection</h3>
-                  <p className="text-[11px] text-muted-foreground">Choose how your prasadam and tokens will be collected.</p>
+                  <p className="text-[11px] text-muted-foreground">Prasadam and sacred offerings collection method.</p>
                 </div>
 
                 <div className="grid gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPrasadamMode("mandap")}
-                    className={`rounded-2xl border p-3 text-left transition ${
-                      prasadamMode === "mandap"
-                        ? "border-primary bg-primary/10 shadow-sm"
-                        : "border-border bg-card hover:border-primary/50"
-                    }`}
+                  {/* Mandap Counter Collection (Default & Active) */}
+                  <div
+                    className="rounded-2xl border-2 border-primary bg-primary/10 p-3.5 text-left shadow-xs flex items-center justify-between gap-2"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
                         <span className="block text-xs font-black text-foreground">Mandap Counter Collection</span>
-                        <span className="text-[10px] text-muted-foreground">Collect prasadam at the mandap after the ritual.</span>
                       </div>
-                      <CheckCircle2 className={`w-4 h-4 ${prasadamMode === "mandap" ? "text-primary" : "text-muted-foreground"}`} />
+                      <span className="text-[10.5px] text-muted-foreground block">
+                        Collect holy prasadam directly at the temple/mandap desk after completion of the pooja ritual by showing your booking pass.
+                      </span>
                     </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPrasadamMode("home_delivery")}
-                    className={`rounded-2xl border p-3 text-left transition ${
-                      prasadamMode === "home_delivery"
-                        ? "border-primary bg-primary/10 shadow-sm"
-                        : "border-border bg-card hover:border-primary/50"
-                    }`}
+                    <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+                  </div>
+
+                  {/* Home Delivery (Disabled by Organizer Policy) */}
+                  <div
+                    className="rounded-2xl border border-border/60 bg-muted/40 p-3 text-left opacity-60 cursor-not-allowed select-none flex items-center justify-between gap-2"
+                    title="Home delivery is not applicable for this pooja seva. Please collect prasadam at the Mandap counter."
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div>
-                        <span className="block text-xs font-black text-foreground">Home Delivery</span>
-                        <span className="text-[10px] text-muted-foreground">Prasadam will be delivered to your registered address.</span>
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <span className="block text-xs font-bold text-muted-foreground">Home Delivery</span>
+                        <span className="text-[9.5px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.2 rounded border border-border">
+                          Disabled
+                        </span>
                       </div>
-                      <CheckCircle2 className={`w-4 h-4 ${prasadamMode === "home_delivery" ? "text-primary" : "text-muted-foreground"}`} />
+                      <span className="text-[10px] text-muted-foreground block">
+                        Direct doorstep delivery is currently unavailable for this pooja.
+                      </span>
                     </div>
-                  </button>
+                    <div className="w-4 h-4 rounded-full border border-muted-foreground/40 shrink-0" />
+                  </div>
                 </div>
               </div>
             )}
@@ -1342,27 +1341,48 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 </div>
 
                 <div className="p-4 rounded-2xl bg-card border border-border space-y-3 text-xs">
-                  <div className="grid grid-cols-2 gap-2.5">
+                  {/* Dedicated Full-Width Highlight for Selected Session */}
+                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10.5px] font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" /> Selected Session (Day, Date &amp; Time)
+                      </span>
+                      {selectedSlotDisplayName && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/20 text-primary">
+                          {selectedSlotDisplayName}
+                        </span>
+                      )}
+                    </div>
+                    <div className="pt-0.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                      <strong className="text-xs sm:text-sm font-black text-foreground flex items-center gap-1.5">
+                        <span>📅</span>
+                        <span>{selectedDateDisplay}</span>
+                        {currentDay?.dayLabel && (
+                          <span className="text-muted-foreground font-semibold">({currentDay.dayLabel})</span>
+                        )}
+                      </strong>
+                      <span className="text-xs sm:text-sm font-extrabold text-primary flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{selectedSlotDisplayTime}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
                       <span className="text-[10px] text-muted-foreground uppercase font-bold block">Pooja Ritual</span>
                       <strong className="text-foreground font-bold text-xs truncate block">{poojaTitle}</strong>
                     </div>
                     <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Selected Session</span>
-                      <strong className="text-primary font-bold text-xs block truncate">
-                        {selectedDateDisplay} • {selectedSlotDisplayTime}
-                      </strong>
-                    </div>
-                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
                       <span className="text-[10px] text-muted-foreground uppercase font-bold block">Yajaman &amp; Gotram</span>
-                      <strong className="text-foreground font-bold text-xs block truncate">
+                      <strong className="text-foreground font-bold text-xs truncate block">
                         {devoteeName} {gotram ? `(${gotram})` : ""}
                       </strong>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Prasadam Delivery</span>
-                      <strong className="text-emerald-600 dark:text-emerald-400 font-bold text-xs block truncate">
-                        {prasadamMode === "mandap" ? "Mandap Counter Collection" : "Home Delivery"}
+                    <div className="col-span-2 sm:col-span-1 p-2.5 rounded-xl bg-muted/40 border border-border">
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Prasadam Collection</span>
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-bold text-xs truncate block">
+                        Mandap Counter Collection
                       </strong>
                     </div>
                   </div>
@@ -1414,11 +1434,27 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div>
-                  <span className="text-muted-foreground block">Date &amp; Session:</span>
-                  <strong className="text-foreground">{selectedDateDisplay} • {selectedSlotDisplayTime}</strong>
+              {/* Dedicated Full-Width Row for Session in Pass Confirmation */}
+              <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 space-y-1">
+                <span className="text-[10px] uppercase font-bold text-primary block">
+                  Selected Session (Day, Date &amp; Time)
+                </span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                  <strong className="text-foreground font-extrabold flex items-center gap-1">
+                    <span>📅</span>
+                    <span>{selectedDateDisplay}</span>
+                    {currentDay?.dayLabel && (
+                      <span className="text-muted-foreground font-semibold">({currentDay.dayLabel})</span>
+                    )}
+                  </strong>
+                  <strong className="text-primary font-black flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    <span>{selectedSlotDisplayTime}</span>
+                  </strong>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
                 <div>
                   <span className="text-muted-foreground block">Yajaman &amp; Gotram:</span>
                   <strong className="text-foreground">{devoteeName} {gotram ? `(${gotram})` : ""}</strong>
@@ -1427,7 +1463,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                   <span className="text-muted-foreground block">Prasadam Collection:</span>
                   <strong className="text-emerald-600 dark:text-emerald-400">Mandap Counter post-Aarti</strong>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <span className="text-muted-foreground block">Seva Contribution:</span>
                   <strong className="text-primary">{isFreeEvent ? "Free Seva" : isUpdateMode ? `₹${numericFee} (Already Paid)` : `₹${numericFee} (Paid)`}</strong>
                 </div>

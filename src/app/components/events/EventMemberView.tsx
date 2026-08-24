@@ -1391,12 +1391,6 @@ export function EventMemberView() {
     ];
   }, [poojaCount, foodCount, culturalCount, compCount, auctionCount, familyMembers.length, activePasses.length, useMock, liveStats]);
 
-  const userActivePoojaPass = useMemo(() => {
-    return activePasses.find(
-      (p) => (isPoojaActivity(p.category) || isPoojaActivity(p.passType) || Boolean(p.poojaSevaId))
-    );
-  }, [activePasses]);
-
   /**
    * Safe matching between an Activity and user's booked Passes list.
    * Prevents ID collision between different types (e.g. comp-1 vs pooja-1).
@@ -2588,7 +2582,6 @@ export function EventMemberView() {
                           {(() => {
                             const existingPass = getExistingPassForActivity(act);
                             const isThisActPooja = isPoojaActivity(act.category);
-                            const isOtherPoojaBooked = isThisActPooja && !existingPass && Boolean(userActivePoojaPass);
                             const isClosed = isRegistrationClosed(act);
                             const isFull = act.availableSeats !== undefined && act.availableSeats <= 0;
 
@@ -2612,26 +2605,6 @@ export function EventMemberView() {
                                   className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95 border border-emerald-500"
                                 >
                                   <Edit3 className="w-3.5 h-3.5" /> Update Registration
-                                </button>
-                              );
-                            }
-
-                            if (isOtherPoojaBooked) {
-                              return (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const registeredAct = activitiesList.find(a => getExistingPassForActivity(a) && isPoojaActivity(a.category));
-                                    if (registeredAct && userActivePoojaPass) {
-                                      handleOpenUpdateRegistration(registeredAct, userActivePoojaPass);
-                                    } else if (userActivePoojaPass) {
-                                      showWarning(`You are already registered for "${userActivePoojaPass.title}". Only one pooja slot is allowed per family. You can reschedule your existing slot.`);
-                                    }
-                                  }}
-                                  className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-bold rounded-xl border border-amber-500/30 flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
-                                  title={`You have already booked a slot for "${userActivePoojaPass?.title}". Click to reschedule your existing slot.`}
-                                >
-                                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600" /> Slot Booked
                                 </button>
                               );
                             }
@@ -4184,10 +4157,8 @@ export function EventMemberView() {
                               {(() => {
                                 const existingPass = getExistingPassForActivity(act);
                                 const isThisActPooja = isPoojaActivity(act.category);
-                                const isOtherPoojaBooked = isThisActPooja && !existingPass && Boolean(userActivePoojaPass);
                                 const isClosed = isRegistrationClosed(act);
                                 const isFull = act.availableSeats !== undefined && act.availableSeats <= 0;
-
                                 if (existingPass) {
                                   if (isThisActPooja) {
                                     return (
@@ -4214,27 +4185,6 @@ export function EventMemberView() {
                                       className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-emerald-500"
                                     >
                                       <Edit3 className="w-3 h-3" /> Update Registration
-                                    </button>
-                                  );
-                                }
-
-                                if (isOtherPoojaBooked) {
-                                  return (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setMobileQuickActionModal(null);
-                                        const registeredAct = activitiesList.find(a => getExistingPassForActivity(a) && isPoojaActivity(a.category));
-                                        if (registeredAct && userActivePoojaPass) {
-                                          handleOpenUpdateRegistration(registeredAct, userActivePoojaPass);
-                                        } else if (userActivePoojaPass) {
-                                          showWarning(`You are already registered for "${userActivePoojaPass.title}". Only one pooja slot is allowed per family. You can reschedule your existing slot.`);
-                                        }
-                                      }}
-                                      className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[11px] font-bold rounded-lg border border-amber-500/30 flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
-                                      title={`You have already booked a slot for "${userActivePoojaPass?.title}". Click to reschedule your existing slot.`}
-                                    >
-                                      <ShieldCheck className="w-3 h-3 text-amber-600" /> Slot Booked
                                     </button>
                                   );
                                 }
