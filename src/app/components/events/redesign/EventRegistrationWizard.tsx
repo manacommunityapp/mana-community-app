@@ -135,6 +135,19 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   const [existingReg, setExistingReg] = useState<any>(() => event?.existingRegistration || null);
   const isUpdateMode = Boolean(event?.isUpdateMode || existingReg);
   const existingRegId = event?.registrationId || existingReg?.id || (event as any)?.regId;
+
+  // Event registrations to track capacity and availability per ticket tier
+  const [eventRegistrations, setEventRegistrations] = useState<any[]>([]);
+
+  useEffect(() => {
+    const eventId = event?.id || eventDetails?.id || event?.mainEventId;
+    if (!eventId) return;
+    eventService.getEventRegistrations(eventId).then((regs) => {
+      if (Array.isArray(regs)) {
+        setEventRegistrations(regs);
+      }
+    }).catch(() => {/* fallback gracefully */});
+  }, [event?.id, eventDetails?.id, event?.mainEventId]);
   const activeEvent = eventDetails || event;
   const deadlineStr = activeEvent?.registrationDeadline || activeEvent?.regDeadline || event?.registrationDeadline;
   const isDeadlinePassed = Boolean(
@@ -954,12 +967,38 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                   const selected = selectedCatId === catId;
                   const priceText = formatPrice(cat.price);
 
-                  const categorySeats = cat.seats ?? cat.qty ?? (cat as any).capacity ?? (cat as any).availableSeats ?? (cat as any).slots;
+                  const rawSeats = cat.seats ?? cat.qty ?? (cat as any).capacity ?? (cat as any).availableSeats ?? (cat as any).slots;
+                  const categorySeats = rawSeats != null && rawSeats !== "" ? Number(rawSeats) : null;
+
+                  // Calculate registered count for this category
+                  const categoryRegisteredCount = (() => {
+                    if (eventRegistrations.length > 0) {
+                      const matchingRegs = eventRegistrations.filter((r) => {
+                        const isCancelled = r.status === "CANCELLED" || r.status === "REJECTED";
+                        if (isCancelled) return false;
+                        const regCat = (r.category || r.ticketCategory || r.passType || "").toLowerCase().trim();
+                        const thisCat = (cat.name || "").toLowerCase().trim();
+                        if (categories.length > 1 && regCat && thisCat) {
+                          return regCat === thisCat || regCat.includes(thisCat) || thisCat.includes(regCat);
+                        }
+                        return true;
+                      });
+                      return matchingRegs.reduce((sum, r) => {
+                        const membersCount = Array.isArray(r.members) ? r.members.length : (r.devoteeCount || r.attendeesCount || r.membersCount || 1);
+                        return sum + (Number(membersCount) || 1);
+                      }, 0);
+                    }
+                    return Number((cat as any).registeredSeats ?? (cat as any).bookedSeats ?? (cat as any).registeredCount ?? (categories.length === 1 ? (activeEvent?.registeredAttendees ?? activeEvent?.totalRegistrations ?? activeEvent?.attendees ?? 0) : 0));
+                  })();
+
+                  const availableSeats = categorySeats != null && categorySeats > 0 ? Math.max(0, categorySeats - categoryRegisteredCount) : null;
+                  const isSoldOut = categorySeats != null && categorySeats > 0 && availableSeats !== null && availableSeats <= 0;
 
                   return (
                     <div
                       key={catId}
                       onClick={() => {
+                        if (isSoldOut && !isAnyAdmin && !isUpdateMode) return;
                         setSelectedCatId(catId);
                         setFormData((prev) => ({
                           ...prev,
@@ -968,10 +1007,12 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                           numericPrice: parseNumericPrice(cat.price),
                         }));
                       }}
-                      className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer select-none flex flex-col justify-between gap-2 ${
-                        selected
-                          ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20"
-                          : "border-border bg-card hover:border-primary/50"
+                      className={`p-3.5 rounded-2xl border-2 transition-all select-none flex flex-col justify-between gap-2 ${
+                        isSoldOut && !isAnyAdmin && !isUpdateMode
+                          ? "border-border/60 bg-muted/40 opacity-60 cursor-not-allowed"
+                          : selected
+                            ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20 cursor-pointer"
+                            : "border-border bg-card hover:border-primary/50 cursor-pointer"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -994,16 +1035,34 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                       </div>
 
                       <div>
-                        <h4 className="text-xs sm:text-sm font-black text-foreground">{cat.name}</h4>
+                        <h4 className="text-xs sm:text-sm font-black text-foreground flex items-center gap-1.5 flex-wrap">
+                          <span>{cat.name}</span>
+                          {isSoldOut && (
+                            <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900">
+                              Sold Out
+                            </span>
+                          )}
+                        </h4>
                         <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">
                           {cat.description || (categorySeats ? `${categorySeats} seats allocated` : "Standard event pass tier")}
                         </p>
                       </div>
 
-                      {categorySeats != null && categorySeats !== "" && (
+                      {categorySeats != null && (
                         <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[9.5px] font-bold text-muted-foreground">
-                          <span>Capacity: {categorySeats} {Number(categorySeats) === 1 ? "seat" : "seats"}</span>
-                          {selected && <span className="text-primary font-extrabold">Selected ✓</span>}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>
+                              <strong className={isSoldOut ? "text-rose-600 dark:text-rose-400 font-black" : "text-foreground font-extrabold"}>
+                                {categoryRegisteredCount}/{categorySeats}
+                              </strong>{" "}
+                              registered
+                            </span>
+                            <span>·</span>
+                            <span className={isSoldOut ? "text-rose-600 dark:text-rose-400 font-bold" : availableSeats !== null && availableSeats <= 10 ? "text-amber-600 dark:text-amber-400 font-bold" : "text-emerald-600 dark:text-emerald-400 font-bold"}>
+                              {isSoldOut ? "Sold out" : `${availableSeats} left`}
+                            </span>
+                          </div>
+                          {selected && <span className="text-primary font-extrabold shrink-0">Selected ✓</span>}
                         </div>
                       )}
                     </div>

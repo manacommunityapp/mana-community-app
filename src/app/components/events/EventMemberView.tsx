@@ -329,7 +329,8 @@ export function EventMemberView() {
   const activeMainEvent = bannerMainEvents[Math.min(heroBannerIndex, bannerMainEvents.length - 1)] || bannerMainEvents[0];
 
   const eventSubActivities = useMemo(() => {
-    if (!activeMainEvent) return [];
+    if (!activeMainEvent || activeMainEvent.isStandalonePooja) return [];
+    const activeIdClean = String(activeMainEvent.id).replace(/^event-/, "");
     return activitiesList.filter((a) => {
       // Exclude the parent main event itself
       if (
@@ -340,42 +341,21 @@ export function EventMemberView() {
         return false;
       }
       // Check mainEventId linkage
-      if (a.mainEventId != null && activeMainEvent.id != null) {
-        if (
-          String(a.mainEventId) === String(activeMainEvent.id) ||
-          String(a.mainEventId) === `event-${activeMainEvent.id}`
-        ) {
+      if (a.mainEventId != null) {
+        const aMidClean = String(a.mainEventId).replace(/^event-/, "");
+        if (aMidClean === activeIdClean) {
           return true;
         }
       }
-      if ((a as any)?.eventId != null && activeMainEvent.id != null) {
-        if (
-          String((a as any).eventId) === String(activeMainEvent.id) ||
-          String((a as any).eventId) === `event-${activeMainEvent.id}`
-        ) {
+      if ((a as any)?.eventId != null) {
+        const aEidClean = String((a as any).eventId).replace(/^event-/, "");
+        if (aEidClean === activeIdClean) {
           return true;
         }
-      }
-      // Check date overlap with main event date range
-      const mainStart = activeMainEvent.startDate || activeMainEvent.date;
-      const mainEnd = activeMainEvent.endDate || mainStart;
-      if (mainStart && a.date) {
-        if (a.date >= mainStart && (!mainEnd || a.date <= mainEnd)) {
-          return true;
-        }
-      }
-      if ((a as any)?.startDate && mainStart) {
-        if ((a as any).startDate >= mainStart && (!mainEnd || (a as any).startDate <= mainEnd)) {
-          return true;
-        }
-      }
-      // If only 1 main event exists in banner, link all sub-events to it
-      if (bannerMainEvents.length === 1) {
-        return true;
       }
       return false;
     });
-  }, [activeMainEvent, activitiesList, bannerMainEvents.length]);
+  }, [activeMainEvent, activitiesList]);
 
   useEffect(() => {
     const targetDate = activeMainEvent?.startDate || activeMainEvent?.date || "2026-08-27";
@@ -459,7 +439,6 @@ export function EventMemberView() {
         });
 
         const running = allEvents.filter((ev: any) => String(ev.status || "").toUpperCase() !== "CANCELLED");
-        setMainEventsList(running);
         running.forEach((ev: any) => {
           const initialCapacity = ev.capacity || ev.maxAttendees || 50;
           const booked = getBookedCount(`event-${ev.id}`, ev.title);
@@ -478,13 +457,18 @@ export function EventMemberView() {
         });
       }
 
+      const standalonePoojaEvents: any[] = [];
+
       if (poojas && Array.isArray(poojas)) {
         poojas.forEach((p: any) => {
           // Exclude if pooja itself is cancelled
           if (String(p.status || "").toUpperCase() === "CANCELLED") return;
 
+          const isStandalone = (p.mainEventId == null || p.mainEventId === "" || p.mainEventId === 0) &&
+                               (p.eventId == null || p.eventId === "" || p.eventId === 0);
+
           // Exclude if parent event is cancelled or not active
-          if (p.mainEventId != null) {
+          if (!isStandalone && p.mainEventId != null) {
             const mid = String(p.mainEventId);
             if (cancelledEventIds.has(mid) || cancelledEventIds.has(`event-${mid}`)) {
               return;
@@ -493,7 +477,7 @@ export function EventMemberView() {
               return;
             }
           }
-          if (p.eventId != null) {
+          if (!isStandalone && p.eventId != null) {
             const eid = String(p.eventId);
             if (cancelledEventIds.has(eid) || cancelledEventIds.has(`event-${eid}`)) {
               return;
@@ -502,20 +486,22 @@ export function EventMemberView() {
               return;
             }
           }
-          if (p.parentEventTitle && cancelledEventTitles.has(p.parentEventTitle.trim().toLowerCase())) {
+          if (!isStandalone && p.parentEventTitle && cancelledEventTitles.has(p.parentEventTitle.trim().toLowerCase())) {
             return;
           }
 
           const initialSlots = p.slots != null ? p.slots : 20;
           const booked = getBookedCount(`pooja-${p.id}`, p.name);
-          fetchedActivities.push({
+          const isMultiDay = Boolean(p.isMultiDay || (p.startDate && p.endDate && p.startDate !== p.endDate));
+
+          const poojaAct: Activity = {
             id: `pooja-${p.id || Date.now()}`,
-            title: p.name || "Pooja Seva",
+            title: p.name || p.title || "Pooja Seva",
             category: "Pooja",
             date: p.date ? String(p.date) : (p.startDate ? String(p.startDate) : "Upcoming"),
             startDate: p.startDate || p.date,
             endDate: p.endDate,
-            isMultiDay: p.isMultiDay,
+            isMultiDay,
             time: p.startTime ? `${p.startTime}` : (p.time || "Morning"),
             startTime: p.startTime,
             startTimes: p.startTimes,
@@ -528,11 +514,43 @@ export function EventMemberView() {
             availableSeats: Math.max(0, initialSlots - booked),
             image: "🪔",
             description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || ""}`,
-            // Track parent event linkage for strict deduplication
-            mainEventId: p.mainEventId != null ? String(p.mainEventId) : undefined,
-          });
+            mainEventId: !isStandalone && p.mainEventId != null ? String(p.mainEventId) : undefined,
+          };
+
+          fetchedActivities.push(poojaAct);
+
+          if (isStandalone) {
+            standalonePoojaEvents.push({
+              id: `pooja-${p.id}`,
+              rawId: p.id,
+              isStandalonePooja: true,
+              title: p.name || p.title || "Pooja Seva",
+              category: p.category || "Pooja & Seva",
+              type: "Pooja & Seva",
+              startDate: p.startDate || p.date || "Upcoming",
+              endDate: p.endDate || p.startDate || p.date,
+              startTime: p.startTime || p.time || "Morning",
+              endTime: p.endTime,
+              venue: p.mandap || "Main Temple Mandap",
+              location: p.mandap || "Main Temple Mandap",
+              mandap: p.mandap,
+              pandit: p.pandit,
+              isMultiDay,
+              slots: p.slots,
+              price: p.isFree ? 0 : Number(p.fee || 501),
+              fee: p.isFree ? 0 : Number(p.fee || 501),
+              isFree: p.isFree,
+              coverImage: p.coverImage || p.imageUrl || "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
+              description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || p.description || "Sacred Pooja Seva Sankalpam"}${isMultiDay ? " (Multi-Day Booking)" : ""}`,
+              attendees: booked,
+              registrationCount: booked,
+            });
+          }
         });
       }
+
+      const allRunning = allEvents ? allEvents.filter((ev: any) => String(ev.status || "").toUpperCase() !== "CANCELLED") : [];
+      setMainEventsList([...allRunning, ...standalonePoojaEvents]);
 
       if (meals && Array.isArray(meals)) {
         meals.forEach((m: any) => {

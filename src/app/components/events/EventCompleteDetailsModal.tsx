@@ -74,23 +74,33 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
   useEffect(() => {
     if (!isOpen || !event) return;
 
-    // First, filter from allActivities passed as prop
+    if (event.isStandalonePooja) {
+      setSubPoojas([]);
+      setSubMeals([]);
+      setSubCulturals([]);
+      setSubComps([]);
+      setSponsors([]);
+      return;
+    }
+
+    // Filter from allActivities passed as prop (strictly matched to this main event)
     const filteredPoojas: any[] = [];
     const filteredMeals: any[] = [];
     const filteredCulturals: any[] = [];
     const filteredComps: any[] = [];
 
     allActivities.forEach((act: any) => {
-      const actMainId = act.mainEventId != null ? String(act.mainEventId) : null;
-      const actEventId = act.eventId != null ? String(act.eventId) : null;
-      const isMatch = (eventId && (actMainId === eventId || actEventId === eventId)) ||
+      const actMainId = act.mainEventId != null ? String(act.mainEventId).replace(/^event-/, "") : null;
+      const actEventId = act.eventId != null ? String(act.eventId).replace(/^event-/, "") : null;
+      const currentCleanId = eventId ? String(eventId).replace(/^event-/, "") : null;
+      const isMatch = (currentCleanId && (actMainId === currentCleanId || actEventId === currentCleanId)) ||
                       (rawId && (actMainId === rawId || actEventId === rawId)) ||
                       (act.parentEventTitle && act.parentEventTitle.trim().toLowerCase() === eventTitle.trim().toLowerCase());
 
       const cat = (act.category || "").toLowerCase();
       const idStr = String(act.id || "").toLowerCase();
 
-      if (isMatch || allActivities.length <= 15) {
+      if (isMatch) {
         if (cat.includes("pooja") || cat.includes("seva") || idStr.startsWith("pooja-")) {
           filteredPoojas.push(act);
         } else if (cat.includes("food") || cat.includes("meal") || cat.includes("annadanam") || idStr.startsWith("food-")) {
@@ -114,15 +124,15 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
       try {
         const numId = eventId ? Number(eventId) : undefined;
         const [poojasRes, mealsRes, cultRes, compsRes, sponsorsRes] = await Promise.allSettled([
-          eventService.getPoojaSevas(numId),
-          eventService.getLunchDinners(numId),
+          numId ? eventService.getPoojaSevas(numId) : Promise.resolve([]),
+          numId ? eventService.getLunchDinners(numId) : Promise.resolve([]),
           eventService.getCulturalEvents(),
           eventService.getCompetitions(),
           numId ? eventSponsorService.getSponsors(numId) : Promise.resolve([]),
         ]);
 
         if (poojasRes.status === "fulfilled" && Array.isArray(poojasRes.value) && poojasRes.value.length > 0) {
-          const list = numId ? poojasRes.value.filter((p: any) => p.mainEventId == numId || p.eventId == numId) : poojasRes.value;
+          const list = numId ? poojasRes.value.filter((p: any) => p.mainEventId == numId || p.eventId == numId) : [];
           if (list.length > 0) {
             setSubPoojas(list.map((p: any) => ({
               id: `pooja-${p.id}`,
@@ -133,6 +143,12 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
               venue: p.mandap || p.venue || eventLocation,
               fee: p.isFree ? 0 : Number(p.fee || 501),
               availableSeats: p.slots || 25,
+              description: p.notes || `Pandit: ${p.pandit || "Temple Priest"}. Sankalpam included.`,
+              pandit: p.pandit,
+              mandap: p.mandap,
+            })));
+          }
+        }
               description: p.notes || `Pandit: ${p.pandit || "Temple Priest"}. Sankalpam included.`,
               pandit: p.pandit,
               mandap: p.mandap,
