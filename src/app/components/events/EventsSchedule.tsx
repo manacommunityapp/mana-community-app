@@ -14,7 +14,7 @@ import {
   AlertCircle, MapPin, Users, Ticket, Globe, Lock,
   Send, Mail, BellRing, Megaphone, MessageSquare,
   ChevronRight, Filter, ArrowUpDown, Plus, ExternalLink, Loader2,
-  CalendarClock, Repeat, Timer, History, Zap, RotateCcw, Pause, Play, X, ShieldCheck, Smartphone,
+  CalendarClock, Repeat, Timer, History, Zap, RotateCcw, Pause, Play, X, ShieldCheck, Smartphone, Calendar, User,
   Flame, Music, Trophy, UtensilsCrossed, Phone, CreditCard, QrCode, IndianRupee, Share2, Check, FileText, Sparkles, Info
 } from "lucide-react";
 import { Input } from "../ui/input";
@@ -882,6 +882,35 @@ function DeleteConfirmDialog({ event, onClose, onConfirm }: {
   );
 }
 
+/* ─── Mock Fallbacks for Sub-Events ─── */
+const DEFAULT_MOCK_POOJAS = [
+  { id: 1, name: "Maha Ganapathi Abhishekam", type: "Abhishekam", date: "2026-08-27", startTime: "08:30", startTimes: ["08:30", "11:00"], mandap: "Main Temple Mandap", pandit: "Pandit Suresh Sharma", slots: 20, fee: 501, items: ["Coconut", "Flowers", "Bananas", "Kumkum"], notes: "Special silver shield pooja" },
+  { id: 2, name: "Satyanarayan Puja", type: "Satyanarayan Puja", date: "2026-08-28", startTime: "09:00", mandap: "Community Hall - Stage A", pandit: "Pandit Ramesh Iyer", slots: 30, fee: 0, items: ["Coconut", "Bananas", "Flowers"], notes: "" },
+  { id: 3, name: "Navagraha Homam", type: "Ganapati Homam", date: "2026-08-27", endDate: "2026-08-29", startTime: "06:00", mandap: "Homa Kund Area", pandit: "Pandit Vishwanath", slots: 15, fee: 1100, items: ["Ghee", "Samagri", "Flowers", "Coconut"], notes: "3-day special homam" },
+  { id: 4, name: "Sahasranama Archana", type: "Sahasranama Archana", date: "2026-08-29", startTime: "07:00", startTimes: ["07:00", "16:00"], mandap: "Main Temple Mandap", pandit: "Pandit Suresh Sharma", slots: 50, fee: 251, items: ["Flowers", "Kumkum", "Turmeric"], notes: "" },
+];
+
+const DEFAULT_MOCK_CULTURALS = [
+  { id: 1, name: "Bharatanatyam – Pushpanjali", category: "Classical Dance", perfType: "Solo", ageGroup: "Youth (16-25)", date: "2026-08-27", startTime: "10:00", duration: 15, stage: "Main Stage", requirements: "Classical music system, spotlight" },
+  { id: 2, name: "Carnatic Vocal Ensemble", category: "Classical Music", perfType: "Ensemble", ageGroup: "Open", date: "2026-08-27", startTime: "11:00", duration: 30, stage: "Main Stage", requirements: "Mics x4, tanpura, tabla" },
+  { id: 3, name: "Kids Fancy Dress", category: "Drama/Skit", perfType: "Group", ageGroup: "Kids (5-10)", date: "2026-08-28", startTime: "09:30", duration: 45, stage: "Side Stage", requirements: "Open floor area, props table" },
+  { id: 4, name: "Bhajan Sandhya", category: "Bhajan/Kirtan", perfType: "Group", ageGroup: "Open", date: "2026-08-28", startTime: "18:00", duration: 60, stage: "Temple Mandap", requirements: "Harmonium, dholak, cymbal mics" },
+  { id: 5, name: "Folk Dance – Garba Night", category: "Folk Dance", perfType: "Group", ageGroup: "Open", date: "2026-08-29", startTime: "20:00", duration: 90, stage: "Open Ground", requirements: "DJ setup, LED lights, dandiya sticks" },
+];
+
+const DEFAULT_MOCK_COMPS = [
+  { id: 1, name: "Eco-Friendly Clay Ganesha Making", category: "Arts & Crafts", ageGroup: "Kids (5-12)", date: "2026-08-28", startTime: "10:00", venue: "Activity Room B", fee: 0, prize: "Trophy & Gift Hamper" },
+  { id: 2, name: "Traditional Rangoli Competition", category: "Rangoli & Art", ageGroup: "Open", date: "2026-08-28", startTime: "15:00", venue: "Community Hall Front Courtyard", fee: 0, prize: "Cash Award ₹2,000" },
+  { id: 3, name: "Devotional Sloka Recitation", category: "Music & Chanting", ageGroup: "Junior (6-14)", date: "2026-08-29", startTime: "10:30", venue: "Mini Auditorium", fee: 0, prize: "Medals & Certificates" },
+];
+
+const DEFAULT_MOCK_MEALS = [
+  { id: 1, name: "Day 1 – Grand Mahaprasadam Lunch", mealType: "Lunch", date: "2026-08-27", startTime: "12:00", endTime: "14:00", venue: "Community Hall - Dining Area", targetPlates: 500, caterer: "Sri Annapurna Caterers", dietType: "Vegetarian", fee: 0, menuItems: ["Rice", "Sambar", "Rasam", "Curd", "Payasam", "Poriyal", "Papad"] },
+  { id: 2, name: "Day 1 – Evening Prasadam", mealType: "Dinner", date: "2026-08-27", startTime: "19:00", endTime: "21:00", venue: "Temple Courtyard", targetPlates: 300, caterer: "Temple Kitchen", dietType: "Sattvic", fee: 0, menuItems: ["Pulihora", "Vada", "Kesari", "Buttermilk"] },
+  { id: 3, name: "Day 2 – Sponsor Special Bhoj", mealType: "Lunch", date: "2026-08-28", startTime: "12:30", endTime: "14:30", venue: "VIP Dining Hall", targetPlates: 100, caterer: "Grand Bhoj Caterers", dietType: "Vegetarian", fee: 501, menuItems: ["Paneer Butter Masala", "Naan", "Biryani", "Gulab Jamun", "Raita", "Salad"] },
+  { id: 4, name: "Day 2 – Community Dinner", mealType: "Dinner", date: "2026-08-28", startTime: "19:30", endTime: "21:30", venue: "Community Hall - Dining Area", targetPlates: 400, caterer: "Sri Annapurna Caterers", dietType: "Vegetarian", fee: 0, menuItems: ["Chapati", "Dal Fry", "Aloo Gobi", "Rice", "Kheer"] },
+];
+
 /* ─── Event Details Dialog ─── */
 function EventDetailsDialog({
   event,
@@ -895,11 +924,20 @@ function EventDetailsDialog({
   onNotify?: () => void;
 }) {
   const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
+  const { useMock } = useEventMock();
   const [fullEvent, setFullEvent] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+
+  // Sub-Events States
+  const [poojas, setPoojas] = useState<any[]>([]);
+  const [culturals, setCulturals] = useState<any[]>([]);
+  const [competitions, setCompetitions] = useState<any[]>([]);
+  const [meals, setMeals] = useState<any[]>([]);
+  const [activeSubTab, setActiveSubTab] = useState<"all" | "pooja" | "cultural" | "competitions" | "meals">("all");
+  const [subEventsLoading, setSubEventsLoading] = useState(false);
 
   const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
   const isEventsAdmin =
@@ -935,7 +973,76 @@ function EventDetailsDialog({
         })
         .finally(() => setLoading(false));
     }
-  }, [event.id]);
+
+    setSubEventsLoading(true);
+    const eventStart = event.startDate;
+    const eventEnd = event.endDate || eventStart;
+
+    const matchesEvent = (sub: any) => {
+      if (sub.mainEventId != null && numId && !isNaN(numId)) {
+        if (Number(sub.mainEventId) === numId || String(sub.mainEventId) === String(rawId)) {
+          return true;
+        }
+      }
+      if (sub.eventId != null && numId && !isNaN(numId)) {
+        if (Number(sub.eventId) === numId || String(sub.eventId) === String(rawId)) {
+          return true;
+        }
+      }
+      if (sub.date && eventStart) {
+        if (sub.date >= eventStart && (!eventEnd || sub.date <= eventEnd)) {
+          return true;
+        }
+      }
+      if (sub.mainEventId == null && !sub.date) {
+        return true;
+      }
+      return false;
+    };
+
+    Promise.allSettled([
+      eventService.getPoojaSevas().catch(() => []),
+      eventService.getCulturalEvents().catch(() => []),
+      eventService.getCompetitions().catch(() => []),
+      eventService.getLunchDinners(numId && !isNaN(numId) ? numId : undefined).catch(() => []),
+    ]).then(([poojaRes, cultRes, compRes, mealRes]) => {
+      const livePoojas = poojaRes.status === "fulfilled" && Array.isArray(poojaRes.value) ? poojaRes.value : [];
+      const liveCulturals = cultRes.status === "fulfilled" && Array.isArray(cultRes.value) ? cultRes.value : [];
+      const liveComps = compRes.status === "fulfilled" && Array.isArray(compRes.value) ? compRes.value : [];
+      const liveMeals = mealRes.status === "fulfilled" && Array.isArray(mealRes.value) ? mealRes.value : [];
+
+      const filteredPoojas = livePoojas.filter(matchesEvent);
+      const filteredCulturals = liveCulturals.filter(matchesEvent);
+      const filteredComps = liveComps.filter(matchesEvent);
+      const filteredMeals = liveMeals.filter(matchesEvent);
+
+      if (filteredPoojas.length === 0 && useMock) {
+        setPoojas(DEFAULT_MOCK_POOJAS.filter(matchesEvent));
+      } else {
+        setPoojas(filteredPoojas);
+      }
+
+      if (filteredCulturals.length === 0 && useMock) {
+        setCulturals(DEFAULT_MOCK_CULTURALS.filter(matchesEvent));
+      } else {
+        setCulturals(filteredCulturals);
+      }
+
+      if (filteredComps.length === 0 && useMock) {
+        setCompetitions(DEFAULT_MOCK_COMPS.filter(matchesEvent));
+      } else {
+        setCompetitions(filteredComps);
+      }
+
+      if (filteredMeals.length === 0 && useMock) {
+        setMeals(DEFAULT_MOCK_MEALS.filter(matchesEvent));
+      } else {
+        setMeals(filteredMeals);
+      }
+    }).finally(() => {
+      setSubEventsLoading(false);
+    });
+  }, [event.id, event.startDate, event.endDate, useMock]);
 
   const activeData = fullEvent || event;
   const s = STATUS_CONFIG[activeData.status?.toLowerCase()] || STATUS_CONFIG.upcoming;
@@ -960,6 +1067,7 @@ function EventDetailsDialog({
   const capacity = activeData.capacity || activeData.maxAttendees || 100;
   const registrations = activeData.attendees || activeData.registrations || 0;
   const capacityPct = Math.round((registrations / (capacity || 1)) * 100);
+  const totalSubEventsCount = poojas.length + culturals.length + competitions.length + meals.length;
 
   // Parse ticket categories
   let ticketTypes: any[] = [];
@@ -1149,6 +1257,330 @@ function EventDetailsDialog({
                 {registrations} / {capacity} passes filled
               </p>
             </div>
+          </div>
+
+          {/* Included Sub-Events & Activities */}
+          <div className="space-y-3 pt-1">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-amber-500" /> Included Festival Sub-Events &amp; Sevas
+                <span className="text-[10.5px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  {totalSubEventsCount} Sub-Events
+                </span>
+              </h4>
+
+              {/* Sub-tab switcher */}
+              {totalSubEventsCount > 0 && (
+                <div className="flex items-center gap-1 overflow-x-auto pb-0.5 max-w-full">
+                  {[
+                    { id: "all", label: `All (${totalSubEventsCount})` },
+                    { id: "pooja", label: `🪔 Pooja (${poojas.length})`, count: poojas.length },
+                    { id: "cultural", label: `🎭 Cultural (${culturals.length})`, count: culturals.length },
+                    { id: "competitions", label: `🏆 Competitions (${competitions.length})`, count: competitions.length },
+                    { id: "meals", label: `🍲 Meals (${meals.length})`, count: meals.length },
+                  ]
+                    .filter((tab) => tab.id === "all" || (tab.count ?? 0) > 0)
+                    .map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setActiveSubTab(tab.id as any)}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-[10.5px] font-bold whitespace-nowrap transition-all cursor-pointer",
+                          activeSubTab === tab.id
+                            ? "bg-indigo-600 text-white shadow-xs"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                        )}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {subEventsLoading ? (
+              <div className="p-6 text-center bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center gap-2 text-xs text-slate-500 font-medium">
+                <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+                <span>Loading included sub-events...</span>
+              </div>
+            ) : totalSubEventsCount === 0 ? (
+              <div className="p-4 text-center bg-slate-50/80 rounded-2xl border border-dashed border-slate-200 space-y-1">
+                <p className="text-xs font-bold text-slate-700">No Sub-Events Linked Yet</p>
+                <p className="text-[11px] text-slate-400">
+                  Sub-events such as Pooja Sevas, Cultural programs, Competitions, and Meals will appear here once configured.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-80 overflow-y-auto pr-0.5 custom-scrollbar">
+                {/* Render Poojas */}
+                {(activeSubTab === "all" || activeSubTab === "pooja") &&
+                  poojas.map((p) => {
+                    const price = p.fee != null ? Number(p.fee) : 0;
+                    return (
+                      <div
+                        key={`pooja-${p.id}`}
+                        className="p-3 rounded-2xl border border-amber-200/80 bg-amber-50/30 hover:border-amber-300 hover:bg-amber-50/50 transition-all flex flex-col justify-between gap-2 shadow-2xs group"
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs">🪔</span>
+                                <h5 className="text-xs font-bold text-slate-900 truncate group-hover:text-amber-700 transition-colors">
+                                  {p.name || p.title}
+                                </h5>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-1 flex-wrap font-medium">
+                                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200 uppercase">
+                                  {p.type || "Pooja Seva"}
+                                </span>
+                                {p.date && (
+                                  <span className="flex items-center gap-0.5">
+                                    <Calendar className="w-2.5 h-2.5 text-amber-600" />
+                                    <span>{p.date}</span>
+                                  </span>
+                                )}
+                                {(p.startTime || (p.startTimes && p.startTimes.length > 0)) && (
+                                  <span className="flex items-center gap-0.5">
+                                    <Clock className="w-2.5 h-2.5 text-slate-400" />
+                                    <span>{p.startTimes ? p.startTimes.join(", ") : p.startTime}</span>
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span className="text-xs font-black text-amber-700 px-2 py-0.5 rounded-full bg-amber-100/80 border border-amber-200 shrink-0">
+                              {price > 0 ? `₹${price}` : "FREE"}
+                            </span>
+                          </div>
+
+                          {(p.mandap || p.venue || p.pandit) && (
+                            <div className="text-[10.5px] text-slate-600 mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5">
+                              {(p.mandap || p.venue) && (
+                                <span className="flex items-center gap-1 truncate max-w-[180px]">
+                                  <MapPin className="w-2.5 h-2.5 text-rose-500 shrink-0" />
+                                  <span className="truncate">{p.mandap || p.venue}</span>
+                                </span>
+                              )}
+                              {p.pandit && (
+                                <span className="flex items-center gap-1 text-slate-500">
+                                  <User className="w-2.5 h-2.5 text-amber-600 shrink-0" />
+                                  <span>{p.pandit}</span>
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {p.items && p.items.length > 0 && (
+                            <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                              <span className="text-[9px] font-bold text-slate-400 uppercase">Samagri:</span>
+                              {p.items.slice(0, 3).map((item: string, i: number) => (
+                                <span key={i} className="text-[9.5px] px-1.5 py-0.2 bg-white border border-amber-200 rounded text-slate-600">
+                                  {item}
+                                </span>
+                              ))}
+                              {p.items.length > 3 && (
+                                <span className="text-[9px] text-slate-400 font-semibold">+{p.items.length - 3}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {p.slots != null && (
+                          <div className="pt-1.5 border-t border-amber-200/60 flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                            <span>Devotee Capacity</span>
+                            <span className="text-amber-800 font-bold">{p.slots} slots</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                {/* Render Cultural Events */}
+                {(activeSubTab === "all" || activeSubTab === "cultural") &&
+                  culturals.map((c) => (
+                    <div
+                      key={`cultural-${c.id}`}
+                      className="p-3 rounded-2xl border border-purple-200/80 bg-purple-50/30 hover:border-purple-300 hover:bg-purple-50/50 transition-all flex flex-col justify-between gap-2 shadow-2xs group"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs">🎭</span>
+                              <h5 className="text-xs font-bold text-slate-900 truncate group-hover:text-purple-700 transition-colors">
+                                {c.name || c.title}
+                              </h5>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-1 flex-wrap font-medium">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200 uppercase">
+                                {c.category || "Cultural"}
+                              </span>
+                              {c.perfType && <span className="text-slate-400">· {c.perfType}</span>}
+                              {c.ageGroup && <span className="text-slate-400">· {c.ageGroup}</span>}
+                            </div>
+                          </div>
+                          <span className="text-xs font-black text-purple-700 px-2 py-0.5 rounded-full bg-purple-100/80 border border-purple-200 shrink-0">
+                            Stage Show
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-[10.5px] text-slate-600 mt-1.5 flex-wrap">
+                          {c.date && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-2.5 h-2.5 text-purple-600" />
+                              <span>{c.date}</span>
+                            </span>
+                          )}
+                          {c.startTime && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5 text-slate-400" />
+                              <span>{c.startTime} {c.duration ? `(${c.duration} mins)` : ""}</span>
+                            </span>
+                          )}
+                          {c.stage && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-2.5 h-2.5 text-purple-600" />
+                              <span>{c.stage}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {c.requirements && (
+                          <p className="text-[10px] text-slate-500 italic mt-1 line-clamp-1">
+                            Req: {c.requirements}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                {/* Render Competitions */}
+                {(activeSubTab === "all" || activeSubTab === "competitions") &&
+                  competitions.map((comp) => (
+                    <div
+                      key={`comp-${comp.id}`}
+                      className="p-3 rounded-2xl border border-sky-200/80 bg-sky-50/30 hover:border-sky-300 hover:bg-sky-50/50 transition-all flex flex-col justify-between gap-2 shadow-2xs group"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs">🏆</span>
+                              <h5 className="text-xs font-bold text-slate-900 truncate group-hover:text-sky-700 transition-colors">
+                                {comp.name || comp.title}
+                              </h5>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-1 flex-wrap font-medium">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-sky-100 text-sky-800 border border-sky-200 uppercase">
+                                {comp.category || "Competition"}
+                              </span>
+                              {comp.ageGroup && <span className="text-slate-400">· {comp.ageGroup}</span>}
+                            </div>
+                          </div>
+                          <span className="text-xs font-black text-sky-700 px-2 py-0.5 rounded-full bg-sky-100/80 border border-sky-200 shrink-0">
+                            Contest
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-[10.5px] text-slate-600 mt-1.5 flex-wrap">
+                          {comp.date && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-2.5 h-2.5 text-sky-600" />
+                              <span>{comp.date}</span>
+                            </span>
+                          )}
+                          {comp.startTime && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5 text-slate-400" />
+                              <span>{comp.startTime}</span>
+                            </span>
+                          )}
+                          {comp.venue && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-2.5 h-2.5 text-sky-600" />
+                              <span>{comp.venue}</span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                {/* Render Meals / Prasadam */}
+                {(activeSubTab === "all" || activeSubTab === "meals") &&
+                  meals.map((m) => (
+                    <div
+                      key={`meal-${m.id}`}
+                      className="p-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/30 hover:border-emerald-300 hover:bg-emerald-50/50 transition-all flex flex-col justify-between gap-2 shadow-2xs group"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs">🍲</span>
+                              <h5 className="text-xs font-bold text-slate-900 truncate group-hover:text-emerald-700 transition-colors">
+                                {m.name || m.title}
+                              </h5>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-1 flex-wrap font-medium">
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase">
+                                {m.mealType || "Meal"}
+                              </span>
+                              {m.dietType && <span className="text-slate-400">· {m.dietType}</span>}
+                            </div>
+                          </div>
+                          <span className="text-xs font-black text-emerald-700 px-2 py-0.5 rounded-full bg-emerald-100/80 border border-emerald-200 shrink-0">
+                            {m.fee && Number(m.fee) > 0 ? `₹${m.fee}` : "FREE"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-[10.5px] text-slate-600 mt-1.5 flex-wrap">
+                          {m.date && (
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-2.5 h-2.5 text-emerald-600" />
+                              <span>{m.date}</span>
+                            </span>
+                          )}
+                          {(m.startTime || m.endTime) && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5 text-slate-400" />
+                              <span>{m.startTime} – {m.endTime || "End"}</span>
+                            </span>
+                          )}
+                          {m.venue && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-2.5 h-2.5 text-emerald-600" />
+                              <span>{m.venue}</span>
+                            </span>
+                          )}
+                        </div>
+
+                        {m.menuItems && m.menuItems.length > 0 && (
+                          <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">Menu:</span>
+                            {m.menuItems.slice(0, 4).map((item: string, i: number) => (
+                              <span key={i} className="text-[9.5px] px-1.5 py-0.2 bg-white border border-emerald-200 rounded text-slate-600">
+                                {item}
+                              </span>
+                            ))}
+                            {m.menuItems.length > 4 && (
+                              <span className="text-[9px] text-slate-400 font-semibold">+{m.menuItems.length - 4}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {m.targetPlates != null && (
+                        <div className="pt-1.5 border-t border-emerald-200/60 flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                          <span>Target Capacity</span>
+                          <span className="text-emerald-800 font-bold">{m.targetPlates} plates</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
 
           {/* Ticket Tiers / Categories */}

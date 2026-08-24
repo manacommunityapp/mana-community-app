@@ -21,6 +21,7 @@ export interface ProgramFormDraft {
   venue: string;
   performer: string;
 }
+import { useSearchParams } from "react-router";
 import { useEventMock } from "./EventMockToggle";
 import { eventProgramService, type EventProgramResponse, type ActivityRegistrationResponse } from "../../../services/events/eventProgramService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
@@ -32,7 +33,38 @@ import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Textarea } from "../ui/textarea";
 
-const days = ["Day 1 – Aug 27", "Day 2 – Aug 28", "Day 3 – Aug 29"];
+const defaultDays = ["Day 1 – Aug 27", "Day 2 – Aug 28", "Day 3 – Aug 29"];
+
+export function generateDaysForEvent(event?: EventResponse | null, existingDayLabels: string[] = []): string[] {
+  const daySet = new Set<string>();
+
+  if (event?.startDate) {
+    const start = new Date(event.startDate);
+    const end = event.endDate ? new Date(event.endDate) : start;
+    if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end >= start) {
+      const diff = Math.min(30, Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1));
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      for (let i = 0; i < diff; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        const formatted = `${monthNames[d.getMonth()]} ${d.getDate()}`;
+        daySet.add(`Day ${i + 1} – ${formatted}`);
+      }
+    } else {
+      daySet.add("Day 1");
+    }
+  }
+
+  for (const label of existingDayLabels) {
+    if (label && label.trim()) daySet.add(label.trim());
+  }
+
+  if (daySet.size === 0) {
+    return defaultDays;
+  }
+
+  return Array.from(daySet);
+}
 
 type ScheduleItem = {
   id?: string;
@@ -419,11 +451,20 @@ export function EditProgramModal({
   );
 }
 
-export function EventsPrograms() {
+export interface EventsProgramsProps {
+  initialEventId?: number | string;
+  onEventChange?: (eventId: number) => void;
+}
+
+export function EventsPrograms({ initialEventId, onEventChange }: EventsProgramsProps = {}) {
   const { useMock } = useEventMock();
-  const [activeDay, setActiveDay] = useState(days[0]);
+  const [searchParams] = useSearchParams();
+  const paramEventId = searchParams.get("eventId");
+  const initialResolvedId = initialEventId ? Number(initialEventId) : (paramEventId ? Number(paramEventId) : null);
+
+  const [activeDay, setActiveDay] = useState(defaultDays[0]);
   const [events, setEvents] = useState<EventResponse[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(initialResolvedId);
   const [liveDays, setLiveDays] = useState<string[]>([]);
   const [liveSchedule, setLiveSchedule] = useState<Record<string, ScheduleItem[]>>({});
   const [activeLiveDay, setActiveLiveDay] = useState("");
@@ -486,22 +527,41 @@ export function EventsPrograms() {
 
   // Quick Add Activity & Multi-Program state
   const [showAddActivityModal, setShowAddActivityModal] = useState(false);
-  const [selectedModalDay, setSelectedModalDay] = useState<string>(days[0]);
+  const [modalTargetEventId, setModalTargetEventId] = useState<number | null>(null);
+  const [selectedModalDay, setSelectedModalDay] = useState<string>(defaultDays[0]);
+  const [isCustomDay, setIsCustomDay] = useState(false);
+  const [customDayInput, setCustomDayInput] = useState("");
   const [programDrafts, setProgramDrafts] = useState<ProgramFormDraft[]>([
     { id: "draft_1", title: "", type: "Cultural", time: "10:00 AM", duration: "1h", venue: "Main Stage", performer: "" }
   ]);
   const [mockCustomSchedule, setMockCustomSchedule] = useState<Record<string, ScheduleItem[]>>(schedule);
 
+  // Fetch all community events
   useEffect(() => {
     if (useMock) return;
-    eventService.getUpcomingEvents()
-      .then(evts => {
-        setEvents(evts);
-        if (evts.length > 0) setSelectedEventId(evts[0].id);
-      })
-      .catch(() => {});
-  }, [useMock]);
+    async function loadEvents() {
+      try {
+        const evts = await eventService.getAll().catch(() => eventService.getUpcomingEvents());
+        const validList = Array.isArray(evts) ? evts.filter(e => e && e.id) : [];
+        setEvents(validList);
+        if (validList.length > 0) {
+          setSelectedEventId(prev => {
+            if (prev && validList.some(e => e.id === prev)) return prev;
+            if (initialResolvedId && validList.some(e => e.id === initialResolvedId)) return initialResolvedId;
+            return validList[0].id;
+          });
+        }
+      } catch (err: any) {
+        console.warn("Failed to load events:", err);
+      }
+    }
+    loadEvents();
+  }, [useMock, initialResolvedId]);
 
+  const selectedEventObj = events.find(e => e.id === selectedEventId);
+  const currentEventTitle = selectedEventObj?.title || "Community Festival";
+
+  // Load programs and dynamically compute days for the selected main event
   useEffect(() => {
     if (useMock || !selectedEventId) return;
     setLoading(true);
@@ -509,36 +569,44 @@ export function EventsPrograms() {
     eventProgramService.getByEvent(selectedEventId)
       .then(data => {
         const byDay: Record<string, ScheduleItem[]> = {};
+        const existingDayLabels: string[] = [];
+
         for (const p of data) {
           const day = p.dayLabel ?? "Day 1";
+          existingDayLabels.push(day);
           if (!byDay[day]) byDay[day] = [];
           byDay[day].push(...mapLivePrograms([p]));
         }
-        const dayKeys = Object.keys(byDay).sort();
-        setLiveSchedule(byDay);
-        setLiveDays(dayKeys);
-        setActiveLiveDay(dayKeys[0] ?? "");
-      })
-      .catch(e => setError(e.message ?? "Failed to load programs"))
-      .finally(() => setLoading(false));
-  }, [useMock, selectedEventId]);
 
-  const currentDays = useMock ? days : liveDays;
-  const currentDay = useMock ? activeDay : activeLiveDay;
+        const computedDays = generateDaysForEvent(selectedEventObj, existingDayLabels);
+        for (const d of computedDays) {
+          if (!byDay[d]) byDay[d] = [];
+        }
+
+        setLiveSchedule(byDay);
+        setLiveDays(computedDays);
+        setActiveLiveDay(prev => (computedDays.includes(prev) ? prev : computedDays[0] ?? "Day 1"));
+      })
+      .catch(e => setError(e.message ?? "Failed to load programs for selected event"))
+      .finally(() => setLoading(false));
+  }, [useMock, selectedEventId, selectedEventObj?.startDate, selectedEventObj?.endDate]);
+
+  const currentDays = useMock ? defaultDays : (liveDays.length > 0 ? liveDays : defaultDays);
+  const currentDay = useMock ? activeDay : (activeLiveDay || currentDays[0]);
   const setCurrentDay = useMock ? setActiveDay : setActiveLiveDay;
   const items = useMock ? (mockCustomSchedule[activeDay] || []) : (liveSchedule[activeLiveDay] || []);
-
-  const selectedEventObj = events.find(e => e.id === selectedEventId);
-  const currentEventTitle = selectedEventObj?.title || "Community Festival";
 
   const handleOpenNotification = (activityTitle?: string) => {
     setTargetActivityTitle(activityTitle);
     setNotifModalOpen(true);
   };
 
-  /* Open Add Program Modal pre-configured with current active day */
+  /* Open Add Program Modal pre-configured with current active day and selected event */
   const handleOpenAddModal = () => {
-    setSelectedModalDay(currentDay || days[0]);
+    setSelectedModalDay(currentDay || (currentDays[0] ?? "Day 1"));
+    setModalTargetEventId(selectedEventId ?? (events[0]?.id || null));
+    setIsCustomDay(false);
+    setCustomDayInput("");
     setProgramDrafts([
       { id: `draft_${Date.now()}_1`, title: "", type: "Cultural", time: "10:00 AM", duration: "1h", venue: "Main Stage", performer: "" }
     ]);
@@ -604,7 +672,10 @@ export function EventsPrograms() {
     const validDrafts = programDrafts.filter(d => d.title.trim().length > 0);
     if (validDrafts.length === 0) return;
 
-    if (useMock || !selectedEventId) {
+    const targetEvtId = modalTargetEventId || selectedEventId;
+    const finalDayLabel = isCustomDay && customDayInput.trim() ? customDayInput.trim() : selectedModalDay;
+
+    if (useMock || !targetEvtId) {
       const newItems: ScheduleItem[] = validDrafts.map((d, idx) => {
         const typeInfo = typeIconMap[d.type] || { icon: Layers, color: "#6366f1" };
         return {
@@ -621,16 +692,16 @@ export function EventsPrograms() {
       });
       setMockCustomSchedule(prev => ({
         ...prev,
-        [selectedModalDay]: [...(prev[selectedModalDay] || []), ...newItems],
+        [finalDayLabel]: [...(prev[finalDayLabel] || []), ...newItems],
       }));
     } else {
       try {
         const created: ScheduleItem[] = [];
         for (const d of validDrafts) {
           const resp = await eventProgramService.create({
-            eventId: selectedEventId,
+            eventId: targetEvtId,
             title: d.title,
-            dayLabel: selectedModalDay,
+            dayLabel: finalDayLabel,
             programType: d.type,
             startTime: d.time || "10:00 AM",
             duration: d.duration || "1h",
@@ -641,24 +712,25 @@ export function EventsPrograms() {
         }
         setLiveSchedule(prev => ({
           ...prev,
-          [selectedModalDay]: [...(prev[selectedModalDay] || []), ...created],
+          [finalDayLabel]: [...(prev[finalDayLabel] || []), ...created],
         }));
-        if (!liveDays.includes(selectedModalDay)) {
-          setLiveDays(prev => [...prev, selectedModalDay].sort());
+        if (!liveDays.includes(finalDayLabel)) {
+          setLiveDays(prev => [...prev, finalDayLabel]);
         }
+        window.dispatchEvent(new CustomEvent("mana_event_programs_updated", { detail: { eventId: targetEvtId } }));
       } catch (e: any) {
-        setError(e?.response?.data?.message || e?.message || "Failed to save programs");
+        setError(e?.response?.data?.message || e?.message || "Failed to save day activities to main event");
         return;
       }
     }
 
-    setCurrentDay(selectedModalDay);
+    setCurrentDay(finalDayLabel);
     setShowAddActivityModal(false);
 
     if (shouldNotify) {
       const summaryTitle = validDrafts.length === 1
         ? validDrafts[0].title
-        : `${validDrafts.length} New Programs for ${selectedModalDay}`;
+        : `${validDrafts.length} New Programs for ${finalDayLabel}`;
       handleOpenNotification(summaryTitle);
     }
   };
@@ -669,15 +741,15 @@ export function EventsPrograms() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-xs">
         <div>
           <h2 className="text-base font-bold text-slate-800 flex items-center gap-2">
-            <Zap className="w-5 h-5 text-indigo-600" /> Day-Wise Event Agenda & Cultural Programs
+            <Zap className="w-5 h-5 text-indigo-600" /> Day-Wise Event Agenda &amp; Cultural Programs
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">Manage schedule activities and send email updates to attendees</p>
+          <p className="text-xs text-slate-400 mt-0.5">Manage day-wise schedule activities and broadcast updates to attendees</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             size="sm"
             onClick={handleOpenAddModal}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl"
+            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl shadow-xs"
           >
             <Plus className="w-3.5 h-3.5" /> Add Day Activity / Program
           </Button>
@@ -692,6 +764,65 @@ export function EventsPrograms() {
         </div>
       </div>
 
+      {/* Main Event Selector & Context Bar */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-2xs">
+            <Calendar className="w-5 h-5" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Selected Main Event</span>
+              {selectedEventObj?.status && (
+                <Badge variant="outline" className="text-[10px] uppercase font-bold border-indigo-200 text-indigo-700 bg-indigo-50/50">
+                  {selectedEventObj.status}
+                </Badge>
+              )}
+            </div>
+            {!useMock && events.length > 0 ? (
+              <select
+                value={selectedEventId ?? ""}
+                onChange={e => {
+                  const id = Number(e.target.value);
+                  setSelectedEventId(id);
+                  onEventChange?.(id);
+                }}
+                className="mt-1 w-full max-w-md px-3 py-1.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-800 bg-slate-50/70 hover:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 cursor-pointer truncate"
+              >
+                {events.map(ev => (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.title} {ev.startDate ? `(${ev.startDate}${ev.endDate && ev.endDate !== ev.startDate ? ` to ${ev.endDate}` : ""})` : ""}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <h3 className="font-bold text-slate-800 text-sm truncate mt-0.5">{currentEventTitle}</h3>
+            )}
+          </div>
+        </div>
+
+        {selectedEventObj && (
+          <div className="flex items-center gap-2 flex-wrap shrink-0">
+            {selectedEventObj.startDate && (
+              <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                <CalendarDays className="w-3.5 h-3.5 text-indigo-500" />
+                <span>{selectedEventObj.startDate} {selectedEventObj.endDate && selectedEventObj.endDate !== selectedEventObj.startDate ? `→ ${selectedEventObj.endDate}` : ""}</span>
+              </div>
+            )}
+            {selectedEventObj.location && (
+              <div className="px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-amber-500" />
+                <span className="truncate max-w-[140px]">{selectedEventObj.location}</span>
+              </div>
+            )}
+            <div className="px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-150 text-xs font-bold text-indigo-700 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <span>{currentDays.length} Days Configured</span>
+            </div>
+          </div>
+        )}
+      </div>
+
       {error && (
         <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-rose-50 border border-rose-200 text-sm text-rose-700">
           <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
@@ -702,18 +833,6 @@ export function EventsPrograms() {
         <div className="flex items-center justify-center py-8 text-slate-400">
           <Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading programs...
         </div>
-      )}
-
-      {!useMock && events.length > 1 && (
-        <select
-          value={selectedEventId ?? ""}
-          onChange={e => setSelectedEventId(Number(e.target.value))}
-          className="w-full max-w-xs px-3 py-2 rounded-xl border border-slate-200 text-sm bg-white"
-        >
-          {events.map(ev => (
-            <option key={ev.id} value={ev.id}>{ev.title}</option>
-          ))}
-        </select>
       )}
 
       {/* Day tabs */}
@@ -866,23 +985,67 @@ export function EventsPrograms() {
               </button>
             </div>
 
-            {/* Day Selector Banner */}
-            <div className="p-3.5 rounded-2xl bg-indigo-50/80 border border-indigo-150 space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-indigo-600" /> Select Target Event Day *
-                </Label>
-                <Badge className="bg-indigo-600 text-white text-[10px]">{currentEventTitle}</Badge>
+            {/* Main Event & Day Selector Controls */}
+            <div className="space-y-3">
+              {!useMock && events.length > 1 && (
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
+                  <Label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-indigo-600" /> Target Community Event *
+                  </Label>
+                  <select
+                    value={modalTargetEventId ?? (selectedEventId || "")}
+                    onChange={e => {
+                      const id = Number(e.target.value);
+                      setModalTargetEventId(id);
+                      const ev = events.find(x => x.id === id);
+                      const computed = generateDaysForEvent(ev);
+                      if (computed.length > 0) setSelectedModalDay(computed[0]);
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  >
+                    {events.map(ev => (
+                      <option key={ev.id} value={ev.id}>
+                        {ev.title} {ev.startDate ? `(${ev.startDate}${ev.endDate && ev.endDate !== ev.startDate ? ` to ${ev.endDate}` : ""})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Day Selector Banner */}
+              <div className="p-3.5 rounded-2xl bg-indigo-50/80 border border-indigo-150 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-indigo-600" /> Select Target Event Day *
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setIsCustomDay(!isCustomDay)}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer"
+                  >
+                    {isCustomDay ? "← Choose Standard Day" : "+ Custom Day Label"}
+                  </button>
+                </div>
+
+                {isCustomDay ? (
+                  <Input
+                    value={customDayInput}
+                    onChange={e => setCustomDayInput(e.target.value)}
+                    placeholder="e.g. Day 4 – Grand Finale or Visarjan Procession"
+                    className="h-9 text-xs rounded-xl border-indigo-200 bg-white font-semibold"
+                  />
+                ) : (
+                  <select
+                    value={selectedModalDay}
+                    onChange={e => setSelectedModalDay(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-white font-bold text-xs text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  >
+                    {currentDays.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                )}
               </div>
-              <select
-                value={selectedModalDay}
-                onChange={e => setSelectedModalDay(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-indigo-200 bg-white font-bold text-xs text-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-              >
-                {currentDays.map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
             </div>
 
             {/* Multi-Program Draft Cards Repeater */}
