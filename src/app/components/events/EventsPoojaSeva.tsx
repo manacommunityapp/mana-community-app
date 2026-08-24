@@ -928,7 +928,7 @@ export function EventsPoojaSeva() {
                             <input
                               type="date"
                               value={scheduleForm.scheduleDate}
-                              onChange={e => setScheduleForm(f => ({ ...f, scheduleDate: e.target.value }))}
+                              onChange={e => setScheduleForm(prev => ({ ...prev, scheduleDate: e.target.value }))}
                               className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
                             />
                           </label>
@@ -936,7 +936,7 @@ export function EventsPoojaSeva() {
                             <span className="text-[10px] font-semibold text-slate-600">Start Time *</span>
                             <TimePicker
                               value={scheduleForm.startTime}
-                              onChange={v => setScheduleForm(f => ({ ...f, startTime: v }))}
+                              onChange={v => setScheduleForm(prev => ({ ...prev, startTime: v }))}
                               size="sm"
                             />
                           </div>
@@ -944,7 +944,7 @@ export function EventsPoojaSeva() {
                             <span className="text-[10px] font-semibold text-slate-600">End Time *</span>
                             <TimePicker
                               value={scheduleForm.endTime}
-                              onChange={v => setScheduleForm(f => ({ ...f, endTime: v }))}
+                              onChange={v => setScheduleForm(prev => ({ ...prev, endTime: v }))}
                               size="sm"
                             />
                           </div>
@@ -954,7 +954,7 @@ export function EventsPoojaSeva() {
                               type="number"
                               min="1"
                               value={scheduleForm.familyCapacity}
-                              onChange={e => setScheduleForm(f => ({ ...f, familyCapacity: Number(e.target.value) || 10 }))}
+                              onChange={e => setScheduleForm(prev => ({ ...prev, familyCapacity: Number(e.target.value) || 10 }))}
                               className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
                             />
                           </label>
@@ -964,7 +964,7 @@ export function EventsPoojaSeva() {
                               type="number"
                               min="1"
                               value={scheduleForm.devoteeCapacity}
-                              onChange={e => setScheduleForm(f => ({ ...f, devoteeCapacity: Number(e.target.value) || 30 }))}
+                              onChange={e => setScheduleForm(prev => ({ ...prev, devoteeCapacity: Number(e.target.value) || 30 }))}
                               className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 bg-white"
                             />
                           </label>

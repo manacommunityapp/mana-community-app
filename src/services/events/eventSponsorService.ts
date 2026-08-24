@@ -35,6 +35,10 @@ export const eventSponsorService = {
     return apiClient.get<EventSponsorResponse[]>(`/events/sponsors${qs}`);
   },
 
+  async getSponsors(eventId?: number): Promise<EventSponsorResponse[]> {
+    return this.getAll(eventId);
+  },
+
   async create(data: EventSponsorRequest): Promise<EventSponsorResponse> {
     return apiClient.post<EventSponsorResponse>("/events/sponsors", data);
   },

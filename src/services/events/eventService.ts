@@ -489,8 +489,9 @@ export const eventService = {
     return apiClient.post<{ id: number; name: string; description?: string }>("/events/competition-age-groups", { name, description });
   },
 
-  async getPoojaSevas(): Promise<any[]> {
-    return apiClient.get<any[]>("/events/pooja-sevas");
+  async getPoojaSevas(eventId?: number): Promise<any[]> {
+    const qs = eventId ? `?eventId=${eventId}` : "";
+    return apiClient.get<any[]>(`/events/pooja-sevas${qs}`);
   },
 
   async createPoojaSeva(data: any): Promise<any> {
@@ -505,8 +506,9 @@ export const eventService = {
     return apiClient.delete<void>(`/events/pooja-sevas/${id}`);
   },
 
-  async getCulturalEvents(): Promise<any[]> {
-    return apiClient.get<any[]>("/events/cultural-events");
+  async getCulturalEvents(eventId?: number): Promise<any[]> {
+    const qs = eventId ? `?eventId=${eventId}` : "";
+    return apiClient.get<any[]>(`/events/cultural-events${qs}`);
   },
 
   async createCulturalEvent(data: any): Promise<any> {
@@ -521,8 +523,9 @@ export const eventService = {
     return apiClient.delete<void>(`/events/cultural-events/${id}`);
   },
 
-  async getCompetitions(): Promise<any[]> {
-    return apiClient.get<any[]>("/events/competitions");
+  async getCompetitions(eventId?: number): Promise<any[]> {
+    const qs = eventId ? `?eventId=${eventId}` : "";
+    return apiClient.get<any[]>(`/events/competitions${qs}`);
   },
 
   async createCompetition(data: any): Promise<any> {
