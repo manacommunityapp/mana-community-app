@@ -725,8 +725,21 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       : "PAID";
 
     try {
+      const resolvedMainEventId: number | undefined = (() => {
+        if (event?.mainEventId) {
+          const n = Number(String(event.mainEventId).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
+        }
+        if (event?.id) {
+          const n = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
+        }
+        return undefined;
+      })();
+
       const regPayload = {
-        eventId: event?.id ? (typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, "")) || 1) : 1,
+        eventId: resolvedMainEventId || 1,
+        mainEventId: resolvedMainEventId,
         activityId: event?.id ? String(event.id) : undefined,
         eventName: event?.title || "Community Festival",
         activityTitle: event?.title || "Community Festival",

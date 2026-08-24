@@ -1305,9 +1305,27 @@ export function EventMemberView() {
     const regCode = `MNA-2026-${(selectedActivity.category || "EVT").toUpperCase().slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const isPaid = (selectedActivity.fee || 0) > 0;
+    const resolvedMainId: number | undefined = (() => {
+      if (selectedActivity.mainEventId) {
+        const n = Number(String(selectedActivity.mainEventId).replace(/\D/g, ""));
+        if (!isNaN(n) && n > 0) return n;
+      }
+      if ((selectedActivity as any).eventId) {
+        const n = Number(String((selectedActivity as any).eventId).replace(/\D/g, ""));
+        if (!isNaN(n) && n > 0) return n;
+      }
+      if (activeMainEvent?.id) {
+        const n = typeof activeMainEvent.id === "number" ? activeMainEvent.id : Number(String(activeMainEvent.id).replace(/\D/g, ""));
+        if (!isNaN(n) && n > 0) return n;
+      }
+      return undefined;
+    })();
+
     const passPayload = {
       regCode,
       activityId: selectedActivity.id,
+      mainEventId: resolvedMainId,
+      eventId: resolvedMainId,
       activityTitle: selectedActivity.title,
       category: selectedActivity.category,
       passType: `${selectedActivity.category} Registration Pass`,

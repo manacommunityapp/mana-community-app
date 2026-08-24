@@ -759,10 +759,9 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       const regPayload: PoojaRegistrationRequest = {
         // eventId = parent community event id (used by backend for event-level grouping)
         eventId: resolvedParentEventId,
+        mainEventId: resolvedParentEventId,
         // activityId = full "pooja-N" string — used for exact sub-activity deduplication
         activityId: event?.id ? String(event.id) : undefined,
-        // Also send mainEventId so the backend can store and return it for future use
-        ...(event?.mainEventId ? { mainEventId: String(event.mainEventId) } as any : {}),
         eventName: poojaTitle,
         activityTitle: poojaTitle,
         category: "Pooja",
