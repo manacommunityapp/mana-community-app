@@ -3748,21 +3748,40 @@ export function EventCreateWizard({
         <p className="text-slate-500 mb-10 max-w-sm mx-auto">
           <span className="font-semibold text-slate-700">"{formData.title || "Your event"}"</span> has been {isEditing ? "successfully updated." : (isDraft ? "saved as a draft. You can edit and publish it anytime." : `created and is now ${formData.visibility === "public" ? "publicly visible" : "live for your community"}.`)}
         </p>
-        <div className="flex gap-3 justify-center">
+        <div className="flex flex-wrap gap-2.5 justify-center items-center">
           {isEditing ? (
-            <button onClick={() => { setSubmitted(false); }}
-              className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition-all cursor-pointer">
+            <button
+              type="button"
+              onClick={() => { setSubmitted(false); }}
+              className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-all cursor-pointer shadow-2xs"
+            >
               Continue Editing
             </button>
           ) : (
-            <button onClick={() => { setSubmitted(false); setStep(1); setFormData({ ...INITIAL_FORM_DATA }); }}
-              className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition-all cursor-pointer">
+            <button
+              type="button"
+              onClick={() => { setSubmitted(false); setStep(1); setFormData({ ...INITIAL_FORM_DATA }); }}
+              className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-all cursor-pointer shadow-2xs"
+            >
               Create Another
             </button>
           )}
           {onClose && (
-            <button onClick={onClose}
-              className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-all shadow-md cursor-pointer">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
+            >
+              <X className="w-4 h-4 text-slate-500" />
+              <span>Close</span>
+            </button>
+          )}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition-all shadow-md cursor-pointer"
+            >
               View All Events
             </button>
           )}
