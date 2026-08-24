@@ -286,9 +286,11 @@ export function EventsPoojaSeva() {
   };
 
   const openEditModal = (p: PoojaSeva) => {
+    const pAny = p as any;
+    const parentId = pAny.mainEventId ? String(pAny.mainEventId) : pAny.eventId ? String(pAny.eventId) : "";
     setEditingPoojaId(p.id);
     setPoojaForm({
-      mainEventId: "",
+      mainEventId: parentId,
       name: p.name,
       type: p.type,
       isMultiDay: p.multiDay || false,
@@ -1853,21 +1855,31 @@ export function EventsPoojaSeva() {
                 </div>
               )}
 
-              {!useMock && events.length > 0 && (() => {
+              {/* Event Type / Parent Event Selection */}
+              {(() => {
                 const selectedParentEvent = activeEvents.find(ev => String(ev.id) === String(poojaForm.mainEventId));
                 return (
-                  <div className="space-y-2">
+                  <div className="space-y-2 bg-slate-50/70 p-3 rounded-xl border border-slate-200/80">
                     <label className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold text-slate-600">Parent Event</span>
-                      <select value={poojaForm.mainEventId} onChange={e => set("mainEventId", e.target.value)}
-                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white">
-                        <option value="">Select event (optional)</option>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700">Event Type</span>
+                        <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200/60">Optional</span>
+                      </div>
+                      <select
+                        value={poojaForm.mainEventId}
+                        onChange={e => set("mainEventId", e.target.value)}
+                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+                      >
+                        <option value="">-- Standalone Pooja (Not linked to any event) --</option>
                         {activeEvents.map(ev => (
                           <option key={ev.id} value={String(ev.id)}>
-                            {ev.title} ({ev.startDate || "No date"}{ev.endDate && ev.endDate !== ev.startDate ? ` – ${ev.endDate}` : ""})
+                            {ev.title} {ev.type ? `[${ev.type}]` : ""} ({ev.startDate || "No date"}{ev.endDate && ev.endDate !== ev.startDate ? ` to ${ev.endDate}` : ""})
                           </option>
                         ))}
                       </select>
+                      <p className="text-[11px] text-slate-500">
+                        Select an existing event to add this Pooja / Seva to, or leave as standalone.
+                      </p>
                     </label>
 
                     {selectedParentEvent && (
@@ -1907,31 +1919,6 @@ export function EventsPoojaSeva() {
                   </div>
                 );
               })()}
-
-              {useMock && (
-                <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-xl flex items-center justify-between flex-wrap gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <CalendarDays className="w-4 h-4 text-amber-600 shrink-0" />
-                    <div>
-                      <span className="font-bold text-slate-800">Festival Event Dates: </span>
-                      <span className="font-extrabold text-amber-900 bg-white px-2 py-0.5 rounded-md border border-amber-200 shadow-2xs">
-                        📅 2026-08-27 to 2026-08-29
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      set("date", "2026-08-27");
-                      set("isMultiDay", true);
-                      set("endDate", "2026-08-29");
-                    }}
-                    className="px-2.5 py-1 text-[11px] font-bold text-amber-800 bg-white hover:bg-amber-100/80 rounded-lg border border-amber-200 transition-all cursor-pointer shadow-2xs active:scale-95"
-                  >
-                    Auto-fill Dates
-                  </button>
-                </div>
-              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1">
