@@ -3346,7 +3346,7 @@ export function EventCreateWizard({
 }: EventCreateWizardProps) {
   useEscapeKey(onClose);
   const isEditing = isEdit || !!eventId || !!initialData;
-  const [step, setStep] = useState(() => {
+  const [step, setStep] = useState<number>(() => {
     const rawId = eventId || initialData?.id;
     if (initialData?.draftStep && typeof initialData.draftStep === "number" && initialData.draftStep >= 1 && initialData.draftStep <= 8) {
       return initialData.draftStep;
@@ -3684,7 +3684,7 @@ export function EventCreateWizard({
       return;
     }
     setPublishError("");
-    setStep(s => Math.min(STEPS.length, s + 1));
+    setStep((s: number) => Math.min(STEPS.length, s + 1));
   };
 
   const handleSaveDraft = async () => {
@@ -4012,7 +4012,7 @@ export function EventCreateWizard({
 
       {/* ── Footer Navigation Bar ── */}
       <div className="flex-shrink-0 px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-        <button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1}
+        <button onClick={() => setStep((s: number) => Math.max(1, s - 1))} disabled={step === 1}
           className={cn(
             "flex items-center gap-1 px-4 py-2 rounded-xl text-xs font-bold transition-all",
             step === 1 ? "opacity-0 pointer-events-none" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 shadow-xs"
