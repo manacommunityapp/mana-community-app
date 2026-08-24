@@ -66,6 +66,7 @@ export interface PoojaRegistrationModalProps {
     /** Parent community event id — used for correct registration deduplication scoping */
     mainEventId?: string | number;
     status?: string;
+    poojaId?: number;
   };
   onSuccess?: () => void;
 }
@@ -288,12 +289,22 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   );
   const [isGotramLoading, setIsGotramLoading] = useState<boolean>(!event?.gotram && !event?.existingRegistration?.gotram);
   const [isGotramFromDb, setIsGotramFromDb] = useState<boolean>(Boolean(event?.gotram || event?.existingRegistration?.gotram));
-  const [prasadamMode, setPrasadamMode] = useState<"mandap">("mandap");
+  const [prasadamMode, setPrasadamMode] = useState<"mandap" | "home_delivery">("mandap");
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
-  const [passNumber] = useState<number>(() => Math.floor(1000 + Math.random() * 9000));
+  const [registrationCode, setRegistrationCode] = useState<string>("");
   const [copiedPass, setCopiedPass] = useState<boolean>(false);
   const [alreadyRegisteredTitle, setAlreadyRegisteredTitle] = useState<string | null>(null);
+
+  // #19: Available dates from backend (to gray out fully-booked dates)
+  const [availableDateStrings, setAvailableDateStrings] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    const poojaId = event?.poojaId;
+    if (!poojaId) return;
+    eventService.getScheduleAvailableDates(poojaId).then((dates) => {
+      setAvailableDateStrings(new Set(dates));
+    }).catch(() => {/* silently skip if endpoint unavailable */});
+  }, [event?.poojaId]);
 
   // Admin on-behalf registration states
   const [registerOnBehalf, setRegisterOnBehalf] = useState<boolean>(false);
@@ -793,7 +804,8 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         }
       } else {
         try {
-          await eventService.createPoojaRegistration(regPayload);
+          const savedReg = await eventService.createPoojaRegistration(regPayload);
+          if (savedReg?.regCode) setRegistrationCode(savedReg.regCode);
           showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
         } catch (apiErr: any) {
           const errMsg = apiErr?.message || "";
@@ -838,7 +850,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   };
 
   const copyPassCode = () => {
-    navigator.clipboard.writeText(`POOJA-${passNumber}`);
+    navigator.clipboard.writeText(registrationCode || "");
     setCopiedPass(true);
     setTimeout(() => setCopiedPass(false), 2000);
   };
@@ -1018,10 +1030,13 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 <div className={`grid gap-2 ${scheduleDays.length === 1 ? "grid-cols-1" : scheduleDays.length === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"}`}>
                   {scheduleDays.map((d) => {
                     const isSelected = d.id === selectedDayId;
+                    const dateKey = d.dateValue || d.dateStr || "";
+                    const isSoldOut = availableDateStrings.size > 0 && !availableDateStrings.has(dateKey);
                     return (
                       <div
                         key={d.id}
                         onClick={() => {
+                          if (isSoldOut) return;
                           setSelectedDayId(d.id);
                           if (d.slots && d.slots.length > 0) {
                             const firstSlot = d.slots[0];
@@ -1032,10 +1047,12 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                             setSelectedScheduleId(liveInfo?.scheduleId ?? null);
                           }
                         }}
-                        className={`p-3 rounded-2xl border-2 transition-all cursor-pointer select-none text-left ${
-                          isSelected
-                            ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20"
-                            : "border-border bg-card hover:border-primary/50"
+                        className={`p-3 rounded-2xl border-2 transition-all select-none text-left ${
+                          isSoldOut
+                            ? "border-border bg-muted/40 opacity-50 cursor-not-allowed"
+                            : isSelected
+                              ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20 cursor-pointer"
+                              : "border-border bg-card hover:border-primary/50 cursor-pointer"
                         }`}
                       >
                         <span className={`block text-[10px] font-bold uppercase ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
@@ -1043,7 +1060,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                         </span>
                         <strong className="text-xs sm:text-sm font-black text-foreground block mt-0.5">{d.dateStr}</strong>
                         <span className="text-[10px] text-muted-foreground">
-                          {d.slots.length} {d.slots.length === 1 ? "Session" : "Sessions"} Available
+                          {isSoldOut ? "Fully Booked" : `${d.slots.length} ${d.slots.length === 1 ? "Session" : "Sessions"} Available`}
                         </span>
                       </div>
                     );
@@ -1269,6 +1286,23 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                       <CheckCircle2 className={`w-4 h-4 ${prasadamMode === "mandap" ? "text-primary" : "text-muted-foreground"}`} />
                     </div>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setPrasadamMode("home_delivery")}
+                    className={`rounded-2xl border p-3 text-left transition ${
+                      prasadamMode === "home_delivery"
+                        ? "border-primary bg-primary/10 shadow-sm"
+                        : "border-border bg-card hover:border-primary/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <span className="block text-xs font-black text-foreground">Home Delivery</span>
+                        <span className="text-[10px] text-muted-foreground">Prasadam will be delivered to your registered address.</span>
+                      </div>
+                      <CheckCircle2 className={`w-4 h-4 ${prasadamMode === "home_delivery" ? "text-primary" : "text-muted-foreground"}`} />
+                    </div>
+                  </button>
                 </div>
               </div>
             )}
@@ -1355,7 +1389,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                   className="flex items-center gap-1 text-[11px] text-primary font-bold bg-primary/10 px-2 py-1 rounded-lg border border-primary/20 hover:bg-primary/20 transition-all cursor-pointer"
                 >
                   {copiedPass ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  <span>POOJA-{passNumber}</span>
+                  <span>{registrationCode || "—"}</span>
                 </button>
               </div>
 

@@ -773,6 +773,21 @@ export const eventService = {
     return apiClient.delete<void>(`/events/pooja-schedules/${id}`);
   },
 
+  async getScheduleAvailableDates(poojaId: number): Promise<string[]> {
+    return apiClient.get<string[]>(`/events/pooja-schedules/available-dates?poojaId=${poojaId}`);
+  },
+
+  async rescheduleRegistration(registrationId: number, newScheduleId: number, idempotencyKey: string): Promise<any> {
+    return apiClient.post<any>(`/events/pooja-registrations/${registrationId}/reschedule`, {
+      newScheduleId,
+      idempotencyKey,
+    });
+  },
+
+  async getScheduleReservations(scheduleId: number): Promise<any[]> {
+    return apiClient.get<any[]>(`/events/pooja-schedules/${scheduleId}/reservations`);
+  },
+
   async getAuctionItems(eventId?: number): Promise<EventAuctionItemResponse[]> {
     const qs = eventId ? `?eventId=${eventId}` : "";
     return apiClient.get<EventAuctionItemResponse[]>(`/events/auction-items${qs}`);

@@ -159,6 +159,18 @@ export function EventsPoojaSeva() {
   const emptyScheduleForm = { scheduleDate: "", startTime: "08:30", endTime: "10:00", familyCapacity: 10, devoteeCapacity: 30 };
   const [scheduleForm, setScheduleForm] = useState(emptyScheduleForm);
 
+  // #20: Reservations panel state per schedule slot
+  const [expandedReservationsScheduleId, setExpandedReservationsScheduleId] = useState<number | null>(null);
+  const [reservationsBySchedule, setReservationsBySchedule] = useState<Record<number, any[]>>({});
+
+  const loadReservationsForSchedule = (scheduleId: number) => {
+    eventService.getScheduleReservations(scheduleId).then(res => {
+      setReservationsBySchedule(prev => ({ ...prev, [scheduleId]: res || [] }));
+    }).catch(() => {
+      setReservationsBySchedule(prev => ({ ...prev, [scheduleId]: [] }));
+    });
+  };
+
   // Confirmation modals
   const [deleteConfirmReg, setDeleteConfirmReg] = useState<BookingRegistration | null>(null);
   const [cancelConfirmReg, setCancelConfirmReg] = useState<BookingRegistration | null>(null);
@@ -1010,44 +1022,76 @@ export function EventsPoojaSeva() {
                             BLOCKED: "bg-slate-100 text-slate-500 border-slate-200",
                             CLOSED: "bg-slate-100 text-slate-500 border-slate-200",
                           };
+                          const isResOpen = expandedReservationsScheduleId === sch.id;
                           return (
-                            <div key={sch.id} className="bg-white rounded-xl border border-slate-200 px-3 py-2.5 flex items-center gap-3 flex-wrap">
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                                <span className="text-xs font-bold text-slate-800">{sch.scheduleDate}</span>
-                                <Clock className="w-3 h-3 text-slate-400 shrink-0 ml-1" />
-                                <span className="text-xs text-slate-600">{sch.startTime} – {sch.endTime}</span>
+                            <div key={sch.id} className="bg-white rounded-xl border border-slate-200 px-3 py-2.5 space-y-2">
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                                  <span className="text-xs font-bold text-slate-800">{sch.scheduleDate}</span>
+                                  <Clock className="w-3 h-3 text-slate-400 shrink-0 ml-1" />
+                                  <span className="text-xs text-slate-600">{sch.startTime} – {sch.endTime}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                                  <span className="font-semibold text-indigo-600">{sch.availableFamilies}/{sch.familyCapacity} families</span>
+                                  <span>·</span>
+                                  <span className="font-semibold text-emerald-600">{sch.availableDevotees}/{sch.devoteeCapacity} devotees</span>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${statusColor[sch.status] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
+                                    {sch.status}
+                                  </span>
+                                  <select
+                                    value={sch.status}
+                                    onChange={e => handleScheduleStatusChange(pooja.id, sch.id, e.target.value)}
+                                    className="text-[10px] border border-slate-200 rounded-lg px-1.5 py-0.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 cursor-pointer"
+                                    title="Change schedule status"
+                                  >
+                                    <option value="OPEN">OPEN</option>
+                                    <option value="LIMITED">LIMITED</option>
+                                    <option value="FULL">FULL</option>
+                                    <option value="BLOCKED">BLOCKED</option>
+                                    <option value="CLOSED">CLOSED</option>
+                                  </select>
+                                  {/* #20: Reservations toggle */}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setExpandedReservationsScheduleId(isResOpen ? null : sch.id);
+                                      if (!isResOpen) loadReservationsForSchedule(sch.id);
+                                    }}
+                                    className="flex items-center gap-1 text-[10px] font-bold text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 px-1.5 py-0.5 rounded-lg border border-indigo-200 transition-colors cursor-pointer"
+                                    title="View reservations"
+                                  >
+                                    <Users className="w-3 h-3" />
+                                    {isResOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteSchedule(pooja.id, sch)}
+                                    className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                    title="Delete schedule"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2 text-[10px] text-slate-500">
-                                <span className="font-semibold text-indigo-600">{sch.availableFamilies}/{sch.familyCapacity} families</span>
-                                <span>·</span>
-                                <span className="font-semibold text-emerald-600">{sch.availableDevotees}/{sch.devoteeCapacity} devotees</span>
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${statusColor[sch.status] || "bg-slate-100 text-slate-500 border-slate-200"}`}>
-                                  {sch.status}
-                                </span>
-                                <select
-                                  value={sch.status}
-                                  onChange={e => handleScheduleStatusChange(pooja.id, sch.id, e.target.value)}
-                                  className="text-[10px] border border-slate-200 rounded-lg px-1.5 py-0.5 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-300 cursor-pointer"
-                                  title="Change schedule status"
-                                >
-                                  <option value="OPEN">OPEN</option>
-                                  <option value="LIMITED">LIMITED</option>
-                                  <option value="FULL">FULL</option>
-                                  <option value="BLOCKED">BLOCKED</option>
-                                  <option value="CLOSED">CLOSED</option>
-                                </select>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteSchedule(pooja.id, sch)}
-                                  className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                                  title="Delete schedule"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </button>
-                              </div>
+                              {/* #20: Reservations list */}
+                              {isResOpen && (
+                                <div className="bg-indigo-50/60 rounded-lg p-2 space-y-1.5">
+                                  {(reservationsBySchedule[sch.id] || []).length === 0 ? (
+                                    <p className="text-[10px] text-slate-400 italic">No reservations for this slot.</p>
+                                  ) : (
+                                    (reservationsBySchedule[sch.id] || []).map((r: any) => (
+                                      <div key={r.id} className="flex items-center justify-between text-[10px] bg-white rounded-md px-2 py-1 border border-indigo-100">
+                                        <span className="font-bold text-slate-700">#{r.tokenNumber ?? "—"} {r.userDisplayName || "Guest"}</span>
+                                        <span className={`px-1.5 py-0.5 rounded font-bold ${r.status === "CONFIRMED" ? "bg-emerald-100 text-emerald-700" : r.status === "RESERVED" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>{r.status}</span>
+                                        <span className="text-slate-400">{r.reservedDevoteeCount ?? 1} dev</span>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1066,6 +1110,146 @@ export function EventsPoojaSeva() {
                   {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
               </div>
+
+              {/* Schedules panel (#20 + #24) */}
+              {expandedSchedulesPoojaId === pooja.id && (
+                <div className="border-t border-emerald-100 bg-emerald-50/30 p-3 sm:p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-emerald-800">Schedule Slots</span>
+                    {loadingSchedules[pooja.id] && <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />}
+                  </div>
+                  {(schedulesByPooja[pooja.id] || []).length === 0 && !loadingSchedules[pooja.id] && (
+                    <p className="text-xs text-slate-400 italic">No schedules found for this seva.</p>
+                  )}
+                  <div className="space-y-2">
+                    {(schedulesByPooja[pooja.id] || []).map((sch: any) => {
+                      const isEditingThis = editingScheduleId === sch.id;
+                      const isResOpen = expandedReservationsScheduleId === sch.id;
+                      return (
+                        <div key={sch.id} className="rounded-xl border border-emerald-200 bg-white p-3 space-y-2">
+                          {isEditingThis ? (
+                            <div className="space-y-2">
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div>
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Date</label>
+                                  <input
+                                    type="date"
+                                    value={scheduleEditForm.scheduleDate || ""}
+                                    onChange={e => setScheduleEditForm(f => ({ ...f, scheduleDate: e.target.value }))}
+                                    className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs mt-0.5"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Start Time</label>
+                                  <input
+                                    type="time"
+                                    value={scheduleEditForm.startTime || ""}
+                                    onChange={e => setScheduleEditForm(f => ({ ...f, startTime: e.target.value }))}
+                                    className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs mt-0.5"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Family Cap</label>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={scheduleEditForm.familyCapacity || ""}
+                                    onChange={e => setScheduleEditForm(f => ({ ...f, familyCapacity: Number(e.target.value) }))}
+                                    className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs mt-0.5"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] font-bold text-slate-500 uppercase">Devotee Cap</label>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    value={scheduleEditForm.devoteeCapacity || ""}
+                                    onChange={e => setScheduleEditForm(f => ({ ...f, devoteeCapacity: Number(e.target.value) }))}
+                                    className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs mt-0.5"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleSaveScheduleEdit(sch.id, pooja.id)}
+                                  disabled={savingSchedule}
+                                  className="flex items-center gap-1 px-3 py-1 text-xs font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+                                >
+                                  {savingSchedule ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => setEditingScheduleId(null)}
+                                  className="flex items-center gap-1 px-3 py-1 text-xs font-bold border border-slate-200 rounded-lg hover:bg-slate-50"
+                                >
+                                  <X className="w-3 h-3" /> Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="text-xs">
+                                <span className="font-bold text-slate-700">{sch.scheduleDate}</span>
+                                <span className="text-slate-500 ml-2">{sch.startTime}</span>
+                                <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold ${sch.status === "OPEN" ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                                  {sch.status}
+                                </span>
+                                <span className="ml-2 text-slate-400 text-[10px]">
+                                  Avail: {sch.availableFamilySpots ?? "?"} fam / {sch.availableDevoteeSpots ?? "?"} dev
+                                </span>
+                              </div>
+                              <div className="flex gap-1.5">
+                                <button
+                                  onClick={() => {
+                                    setEditingScheduleId(sch.id);
+                                    setScheduleEditForm({
+                                      poojaId: pooja.id,
+                                      scheduleDate: sch.scheduleDate,
+                                      startTime: sch.startTime,
+                                      familyCapacity: sch.familyCapacity,
+                                      devoteeCapacity: sch.devoteeCapacity,
+                                    });
+                                  }}
+                                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600"
+                                >
+                                  <Edit3 className="w-3 h-3" /> Edit
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const open = isResOpen;
+                                    setExpandedReservationsScheduleId(open ? null : sch.id);
+                                    if (!open) loadReservationsForSchedule(sch.id);
+                                  }}
+                                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-bold border border-indigo-200 rounded-lg hover:bg-indigo-50 text-indigo-600"
+                                >
+                                  <Users className="w-3 h-3" />
+                                  {isResOpen ? "Hide" : "Reservations"}
+                                  {isResOpen ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {isResOpen && (
+                            <div className="mt-2 bg-indigo-50/60 rounded-lg p-2 space-y-1.5">
+                              {(reservationsBySchedule[sch.id] || []).length === 0 ? (
+                                <p className="text-[10px] text-slate-400 italic">No reservations for this slot.</p>
+                              ) : (
+                                (reservationsBySchedule[sch.id] || []).map((r: any) => (
+                                  <div key={r.id} className="flex items-center justify-between text-[10px] bg-white rounded-md px-2 py-1 border border-indigo-100">
+                                    <span className="font-bold text-slate-700">#{r.tokenNumber ?? "—"} {r.userDisplayName || "Guest"}</span>
+                                    <span className={`px-1.5 py-0.5 rounded font-bold ${r.status === "CONFIRMED" ? "bg-emerald-100 text-emerald-700" : r.status === "RESERVED" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-500"}`}>{r.status}</span>
+                                    <span className="text-slate-400">{r.reservedDevoteeCount ?? 1} dev</span>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Expanded Registrations Table */}
               {isExpanded && (
