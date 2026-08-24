@@ -921,11 +921,13 @@ function EventDetailsDialog({
   onClose,
   onEdit,
   onNotify,
+  onDelete,
 }: {
   event: EventItem;
   onClose: () => void;
   onEdit?: () => void;
   onNotify?: () => void;
+  onDelete?: () => void;
 }) {
   const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
   const { useMock } = useEventMock();
@@ -948,6 +950,7 @@ function EventDetailsDialog({
     isAdmin ||
     isSuperAdmin ||
     userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("SUPER_ADMIN") ||
     userRolesUpper.includes("COMMUNITY_ADMIN") ||
     userRolesUpper.includes("EVENT_ADMIN") ||
     userRolesUpper.includes("EVENTS_ADMIN") ||
@@ -1740,6 +1743,17 @@ function EventDetailsDialog({
 
           <div className="flex-1" />
 
+          {isEventsAdmin && onDelete && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs text-rose-700 bg-rose-50 hover:bg-rose-100 border-rose-200 font-bold cursor-pointer"
+              onClick={onDelete}
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete
+            </Button>
+          )}
+
           {isEventsAdmin && onNotify && (
             <Button
               variant="outline"
@@ -2222,6 +2236,11 @@ function EventsList() {
             const target = detailEvent;
             setDetailEvent(null);
             setNotifyEvent(target);
+          }}
+          onDelete={() => {
+            const target = detailEvent;
+            setDetailEvent(null);
+            setDeleteEvent(target);
           }}
         />
       )}
