@@ -860,77 +860,83 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn">
-      <div className="relative w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-card text-card-foreground rounded-3xl p-4 sm:p-6 shadow-2xl border border-border min-h-[85vh] sm:min-h-[620px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp">
-        {/* Submitting Loading Overlay to block multiple clicks and display progress */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn">
+      <div className="relative w-full max-w-lg sm:max-w-xl bg-card text-card-foreground rounded-2xl p-3.5 sm:p-4 shadow-2xl border border-border max-h-[90vh] flex flex-col justify-between overflow-hidden animate-scaleUp">
+        {/* Submitting Loading Overlay */}
         {isSubmitting && (
-          <div className="absolute inset-0 z-50 rounded-3xl bg-background/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-fadeIn select-none pointer-events-auto shadow-2xl">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shadow-lg animate-pulse mb-3.5">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="absolute inset-0 z-50 rounded-2xl bg-background/85 backdrop-blur-md flex flex-col items-center justify-center p-4 text-center animate-fadeIn select-none pointer-events-auto shadow-2xl">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shadow-md animate-pulse mb-2.5">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
-            <h4 className="text-base font-extrabold text-foreground tracking-tight">
+            <h4 className="text-sm font-extrabold text-foreground tracking-tight">
               {isUpdateMode ? "Rescheduling Pooja Seva..." : "Booking Pooja Seva & Issuing Pass..."}
             </h4>
-            <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">
-              Please wait while we confirm your Sankalpam slot and generate your digital pass. Do not refresh or click again.
+            <p className="text-[11px] text-muted-foreground mt-0.5 max-w-xs leading-relaxed">
+              Please wait while we confirm your Sankalpam slot and generate your digital pass.
             </p>
-            <div className="mt-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-bold border border-amber-500/20">
-              <Flame className="w-3.5 h-3.5 text-amber-500" />
+            <div className="mt-2.5 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold border border-amber-500/20">
+              <Flame className="w-3 h-3 text-amber-500" />
               <span>Registering devotee & confirming session...</span>
             </div>
           </div>
         )}
 
-        <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
-          <div className="min-w-0 pr-3">
-            <div className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider mb-0.5">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between border-b border-border pb-2 shrink-0">
+          <div className="min-w-0 pr-2">
+            <div className="inline-flex items-center gap-1 text-[9.5px] font-black uppercase tracking-wider mb-0.5">
               {isUpdateMode ? (
-                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-                  <RefreshCw className="w-3 h-3" />
-                  <span>Reschedule Pooja Slot</span>
+                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.2 rounded-full border border-amber-500/20">
+                  <RefreshCw className="w-2.5 h-2.5" />
+                  <span>Reschedule Slot</span>
                 </span>
               ) : (
                 <span className="flex items-center gap-1 text-primary">
-                  <Sparkles className="w-3.5 h-3.5" />
+                  <Sparkles className="w-3 h-3" />
                   <span>Pooja Registration Portal</span>
                 </span>
               )}
             </div>
-            <h2 className="text-base sm:text-xl font-black text-foreground truncate">{poojaTitle}</h2>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
+            <h2 className="text-sm sm:text-base font-black text-foreground truncate">{poojaTitle}</h2>
+            <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 flex-wrap">
               <span className="inline-flex items-center gap-1">
-                <Calendar className="w-3 h-3 text-primary" />
+                <Calendar className="w-2.5 h-2.5 text-primary" />
                 {scheduleDays.length > 1
-                  ? `${scheduleDays[0].dateStr} to ${scheduleDays[scheduleDays.length - 1].dateStr} (${scheduleDays.length} Days)`
+                  ? `${scheduleDays[0].dateStr} – ${scheduleDays[scheduleDays.length - 1].dateStr} (${scheduleDays.length} Days)`
                   : baseDate}
               </span>
               <span>•</span>
-              <span className="inline-flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-primary" /> {venueName}
+              <span className="inline-flex items-center gap-1 truncate max-w-[140px]">
+                <MapPin className="w-2.5 h-2.5 text-primary shrink-0" /> {venueName}
               </span>
-              <span>•</span>
-              <span>🙏 {priestName}</span>
+              {priestName && (
+                <>
+                  <span>•</span>
+                  <span className="truncate max-w-[120px]">🙏 {priestName}</span>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             {!isFreeEvent && numericFee > 0 && (
-              <span className="text-xs font-black px-3 py-1 rounded-full bg-primary/15 text-primary border border-primary/20">
+              <span className="text-[11px] font-black px-2.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/20">
                 ₹{numericFee}
               </span>
             )}
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer shrink-0"
+              className="p-1 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer shrink-0"
               title="Close (Esc)"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4.5 h-4.5" />
             </button>
           </div>
         </div>
 
+        {/* Stepper */}
         {!isSuccess && (
-          <div className="flex items-center justify-between px-1 py-1 shrink-0 my-2">
+          <div className="flex items-center justify-between px-1 py-1 shrink-0 my-1">
             {steps.map((s, idx) => {
               const isActive = currentStep === s.num;
               const isDone = currentStep > s.num;
@@ -938,23 +944,23 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               return (
                 <React.Fragment key={s.num}>
                   <div
-                    className={`flex flex-col items-center gap-1 select-none transition-all ${s.num < currentStep ? "cursor-pointer" : "cursor-default"}`}
+                    className={`flex flex-col items-center gap-0.5 select-none transition-all ${s.num < currentStep ? "cursor-pointer" : "cursor-default"}`}
                     onClick={() => s.num < currentStep && setCurrentStep(s.num)}
                   >
                     <div
-                      className={`w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-xs font-black transition-all ${
+                      className={`w-6 h-6 sm:w-6.5 sm:h-6.5 rounded-lg flex items-center justify-center text-[10px] font-black transition-all ${
                         isDone
-                          ? "bg-emerald-500 text-white shadow-xs"
+                          ? "bg-emerald-500 text-white shadow-2xs"
                           : isActive
-                          ? "bg-primary text-primary-foreground ring-4 ring-primary/20 shadow-md scale-105"
+                          ? "bg-primary text-primary-foreground ring-2 ring-primary/20 shadow-xs scale-105"
                           : "bg-muted text-muted-foreground border border-border"
                       }`}
                     >
-                      {isDone ? <Check className="w-4 h-4 stroke-[3]" /> : s.num}
+                      {isDone ? <Check className="w-3 h-3 stroke-[3]" /> : s.num}
                     </div>
                     <span
-                      className={`text-[9.5px] sm:text-[10.5px] font-bold ${
-                        isActive ? "text-primary" : isDone ? "text-foreground" : "text-muted-foreground"
+                      className={`text-[8.5px] sm:text-[9.5px] font-bold ${
+                        isActive ? "text-primary font-extrabold" : isDone ? "text-foreground" : "text-muted-foreground"
                       }`}
                     >
                       {s.title}
@@ -962,7 +968,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                   </div>
                   {idx < steps.length - 1 && (
                     <div
-                      className={`flex-1 h-[2px] mx-1.5 sm:mx-2 rounded-full transition-colors ${
+                      className={`flex-1 h-[1.5px] mx-1 sm:mx-1.5 rounded-full transition-colors ${
                         currentStep > idx + 1 ? "bg-emerald-500" : "bg-border"
                       }`}
                     />
@@ -973,82 +979,84 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           </div>
         )}
 
+        {/* Modal Body Card */}
         {!isSuccess ? (
           <GlassCard
             isDark={isDark}
             hoverScale={false}
-            className="flex-1 flex flex-col justify-between p-4 sm:p-5 border border-border rounded-2xl overflow-y-auto space-y-4 shadow-xs my-2 bg-muted/20"
+            className="flex-1 flex flex-col justify-between p-2.5 sm:p-3 border border-border rounded-xl overflow-y-auto space-y-2.5 shadow-2xs my-1 bg-muted/20 max-h-[58vh]"
           >
             {isPoojaCancelled && (
-              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-[11px] font-bold flex items-start gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <div>
                   <p>Event / Pooja Cancelled</p>
-                  <p className="font-normal mt-0.5 text-rose-600 dark:text-rose-400">
-                    This event has been cancelled by the organisers. Registrations are not available.
+                  <p className="font-normal text-[10px] text-rose-600 dark:text-rose-400">
+                    This event has been cancelled. Registrations are unavailable.
                   </p>
                 </div>
               </div>
             )}
             {isUpdateMode && !isPoojaCancelled && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-xs font-bold flex items-start gap-2">
-                <RefreshCw className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-[11px] font-bold flex items-start gap-1.5">
+                <RefreshCw className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
                 <div>
                   <p>Reschedule Booked Pooja Slot</p>
-                  <p className="font-normal mt-0.5 text-amber-700 dark:text-amber-400">
-                    You currently have an active booked slot. Select a new date and ritual time slot below to reschedule your session.
+                  <p className="font-normal text-[10px] text-amber-700 dark:text-amber-400">
+                    Select a new date and ritual time slot below to reschedule your session.
                   </p>
                 </div>
               </div>
             )}
             {alreadyRegisteredTitle && !isUpdateMode && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-xs font-bold flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+              <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 text-[11px] font-bold flex items-start gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
                 <div>
                   <p>Slot Already Booked for <strong>{alreadyRegisteredTitle}</strong>.</p>
-                  <p className="font-normal mt-0.5 text-amber-600 dark:text-amber-500">
-                    You have already registered for a Pooja seva in this event. Only one booking per family is allowed. Please reschedule your existing booked slot instead of registering a new one.
+                  <p className="font-normal text-[10px] text-amber-600 dark:text-amber-500">
+                    You have already registered for a Pooja seva in this event. Please reschedule your existing slot.
                   </p>
                 </div>
               </div>
             )}
             {isPoojaFull && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>Event Capacity Reached (Housefull). All slots have been booked. Contact admin for manual registration or queries.</span>
+              <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[11px] font-bold flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>All slots booked. Contact admin for manual assistance.</span>
               </div>
             )}
             {isPoojaClosed && !isPoojaFull && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs font-bold flex items-center gap-2">
-                <Clock className="w-4 h-4 shrink-0" />
-                <span>Pooja registration has closed. New seva bookings are no longer accepted.</span>
+              <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[11px] font-bold flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 shrink-0" />
+                <span>Pooja registration has closed.</span>
               </div>
             )}
 
+            {/* Step 1: Select Date & Time */}
             {currentStep === 1 && (
-              <div className="space-y-3.5 flex-1">
-                <div className="flex items-center justify-between border-b border-border pb-2">
+              <div className="space-y-2 flex-1">
+                <div className="flex items-center justify-between border-b border-border pb-1.5">
                   <div>
-                    <h3 className="text-sm font-extrabold text-foreground flex items-center gap-2">
-                      <span>Select Pooja Date &amp; Time Slot</span>
+                    <h3 className="text-xs sm:text-[13px] font-extrabold text-foreground flex items-center gap-1.5">
+                      <span>Select Date &amp; Time Slot</span>
                       {scheduleDays.length > 1 && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                        <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
                           {scheduleDays.length}-Day Utsav
                         </span>
                       )}
                     </h3>
-                    <p className="text-[11px] text-muted-foreground">
+                    <p className="text-[10px] text-muted-foreground">
                       {scheduleDays.length > 1
-                        ? `Multi-Day Event • Select your preferred ritual day (${scheduleDays[0].shortDate} – ${scheduleDays[scheduleDays.length - 1].shortDate}) and session`
+                        ? `Select ritual day (${scheduleDays[0].shortDate} – ${scheduleDays[scheduleDays.length - 1].shortDate}) and session`
                         : "Choose your preferred ritual session slot"}
                     </p>
                   </div>
-                  <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                    {totalSlotsCount} Total Slots
+                  <span className="text-[9.5px] font-extrabold px-2 py-0.2 rounded-full bg-primary/10 text-primary border border-primary/20">
+                    {totalSlotsCount} Slots
                   </span>
                 </div>
 
-                <div className={`grid gap-2 ${scheduleDays.length === 1 ? "grid-cols-1" : scheduleDays.length === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"}`}>
+                <div className={`grid gap-1.5 ${scheduleDays.length === 1 ? "grid-cols-1" : scheduleDays.length === 2 ? "grid-cols-2" : "grid-cols-2 sm:grid-cols-3"}`}>
                   {scheduleDays.map((d) => {
                     const isSelected = d.id === selectedDayId;
                     const dateKey = d.dateValue || d.dateStr || "";
@@ -1068,33 +1076,33 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                             setSelectedScheduleId(liveInfo?.scheduleId ?? null);
                           }
                         }}
-                        className={`p-3 rounded-2xl border-2 transition-all select-none text-left ${
+                        className={`p-2 rounded-xl border-2 transition-all select-none text-left ${
                           isSoldOut
                             ? "border-border bg-muted/40 opacity-50 cursor-not-allowed"
                             : isSelected
-                              ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20 cursor-pointer"
+                              ? "border-primary bg-primary/10 shadow-xs ring-1 ring-primary/20 cursor-pointer"
                               : "border-border bg-card hover:border-primary/50 cursor-pointer"
                         }`}
                       >
-                        <span className={`block text-[10px] font-bold uppercase ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
+                        <span className={`block text-[9px] font-bold uppercase ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
                           {d.dayLabel}
                         </span>
-                        <strong className="text-xs sm:text-sm font-black text-foreground block mt-0.5">{d.dateStr}</strong>
-                        <span className="text-[10px] text-muted-foreground">
-                          {isSoldOut ? "Fully Booked" : `${d.slots.length} ${d.slots.length === 1 ? "Session" : "Sessions"} Available`}
+                        <strong className="text-xs font-black text-foreground block mt-0.5">{d.dateStr}</strong>
+                        <span className="text-[9.5px] text-muted-foreground">
+                          {isSoldOut ? "Fully Booked" : `${d.slots.length} ${d.slots.length === 1 ? "Session" : "Sessions"}`}
                         </span>
                       </div>
                     );
                   })}
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-card border border-border space-y-2.5">
-                  <div className="flex items-center justify-between text-xs font-bold text-foreground px-1">
+                <div className="p-2.5 rounded-xl bg-card border border-border space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-foreground px-0.5">
                     <span>Available Sessions for {currentDay.dateStr}:</span>
-                    <span className="text-primary text-xs font-semibold">Select 1 session</span>
+                    <span className="text-primary text-[10px] font-semibold">Select 1 session</span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-xs">
                     {currentDay?.slots.map((s) => {
                       const slotKey = makeSlotSelectionKey(currentDay, s);
                       const isSlotSelected = selectedSlotKey === slotKey;
@@ -1113,29 +1121,29 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                             setSelectedSlotKey(slotKey);
                             setSelectedScheduleId(liveInfo?.scheduleId ?? null);
                           }}
-                          className={`p-3 rounded-2xl border-2 transition-all cursor-pointer ${
+                          className={`p-2 rounded-xl border-2 transition-all cursor-pointer ${
                             isSlotSelected
-                              ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                              ? "border-primary bg-primary/10 ring-1 ring-primary/20"
                               : isSlotPassed || isSlotFull
                               ? "border-border bg-muted/40 opacity-60 cursor-not-allowed"
                               : "border-border bg-card hover:border-primary/50"
                           }`}
                         >
-                          <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center justify-between gap-1.5">
                             <div className="min-w-0">
-                              <span className="block text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground">{s.name}</span>
-                              <strong className="block mt-1 text-xs font-black text-foreground">{s.time}</strong>
+                              <span className="block text-[9.5px] font-extrabold uppercase tracking-wide text-muted-foreground truncate">{s.name}</span>
+                              <strong className="block mt-0.5 text-xs font-black text-foreground">{s.time}</strong>
                             </div>
                             {schedulesLoading ? (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-muted/50 text-muted-foreground border border-border shrink-0">
+                              <span className="text-[8.5px] font-bold px-1 py-0.2 rounded bg-muted/50 text-muted-foreground border border-border shrink-0">
                                 <Loader2 className="w-2.5 h-2.5 animate-spin inline" />
                               </span>
                             ) : isSlotFull ? (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/10 text-rose-600 border border-rose-500/20 shrink-0">
+                              <span className="text-[8.5px] font-bold px-1.5 py-0.2 rounded bg-rose-500/10 text-rose-600 border border-rose-500/20 shrink-0">
                                 Full
                               </span>
                             ) : (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/20 shrink-0">
+                              <span className="text-[8.5px] font-bold px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20 shrink-0">
                                 {displayLeft} left
                               </span>
                             )}
@@ -1148,23 +1156,24 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               </div>
             )}
 
+            {/* Step 2: Devotee & Family Details */}
             {currentStep === 2 && (
-              <div className="space-y-3.5 flex-1">
-                <div className="border-b border-border pb-2">
-                  <h3 className="text-sm font-extrabold text-foreground">Registrant Details</h3>
-                  <p className="text-[11px] text-muted-foreground">Share the details for the seva devotee and family information.</p>
+              <div className="space-y-2 flex-1">
+                <div className="border-b border-border pb-1.5">
+                  <h3 className="text-xs sm:text-[13px] font-extrabold text-foreground">Registrant Details</h3>
+                  <p className="text-[10px] text-muted-foreground">Share details for the seva devotee and family information.</p>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {savedFamilyMembers.length > 0 && (
-                    <div className="p-3 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-2">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-                          <Flame className="w-3.5 h-3.5 text-amber-600" /> Select Yajaman from My Family
+                    <div className="p-2 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 space-y-1.5">
+                      <div className="flex items-center justify-between text-[10.5px]">
+                        <span className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1">
+                          <Flame className="w-3 h-3 text-amber-600" /> Select Yajaman from My Family
                         </span>
-                        <span className="text-[10px] text-amber-700/70 dark:text-amber-400/70">Synced with Profile</span>
+                        <span className="text-[9.5px] text-amber-700/70 dark:text-amber-400/70">Synced</span>
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-1">
                         {savedFamilyMembers.map((m) => {
                           const isSelected = devoteeName.trim().toLowerCase() === m.name.trim().toLowerCase();
                           return (
@@ -1176,14 +1185,14 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                                 if (m.gotram) setGotram(m.gotram);
                                 if (m.phone) setDevoteePhone(m.phone);
                               }}
-                              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                              className={`px-2 py-0.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer border ${
                                 isSelected
-                                  ? "bg-amber-600 text-white border-amber-600 shadow-xs"
+                                  ? "bg-amber-600 text-white border-amber-600 shadow-2xs"
                                   : "bg-card text-foreground border-border hover:border-amber-400"
                               }`}
                             >
                               <span>{m.name}</span>
-                              <span className={`text-[9px] font-medium px-1.5 py-0.2 rounded-full ${isSelected ? "bg-white/25 text-white" : "bg-muted text-muted-foreground"}`}>
+                              <span className={`text-[8.5px] font-medium px-1 py-0.1 rounded-full ${isSelected ? "bg-white/25 text-white" : "bg-muted text-muted-foreground"}`}>
                                 {m.relation}
                               </span>
                             </button>
@@ -1193,66 +1202,66 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     </div>
                   )}
 
-                  <div className="grid gap-3">
-                    <label className="block text-[11px] font-bold text-foreground">
-                      <span className="mb-1.5 block">Yajaman / Devotee Name</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <label className="block text-[10.5px] font-bold text-foreground">
+                      <span className="mb-0.5 block">Yajaman / Devotee Name *</span>
                       <input
                         value={devoteeName}
                         onChange={(e) => setDevoteeName(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                         placeholder="Enter devotee name"
                       />
                     </label>
-                    <label className="block text-[11px] font-bold text-foreground">
-                      <span className="mb-1.5 block">Phone Number</span>
+                    <label className="block text-[10.5px] font-bold text-foreground">
+                      <span className="mb-0.5 block">Phone Number *</span>
                       <input
                         value={devoteePhone}
                         onChange={(e) => setDevoteePhone(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                         placeholder="Enter phone number"
                       />
                     </label>
-                    <label className="block text-[11px] font-bold text-foreground">
-                      <span className="mb-1.5 block">Flat / Block</span>
+                    <label className="block text-[10.5px] font-bold text-foreground">
+                      <span className="mb-0.5 block">Flat / Block</span>
                       <input
                         value={devoteeFlat}
                         onChange={(e) => setDevoteeFlat(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                         placeholder="Flat or block"
                       />
                     </label>
-                    <label className="block text-[11px] font-bold text-foreground">
-                      <span className="mb-1.5 block">Gotram</span>
+                    <label className="block text-[10.5px] font-bold text-foreground">
+                      <span className="mb-0.5 block">Gotram</span>
                       <input
                         value={gotram}
                         onChange={(e) => setGotram(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                         placeholder="Optional gotram"
                       />
                     </label>
                   </div>
 
                   {isAnyAdmin && (
-                    <div className="rounded-2xl border border-border bg-card/50 p-3 space-y-2">
+                    <div className="rounded-xl border border-border bg-card/50 p-2 space-y-1.5">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-foreground">Register on behalf</span>
+                        <span className="text-[10px] font-bold text-foreground">Register on behalf</span>
                         <button
                           type="button"
                           onClick={() => setRegisterOnBehalf((prev) => !prev)}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${registerOnBehalf ? "bg-primary" : "bg-muted"}`}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${registerOnBehalf ? "bg-primary" : "bg-muted"}`}
                         >
-                          <span className={`inline-block h-4 w-4 rounded-full bg-white transition ${registerOnBehalf ? "translate-x-6" : "translate-x-1"}`} />
+                          <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white transition ${registerOnBehalf ? "translate-x-4.5" : "translate-x-1"}`} />
                         </button>
                       </div>
                       {registerOnBehalf && (
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                           <input
                             value={userSearchQuery}
                             onChange={(e) => setUserSearchQuery(e.target.value)}
-                            placeholder="Search community member"
-                            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            placeholder="Search community member..."
+                            className="w-full rounded-lg border border-border bg-background px-2.5 py-1 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                           />
-                          <div className="max-h-32 overflow-y-auto rounded-xl border border-border bg-background p-2 space-y-1">
+                          <div className="max-h-24 overflow-y-auto rounded-lg border border-border bg-background p-1 space-y-0.5">
                             {communityUsers
                               .filter((u) => `${u.fullName || u.name || ""} ${u.email || ""}`.toLowerCase().includes(userSearchQuery.toLowerCase()))
                               .slice(0, 6)
@@ -1267,10 +1276,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                                     setDevoteePhone(u.phone || u.mobile || "");
                                     setDevoteeFlat(resolveUserFlat(u));
                                   }}
-                                  className="flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left hover:bg-muted"
+                                  className="flex w-full items-center justify-between rounded px-1.5 py-1 text-left hover:bg-muted"
                                 >
-                                  <span className="text-xs font-medium text-foreground">{u.fullName || u.name || "Unknown"}</span>
-                                  <span className="text-[10px] text-muted-foreground">{u.flatNo || resolveUserFlat(u) || "No flat"}</span>
+                                  <span className="text-[11px] font-medium text-foreground">{u.fullName || u.name || "Unknown"}</span>
+                                  <span className="text-[9.5px] text-muted-foreground">{u.flatNo || resolveUserFlat(u) || "No flat"}</span>
                                 </button>
                               ))}
                           </div>
@@ -1282,118 +1291,116 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               </div>
             )}
 
+            {/* Step 3: Prasadam Collection */}
             {currentStep === 3 && (
-              <div className="space-y-3.5 flex-1">
-                <div className="border-b border-border pb-2">
-                  <h3 className="text-sm font-extrabold text-foreground">Prasadam Collection</h3>
-                  <p className="text-[11px] text-muted-foreground">Prasadam and sacred offerings collection method.</p>
+              <div className="space-y-2 flex-1">
+                <div className="border-b border-border pb-1.5">
+                  <h3 className="text-xs sm:text-[13px] font-extrabold text-foreground">Prasadam Collection</h3>
+                  <p className="text-[10px] text-muted-foreground">Prasadam and sacred offerings collection method.</p>
                 </div>
 
-                <div className="grid gap-3">
-                  {/* Mandap Counter Collection (Default & Active) */}
-                  <div
-                    className="rounded-2xl border-2 border-primary bg-primary/10 p-3.5 text-left shadow-xs flex items-center justify-between gap-2"
-                  >
+                <div className="grid gap-2">
+                  {/* Mandap Counter Collection */}
+                  <div className="rounded-xl border-2 border-primary bg-primary/10 p-2.5 text-left shadow-2xs flex items-center justify-between gap-2">
                     <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="block text-xs font-black text-foreground">Mandap Counter Collection</span>
-                      </div>
-                      <span className="text-[10.5px] text-muted-foreground block">
-                        Collect holy prasadam directly at the temple/mandap desk after completion of the pooja ritual by showing your booking pass.
+                      <span className="block text-xs font-black text-foreground">Mandap Counter Collection</span>
+                      <span className="text-[10px] text-muted-foreground block leading-tight">
+                        Collect holy prasadam directly at the mandap desk after completion of the pooja ritual.
                       </span>
                     </div>
-                    <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+                    <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                   </div>
 
-                  {/* Home Delivery (Disabled by Organizer Policy) */}
+                  {/* Home Delivery (Disabled) */}
                   <div
-                    className="rounded-2xl border border-border/60 bg-muted/40 p-3 text-left opacity-60 cursor-not-allowed select-none flex items-center justify-between gap-2"
-                    title="Home delivery is not applicable for this pooja seva. Please collect prasadam at the Mandap counter."
+                    className="rounded-xl border border-border/60 bg-muted/40 p-2.5 text-left opacity-60 cursor-not-allowed select-none flex items-center justify-between gap-2"
+                    title="Home delivery is not applicable for this pooja seva."
                   >
                     <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <span className="block text-xs font-bold text-muted-foreground">Home Delivery</span>
-                        <span className="text-[9.5px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.2 rounded border border-border">
+                        <span className="text-[9px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.1 rounded border border-border">
                           Disabled
                         </span>
                       </div>
-                      <span className="text-[10px] text-muted-foreground block">
-                        Direct doorstep delivery is currently unavailable for this pooja.
+                      <span className="text-[9.5px] text-muted-foreground block leading-tight">
+                        Doorstep delivery is currently unavailable for this pooja.
                       </span>
                     </div>
-                    <div className="w-4 h-4 rounded-full border border-muted-foreground/40 shrink-0" />
+                    <div className="w-3.5 h-3.5 rounded-full border border-muted-foreground/40 shrink-0" />
                   </div>
                 </div>
               </div>
             )}
 
+            {/* Step 4: Review & Confirmation */}
             {currentStep === 4 && (
-              <div className="space-y-3.5 flex-1">
-                <div className="border-b border-border pb-2">
-                  <h3 className="text-sm font-extrabold text-foreground">
+              <div className="space-y-2 flex-1">
+                <div className="border-b border-border pb-1.5">
+                  <h3 className="text-xs sm:text-[13px] font-extrabold text-foreground">
                     {isUpdateMode ? "Review & Confirm Reschedule" : isFreeEvent ? "Review & Confirmation" : "Review & Contribution"}
                   </h3>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-[10px] text-muted-foreground">
                     {isUpdateMode
                       ? "Verify your rescheduled session, Gotram, and prasadam collection details"
                       : "Confirm your Pooja booking details before completing registration"}
                   </p>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-card border border-border space-y-3 text-xs">
-                  {/* Dedicated Full-Width Highlight for Selected Session */}
-                  <div className="p-3 rounded-xl bg-primary/10 border border-primary/20 space-y-1">
+                <div className="p-2.5 rounded-xl bg-card border border-border space-y-2 text-xs">
+                  {/* Selected Session Highlight */}
+                  <div className="p-2 rounded-lg bg-primary/10 border border-primary/20 space-y-0.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10.5px] font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5" /> Selected Session (Day, Date &amp; Time)
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-primary flex items-center gap-1">
+                        <Calendar className="w-3 h-3" /> Selected Session
                       </span>
                       {selectedSlotDisplayName && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/20 text-primary">
+                        <span className="text-[9.5px] font-bold px-1.5 py-0.2 rounded-full bg-primary/20 text-primary">
                           {selectedSlotDisplayName}
                         </span>
                       )}
                     </div>
-                    <div className="pt-0.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                      <strong className="text-xs sm:text-sm font-black text-foreground flex items-center gap-1.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                      <strong className="font-black text-foreground flex items-center gap-1">
                         <span>📅</span>
                         <span>{selectedDateDisplay}</span>
                         {currentDay?.dayLabel && (
                           <span className="text-muted-foreground font-semibold">({currentDay.dayLabel})</span>
                         )}
                       </strong>
-                      <span className="text-xs sm:text-sm font-extrabold text-primary flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5" />
+                      <span className="font-extrabold text-primary flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
                         <span>{selectedSlotDisplayTime}</span>
                       </span>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Pooja Ritual</span>
-                      <strong className="text-foreground font-bold text-xs truncate block">{poojaTitle}</strong>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    <div className="p-2 rounded-lg bg-muted/40 border border-border">
+                      <span className="text-[9px] text-muted-foreground uppercase font-bold block">Pooja Ritual</span>
+                      <strong className="text-foreground font-bold text-[11px] truncate block">{poojaTitle}</strong>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border">
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Yajaman &amp; Gotram</span>
-                      <strong className="text-foreground font-bold text-xs truncate block">
+                    <div className="p-2 rounded-lg bg-muted/40 border border-border">
+                      <span className="text-[9px] text-muted-foreground uppercase font-bold block">Yajaman &amp; Gotram</span>
+                      <strong className="text-foreground font-bold text-[11px] truncate block">
                         {devoteeName} {gotram ? `(${gotram})` : ""}
                       </strong>
                     </div>
-                    <div className="col-span-2 sm:col-span-1 p-2.5 rounded-xl bg-muted/40 border border-border">
-                      <span className="text-[10px] text-muted-foreground uppercase font-bold block">Prasadam Collection</span>
-                      <strong className="text-emerald-600 dark:text-emerald-400 font-bold text-xs truncate block">
-                        Mandap Counter Collection
+                    <div className="col-span-2 sm:col-span-1 p-2 rounded-lg bg-muted/40 border border-border">
+                      <span className="text-[9px] text-muted-foreground uppercase font-bold block">Prasadam</span>
+                      <strong className="text-emerald-600 dark:text-emerald-400 font-bold text-[11px] truncate block">
+                        Mandap Desk
                       </strong>
                     </div>
                   </div>
 
                   {!isFreeEvent && numericFee > 0 && !isUpdateMode && (
-                    <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-between">
+                    <div className="p-2.5 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-between">
                       <div>
-                        <span className="text-xs font-bold text-foreground block">Total Seva Contribution</span>
-                        <span className="text-[10.5px] text-muted-foreground">Flat fee for complete family inclusion</span>
+                        <span className="text-[11px] font-bold text-foreground block">Total Seva Contribution</span>
+                        <span className="text-[9.5px] text-muted-foreground">Family inclusion pass</span>
                       </div>
-                      <span className="text-xl font-black text-primary">₹{numericFee}</span>
+                      <span className="text-base font-black text-primary">₹{numericFee}</span>
                     </div>
                   )}
                 </div>
@@ -1401,67 +1408,65 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             )}
           </GlassCard>
         ) : (
-          <div className="space-y-4 text-center py-6 animate-fadeIn flex-1 flex flex-col justify-center">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 flex items-center justify-center mx-auto text-3xl shadow-lg">
+          /* Success Screen */
+          <div className="space-y-3 text-center py-3 animate-fadeIn flex-1 flex flex-col justify-center">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 flex items-center justify-center mx-auto text-2xl shadow-md">
               🪔
             </div>
 
-            <div className="space-y-1">
-              <h3 className="text-lg font-black text-foreground">
+            <div className="space-y-0.5">
+              <h3 className="text-sm sm:text-base font-black text-foreground">
                 {isUpdateMode ? "Pooja Slot Rescheduled Successfully!" : "Pooja Seva Booked Successfully!"}
               </h3>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground">
                 {isUpdateMode
-                  ? "Your holy Sankalpam slot has been rescheduled with the Temple Committee."
+                  ? "Your holy Sankalpam slot has been updated with the Temple Committee."
                   : "Your holy Sankalpam details have been registered with the Temple Committee."}
               </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-card border border-border text-left space-y-2.5 text-xs max-w-md mx-auto shadow-md">
-              <div className="flex items-center justify-between border-b border-border pb-2">
+            <div className="p-3 rounded-xl bg-card border border-border text-left space-y-2 text-xs max-w-sm mx-auto shadow-sm">
+              <div className="flex items-center justify-between border-b border-border pb-1.5">
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-primary block">
-                    {isUpdateMode ? "Rescheduled Sankalpam Pass" : "Sankalpam Pass"}
+                  <span className="text-[9px] uppercase font-bold text-primary block">
+                    {isUpdateMode ? "Rescheduled Pass" : "Sankalpam Pass"}
                   </span>
-                  <strong className="text-sm font-black text-foreground">{poojaTitle}</strong>
+                  <strong className="text-xs font-black text-foreground truncate block max-w-[200px]">{poojaTitle}</strong>
                 </div>
                 <button
                   onClick={copyPassCode}
-                  className="flex items-center gap-1 text-[11px] text-primary font-bold bg-primary/10 px-2 py-1 rounded-lg border border-primary/20 hover:bg-primary/20 transition-all cursor-pointer"
+                  className="flex items-center gap-1 text-[10px] text-primary font-bold bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20 hover:bg-primary/20 transition-all cursor-pointer"
                 >
-                  {copiedPass ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                  {copiedPass ? <Check className="w-2.5 h-2.5" /> : <Copy className="w-2.5 h-2.5" />}
                   <span>{registrationCode || "—"}</span>
                 </button>
               </div>
 
-              {/* Dedicated Full-Width Row for Session in Pass Confirmation */}
-              <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 space-y-1">
-                <span className="text-[10px] uppercase font-bold text-primary block">
-                  Selected Session (Day, Date &amp; Time)
+              {/* Selected Session in Pass */}
+              <div className="p-2 rounded-lg bg-primary/10 border border-primary/20 space-y-0.5">
+                <span className="text-[9px] uppercase font-bold text-primary block">
+                  Selected Session
                 </span>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                <div className="flex items-center justify-between gap-1 text-[11px]">
                   <strong className="text-foreground font-extrabold flex items-center gap-1">
                     <span>📅</span>
                     <span>{selectedDateDisplay}</span>
-                    {currentDay?.dayLabel && (
-                      <span className="text-muted-foreground font-semibold">({currentDay.dayLabel})</span>
-                    )}
                   </strong>
                   <strong className="text-primary font-black flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
+                    <Clock className="w-2.5 h-2.5" />
                     <span>{selectedSlotDisplayTime}</span>
                   </strong>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="grid grid-cols-2 gap-1.5 text-[10px]">
                 <div>
-                  <span className="text-muted-foreground block">Yajaman &amp; Gotram:</span>
+                  <span className="text-muted-foreground block">Yajaman:</span>
                   <strong className="text-foreground">{devoteeName} {gotram ? `(${gotram})` : ""}</strong>
                 </div>
                 <div>
-                  <span className="text-muted-foreground block">Prasadam Collection:</span>
-                  <strong className="text-emerald-600 dark:text-emerald-400">Mandap Counter post-Aarti</strong>
+                  <span className="text-muted-foreground block">Prasadam:</span>
+                  <strong className="text-emerald-600 dark:text-emerald-400">Mandap Counter</strong>
                 </div>
                 <div className="col-span-2">
                   <span className="text-muted-foreground block">Seva Contribution:</span>
@@ -1470,16 +1475,17 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               </div>
             </div>
 
-            <div className="pt-2 flex items-center justify-center gap-3">
-              <TouchButton onClick={onClose} variant="primary" size="md" className="cursor-pointer">
+            <div className="pt-1 flex items-center justify-center gap-2">
+              <TouchButton onClick={onClose} variant="primary" size="sm" className="cursor-pointer">
                 Done &amp; View Registrations
               </TouchButton>
             </div>
           </div>
         )}
 
+        {/* Modal Footer Controls */}
         {!isSuccess && (
-          <div className="flex items-center justify-center gap-3 border-t border-border pt-3 shrink-0">
+          <div className="flex items-center justify-center gap-2 border-t border-border pt-2.5 shrink-0">
             {currentStep > 1 && (
               <TouchButton
                 type="button"
@@ -1495,21 +1501,21 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             )}
 
             {alreadyRegisteredTitle && !isUpdateMode ? (
-              <span className="px-4 py-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs font-bold border border-amber-500/20 flex items-center gap-1.5 select-none">
-                <ShieldCheck className="w-3.5 h-3.5" /> Slot Already Booked
+              <span className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[11px] font-bold border border-amber-500/20 flex items-center gap-1 select-none">
+                <ShieldCheck className="w-3 h-3" /> Slot Already Booked
               </span>
             ) : isPoojaFull ? (
-              <span className="px-4 py-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold border border-rose-500/20 flex items-center gap-1.5 select-none">
-                <AlertCircle className="w-3.5 h-3.5" /> Pooja Capacity Full (Sold Out)
+              <span className="px-3 py-1.5 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[11px] font-bold border border-rose-500/20 flex items-center gap-1 select-none">
+                <AlertCircle className="w-3 h-3" /> Capacity Full (Sold Out)
               </span>
             ) : isPoojaClosed ? (
-              <span className="px-4 py-2 rounded-xl bg-muted text-muted-foreground text-xs font-bold border border-border flex items-center gap-1.5 select-none">
-                <Clock className="w-3.5 h-3.5" /> Registration Closed
+              <span className="px-3 py-1.5 rounded-lg bg-muted text-muted-foreground text-[11px] font-bold border border-border flex items-center gap-1 select-none">
+                <Clock className="w-3 h-3" /> Registration Closed
               </span>
             ) : currentStep < 4 ? (
               <TouchButton type="button" onClick={handleNext} variant="primary" size="sm" className="cursor-pointer">
                 <span>Continue</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-3 h-3" />
               </TouchButton>
             ) : (
               <TouchButton
@@ -1522,18 +1528,18 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               >
                 {isSubmitting ? (
                   <>
-                    <span>Processing Registration...</span>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Processing...</span>
+                    <Loader2 className="w-3 h-3 animate-spin" />
                   </>
                 ) : isUpdateMode ? (
                   <>
                     <span>Confirm Reschedule</span>
-                    <RefreshCw className="w-3.5 h-3.5" />
+                    <RefreshCw className="w-3 h-3" />
                   </>
                 ) : (
                   <>
-                    <span>{isFreeEvent ? "Confirm & Register Pooja" : `Confirm & Book Seva (₹${numericFee})`}</span>
-                    <Flame className="w-3.5 h-3.5" />
+                    <span>{isFreeEvent ? "Confirm & Register" : `Confirm & Book (₹${numericFee})`}</span>
+                    <Flame className="w-3 h-3" />
                   </>
                 )}
               </TouchButton>

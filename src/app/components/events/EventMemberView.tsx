@@ -441,7 +441,6 @@ function MemberAuctionBidModal({ activity, onClose, onSuccess }: MemberAuctionBi
 
 export function EventMemberView() {
   const { user, isSuperAdmin } = useAuth();
-  const { useMock } = useEventMock();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
@@ -1119,7 +1118,7 @@ export function EventMemberView() {
       window.removeEventListener("mana_registrations_updated", handleRegUpdate);
       window.removeEventListener("mana_family_updated", loadFamilyMembers);
     };
-  }, [useMock, user]);
+  }, [user]);
 
   // Compute dynamic counters for Quick Actions
   const poojaCount = useMemo(() => activitiesList.filter((a) => a.category === "Pooja").length, [activitiesList]);
@@ -1181,31 +1180,29 @@ export function EventMemberView() {
   }, [passesList, mobilePassesFilter, activePasses, cancelledPasses, expiredPasses]);
 
   const dynamicQuickActions = useMemo(() => {
-    const volunteerBadge = useMock
-      ? "12 Teams Duty"
-      : liveStats?.totalVolunteers !== undefined && liveStats.totalVolunteers > 0
-      ? `${liveStats.totalVolunteers} Duties`
-      : "0 Duties";
+    const volunteerBadge =
+      liveStats?.totalVolunteers !== undefined && liveStats.totalVolunteers > 0
+        ? `${liveStats.totalVolunteers} Duties`
+        : "0 Duties";
 
-    const donateBadge = useMock
-      ? "₹6.2L Raised"
-      : liveStats?.totalRevenue !== undefined && liveStats.totalRevenue > 0
-      ? `₹${(liveStats.totalRevenue).toLocaleString()} Raised`
-      : "₹0 Raised";
+    const donateBadge =
+      liveStats?.totalRevenue !== undefined && liveStats.totalRevenue > 0
+        ? `₹${liveStats.totalRevenue.toLocaleString()} Raised`
+        : "₹0 Raised";
 
-    const foodBadge = useMock
-      ? "4.2K Free"
-      : liveStats?.foodPlatesCount !== undefined && liveStats.foodPlatesCount > 0
-      ? `${liveStats.foodPlatesCount.toLocaleString()} Plates`
-      : "0 Served";
+    const foodBadge =
+      foodCount > 0
+        ? `${foodCount} Meal Slot${foodCount === 1 ? "" : "s"}`
+        : liveStats?.foodPlatesCount !== undefined && liveStats.foodPlatesCount > 0
+        ? `${liveStats.foodPlatesCount.toLocaleString()} Plates`
+        : "0 Served";
 
-    const auctionBadge = useMock
-      ? "₹18,500 Bid"
-      : auctionCount > 0
-      ? `${auctionCount} Live Item${auctionCount === 1 ? "" : "s"}`
-      : liveStats?.auctionRevenue !== undefined && liveStats.auctionRevenue > 0
-      ? `₹${liveStats.auctionRevenue.toLocaleString()} Bid`
-      : "0 Items";
+    const auctionBadge =
+      auctionCount > 0
+        ? `${auctionCount} Live Item${auctionCount === 1 ? "" : "s"}`
+        : liveStats?.auctionRevenue !== undefined && liveStats.auctionRevenue > 0
+        ? `₹${liveStats.auctionRevenue.toLocaleString()} Bid`
+        : "0 Items";
 
     return [
       {
@@ -1221,7 +1218,7 @@ export function EventMemberView() {
         label: "Lunch / Dinner",
         icon: Utensils,
         color: "bg-orange-500/10 text-orange-600 border-orange-300/30",
-        badge: foodCount > 0 ? `${foodCount} Meal Slot${foodCount === 1 ? "" : "s"}` : foodBadge,
+        badge: foodBadge,
         category: "Food",
       },
       {
@@ -1273,7 +1270,7 @@ export function EventMemberView() {
         category: "Auction",
       },
     ];
-  }, [poojaCount, foodCount, culturalCount, compCount, auctionCount, familyMembers.length, activePasses.length, useMock, liveStats]);
+  }, [poojaCount, foodCount, culturalCount, compCount, auctionCount, familyMembers.length, activePasses.length, liveStats]);
 
   /**
    * Safe matching between an Activity and user's booked Passes list.
@@ -1386,7 +1383,7 @@ export function EventMemberView() {
 
   const handleDeleteFamilyMember = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!useMock && !id.startsWith("fam-") && id !== "self") {
+    if (!id.startsWith("fam-") && id !== "self") {
       try {
         await eventService.deleteFamilyMember(Number(id));
       } catch (err: any) {
@@ -1412,16 +1409,14 @@ export function EventMemberView() {
 
     let createdId = "fam-" + Date.now();
 
-    if (!useMock) {
-      try {
-        const saved = await eventService.addFamilyMember(payload);
-        if (saved && saved.id) {
-          createdId = String(saved.id);
-        }
-      } catch (err: any) {
-        showError(err?.message || "Failed to add family member");
-        return;
+    try {
+      const saved = await eventService.addFamilyMember(payload);
+      if (saved && saved.id) {
+        createdId = String(saved.id);
       }
+    } catch (err: any) {
+      showError(err?.message || "Failed to add family member");
+      return;
     }
 
     const createdMember: FamilyMember = {
@@ -1601,19 +1596,17 @@ export function EventMemberView() {
 
       let createdId = "pass-" + Date.now();
 
-      if (!useMock) {
-        try {
-          const isPooja = selectedActivity.category?.toLowerCase().includes("pooja");
-          const saved = isPooja
-            ? await eventService.createPoojaRegistration(passPayload as any)
-            : await eventService.createRegistration(passPayload);
-          if (saved && saved.id) {
-            createdId = String(saved.id);
-          }
-        } catch (err: any) {
-          showError(err?.response?.data?.message || err?.message || "Registration failed. The activity capacity has been reached.");
-          return;
+      try {
+        const isPooja = selectedActivity.category?.toLowerCase().includes("pooja");
+        const saved = isPooja
+          ? await eventService.createPoojaRegistration(passPayload as any)
+          : await eventService.createRegistration(passPayload);
+        if (saved && saved.id) {
+          createdId = String(saved.id);
         }
+      } catch (err: any) {
+        showError(err?.response?.data?.message || err?.message || "Registration failed. The activity capacity has been reached.");
+        return;
       }
 
       const newPass: UserPass = {
@@ -2288,17 +2281,6 @@ export function EventMemberView() {
                 <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5 sm:gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
                   <span>Quick Actions</span>
-                  {isSuperAdmin && (
-                    useMock ? (
-                      <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                        ⚡ Mock
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
-                      </span>
-                    )
-                  )}
                 </h3>
                 {selectedCategoryFilter && (
                   <button
