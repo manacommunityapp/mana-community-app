@@ -1846,14 +1846,11 @@ export function EventMemberView() {
                         e.stopPropagation();
                         setDetailedEvent(activeMainEvent);
                       }}
-                      className="inline-flex items-center justify-center p-0.5 rounded-full hover:opacity-90 active:scale-90 transition-all cursor-pointer shrink-0"
+                      className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white text-[9px] sm:text-[9.5px] font-extrabold border border-white/30 backdrop-blur-md shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
                       title="View complete event information, sub-events, and schedule"
                     >
-                      <img
-                        src="/info-icon.png"
-                        alt="Event Details"
-                        className="w-5 h-5 sm:w-5.5 sm:h-5.5 object-contain drop-shadow-xs"
-                      />
+                      <Info className="w-3 h-3 text-amber-300" />
+                      <span>Info</span>
                     </button>
                   )}
                   {(activeMainEvent?.attendees ?? activeMainEvent?.registrationCount) != null && (
