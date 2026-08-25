@@ -3,7 +3,8 @@ import {
   Download, Users, FileText,
   Search, Calendar, Eye, Printer, CheckCircle2,
   RefreshCw, Sparkles, Utensils, Shield, ChevronRight, X,
-  Tag, Award, Layers, ChevronLeft, Store
+  Tag, Award, Layers, ChevronLeft, Store, Copy, MessageSquare,
+  FileSpreadsheet, ClipboardList, MapPin,
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { ErrorBanner, LoadingSpinner } from "./shared/index";
@@ -36,6 +37,14 @@ const CATEGORY_TABS = [
   { id: "meal",      label: "Meals",      emoji: "🍲" },
   { id: "volunteer", label: "Volunteers", emoji: "🤝" },
   { id: "booking",   label: "Bookings",   emoji: "🏪" },
+];
+
+const DOWNLOAD_FORMATS = [
+  { id: "csv",        label: "CSV",              icon: Download },
+  { id: "excel",      label: "Excel (.xls)",     icon: FileSpreadsheet },
+  { id: "pdf",        label: "PDF Roster",       icon: Printer },
+  { id: "attendance", label: "Attendance Sheet", icon: ClipboardList },
+  { id: "json",       label: "JSON",             icon: FileText },
 ];
 
 const MOCK_ROWS: EventRegistrationReportRow[] = [
@@ -89,14 +98,17 @@ function StatCard({ label, value, sub, color, icon: Icon, progress }: {
 }
 
 // ── Download Category Card ─────────────────────────────────────────────────────
-function DownloadCard({ card, count, revenue, isDownloading, onDownload, onPreview }: {
+function DownloadCard({ card, count, revenue, isDownloading, onDownload, onCopyWhatsapp, onPreview }: {
   card: typeof CATEGORY_REPORT_CARDS[0];
   count: number; revenue?: number | null;
   isDownloading: boolean;
-  onDownload: () => void;
+  onDownload: (format: string) => void;
+  onCopyWhatsapp: () => void;
   onPreview: () => void;
 }) {
   const Icon = card.icon;
+  const [fmt, setFmt] = useState("csv");
+
   return (
     <div className="bg-white rounded-xl border border-slate-100 shadow-xs hover:shadow-md transition-all group flex flex-col overflow-hidden">
       <div className="h-0.5 w-full" style={{ background: card.color }} />
@@ -126,23 +138,42 @@ function DownloadCard({ card, count, revenue, isDownloading, onDownload, onPrevi
           )}
         </div>
 
-        <div className="flex items-center gap-1.5 mt-auto pt-2 border-t border-slate-100">
+        {/* Format selector */}
+        <div className="mb-1.5">
+          <select
+            value={fmt}
+            onChange={e => setFmt(e.target.value)}
+            className="w-full px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 text-[10px] font-semibold text-slate-700 focus:outline-none focus:border-indigo-300 cursor-pointer"
+          >
+            {DOWNLOAD_FORMATS.map(f => (
+              <option key={f.id} value={f.id}>{f.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-1 mt-auto pt-2 border-t border-slate-100">
           <button
-            onClick={onDownload}
+            onClick={() => onDownload(fmt)}
             disabled={isDownloading}
             className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg text-[10px] font-bold text-white transition-all cursor-pointer disabled:opacity-50 active:scale-95"
             style={{ background: isDownloading ? "#94a3b8" : card.color }}
           >
             {isDownloading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-            {isDownloading ? "Exporting…" : "Download CSV"}
+            {isDownloading ? "Exporting…" : "Download"}
+          </button>
+          <button
+            onClick={onCopyWhatsapp}
+            className="flex items-center justify-center p-1.5 rounded-lg text-[10px] text-emerald-600 hover:bg-emerald-50 border border-slate-200 transition-all cursor-pointer"
+            title="Copy WhatsApp summary"
+          >
+            <MessageSquare className="w-3 h-3" />
           </button>
           <button
             onClick={onPreview}
-            className="flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 transition-all cursor-pointer"
+            className="flex items-center justify-center p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 border border-slate-200 transition-all cursor-pointer"
             title="Preview in table"
           >
             <Eye className="w-3 h-3" />
-            <span className="hidden sm:inline">View</span>
           </button>
         </div>
       </div>
@@ -166,6 +197,8 @@ export function EventsReports() {
 
   // Table filters & pagination
   const [activeCategoryTab, setActiveCategoryTab] = useState<string>("all");
+  const [selectedActivity, setSelectedActivity] = useState<string>("all");
+  const [venueFilter, setVenueFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFrom, setDateFrom] = useState("");
@@ -203,22 +236,61 @@ export function EventsReports() {
       .finally(() => setLoadingRegs(false));
   }, [useMock, selectedEventId, events]);
 
-  // Reset page when filters change
-  useEffect(() => { setCurrentPage(1); }, [activeCategoryTab, searchQuery, statusFilter, dateFrom, dateTo]);
+  // Reset page & sub-filters when category or event changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedActivity("all");
+    setVenueFilter("all");
+  }, [activeCategoryTab, selectedEventId]);
+
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, statusFilter, dateFrom, dateTo, selectedActivity, venueFilter]);
+
+  // ── Source rows for current category tab ─────────────────────────────────────
+  const allSource = useMock ? MOCK_ROWS : registrations;
+
+  function matchesCategory(r: EventRegistrationReportRow, tabId: string): boolean {
+    if (tabId === "all") return true;
+    const cat = r.category.toLowerCase();
+    if (tabId === "pooja")     return cat.includes("pooja");
+    if (tabId === "general")   return cat.includes("general") || cat.includes("event");
+    if (tabId === "activity")  return cat.includes("activity") || cat.includes("cultural") || cat.includes("competition");
+    if (tabId === "meal")      return cat.includes("meal") || cat.includes("food");
+    if (tabId === "volunteer") return cat.includes("volunteer");
+    if (tabId === "booking")   return cat.includes("booking") || cat.includes("stall");
+    return true;
+  }
+
+  // Distinct activity titles for current category
+  const activityOptions = useMemo(() => {
+    const titles = Array.from(new Set(
+      allSource.filter(r => matchesCategory(r, activeCategoryTab))
+        .map(r => r.activityTitle).filter(Boolean)
+    )).sort();
+    return titles;
+  }, [allSource, activeCategoryTab]);
+
+  // Distinct venues for current category
+  const venueOptions = useMemo(() => {
+    const venues = Array.from(new Set(
+      allSource.filter(r => matchesCategory(r, activeCategoryTab))
+        .map(r => r.venue || r.mandap).filter(Boolean)
+    )).sort();
+    return venues;
+  }, [allSource, activeCategoryTab]);
 
   // ── CSV helpers ──────────────────────────────────────────────────────────────
+  const CSV_HEADERS = ["Reg Code","Category","Activity / Pooja / Seva","Participant Name","Phone","Email","Gotram","Devotee Count","Attending Devotees","Event Date","Event Time","Venue","Mandap","Pandit Name","Booking Fee (INR)","Payment Status","Payment Method","Transaction ID","Status","Checked In","Prasadam Mode","Registered At","Notes"];
+
   function esc(val: unknown): string {
     if (val === null || val === undefined) return '""';
     return `"${String(val).replace(/"/g, '""')}"`;
   }
 
-  function downloadCsvClientSide(rows: EventRegistrationReportRow[], filename: string) {
-    const headers = ["Reg Code","Category","Activity / Pooja / Seva","Participant Name","Phone","Email","Gotram","Devotee Count","Attending Devotees","Event Date","Event Time","Venue","Mandap","Pandit Name","Booking Fee (INR)","Payment Status","Payment Method","Transaction ID","Status","Checked In","Prasadam Mode","Registered At","Notes"];
-    const csv = "﻿" + [
-      headers.join(","),
-      ...rows.map(r => [esc(r.regCode),esc(r.category),esc(r.activityTitle),esc(r.participantName),esc(r.phone),esc(r.email),esc(r.gotram),r.devoteeCount||1,esc(r.attendingDevotees),esc(r.eventDate),esc(r.eventTime),esc(r.venue),esc(r.mandap),esc(r.panditName),(r.bookingFee||0).toFixed(2),esc(r.paymentStatus),esc(r.paymentMethod),esc(r.transactionId),esc(r.status),r.checkedIn?"YES":"NO",esc(r.prasadamMode),esc(r.registeredAt),esc(r.notes)].join(","))
-    ].join("\r\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  function rowToArray(r: EventRegistrationReportRow): (string | number)[] {
+    return [esc(r.regCode),esc(r.category),esc(r.activityTitle),esc(r.participantName),esc(r.phone),esc(r.email),esc(r.gotram),r.devoteeCount||1,esc(r.attendingDevotees),esc(r.eventDate),esc(r.eventTime),esc(r.venue),esc(r.mandap),esc(r.panditName),(r.bookingFee||0).toFixed(2),esc(r.paymentStatus),esc(r.paymentMethod),esc(r.transactionId),esc(r.status),r.checkedIn?"YES":"NO",esc(r.prasadamMode),esc(r.registeredAt),esc(r.notes)];
+  }
+
+  function triggerDownload(blob: Blob, filename: string) {
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = filename;
@@ -227,36 +299,32 @@ export function EventsReports() {
     document.body.removeChild(link);
   }
 
-  async function handleDownloadCategoryCsv(category: string, title: string) {
-    setDownloadingCategory(category);
-    setSuccessMsg("");
-    setError("");
-    const filename = `${(selectedEvent?.title || "event").replace(/[^a-zA-Z0-9_-]/g,"_")}_${category}_registrations_${new Date().toISOString().slice(0,10)}.csv`;
-    try {
-      if (useMock || !selectedEventId) {
-        const filtered = category === "all" ? MOCK_ROWS : MOCK_ROWS.filter(r => r.category.toLowerCase().includes(category));
-        downloadCsvClientSide(filtered, filename);
-        setSuccessMsg(`Downloaded ${title} CSV (${filtered.length} records)`);
-      } else {
-        try {
-          const blob = await eventReportService.exportRegistrationReportCsv(selectedEventId, category);
-          const link = document.createElement("a");
-          link.href = URL.createObjectURL(blob);
-          link.download = filename;
-          document.body.appendChild(link); link.click(); document.body.removeChild(link);
-          setSuccessMsg(`Successfully exported ${title} CSV`);
-        } catch {
-          const matchingRows = category === "all" ? registrations : registrations.filter(r => r.category.toLowerCase().includes(category));
-          downloadCsvClientSide(matchingRows, filename);
-          setSuccessMsg(`Exported ${title} CSV (${matchingRows.length} records)`);
-        }
-      }
-    } catch (err: unknown) {
-      setError((err as Error)?.message || "Failed to download CSV");
-    } finally {
-      setDownloadingCategory(null);
-      setTimeout(() => setSuccessMsg(""), 5000);
-    }
+  function downloadCsvClientSide(rows: EventRegistrationReportRow[], filename: string) {
+    const csv = "﻿" + [CSV_HEADERS.join(","), ...rows.map(r => rowToArray(r).join(","))].join("\r\n");
+    triggerDownload(new Blob([csv], { type: "text/csv;charset=utf-8;" }), filename);
+  }
+
+  function downloadExcel(rows: EventRegistrationReportRow[], filename: string) {
+    const xmlEsc = (v: unknown) => String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+    const headerRow = CSV_HEADERS.map(h => `<Cell ss:StyleID="h"><Data ss:Type="String">${xmlEsc(h)}</Data></Cell>`).join("");
+    const dataRows = rows.map(r => {
+      const vals = [r.regCode,r.category,r.activityTitle,r.participantName,r.phone,r.email,r.gotram,r.devoteeCount||1,r.attendingDevotees,r.eventDate,r.eventTime,r.venue,r.mandap,r.panditName,(r.bookingFee||0).toFixed(2),r.paymentStatus,r.paymentMethod,r.transactionId,r.status,r.checkedIn?"YES":"NO",r.prasadamMode,r.registeredAt,r.notes];
+      return `<Row>${vals.map(v => `<Cell><Data ss:Type="String">${xmlEsc(v)}</Data></Cell>`).join("")}</Row>`;
+    }).join("\n");
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+<Styles><Style ss:ID="h"><Font ss:Bold="1"/><Interior ss:Color="#EEF2FF" ss:Pattern="Solid"/></Style></Styles>
+<Worksheet ss:Name="Registrations"><Table>
+<Row>${headerRow}</Row>
+${dataRows}
+</Table></Worksheet></Workbook>`;
+    triggerDownload(new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8;" }), filename.replace(/\.csv$/, ".xls"));
+  }
+
+  function downloadJson(rows: EventRegistrationReportRow[], filename: string) {
+    const json = JSON.stringify({ event: selectedEvent?.title, exportedAt: new Date().toISOString(), total: rows.length, registrations: rows }, null, 2);
+    triggerDownload(new Blob([json], { type: "application/json;charset=utf-8;" }), filename.replace(/\.csv$/, ".json"));
   }
 
   function handlePrintRoster(title: string, rows: EventRegistrationReportRow[]) {
@@ -278,24 +346,89 @@ export function EventsReports() {
     w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
   }
 
-  // ── Filtered Registrations ───────────────────────────────────────────────────
-  const allSource = useMock ? MOCK_ROWS : registrations;
+  function handlePrintAttendanceSheet(title: string, rows: EventRegistrationReportRow[]) {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html><html><head><title>${title} – Attendance</title>
+    <style>body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:20px;color:#1e293b}
+    h1{font-size:18px;margin:0 0 4px 0;color:#4338ca}p.meta{font-size:11px;color:#64748b;margin:0 0 16px 0}
+    table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #cbd5e1;padding:6px 8px;text-align:left}
+    th{background:#f1f5f9;font-weight:700;color:#334155}.check{width:28px;text-align:center;font-size:16px}
+    tr:nth-child(even){background:#f8fafc}
+    @media print{body{padding:10mm}}</style></head><body>
+    <h1>${title} – Attendance Sheet</h1>
+    <p class="meta">Event: ${selectedEvent?.title||"Community Event"} | ${new Date().toLocaleDateString()} | Total: ${rows.length} | In: ${rows.filter(r=>r.checkedIn).length} | Out: ${rows.filter(r=>!r.checkedIn).length}</p>
+    <table><thead><tr><th class="check">✓</th><th>#</th><th>Reg Code</th><th>Name</th><th>Activity / Seva</th><th>Phone</th><th>Gotram</th><th>Dev.</th><th>Date &amp; Time</th><th>Venue</th></tr></thead>
+    <tbody>${rows.map((r,i)=>`<tr><td class="check">${r.checkedIn?"✅":"☐"}</td><td>${i+1}</td><td><strong>${r.regCode||"—"}</strong></td><td>${r.participantName}</td><td>${r.activityTitle}</td><td>${r.phone||"—"}</td><td>${r.gotram||"—"}</td><td>${r.devoteeCount||1}</td><td>${r.eventDate||""} ${r.eventTime||""}</td><td>${r.venue||r.mandap||"—"}</td></tr>`).join("")}
+    </tbody></table></body></html>`);
+    w.document.close(); w.focus(); setTimeout(() => w.print(), 400);
+  }
 
+  function copyWhatsappSummary(cardTitle: string, count: number, revenue?: number | null) {
+    const eventName = selectedEvent?.title || "Community Event";
+    const lines = [
+      `📋 *${cardTitle}*`,
+      `📅 Event: ${eventName}`,
+      `👥 Registrations: ${count.toLocaleString("en-IN")}`,
+    ];
+    if (revenue && revenue > 0) lines.push(`💰 Revenue: ₹${revenue.toLocaleString("en-IN")}`);
+    if (selectedActivity !== "all") lines.push(`🎯 Activity: ${selectedActivity}`);
+    lines.push(`🕐 Generated: ${new Date().toLocaleString("en-IN")}`);
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      setSuccessMsg("WhatsApp summary copied to clipboard!");
+      setTimeout(() => setSuccessMsg(""), 4000);
+    });
+  }
+
+  async function handleDownloadCategory(category: string, title: string, format: string) {
+    setDownloadingCategory(category);
+    setSuccessMsg("");
+    setError("");
+    const base = `${(selectedEvent?.title || "event").replace(/[^a-zA-Z0-9_-]/g,"_")}_${category}_${new Date().toISOString().slice(0,10)}`;
+    try {
+      // Get rows for this category
+      let rows: EventRegistrationReportRow[];
+      if (useMock || !selectedEventId) {
+        rows = category === "all" ? MOCK_ROWS : MOCK_ROWS.filter(r => r.category.toLowerCase().includes(category));
+      } else {
+        try {
+          if (format === "csv") {
+            const blob = await eventReportService.exportRegistrationReportCsv(selectedEventId, category);
+            triggerDownload(blob, `${base}.csv`);
+            setSuccessMsg(`Exported ${title} CSV`);
+            return;
+          }
+          rows = await eventReportService.getRegistrationReport(selectedEventId, category);
+        } catch {
+          rows = category === "all" ? registrations : registrations.filter(r => r.category.toLowerCase().includes(category));
+        }
+      }
+
+      if (format === "csv")        downloadCsvClientSide(rows, `${base}.csv`);
+      else if (format === "excel") downloadExcel(rows, `${base}.csv`);
+      else if (format === "pdf")   handlePrintRoster(title, rows);
+      else if (format === "attendance") handlePrintAttendanceSheet(title, rows);
+      else if (format === "json")  downloadJson(rows, `${base}.csv`);
+
+      setSuccessMsg(`Exported ${title} (${format.toUpperCase()}) — ${rows.length} records`);
+    } catch (err: unknown) {
+      setError((err as Error)?.message || "Failed to export");
+    } finally {
+      setDownloadingCategory(null);
+      setTimeout(() => setSuccessMsg(""), 5000);
+    }
+  }
+
+  // ── Filtered Registrations ───────────────────────────────────────────────────
   const filteredRows = useMemo(() => {
     return allSource.filter(r => {
-      if (activeCategoryTab !== "all") {
-        const tab = activeCategoryTab.toLowerCase();
-        const cat = r.category.toLowerCase();
-        if (tab === "pooja"     && !cat.includes("pooja")) return false;
-        if (tab === "general"   && !cat.includes("general") && !cat.includes("event")) return false;
-        if (tab === "activity"  && !cat.includes("activity") && !cat.includes("cultural") && !cat.includes("competition")) return false;
-        if (tab === "meal"      && !cat.includes("meal") && !cat.includes("food")) return false;
-        if (tab === "volunteer" && !cat.includes("volunteer")) return false;
-        if (tab === "booking"   && !cat.includes("booking") && !cat.includes("stall")) return false;
-      }
+      if (!matchesCategory(r, activeCategoryTab)) return false;
+      if (selectedActivity !== "all" && r.activityTitle !== selectedActivity) return false;
+      if (venueFilter !== "all" && r.venue !== venueFilter && r.mandap !== venueFilter) return false;
       if (statusFilter === "paid"       && r.paymentStatus !== "PAID") return false;
       if (statusFilter === "free"       && r.paymentStatus === "PAID") return false;
       if (statusFilter === "checked_in" && !r.checkedIn) return false;
+      if (statusFilter === "not_in"     && r.checkedIn) return false;
       if (dateFrom && r.eventDate && r.eventDate < dateFrom) return false;
       if (dateTo   && r.eventDate && r.eventDate > dateTo)   return false;
       if (searchQuery.trim()) {
@@ -305,7 +438,7 @@ export function EventsReports() {
       }
       return true;
     });
-  }, [allSource, activeCategoryTab, statusFilter, dateFrom, dateTo, searchQuery]);
+  }, [allSource, activeCategoryTab, selectedActivity, venueFilter, statusFilter, dateFrom, dateTo, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
   const pagedRows = filteredRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -354,44 +487,109 @@ export function EventsReports() {
     <div className="space-y-3 pb-6">
 
       {/* ── Header ── */}
-      <div className="bg-white rounded-xl border border-slate-100 shadow-xs p-2.5 sm:p-3 flex flex-col md:flex-row md:items-center gap-2">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-            <FileText className="w-3.5 h-3.5" />
-          </div>
-          <div className="min-w-0">
-            <h2 className="text-sm font-black text-slate-900 leading-tight">Event Reports & Registrations</h2>
-            <p className="text-[11px] text-slate-400 truncate hidden sm:block">Download verified registrant lists — Pooja sevas, passes, cultural activities, meals & volunteers</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-          {!useMock && events.length > 0 && (
-            <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
-              <Calendar className="w-3 h-3 text-indigo-500 shrink-0" />
-              <select
-                value={selectedEventId ?? ""}
-                onChange={e => setSelectedEventId(Number(e.target.value))}
-                className="bg-transparent text-[11px] font-bold text-slate-800 focus:outline-none cursor-pointer max-w-[200px]"
-              >
-                {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
-              </select>
+      <div className="bg-white rounded-xl border border-slate-100 shadow-xs p-2.5 sm:p-3 flex flex-col gap-2">
+        <div className="flex flex-col md:flex-row md:items-center gap-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <FileText className="w-3.5 h-3.5" />
             </div>
-          )}
-          <button
-            onClick={() => handleDownloadCategoryCsv("all", "All Event Registrations")}
-            disabled={downloadingCategory === "all"}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-xs disabled:opacity-50 cursor-pointer"
-          >
-            {downloadingCategory === "all" ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
-            Master CSV
-          </button>
-          <button
-            onClick={() => handlePrintRoster("Master Event Registration Roster", filteredRows)}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer"
-          >
-            <Printer className="w-3 h-3" /> Print
-          </button>
+            <div className="min-w-0">
+              <h2 className="text-sm font-black text-slate-900 leading-tight">Event Reports & Registrations</h2>
+              <p className="text-[11px] text-slate-400 truncate hidden sm:block">Download verified registrant lists — Pooja sevas, passes, cultural activities, meals & volunteers</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            <button
+              onClick={() => handleDownloadCategory("all", "All Event Registrations", "csv")}
+              disabled={downloadingCategory === "all"}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+            >
+              {downloadingCategory === "all" ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />}
+              Master CSV
+            </button>
+            <button
+              onClick={() => handlePrintRoster("Master Event Registration Roster", filteredRows)}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all cursor-pointer"
+            >
+              <Printer className="w-3 h-3" /> Print
+            </button>
+          </div>
         </div>
+
+        {/* ── Event + Sub-event selectors ── */}
+        {!useMock && (
+          <div className="flex flex-wrap items-center gap-2 pt-1.5 border-t border-slate-100">
+            {/* Event dropdown */}
+            {events.length > 0 && (
+              <div className="flex items-center gap-1.5 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-200 min-w-[180px]">
+                <Calendar className="w-3 h-3 text-indigo-500 shrink-0" />
+                <select
+                  value={selectedEventId ?? ""}
+                  onChange={e => {
+                    setSelectedEventId(Number(e.target.value));
+                    setSelectedActivity("all");
+                    setVenueFilter("all");
+                  }}
+                  className="bg-transparent text-[11px] font-bold text-slate-800 focus:outline-none cursor-pointer flex-1"
+                >
+                  {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
+                </select>
+              </div>
+            )}
+
+            {/* Sub-event / Activity dropdown */}
+            {activityOptions.length > 1 && (
+              <div className="flex items-center gap-1.5 bg-indigo-50 px-2.5 py-1.5 rounded-lg border border-indigo-200 min-w-[180px]">
+                <Sparkles className="w-3 h-3 text-indigo-500 shrink-0" />
+                <select
+                  value={selectedActivity}
+                  onChange={e => setSelectedActivity(e.target.value)}
+                  className="bg-transparent text-[11px] font-bold text-indigo-800 focus:outline-none cursor-pointer flex-1"
+                >
+                  <option value="all">All Activities ({activityOptions.length})</option>
+                  {activityOptions.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Venue filter */}
+            {venueOptions.length > 1 && (
+              <div className="flex items-center gap-1.5 bg-amber-50 px-2.5 py-1.5 rounded-lg border border-amber-200 min-w-[140px]">
+                <MapPin className="w-3 h-3 text-amber-600 shrink-0" />
+                <select
+                  value={venueFilter}
+                  onChange={e => setVenueFilter(e.target.value)}
+                  className="bg-transparent text-[11px] font-bold text-amber-800 focus:outline-none cursor-pointer flex-1"
+                >
+                  <option value="all">All Venues</option>
+                  {venueOptions.map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Active filter chips */}
+            {(selectedActivity !== "all" || venueFilter !== "all") && (
+              <div className="flex items-center gap-1 flex-wrap">
+                {selectedActivity !== "all" && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">
+                    🎯 {selectedActivity.length > 30 ? selectedActivity.slice(0,30)+"…" : selectedActivity}
+                    <button onClick={() => setSelectedActivity("all")} className="hover:text-indigo-900 cursor-pointer"><X className="w-2.5 h-2.5" /></button>
+                  </span>
+                )}
+                {venueFilter !== "all" && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full">
+                    📍 {venueFilter}
+                    <button onClick={() => setVenueFilter("all")} className="hover:text-amber-900 cursor-pointer"><X className="w-2.5 h-2.5" /></button>
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Alerts */}
@@ -419,7 +617,7 @@ export function EventsReports() {
         <div className="flex items-center justify-between mb-2">
           <div>
             <h3 className="text-xs font-extrabold text-slate-800">Download Category Registers</h3>
-            <p className="text-[10px] text-slate-400">Export dedicated CSV spreadsheets per module</p>
+            <p className="text-[10px] text-slate-400">Choose format per card — CSV, Excel, PDF Roster, Attendance Sheet, or JSON</p>
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
@@ -430,7 +628,8 @@ export function EventsReports() {
               count={getStatForCard(card)}
               revenue={card.revenueKey ? (stats[card.revenueKey as keyof typeof stats] as number) : null}
               isDownloading={downloadingCategory === card.id}
-              onDownload={() => handleDownloadCategoryCsv(card.id, card.title)}
+              onDownload={(fmt) => handleDownloadCategory(card.id, card.title, fmt)}
+              onCopyWhatsapp={() => copyWhatsappSummary(card.title, getStatForCard(card), card.revenueKey ? (stats[card.revenueKey as keyof typeof stats] as number) : null)}
               onPreview={() => {
                 setActiveCategoryTab(card.id);
                 document.getElementById("reg-table-section")?.scrollIntoView({ behavior: "smooth" });
@@ -502,7 +701,7 @@ export function EventsReports() {
 
           <div className="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between">
             <span className="text-[10px] text-slate-400">Need full audit?</span>
-            <button onClick={() => handleDownloadCategoryCsv("all", "Comprehensive Financial Register")}
+            <button onClick={() => handleDownloadCategory("all", "Comprehensive Financial Register", "csv")}
               className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer">
               Export Audit Register <ChevronRight className="w-3 h-3" />
             </button>
@@ -530,40 +729,41 @@ export function EventsReports() {
                 />
                 {searchQuery && <button onClick={() => setSearchQuery("")} className="absolute right-2 top-1.5 text-slate-400 hover:text-slate-600"><X className="w-3 h-3" /></button>}
               </div>
+
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
                 className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-semibold text-slate-700 focus:outline-none cursor-pointer">
                 <option value="all">All Statuses</option>
                 <option value="paid">Paid Only</option>
                 <option value="free">Free Entries</option>
-                <option value="checked_in">Checked In</option>
+                <option value="checked_in">Checked In ✅</option>
+                <option value="not_in">Not Checked In</option>
               </select>
+
               <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
                 className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-medium text-slate-700 focus:outline-none cursor-pointer" title="From date" />
               <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
                 className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-medium text-slate-700 focus:outline-none cursor-pointer" title="To date" />
+
               <button
                 onClick={() => downloadCsvClientSide(filteredRows, `filtered_${activeCategoryTab}_${new Date().toISOString().slice(0,10)}.csv`)}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all cursor-pointer"
               >
                 <Download className="w-3 h-3" /> Export
               </button>
+              <button
+                onClick={() => copyWhatsappSummary("Filtered Results", filteredRows.length)}
+                className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-all cursor-pointer"
+                title="Copy summary to clipboard"
+              >
+                <Copy className="w-3 h-3" />
+              </button>
             </div>
           </div>
 
           {/* Category Tabs */}
-          <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
+          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 mb-2">
             {CATEGORY_TABS.map(tab => {
-              const count = tab.id === "all" ? allSource.length :
-                allSource.filter(r => {
-                  const cat = r.category.toLowerCase();
-                  if (tab.id === "pooja") return cat.includes("pooja");
-                  if (tab.id === "general") return cat.includes("general") || cat.includes("event");
-                  if (tab.id === "activity") return cat.includes("activity") || cat.includes("cultural") || cat.includes("competition");
-                  if (tab.id === "meal") return cat.includes("meal") || cat.includes("food");
-                  if (tab.id === "volunteer") return cat.includes("volunteer");
-                  if (tab.id === "booking") return cat.includes("booking") || cat.includes("stall");
-                  return true;
-                }).length;
+              const count = allSource.filter(r => matchesCategory(r, tab.id)).length;
               return (
                 <button key={tab.id} onClick={() => setActiveCategoryTab(tab.id)}
                   className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold whitespace-nowrap transition-all cursor-pointer border ${
@@ -577,6 +777,32 @@ export function EventsReports() {
               );
             })}
           </div>
+
+          {/* Sub-event + Venue row (table-level) */}
+          {(activityOptions.length > 1 || venueOptions.length > 1) && (
+            <div className="flex flex-wrap items-center gap-2">
+              {activityOptions.length > 1 && (
+                <div className="flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-200">
+                  <Sparkles className="w-2.5 h-2.5 text-indigo-500 shrink-0" />
+                  <select value={selectedActivity} onChange={e => setSelectedActivity(e.target.value)}
+                    className="bg-transparent text-[10px] font-bold text-indigo-800 focus:outline-none cursor-pointer max-w-[200px]">
+                    <option value="all">All Activities</option>
+                    {activityOptions.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              )}
+              {venueOptions.length > 1 && (
+                <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
+                  <MapPin className="w-2.5 h-2.5 text-amber-500 shrink-0" />
+                  <select value={venueFilter} onChange={e => setVenueFilter(e.target.value)}
+                    className="bg-transparent text-[10px] font-bold text-amber-800 focus:outline-none cursor-pointer max-w-[160px]">
+                    <option value="all">All Venues</option>
+                    {venueOptions.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Table */}
@@ -673,11 +899,8 @@ export function EventsReports() {
               {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredRows.length)} of {filteredRows.length}
             </span>
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
-                className="p-1 rounded border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
+                className="p-1 rounded border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
                 <ChevronLeft className="w-3 h-3 text-slate-600" />
               </button>
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -694,11 +917,8 @@ export function EventsReports() {
                   </button>
                 );
               })}
-              <button
-                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
-                className="p-1 rounded border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}
+                className="p-1 rounded border border-slate-200 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all">
                 <ChevronRight className="w-3 h-3 text-slate-600" />
               </button>
             </div>
