@@ -501,16 +501,20 @@ const FESTIVAL_AGENDA_PLACEHOLDERS: ScheduleActivity[] = [
 ];
 
 function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
-  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [expandedDay, setExpandedDay] = useState<string | null>(() => {
+    return data.daySchedules.length > 0 ? data.daySchedules[0].date : null;
+  });
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [notifDayLabel, setNotifDayLabel] = useState<string | undefined>(undefined);
   const [notifActivityTitle, setNotifActivityTitle] = useState<string | undefined>(undefined);
 
+  const initializedDayRef = useRef(false);
   useEffect(() => {
-    if (!expandedDay && data.daySchedules.length > 0) {
+    if (!initializedDayRef.current && data.daySchedules.length > 0) {
+      initializedDayRef.current = true;
       setExpandedDay(data.daySchedules[0].date);
     }
-  }, [data.daySchedules, expandedDay]);
+  }, [data.daySchedules]);
 
   const [poojaTypeOptions, setPoojaTypeOptions] = useState<{ id: number; name: string }[]>([]);
   useEffect(() => {
@@ -909,11 +913,14 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                     "rounded-xl border overflow-hidden transition-all",
                     isExpanded ? "border-indigo-200 shadow-xs" : "border-slate-200 hover:border-slate-300"
                   )}>
-                  <div className={cn(
-                    "w-full flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 transition-colors",
-                    isExpanded ? "bg-indigo-50/50" : "bg-white hover:bg-slate-50"
-                  )}>
-                    <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="flex items-center gap-2.5 sm:gap-3 flex-1 text-left">
+                  <div
+                    onClick={() => setExpandedDay(prev => prev === day.date ? null : day.date)}
+                    className={cn(
+                      "w-full flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 transition-colors cursor-pointer select-none",
+                      isExpanded ? "bg-indigo-50/50" : "bg-white hover:bg-slate-50"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 sm:gap-3 flex-1 text-left">
                       <div className={cn(
                         "w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex flex-col items-center justify-center text-white font-black shrink-0",
                         isExpanded ? "shadow-xs" : ""
@@ -927,8 +934,8 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                           {filledCount}/{totalCount} activities configured
                         </p>
                       </div>
-                    </button>
-                    <div className="flex items-center gap-1.5">
+                    </div>
+                    <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); triggerNotification(`Day ${dayIdx + 1}`); }}
@@ -946,7 +953,12 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="p-1">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedDay(prev => prev === day.date ? null : day.date)}
+                        className="p-1 cursor-pointer hover:bg-slate-200/60 rounded-md transition-colors"
+                        title={isExpanded ? "Collapse Day Agenda" : "Expand Day Agenda"}
+                      >
                         <ChevronRight className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-200", isExpanded && "rotate-90")} />
                       </button>
                     </div>
@@ -3585,6 +3597,7 @@ export function EventCreateWizard({
               // 1. Merge Pooja Sevas
               if (Array.isArray(poojas)) {
                 for (const p of poojas) {
+                  if (p.mainEventId && Number(p.mainEventId) !== numId) continue;
                   const pDate = resolveDay(p.date || p.startDate);
                   if (!pDate || !daysMap.has(pDate)) continue;
                   const list = daysMap.get(pDate)!;
@@ -3618,6 +3631,7 @@ export function EventCreateWizard({
               // 2. Merge Cultural Events
               if (Array.isArray(cults)) {
                 for (const c of cults) {
+                  if (c.mainEventId && Number(c.mainEventId) !== numId) continue;
                   const cDate = resolveDay(c.date);
                   if (!cDate || !daysMap.has(cDate)) continue;
                   const list = daysMap.get(cDate)!;
@@ -3646,6 +3660,7 @@ export function EventCreateWizard({
               // 3. Merge Competitions
               if (Array.isArray(comps)) {
                 for (const cmp of comps) {
+                  if (cmp.mainEventId && Number(cmp.mainEventId) !== numId) continue;
                   const cmpDate = resolveDay(cmp.date);
                   if (!cmpDate || !daysMap.has(cmpDate)) continue;
                   const list = daysMap.get(cmpDate)!;
@@ -3674,6 +3689,7 @@ export function EventCreateWizard({
               // 4. Merge Lunch / Dinners
               if (Array.isArray(meals)) {
                 for (const m of meals) {
+                  if (m.mainEventId && Number(m.mainEventId) !== numId) continue;
                   const mDate = resolveDay(m.date);
                   if (!mDate || !daysMap.has(mDate)) continue;
                   const list = daysMap.get(mDate)!;

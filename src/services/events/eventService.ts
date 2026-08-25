@@ -494,7 +494,7 @@ export const eventService = {
   },
 
   async getPoojaSevas(eventId?: number): Promise<any[]> {
-    const qs = eventId ? `?eventId=${eventId}` : "";
+    const qs = eventId ? `?mainEventId=${eventId}&eventId=${eventId}` : "";
     return apiClient.get<any[]>(`/events/pooja-sevas${qs}`);
   },
 
@@ -511,7 +511,7 @@ export const eventService = {
   },
 
   async getCulturalEvents(eventId?: number): Promise<any[]> {
-    const qs = eventId ? `?eventId=${eventId}` : "";
+    const qs = eventId ? `?mainEventId=${eventId}&eventId=${eventId}` : "";
     return apiClient.get<any[]>(`/events/cultural-events${qs}`);
   },
 
@@ -528,7 +528,7 @@ export const eventService = {
   },
 
   async getCompetitions(eventId?: number): Promise<any[]> {
-    const qs = eventId ? `?eventId=${eventId}` : "";
+    const qs = eventId ? `?mainEventId=${eventId}&eventId=${eventId}` : "";
     return apiClient.get<any[]>(`/events/competitions${qs}`);
   },
 
@@ -545,7 +545,7 @@ export const eventService = {
   },
 
   async getLunchDinners(mainEventId?: number): Promise<any[]> {
-    const qs = mainEventId ? `?mainEventId=${mainEventId}` : "";
+    const qs = mainEventId ? `?mainEventId=${mainEventId}&eventId=${mainEventId}` : "";
     return apiClient.get<any[]>(`/events/lunch-dinners${qs}`);
   },
 
