@@ -657,7 +657,7 @@ export function EventMemberView() {
             category: ev.category || ev.type || "Pooja",
             date: ev.startDate ? String(ev.startDate) : "Upcoming",
             time: ev.startTime || "Morning",
-            venue: ev.venue || ev.location || "Main Temple Mandap, Gate 1",
+            venue: ev.venue || ev.location || ev.city || ev.address || "",
             fee: ev.price ? Number(ev.price) : 0,
             availableSeats: Math.max(0, initialCapacity - booked),
             capacity: initialCapacity,
@@ -719,7 +719,7 @@ export function EventMemberView() {
             time: p.startTime ? `${p.startTime}` : (p.time || "Morning"),
             startTime: p.startTime,
             startTimes: p.startTimes,
-            venue: p.mandap || "Main Temple Mandap, Gate 1",
+            venue: p.mandap || p.venue || p.location || "",
             mandap: p.mandap,
             pandit: p.pandit,
             slots: p.slots,
@@ -745,8 +745,8 @@ export function EventMemberView() {
               endDate: p.endDate || p.startDate || p.date,
               startTime: p.startTime || p.time || "Morning",
               endTime: p.endTime,
-              venue: p.mandap || "Main Temple Mandap",
-              location: p.mandap || "Main Temple Mandap",
+              venue: p.mandap || p.venue || p.location || "",
+              location: p.mandap || p.venue || p.location || "",
               mandap: p.mandap,
               pandit: p.pandit,
               isMultiDay,
@@ -789,7 +789,7 @@ export function EventMemberView() {
             category: "Food",
             date: m.date ? String(m.date) : "Upcoming",
             time: m.startTime && m.endTime ? `${m.startTime} - ${m.endTime}` : (m.startTime || "Afternoon / Evening"),
-            venue: m.venue || "Annadanam Dining Hall, Gate 2",
+            venue: m.venue || m.diningHall || m.location || "",
             fee: m.isFree ? 0 : Number(m.fee || 50),
             availableSeats: Math.max(0, initialPlates - booked),
             image: "🍲",
@@ -821,7 +821,7 @@ export function EventMemberView() {
             category: "Cultural",
             date: c.date ? String(c.date) : "Upcoming",
             time: c.startTime || "Evening",
-            venue: c.stage || "Auditorium Stage A",
+            venue: c.stage || c.venue || c.location || "",
             fee: 0,
             availableSeats: Math.max(0, initialSeats - booked),
             image: "🎭",
@@ -853,7 +853,7 @@ export function EventMemberView() {
             category: "Competitions",
             date: cm.date ? String(cm.date) : "Upcoming",
             time: cm.startTime || "Morning",
-            venue: cm.venue || "Clubhouse Activity Hall",
+            venue: cm.venue || cm.stage || cm.location || "",
             fee: cm.isFree ? 0 : Number(cm.fee || 100),
             availableSeats: Math.max(0, initialMax - booked),
             image: "🏆",
@@ -881,7 +881,7 @@ export function EventMemberView() {
             category: "Auction",
             date: item.status === "LIVE" ? "🔴 Live Bidding" : item.status === "CLOSED" ? "🏁 Closed" : "⏳ Upcoming Auction",
             time: item.status === "LIVE" ? "Bidding in Progress" : "Auction Floor",
-            venue: item.eventTitle || "Main Festival Stage / Temple Mandap",
+            venue: item.eventTitle || item.venue || item.location || "",
             fee: displayPrice,
             availableSeats: item.status === "CLOSED" ? 0 : 1,
             image: item.imageEmoji || "🪔",
@@ -1901,22 +1901,28 @@ export function EventMemberView() {
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <h2 className="text-sm sm:text-base font-black text-white leading-snug drop-shadow-sm truncate">
                         {bannerMainEvents.length > 0
-                          ? (activeMainEvent?.title || "Community Festival")
+                          ? (activeMainEvent?.title || "Community Event")
                           : "No Events Created Yet"}
                       </h2>
                       <div className="flex items-center gap-1.5 sm:gap-2 text-[10.5px] font-medium text-white/90 overflow-hidden">
-                        <span className="flex items-center gap-1 shrink-0">
-                          <Calendar className="w-3 h-3 text-amber-300 shrink-0" />
-                          <span className="whitespace-nowrap">
-                            {activeMainEvent?.startDate || activeMainEvent?.date || "Upcoming"}
-                            {activeMainEvent?.endDate && activeMainEvent.endDate !== (activeMainEvent.startDate || activeMainEvent.date) ? ` – ${activeMainEvent.endDate}` : ""}
+                        {(activeMainEvent?.startDate || activeMainEvent?.date) && (
+                          <span className="flex items-center gap-1 shrink-0">
+                            <Calendar className="w-3 h-3 text-amber-300 shrink-0" />
+                            <span className="whitespace-nowrap">
+                              {activeMainEvent?.startDate || activeMainEvent?.date}
+                              {activeMainEvent?.endDate && activeMainEvent.endDate !== (activeMainEvent.startDate || activeMainEvent.date) ? ` – ${activeMainEvent.endDate}` : ""}
+                            </span>
                           </span>
-                        </span>
-                        <span className="text-white/40 shrink-0">·</span>
-                        <span className="flex items-center gap-1 truncate max-w-[140px] sm:max-w-[220px]">
-                          <MapPin className="w-3 h-3 text-indigo-200 shrink-0" />
-                          <span className="truncate">{activeMainEvent?.venue || activeMainEvent?.location || activeMainEvent?.city || "Main Community Grounds"}</span>
-                        </span>
+                        )}
+                        {(activeMainEvent?.venue || activeMainEvent?.location || activeMainEvent?.city || activeMainEvent?.address) && (
+                          <>
+                            {(activeMainEvent?.startDate || activeMainEvent?.date) && <span className="text-white/40 shrink-0">·</span>}
+                            <span className="flex items-center gap-1 truncate max-w-[140px] sm:max-w-[220px]">
+                              <MapPin className="w-3 h-3 text-indigo-200 shrink-0" />
+                              <span className="truncate">{activeMainEvent?.venue || activeMainEvent?.location || activeMainEvent?.city || activeMainEvent?.address}</span>
+                            </span>
+                          </>
+                        )}
                         {(activeMainEvent?.startTime || activeMainEvent?.time) && (
                           <>
                             <span className="text-white/40 shrink-0">·</span>
