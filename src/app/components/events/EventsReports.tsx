@@ -18,15 +18,15 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell, Legend
 } from "recharts";
 
-// ── Mock Data for Demo / Testing ──────────────────────────────────────────────
+// ── Category Report Card Metadata ──────────────────────────────────────────────
 
-const MOCK_REPORT_CARDS = [
-  { id: "pooja", title: "Pooja Seva Registrations", desc: "Devotees, gotrams, sankalpam slots, pandit & seva fees", icon: Sparkles, color: "#e11d48", bg: "#ffe4e6", count: 248, rev: "₹1,24,500", category: "pooja" },
-  { id: "general", title: "General Event Passes", desc: "Attendee pass holders, devotee headcount, check-ins", icon: Users, color: "#6366f1", bg: "#eef2ff", count: 854, rev: "₹85,400", category: "general" },
-  { id: "activity", title: "Cultural & Competitions", desc: "Stage performers, classical dances, competition teams", icon: Award, color: "#d97706", bg: "#fffbeb", count: 182, rev: "Free Entry", category: "activity" },
-  { id: "meal", title: "Annadanam / Meal Bookings", desc: "Devotee meal headcount, lunch/dinner & dietary preferences", icon: Utensils, color: "#16a34a", bg: "#f0fdf4", count: 1420, rev: "Free Seva", category: "meal" },
-  { id: "volunteer", title: "Volunteer Duty Roster", desc: "Assigned volunteers, zones, shifts & duty status", icon: Shield, color: "#0891b2", bg: "#ecfeff", count: 64, rev: "Seva Team", category: "volunteer" },
-  { id: "all", title: "Master Consolidated Register", desc: "Complete all-in-one export containing every registered user", icon: Layers, color: "#8b5cf6", bg: "#f5f3ff", count: 2768, rev: "₹2,09,900", category: "all" },
+const CATEGORY_REPORT_CARDS = [
+  { id: "pooja", title: "Pooja Seva Registrations", desc: "Devotees, gotrams, sankalpam slots, pandit & seva fees", icon: Sparkles, color: "#e11d48", bg: "#ffe4e6", category: "pooja" },
+  { id: "general", title: "General Event Passes", desc: "Attendee pass holders, devotee headcount, check-ins", icon: Users, color: "#6366f1", bg: "#eef2ff", category: "general" },
+  { id: "activity", title: "Cultural & Competitions", desc: "Stage performers, classical dances, competition teams", icon: Award, color: "#d97706", bg: "#fffbeb", category: "activity" },
+  { id: "meal", title: "Annadanam / Meal Bookings", desc: "Devotee meal headcount, lunch/dinner & dietary preferences", icon: Utensils, color: "#16a34a", bg: "#f0fdf4", category: "meal" },
+  { id: "volunteer", title: "Volunteer Duty Roster", desc: "Assigned volunteers, zones, shifts & duty status", icon: Shield, color: "#0891b2", bg: "#ecfeff", category: "volunteer" },
+  { id: "all", title: "Master Consolidated Register", desc: "Complete all-in-one export containing every registered user", icon: Layers, color: "#8b5cf6", bg: "#f5f3ff", category: "all" },
 ];
 
 const MOCK_REGISTRATION_ROWS: EventRegistrationReportRow[] = [
@@ -537,13 +537,20 @@ export function EventsReports() {
   }, [useMock, report, registrations]);
 
   // Distribution chart data
-  const categoryDistributionData = [
-    { name: "Pooja Seva", value: statsSummary.poojaRegs || 1, color: "#e11d48" },
-    { name: "General Passes", value: statsSummary.generalRegs || 1, color: "#6366f1" },
-    { name: "Cultural & Sports", value: statsSummary.activityRegs || 1, color: "#d97706" },
-    { name: "Annadanam / Food", value: statsSummary.mealHeadcount || 1, color: "#16a34a" },
-    { name: "Volunteers", value: statsSummary.volunteers || 1, color: "#0891b2" },
-  ];
+  const categoryDistributionData = useMemo(() => {
+    const rawData = [
+      { name: "Pooja Seva", value: statsSummary.poojaRegs, color: "#e11d48" },
+      { name: "General Passes", value: statsSummary.generalRegs, color: "#6366f1" },
+      { name: "Cultural & Sports", value: statsSummary.activityRegs, color: "#d97706" },
+      { name: "Annadanam / Food", value: statsSummary.mealHeadcount, color: "#16a34a" },
+      { name: "Volunteers", value: statsSummary.volunteers, color: "#0891b2" },
+    ];
+    const total = rawData.reduce((acc, d) => acc + d.value, 0);
+    if (total === 0) {
+      return [{ name: "No Registrations", value: 1, color: "#cbd5e1" }];
+    }
+    return rawData.filter(d => d.value > 0);
+  }, [statsSummary]);
 
   return (
     <div className="space-y-4 sm:space-y-6 pb-12">
@@ -668,12 +675,19 @@ export function EventsReports() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {MOCK_REPORT_CARDS.map(card => {
+          {CATEGORY_REPORT_CARDS.map(card => {
             const Icon = card.icon;
             const isDownloading = downloadingCategory === card.category;
 
-            let liveCount = card.count;
-            if (!useMock && registrations.length > 0) {
+            let liveCount = 0;
+            if (useMock) {
+              if (card.category === "pooja") liveCount = 248;
+              else if (card.category === "general") liveCount = 854;
+              else if (card.category === "activity") liveCount = 182;
+              else if (card.category === "meal") liveCount = 1420;
+              else if (card.category === "volunteer") liveCount = 64;
+              else if (card.category === "all") liveCount = 2768;
+            } else {
               if (card.category === "pooja") liveCount = statsSummary.poojaRegs;
               else if (card.category === "general") liveCount = statsSummary.generalRegs;
               else if (card.category === "activity") liveCount = statsSummary.activityRegs;
