@@ -640,17 +640,6 @@ export function NotificationBell() {
                     </div>
                   );
                 })}
-
-                {hasMore && (
-                  <button
-                    type="button"
-                    onClick={handleLoadMore}
-                    disabled={loading}
-                    className="w-full py-2.5 text-xs font-bold text-primary hover:bg-primary/5 transition-all cursor-pointer rounded-xl disabled:opacity-50"
-                  >
-                    {loading ? "Loading..." : "Load more notifications"}
-                  </button>
-                )}
               </>
             )}
           </div>
