@@ -47,6 +47,26 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
   const [activeModal, setActiveModal] = useState<"directory" | "search" | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  useEffect(() => {
+    const handleOpenSearch = () => {
+      setActiveModal("search");
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setActiveModal((prev) => (prev === "search" ? null : "search"));
+      }
+    };
+
+    window.addEventListener("mana:open-search", handleOpenSearch);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("mana:open-search", handleOpenSearch);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
   const searchItems: SearchResultItem[] = [
     {
       label: "Community Feed",
@@ -244,9 +264,9 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
         />
       )}
 
-      {/* ── Modal 0: Search Modal (Mobile & Tablet) ─────────────────────────── */}
+      {/* ── Modal 0: Search Modal (Mobile & Desktop) ─────────────────────────── */}
       {activeModal === "search" && (
-        <div className="fixed inset-x-3 top-12 bottom-6 z-50 flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 lg:inset-auto lg:top-16 lg:right-28 lg:w-[480px] lg:max-h-[80vh] lg:rounded-2xl">
+        <div className="fixed inset-x-3 top-12 bottom-6 z-50 flex flex-col bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200 lg:inset-auto lg:top-14 lg:left-1/2 lg:-translate-x-1/2 lg:w-[560px] lg:max-h-[80vh] lg:rounded-2xl">
           {/* Search Header */}
           <div className="p-3 bg-gradient-to-r from-sky-600 via-sky-500 to-indigo-600 text-white flex items-center gap-2">
             <div className="flex-1 flex items-center gap-2 bg-white/15 border border-white/25 rounded-xl px-3 py-2 text-white">

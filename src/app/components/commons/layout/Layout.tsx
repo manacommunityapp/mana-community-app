@@ -951,9 +951,23 @@ export function Layout() {
               </Link>
             </div>
 
-          <div className="flex-1 hidden lg:block" />
+            {/* Desktop Header Search Bar */}
+            <div className="flex-1 max-w-md mx-3 sm:mx-6 hidden lg:block">
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new CustomEvent("mana:open-search"))}
+                className="w-full flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-slate-100/90 hover:bg-slate-200/70 border border-slate-200/90 hover:border-slate-300 text-xs text-slate-500 hover:text-slate-700 transition-all cursor-pointer shadow-2xs group"
+                title="Search features, modules, pages (Ctrl+K / ⌘K)"
+              >
+                <Search className="w-3.5 h-3.5 text-slate-400 group-hover:text-primary transition-colors shrink-0" />
+                <span className="flex-1 text-left truncate font-medium">Search features, events, bookings, directory...</span>
+                <kbd className="inline-flex items-center gap-0.5 text-[10px] font-bold text-slate-400 bg-white border border-slate-200 px-1.5 py-0.5 rounded shadow-2xs">
+                  ⌘K
+                </kbd>
+              </button>
+            </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-3 ml-auto">
+            <div className="flex items-center gap-1.5 sm:gap-3 ml-auto">
             <MobileHeaderActions onToggleSidebar={toggleSidebar} />
             <NotificationBell />
 
