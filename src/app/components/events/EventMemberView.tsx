@@ -1261,19 +1261,15 @@ export function EventMemberView() {
         badge: donateBadge,
         category: "Donation",
       },
-    ];
-
-    // Only include Auction quick action if there are active auction items from the database
-    if (auctionCount > 0) {
-      actions.push({
+      {
         id: "auction",
         label: "Auction",
         icon: Gavel,
         color: "bg-cyan-500/10 text-cyan-600 border-cyan-300/30",
-        badge: `${auctionCount} Live Item${auctionCount === 1 ? "" : "s"}`,
+        badge: auctionBadge,
         category: "Auction",
-      });
-    }
+      },
+    ];
 
     return actions;
   }, [poojaCount, foodCount, culturalCount, compCount, auctionCount, familyMembers.length, activePasses.length, liveStats]);
