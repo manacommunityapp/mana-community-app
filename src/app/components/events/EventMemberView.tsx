@@ -1915,6 +1915,29 @@ export function EventMemberView() {
                         )}
                       </div>
                     </div>
+                    {bannerMainEvents.length > 1 && (
+                      <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handlePrevHeroBanner(); }}
+                          className="w-7 h-7 rounded-lg bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 border border-white/25"
+                          title="Previous Event"
+                        >
+                          <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+                        </button>
+                        <span className="text-[10px] font-black text-amber-300 select-none whitespace-nowrap">
+                          {heroBannerIndex + 1}<span className="text-white/60 font-normal">/{bannerMainEvents.length}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleNextHeroBanner(); }}
+                          className="w-7 h-7 rounded-lg bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 border border-white/25"
+                          title="Next Event"
+                        >
+                          <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
