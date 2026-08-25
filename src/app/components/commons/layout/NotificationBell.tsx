@@ -135,6 +135,237 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
+export function resolveNotificationUrl(n: NotificationItem): string {
+  // If explicit valid module actionUrl exists and is not a generic placeholder
+  if (n.actionUrl && n.actionUrl.trim() && n.actionUrl !== "#" && n.actionUrl !== "/" && n.actionUrl !== "/dashboard") {
+    return n.actionUrl.trim();
+  }
+
+  const cat = (n.category || "").toUpperCase();
+  const type = (n.type || "").toUpperCase();
+  const refType = (n.referenceType || "").toUpperCase();
+  const title = (n.title || "").toUpperCase();
+  const body = (n.body || "").toUpperCase();
+
+  // 1. Events & Poojas -> Event Dashboard (/events)
+  if (
+    cat.includes("EVENT") ||
+    cat.includes("POOJA") ||
+    cat.includes("SEVA") ||
+    type.includes("EVENT") ||
+    type.includes("POOJA") ||
+    type.includes("SEVA") ||
+    refType === "EVENT" ||
+    title.includes("POOJA") ||
+    title.includes("EVENT") ||
+    title.includes("SEVA") ||
+    title.includes("DARSHAN") ||
+    title.includes("UTSAV") ||
+    title.includes("FESTIVAL") ||
+    title.includes("MAHOTSAV") ||
+    title.includes("HOMAM") ||
+    title.includes("ARCHANA") ||
+    title.includes("AARTI") ||
+    body.includes("UTSAV") ||
+    body.includes("POOJA") ||
+    body.includes("FESTIVAL")
+  ) {
+    if (n.referenceId) {
+      return `/events?eventId=${n.referenceId}`;
+    }
+    return "/events";
+  }
+
+  // 2. Sports & Tournaments & Auctions -> Sports Dashboard (/sports)
+  if (
+    cat.includes("SPORT") ||
+    cat.includes("AUCTION") ||
+    type.includes("SPORT") ||
+    type.includes("TOURNAMENT") ||
+    type.includes("AUCTION") ||
+    type.includes("MATCH") ||
+    refType === "TOURNAMENT" ||
+    refType === "SPORT" ||
+    refType === "AUCTION" ||
+    title.includes("TOURNAMENT") ||
+    title.includes("AUCTION") ||
+    title.includes("SPORTS") ||
+    title.includes("CRICKET") ||
+    title.includes("BADMINTON") ||
+    title.includes("MATCH")
+  ) {
+    if (type.includes("AUCTION") || cat.includes("AUCTION")) {
+      return "/sports/auction";
+    }
+    if (n.referenceId) {
+      return `/sports?eventId=${n.referenceId}`;
+    }
+    return "/sports";
+  }
+
+  // 3. Community Notices & Announcements -> Notices (/notices)
+  if (
+    cat.includes("COMMUNITY") ||
+    cat.includes("NOTICE") ||
+    type.includes("NOTICE") ||
+    refType === "NOTICE" ||
+    title.includes("NOTICE") ||
+    title.includes("ANNOUNCEMENT") ||
+    title.includes("SOCIETY") ||
+    body.includes("ANNOUNCEMENT") ||
+    body.includes("NOTICE")
+  ) {
+    return "/notices";
+  }
+
+  // 4. Amenities & Bookings -> Resource Bookings (/bookings)
+  if (
+    cat.includes("BOOKING") ||
+    cat.includes("AMENITY") ||
+    type.includes("BOOKING") ||
+    type.includes("AMENITY") ||
+    refType === "RESOURCE" ||
+    refType === "BOOKING" ||
+    title.includes("BOOKING") ||
+    title.includes("AMENITY") ||
+    title.includes("CLUBHOUSE") ||
+    title.includes("SLOT")
+  ) {
+    return "/bookings";
+  }
+
+  // 5. Helpdesk & Tickets -> Helpdesk (/helpdesk)
+  if (
+    cat.includes("HELPDESK") ||
+    cat.includes("TICKET") ||
+    cat.includes("COMPLAINT") ||
+    type.includes("TICKET") ||
+    type.includes("COMPLAINT") ||
+    type.includes("HELPDESK") ||
+    refType === "TICKET" ||
+    title.includes("TICKET") ||
+    title.includes("COMPLAINT") ||
+    title.includes("ISSUE")
+  ) {
+    return "/helpdesk";
+  }
+
+  // 6. Marketplace -> Marketplace (/marketplace)
+  if (
+    cat.includes("MARKETPLACE") ||
+    cat.includes("LISTING") ||
+    type.includes("LISTING") ||
+    type.includes("PRODUCT") ||
+    refType === "MARKETPLACE" ||
+    refType === "LISTING" ||
+    title.includes("LISTING") ||
+    title.includes("BUY & SELL")
+  ) {
+    if (n.referenceId) {
+      return `/marketplace/${n.referenceId}`;
+    }
+    return "/marketplace";
+  }
+
+  // 7. Visitors & Security -> Visitors (/visitors)
+  if (
+    cat.includes("VISITOR") ||
+    cat.includes("SECURITY") ||
+    type.includes("VISITOR") ||
+    refType === "VISITOR" ||
+    title.includes("GATE PASS") ||
+    title.includes("VISITOR") ||
+    title.includes("GUEST ENTRY")
+  ) {
+    return "/visitors";
+  }
+
+  // 8. Polls & Voting -> Polls (/polls)
+  if (
+    cat.includes("POLL") ||
+    cat.includes("VOTING") ||
+    type.includes("POLL") ||
+    refType === "POLL" ||
+    title.includes("POLL") ||
+    title.includes("VOTE")
+  ) {
+    return "/polls";
+  }
+
+  // 9. Jobs & Careers -> Jobs (/jobs)
+  if (
+    cat.includes("JOB") ||
+    cat.includes("CAREER") ||
+    cat.includes("CPN") ||
+    type.includes("JOB") ||
+    refType === "JOB" ||
+    title.includes("JOB") ||
+    title.includes("HIRING")
+  ) {
+    return "/jobs";
+  }
+
+  // 10. Food & Dining -> Food (/food)
+  if (
+    cat.includes("FOOD") ||
+    cat.includes("DINING") ||
+    type.includes("FOOD") ||
+    type.includes("MEAL") ||
+    refType === "FOOD"
+  ) {
+    return "/food";
+  }
+
+  // 11. Services -> Services Platform (/services)
+  if (
+    cat.includes("SERVICE") ||
+    type.includes("SERVICE") ||
+    refType === "SERVICE"
+  ) {
+    return "/services";
+  }
+
+  // Default fallback -> Events dashboard
+  return "/events";
+}
+
+function getDestinationMeta(targetUrl: string) {
+  if (targetUrl.startsWith("/events")) {
+    return { name: "Events Dashboard", icon: "🎉", badgeClass: "bg-indigo-50 text-indigo-700 border-indigo-200" };
+  }
+  if (targetUrl.startsWith("/sports")) {
+    return { name: "Sports Hub", icon: "🏆", badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200" };
+  }
+  if (targetUrl.startsWith("/notices")) {
+    return { name: "Notice Board", icon: "📢", badgeClass: "bg-sky-50 text-sky-700 border-sky-200" };
+  }
+  if (targetUrl.startsWith("/bookings")) {
+    return { name: "Resource Bookings", icon: "📅", badgeClass: "bg-purple-50 text-purple-700 border-purple-200" };
+  }
+  if (targetUrl.startsWith("/helpdesk")) {
+    return { name: "Helpdesk & Tickets", icon: "🎫", badgeClass: "bg-amber-50 text-amber-700 border-amber-200" };
+  }
+  if (targetUrl.startsWith("/marketplace")) {
+    return { name: "Marketplace", icon: "🛍️", badgeClass: "bg-orange-50 text-orange-700 border-orange-200" };
+  }
+  if (targetUrl.startsWith("/visitors")) {
+    return { name: "Visitor Pass", icon: "🚪", badgeClass: "bg-rose-50 text-rose-700 border-rose-200" };
+  }
+  if (targetUrl.startsWith("/polls")) {
+    return { name: "Community Polls", icon: "📊", badgeClass: "bg-teal-50 text-teal-700 border-teal-200" };
+  }
+  if (targetUrl.startsWith("/jobs")) {
+    return { name: "Jobs & Careers", icon: "💼", badgeClass: "bg-blue-50 text-blue-700 border-blue-200" };
+  }
+  if (targetUrl.startsWith("/food")) {
+    return { name: "Food & Dining", icon: "🍽️", badgeClass: "bg-yellow-50 text-yellow-700 border-yellow-200" };
+  }
+  if (targetUrl.startsWith("/services")) {
+    return { name: "Services Hub", icon: "🛠️", badgeClass: "bg-cyan-50 text-cyan-700 border-cyan-200" };
+  }
+  return { name: "Module Details", icon: "⚡", badgeClass: "bg-slate-100 text-slate-700 border-slate-200" };
+}
+
 export function NotificationBell() {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -381,12 +612,13 @@ export function NotificationBell() {
 
   const handleNotificationClick = (n: NotificationItem) => {
     if (!n.read) handleMarkAsRead(n.id);
-    if (n.actionUrl) {
-      setOpen(false);
-      if (n.actionUrl.startsWith("/")) {
-        navigate(n.actionUrl);
+    const targetUrl = resolveNotificationUrl(n);
+    setOpen(false);
+    if (targetUrl) {
+      if (targetUrl.startsWith("/")) {
+        navigate(targetUrl);
       } else {
-        window.location.href = n.actionUrl;
+        window.location.href = targetUrl;
       }
     }
   };
@@ -447,7 +679,7 @@ export function NotificationBell() {
       {open && (
         <div
           ref={panelRef}
-          className="fixed inset-x-2 top-14 max-h-[82vh] sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[410px] sm:max-h-[540px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden z-50 flex flex-col animate-in fade-in zoom-in-95 duration-150"
+          className="fixed inset-x-2 top-14 max-h-[82vh] sm:absolute sm:inset-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[420px] sm:max-h-[560px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden z-50 flex flex-col animate-in fade-in zoom-in-95 duration-150"
         >
           {/* Header */}
           <div className="p-3.5 border-b border-border bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between">
@@ -464,7 +696,7 @@ export function NotificationBell() {
                     </span>
                   )}
                 </h3>
-                <p className="text-[10px] text-white/70">Sports, Events & Community Alerts</p>
+                <p className="text-[10px] text-white/70">Click any notification to open its module dashboard</p>
               </div>
             </div>
 
@@ -560,6 +792,8 @@ export function NotificationBell() {
                   const catKey = (n.category || "GENERAL").toUpperCase();
                   const catMeta = CATEGORIES[catKey] || CATEGORIES.GENERAL;
                   const Icon = catMeta.icon;
+                  const targetUrl = resolveNotificationUrl(n);
+                  const destMeta = getDestinationMeta(targetUrl);
 
                   return (
                     <div
@@ -602,12 +836,18 @@ export function NotificationBell() {
                           </p>
                         )}
 
-                        {n.actionUrl && (
-                          <div className="flex items-center gap-1 text-[10px] font-bold text-primary mt-1.5 group-hover:underline">
-                            <span>View details</span>
-                            <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                        {/* Destination Link Badge */}
+                        <div className="flex items-center justify-between gap-2 mt-2 pt-1 border-t border-border/40">
+                          <span className={`inline-flex items-center gap-1 text-[9.5px] font-extrabold px-2 py-0.5 rounded-lg border ${destMeta.badgeClass}`}>
+                            <span>{destMeta.icon}</span>
+                            <span>{destMeta.name}</span>
+                          </span>
+
+                          <div className="flex items-center gap-1 text-[10.5px] font-bold text-primary group-hover:translate-x-0.5 transition-transform">
+                            <span>Open</span>
+                            <ChevronRight className="w-3 h-3" />
                           </div>
-                        )}
+                        </div>
                       </div>
 
                       {/* Actions */}

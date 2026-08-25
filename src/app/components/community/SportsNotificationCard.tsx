@@ -67,21 +67,29 @@ function SportEventRow({ ev, onNavigate }: { ev: SportsEvent; onNavigate: () => 
   );
 }
 
+import { resolveNotificationUrl } from "../commons/layout/NotificationBell";
+
 // ─── NotificationRow ───────────────────────────────────────────────────────
-function NotificationRow({ n }: { n: NotificationItem }) {
+function NotificationRow({ n, onNavigate }: { n: NotificationItem; onNavigate: (url: string) => void }) {
   const isSports = n.category?.toLowerCase() === "sports" || n.type === "SPORTS_EVENT";
+  const targetUrl = resolveNotificationUrl(n);
   return (
-    <div className="flex items-start gap-2 p-1.5 rounded-lg border border-slate-50 bg-white">
+    <button
+      type="button"
+      onClick={() => onNavigate(targetUrl)}
+      className="w-full text-left flex items-start gap-2 p-2 rounded-lg border border-slate-100 bg-white hover:bg-sky-50/40 hover:border-sky-200 transition-all group cursor-pointer"
+    >
       <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
         isSports ? "bg-sky-50 text-sky-600" : "bg-indigo-50 text-indigo-600"
       }`}>
         {isSports ? <Trophy className="w-3 h-3" /> : <Bell className="w-3 h-3" />}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[10px] font-semibold text-slate-800 leading-tight">{n.title}</div>
+        <div className="text-[10px] font-bold text-slate-800 leading-tight group-hover:text-sky-700 transition-colors">{n.title}</div>
         {n.body && <div className="text-[9px] text-slate-500 mt-0.5 leading-snug line-clamp-1">{n.body}</div>}
       </div>
-    </div>
+      <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-sky-500 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1" />
+    </button>
   );
 }
 
@@ -251,11 +259,11 @@ export function SportsNotificationCard({ defaultTab = "events", defaultExpanded 
                   </div>
                 ) : sportsNotifs.length > 0 ? (
                   sportsNotifs.slice(0, 8).map(n => (
-                    <NotificationRow key={n.id} n={n} />
+                    <NotificationRow key={n.id} n={n} onNavigate={(url) => navigate(url)} />
                   ))
                 ) : notifs.length > 0 ? (
                   notifs.slice(0, 8).map(n => (
-                    <NotificationRow key={n.id} n={n} />
+                    <NotificationRow key={n.id} n={n} onNavigate={(url) => navigate(url)} />
                   ))
                 ) : (
                   <div className="text-center py-4 text-slate-400">
