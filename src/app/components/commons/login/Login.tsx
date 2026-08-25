@@ -22,12 +22,25 @@ function validateIdentifier(value: string): true | string {
   return true;
 }
 
-function isNetworkError(err: unknown): boolean {
-  if (err instanceof TypeError) {
-    const msg = err.message.toLowerCase();
-    return msg.includes("failed to fetch") || msg.includes("network") || msg.includes("load failed");
-  }
-  return false;
+function isNetworkOrServerError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes("unable to reach") ||
+    msg.includes("unable to connect") ||
+    msg.includes("unreachable") ||
+    msg.includes("maintenance") ||
+    msg.includes("failed to fetch") ||
+    msg.includes("network") ||
+    msg.includes("502") ||
+    msg.includes("503") ||
+    msg.includes("504") ||
+    msg.includes("gateway") ||
+    msg.includes("nginx") ||
+    msg.includes("server error") ||
+    msg.includes("server is still unavailable") ||
+    msg.includes("connection failed")
+  );
 }
 
 export function Login() {
@@ -54,11 +67,12 @@ export function Login() {
       await login({ identifier: normalizedIdentifier, password: data.password });
       toast.success("Welcome back!");
       navigate(redirectTo);
-    } catch (err) {
-      if (isNetworkError(err)) {
+    } catch (err: any) {
+      if (isNetworkOrServerError(err)) {
         setServiceError(true);
+        toast.error("Unable to connect to server. Please try again shortly.");
       } else {
-        const message = err instanceof Error ? err.message : "Login failed";
+        const message = err instanceof Error ? err.message : "Invalid credentials. Please verify and try again.";
         toast.error(message);
       }
     }
