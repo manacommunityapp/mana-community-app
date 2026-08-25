@@ -1813,7 +1813,7 @@ export function EventMemberView() {
                   {/* Live Event Badge with Embedded Nav Buttons */}
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[9px] sm:text-[9.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
                     <span className={`w-1.5 h-1.5 rounded-full ${bannerMainEvents.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
-                    <span>{bannerMainEvents.length > 0 ? (bannerMainEvents.length > 1 ? `Live · Event ${heroBannerIndex + 1} of ${bannerMainEvents.length}` : "Live · 1 Event") : "0 Events Available"}</span>
+                    <span>{bannerMainEvents.length > 0 ? "Live Event" : "0 Events Available"}</span>
                     {bannerMainEvents.length > 1 && (
                       <div className="inline-flex items-center gap-1 bg-black/30 backdrop-blur-md px-1.5 py-0.5 rounded-full border border-white/20 shrink-0 shadow-xs ml-0.5">
                         <button
