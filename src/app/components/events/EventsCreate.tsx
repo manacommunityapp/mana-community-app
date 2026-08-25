@@ -929,28 +929,40 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     }
   };
 
-  const loadFestivalPlaceholders = () => {
-    const targetDate = data.startDate || new Date().toISOString().split("T")[0];
-    const placeholders: ScheduleActivity[] = [
-      { id: `a${Date.now()}-1`, categoryType: "Pooja & Seva", name: "Maha Ganapathi Homam & Sankalpam", needsRegistration: true, registrationFee: "0", slots: "100", startTime: "08:30", endTime: "10:30", description: "Main Mandap", venue: "Main Mandap" },
-      { id: `a${Date.now()}-2`, categoryType: "Lunch", name: "Community Mahaprasadam Lunch", needsRegistration: true, registrationFee: "0", slots: "500", startTime: "12:30", endTime: "14:30", description: "Dining Hall", venue: "Dining Hall" },
-      { id: `a${Date.now()}-3`, categoryType: "Competitions", name: "Eco-Friendly Clay Ganesha Making Contest", needsRegistration: true, registrationFee: "0", slots: "50", startTime: "15:30", endTime: "17:00", description: "Auditorium", venue: "Auditorium" },
-      { id: `a${Date.now()}-4`, categoryType: "Cultural Events", name: "Bharatanatyam & Devotional Bhajan Sandhya", needsRegistration: false, registrationFee: "0", slots: "200", startTime: "18:00", endTime: "20:00", description: "Main Stage", venue: "Main Stage" },
-      { id: `a${Date.now()}-5`, categoryType: "Dinner", name: "Evening Prasadam Dinner", needsRegistration: false, registrationFee: "0", slots: "400", startTime: "20:00", endTime: "21:30", description: "Dining Hall", venue: "Dining Hall" },
-    ];
-    if (data.daySchedules.length === 0) {
-      update("daySchedules", [{
-        date: targetDate,
-        activities: placeholders,
-      }]);
-      setExpandedDay(targetDate);
+  const handleOpenPlaceholderModal = (dateStr?: string) => {
+    const target = dateStr || expandedDay || data.startDate || new Date().toISOString().split("T")[0];
+    setPlaceholderTargetDate(target);
+    setPlaceholderModalOpen(true);
+  };
+
+  const handleAddPlaceholders = (targetDate: string, selectedActivities: ScheduleActivity[]) => {
+    if (!targetDate || selectedActivities.length === 0) return;
+    const cloned = selectedActivities.map(p => ({
+      ...p,
+      id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    }));
+    const exists = data.daySchedules.some(ds => ds.date === targetDate);
+    let updated: DaySchedule[];
+    if (exists) {
+      updated = data.daySchedules.map(ds => {
+        if (ds.date === targetDate) {
+          return {
+            ...ds,
+            activities: [...ds.activities, ...cloned],
+          };
+        }
+        return ds;
+      });
     } else {
-      const updated = data.daySchedules.map(ds => ({
-        ...ds,
-        activities: placeholders.map(p => ({ ...p, id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}` })),
-      }));
-      update("daySchedules", updated);
+      const newDay: DaySchedule = {
+        date: targetDate,
+        activities: cloned,
+      };
+      updated = [...data.daySchedules, newDay].sort((a, b) => a.date.localeCompare(b.date));
     }
+    update("daySchedules", updated);
+    setExpandedDay(targetDate);
+    showSuccess(`Added ${selectedActivities.length} activities to ${formatDayLabel(targetDate)}`);
   };
 
   const triggerNotification = (dayLabel?: string, actTitle?: string) => {
@@ -1082,7 +1094,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
               type="button"
               size="sm"
               variant="outline"
-              onClick={loadFestivalPlaceholders}
+              onClick={() => handleOpenPlaceholderModal()}
               className="border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Agenda Placeholders
@@ -1127,14 +1139,25 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
               </select>
             </div>
             {expandedDay && (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => addActivity(expandedDay)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl h-10 sm:mt-5 cursor-pointer shrink-0 shadow-xs"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Activity to Selected Day
-              </Button>
+              <div className="flex items-center gap-2 sm:mt-5 shrink-0">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => addActivity(expandedDay)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl h-10 cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Activity
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleOpenPlaceholderModal(expandedDay)}
+                  className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl h-10 cursor-pointer shadow-2xs"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Agenda Placeholders
+                </Button>
+              </div>
             )}
           </div>
         )}
@@ -1150,13 +1173,26 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                   : "Click '+ Add Day' to configure activities for this event."}
               </p>
             </div>
-            <Button
-              type="button"
-              onClick={handleAddDay}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add Day 1
-            </Button>
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                type="button"
+                onClick={handleAddDay}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl shadow-xs"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Day 1
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const targetDate = data.startDate || new Date().toISOString().split("T")[0];
+                  handleOpenPlaceholderModal(targetDate);
+                }}
+                className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer shadow-2xs"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Agenda Placeholders
+              </Button>
+            </div>
           </div>
         )}
 
@@ -1228,7 +1264,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                       {day.activities.length === 0 && (
                         <div className="p-4 text-center border border-dashed border-indigo-200 rounded-2xl bg-indigo-50/30 space-y-2">
                           <p className="text-xs font-bold text-slate-700">No activities added for {formatDayLabel(day.date)} yet</p>
-                          <p className="text-[11px] text-slate-500">Click below to add a custom activity or load festival templates.</p>
+                          <p className="text-[11px] text-slate-500">Click below to add a custom activity or pick from pre-built agenda placeholders.</p>
                           <div className="flex items-center justify-center gap-2 pt-1">
                             <Button
                               type="button"
@@ -1242,17 +1278,10 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               type="button"
                               size="sm"
                               variant="outline"
-                              onClick={() => {
-                                const placeholders = FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({
-                                  ...p,
-                                  id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
-                                }));
-                                const updated = data.daySchedules.map(ds => ds.date === day.date ? { ...ds, activities: placeholders } : ds);
-                                update("daySchedules", updated);
-                              }}
-                              className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1 text-xs font-bold rounded-xl cursor-pointer"
+                              onClick={() => handleOpenPlaceholderModal(day.date)}
+                              className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer shadow-2xs"
                             >
-                              <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Load Templates
+                              <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Agenda Placeholders
                             </Button>
                           </div>
                         </div>
@@ -1567,13 +1596,23 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                           </div>
                         );
                       })}
-                      <button 
-                        type="button"
-                        onClick={() => addActivity(day.date)}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-extrabold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100/80 hover:border-indigo-300 transition-all cursor-pointer shadow-xs mt-2"
-                      >
-                        <Plus className="w-4 h-4 text-indigo-600" /> Add Activity / Item to Day {dayIdx + 1}
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2 mt-2">
+                        <button 
+                          type="button"
+                          onClick={() => addActivity(day.date)}
+                          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-extrabold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100/80 hover:border-indigo-300 transition-all cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-4 h-4 text-indigo-600" /> Add Activity / Item to Day {dayIdx + 1}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPlaceholderModal(day.date)}
+                          className="px-3.5 py-2.5 rounded-xl border border-indigo-200 bg-white hover:bg-indigo-50 text-xs font-bold text-indigo-700 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                          title="Pick and import agenda placeholders for this day"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Agenda Placeholders
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1642,6 +1681,19 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         dayLabel={notifDayLabel}
         activityTitle={notifActivityTitle}
       />
+
+      {/* Agenda Placeholders Selection Modal */}
+      {placeholderModalOpen && placeholderTargetDate && (
+        <AgendaPlaceholdersModal
+          isOpen={placeholderModalOpen}
+          onClose={() => {
+            setPlaceholderModalOpen(false);
+            setPlaceholderTargetDate(null);
+          }}
+          targetDate={placeholderTargetDate}
+          onAddActivities={handleAddPlaceholders}
+        />
+      )}
     </div>
   );
 }
