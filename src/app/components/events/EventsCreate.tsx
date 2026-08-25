@@ -1469,7 +1469,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               </div>
 
                               {/* Dropdown Selector */}
-                              <div className="mb-2">
+                              <div>
                                 <select
                                   value={currentCategory}
                                   onChange={(e) => {
@@ -1494,40 +1494,6 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                     </option>
                                   ))}
                                 </select>
-                              </div>
-
-                              {/* Quick Category Pill Switcher */}
-                              <div className="flex flex-wrap gap-1.5">
-                                {ACTIVITY_CATEGORY_OPTIONS.map((opt) => {
-                                  const isSelected = currentCategory === opt.value;
-                                  return (
-                                    <button
-                                      key={opt.value}
-                                      type="button"
-                                      onClick={() => {
-                                        const updates: Partial<ScheduleActivity> = { categoryType: opt.value };
-                                        if (opt.value !== "Other" && PRESET_ACTIVITY_TITLES[opt.value]) {
-                                          if (!act.name || Object.values(PRESET_ACTIVITY_TITLES).some(list => list.includes(act.name))) {
-                                            updates.name = PRESET_ACTIVITY_TITLES[opt.value][0];
-                                          }
-                                        }
-                                        updateActivityFields(day.date, act.id, updates);
-                                      }}
-                                      className={cn(
-                                        "flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[11px] font-bold transition-all cursor-pointer shadow-2xs",
-                                        isSelected
-                                          ? "border-transparent text-white shadow-xs ring-2 ring-indigo-200 font-extrabold"
-                                          : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                                      )}
-                                      style={{
-                                        backgroundColor: isSelected ? opt.color : undefined,
-                                      }}
-                                    >
-                                      <span>{opt.icon}</span>
-                                      <span>{opt.label}</span>
-                                    </button>
-                                  );
-                                })}
                               </div>
                             </div>
 
