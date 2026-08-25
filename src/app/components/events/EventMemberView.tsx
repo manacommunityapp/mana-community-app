@@ -48,6 +48,7 @@ import {
   Zap,
   IndianRupee,
   History,
+  Lock,
 } from "lucide-react";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { PoojaRegistrationModal } from "./PoojaRegistrationModal";
@@ -1380,6 +1381,46 @@ export function EventMemberView() {
     });
   };
 
+  /**
+   * Helper to check if current user is registered for a parent main event.
+   * Standalone poojas (targetMainEventId is null or undefined) return true.
+   */
+  const isMainEventRegistered = (targetMainEventId?: string | number | null): boolean => {
+    if (!targetMainEventId) return true;
+    const targetIdStr = String(targetMainEventId).replace(/\D/g, "");
+    if (!targetIdStr) return true;
+
+    // 1. Check in active passes
+    const hasPass = activePasses.some((p) => {
+      if (p.status === "CANCELLED" || p.isEventCancelled || p.isEventExpired) return false;
+      const passActIdStr = String(p.activityId || "").trim();
+      const passActIdNumeric = passActIdStr.replace(/\D/g, "");
+      const passMainEventId = p.mainEventId ? String(p.mainEventId).replace(/\D/g, "") : (p.eventId ? String(p.eventId).replace(/\D/g, "") : null);
+
+      const isPassPooja = isPoojaActivity(p.category) || isPoojaActivity(p.passType) || Boolean(p.poojaSevaId) || passActIdStr.startsWith("pooja-");
+      const isPassComp = p.category?.toLowerCase().includes("competition") || passActIdStr.startsWith("comp-");
+      const isPassCult = p.category?.toLowerCase().includes("cultural") || passActIdStr.startsWith("cult-");
+      const isPassFood = p.category?.toLowerCase().includes("meal") || p.category?.toLowerCase().includes("food") || passActIdStr.startsWith("meal-") || passActIdStr.startsWith("food-");
+      const isPassMainEvent = passActIdStr.startsWith("event-") || (!isPassPooja && !isPassComp && !isPassCult && !isPassFood);
+
+      if (isPassMainEvent) {
+        if (passActIdNumeric && passActIdNumeric === targetIdStr) return true;
+        if (passMainEventId && passMainEventId === targetIdStr) return true;
+      }
+      return false;
+    });
+
+    if (hasPass) return true;
+
+    // 2. Check in mainEventsList / bannerMainEvents
+    const parentEvent = (mainEventsList || []).find((e) => String(e.id || (e as any).rawId).replace(/\D/g, "") === targetIdStr);
+    if (parentEvent && (parentEvent.isRegistered || (parentEvent as any).hasRegistered)) {
+      return true;
+    }
+
+    return false;
+  };
+
   const handleOpenUpdateRegistration = (act: Activity, existingPass: UserPass) => {
     setSelectedActivity({
       ...act,
@@ -2025,45 +2066,61 @@ export function EventMemberView() {
                                 </div>
                               </div>
 
-                              <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-white/10 text-[9.5px]">
-                                <span className="text-white/70 truncate flex items-center gap-1">
-                                  <MapPin className="w-2.5 h-2.5 text-slate-300 shrink-0" />
-                                  <span className="truncate max-w-[110px]">{subAct.venue || "Temple Mandap"}</span>
-                                  {subAct.availableSeats != null && (
-                                    <span className="text-amber-200/90 font-medium ml-1">({subAct.availableSeats} slots)</span>
-                                  )}
-                                </span>
+                              {(() => {
+                                const isMainReg = isMainEventRegistered(subAct.mainEventId || activeMainEvent?.id);
 
-                                {existingPass ? (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenUpdateRegistration(subAct, existingPass);
-                                    }}
-                                    className="px-2 py-0.5 text-[9.5px] font-black rounded-md bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-400/40 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
-                                  >
-                                    <Edit3 className="w-2.5 h-2.5" />
-                                    <span>Update Pass</span>
-                                  </button>
-                                ) : isClosed ? (
-                                  <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-white/10 text-white/60 border border-white/10 shrink-0">
-                                    Closed
-                                  </span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedActivity(subAct);
-                                    }}
-                                    className="px-2.5 py-0.5 text-[9.5px] font-black rounded-md bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
-                                  >
-                                    <Ticket className="w-2.5 h-2.5" />
-                                    <span>{isPooja ? "Book Seva" : "Register"}</span>
-                                  </button>
-                                )}
-                              </div>
+                                return (
+                                  <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-white/10 text-[9.5px]">
+                                    <span className="text-white/70 truncate flex items-center gap-1">
+                                      <MapPin className="w-2.5 h-2.5 text-slate-300 shrink-0" />
+                                      <span className="truncate max-w-[110px]">{subAct.venue || "Temple Mandap"}</span>
+                                      {subAct.availableSeats != null && (
+                                        <span className="text-amber-200/90 font-medium ml-1">({subAct.availableSeats} slots)</span>
+                                      )}
+                                    </span>
+
+                                    {existingPass ? (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenUpdateRegistration(subAct, existingPass);
+                                        }}
+                                        className="px-2 py-0.5 text-[9.5px] font-black rounded-md bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-400/40 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
+                                      >
+                                        <Edit3 className="w-2.5 h-2.5" />
+                                        <span>Update Pass</span>
+                                      </button>
+                                    ) : isClosed ? (
+                                      <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-white/10 text-white/60 border border-white/10 shrink-0">
+                                        Closed
+                                      </span>
+                                    ) : isPooja && (subAct.mainEventId || activeMainEvent?.id) && !isMainReg ? (
+                                      <button
+                                        type="button"
+                                        disabled
+                                        className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-white/10 text-white/50 border border-white/15 shadow-none flex items-center gap-1 shrink-0 cursor-not-allowed"
+                                        title="Main event registration is mandatory before booking this Pooja Seva"
+                                      >
+                                        <Lock className="w-2.5 h-2.5 text-amber-300" />
+                                        <span>Main Pass Required</span>
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedActivity(subAct);
+                                        }}
+                                        className="px-2.5 py-0.5 text-[9.5px] font-black rounded-md bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
+                                      >
+                                        <Ticket className="w-2.5 h-2.5" />
+                                        <span>{isPooja ? "Book Seva" : "Register"}</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           );
                         })}
@@ -2501,6 +2558,22 @@ export function EventMemberView() {
                                 </span>
                               );
                             }
+                            if (isThisActPooja && act.mainEventId) {
+                              const isMainReg = isMainEventRegistered(act.mainEventId);
+                              if (!isMainReg) {
+                                return (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-not-allowed shadow-none"
+                                    title="Registration for the main event is mandatory before booking this Pooja Seva. Please register for the main event first."
+                                  >
+                                    <Lock className="w-3.5 h-3.5 text-amber-500" /> Main Pass Required
+                                  </button>
+                                );
+                              }
+                            }
+
                             if (act.category?.toLowerCase() === "auction" || Boolean(act.rawAuctionItem)) {
                               const isLive = act.rawAuctionItem?.status === "LIVE";
                               const isClosed = act.rawAuctionItem?.status === "CLOSED";
@@ -3697,6 +3770,25 @@ export function EventMemberView() {
               // Pass parent community event id for correct deduplication scoping
               mainEventId: selectedActivity.mainEventId,
             }}
+            isMainEventRegistered={isMainEventRegistered(selectedActivity.mainEventId)}
+            onRegisterMainEvent={() => {
+              const targetParentId = selectedActivity.mainEventId || activeMainEvent?.id;
+              const parentEv = (mainEventsList || []).find((e) => String(e.id || (e as any).rawId).replace(/\D/g, "") === String(targetParentId).replace(/\D/g, "")) || activeMainEvent;
+              if (parentEv) {
+                setSelectedActivity({
+                  id: `event-${parentEv.id}`,
+                  title: parentEv.title,
+                  category: "General",
+                  date: String(parentEv.startDate || ""),
+                  time: String(parentEv.startTime || ""),
+                  venue: parentEv.location || (parentEv as any).venue || "",
+                  fee: 0,
+                  availableSeats: 500,
+                  image: "🎉",
+                  description: parentEv.description || "Community Parent Event",
+                });
+              }
+            }}
             onClose={() => {
               setSelectedActivity(null);
               fetchLiveDataFromBackend();
@@ -4080,6 +4172,21 @@ export function EventMemberView() {
                                       <Clock className="w-3 h-3" /> Registration Closed
                                     </span>
                                   );
+                                }
+                                if (isThisActPooja && act.mainEventId) {
+                                  const isMainReg = isMainEventRegistered(act.mainEventId);
+                                  if (!isMainReg) {
+                                    return (
+                                      <button
+                                        type="button"
+                                        disabled
+                                        className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-not-allowed shadow-none"
+                                        title="Registration for the main event is mandatory before booking this Pooja Seva"
+                                      >
+                                        <Lock className="w-3 h-3 text-amber-500" /> Main Pass Required
+                                      </button>
+                                    );
+                                  }
                                 }
                                 if (act.category?.toLowerCase() === "auction" || Boolean(act.rawAuctionItem)) {
                                   const isLive = act.rawAuctionItem?.status === "LIVE";

@@ -17,6 +17,7 @@ import {
   Database,
   Clock,
   AlertCircle,
+  Lock,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { userService } from "../../../services/common/userService";
@@ -31,6 +32,8 @@ export interface PoojaRegistrationModalProps {
   isOpen?: boolean;
   isDark?: boolean;
   onClose: () => void;
+  isMainEventRegistered?: boolean;
+  onRegisterMainEvent?: () => void;
   event: {
     id?: string | number;
     title?: string;
@@ -265,6 +268,8 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   onClose,
   event,
   onSuccess,
+  isMainEventRegistered = true,
+  onRegisterMainEvent,
 }) => {
   const { user: authUser } = useAuth();
   const isAnyAdmin = Boolean(
@@ -274,6 +279,8 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
     authUser?.role?.toLowerCase().includes("community_admin")
   );
   useEscapeKey(onClose);
+
+  const isMainPassMissing = Boolean(event?.mainEventId && isMainEventRegistered === false && !isAnyAdmin);
 
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [selectedDayId, setSelectedDayId] = useState<number>(1);
@@ -671,6 +678,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       showWarning("Please select one pooja date and one time slot.");
       return;
     }
+    if (isMainPassMissing) {
+      showWarning("Registration for the main event is required before booking this Pooja Seva. Please register for the main event first.");
+      return;
+    }
     if (currentStep === 1 && selectedSlot) {
       const liveInfo = getLiveSlotInfo(liveSlotInfoMap, currentDay?.dateValue, selectedSlot.time);
       const effectiveLeft = liveInfo !== undefined ? liveInfo.availLeft : selectedSlot.left;
@@ -692,6 +703,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
   const handleBookingConfirm = async (paymentMode: string = "UPI") => {
     if (isSubmitting) return;
+    if (isMainPassMissing) {
+      showWarning("Registration for the main event is required before booking this Pooja Seva. Please register for the main event first.");
+      return;
+    }
     if (alreadyRegisteredTitle && !isUpdateMode) {
       showWarning("You are already registered for this pooja seva. Only one registration per family per event is allowed.");
       return;
@@ -986,6 +1001,31 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             hoverScale={false}
             className="flex-1 flex flex-col justify-between p-2.5 sm:p-3 border border-border rounded-xl overflow-y-auto space-y-2.5 shadow-2xs my-1 bg-muted/20 max-h-[58vh]"
           >
+            {isMainPassMissing && (
+              <div className="p-2.5 sm:p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-amber-800 dark:text-amber-300 animate-fadeIn">
+                <div className="flex items-start gap-2 min-w-0">
+                  <Lock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-bold">Main Event Pass Required</p>
+                    <p className="text-[10.5px] font-normal text-amber-700/90 dark:text-amber-400 leading-tight">
+                      This Pooja Seva belongs to a main festival event. Please register for the main event first before booking this seva.
+                    </p>
+                  </div>
+                </div>
+                {onRegisterMainEvent && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onRegisterMainEvent();
+                    }}
+                    className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold rounded-lg shrink-0 shadow-xs cursor-pointer active:scale-95 transition-all"
+                  >
+                    Register Main Event
+                  </button>
+                )}
+              </div>
+            )}
             {isPoojaCancelled && (
               <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-[11px] font-bold flex items-start gap-1.5">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
@@ -1500,7 +1540,18 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               </TouchButton>
             )}
 
-            {alreadyRegisteredTitle && !isUpdateMode ? (
+            {isMainPassMissing ? (
+              <TouchButton
+                type="button"
+                disabled
+                variant="outline"
+                size="sm"
+                className="opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-300 dark:border-slate-700 select-none flex items-center gap-1.5"
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-500" />
+                <span>Main Pass Required to Book</span>
+              </TouchButton>
+            ) : alreadyRegisteredTitle && !isUpdateMode ? (
               <span className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[11px] font-bold border border-amber-500/20 flex items-center gap-1 select-none">
                 <ShieldCheck className="w-3 h-3" /> Slot Already Booked
               </span>
