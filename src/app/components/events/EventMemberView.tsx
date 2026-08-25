@@ -1831,7 +1831,7 @@ export function EventMemberView() {
                     <div className="inline-flex items-center gap-1 bg-black/30 backdrop-blur-md px-1.5 py-0.5 rounded-full border border-white/20 shrink-0 shadow-xs">
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); handlePrevHeroBanner(); }}
+                        onClick={(e) => { e.stopPropagation(); handlePrevHeroBanner(e); }}
                         className="w-5 h-5 rounded-full bg-white/80 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90"
                         title="Previous Event"
                       >
@@ -1842,7 +1842,7 @@ export function EventMemberView() {
                       </span>
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); handleNextHeroBanner(); }}
+                        onClick={(e) => { e.stopPropagation(); handleNextHeroBanner(e); }}
                         className="w-5 h-5 rounded-full bg-white/80 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90"
                         title="Next Event"
                       >
@@ -1919,7 +1919,7 @@ export function EventMemberView() {
                       <div className="flex items-center gap-1.5 shrink-0 ml-auto">
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); handlePrevHeroBanner(); }}
+                          onClick={(e) => { e.stopPropagation(); handlePrevHeroBanner(e); }}
                           className="w-7 h-7 rounded-lg bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 border border-white/25"
                           title="Previous Event"
                         >
@@ -1930,7 +1930,7 @@ export function EventMemberView() {
                         </span>
                         <button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); handleNextHeroBanner(); }}
+                          onClick={(e) => { e.stopPropagation(); handleNextHeroBanner(e); }}
                           className="w-7 h-7 rounded-lg bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 border border-white/25"
                           title="Next Event"
                         >
