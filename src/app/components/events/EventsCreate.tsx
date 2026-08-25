@@ -6,7 +6,7 @@ import {
   Globe, Lock, Building2, Heart, Music, Utensils,
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
-  Zap, Star, ArrowRight, Trash2, PlusCircle, Link2, Flame,
+  Zap, Star, ArrowRight, Trash2, PlusCircle, Link2, Flame, Copy,
   Save, Bookmark, XCircle, Mail, CreditCard, QrCode, Phone, User, Info, Loader2,
 } from "lucide-react";
 import { Input } from "../ui/input";
@@ -1092,6 +1092,62 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     update("daySchedules", updated);
   };
 
+  const cloneActivity = (date: string, actToClone: ScheduleActivity) => {
+    const clonedObj: ScheduleActivity = {
+      ...actToClone,
+      id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      subEventId: undefined, // Fresh subEventId for cloned activity
+    };
+    const updated = data.daySchedules.map(ds => {
+      if (ds.date === date) {
+        const targetIdx = ds.activities.findIndex(a => a.id === actToClone.id);
+        const newActivities = [...ds.activities];
+        if (targetIdx >= 0) {
+          newActivities.splice(targetIdx + 1, 0, clonedObj);
+        } else {
+          newActivities.push(clonedObj);
+        }
+        return {
+          ...ds,
+          activities: newActivities,
+        };
+      }
+      return ds;
+    });
+    update("daySchedules", updated);
+    showSuccess(`Cloned "${actToClone.name || "Sub-Event"}" successfully`);
+  };
+
+  const duplicateAboveActivity = (date: string) => {
+    const daySchedule = data.daySchedules.find(ds => ds.date === date);
+    if (!daySchedule || daySchedule.activities.length === 0) {
+      const currentDayIdx = data.daySchedules.findIndex(ds => ds.date === date);
+      if (currentDayIdx > 0) {
+        const prevDay = data.daySchedules[currentDayIdx - 1];
+        if (prevDay && prevDay.activities.length > 0) {
+          const lastPrevAct = prevDay.activities[prevDay.activities.length - 1];
+          const clonedObj: ScheduleActivity = {
+            ...lastPrevAct,
+            id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            subEventId: undefined,
+          };
+          const updated = data.daySchedules.map(ds =>
+            ds.date === date
+              ? { ...ds, activities: [...ds.activities, clonedObj] }
+              : ds
+          );
+          update("daySchedules", updated);
+          showSuccess(`Copied "${lastPrevAct.name || "Sub-Event"}" from previous day`);
+          return;
+        }
+      }
+      addActivity(date);
+      return;
+    }
+    const lastActivity = daySchedule.activities[daySchedule.activities.length - 1];
+    cloneActivity(date, lastActivity);
+  };
+
   const dayCount = data.daySchedules.length;
 
   return (
@@ -1414,7 +1470,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                         <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
                           Click below to add a customized ritual/program or import templates.
                         </p>
-                        <div className="flex items-center justify-center gap-2 pt-1">
+                        <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
                           <Button
                             type="button"
                             size="sm"
@@ -1423,6 +1479,18 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                           >
                             <Plus className="w-3.5 h-3.5" /> Add Activity
                           </Button>
+                          {dayIdx > 0 && data.daySchedules[dayIdx - 1]?.activities.length > 0 && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => duplicateAboveActivity(day.date)}
+                              className="border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
+                              title={`Copy activities from Day ${dayIdx}`}
+                            >
+                              <Copy className="w-3.5 h-3.5 text-indigo-600" /> Copy Day {dayIdx} Sub-Events
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             size="sm"
@@ -1490,6 +1558,14 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                             </div>
 
                             <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => cloneActivity(day.date, act)}
+                                className="text-[10px] font-bold text-slate-700 bg-white hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 px-2 py-1 rounded-lg border border-slate-200 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                                title="Duplicate / Clone this sub-event"
+                              >
+                                <Copy className="w-3 h-3 text-indigo-500" /> Clone
+                              </button>
                               {act.name && (
                                 <button
                                   type="button"
@@ -1842,10 +1918,21 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                       <Button
                         type="button"
                         onClick={() => addActivity(day.date)}
-                        className="flex-1 h-9 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-bold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 hover:border-indigo-300 transition-all cursor-pointer shadow-xs gap-1.5"
+                        className="flex-1 min-w-[200px] h-9 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-bold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 hover:border-indigo-300 transition-all cursor-pointer shadow-xs gap-1.5"
                       >
                         <Plus className="w-3.5 h-3.5 text-indigo-600" /> Add Another Activity to Day {dayIdx + 1}
                       </Button>
+                      {day.activities.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => duplicateAboveActivity(day.date)}
+                          className="h-9 px-3.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-xs font-bold text-indigo-700 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                          title="Clone / Duplicate the last activity in this day"
+                        >
+                          <Copy className="w-3.5 h-3.5 text-indigo-600" /> Clone Above Activity
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="outline"
