@@ -150,52 +150,113 @@ export async function syncActivitiesToScheduleSubmodules(
 ) {
   const numericEventId = typeof eventId === "number" ? eventId : Number(String(eventId || "").replace(/\D/g, "")) || 1;
 
+  // 1. Group all Pooja & Seva activities across all days by poojaType / name
+  const poojaGroups = new Map<string, { dayDate: string; act: ScheduleActivity }[]>();
+
   for (const day of daySchedules) {
     for (const act of day.activities) {
       if (!act.name || !act.name.trim()) continue;
       const cat = act.categoryType || "Other";
+      if (cat === "Pooja & Seva") {
+        const key = (act.poojaType || act.name).trim().toLowerCase();
+        if (!poojaGroups.has(key)) {
+          poojaGroups.set(key, []);
+        }
+        poojaGroups.get(key)!.push({ dayDate: day.date, act });
+      }
+    }
+  }
+
+  // Sync consolidated poojas (1 single record per pooja type even when selected across multiple days)
+  if (poojaGroups.size > 0) {
+    let existingTypes: { id: number; name: string; description?: string }[] = [];
+    try {
+      existingTypes = await eventService.getPoojaTypes();
+    } catch {}
+
+    for (const [, entries] of poojaGroups.entries()) {
+      if (entries.length === 0) continue;
+      const first = entries[0].act;
+      const poojaTypeName = first.poojaType || first.name || "Pooja";
+
+      // Match or register the pooja type in event_pooja_types
+      let poojaTypeId: number | undefined;
+      const matchedType = existingTypes.find(
+        t => t.name.trim().toLowerCase() === poojaTypeName.trim().toLowerCase()
+      );
+      if (matchedType) {
+        poojaTypeId = matchedType.id;
+      } else {
+        try {
+          const createdType = await eventService.createPoojaType(poojaTypeName);
+          if (createdType?.id) {
+            poojaTypeId = createdType.id;
+            existingTypes.push(createdType);
+          }
+        } catch (e) {
+          console.warn("Pooja type create notice:", e);
+        }
+      }
+
+      // Collect all distinct dates and times
+      const allDates = [...new Set(entries.map(e => e.dayDate).filter(Boolean))].sort();
+      const minDate = allDates[0] || new Date().toISOString().split("T")[0];
+      const maxDate = allDates[allDates.length - 1] || minDate;
+      const isMultiDay = allDates.length > 1;
+
+      const distinctStartTimes = [...new Set(entries.map(e => e.act.startTime || "08:30"))];
+      const timeSlotConfig = entries.map(e => ({
+        slotDate: e.dayDate,
+        startTime: e.act.startTime || "08:30",
+        slotCount: parseInt(e.act.slots || "50", 10) || 50,
+      }));
+      const totalSlots = timeSlotConfig.reduce((acc, curr) => acc + curr.slotCount, 0);
+
+      const feeNum = parseFloat(first.registrationFee || "0") || 0;
+      const existingSubEventId = entries.find(e => e.act.subEventId)?.act.subEventId;
+
+      const payload = {
+        mainEventId: numericEventId,
+        poojaTypeId: poojaTypeId,
+        name: first.name,
+        type: poojaTypeName,
+        date: minDate,
+        endDate: isMultiDay ? maxDate : undefined,
+        multiDay: isMultiDay,
+        startTime: distinctStartTimes[0] || "08:30",
+        endTime: first.endTime || undefined,
+        mandap: first.venue || "Main Temple Mandap",
+        notes: first.description || "",
+        slots: totalSlots,
+        fee: feeNum,
+        isFree: feeNum === 0,
+        startTimes: distinctStartTimes,
+        timeSlotConfig: timeSlotConfig,
+      };
+
+      try {
+        if (existingSubEventId) {
+          await eventService.updatePoojaSeva(existingSubEventId, payload);
+        } else {
+          await eventService.createPoojaSeva(payload);
+        }
+      } catch (e) {
+        console.warn("Database save consolidated pooja notice:", e);
+      }
+    }
+  }
+
+  // 2. Sync remaining category submodules (Lunch/Dinner, Cultural, Competitions)
+  for (const day of daySchedules) {
+    for (const act of day.activities) {
+      if (!act.name || !act.name.trim()) continue;
+      const cat = act.categoryType || "Other";
+      if (cat === "Pooja & Seva") continue; // Handled above in consolidated sync
+
       const feeNum = parseFloat(act.registrationFee || "0") || 0;
       const slotsNum = parseInt(act.slots || "50", 10) || 50;
 
-      if (cat === "Pooja & Seva") {
-        // Auto-register the selected poojaType in event_pooja_types if it doesn't exist yet
-        if (act.poojaType) {
-          try {
-            const existingTypes = await eventService.getPoojaTypes();
-            const typeExists = existingTypes.some((t: { name: string }) => t.name === act.poojaType);
-            if (!typeExists) {
-              await eventService.createPoojaType(act.poojaType);
-            }
-          } catch (e) {
-            console.warn("Pooja type ensure notice:", e);
-          }
-        }
-        const slotTime = act.startTime || "08:30";
-        const payload = {
-          mainEventId: numericEventId,
-          name: act.name,
-          type: act.poojaType || "Pooja",
-          date: day.date,
-          startTime: slotTime,
-          endTime: act.endTime || undefined,
-          mandap: act.venue || "Main Temple Mandap",
-          notes: act.description || "",
-          slots: slotsNum,
-          fee: feeNum,
-          isFree: feeNum === 0,
-          startTimes: [slotTime],
-          timeSlotConfig: [{ slotDate: day.date, startTime: slotTime, slotCount: slotsNum }],
-        };
-        try {
-          if (act.subEventId) {
-            await eventService.updatePoojaSeva(act.subEventId, payload);
-          } else {
-            await eventService.createPoojaSeva(payload);
-          }
-        } catch (e) {
-          console.warn("Database save pooja notice:", e);
-        }
-      } else if (cat === "Lunch" || cat === "Dinner") {
+      if (cat === "Lunch" || cat === "Dinner") {
         const payload = {
           mainEventId: numericEventId,
           name: act.name,
@@ -4198,36 +4259,54 @@ export function EventCreateWizard({
                 }
               }
 
-              // 1. Merge Pooja Sevas
+              // 1. Merge Pooja Sevas (including multi-day pooja records across day slots)
               if (Array.isArray(poojas)) {
                 for (const p of poojas) {
                   if (p.mainEventId && Number(p.mainEventId) !== numId) continue;
-                  const pDate = resolveDay(p.date || p.startDate);
-                  if (!pDate || !daysMap.has(pDate)) continue;
-                  const list = daysMap.get(pDate)!;
-                  const actTime = (Array.isArray(p.startTimes) && p.startTimes.length > 0)
-                    ? p.startTimes[0]
-                    : p.startTime || "08:30";
-                  const cleanTime = String(actTime).split(/[–-]/)[0].trim();
-                  const existingIdx = list.findIndex(a => a.subEventId === p.id || (a.categoryType === "Pooja & Seva" && a.name === p.name));
-                  const actObj: ScheduleActivity = {
-                    id: `pooja-${p.id}`,
-                    subEventId: p.id,
-                    categoryType: "Pooja & Seva",
-                    name: p.name || "Pooja Seva",
-                    poojaType: p.type || "Pooja",
-                    needsRegistration: true,
-                    registrationFee: p.fee ? String(p.fee) : "0",
-                    slots: p.slots ? String(p.slots) : "50",
-                    startTime: cleanTime,
-                    endTime: p.endTime || "",
-                    description: p.notes || "",
-                    venue: p.mandap || p.venue || "Main Mandap",
-                  };
-                  if (existingIdx >= 0) {
-                    list[existingIdx] = actObj;
-                  } else {
-                    list.push(actObj);
+                  
+                  let targetDates: string[] = [];
+                  if (Array.isArray(p.timeSlotConfig) && p.timeSlotConfig.length > 0) {
+                    targetDates = [...new Set(p.timeSlotConfig.map((ts: any) => resolveDay(ts.slotDate || p.date || p.startDate)).filter(Boolean))] as string[];
+                  }
+                  if (targetDates.length === 0) {
+                    if (p.multiDay && p.endDate && p.date) {
+                      targetDates = getDaysBetween(p.date, p.endDate).map(resolveDay).filter(Boolean) as string[];
+                    } else {
+                      const single = resolveDay(p.date || p.startDate);
+                      if (single) targetDates = [single];
+                    }
+                  }
+
+                  for (const pDate of targetDates) {
+                    if (!pDate || !daysMap.has(pDate)) continue;
+                    const list = daysMap.get(pDate)!;
+                    const daySlotMatch = Array.isArray(p.timeSlotConfig)
+                      ? p.timeSlotConfig.find((ts: any) => ts.slotDate === pDate)
+                      : null;
+                    const actTime = daySlotMatch?.startTime || (Array.isArray(p.startTimes) && p.startTimes.length > 0 ? p.startTimes[0] : p.startTime || "08:30");
+                    const cleanTime = String(actTime).split(/[–-]/)[0].trim();
+                    const slotCount = daySlotMatch?.slotCount ? String(daySlotMatch.slotCount) : (p.slots ? String(p.slots) : "50");
+
+                    const existingIdx = list.findIndex(a => a.subEventId === p.id || (a.categoryType === "Pooja & Seva" && a.name === p.name));
+                    const actObj: ScheduleActivity = {
+                      id: `pooja-${p.id}-${pDate}`,
+                      subEventId: p.id,
+                      categoryType: "Pooja & Seva",
+                      name: p.name || "Pooja Seva",
+                      poojaType: p.type || "Pooja",
+                      needsRegistration: true,
+                      registrationFee: p.fee ? String(p.fee) : "0",
+                      slots: slotCount,
+                      startTime: cleanTime,
+                      endTime: p.endTime || "",
+                      description: p.notes || "",
+                      venue: p.mandap || p.venue || "Main Mandap",
+                    };
+                    if (existingIdx >= 0) {
+                      list[existingIdx] = actObj;
+                    } else {
+                      list.push(actObj);
+                    }
                   }
                 }
               }

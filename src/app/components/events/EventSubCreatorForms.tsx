@@ -228,6 +228,7 @@ export function PoojaSevaSection() {
   const { useMock } = useEventMock();
 
   const [poojaTypes, setPoojaTypes] = useState<string[]>(DEFAULT_POOJA_TYPES);
+  const [poojaTypeObjects, setPoojaTypeObjects] = useState<{ id: number; name: string; description?: string }[]>([]);
   const [loadingTypes, setLoadingTypes] = useState<boolean>(false);
   const [showAddTypeModal, setShowAddTypeModal] = useState<boolean>(false);
   const [newTypeName, setNewTypeName] = useState<string>("");
@@ -235,6 +236,7 @@ export function PoojaSevaSection() {
 
   const [form, setForm] = useState({
     mainEventId: "",
+    poojaTypeId: undefined as number | undefined,
     name: "", type: "",
     isMultiDay: false,
     date: "",
@@ -332,6 +334,7 @@ export function PoojaSevaSection() {
         setLoadingTypes(true);
         const data = await eventService.getPoojaTypes();
         if (data && data.length > 0) {
+          setPoojaTypeObjects(data);
           setPoojaTypes(data.map((t) => t.name));
         }
       } catch (err) {
@@ -356,11 +359,20 @@ export function PoojaSevaSection() {
     const clean = newTypeName.trim();
     try {
       setAddingType(true);
+      let createdType: { id: number; name: string; description?: string } | null = null;
       if (!useMock) {
-        await eventService.createPoojaType(clean);
+        createdType = await eventService.createPoojaType(clean);
+      } else {
+        createdType = { id: Date.now(), name: clean };
+      }
+      if (createdType) {
+        setPoojaTypeObjects((prev) => [...prev.filter((t) => t.name.toLowerCase() !== clean.toLowerCase()), createdType!]);
       }
       setPoojaTypes((prev) => (prev.includes(clean) ? prev : [...prev, clean]));
       set("type", clean);
+      if (createdType?.id) {
+        set("poojaTypeId", createdType.id);
+      }
       setNewTypeName("");
       setShowAddTypeModal(false);
       setToast(`Pooja Type "${clean}" saved to database!`);
@@ -382,6 +394,7 @@ export function PoojaSevaSection() {
       return;
     }
 
+    const matchedTypeId = form.poojaTypeId || poojaTypeObjects.find((t) => t.name.toLowerCase() === form.type.toLowerCase())?.id;
     const validStartTimes = (form.startTimes || []).filter(Boolean);
     const primaryStartTime = validStartTimes[0] || form.startTime || "08:30";
     const calculatedTotalSlots = form.isMultiDay && form.timeSlotConfig && form.timeSlotConfig.length > 0
@@ -421,6 +434,7 @@ export function PoojaSevaSection() {
       if (!useMock) {
         await eventService.createPoojaSeva({
           mainEventId: form.mainEventId,
+          poojaTypeId: matchedTypeId,
           name: form.name,
           type: form.type,
           date: form.date,
@@ -534,7 +548,15 @@ export function PoojaSevaSection() {
                 </button>
               </div>
               <div className="flex items-center gap-2">
-                <Select value={form.type} onChange={(v) => set("type", v)} className="flex-1">
+                <Select
+                  value={form.type}
+                  onChange={(v) => {
+                    const match = poojaTypeObjects.find((t) => t.name.toLowerCase() === (v || "").toLowerCase());
+                    set("type", v);
+                    set("poojaTypeId", match ? match.id : undefined);
+                  }}
+                  className="flex-1"
+                >
                   <option value="">{loadingTypes ? "Loading types from DB..." : "Select ritual type…"}</option>
                   {poojaTypes.map((t) => (
                     <option key={t} value={t}>{t}</option>

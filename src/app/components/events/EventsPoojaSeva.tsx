@@ -14,6 +14,8 @@ type TimeSlotEntry = { slotDate: string | null; startTime: string; slotCount: nu
 
 type PoojaSeva = {
   id: number;
+  mainEventId?: number;
+  poojaTypeId?: number;
   name: string;
   type: string;
   date: string;
@@ -77,6 +79,7 @@ const mockRegistrations: BookingRegistration[] = [
 
 const emptyPoojaForm = {
   mainEventId: "",
+  poojaTypeId: undefined as number | undefined,
   name: "",
   type: "",
   isMultiDay: false,
@@ -125,6 +128,7 @@ export function EventsPoojaSeva() {
   const [editingPoojaId, setEditingPoojaId] = useState<number | null>(null);
   const [poojaForm, setPoojaForm] = useState(emptyPoojaForm);
   const [poojaTypes, setPoojaTypes] = useState<string[]>(DEFAULT_POOJA_TYPES);
+  const [poojaTypeObjects, setPoojaTypeObjects] = useState<{ id: number; name: string; description?: string }[]>([]);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -200,6 +204,10 @@ export function EventsPoojaSeva() {
     ])
       .then(([sevas, regs, types]) => {
         setPoojaSevas(sevas || []);
+        if (Array.isArray(types) && types.length > 0) {
+          setPoojaTypeObjects(types);
+          setPoojaTypes(types.map(t => t.name));
+        }
         const poojaRegs = (regs || [])
           .filter((r: any) => {
             return r.category === "Pooja" || r.activityId?.startsWith("pooja-");
@@ -288,9 +296,11 @@ export function EventsPoojaSeva() {
   const openEditModal = (p: PoojaSeva) => {
     const pAny = p as any;
     const parentId = pAny.mainEventId ? String(pAny.mainEventId) : pAny.eventId ? String(pAny.eventId) : "";
+    const matchedTypeId = p.poojaTypeId || poojaTypeObjects.find(t => t.name.toLowerCase() === (p.type || "").toLowerCase())?.id;
     setEditingPoojaId(p.id);
     setPoojaForm({
       mainEventId: parentId,
+      poojaTypeId: matchedTypeId,
       name: p.name,
       type: p.type,
       isMultiDay: p.multiDay || false,
@@ -326,6 +336,7 @@ export function EventsPoojaSeva() {
       return;
     }
 
+    const matchedTypeId = poojaForm.poojaTypeId || poojaTypeObjects.find(t => t.name.toLowerCase() === poojaForm.type.toLowerCase())?.id;
     const validStartTimes = poojaForm.startTimes.filter(Boolean);
     const calculatedTotalSlots = poojaForm.isMultiDay && poojaForm.timeSlotConfig.length > 0
       ? poojaForm.timeSlotConfig.reduce((acc, curr) => acc + (Number(curr.slotCount) || 0), 0)
@@ -333,6 +344,7 @@ export function EventsPoojaSeva() {
 
     const payload = {
       mainEventId: poojaForm.mainEventId || undefined,
+      poojaTypeId: matchedTypeId,
       name: poojaForm.name,
       type: poojaForm.type,
       date: poojaForm.date,
@@ -397,11 +409,20 @@ export function EventsPoojaSeva() {
     try {
       setAddingType(true);
       setAddTypeError("");
+      let createdType: { id: number; name: string; description?: string } | null = null;
       if (!useMock) {
-        await eventService.createPoojaType(clean, newTypeDesc.trim() || undefined);
+        createdType = await eventService.createPoojaType(clean, newTypeDesc.trim() || undefined);
+      } else {
+        createdType = { id: Date.now(), name: clean, description: newTypeDesc.trim() || undefined };
+      }
+      if (createdType) {
+        setPoojaTypeObjects(prev => [...prev.filter(t => t.name.toLowerCase() !== clean.toLowerCase()), createdType!]);
       }
       setPoojaTypes(prev => (prev.includes(clean) ? prev : [...prev, clean]));
       set("type", clean);
+      if (createdType?.id) {
+        set("poojaTypeId", createdType.id);
+      }
       setNewTypeName("");
       setNewTypeDesc("");
       setShowAddTypeModal(false);
@@ -1946,7 +1967,12 @@ export function EventsPoojaSeva() {
                   <div className="flex items-center gap-2">
                     <select
                       value={poojaForm.type}
-                      onChange={e => set("type", e.target.value)}
+                      onChange={e => {
+                        const chosen = e.target.value;
+                        const match = poojaTypeObjects.find(t => t.name.toLowerCase() === chosen.toLowerCase());
+                        set("type", chosen);
+                        set("poojaTypeId", match ? match.id : undefined);
+                      }}
                       className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
                       required
                     >
