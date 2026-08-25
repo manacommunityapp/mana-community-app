@@ -9,6 +9,7 @@ import { eventService, type EventResponse } from "../../../services/events/event
 import { useEventMock } from "./EventMockToggle";
 import { showError } from "../../../utils/ToastUtils";
 import { TimePicker } from "../ui/time-picker";
+import { DatePicker } from "../ui/date-picker";
 
 export interface MainEventOption {
   id: string;
@@ -587,7 +588,7 @@ export function PoojaSevaSection() {
                 <Row>
                   <Col>
                     <Label required>Date</Label>
-                    <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+                    <DatePicker value={form.date} onChange={(v) => set("date", v)} size="sm" />
                   </Col>
                   <Col>
                     <Label>Duration (Minutes)</Label>
@@ -640,11 +641,11 @@ export function PoojaSevaSection() {
                 <Row>
                   <Col>
                     <Label required>Start Date</Label>
-                    <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+                    <DatePicker value={form.date} onChange={(v) => set("date", v)} size="sm" />
                   </Col>
                   <Col>
                     <Label required>End Date</Label>
-                    <Input type="date" value={form.endDate} onChange={(v) => set("endDate", v)} min={form.date} />
+                    <DatePicker value={form.endDate} onChange={(v) => set("endDate", v)} min={form.date} size="sm" />
                   </Col>
                 </Row>
                 <Row>
@@ -1165,7 +1166,7 @@ export function CulturalEventsSection() {
           <Row>
             <Col>
               <Label required>Date</Label>
-              <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+              <DatePicker value={form.date} onChange={(v) => set("date", v)} size="sm" />
             </Col>
             <Col>
               <Label required>Start Time</Label>
@@ -1680,7 +1681,7 @@ export function CompetitionsSection() {
               <Row>
                 <Col>
                   <Label required>Date</Label>
-                  <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+                  <DatePicker value={form.date} onChange={(v) => set("date", v)} size="sm" />
                 </Col>
                 <Col>
                   <Label required>Start Time</Label>
@@ -2011,7 +2012,7 @@ export function LunchDinnerSection() {
           <Row>
             <Col>
               <Label required>Date</Label>
-              <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+              <DatePicker value={form.date} onChange={(v) => set("date", v)} size="sm" />
             </Col>
             <Col>
               <Label required>Start Time</Label>

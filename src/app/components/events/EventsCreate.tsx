@@ -19,6 +19,7 @@ import { SectionHeader, FieldLabel, ToggleRow } from "./shared";
 
 import { cn } from "../ui/utils";
 import { TimePicker } from "../ui/time-picker";
+import { DatePicker } from "../ui/date-picker";
 import { useAuth } from "../../../contexts/AuthContext";
 import { CREATE_EVENT, MANAGE_EVENT_DASHBOARD } from "../../../constants/permissions";
 import { useEventMock } from "./EventMockToggle";
@@ -1065,25 +1066,23 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       )}>
         <div>
           <FieldLabel required>{data.multiDay ? "Start Date" : "Event Date"}</FieldLabel>
-          <Input
-            type="date"
+          <DatePicker
             value={data.startDate}
-            onChange={e => handleStartDate(e.target.value)}
-            className={cn(INPUT_CLS, "h-9 text-xs", reqCls(!data.startDate))}
+            onChange={v => handleStartDate(v)}
+            size="sm"
+            className={reqCls(!data.startDate)}
           />
         </div>
         {data.multiDay && (
           <div className="animate-fade-in-up">
             <FieldLabel required>End Date</FieldLabel>
-            <Input
-              type="date"
+            <DatePicker
               value={data.endDate}
               min={data.startDate || undefined}
-              onChange={e => handleEndDate(e.target.value)}
+              onChange={v => handleEndDate(v)}
+              size="sm"
               className={cn(
-                INPUT_CLS,
-                "h-9 text-xs",
-                isEndDateInvalid ? "border-rose-500 focus-visible:ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold" : reqCls(!data.endDate)
+                isEndDateInvalid ? "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold" : reqCls(!data.endDate)
               )}
             />
             {isEndDateInvalid && (
@@ -1995,14 +1994,13 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
             <FieldLabel hint={data.startDate ? `Must be before ${data.startDate}` : undefined}>
               Registration Deadline
             </FieldLabel>
-            <Input
-              type="date"
+            <DatePicker
               value={data.registrationDeadline}
               max={maxDeadlineDate}
-              onChange={e => update("registrationDeadline", e.target.value)}
+              onChange={v => update("registrationDeadline", v)}
+              size="sm"
               className={cn(
-                INPUT_CLS,
-                isDeadlineInvalid && "border-rose-500 focus-visible:ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+                isDeadlineInvalid && "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
               )}
             />
             {isDeadlineInvalid && (
