@@ -52,7 +52,7 @@ export function UserDashboard() {
   const [isEventHovered, setIsEventHovered] = useState(false);
   const [showEventDetailsModal, setShowEventDetailsModal] = useState<any | null>(null);
 
-  useEffect(() => {
+  const loadData = () => {
     apiClient
       .get<UserStats>("/dashboard/user/stats")
       .then((res) => {
@@ -69,6 +69,26 @@ export function UserDashboard() {
         setUpcomingEvents(running);
       })
       .catch((err) => console.warn("Notice: could not load events for user dashboard:", err));
+  };
+
+  useEffect(() => {
+    loadData();
+
+    window.addEventListener("mana_event_created", loadData);
+    window.addEventListener("mana_event_updated", loadData);
+    window.addEventListener("mana_registrations_updated", loadData);
+    window.addEventListener("mana_activities_updated", loadData);
+    window.addEventListener("mana_dashboard_updated", loadData);
+    window.addEventListener("mana_notifications_updated", loadData);
+
+    return () => {
+      window.removeEventListener("mana_event_created", loadData);
+      window.removeEventListener("mana_event_updated", loadData);
+      window.removeEventListener("mana_registrations_updated", loadData);
+      window.removeEventListener("mana_activities_updated", loadData);
+      window.removeEventListener("mana_dashboard_updated", loadData);
+      window.removeEventListener("mana_notifications_updated", loadData);
+    };
   }, []);
 
   // Auto-move event banner every 4.5s (pauses on hover)
