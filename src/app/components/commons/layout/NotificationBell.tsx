@@ -4,9 +4,18 @@ import {
   Bell, Check, CheckCheck, X, Trash2, Trophy, CalendarDays,
   Megaphone, Sparkles, AlertCircle, ChevronRight, Filter
 } from "lucide-react";
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 import { notificationService, type NotificationItem } from "../../../../services/notices/notificationService";
+import { eventService } from "../../../../services/events/eventService";
+import { noticeService } from "../../../../services/notices/noticeService";
+import { sportsEventService } from "../../../../services/sports/sportsEventService";
 
-type NotificationCategory = "ALL" | "SPORTS" | "EVENTS" | "COMMUNITY" | "GENERAL";
+function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+type NotificationCategory = "ALL" | "EVENTS" | "SPORTS" | "COMMUNITY" | "GENERAL";
 
 interface CategoryMeta {
   label: string;
@@ -18,6 +27,14 @@ interface CategoryMeta {
 }
 
 const CATEGORIES: Record<string, CategoryMeta> = {
+  EVENTS: {
+    label: "Events & Poojas",
+    icon: CalendarDays,
+    color: "text-indigo-600",
+    bg: "bg-indigo-50",
+    badgeBg: "bg-indigo-100",
+    badgeText: "text-indigo-700",
+  },
   SPORTS: {
     label: "Sports",
     icon: Trophy,
@@ -33,14 +50,6 @@ const CATEGORIES: Record<string, CategoryMeta> = {
     bg: "bg-amber-50",
     badgeBg: "bg-amber-100",
     badgeText: "text-amber-700",
-  },
-  EVENTS: {
-    label: "Events & Poojas",
-    icon: CalendarDays,
-    color: "text-indigo-600",
-    bg: "bg-indigo-50",
-    badgeBg: "bg-indigo-100",
-    badgeText: "text-indigo-700",
   },
   COMMUNITY: {
     label: "Community",
@@ -60,72 +69,57 @@ const CATEGORIES: Record<string, CategoryMeta> = {
   },
 };
 
-const DEFAULT_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 991,
-    type: "SPORTS_REGISTRATION_OPEN",
-    category: "SPORTS",
-    title: "🏆 Annual Cricket Cup 2026 Registration is Open!",
-    body: "Team registrations and player auction entries are now live. Submit your roster before Aug 30.",
-    icon: "trophy",
-    actionUrl: "/sports",
-    referenceType: "TOURNAMENT",
-    referenceId: 1,
-    priority: "HIGH",
-    read: false,
-    readAt: null,
-    metadata: null,
-    createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
-  },
-  {
-    id: 992,
-    type: "EVENT_PASS_APPROVED",
-    category: "EVENTS",
-    title: "🎉 Maha Ganapathi Pooja Gate Pass Confirmed",
-    body: "Your digital sankalpam pass is ready with QR code. View and download your e-pass.",
-    icon: "calendar",
-    actionUrl: "/events",
-    referenceType: "EVENT",
-    referenceId: 101,
-    priority: "NORMAL",
-    read: false,
-    readAt: null,
-    metadata: null,
-    createdAt: new Date(Date.now() - 45 * 60000).toISOString(),
-  },
-  {
-    id: 993,
-    type: "COMMUNITY_NOTICE",
-    category: "COMMUNITY",
-    title: "📢 Society Maintenance & Water Supply Schedule",
-    body: "Scheduled overhead tank cleaning this Saturday between 10:00 AM and 2:00 PM.",
-    icon: "megaphone",
-    actionUrl: "/notices",
-    referenceType: "NOTICE",
-    referenceId: 404,
-    priority: "NORMAL",
-    read: true,
-    readAt: new Date(Date.now() - 120 * 60000).toISOString(),
-    metadata: null,
-    createdAt: new Date(Date.now() - 180 * 60000).toISOString(),
-  },
-  {
-    id: 994,
-    type: "AUCTION_ALERT",
-    category: "SPORTS",
-    title: "⚡ Premier Badminton League Player Auction Live",
-    body: "Live bidding has commenced in the Sports Arena. Track team bidding in real-time.",
-    icon: "sparkles",
-    actionUrl: "/sports?tab=auction",
-    referenceType: "AUCTION",
-    referenceId: 3,
-    priority: "HIGH",
-    read: true,
-    readAt: new Date(Date.now() - 300 * 60000).toISOString(),
-    metadata: null,
-    createdAt: new Date(Date.now() - 360 * 60000).toISOString(),
-  },
-];
+function getStoredReadIds(): Set<number> {
+  try {
+    const raw = localStorage.getItem("mana_read_notification_ids");
+    if (!raw) return new Set();
+    return new Set(JSON.parse(raw));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveStoredReadId(id: number) {
+  try {
+    const set = getStoredReadIds();
+    set.add(id);
+    localStorage.setItem("mana_read_notification_ids", JSON.stringify(Array.from(set)));
+  } catch { /* silent */ }
+}
+
+function saveAllStoredReadIds(ids: number[]) {
+  try {
+    const set = getStoredReadIds();
+    ids.forEach(id => set.add(id));
+    localStorage.setItem("mana_read_notification_ids", JSON.stringify(Array.from(set)));
+  } catch { /* silent */ }
+}
+
+function getStoredDismissedIds(): Set<number> {
+  try {
+    const raw = localStorage.getItem("mana_dismissed_notification_ids");
+    if (!raw) return new Set();
+    return new Set(JSON.parse(raw));
+  } catch {
+    return new Set();
+  }
+}
+
+function saveStoredDismissedId(id: number) {
+  try {
+    const set = getStoredDismissedIds();
+    set.add(id);
+    localStorage.setItem("mana_dismissed_notification_ids", JSON.stringify(Array.from(set)));
+  } catch { /* silent */ }
+}
+
+function saveAllStoredDismissedIds(ids: number[]) {
+  try {
+    const set = getStoredDismissedIds();
+    ids.forEach(id => set.add(id));
+    localStorage.setItem("mana_dismissed_notification_ids", JSON.stringify(Array.from(set)));
+  } catch { /* silent */ }
+}
 
 function timeAgo(dateStr: string): string {
   const now = Date.now();
@@ -147,58 +141,187 @@ export function NotificationBell() {
   const [activeCategory, setActiveCategory] = useState<NotificationCategory>("ALL");
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isBlinking, setIsBlinking] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const prevUnreadRef = useRef<number>(0);
 
-  const fetchCount = useCallback(async () => {
-    try {
-      const res = await notificationService.getUnreadCount();
-      setUnreadCount(res.count);
-    } catch {
-      // If backend fails, calculate unread from state
-      setUnreadCount((prev) => prev);
-    }
+  const triggerBlink = useCallback(() => {
+    setIsBlinking(true);
+    const timer = setTimeout(() => setIsBlinking(false), 8000);
+    return () => clearTimeout(timer);
   }, []);
 
-  const fetchNotifications = useCallback(async (pageNum: number, append = false) => {
+  const fetchLiveNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await notificationService.getNotifications(pageNum, 20);
-      if (res && res.content && res.content.length > 0) {
-        setNotifications((prev) => append ? [...prev, ...res.content] : res.content);
-        setHasMore(!res.last);
-        const unread = res.content.filter((n) => !n.read).length;
-        setUnreadCount(unread);
-      } else {
-        // Fallback to default demo notifications if empty so all notification types are visible
-        setNotifications((prev) => (append ? prev : DEFAULT_NOTIFICATIONS));
-        setHasMore(false);
-        setUnreadCount(DEFAULT_NOTIFICATIONS.filter((n) => !n.read).length);
+      const readSet = getStoredReadIds();
+      const dismissedSet = getStoredDismissedIds();
+      const list: NotificationItem[] = [];
+
+      // 1. Fetch from Notification Backend API
+      try {
+        const res = await notificationService.getNotifications(0, 50);
+        if (res && Array.isArray(res.content) && res.content.length > 0) {
+          for (const item of res.content) {
+            if (!dismissedSet.has(item.id)) {
+              list.push({
+                ...item,
+                read: item.read || readSet.has(item.id),
+              });
+            }
+          }
+        }
+      } catch { /* fallback to dynamic entities */ }
+
+      // 2. Fetch Latest Real Events & Poojas
+      try {
+        const events = await eventService.getAllEvents();
+        if (Array.isArray(events)) {
+          events.forEach((evt) => {
+            const notifId = 100000 + (evt.id || 0);
+            if (!dismissedSet.has(notifId)) {
+              const isPooja = (evt.category || "").toLowerCase().includes("pooja") || (evt.type || "").toLowerCase().includes("pooja");
+              list.push({
+                id: notifId,
+                type: isPooja ? "POOJA_ANNOUNCEMENT" : "EVENT_ANNOUNCEMENT",
+                category: "EVENTS",
+                title: isPooja ? `🪔 ${evt.title}` : `🎉 ${evt.title}`,
+                body: evt.description
+                  ? evt.description.slice(0, 110) + (evt.description.length > 110 ? "..." : "")
+                  : (evt.location ? `Venue: ${evt.location} • Starting on ${evt.startDate}` : `Scheduled on ${evt.startDate}`),
+                icon: isPooja ? "sparkles" : "calendar",
+                actionUrl: `/events?eventId=${evt.id}`,
+                referenceType: "EVENT",
+                referenceId: evt.id,
+                priority: "NORMAL",
+                read: readSet.has(notifId),
+                readAt: null,
+                metadata: null,
+                createdAt: evt.createdAt || new Date(Date.now() - 3600000).toISOString(),
+              });
+            }
+          });
+        }
+      } catch { /* silent */ }
+
+      // 3. Fetch Latest Real Notices
+      try {
+        const notices = await noticeService.getNotices();
+        if (Array.isArray(notices)) {
+          notices.forEach((notice) => {
+            const notifId = 200000 + (notice.id || 0);
+            if (!dismissedSet.has(notifId)) {
+              list.push({
+                id: notifId,
+                type: "COMMUNITY_NOTICE",
+                category: "COMMUNITY",
+                title: `📢 ${notice.title}`,
+                body: notice.body ? notice.body.slice(0, 110) + (notice.body.length > 110 ? "..." : "") : "New society announcement",
+                icon: "megaphone",
+                actionUrl: "/notices",
+                referenceType: "NOTICE",
+                referenceId: notice.id,
+                priority: notice.priority || "NORMAL",
+                read: readSet.has(notifId),
+                readAt: null,
+                metadata: null,
+                createdAt: notice.createdAt || new Date(Date.now() - 7200000).toISOString(),
+              });
+            }
+          });
+        }
+      } catch { /* silent */ }
+
+      // 4. Fetch Latest Real Sports Events / Tournaments
+      try {
+        const sports = await sportsEventService.getAllEvents();
+        if (Array.isArray(sports)) {
+          sports.forEach((s: any) => {
+            const notifId = 300000 + (s.id || 0);
+            if (!dismissedSet.has(notifId)) {
+              list.push({
+                id: notifId,
+                type: "SPORTS_TOURNAMENT",
+                category: "SPORTS",
+                title: `🏆 ${s.name || s.title || "Sports Tournament"}`,
+                body: s.description ? s.description.slice(0, 110) + (s.description.length > 110 ? "..." : "") : `Status: ${s.status || "Open for registration"}`,
+                icon: "trophy",
+                actionUrl: "/sports",
+                referenceType: "TOURNAMENT",
+                referenceId: s.id,
+                priority: "HIGH",
+                read: readSet.has(notifId),
+                readAt: null,
+                metadata: null,
+                createdAt: s.createdAt || new Date(Date.now() - 10800000).toISOString(),
+              });
+            }
+          });
+        }
+      } catch { /* silent */ }
+
+      // Deduplicate by category + title
+      const seen = new Set<string>();
+      const deduplicated = list.filter((item) => {
+        const key = `${item.category}-${item.title}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      // Sort newest first
+      deduplicated.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      setNotifications(deduplicated);
+      const unread = deduplicated.filter((n) => !n.read).length;
+      if (unread > prevUnreadRef.current) {
+        triggerBlink();
       }
-      setPage(pageNum);
-    } catch {
-      setNotifications((prev) => (append ? prev : DEFAULT_NOTIFICATIONS));
-      setHasMore(false);
-      setUnreadCount(DEFAULT_NOTIFICATIONS.filter((n) => !n.read).length);
+      prevUnreadRef.current = unread;
+      setUnreadCount(unread);
+    } catch (err) {
+      console.warn("Failed to load live notifications:", err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [triggerBlink]);
 
   useEffect(() => {
-    fetchCount();
-    const interval = setInterval(fetchCount, 30000);
+    fetchLiveNotifications();
+    const interval = setInterval(fetchLiveNotifications, 30000);
     return () => clearInterval(interval);
-  }, [fetchCount]);
+  }, [fetchLiveNotifications]);
+
+  useEffect(() => {
+    const handleNewNotif = () => {
+      fetchLiveNotifications();
+      triggerBlink();
+    };
+
+    window.addEventListener("mana_notification_received", handleNewNotif);
+    window.addEventListener("mana_notifications_updated", handleNewNotif);
+    window.addEventListener("mana_event_created", handleNewNotif);
+    window.addEventListener("mana_event_updated", handleNewNotif);
+    window.addEventListener("mana_registrations_updated", handleNewNotif);
+    window.addEventListener("mana_activities_updated", handleNewNotif);
+
+    return () => {
+      window.removeEventListener("mana_notification_received", handleNewNotif);
+      window.removeEventListener("mana_notifications_updated", handleNewNotif);
+      window.removeEventListener("mana_event_created", handleNewNotif);
+      window.removeEventListener("mana_event_updated", handleNewNotif);
+      window.removeEventListener("mana_registrations_updated", handleNewNotif);
+      window.removeEventListener("mana_activities_updated", handleNewNotif);
+    };
+  }, [fetchLiveNotifications, triggerBlink]);
 
   useEffect(() => {
     if (open) {
-      fetchNotifications(0);
+      fetchLiveNotifications();
     }
-  }, [open, fetchNotifications]);
+  }, [open, fetchLiveNotifications]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -214,14 +337,18 @@ export function NotificationBell() {
   }, [open]);
 
   const handleMarkAsRead = async (id: number) => {
-    try {
-      await notificationService.markAsRead([id]);
-    } catch { /* silent */ }
+    saveStoredReadId(id);
+    if (id < 100000) {
+      try {
+        await notificationService.markAsRead([id]);
+      } catch { /* silent */ }
+    }
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
     setUnreadCount((prev) => Math.max(0, prev - 1));
   };
 
   const handleMarkAllRead = async () => {
+    saveAllStoredReadIds(notifications.map((n) => n.id));
     try {
       await notificationService.markAllAsRead();
     } catch { /* silent */ }
@@ -230,9 +357,12 @@ export function NotificationBell() {
   };
 
   const handleDismiss = async (id: number) => {
-    try {
-      await notificationService.dismiss(id);
-    } catch { /* silent */ }
+    saveStoredDismissedId(id);
+    if (id < 100000) {
+      try {
+        await notificationService.dismiss(id);
+      } catch { /* silent */ }
+    }
     setNotifications((prev) => prev.filter((n) => n.id !== id));
     setUnreadCount((prev) => {
       const was = notifications.find((n) => n.id === id);
@@ -241,15 +371,12 @@ export function NotificationBell() {
   };
 
   const handleDismissAll = async () => {
+    saveAllStoredDismissedIds(notifications.map((n) => n.id));
     try {
       await notificationService.dismissAll();
     } catch { /* silent */ }
     setNotifications([]);
     setUnreadCount(0);
-  };
-
-  const handleLoadMore = () => {
-    if (!loading && hasMore) fetchNotifications(page + 1, true);
   };
 
   const handleNotificationClick = (n: NotificationItem) => {
@@ -267,8 +394,8 @@ export function NotificationBell() {
   const filteredNotifications = notifications.filter((n) => {
     if (activeCategory === "ALL") return true;
     const cat = (n.category || "GENERAL").toUpperCase();
+    if (activeCategory === "EVENTS") return cat === "EVENTS" || cat === "EVENT" || cat === "POOJA";
     if (activeCategory === "SPORTS") return cat === "SPORTS" || cat === "AUCTION";
-    if (activeCategory === "EVENTS") return cat === "EVENTS" || cat === "EVENT";
     if (activeCategory === "COMMUNITY") return cat === "COMMUNITY" || cat === "NOTICES" || cat === "GENERAL";
     return cat === activeCategory;
   });
@@ -277,8 +404,8 @@ export function NotificationBell() {
     if (cat === "ALL") return notifications.length;
     return notifications.filter((n) => {
       const c = (n.category || "GENERAL").toUpperCase();
+      if (cat === "EVENTS") return c === "EVENTS" || c === "EVENT" || c === "POOJA";
       if (cat === "SPORTS") return c === "SPORTS" || c === "AUCTION";
-      if (cat === "EVENTS") return c === "EVENTS" || c === "EVENT";
       if (cat === "COMMUNITY") return c === "COMMUNITY" || c === "NOTICES" || c === "GENERAL";
       return c === cat;
     }).length;
@@ -289,14 +416,30 @@ export function NotificationBell() {
       <button
         ref={buttonRef}
         type="button"
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={() => {
+          setOpen((prev) => !prev);
+          setIsBlinking(false);
+        }}
         title="Notifications & Alerts"
-        className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-xl border border-border bg-card shadow-xs relative transition-all cursor-pointer active:scale-95 flex items-center justify-center"
+        className={cn(
+          "p-2 text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded-xl border border-border bg-card shadow-xs relative transition-all cursor-pointer active:scale-95 flex items-center justify-center",
+          unreadCount > 0 && "border-amber-400/80 bg-amber-50/40 text-amber-600 shadow-sm ring-2 ring-amber-300/60",
+          isBlinking && "animate-pulse ring-4 ring-rose-400/90 bg-rose-50 text-rose-600 border-rose-400"
+        )}
       >
-        <Bell className="h-4.5 w-4.5" />
+        <Bell
+          className={cn(
+            "h-4.5 w-4.5 transition-transform",
+            unreadCount > 0 && "text-amber-600 animate-[bounce_2.5s_infinite]",
+            isBlinking && "animate-[spin_0.5s_ease-in-out_2] text-rose-600 scale-110"
+          )}
+        />
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center bg-rose-500 text-white text-[10px] font-black rounded-full px-1 ring-2 ring-card shadow-xs animate-in zoom-in-50">
-            {unreadCount > 99 ? "99+" : unreadCount}
+          <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-5 items-center justify-center pointer-events-none">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-80 duration-1000" />
+            <span className="relative min-w-[18px] h-[18px] flex items-center justify-center bg-rose-600 text-white text-[10px] font-black rounded-full px-1 ring-2 ring-card shadow-xs animate-in zoom-in-50">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
           </span>
         )}
       </button>
@@ -362,8 +505,8 @@ export function NotificationBell() {
             {(
               [
                 { id: "ALL", label: "All", icon: Filter },
+                { id: "EVENTS", label: "Events & Poojas", icon: CalendarDays },
                 { id: "SPORTS", label: "Sports", icon: Trophy },
-                { id: "EVENTS", label: "Events", icon: CalendarDays },
                 { id: "COMMUNITY", label: "Community", icon: Megaphone },
               ] as const
             ).map((cat) => {
