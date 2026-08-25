@@ -374,8 +374,6 @@ function persistedMediaUrl(url?: string | null): string | undefined {
 function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   return (
     <div className="space-y-4 sm:space-y-7">
-      <SectionHeader icon={FileText} title="Event Details" subtitle="Give your event a name and describe what it's about" />
-
       <div>
         <FieldLabel required>Event Title</FieldLabel>
         <Input value={data.title} onChange={e => update("title", e.target.value)}
@@ -387,15 +385,25 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
         <FieldLabel required>Event Type</FieldLabel>
         <div className="flex flex-wrap gap-1.5">
           {EVENT_TYPES.map(t => {
-            const selected = data.eventType === t.value;
+            const currentVal = (data.eventType || "").toLowerCase().trim();
+            const currentCat = (data.category || "").toLowerCase().trim();
+            const selected = currentVal === t.value.toLowerCase() || 
+                             currentVal === t.label.toLowerCase() ||
+                             currentCat === t.value.toLowerCase() ||
+                             currentCat === t.label.toLowerCase();
             return (
-              <button key={t.value} onClick={() => update("eventType", t.value)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11.5px] font-medium transition-all duration-150"
+              <button key={t.value} onClick={() => {
+                update("eventType", t.value);
+                update("category", t.label);
+              }}
+                type="button"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11.5px] font-medium transition-all duration-150 cursor-pointer"
                 style={{
                   borderColor: selected ? t.color : "#E2E8F0",
                   background: selected ? hexRgba(t.color, 0.08) : "#FAFAFA",
                   color: selected ? t.color : "#64748B",
                   boxShadow: selected ? `0 0 0 3px ${hexRgba(t.color, 0.12)}` : "none",
+                  fontWeight: selected ? 700 : 500,
                 }}>
                 <t.icon className="w-[11px] h-[11px]" style={{ color: selected ? t.color : "#94A3B8" }} strokeWidth={2.2} />
                 {t.label}
@@ -491,14 +499,263 @@ function formatDayLabel(dateStr: string): string {
 }
 
 const FESTIVAL_AGENDA_PLACEHOLDERS: ScheduleActivity[] = [
+  // Pooja & Seva
   { id: "p1", categoryType: "Pooja & Seva", name: "Ganesh Puja & Morning Aarti Ritual", needsRegistration: true, registrationFee: "0", slots: "100", startTime: "08:00", endTime: "09:00", description: "Traditional inauguration & morning stotram aarti", venue: "Main Mandap" },
-  { id: "p2", categoryType: "Cultural Events", name: "Classical Bharatanatyam Dance & Music", needsRegistration: false, registrationFee: "0", slots: "200", startTime: "09:30", endTime: "11:00", description: "Stage performance by community troupe dancers", venue: "Main Stage" },
-  { id: "p3", categoryType: "Competitions", name: "Cultural Talent Hunt & Singing Competition", needsRegistration: true, registrationFee: "0", slots: "50", startTime: "11:15", endTime: "12:45", description: "Youth & adult singing and elocution competition", venue: "Auditorium" },
-  { id: "p4", categoryType: "Lunch", name: "Prasadam & Grand Community Lunch Feast", needsRegistration: true, registrationFee: "0", slots: "500", startTime: "13:00", endTime: "14:30", description: "Buffet dining & prasadam distribution", venue: "Dining Hall" },
-  { id: "p5", categoryType: "Competitions", name: "Youth Sports & Rangoli Art Workshop", needsRegistration: true, registrationFee: "0", slots: "60", startTime: "15:00", endTime: "16:30", description: "Indoor badminton & rangoli competition", venue: "Activity Hall" },
-  { id: "p6", categoryType: "Cultural Events", name: "Chief Guest Speech & Prize Ceremony", needsRegistration: false, registrationFee: "0", slots: "300", startTime: "17:00", endTime: "18:30", description: "Felicitation ceremony & awards distribution", venue: "Main Stage" },
-  { id: "p7", categoryType: "Cultural Events", name: "Grand Evening Musical Night & Orchestra", needsRegistration: false, registrationFee: "0", slots: "400", startTime: "19:00", endTime: "21:30", description: "Live concert & celebrity music performance", venue: "Amphitheatre" },
+  { id: "p2", categoryType: "Pooja & Seva", name: "Maha Ganapathi Homam & Sankalpam", needsRegistration: true, registrationFee: "0", slots: "50", startTime: "08:30", endTime: "10:00", description: "Vedic havan with sacred mantras and sankalpam", venue: "Yagna Shala / Main Mandap" },
+  { id: "p3", categoryType: "Pooja & Seva", name: "Navagraha Pooja & Sahasranama Archana", needsRegistration: true, registrationFee: "0", slots: "75", startTime: "10:30", endTime: "11:30", description: "Nine planetary deity prayers with flower archana", venue: "Main Mandap" },
+  { id: "p4", categoryType: "Pooja & Seva", name: "Evening Maha Mangala Aarti & Deepotsav", needsRegistration: false, registrationFee: "0", slots: "300", startTime: "19:00", endTime: "20:00", description: "Lighting of 1008 deepas & grand evening arati", venue: "Main Stage & Mandap" },
+  { id: "p5", categoryType: "Pooja & Seva", name: "Satyanarayan Swamy Vratam & Katha", needsRegistration: true, registrationFee: "0", slots: "60", startTime: "16:00", endTime: "18:00", description: "Community vratam prayer, katha recitation and prasadam", venue: "Mandap Hall" },
+  
+  // Cultural Events
+  { id: "p6", categoryType: "Cultural Events", name: "Classical Bharatanatyam Dance & Music", needsRegistration: false, registrationFee: "0", slots: "200", startTime: "09:30", endTime: "11:00", description: "Stage performance by community troupe dancers", venue: "Main Stage" },
+  { id: "p7", categoryType: "Cultural Events", name: "Grand Evening Musical Concert & Orchestra", needsRegistration: false, registrationFee: "0", slots: "400", startTime: "19:00", endTime: "21:30", description: "Live concert & devotional celebrity music performance", venue: "Amphitheatre" },
+  { id: "p8", categoryType: "Cultural Events", name: "Chief Guest Speech, Felicitation & Prize Ceremony", needsRegistration: false, registrationFee: "0", slots: "300", startTime: "17:00", endTime: "18:30", description: "Dignitary felicitation ceremony & awards distribution", venue: "Main Stage" },
+  { id: "p9", categoryType: "Cultural Events", name: "Mythological Drama / Natakam: Bhakta Prahlada", needsRegistration: false, registrationFee: "0", slots: "250", startTime: "18:30", endTime: "20:30", description: "Epic stage play performed by community youth drama group", venue: "Main Stage" },
+  { id: "p10", categoryType: "Cultural Events", name: "Kids & Teens Fancy Dress & Cultural Showcase", needsRegistration: true, registrationFee: "0", slots: "80", startTime: "16:30", endTime: "18:00", description: "Traditional mythological costume showcase for kids and youth", venue: "Auditorium" },
+  
+  // Competitions
+  { id: "p11", categoryType: "Competitions", name: "Cultural Talent Hunt & Singing Competition", needsRegistration: true, registrationFee: "0", slots: "50", startTime: "11:15", endTime: "12:45", description: "Youth & adult devotional and classical singing contest", venue: "Auditorium" },
+  { id: "p12", categoryType: "Competitions", name: "Youth & Kids Rangoli Art & Clay Workshop", needsRegistration: true, registrationFee: "0", slots: "60", startTime: "15:00", endTime: "16:30", description: "Traditional floral rangoli & eco-friendly clay art", venue: "Activity Hall" },
+  { id: "p13", categoryType: "Competitions", name: "Drawing & Painting Competition for Children", needsRegistration: true, registrationFee: "0", slots: "60", startTime: "10:00", endTime: "11:30", description: "Art contest for age groups 5-10 and 11-16", venue: "Activity Hall" },
+  { id: "p14", categoryType: "Competitions", name: "Traditional Cooking & Modak Making Contest", needsRegistration: true, registrationFee: "0", slots: "40", startTime: "11:30", endTime: "13:00", description: "Culinary competition for traditional festive delicacies", venue: "Club House" },
+  
+  // Food & Meals
+  { id: "p15", categoryType: "Lunch", name: "Prasadam & Grand Community Lunch Feast", needsRegistration: true, registrationFee: "0", slots: "500", startTime: "13:00", endTime: "14:30", description: "Traditional vegetarian feast & prasadam distribution", venue: "Dining Hall" },
+  { id: "p16", categoryType: "Dinner", name: "Community Annadanam & Mahaprasadam Dinner", needsRegistration: true, registrationFee: "0", slots: "500", startTime: "19:30", endTime: "21:00", description: "Community dinner buffet & sweet distribution", venue: "Dining Hall" },
 ];
+
+interface AgendaPlaceholdersModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  targetDate: string;
+  onAddActivities: (targetDate: string, activities: ScheduleActivity[]) => void;
+}
+
+function AgendaPlaceholdersModal({ isOpen, onClose, targetDate, onAddActivities }: AgendaPlaceholdersModalProps) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedIds([]);
+      setCategoryFilter("All");
+      setSearchQuery("");
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const categories = ["All", "Pooja & Seva", "Cultural Events", "Competitions", "Lunch", "Dinner"];
+
+  const filtered = FESTIVAL_AGENDA_PLACEHOLDERS.filter(item => {
+    const matchesCat = categoryFilter === "All" || item.categoryType === categoryFilter;
+    const q = searchQuery.toLowerCase().trim();
+    const matchesQuery = !q || item.name.toLowerCase().includes(q) || (item.description && item.description.toLowerCase().includes(q)) || (item.venue && item.venue.toLowerCase().includes(q));
+    return matchesCat && matchesQuery;
+  });
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSelectAll = () => {
+    const visibleIds = filtered.map(x => x.id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds(prev => prev.filter(id => !visibleIds.includes(id)));
+    } else {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const handleConfirm = () => {
+    const chosen = FESTIVAL_AGENDA_PLACEHOLDERS.filter(p => selectedIds.includes(p.id));
+    if (chosen.length === 0) return;
+    onAddActivities(targetDate, chosen);
+    onClose();
+  };
+
+  const allVisibleSelected = filtered.length > 0 && filtered.every(x => selectedIds.includes(x.id));
+
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden">
+        
+        {/* Header */}
+        <div className="px-5 py-4 bg-gradient-to-r from-indigo-50 via-purple-50 to-white border-b border-indigo-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+              <Sparkles className="w-5 h-5 text-amber-300" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                Select Agenda Placeholders
+                <Badge variant="outline" className="bg-indigo-100/70 border-indigo-200 text-indigo-700 font-bold text-[10px]">
+                  {formatDayLabel(targetDate)}
+                </Badge>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Pick pre-built festival and community agenda templates to add to this day.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer border border-slate-200/60"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Filters & Search */}
+        <div className="p-3.5 bg-slate-50/80 border-b border-slate-200/80 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search placeholders by activity name, venue, or timing..."
+                className="h-9 pl-3 text-xs bg-white border-slate-200"
+              />
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleSelectAll}
+              className="h-9 px-3 text-xs font-bold border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-50 cursor-pointer shrink-0"
+            >
+              {allVisibleSelected ? "Deselect All" : "Select All"}
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 overflow-x-auto pb-0.5">
+            {categories.map(cat => {
+              const active = categoryFilter === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategoryFilter(cat)}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border",
+                    active
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60"
+                  )}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* List of Placeholders */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+          {filtered.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-xs">
+              No agenda placeholders matching your filter.
+            </div>
+          ) : (
+            filtered.map(item => {
+              const isSelected = selectedIds.includes(item.id);
+              const catColor = ACTIVITY_CATEGORY_OPTIONS.find(c => c.value === item.categoryType)?.color || "#4f46e5";
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => toggleSelect(item.id)}
+                  className={cn(
+                    "p-3.5 rounded-2xl border transition-all cursor-pointer select-none flex items-start gap-3.5",
+                    isSelected
+                      ? "border-indigo-400 bg-indigo-50/50 shadow-xs"
+                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60"
+                  )}
+                >
+                  <div className="pt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelect(item.id)}
+                      className="w-4 h-4 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.2"
+                        style={{
+                          color: catColor,
+                          borderColor: hexRgba(catColor, 0.3),
+                          backgroundColor: hexRgba(catColor, 0.08),
+                        }}
+                      >
+                        {item.categoryType}
+                      </Badge>
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        {item.startTime} – {item.endTime}
+                      </span>
+                      {item.needsRegistration && (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
+                          Pass Required
+                        </Badge>
+                      )}
+                    </div>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 mt-1">
+                      {item.name}
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                      {item.venue ? `📍 ${item.venue}` : ""} {item.description ? `• ${item.description}` : ""}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+          <div className="text-xs font-bold text-slate-600">
+            {selectedIds.length > 0 ? (
+              <span className="text-indigo-600 font-extrabold">{selectedIds.length} activities selected</span>
+            ) : (
+              <span className="text-slate-400">Select activities to import</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              className="px-4 text-xs font-bold border-slate-200"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={selectedIds.length === 0}
+              onClick={handleConfirm}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5 px-4 shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add {selectedIds.length > 0 ? `(${selectedIds.length})` : ""} to Day
+            </Button>
+          </div>
+        </div>
+
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   const [expandedDay, setExpandedDay] = useState<string | null>(() => {
@@ -507,6 +764,8 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [notifDayLabel, setNotifDayLabel] = useState<string | undefined>(undefined);
   const [notifActivityTitle, setNotifActivityTitle] = useState<string | undefined>(undefined);
+  const [placeholderModalOpen, setPlaceholderModalOpen] = useState(false);
+  const [placeholderTargetDate, setPlaceholderTargetDate] = useState<string | null>(null);
 
   const initializedDayRef = useRef(false);
   useEffect(() => {
@@ -3277,7 +3536,11 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
   return {
     title: data.title,
     description: data.description || undefined,
-    type: data.eventType || undefined,
+    type: data.eventType ? (
+      ["festival", "cultural", "meeting", "workshop", "conference", "party", "fundraiser", "sports"].includes(data.eventType.toLowerCase())
+        ? data.eventType.toUpperCase()
+        : "GENERAL"
+    ) : undefined,
     startDate: data.startDate,
     endDate: data.multiDay && data.endDate ? data.endDate : undefined,
     startTime: data.startTime || undefined,
@@ -3303,7 +3566,7 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
     paymentInstructions: data.enableOnlinePayment ? (data.paymentInstructions || undefined) : undefined,
     venue: data.venueName || undefined,
     city: data.city || undefined,
-    category: data.eventType || undefined,
+    category: data.category || EVENT_TYPES.find(t => t.value === data.eventType)?.label || data.eventType || "Festival",
     status: statusOverride || "PUBLISHED",
     registrationDeadline: data.registrationEnabled && data.registrationDeadline ? data.registrationDeadline : undefined,
     draftStep: draftStep !== undefined ? draftStep : (statusOverride === "DRAFT" ? 1 : undefined),
@@ -3364,8 +3627,87 @@ export function fromEventToFormData(ev: any): FormData {
     locTypeStr === "invite" || locTypeStr === "private" ? "invite" :
     "community";
 
-  const eventTypeLower = (ev.type || ev.category || ev.eventType || "").toLowerCase();
-  const matchedType = EVENT_TYPES.find(t => t.value === eventTypeLower || t.label.toLowerCase() === eventTypeLower)?.value || (eventTypeLower || "festival");
+  const rawTypeCandidates: string[] = [
+    ev.category,
+    ev.eventType,
+    ev.eventCategory,
+    ev.typeName,
+    ev.type,
+  ].filter(Boolean).map((s: any) => String(s).toLowerCase().trim());
+
+  let matchedType = "festival";
+  let matchedFound = false;
+
+  for (const raw of rawTypeCandidates) {
+    const cleanRaw = raw.replace(/[-_]/g, " ");
+
+    const exactVal = EVENT_TYPES.find(t => t.value.toLowerCase() === raw || t.value.toLowerCase() === cleanRaw);
+    if (exactVal) {
+      matchedType = exactVal.value;
+      matchedFound = true;
+      break;
+    }
+
+    const exactLabel = EVENT_TYPES.find(t => t.label.toLowerCase() === raw || t.label.toLowerCase() === cleanRaw);
+    if (exactLabel) {
+      matchedType = exactLabel.value;
+      matchedFound = true;
+      break;
+    }
+
+    if (cleanRaw.includes("health") || cleanRaw.includes("medical") || cleanRaw.includes("camp") || cleanRaw.includes("blood") || cleanRaw.includes("yoga") || cleanRaw.includes("wellness") || cleanRaw.includes("fitness")) {
+      matchedType = "health";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("food") || cleanRaw.includes("dining") || cleanRaw.includes("dinner") || cleanRaw.includes("lunch") || cleanRaw.includes("prasadam") || cleanRaw.includes("annadanam") || cleanRaw.includes("cooking") || cleanRaw.includes("kitchen")) {
+      matchedType = "food";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("sport") || cleanRaw.includes("cricket") || cleanRaw.includes("outdoor") || cleanRaw.includes("trek") || cleanRaw.includes("run") || cleanRaw.includes("marathon") || cleanRaw.includes("badminton") || cleanRaw.includes("football") || cleanRaw.includes("tournament")) {
+      matchedType = "outdoor";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("cultur") || cleanRaw.includes("music") || cleanRaw.includes("dance") || cleanRaw.includes("drama") || cleanRaw.includes("theatre") || cleanRaw.includes("concert") || cleanRaw.includes("art")) {
+      matchedType = "cultural";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("festiv") || cleanRaw.includes("pooja") || cleanRaw.includes("seva") || cleanRaw.includes("diwali") || cleanRaw.includes("ganesh") || cleanRaw.includes("navratri") || cleanRaw.includes("holi") || cleanRaw.includes("durga") || cleanRaw.includes("celebrat")) {
+      matchedType = "festival";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("educat") || cleanRaw.includes("workshop") || cleanRaw.includes("school") || cleanRaw.includes("class") || cleanRaw.includes("training") || cleanRaw.includes("seminar") || cleanRaw.includes("study")) {
+      matchedType = "education";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("corporat") || cleanRaw.includes("business") || cleanRaw.includes("meeting") || cleanRaw.includes("conference") || cleanRaw.includes("agm") || cleanRaw.includes("networking")) {
+      matchedType = "corporate";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("communit") || cleanRaw.includes("social") || cleanRaw.includes("general") || cleanRaw.includes("society") || cleanRaw.includes("gathering") || cleanRaw.includes("resident")) {
+      matchedType = "community";
+      matchedFound = true;
+      break;
+    }
+  }
+
+  if (!matchedFound && rawTypeCandidates.length > 0) {
+    for (const raw of rawTypeCandidates) {
+      const partial = EVENT_TYPES.find(t => raw.includes(t.value) || t.value.includes(raw));
+      if (partial) {
+        matchedType = partial.value;
+        break;
+      }
+    }
+  }
+
+  const resolvedCategory = ev.category || EVENT_TYPES.find(t => t.value === matchedType)?.label || "Festival";
 
   let contacts: EventContactItem[] = [];
   if (Array.isArray(ev.contacts) && ev.contacts.length > 0) {
@@ -3458,7 +3800,7 @@ export function fromEventToFormData(ev: any): FormData {
   return {
     title: ev.title || ev.name || "",
     eventType: matchedType,
-    category: ev.category || ev.type || matchedType || "Festival",
+    category: resolvedCategory,
     description: ev.description || "",
     visibility,
     startDate,
