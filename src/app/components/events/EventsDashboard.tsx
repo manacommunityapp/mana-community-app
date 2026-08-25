@@ -74,8 +74,6 @@ const MOCK_KPIS = [
   { label: "Today's Schedule & Duty", value: "32 Items", sub: "12 programs · 318 duty shifts", icon: Clock, color: "#16A34A", bg: "rgba(22,163,74,0.12)", trend: "Active Today", to: "/events/schedule?tab=programs" },
   { label: "Pending Action Items",    value: "9",      sub: "4 tasks · 5 sponsors", icon: AlertCircle, color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "Action Required", to: "/events/schedule?tab=planning" },
   { label: "Sponsors Raised",         value: "₹6.10L", sub: "19 Active partners",   icon: Star,         color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "5 pending",       to: "/events/fundraising?tab=sponsors" },
-  // { label: "Food Prepared",           value: "85%",    sub: "4,200 plates est",    icon: Utensils,     color: "#8B5CF6", bg: "rgba(139,92,246,0.12)",  trend: "On schedule",     to: "/events/operations?tab=food" },
-  { label: "Auction Revenue",         value: "₹2.10L", sub: "14 items sold",       icon: Gavel,        color: "#06B6D4", bg: "rgba(6,182,212,0.12)",   trend: "Live now",        to: "/events/fundraising?tab=auction" },
 ];
 
 const MOCK_REG_TREND = [
@@ -685,7 +683,7 @@ export function EventsDashboard() {
     const cancelledRegsCount = allUnifiedRegs.filter(r => r.status === "CANCELLED" || r.isEventCancelled).length;
     const totalEventsCount = stats?.totalEvents ?? events.length;
 
-    return [
+    const kpiList = [
       {
         label: "Total Events",
         value: totalEventsCount > 0 ? String(totalEventsCount) : (stats ? String(stats.totalEvents) : "0"),
@@ -741,20 +739,23 @@ export function EventsDashboard() {
         trend: liveDonationTotal > 0 ? "Active" : "No donations yet",
         to: "/events/fundraising?tab=donations",
       },
-      // {
-      //   label: "Live Food Prepared", value: foodPlates,
-      //   sub: foodPct !== "—" ? `${foodPct} target reached` : "Live tracking",
-      //   icon: Utensils, color: "#8B5CF6", bg: "rgba(139,92,246,0.12)", trend: foodTrend,
-      //   to: "/events/operations?tab=food",
-      // },
-      {
-        label: "Auction Revenue", value: auctionRev,
+    ];
+
+    // Only show Auction Revenue KPI card if actual auction items exist in the database
+    if (liveAuctionCount > 0 || liveAuctionRev > 0 || (auctionStats?.totalItems != null && auctionStats.totalItems > 0)) {
+      kpiList.push({
+        label: "Auction Revenue",
+        value: auctionRev,
         sub: auctionItems,
-        icon: Gavel, color: "#06B6D4", bg: "rgba(6,182,212,0.12)",
+        icon: Gavel,
+        color: "#06B6D4",
+        bg: "rgba(6,182,212,0.12)",
         trend: auctionTrend,
         to: "/events/fundraising?tab=auction",
-      },
-    ];
+      });
+    }
+
+    return kpiList;
   }, [useMock, stats, auctionStats, sponsorTotal, donationTotal, sponsors, registrations, allUnifiedRegs, todaySchedule, pendingTasks, events]);
 
   // ── Derived: banner items ─────────────────────────────────────────────────
