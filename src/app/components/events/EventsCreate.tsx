@@ -1142,14 +1142,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleAddDay}
-              className="h-8.5 px-3 text-xs font-bold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl shadow-xs gap-1.5 cursor-pointer transition-all active:scale-95"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add Day
-            </Button>
+            {/* Add Day button hidden as of now */}
             <Button
               type="button"
               size="sm"
@@ -1254,13 +1247,6 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
               </p>
             </div>
             <div className="flex items-center justify-center gap-2.5 pt-1">
-              <Button
-                type="button"
-                onClick={handleAddDay}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 text-xs font-bold rounded-xl shadow-md shadow-indigo-500/20 px-4 cursor-pointer"
-              >
-                <Plus className="w-4 h-4" /> Add Day 1 Schedule
-              </Button>
               <Button
                 type="button"
                 variant="outline"
@@ -1807,14 +1793,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
               );
             })}
 
-            {/* Bottom Add Next Day Button */}
-            <button
-              type="button"
-              onClick={handleAddDay}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-indigo-300 bg-indigo-50/40 text-xs font-bold text-indigo-700 hover:bg-indigo-100/70 hover:border-indigo-400 transition-all cursor-pointer shadow-2xs mt-2"
-            >
-              <Plus className="w-4 h-4 text-indigo-600" /> Add Day {dayCount + 1} Schedule
-            </button>
+            {/* Bottom Add Next Day Button hidden as of now */}
           </div>
         )}
       </div>
