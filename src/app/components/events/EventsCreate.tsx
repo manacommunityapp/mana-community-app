@@ -356,7 +356,7 @@ const INITIAL_FORM_DATA: FormData = {
 };
 
 // shadcn theme tokens: --input-background:#f3f3f5, --border:rgba(0,0,0,0.1), --radius:0.625rem
-const INPUT_CLS = "w-full px-3 py-[7px] h-auto rounded-[0.625rem] border border-black/10 bg-[#f3f3f5] text-[12.5px] text-slate-800 placeholder-slate-400 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-100 transition-all";
+const INPUT_CLS = "w-full px-2.5 py-1.5 h-8.5 rounded-lg border border-black/10 bg-[#f3f3f5] text-[11.5px] text-slate-800 placeholder-slate-400 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-100 transition-all";
 
 const reqCls = (isEmpty: boolean) =>
   isEmpty ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-200 bg-rose-50/30" : "";
@@ -379,14 +379,14 @@ function persistedMediaUrl(url?: string | null): string | undefined {
 /* ─── Step 1: Basics ─── */
 function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   return (
-    <div className="space-y-4 sm:space-y-7">
+    <div className="space-y-3.5 sm:space-y-5">
       <div>
         <FieldLabel required>Event Title</FieldLabel>
         <Input
           value={data.title}
           onChange={e => update("title", e.target.value)}
           placeholder="e.g. Ganesh Chaturthi 2026 – Grand Celebration"
-          className={cn(INPUT_CLS, "text-base font-medium", reqCls(!data.title?.trim()))}
+          className={cn(INPUT_CLS, "h-9 text-xs sm:text-[13px] font-semibold", reqCls(!data.title?.trim()))}
         />
       </div>
 
@@ -406,15 +406,15 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
                 update("category", t.label);
               }}
                 type="button"
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11.5px] font-medium transition-all duration-150 cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-semibold transition-all duration-150 cursor-pointer"
                 style={{
                   borderColor: selected ? t.color : "#E2E8F0",
                   background: selected ? hexRgba(t.color, 0.08) : "#FAFAFA",
                   color: selected ? t.color : "#64748B",
-                  boxShadow: selected ? `0 0 0 3px ${hexRgba(t.color, 0.12)}` : "none",
-                  fontWeight: selected ? 700 : 500,
+                  boxShadow: selected ? `0 0 0 2.5px ${hexRgba(t.color, 0.12)}` : "none",
+                  fontWeight: selected ? 700 : 600,
                 }}>
-                <t.icon className="w-[11px] h-[11px]" style={{ color: selected ? t.color : "#94A3B8" }} strokeWidth={2.2} />
+                <t.icon className="w-2.5 h-2.5" style={{ color: selected ? t.color : "#94A3B8" }} strokeWidth={2.2} />
                 {t.label}
               </button>
             );
@@ -423,7 +423,7 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
       </div>
 
       {/* Description & Visibility Side-by-Side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
         {/* Left: Description */}
         <div className="flex flex-col">
           <FieldLabel required hint={`${data.description.length}/1000`}>Description</FieldLabel>
@@ -432,14 +432,14 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
             onChange={e => update("description", e.target.value)} 
             rows={5}
             placeholder="Describe your event – purpose, highlights, what attendees can expect…"
-            className={cn(INPUT_CLS, "resize-none h-full min-h-[140px]", reqCls(!data.description?.trim()))} 
+            className={cn(INPUT_CLS, "resize-none h-full min-h-[120px] text-xs leading-relaxed", reqCls(!data.description?.trim()))} 
           />
         </div>
 
         {/* Right: Visibility Options */}
         <div className="flex flex-col">
           <FieldLabel>Visibility</FieldLabel>
-          <div className="flex flex-col gap-2 h-full justify-between">
+          <div className="flex flex-col gap-1.5 h-full justify-between">
             {([
               { value: "public",    label: "Public",      icon: Globe,    desc: "Anyone can view & register for event", color: "#059669" },
               { value: "community", label: "Community",   icon: Building2, desc: "Restricted to community members only", color: "#4f46e5" },
@@ -451,23 +451,23 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
                   key={opt.value} 
                   type="button"
                   onClick={() => update("visibility", opt.value)}
-                  className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-[0.625rem] border text-left transition-all duration-150 flex-1 hover:border-slate-300"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all duration-150 flex-1 hover:border-slate-300 cursor-pointer"
                   style={{
                     borderColor: selected ? opt.color : "#E2E8F0",
                     background: selected ? hexRgba(opt.color, 0.05) : "#FAFAFA",
-                    boxShadow: selected ? `0 0 0 3px ${hexRgba(opt.color, 0.10)}` : "none",
+                    boxShadow: selected ? `0 0 0 2.5px ${hexRgba(opt.color, 0.10)}` : "none",
                   }}
                 >
-                  <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+                  <div className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
                     style={{ background: selected ? hexRgba(opt.color, 0.14) : "#F1F5F9" }}>
-                    <opt.icon className="w-3.5 h-3.5" style={{ color: selected ? opt.color : "#94A3B8" }} strokeWidth={2} />
+                    <opt.icon className="w-3 h-3" style={{ color: selected ? opt.color : "#94A3B8" }} strokeWidth={2} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="text-[11.5px] font-bold leading-none" style={{ color: selected ? opt.color : "#334155" }}>{opt.label}</p>
+                      <p className="text-[11px] font-bold leading-none" style={{ color: selected ? opt.color : "#334155" }}>{opt.label}</p>
                       {selected && <span className="w-1.5 h-1.5 rounded-full" style={{ background: opt.color }} />}
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1 leading-tight">{opt.desc}</p>
+                    <p className="text-[9.5px] text-slate-400 mt-0.5 leading-tight truncate">{opt.desc}</p>
                   </div>
                 </button>
               );
@@ -4718,7 +4718,7 @@ export function EventCreateWizard({
       {/* ── Body: Stepper Sidebar + Form Content ── */}
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Left Stepper Sidebar (Desktop/Tablet) */}
-        <div className="w-56 hidden md:flex flex-col justify-between bg-slate-50 border-r border-slate-200 p-4 shrink-0 overflow-y-auto">
+        <div className="w-48 sm:w-52 hidden md:flex flex-col justify-between bg-slate-50 border-r border-slate-200 p-3 shrink-0 overflow-y-auto">
           <div className="space-y-1">
             {STEPS.map(s => {
               const done = step > s.id;
@@ -4729,7 +4729,7 @@ export function EventCreateWizard({
                   type="button"
                   onClick={() => (done || active) && setStep(s.id)}
                   className={cn(
-                    "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold w-full text-left transition-all",
+                    "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-bold w-full text-left transition-all",
                     active
                       ? "bg-white border border-purple-200 text-purple-700 shadow-xs"
                       : done
@@ -4739,7 +4739,7 @@ export function EventCreateWizard({
                 >
                   <span
                     className={cn(
-                      "w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0",
+                      "w-4.5 h-4.5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0",
                       active
                         ? "bg-purple-600 text-white"
                         : done
@@ -4747,10 +4747,11 @@ export function EventCreateWizard({
                         : "bg-slate-200 text-slate-500"
                     )}
                   >
-                    {done ? <Check className="w-3 h-3 stroke-[3]" /> : s.id}
+                    {done ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : s.id}
                   </span>
                   <div className="truncate">
-                    <p className="leading-tight">{s.label}</p>
+                    <p className="leading-tight truncate">{s.label}</p>
+                    <p className="text-[9px] text-slate-400 font-normal truncate mt-0.5">{s.desc}</p>
                   </div>
                 </button>
               );
@@ -4758,17 +4759,17 @@ export function EventCreateWizard({
           </div>
 
           {/* Status Box */}
-          <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-2.5 text-xs shadow-xs mt-4">
-            <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", isEditing ? "bg-indigo-500" : "bg-emerald-500 animate-pulse")}></span>
+          <div className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center gap-2 text-xs shadow-xs mt-3">
+            <span className={cn("w-2 h-2 rounded-full shrink-0", isEditing ? "bg-indigo-500" : "bg-emerald-500 animate-pulse")}></span>
             <div>
-              <p className="font-bold text-slate-800 text-[11px]">{isEditing ? "Editing mode" : "Draft status"}</p>
-              <p className="text-[10px] text-slate-400 font-medium">{isEditing ? "Updating live/draft event" : "Autosaved just now"}</p>
+              <p className="font-bold text-slate-800 text-[10.5px]">{isEditing ? "Editing mode" : "Draft status"}</p>
+              <p className="text-[9px] text-slate-400 font-medium">{isEditing ? "Updating live/draft event" : "Autosaved just now"}</p>
             </div>
           </div>
         </div>
 
         {/* Form Scroller Container */}
-        <div style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties} className="px-4 sm:px-6 py-5">
+        <div style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties} className="px-4 sm:px-6 md:px-8 py-5">
           {/* Mobile Top Pill Bar Fallback */}
           <div className="md:hidden mb-4 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-1">
@@ -4790,17 +4791,17 @@ export function EventCreateWizard({
             </div>
           </div>
 
-          <div key={step} className="animate-fade-in-up max-w-4xl mx-auto">
+          <div key={step} className="animate-fade-in-up max-w-5xl xl:max-w-6xl mx-auto w-full">
             {stepComponents[step]}
           </div>
         </div>
       </div>
 
       {/* ── Footer Navigation Bar ── */}
-      <div className="flex-shrink-0 px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+      <div className="flex-shrink-0 px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
         <button onClick={() => setStep((s: number) => Math.max(1, s - 1))} disabled={step === 1}
           className={cn(
-            "flex items-center gap-1 px-4 py-2 rounded-xl text-xs font-bold transition-all",
+            "flex items-center gap-1 px-3.5 py-1.5 rounded-xl text-[11px] font-bold transition-all",
             step === 1 ? "opacity-0 pointer-events-none" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 shadow-xs"
           )}>
           <ChevronLeft className="w-3.5 h-3.5" /> Back
@@ -4823,12 +4824,12 @@ export function EventCreateWizard({
         {step < STEPS.length ? (
           <div className="flex items-center gap-2">
             <button onClick={handleSaveDraft} disabled={savingDraft || publishing}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all shadow-xs disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[11px] font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all shadow-xs disabled:opacity-50">
               <Bookmark className="w-3.5 h-3.5 text-amber-500" />
               <span>{savingDraft ? "Saving…" : isEditing ? "Save Draft" : "Save Draft"}</span>
             </button>
             <button onClick={handleNext}
-              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-all">
+              className="flex items-center gap-1.5 px-4.5 py-1.5 rounded-xl text-[11px] font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-all">
               Next Step <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -4836,12 +4837,12 @@ export function EventCreateWizard({
           <div className="flex items-center gap-2">
             {publishError && <span className="text-[11px] text-rose-600 font-medium max-w-[160px] truncate">{publishError}</span>}
             <button onClick={handleSaveDraft} disabled={savingDraft || publishing}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all shadow-xs disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[11px] font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all shadow-xs disabled:opacity-50">
               <Bookmark className="w-3.5 h-3.5 text-amber-500" />
               <span>{savingDraft ? "Saving…" : "Save Draft"}</span>
             </button>
             <button onClick={handlePublish} disabled={publishing || savingDraft}
-              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md transition-all disabled:opacity-60">
+              className="flex items-center gap-1.5 px-4.5 py-1.5 rounded-xl text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md transition-all disabled:opacity-60">
               <Check className="w-3.5 h-3.5" /> {publishing ? "Saving…" : isEditing ? "Update Event" : "Publish Event"}
             </button>
           </div>
@@ -4916,16 +4917,16 @@ export function EditEventDialog({
             pointerEvents: "auto",
             background: "#fff",
             width: "100%",
-            maxWidth: "54rem",
+            maxWidth: "84rem",
             height: "100dvh",
-            maxHeight: "92dvh",
+            maxHeight: "94dvh",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
             boxShadow: "0 0 0 1px rgba(0,0,0,0.06), 0 4px 6px -1px rgba(0,0,0,0.04), 0 20px 50px -12px rgba(79,70,229,0.22)",
             borderRadius: 0,
           }}
-          className="sm:rounded-2xl sm:h-[min(90vh,760px)] sm:max-h-[92vh] sm:m-3 md:m-4 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
+          className="sm:rounded-2xl sm:h-[min(94vh,860px)] sm:max-h-[94vh] sm:w-[96vw] sm:max-w-[1340px] sm:m-2 md:m-3 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
           onClick={e => e.stopPropagation()}
         >
           <EventCreateWizard
@@ -4988,17 +4989,17 @@ export function CreateEventDialog({ open, onOpenChange }: { open: boolean; onOpe
             pointerEvents: "auto",
             background: "#fff",
             width: "100%",
-            maxWidth: "54rem",  /* max-w-4xl */
-            /* Mobile: full screen; tablet/desktop: bounded compact */
+            maxWidth: "84rem",  /* max-w-7xl */
+            /* Mobile: full screen; tablet/desktop: wide bounded */
             height: "100dvh",
-            maxHeight: "92dvh",
+            maxHeight: "94dvh",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
             boxShadow: "0 0 0 1px rgba(0,0,0,0.06), 0 4px 6px -1px rgba(0,0,0,0.04), 0 20px 50px -12px rgba(79,70,229,0.22)",
             borderRadius: 0,
           }}
-          className="sm:rounded-2xl sm:h-[min(90vh,760px)] sm:max-h-[92vh] sm:m-3 md:m-4 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
+          className="sm:rounded-2xl sm:h-[min(94vh,860px)] sm:max-h-[94vh] sm:w-[96vw] sm:max-w-[1340px] sm:m-2 md:m-3 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
           onClick={e => e.stopPropagation()}
         >
           <EventCreateWizard
@@ -5066,7 +5067,7 @@ export function CreateEventButton({ className }: { className?: string }) {
 /* ─── Route-compatible page export (backward compat with /events/create) ─── */
 export function EventsCreate() {
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden" style={{ height: "calc(100vh - 220px)", minHeight: "600px" }}>
+    <div className="w-full max-w-7xl mx-auto bg-white rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden" style={{ height: "calc(100vh - 140px)", minHeight: "650px" }}>
       <EventCreateWizard />
     </div>
   );

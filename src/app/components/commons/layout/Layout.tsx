@@ -426,20 +426,20 @@ export function Layout() {
             {/* Header: App Logo & Collapse Action */}
             <div
               className={cn(
-                "h-16 flex items-center border-b border-sidebar-border shrink-0 transition-all",
-                isSidebarCollapsed ? "justify-between px-4 lg:justify-center lg:px-2" : "justify-between px-4"
+                "h-12 flex items-center border-b border-sidebar-border shrink-0 transition-all",
+                isSidebarCollapsed ? "justify-between px-3 lg:justify-center lg:px-2" : "justify-between px-3"
               )}
             >
               <Link
                 to="/"
                 onClick={handleNavClick}
-                className="flex items-center gap-3 hover:opacity-90 transition-opacity min-w-0"
+                className="flex items-center gap-2.5 hover:opacity-90 transition-opacity min-w-0"
                 title="Mana Community"
               >
-                <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary shadow-md shadow-primary/25">
-                  <Zap className="h-5 w-5 text-white animate-pulse" />
+                <div className="h-7 w-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-primary shadow-md shadow-primary/25">
+                  <Zap className="h-4 w-4 text-white animate-pulse" />
                 </div>
-                <span className={cn("font-black text-white tracking-tight text-base truncate", isSidebarCollapsed && "lg:hidden")}>
+                <span className={cn("font-black text-white tracking-tight text-sm truncate", isSidebarCollapsed && "lg:hidden")}>
                   Mana Community
                 </span>
               </Link>
@@ -458,8 +458,8 @@ export function Layout() {
             {/* User Profile Info Card inside Sidebar */}
             <div
               className={cn(
-                "my-3 shrink-0 transition-all",
-                isSidebarCollapsed ? "mx-4 rounded-xl p-3 border border-sidebar-border bg-sidebar-accent/30 lg:mx-0 lg:px-2 lg:border-0 lg:bg-transparent lg:flex lg:justify-center" : "mx-4 rounded-xl p-3 border border-sidebar-border bg-sidebar-accent/30"
+                "my-2 shrink-0 transition-all",
+                isSidebarCollapsed ? "mx-3 rounded-lg p-2 border border-sidebar-border bg-sidebar-accent/30 lg:mx-0 lg:px-2 lg:border-0 lg:bg-transparent lg:flex lg:justify-center" : "mx-3 rounded-lg p-2 border border-sidebar-border bg-sidebar-accent/30"
               )}
             >
               {/* On Desktop Collapsed: Avatar only */}
@@ -491,7 +491,7 @@ export function Layout() {
               </div>
 
               {/* On Desktop Expanded & Mobile Drawer: Full user info card */}
-              <div className={cn("flex items-center gap-3", isSidebarCollapsed && "lg:hidden")}>
+              <div className={cn("flex items-center gap-2", isSidebarCollapsed && "lg:hidden")}>
                 {userAvatar ? (
                   <img
                     src={userAvatar}
@@ -527,8 +527,8 @@ export function Layout() {
             {/* Navigation Links */}
             <nav
               className={cn(
-                "flex-1 space-y-1 overflow-y-auto hide-scrollbar transition-all pb-4",
-                isSidebarCollapsed ? "px-4 lg:px-2" : "px-4"
+                "flex-1 space-y-0.5 overflow-y-auto hide-scrollbar transition-all pb-3",
+                isSidebarCollapsed ? "px-3 lg:px-2" : "px-3"
               )}
             >
               {/* Nav Section Label / Divider */}
@@ -548,8 +548,8 @@ export function Layout() {
                   onClick={handleNavClick}
                   className={({ isActive }) =>
                     cn(
-                      "flex items-center rounded-xl text-xs font-bold transition-all duration-200 group border border-transparent",
-                      isSidebarCollapsed ? "px-3 py-2.5 lg:justify-center lg:h-10 lg:w-10 lg:mx-auto lg:px-0" : "px-3 py-2.5",
+                      "flex items-center rounded-lg text-xs font-bold transition-all duration-200 group border border-transparent",
+                      isSidebarCollapsed ? "px-2.5 py-2 lg:justify-center lg:h-9 lg:w-9 lg:mx-auto lg:px-0" : "px-2.5 py-2",
                       isActive
                         ? "text-white bg-primary border-primary/25 shadow-sm"
                         : "text-white/50 hover:text-white/85 hover:bg-white/10"
@@ -560,8 +560,8 @@ export function Layout() {
                     <>
                       <link.icon
                         className={cn(
-                          "h-4.5 w-4.5 flex-shrink-0 transition-all",
-                          isSidebarCollapsed ? "mr-3 lg:m-0" : "mr-3",
+                          "h-4 w-4 flex-shrink-0 transition-all",
+                          isSidebarCollapsed ? "mr-2.5 lg:m-0" : "mr-2.5",
                           isActive ? "text-white" : "text-white/40 group-hover:text-white/80"
                         )}
                       />
@@ -586,7 +586,7 @@ export function Layout() {
                       }}
                       title="Community Management"
                       className={cn(
-                        "hidden lg:flex h-10 w-10 items-center justify-center mx-auto rounded-xl transition-all text-white/50 hover:text-white hover:bg-white/10 cursor-pointer",
+                        "hidden lg:flex h-9 w-9 items-center justify-center mx-auto rounded-lg transition-all text-white/50 hover:text-white hover:bg-white/10 cursor-pointer",
                         location.pathname.startsWith("/community") && "text-white bg-primary/40 border border-primary/30"
                       )}
                     >
@@ -598,9 +598,9 @@ export function Layout() {
                     <button
                       type="button"
                       onClick={() => setIsCommunityOpen(!isCommunityOpen)}
-                      className="w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 text-white/50 hover:text-white/85 hover:bg-white/5 cursor-pointer text-left focus:outline-none"
+                      className="w-full flex items-center px-2.5 py-2 rounded-lg text-xs font-bold transition-all duration-200 text-white/50 hover:text-white/85 hover:bg-white/5 cursor-pointer text-left focus:outline-none"
                     >
-                      <Package className="h-4.5 w-4.5 mr-3 flex-shrink-0 text-white/40" />
+                      <Package className="h-4 w-4 mr-2.5 flex-shrink-0 text-white/40" />
                       <span className="flex-1">Community Mgmt</span>
                       {isCommunityOpen ? (
                         <ChevronDown className="h-3.5 w-3.5 text-white/85" />
@@ -760,7 +760,7 @@ export function Layout() {
                       }}
                       title="Finance Management"
                       className={cn(
-                        "hidden lg:flex h-10 w-10 items-center justify-center mx-auto rounded-xl transition-all text-white/50 hover:text-white hover:bg-white/10 cursor-pointer",
+                        "hidden lg:flex h-9 w-9 items-center justify-center mx-auto rounded-lg transition-all text-white/50 hover:text-white hover:bg-white/10 cursor-pointer",
                         location.pathname.startsWith("/finance") && "text-white bg-primary/40 border border-primary/30"
                       )}
                     >
@@ -772,9 +772,9 @@ export function Layout() {
                     <button
                       type="button"
                       onClick={() => setIsFinanceOpen(!isFinanceOpen)}
-                      className="w-full flex items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 text-white/50 hover:text-white/85 hover:bg-white/5 cursor-pointer text-left focus:outline-none"
+                      className="w-full flex items-center px-2.5 py-2 rounded-lg text-xs font-bold transition-all duration-200 text-white/50 hover:text-white/85 hover:bg-white/5 cursor-pointer text-left focus:outline-none"
                     >
-                      <Landmark className="h-4.5 w-4.5 mr-3 flex-shrink-0 text-white/40" />
+                      <Landmark className="h-4 w-4 mr-2.5 flex-shrink-0 text-white/40" />
                       <span className="flex-1">Finance Mgmt</span>
                       {isFinanceOpen ? (
                         <ChevronDown className="h-3.5 w-3.5 text-white/85" />
@@ -950,18 +950,6 @@ export function Layout() {
                 Mana Community
               </Link>
             </div>
-
-          {/* Search bar - desktop */}
-          <div className="hidden lg:flex items-center gap-2 flex-1 max-w-sm ml-4">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl w-full bg-input border border-border focus-within:border-primary/50 focus-within:bg-card transition-all">
-              <Search className="h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search community..."
-                className="bg-transparent border-none outline-none text-xs flex-1 text-foreground placeholder:text-muted-foreground/60"
-              />
-            </div>
-          </div>
 
           <div className="flex-1 hidden lg:block" />
 
