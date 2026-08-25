@@ -10,7 +10,7 @@ import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse, type PoojaScheduleDto } from "../../../services/events/eventService";
 import { TimePicker, TimeSelect } from "../ui/time-picker";
 
-type TimeSlotEntry = { slotDate: string | null; startTime: string; slotCount: number };
+type TimeSlotEntry = { slotDate: string | null; startTime: string; title?: string; slotCount: number };
 
 type PoojaSeva = {
   id: number;
@@ -360,6 +360,7 @@ export function EventsPoojaSeva() {
         ? poojaForm.timeSlotConfig.map(e => ({
             slotDate: e.slotDate || null,
             startTime: e.startTime,
+            title: e.title?.trim() || undefined,
             slotCount: Number(e.slotCount) || 20,
           }))
         : undefined,
@@ -788,6 +789,15 @@ export function EventsPoojaSeva() {
     }));
   };
 
+  const updateTimeSlotTitle = (slotDate: string | null, startTime: string, title: string) => {
+    setPoojaForm(f => ({
+      ...f,
+      timeSlotConfig: f.timeSlotConfig.map(e =>
+        e.slotDate === slotDate && e.startTime === startTime ? { ...e, title } : e
+      ),
+    }));
+  };
+
   // Sync timeSlotConfig when times, dates, or multiDay toggle changes
   const startTimesKey = poojaForm.startTimes.filter(Boolean).join(",");
   useEffect(() => {
@@ -804,7 +814,7 @@ export function EventsPoojaSeva() {
         for (const date of range) {
           for (const time of times) {
             const found = existing.find(e => e.slotDate === date && e.startTime === time);
-            synced.push(found ?? { slotDate: date, startTime: time, slotCount: defaultCount });
+            synced.push(found ?? { slotDate: date, startTime: time, title: "", slotCount: defaultCount });
           }
         }
         return { ...f, timeSlotConfig: synced };
@@ -815,7 +825,7 @@ export function EventsPoojaSeva() {
         const defaultCount = Number(f.slots) || 20;
         const synced: TimeSlotEntry[] = times.map(time => {
           const found = existing.find(e => e.slotDate === null && e.startTime === time);
-          return found ?? { slotDate: null, startTime: time, slotCount: defaultCount };
+          return found ?? { slotDate: null, startTime: time, title: "", slotCount: defaultCount };
         });
         return { ...f, timeSlotConfig: synced };
       });
@@ -2130,22 +2140,32 @@ export function EventsPoojaSeva() {
                         <span>Slots for each Time Slot:</span>
                         <span className="text-slate-400 font-normal">Defaults to {poojaForm.slots || 20}</span>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {poojaForm.timeSlotConfig.map(e => (
-                          <label key={e.startTime} className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-slate-500">⏰ {e.startTime}</span>
+                          <div key={e.startTime} className="p-2 rounded-lg bg-white border border-slate-200 space-y-1.5 shadow-2xs">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="font-bold text-slate-700">⏰ {e.startTime}</span>
+                              <span className="text-[10px] text-slate-400">Capacity</span>
+                            </div>
+                            <input
+                              type="text"
+                              value={e.title || ""}
+                              onChange={ev => updateTimeSlotTitle(null, e.startTime, ev.target.value)}
+                              className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-300 placeholder:text-slate-400/70"
+                              placeholder="Slot Name (e.g. Morning Batch)"
+                            />
                             <div className="flex items-center gap-1">
                               <input
                                 type="number"
                                 value={e.slotCount}
                                 onChange={ev => updateTimeSlotCount(null, e.startTime, Number(ev.target.value))}
-                                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+                                className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-300 bg-slate-50/50"
                                 placeholder="20"
                                 min="1"
                               />
                               <span className="text-[9px] text-slate-400 whitespace-nowrap">slots</span>
                             </div>
-                          </label>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -2185,21 +2205,31 @@ export function EventsPoojaSeva() {
                                 {dayTotal} slots this day
                               </span>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                               {dayEntries.map(e => (
-                                <label key={e.startTime} className="flex flex-col gap-0.5">
-                                  <span className="text-[10px] font-semibold text-slate-600">⏰ {e.startTime}</span>
+                                <div key={e.startTime} className="p-2 rounded-lg bg-slate-50/50 border border-slate-200 space-y-1.5">
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="font-bold text-slate-700">⏰ {e.startTime}</span>
+                                    <span className="text-[10px] text-slate-400">Capacity</span>
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={e.title || ""}
+                                    onChange={ev => updateTimeSlotTitle(date, e.startTime, ev.target.value)}
+                                    className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-300 placeholder:text-slate-400/70 bg-white"
+                                    placeholder="Slot Name (e.g. Morning Homam)"
+                                  />
                                   <div className="flex items-center gap-1">
                                     <input
                                       type="number"
                                       value={e.slotCount}
                                       onChange={ev => updateTimeSlotCount(date, e.startTime, Number(ev.target.value))}
-                                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-slate-50/50"
+                                      className="w-full border border-slate-200 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-300 bg-white"
                                       placeholder="20" min="1"
                                     />
                                     <span className="text-[9px] text-slate-400 whitespace-nowrap">slots</span>
                                   </div>
-                                </label>
+                                </div>
                               ))}
                             </div>
                           </div>
