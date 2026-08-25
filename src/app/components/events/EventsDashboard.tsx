@@ -1021,7 +1021,7 @@ export function EventsDashboard() {
                     title="View complete event information, sub-events, and logistics"
                   >
                     <Info className="w-3 h-3 text-amber-300" />
-                    <span>Details</span>
+                    <span>Info</span>
                   </button>
                 )}
                 {(useMock || events.length > 0) && (

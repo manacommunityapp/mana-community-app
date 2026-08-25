@@ -657,7 +657,7 @@ export function EventMemberView() {
             category: ev.category || ev.type || "Pooja",
             date: ev.startDate ? String(ev.startDate) : "Upcoming",
             time: ev.startTime || "Morning",
-            venue: ev.venue || ev.location || "Main Temple Mandap, Gate 1",
+            venue: ev.venue || ev.location || ev.city || ev.address || "",
             fee: ev.price ? Number(ev.price) : 0,
             availableSeats: Math.max(0, initialCapacity - booked),
             capacity: initialCapacity,
@@ -719,7 +719,7 @@ export function EventMemberView() {
             time: p.startTime ? `${p.startTime}` : (p.time || "Morning"),
             startTime: p.startTime,
             startTimes: p.startTimes,
-            venue: p.mandap || "Main Temple Mandap, Gate 1",
+            venue: p.mandap || p.venue || p.location || "",
             mandap: p.mandap,
             pandit: p.pandit,
             slots: p.slots,
@@ -745,8 +745,8 @@ export function EventMemberView() {
               endDate: p.endDate || p.startDate || p.date,
               startTime: p.startTime || p.time || "Morning",
               endTime: p.endTime,
-              venue: p.mandap || "Main Temple Mandap",
-              location: p.mandap || "Main Temple Mandap",
+              venue: p.mandap || p.venue || p.location || "",
+              location: p.mandap || p.venue || p.location || "",
               mandap: p.mandap,
               pandit: p.pandit,
               isMultiDay,
@@ -789,7 +789,7 @@ export function EventMemberView() {
             category: "Food",
             date: m.date ? String(m.date) : "Upcoming",
             time: m.startTime && m.endTime ? `${m.startTime} - ${m.endTime}` : (m.startTime || "Afternoon / Evening"),
-            venue: m.venue || "Annadanam Dining Hall, Gate 2",
+            venue: m.venue || m.diningHall || m.location || "",
             fee: m.isFree ? 0 : Number(m.fee || 50),
             availableSeats: Math.max(0, initialPlates - booked),
             image: "🍲",
@@ -821,7 +821,7 @@ export function EventMemberView() {
             category: "Cultural",
             date: c.date ? String(c.date) : "Upcoming",
             time: c.startTime || "Evening",
-            venue: c.stage || "Auditorium Stage A",
+            venue: c.stage || c.venue || c.location || "",
             fee: 0,
             availableSeats: Math.max(0, initialSeats - booked),
             image: "🎭",
@@ -853,7 +853,7 @@ export function EventMemberView() {
             category: "Competitions",
             date: cm.date ? String(cm.date) : "Upcoming",
             time: cm.startTime || "Morning",
-            venue: cm.venue || "Clubhouse Activity Hall",
+            venue: cm.venue || cm.stage || cm.location || "",
             fee: cm.isFree ? 0 : Number(cm.fee || 100),
             availableSeats: Math.max(0, initialMax - booked),
             image: "🏆",
@@ -881,7 +881,7 @@ export function EventMemberView() {
             category: "Auction",
             date: item.status === "LIVE" ? "🔴 Live Bidding" : item.status === "CLOSED" ? "🏁 Closed" : "⏳ Upcoming Auction",
             time: item.status === "LIVE" ? "Bidding in Progress" : "Auction Floor",
-            venue: item.eventTitle || "Main Festival Stage / Temple Mandap",
+            venue: item.eventTitle || item.venue || item.location || "",
             fee: displayPrice,
             availableSeats: item.status === "CLOSED" ? 0 : 1,
             image: item.imageEmoji || "🪔",
@@ -1197,9 +1197,19 @@ export function EventMemberView() {
         ? `${liveStats.foodPlatesCount.toLocaleString()} Plates`
         : "0 Served";
 
+    const liveAuctionCount = activitiesList.filter(
+      (a) => a.rawAuctionItem?.status === "LIVE"
+    ).length;
+
+    const upcomingAuctionCount = activitiesList.filter(
+      (a) => a.rawAuctionItem?.status === "UPCOMING"
+    ).length;
+
     const auctionBadge =
-      auctionCount > 0
-        ? `${auctionCount} Live Item${auctionCount === 1 ? "" : "s"}`
+      liveAuctionCount > 0
+        ? `${liveAuctionCount} Live Item${liveAuctionCount === 1 ? "" : "s"}`
+        : upcomingAuctionCount > 0
+        ? `${upcomingAuctionCount} Upcoming`
         : liveStats?.auctionRevenue !== undefined && liveStats.auctionRevenue > 0
         ? `₹${liveStats.auctionRevenue.toLocaleString()} Bid`
         : "0 Items";
@@ -1272,7 +1282,7 @@ export function EventMemberView() {
     ];
 
     return actions;
-  }, [poojaCount, foodCount, culturalCount, compCount, auctionCount, familyMembers.length, activePasses.length, liveStats]);
+  }, [poojaCount, foodCount, culturalCount, compCount, auctionCount, familyMembers.length, activePasses.length, liveStats, activitiesList]);
 
   /**
    * Safe matching between an Activity and user's booked Passes list.
@@ -1804,15 +1814,41 @@ export function EventMemberView() {
                 }}
               />
               <div className="relative z-10 p-2.5 sm:p-3.5 text-white space-y-2">
-                {/* ── Line 1: 🔥 Main Event Category & Events Available & Details + Nav ── */}
+                {/* ── Line 1: 🔥 Main Event Category & Live Event Indicator with Embedded Nav Controls & Details ── */}
                 <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto hide-scrollbar">
                   <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs whitespace-nowrap shrink-0">
                     🔥 {activeMainEvent?.category || activeMainEvent?.type || "Grand Festival"}
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[9px] sm:text-[9.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
+                  
+                  {/* Live Event Badge with Embedded Nav Buttons */}
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[9px] sm:text-[9.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
                     <span className={`w-1.5 h-1.5 rounded-full ${bannerMainEvents.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
-                    <span>{bannerMainEvents.length > 0 ? (bannerMainEvents.length > 1 ? `Live · Event ${heroBannerIndex + 1} of ${bannerMainEvents.length}` : "Live · 1 Event") : "0 Events Available"}</span>
+                    <span>{bannerMainEvents.length > 0 ? "Live Event" : "0 Events Available"}</span>
+                    {bannerMainEvents.length > 1 && (
+                      <div className="inline-flex items-center gap-1 bg-black/30 backdrop-blur-md px-1.5 py-0.5 rounded-full border border-white/20 shrink-0 shadow-xs ml-0.5">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handlePrevHeroBanner(e); }}
+                          className="w-5 h-5 rounded-full bg-white/80 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90"
+                          title="Previous Event"
+                        >
+                          <ChevronLeft className="w-3 h-3 stroke-[2.5]" />
+                        </button>
+                        <span className="text-[9px] sm:text-[10px] font-black text-amber-300 tracking-wide select-none px-0.5">
+                          {heroBannerIndex + 1}<span className="text-white/60 font-normal">/{bannerMainEvents.length}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleNextHeroBanner(e); }}
+                          className="w-5 h-5 rounded-full bg-white/80 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90"
+                          title="Next Event"
+                        >
+                          <ChevronRight className="w-3 h-3 stroke-[2.5]" />
+                        </button>
+                      </div>
+                    )}
                   </span>
+
                   {activeMainEvent && (
                     <button
                       type="button"
@@ -1824,31 +1860,8 @@ export function EventMemberView() {
                       title="View complete event information, sub-events, and schedule"
                     >
                       <Info className="w-3 h-3 text-amber-300" />
-                      <span>Details</span>
+                      <span>Info</span>
                     </button>
-                  )}
-                  {bannerMainEvents.length > 1 && (
-                    <div className="inline-flex items-center gap-1 bg-black/30 backdrop-blur-md px-1.5 py-0.5 rounded-full border border-white/20 shrink-0 shadow-xs">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handlePrevHeroBanner(e); }}
-                        className="w-5 h-5 rounded-full bg-white/80 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90"
-                        title="Previous Event"
-                      >
-                        <ChevronLeft className="w-3 h-3 stroke-[2.5]" />
-                      </button>
-                      <span className="text-[9px] sm:text-[10px] font-black text-amber-300 tracking-wide select-none px-0.5">
-                        {heroBannerIndex + 1}<span className="text-white/60 font-normal">/{bannerMainEvents.length}</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleNextHeroBanner(e); }}
-                        className="w-5 h-5 rounded-full bg-white/80 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90"
-                        title="Next Event"
-                      >
-                        <ChevronRight className="w-3 h-3 stroke-[2.5]" />
-                      </button>
-                    </div>
                   )}
                   {(activeMainEvent?.attendees ?? activeMainEvent?.registrationCount) != null && (
                     <span className="text-[11px] font-semibold text-white/80 hidden sm:inline-flex items-center gap-1 shrink-0">
@@ -1888,22 +1901,28 @@ export function EventMemberView() {
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <h2 className="text-sm sm:text-base font-black text-white leading-snug drop-shadow-sm truncate">
                         {bannerMainEvents.length > 0
-                          ? (activeMainEvent?.title || "Community Festival")
+                          ? (activeMainEvent?.title || "Community Event")
                           : "No Events Created Yet"}
                       </h2>
                       <div className="flex items-center gap-1.5 sm:gap-2 text-[10.5px] font-medium text-white/90 overflow-hidden">
-                        <span className="flex items-center gap-1 shrink-0">
-                          <Calendar className="w-3 h-3 text-amber-300 shrink-0" />
-                          <span className="whitespace-nowrap">
-                            {activeMainEvent?.startDate || activeMainEvent?.date || "Upcoming"}
-                            {activeMainEvent?.endDate && activeMainEvent.endDate !== (activeMainEvent.startDate || activeMainEvent.date) ? ` – ${activeMainEvent.endDate}` : ""}
+                        {(activeMainEvent?.startDate || activeMainEvent?.date) && (
+                          <span className="flex items-center gap-1 shrink-0">
+                            <Calendar className="w-3 h-3 text-amber-300 shrink-0" />
+                            <span className="whitespace-nowrap">
+                              {activeMainEvent?.startDate || activeMainEvent?.date}
+                              {activeMainEvent?.endDate && activeMainEvent.endDate !== (activeMainEvent.startDate || activeMainEvent.date) ? ` – ${activeMainEvent.endDate}` : ""}
+                            </span>
                           </span>
-                        </span>
-                        <span className="text-white/40 shrink-0">·</span>
-                        <span className="flex items-center gap-1 truncate max-w-[140px] sm:max-w-[220px]">
-                          <MapPin className="w-3 h-3 text-indigo-200 shrink-0" />
-                          <span className="truncate">{activeMainEvent?.venue || activeMainEvent?.location || activeMainEvent?.city || "Main Community Grounds"}</span>
-                        </span>
+                        )}
+                        {(activeMainEvent?.venue || activeMainEvent?.location || activeMainEvent?.city || activeMainEvent?.address) && (
+                          <>
+                            {(activeMainEvent?.startDate || activeMainEvent?.date) && <span className="text-white/40 shrink-0">·</span>}
+                            <span className="flex items-center gap-1 truncate max-w-[140px] sm:max-w-[220px]">
+                              <MapPin className="w-3 h-3 text-indigo-200 shrink-0" />
+                              <span className="truncate">{activeMainEvent?.venue || activeMainEvent?.location || activeMainEvent?.city || activeMainEvent?.address}</span>
+                            </span>
+                          </>
+                        )}
                         {(activeMainEvent?.startTime || activeMainEvent?.time) && (
                           <>
                             <span className="text-white/40 shrink-0">·</span>
@@ -1915,29 +1934,6 @@ export function EventMemberView() {
                         )}
                       </div>
                     </div>
-                    {bannerMainEvents.length > 1 && (
-                      <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handlePrevHeroBanner(e); }}
-                          className="w-7 h-7 rounded-lg bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 border border-white/25"
-                          title="Previous Event"
-                        >
-                          <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
-                        </button>
-                        <span className="text-[10px] font-black text-amber-300 select-none whitespace-nowrap">
-                          {heroBannerIndex + 1}<span className="text-white/60 font-normal">/{bannerMainEvents.length}</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleNextHeroBanner(e); }}
-                          className="w-7 h-7 rounded-lg bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 border border-white/25"
-                          title="Next Event"
-                        >
-                          <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </div>
 

@@ -51,9 +51,9 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
   // Extract clean event properties
   const eventId = event?.id != null ? String(event.id).replace(/\D/g, "") : null;
   const rawId = event?.id != null ? String(event.id) : "";
-  const eventTitle = event?.title || event?.name || "Community Festival Event";
-  const eventCategory = event?.category || event?.type || "Grand Festival";
-  const eventLocation = event?.venue || event?.location || "Main Community Grounds, Mandap Gate 1";
+  const eventTitle = event?.title || event?.name || "Community Event";
+  const eventCategory = event?.category || event?.type || "Event";
+  const eventLocation = event?.venue || event?.location || event?.city || event?.address || "";
   const eventDescription = event?.description || "Experience the grand spiritual and cultural celebrations with traditional rituals, sacred pooja sevas, community feasts, cultural stage performances, and festive competitions for all residents.";
   const eventImage = event?.imageUrl || event?.image || "https://images.unsplash.com/photo-1544717305-2782549b5136?w=1200&auto=format&fit=crop&q=80";
   const eventStartDate = event?.startDate || event?.date || "Upcoming";
