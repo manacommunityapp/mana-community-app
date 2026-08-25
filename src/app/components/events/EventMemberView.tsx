@@ -1197,9 +1197,19 @@ export function EventMemberView() {
         ? `${liveStats.foodPlatesCount.toLocaleString()} Plates`
         : "0 Served";
 
+    const liveAuctionCount = activitiesList.filter(
+      (a) => a.rawAuctionItem?.status === "LIVE"
+    ).length;
+
+    const upcomingAuctionCount = activitiesList.filter(
+      (a) => a.rawAuctionItem?.status === "UPCOMING"
+    ).length;
+
     const auctionBadge =
-      auctionCount > 0
-        ? `${auctionCount} Live Item${auctionCount === 1 ? "" : "s"}`
+      liveAuctionCount > 0
+        ? `${liveAuctionCount} Live Item${liveAuctionCount === 1 ? "" : "s"}`
+        : upcomingAuctionCount > 0
+        ? `${upcomingAuctionCount} Upcoming`
         : liveStats?.auctionRevenue !== undefined && liveStats.auctionRevenue > 0
         ? `₹${liveStats.auctionRevenue.toLocaleString()} Bid`
         : "0 Items";
@@ -1261,18 +1271,22 @@ export function EventMemberView() {
         badge: donateBadge,
         category: "Donation",
       },
-      {
+    ];
+
+    // Only show Auction quick action if there are active LIVE or UPCOMING auction items
+    if (liveAuctionCount > 0 || upcomingAuctionCount > 0) {
+      actions.push({
         id: "auction",
         label: "Auction",
         icon: Gavel,
         color: "bg-cyan-500/10 text-cyan-600 border-cyan-300/30",
         badge: auctionBadge,
         category: "Auction",
-      },
-    ];
+      });
+    }
 
     return actions;
-  }, [poojaCount, foodCount, culturalCount, compCount, auctionCount, familyMembers.length, activePasses.length, liveStats]);
+  }, [poojaCount, foodCount, culturalCount, compCount, auctionCount, familyMembers.length, activePasses.length, liveStats, activitiesList]);
 
   /**
    * Safe matching between an Activity and user's booked Passes list.
