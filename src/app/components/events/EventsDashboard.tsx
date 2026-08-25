@@ -266,25 +266,6 @@ export function EventsDashboard() {
     passType?: string;
   };
 
-  const MOCK_REGS: UnifiedReg[] = [
-    { id:'e1', regCode:'EVT-5001', category:'event', activityTitle:'Ganesh Utsav 2026 – Main Event', participantName:'Rajesh Sharma', email:'rajesh@example.com', phone:'+91 98765 43210', devoteeCount:4, bookingFee:300, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', venue:'Community Hall', createdAt:'2026-08-10T10:00:00' },
-    { id:'e2', regCode:'EVT-5002', category:'event', activityTitle:'Ganesh Utsav 2026 – Main Event', participantName:'Meera Deshmukh', email:'meera@example.com', phone:'+91 91234 56789', devoteeCount:2, bookingFee:300, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', venue:'Community Hall', createdAt:'2026-08-10T11:30:00' },
-    { id:'e3', regCode:'EVT-5003', category:'event', activityTitle:'Day 2 – Special Program', participantName:'Amit Verma', email:'amit@example.com', phone:'+91 99887 76655', devoteeCount:1, bookingFee:100, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-28', venue:'Temple Grounds', createdAt:'2026-08-11T09:00:00' },
-    { id:'e4', regCode:'EVT-5004', category:'event', activityTitle:'Day 2 – Special Program (Cancelled)', participantName:'Sunita Patil', email:'sunita@example.com', phone:'+91 98100 22334', devoteeCount:3, bookingFee:200, paymentStatus:'REFUNDED', status:'CANCELLED', isEventCancelled: true, eventDate:'2026-08-28', venue:'Temple Grounds', createdAt:'2026-08-12T14:00:00' },
-    { id:'p1', regCode:'POOJA-1001', category:'pooja', activityTitle:'Maha Ganapathi Abhishekam', participantName:'Ramesh Sharma', extra:'Gotram: Bharadwaj', devoteeCount:3, bookingFee:501, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'08:30 AM', venue:'Main Temple Mandap', createdAt:'2026-08-15T10:30:00' },
-    { id:'p2', regCode:'POOJA-1002', category:'pooja', activityTitle:'Maha Ganapathi Abhishekam', participantName:'Lakshmi Devi', extra:'Gotram: Kashyap', devoteeCount:2, bookingFee:501, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'11:00 AM', venue:'Main Temple Mandap', createdAt:'2026-08-15T14:20:00' },
-    { id:'p3', regCode:'POOJA-1003', category:'pooja', activityTitle:'Satyanarayan Puja', participantName:'Subramaniam K.', extra:'Gotram: Vasishta', devoteeCount:5, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-28', eventTime:'09:00 AM', venue:'Community Hall', createdAt:'2026-08-16T11:00:00' },
-    { id:'p4', regCode:'POOJA-1004', category:'pooja', activityTitle:'Navagraha Homam', participantName:'Annapurna Devi', extra:'Gotram: Bharadwaj', devoteeCount:2, bookingFee:1100, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'06:00 AM', venue:'Homa Kund Area', createdAt:'2026-08-17T08:30:00' },
-    { id:'c1', regCode:'CULT-3001', category:'cultural', activityTitle:'Bharatanatyam – Pushpanjali', participantName:'Meenakshi Sundaram', extra:'Solo · Youth (16-25)', devoteeCount:1, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'10:00 AM', venue:'Main Stage', createdAt:'2026-08-14T10:00:00' },
-    { id:'c2', regCode:'CULT-3002', category:'cultural', activityTitle:'Carnatic Vocal Ensemble', participantName:'Ramakrishnan V.', extra:'Ensemble · Open', devoteeCount:4, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'11:00 AM', venue:'Main Stage', createdAt:'2026-08-14T12:00:00' },
-    { id:'c3', regCode:'CULT-3003', category:'cultural', activityTitle:'Bhajan Sandhya', participantName:'Annapurna Group', extra:'Group · Open', devoteeCount:8, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-28', eventTime:'06:00 PM', venue:'Temple Mandap', createdAt:'2026-08-16T15:00:00' },
-    { id:'comp1', regCode:'COMP-4001', category:'competition', activityTitle:'Drawing Competition – Kids', participantName:'Aarav Sharma', extra:'Kids · Drawing', devoteeCount:1, bookingFee:50, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-28', eventTime:'10:00 AM', venue:'Hall – Room A', createdAt:'2026-08-14T09:00:00' },
-    { id:'comp2', regCode:'COMP-4002', category:'competition', activityTitle:'Elocution – Junior', participantName:'Nidhi Kulkarni', extra:'Junior · Elocution', devoteeCount:1, bookingFee:50, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-28', eventTime:'11:30 AM', venue:'Hall – Room B', createdAt:'2026-08-15T11:00:00' },
-    { id:'comp3', regCode:'COMP-4003', category:'competition', activityTitle:'Classical Singing – Open', participantName:'Keertana S.', extra:'Open · Singing', devoteeCount:1, bookingFee:100, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-29', eventTime:'09:00 AM', venue:'Auditorium', createdAt:'2026-08-16T13:00:00' },
-    { id:'comp4', regCode:'COMP-4004', category:'competition', activityTitle:'Quiz – Youth', participantName:'Arjun Verma', extra:'Youth · Quiz (Team)', devoteeCount:2, bookingFee:80, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-29', eventTime:'02:00 PM', venue:'Hall – Room A', createdAt:'2026-08-17T09:30:00' },
-    { id:'m1', regCode:'MEAL-6001', category:'meal', activityTitle:'Maha Prasadam Annadanam Feast', participantName:'Suresh Rao', extra:'Lunch · 4 Tokens', devoteeCount:4, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'12:30 PM', venue:'Dining Hall', createdAt:'2026-08-18T10:00:00' },
-  ];
-
   const [regCat, setRegCat] = useState<RegCat>('all');
   const [regStatusFilter, setRegStatusFilter] = useState<'all' | 'CONFIRMED' | 'PENDING' | 'CANCELLED'>('all');
   const [regSearch, setRegSearch] = useState('');
@@ -293,10 +274,6 @@ export function EventsDashboard() {
   const [expandedActivity, setExpandedActivity] = useState<string|null>(null);
 
   const fetchLiveRegistrations = () => {
-    if (useMock) {
-      setAllUnifiedRegs(MOCK_REGS);
-      return;
-    }
     setLoadingRegs(true);
     Promise.all([
       eventService.getAllRegistrations().catch(() => []),
@@ -323,9 +300,8 @@ export function EventsDashboard() {
 
         const rawList = Array.isArray(regs) ? regs : [];
 
-        // If live backend has 0 records and no events, smoothly fallback to MOCK_REGS
-        if (rawList.length === 0 && (!evts || evts.length === 0)) {
-          setAllUnifiedRegs(MOCK_REGS);
+        if (rawList.length === 0) {
+          setAllUnifiedRegs([]);
           return;
         }
 
@@ -402,10 +378,10 @@ export function EventsDashboard() {
           };
         });
 
-        setAllUnifiedRegs(mapped.length > 0 ? mapped : MOCK_REGS);
+        setAllUnifiedRegs(mapped);
       })
       .catch(() => {
-        setAllUnifiedRegs(MOCK_REGS);
+        setAllUnifiedRegs([]);
       })
       .finally(() => setLoadingRegs(false));
   };

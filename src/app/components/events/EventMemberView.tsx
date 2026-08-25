@@ -132,82 +132,6 @@ interface UserPass {
   paymentMethod?: string;
 }
 
-const INITIAL_ACTIVITIES: Activity[] = [
-  {
-    id: "act-1",
-    title: "Maha Ganapathi Archana & Silver Shield Pooja",
-    category: "Pooja",
-    date: "22 Aug 2026",
-    time: "08:00 AM - 09:30 AM",
-    venue: "Main Temple Mandap, Gate 1",
-    fee: 501,
-    availableSeats: 14,
-    image: "🪔",
-    description: "Special morning Sankalpa and Archana with personalized names announced by Priests.",
-  },
-  {
-    id: "act-4",
-    title: "Community Satvik Mahaprasadam (Lunch & Dinner)",
-    category: "Food",
-    date: "22 Aug 2026",
-    time: "12:30 PM - 03:00 PM & 07:30 PM - 10:00 PM",
-    venue: "Annadanam Dining Hall, Gate 2",
-    fee: 0,
-    availableSeats: 450,
-    image: "🍲",
-    description: "Traditional Satvik Bhojanam (Lunch and Dinner Mahaprasadam) served freely to all community devotees.",
-  },
-  {
-    id: "act-2",
-    title: "Kids Classical Fusion Dance Performance",
-    category: "Cultural",
-    date: "23 Aug 2026",
-    time: "05:30 PM - 07:00 PM",
-    venue: "Auditorium Stage A",
-    fee: 0,
-    availableSeats: 6,
-    image: "🎭",
-    description: "Group performance event. Costumes & track upload required before Aug 18.",
-  },
-  {
-    id: "act-3",
-    title: "Community Eco-Ganesha Making Competition",
-    category: "Competitions",
-    date: "21 Aug 2026",
-    time: "10:00 AM - 12:00 PM",
-    venue: "Clubhouse Activity Hall",
-    fee: 150,
-    availableSeats: 8,
-    image: "🎨",
-    description: "Clay provided on spot. Bring your own decorations. Top 3 winner trophies.",
-  },
-  {
-    id: "act-5",
-    title: "Ganesh Maha Laddu (21 kg) - Holy Prasadam Auction",
-    category: "Auction",
-    date: "🔴 Live Bidding",
-    time: "Bidding in Progress",
-    venue: "Main Temple Mandap, Gate 1",
-    fee: 28000,
-    availableSeats: 1,
-    image: "🪔",
-    description: "Sacred festival 21kg Ganesh Laddu prasadam blessed during Maha Aarti. Highest Bid: ₹28,000 by Venkat R. (12 bids)",
-    rawAuctionItem: {
-      id: 1,
-      name: "Ganesh Maha Laddu (21 kg)",
-      category: "Prasadam",
-      description: "Sacred festival 21kg Ganesh Laddu prasadam blessed during Maha Aarti",
-      basePrice: 5000,
-      currentBid: 28000,
-      minIncrement: 1000,
-      imageEmoji: "🪔",
-      status: "LIVE",
-      bidCount: 12,
-      leaderName: "Venkat R.",
-    },
-  },
-];
-
 const INITIAL_PASSES: UserPass[] = [];
 
 function countdownFrom(dateStr?: string | null, timeStr?: string | null) {
@@ -220,7 +144,7 @@ function countdownFrom(dateStr?: string | null, timeStr?: string | null) {
     dt = new Date(`${dateStr}${timeStr ? "T" + timeStr : "T00:00:00"}`).getTime();
   }
   if (isNaN(dt)) {
-    dt = new Date("2026-08-27T00:00:00").getTime();
+    return { days: 0, hours: 0, mins: 0, secs: 0 };
   }
   const diff = Math.max(0, dt - Date.now());
   return {
@@ -529,11 +453,11 @@ export function EventMemberView() {
   const [showHeroSubEvents, setShowHeroSubEvents] = useState(false);
   const [detailedEvent, setDetailedEvent] = useState<any | null>(null);
   const [mobileModal, setMobileModal] = useState<"pooja" | "meals" | "passes" | "family" | null>(null);
-  const [passesList, setPassesList] = useState<UserPass[]>(() => (useMock ? INITIAL_PASSES : []));
+  const [passesList, setPassesList] = useState<UserPass[]>([]);
   const [passesFilter, setPassesFilter] = useState<"ACTIVE" | "CANCELLED" | "EXPIRED" | "CLOSED" | "ALL">("ACTIVE");
   const [mobilePassesFilter, setMobilePassesFilter] = useState<"ACTIVE" | "CANCELLED" | "EXPIRED" | "ALL">("ACTIVE");
   const [passesSearch, setPassesSearch] = useState<string>("");
-  const [activitiesList, setActivitiesList] = useState<Activity[]>(() => (useMock ? INITIAL_ACTIVITIES : []));
+  const [activitiesList, setActivitiesList] = useState<Activity[]>([]);
   const [mainEventsList, setMainEventsList] = useState<any[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
@@ -577,49 +501,17 @@ export function EventMemberView() {
   useEscapeKey(() => { if (!isSavingManage) { setManagePassModal(null); setCancelConfirmMode(false); } }, Boolean(managePassModal));
   useEscapeKey(() => { setSelectedActivity(null); }, Boolean(selectedActivity));
 
-  const DEFAULT_MOCK_MAIN_EVENTS = [
-    {
-      id: "1",
-      title: "Ganesh Chaturthi Utsav 2026",
-      category: "Grand Festival",
-      startDate: "2026-08-27",
-      endDate: "2026-09-06",
-      startTime: "08:30",
-      venue: "Main Community Grounds, Sector 4",
-      location: "Main Community Grounds, Sector 4",
-      coverImage: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
-      attendees: 1842,
-      price: 0,
-      description: "Grand 10-Day Festival, Cultural Competitions & Community Feasts",
-    },
-    {
-      id: "2",
-      title: "Diwali Mahotsav 2026",
-      category: "Grand Festival",
-      startDate: "2026-10-28",
-      endDate: "2026-11-02",
-      startTime: "18:00",
-      venue: "Central Amphitheatre & Grounds",
-      location: "Central Amphitheatre & Grounds",
-      coverImage: "https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1200&q=80",
-      attendees: 950,
-      price: 0,
-      description: "Festival of Lights Celebration, Aarti, Fireworks & Cultural Night",
-    },
-  ];
-
   const bannerMainEvents = useMemo(() => {
     if (mainEventsList.length > 0) return mainEventsList;
-    if (useMock) return DEFAULT_MOCK_MAIN_EVENTS;
     const parentActs = activitiesList.filter(a => String(a.id).startsWith("event-"));
     if (parentActs.length > 0) return parentActs;
-    return activitiesList.slice(0, 1);
-  }, [mainEventsList, useMock, activitiesList]);
+    return [];
+  }, [mainEventsList, activitiesList]);
 
   // Hero Banner Carousel & Live Countdown Ticker (Main Events only)
   const [heroBannerIndex, setHeroBannerIndex] = useState(0);
   const [isHeroBannerHovered, setIsHeroBannerHovered] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(() => countdownFrom("2026-08-27", null));
+  const [timeLeft, setTimeLeft] = useState(() => countdownFrom(null, null));
 
   // Auto-move hero banner every 4.5s (pauses on hover or when any modal/registration is open)
   useEffect(() => {
@@ -646,7 +538,7 @@ export function EventMemberView() {
     showQRPass,
   ]);
 
-  const activeMainEvent = bannerMainEvents[Math.min(heroBannerIndex, bannerMainEvents.length - 1)] || bannerMainEvents[0];
+  const activeMainEvent = bannerMainEvents[Math.min(heroBannerIndex, Math.max(0, bannerMainEvents.length - 1))] || null;
 
   const eventSubActivities = useMemo(() => {
     if (!activeMainEvent || activeMainEvent.isStandalonePooja) return [];
@@ -678,7 +570,7 @@ export function EventMemberView() {
   }, [activeMainEvent, activitiesList]);
 
   useEffect(() => {
-    const targetDate = activeMainEvent?.startDate || activeMainEvent?.date || "2026-08-27";
+    const targetDate = activeMainEvent?.startDate || activeMainEvent?.date || null;
     const targetTime = activeMainEvent?.startTime || activeMainEvent?.time || null;
 
     setTimeLeft(countdownFrom(targetDate, targetTime));
@@ -690,21 +582,18 @@ export function EventMemberView() {
 
   const handlePrevHeroBanner = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (bannerMainEvents.length === 0) return;
     setHeroBannerIndex((prev) => (prev - 1 + bannerMainEvents.length) % bannerMainEvents.length);
   };
 
   const handleNextHeroBanner = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (bannerMainEvents.length === 0) return;
     setHeroBannerIndex((prev) => (prev + 1) % bannerMainEvents.length);
   };
 
   // Fetch activities & main events & dashboard metrics from live REST API
   const fetchLiveDataFromBackend = async () => {
-    if (useMock) {
-      setActivitiesList(INITIAL_ACTIVITIES);
-      return;
-    }
-
     try {
       setLoadingApiData(true);
       const [allEvents, poojas, culturals, comps, meals, stats, allRegistrations, auctionItems] = await Promise.all([
@@ -1071,11 +960,6 @@ export function EventMemberView() {
 
   // Load User Passes dynamically from database API
   const loadUserPasses = async () => {
-    if (useMock) {
-      setPassesList(INITIAL_PASSES);
-      return;
-    }
-
     try {
       const [liveRegs, allEvents] = await Promise.all([
         eventService.getMyRegistrations().catch(() => []),
@@ -2510,13 +2394,25 @@ export function EventMemberView() {
                 </h3>
                 {selectedCategoryFilter ? (
                   <button
+                    type="button"
                     onClick={() => setSelectedCategoryFilter(null)}
                     className="text-xs text-rose-600 font-bold hover:underline cursor-pointer"
                   >
                     Show All
                   </button>
+                ) : activePasses.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("passes")}
+                    className="text-xs text-primary font-bold hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    <span>My Active Passes ({activePasses.length})</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
                 ) : (
-                  <span className="text-xs text-primary font-bold hidden sm:inline">All Active Registrations</span>
+                  <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1.5 hidden sm:inline-flex">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Schedule
+                  </span>
                 )}
               </div>
 
