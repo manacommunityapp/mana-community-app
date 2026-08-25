@@ -1804,59 +1804,59 @@ export function EventMemberView() {
                 }}
               />
               <div className="relative z-10 p-2.5 sm:p-3.5 text-white space-y-2">
-                {/* ── Line 1: 🔥 Main Event Category & Live Event Indicator & Details + Nav Controls ── */}
-                <div className="flex items-center justify-between gap-1.5 flex-nowrap overflow-x-auto hide-scrollbar">
-                  <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
-                    <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs whitespace-nowrap shrink-0">
-                      🔥 {activeMainEvent?.category || activeMainEvent?.type || "Grand Festival"}
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[9px] sm:text-[9.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
-                      <span className={`w-1.5 h-1.5 rounded-full ${bannerMainEvents.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
-                      <span>{bannerMainEvents.length > 0 ? (bannerMainEvents.length > 1 ? `Live · Event ${heroBannerIndex + 1} of ${bannerMainEvents.length}` : "Live · 1 Event") : "0 Events Available"}</span>
-                    </span>
-                    {activeMainEvent && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDetailedEvent(activeMainEvent);
-                        }}
-                        className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white text-[9px] sm:text-[9.5px] font-extrabold border border-white/30 backdrop-blur-md shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
-                        title="View complete event information, sub-events, and schedule"
-                      >
-                        <Info className="w-3 h-3 text-amber-300" />
-                        <span>Details</span>
-                      </button>
+                {/* ── Line 1: 🔥 Main Event Category & Live Event Indicator with Embedded Nav Controls & Details ── */}
+                <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto hide-scrollbar">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs whitespace-nowrap shrink-0">
+                    🔥 {activeMainEvent?.category || activeMainEvent?.type || "Grand Festival"}
+                  </span>
+                  
+                  {/* Live Event Badge with Embedded Nav Buttons */}
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[9px] sm:text-[9.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
+                    <span className={`w-1.5 h-1.5 rounded-full ${bannerMainEvents.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
+                    <span>{bannerMainEvents.length > 0 ? (bannerMainEvents.length > 1 ? `Live · Event ${heroBannerIndex + 1} of ${bannerMainEvents.length}` : "Live · 1 Event") : "0 Events Available"}</span>
+                    {bannerMainEvents.length > 1 && (
+                      <div className="inline-flex items-center gap-1 bg-black/30 backdrop-blur-md px-1.5 py-0.5 rounded-full border border-white/20 shrink-0 shadow-xs ml-0.5">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handlePrevHeroBanner(e); }}
+                          className="w-5 h-5 rounded-full bg-white/80 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90"
+                          title="Previous Event"
+                        >
+                          <ChevronLeft className="w-3 h-3 stroke-[2.5]" />
+                        </button>
+                        <span className="text-[9px] sm:text-[10px] font-black text-amber-300 tracking-wide select-none px-0.5">
+                          {heroBannerIndex + 1}<span className="text-white/60 font-normal">/{bannerMainEvents.length}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleNextHeroBanner(e); }}
+                          className="w-5 h-5 rounded-full bg-white/80 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90"
+                          title="Next Event"
+                        >
+                          <ChevronRight className="w-3 h-3 stroke-[2.5]" />
+                        </button>
+                      </div>
                     )}
-                    {(activeMainEvent?.attendees ?? activeMainEvent?.registrationCount) != null && (
-                      <span className="text-[11px] font-semibold text-white/80 hidden sm:inline-flex items-center gap-1 shrink-0">
-                        <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {activeMainEvent.attendees ?? activeMainEvent.registrationCount ?? 0} registered
-                      </span>
-                    )}
-                  </div>
+                  </span>
 
-                  {bannerMainEvents.length > 1 && (
-                    <div className="flex items-center gap-1.5 shrink-0 ml-auto">
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handlePrevHeroBanner(e); }}
-                        className="w-7 h-7 rounded-lg bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 border border-white/25"
-                        title="Previous Event"
-                      >
-                        <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
-                      </button>
-                      <span className="text-[10px] font-black text-amber-300 select-none whitespace-nowrap">
-                        {heroBannerIndex + 1}<span className="text-white/60 font-normal">/{bannerMainEvents.length}</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); handleNextHeroBanner(e); }}
-                        className="w-7 h-7 rounded-lg bg-white/20 hover:bg-white/40 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 border border-white/25"
-                        title="Next Event"
-                      >
-                        <ChevronRight className="w-4 h-4 stroke-[2.5]" />
-                      </button>
-                    </div>
+                  {activeMainEvent && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDetailedEvent(activeMainEvent);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white text-[9px] sm:text-[9.5px] font-extrabold border border-white/30 backdrop-blur-md shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
+                      title="View complete event information, sub-events, and schedule"
+                    >
+                      <Info className="w-3 h-3 text-amber-300" />
+                      <span>Details</span>
+                    </button>
+                  )}
+                  {(activeMainEvent?.attendees ?? activeMainEvent?.registrationCount) != null && (
+                    <span className="text-[11px] font-semibold text-white/80 hidden sm:inline-flex items-center gap-1 shrink-0">
+                      <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {activeMainEvent.attendees ?? activeMainEvent.registrationCount ?? 0} registered
+                    </span>
                   )}
                 </div>
 
