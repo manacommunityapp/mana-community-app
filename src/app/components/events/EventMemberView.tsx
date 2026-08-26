@@ -1005,11 +1005,19 @@ export function EventMemberView() {
           }
           if (!attendeeCount) attendeeCount = 1;
 
+          // Detect Pooja registrations — their eventId equals the seva's own numeric id (not a community
+          // event id). If a community event shares that number (e.g. an old completed event), the lookup
+          // would wrongly mark the Pooja pass as EXPIRED/CLOSED. Skip community-event cross-reference
+          // for Pooja; their expiry is already handled by the slot date (r.eventDate) below.
+          const isPooja = r.category === "Pooja" ||
+                          String(r.passType || "").toLowerCase().includes("pooja") ||
+                          String(r.activityId || "").startsWith("pooja-");
+
           // Cross-reference parent event
-          const parentEvent = (r.mainEventId != null && eventsById.get(String(r.mainEventId))) ||
-                              (r.eventId != null && eventsById.get(String(r.eventId))) ||
-                              (r.eventName && eventsByTitle.get(r.eventName.trim().toLowerCase())) ||
-                              (r.activityTitle && eventsByTitle.get(r.activityTitle.trim().toLowerCase())) ||
+          const parentEvent = (r.mainEventId != null && !isPooja && eventsById.get(String(r.mainEventId))) ||
+                              (r.eventId != null && !isPooja && eventsById.get(String(r.eventId))) ||
+                              (r.eventName && !isPooja && eventsByTitle.get(r.eventName.trim().toLowerCase())) ||
+                              (r.activityTitle && !isPooja && eventsByTitle.get(r.activityTitle.trim().toLowerCase())) ||
                               null;
 
           const regStatusStr = String(r.status || "").toUpperCase();
