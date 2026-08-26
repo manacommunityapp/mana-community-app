@@ -646,7 +646,7 @@ export const eventService = {
         }
         return p.eventId ? `pooja-${p.eventId}` : `pooja-${p.id}`;
       })(),
-      activityTitle: p.activityTitle || p.poojaSlotName || "Pooja Seva",
+      activityTitle: p.activityTitle || p.eventName || p.poojaSlotName || "Pooja Seva",
       category: p.category || "Pooja",
       passType: p.passType || "Pooja Registration Pass",
       eventDate: p.eventDate || p.poojaSlotDate,
@@ -683,7 +683,7 @@ export const eventService = {
         }
         return p.eventId ? `pooja-${p.eventId}` : `pooja-${p.id}`;
       })(),
-      activityTitle: p.activityTitle || p.poojaSlotName || "Pooja Seva",
+      activityTitle: p.activityTitle || p.eventName || p.poojaSlotName || "Pooja Seva",
       category: p.category || "Pooja",
       passType: p.passType || "Pooja Registration Pass",
       eventDate: p.eventDate || p.poojaSlotDate,

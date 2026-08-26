@@ -1359,9 +1359,9 @@ export function EventMemberView() {
         if (passActIdStr && actIdStr && passActIdStr === actIdStr) {
           return true;
         }
-        // 2. Canonical numeric ID when both are prefixed with pooja-
-        if (actIdNumeric && passActIdNumeric && passActIdStr.startsWith("pooja-") && actIdStr.startsWith("pooja-")) {
-          return actIdNumeric === passActIdNumeric;
+        // 2. Canonical numeric ID when both are prefixed with pooja- (only return true; fall through on mismatch)
+        if (actIdNumeric && passActIdNumeric && passActIdStr.startsWith("pooja-") && actIdStr.startsWith("pooja-") && actIdNumeric === passActIdNumeric) {
+          return true;
         }
         // 3. poojaSevaId match
         if (passPoojaIdStr && actIdNumeric && passPoojaIdStr === actIdNumeric) {
