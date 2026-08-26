@@ -611,14 +611,20 @@ export function EventMemberView() {
 
       const getBookedCount = (actId: string, title?: string) => {
         if (!Array.isArray(allRegistrations)) return 0;
+        const isPoojaAct = actId.startsWith("pooja-");
+        const actIdNumeric = actId.replace(/\D/g, "");
         return allRegistrations
-          .filter(
-            (r: any) =>
-              r &&
-              r.status !== "CANCELLED" &&
-              (r.activityId === actId ||
-                (title && r.activityTitle && r.activityTitle.trim().toLowerCase() === title.trim().toLowerCase()))
-          )
+          .filter((r: any) => {
+            if (!r || r.status === "CANCELLED") return false;
+            if (r.activityId === actId) return true;
+            // Flexible match for Pooja: backend may return numeric or prefixed activityId
+            if (isPoojaAct && actIdNumeric) {
+              const rStr = String(r.activityId ?? "");
+              if (rStr === actIdNumeric || rStr === `pooja-${actIdNumeric}`) return true;
+            }
+            return Boolean(title && r.activityTitle &&
+              r.activityTitle.trim().toLowerCase() === title.trim().toLowerCase());
+          })
           .reduce((acc: number, r: any) => acc + (Number(r.devoteeCount) || 1), 0);
       };
 

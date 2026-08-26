@@ -639,7 +639,13 @@ export const eventService = {
 
     const normalizedPooja = pooja.map((p) => ({
       ...p,
-      activityId: p.activityId || (p.eventId ? `pooja-${p.eventId}` : `pooja-${p.id}`),
+      activityId: (() => {
+        if (p.activityId) {
+          const s = String(p.activityId);
+          return s.startsWith("pooja-") ? s : `pooja-${s}`;
+        }
+        return p.eventId ? `pooja-${p.eventId}` : `pooja-${p.id}`;
+      })(),
       activityTitle: p.activityTitle || p.poojaSlotName || "Pooja Seva",
       category: p.category || "Pooja",
       passType: p.passType || "Pooja Registration Pass",
@@ -670,7 +676,13 @@ export const eventService = {
 
     const normalizedPooja = pooja.map((p) => ({
       ...p,
-      activityId: p.activityId || (p.eventId ? `pooja-${p.eventId}` : `pooja-${p.id}`),
+      activityId: (() => {
+        if (p.activityId) {
+          const s = String(p.activityId);
+          return s.startsWith("pooja-") ? s : `pooja-${s}`;
+        }
+        return p.eventId ? `pooja-${p.eventId}` : `pooja-${p.id}`;
+      })(),
       activityTitle: p.activityTitle || p.poojaSlotName || "Pooja Seva",
       category: p.category || "Pooja",
       passType: p.passType || "Pooja Registration Pass",
