@@ -150,6 +150,74 @@ function getLiveSlotInfo(
   return map.get(`${dateValue}__${normalized}`);
 }
 
+function formatTime12Hour(timeStr: string): string {
+  if (!timeStr) return "";
+  const clean = timeStr.trim();
+  if (clean.toLowerCase().includes("am") || clean.toLowerCase().includes("pm") || clean.includes("–") || clean.includes("-")) {
+    return clean;
+  }
+  const parts = clean.split(":");
+  let hr = parseInt(parts[0], 10);
+  const min = parts.length > 1 ? parts[1].padStart(2, "0") : "00";
+  if (isNaN(hr)) return clean;
+  const ampm = hr >= 12 ? "PM" : "AM";
+  if (hr > 12) hr -= 12;
+  if (hr === 0) hr = 12;
+  return `${String(hr).padStart(2, "0")}:${min} ${ampm}`;
+}
+
+function buildDaysFromLiveSchedules(liveSchedules: PoojaScheduleDto[], poojaTitle?: string): DaySchedule[] {
+  if (!Array.isArray(liveSchedules) || liveSchedules.length === 0) return [];
+
+  // Group schedules by scheduleDate
+  const dateMap = new Map<string, PoojaScheduleDto[]>();
+  for (const sch of liveSchedules) {
+    if (!sch.scheduleDate) continue;
+    const existing = dateMap.get(sch.scheduleDate) || [];
+    existing.push(sch);
+    dateMap.set(sch.scheduleDate, existing);
+  }
+
+  // Sort unique dates chronologically
+  const sortedDates = Array.from(dateMap.keys()).sort();
+  const totalDays = sortedDates.length;
+
+  return sortedDates.map((dateKey, idx) => {
+    const parsedDate = parsePoojaDate(dateKey) || new Date();
+    const { dayLabel, dateStr, shortDate } = formatPoojaDate(parsedDate);
+    const dayLabelText = totalDays > 1 ? `Day ${idx + 1} (${dayLabel})` : `Day 1 (${dayLabel})`;
+
+    const schedulesForDay = dateMap.get(dateKey) || [];
+    // Sort schedules by startTime
+    schedulesForDay.sort((a, b) => String(a.startTime).localeCompare(String(b.startTime)));
+
+    const slots: DaySlotOption[] = schedulesForDay.map((sch, sIdx) => {
+      const icon = sIdx === 0 ? "🌅" : sIdx === 1 ? "☀️" : sIdx === 2 ? "🪔" : "✨";
+      const startFmt = formatTime12Hour(sch.startTime);
+      const endFmt = sch.endTime ? formatTime12Hour(sch.endTime) : "";
+      const displayTime = endFmt ? `${startFmt} – ${endFmt}` : `${startFmt} onwards`;
+      const sessionName = (sch as any).notes?.trim() || sch.poojaName || poojaTitle || (schedulesForDay.length === 1 ? "Pooja Seva" : `Session #${sIdx + 1}`);
+      const avail = Math.min(sch.availableFamilies, sch.availableDevotees);
+
+      return {
+        icon,
+        time: displayTime,
+        name: sessionName,
+        left: Math.max(0, avail),
+      };
+    });
+
+    return {
+      id: idx + 1,
+      dayLabel: dayLabelText,
+      dateStr,
+      shortDate,
+      dateValue: dateKey,
+      slots,
+    };
+  });
+}
+
 function buildPoojaScheduleDays(event: any, defaultSlots: DaySlotOption[], poojaTitle?: string): DaySchedule[] {
   let startRaw = event?.startDate || event?.date;
   let endRaw = event?.endDate;
@@ -313,15 +381,25 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [copiedPass, setCopiedPass] = useState<boolean>(false);
   const [alreadyRegisteredTitle, setAlreadyRegisteredTitle] = useState<string | null>(null);
 
+  const resolvedPoojaId = React.useMemo(() => {
+    if (event?.poojaId) return Number(event.poojaId);
+    if ((event as any)?.poojaSevaId) return Number((event as any).poojaSevaId);
+    if ((event as any)?.sevaId) return Number((event as any).sevaId);
+    if (event?.id) {
+      const num = Number(String(event.id).replace(/\D/g, ""));
+      return isNaN(num) ? 0 : num;
+    }
+    return 0;
+  }, [event?.poojaId, (event as any)?.poojaSevaId, (event as any)?.sevaId, event?.id]);
+
   // #19: Available dates from backend (to gray out fully-booked dates)
   const [availableDateStrings, setAvailableDateStrings] = useState<Set<string>>(new Set());
   useEffect(() => {
-    const poojaId = event?.poojaId;
-    if (!poojaId) return;
-    eventService.getScheduleAvailableDates(poojaId).then((dates) => {
+    if (!resolvedPoojaId || resolvedPoojaId <= 0) return;
+    eventService.getScheduleAvailableDates(resolvedPoojaId).then((dates) => {
       setAvailableDateStrings(new Set(dates));
     }).catch(() => {/* silently skip if endpoint unavailable */});
-  }, [event?.poojaId]);
+  }, [resolvedPoojaId]);
 
   // Admin on-behalf registration states
   const [registerOnBehalf, setRegisterOnBehalf] = useState<boolean>(false);
@@ -346,14 +424,13 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
   // Fetch live schedule availability from the booking engine
   useEffect(() => {
-    const poojaId = event?.id ? Number(String(event.id).replace(/\D/g, "")) : 0;
-    if (!poojaId || poojaId <= 0) return;
+    if (!resolvedPoojaId || resolvedPoojaId <= 0) return;
     setSchedulesLoading(true);
-    eventService.getSchedulesByPooja(poojaId)
+    eventService.getSchedulesByPooja(resolvedPoojaId)
       .then((schedules) => { if (Array.isArray(schedules)) setLiveSchedules(schedules); })
       .catch(() => {/* best effort — fall back to static slot counts */})
       .finally(() => setSchedulesLoading(false));
-  }, [event?.id]);
+  }, [resolvedPoojaId]);
 
   // Load Saved Family Members from Unified Family Service
   const [savedFamilyMembers, setSavedFamilyMembers] = useState<FamilyMember[]>([]);
@@ -563,8 +640,15 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
     ? rawFee
     : parseFloat(String(rawFee).replace(/[^0-9.]/g, "")) || 0;
 
-  // Derive configured start times if available from Pooja event creation
+  // Derive configured start times if available from Pooja event creation or live booking schedules
   const scheduleDays = React.useMemo(() => {
+    if (Array.isArray(liveSchedules) && liveSchedules.length > 0) {
+      const daysFromLive = buildDaysFromLiveSchedules(liveSchedules, poojaTitle);
+      if (daysFromLive.length > 0) {
+        return daysFromLive;
+      }
+    }
+
     const configuredTimes: string[] = Array.isArray((event as any)?.startTimes) && (event as any).startTimes.filter(Boolean).length > 0
       ? (event as any).startTimes.filter(Boolean)
       : event?.time && event.time.includes(",")
@@ -615,7 +699,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         ];
 
     return buildPoojaScheduleDays(event, defaultSlots, poojaTitle);
-  }, [event?.id, event?.startDate, event?.date, event?.endDate, event?.time, poojaTitle, totalSlotsCount, event?.timeSlotConfig]);
+  }, [liveSchedules, event?.id, event?.startDate, event?.date, event?.endDate, event?.time, poojaTitle, totalSlotsCount, event?.timeSlotConfig]);
 
   // Build lookup map: "dateValue__startTime" → {scheduleId, availLeft} from live backend data
   const liveSlotInfoMap = React.useMemo(() => {
