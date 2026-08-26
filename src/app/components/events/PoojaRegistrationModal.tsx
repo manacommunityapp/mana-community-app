@@ -829,12 +829,21 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       }
     }
 
+    // Detect a slot change in update mode so we can use the reschedule endpoint.
+    // Only reschedule when the EXISTING scheduleId is known (non-null) AND the user picked a different one.
+    // If existingReg.scheduleId is null (old registration before scheduleId tracking), fall back to a plain update.
+    const slotChangedInUpdateMode = isUpdateMode &&
+      selectedScheduleId !== null &&
+      existingReg?.scheduleId != null &&
+      selectedScheduleId !== existingReg.scheduleId;
+
     setIsSubmitting(true);
     setReservationError(null);
     try {
       // ── Pre-hold a capacity slot if the live booking engine is wired ──
+      // Skip the pre-hold when rescheduling — the backend reschedule service handles reservation atomically.
       let reservationId: number | undefined;
-      if (selectedScheduleId) {
+      if (selectedScheduleId && !slotChangedInUpdateMode) {
         const idempotencyKey = (typeof crypto !== "undefined" && crypto.randomUUID)
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -914,8 +923,16 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         const numericId = typeof existingRegId === "number" ? existingRegId : Number(String(existingRegId).replace(/\D/g, ""));
         if (!isNaN(numericId) && numericId > 0) {
           try {
-            await eventService.updatePoojaRegistration(numericId, regPayload);
-            showSuccess("🪔 Pooja registration updated successfully!");
+            if (slotChangedInUpdateMode && selectedScheduleId) {
+              const idempotencyKey = (typeof crypto !== "undefined" && crypto.randomUUID)
+                ? crypto.randomUUID()
+                : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+              await eventService.rescheduleRegistration(numericId, selectedScheduleId, idempotencyKey);
+              showSuccess("🪔 Pooja slot rescheduled successfully!");
+            } else {
+              await eventService.updatePoojaRegistration(numericId, regPayload);
+              showSuccess("🪔 Pooja registration updated successfully!");
+            }
           } catch (apiErr: any) {
             const errMsg = apiErr?.response?.data?.message || apiErr?.message || "Failed to update pooja registration.";
             showWarning(errMsg);
