@@ -362,7 +362,7 @@ function AddRegistrantDialog({
   const canSave = form.name.trim() && form.email.trim();
 
   const handleSave = async () => {
-    if (!canSave) return;
+    if (!canSave || saving) return;
     setSaving(true);
     setError("");
 
@@ -388,21 +388,34 @@ function AddRegistrantDialog({
 
       const activeEvent = events.find(e => e.id === Number(form.eventId)) || events[0];
       const feeNum = form.amount && form.amount.toLowerCase() !== "free" ? Number(form.amount.replace(/\D/g, "")) : 0;
+      const eventTimeStr = activeEvent?.startTime ? (activeEvent.endTime ? `${activeEvent.startTime} - ${activeEvent.endTime}` : activeEvent.startTime) : ((activeEvent as any)?.time || "All Day");
+      const eventDateStr = activeEvent?.startDate || new Date().toISOString().slice(0, 10);
 
       const payload = {
         activityId: `event-${activeEvent?.id || 1}`,
+        mainEventId: activeEvent?.id,
+        eventId: activeEvent?.id,
         activityTitle: activeEvent?.title || "Community Event",
-        category: form.category,
+        eventName: activeEvent?.title || "Community Event",
+        category: form.category || "General",
+        passType: form.category || "General",
         participantName: form.name.trim(),
+        primaryName: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
         devoteeCount: Math.max(1, Number(form.tickets) || 1),
+        membersCount: Math.max(1, Number(form.tickets) || 1),
+        attendingDevotees: form.name.trim(),
+        membersJson: JSON.stringify([{ name: form.name.trim(), age: 30, gender: "Male", relationship: "Self" }]),
         bookingFee: feeNum,
         paymentStatus: feeNum > 0 ? form.paymentStatus : "FREE",
+        paymentMethod: "Cash",
         status: form.autoConfirm ? "CONFIRMED" : "PENDING",
-        venue: activeEvent?.venue || undefined,
-        notes: form.address.trim() || undefined,
-        mainEventId: activeEvent?.id,
+        venue: activeEvent?.venue || "Community Center",
+        eventDate: eventDateStr,
+        eventTime: eventTimeStr,
+        flatNo: form.address?.trim() || undefined,
+        notes: form.address?.trim() || undefined,
       };
 
       const created = await eventService.adminCreateRegistration(payload);
@@ -947,21 +960,33 @@ export function EventsRegistration() {
   const [sortBy, setSortBy] = useState<"time" | "name" | "status" | "checkin">("time");
 
   const loadRegistrations = () => {
-    if (useMock || !selectedEventId) return;
+    if (useMock || !selectedEventId) {
+      setLiveRegistrants([]);
+      return;
+    }
     setLoading(true);
     setError("");
     eventService.getEventRegistrations(selectedEventId)
-      .then(data => setLiveRegistrants(mapLiveRegistrations(data)))
+      .then(data => {
+        const activeRows = (data || []).filter((r: any) => String(r.status || "").toUpperCase() !== "CANCELLED");
+        setLiveRegistrants(mapLiveRegistrations(activeRows));
+      })
       .catch(e => setError(e.message ?? "Failed to load registrations"))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     if (useMock) return;
-    eventService.getUpcomingEvents()
+    eventService.getAllEvents()
       .then(evts => {
-        setEvents(evts);
-        if (evts.length > 0) setSelectedEventId(evts[0].id);
+        const activeEvents = (evts || []).filter(e => String(e.status || "").toUpperCase() !== "CANCELLED");
+        setEvents(activeEvents);
+        if (activeEvents.length > 0) {
+          setSelectedEventId(prev => (prev && activeEvents.some(e => e.id === prev) ? prev : activeEvents[0].id));
+        } else {
+          setSelectedEventId(null);
+          setLiveRegistrants([]);
+        }
       })
       .catch(() => {});
   }, [useMock]);

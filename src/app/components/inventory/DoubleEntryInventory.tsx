@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { 
   Package, RefreshCw, FileText, Sliders, Building, MapPin, 
   TrendingUp, Plus, CheckCircle2, XCircle, AlertCircle, Calendar, 
-  DollarSign, ChevronRight, Play, Check, X, Clipboard,
+  IndianRupee, ChevronRight, Play, Check, X, Clipboard,
   Grid, Settings, FolderTree, Activity, Archive, Tags
 } from "lucide-react";
 import { stockService } from "../../../services/inventory/stockService";

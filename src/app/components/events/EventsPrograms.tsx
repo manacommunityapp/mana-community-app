@@ -841,10 +841,10 @@ export function EventsPrograms({ initialEventId, onEventChange }: EventsPrograms
       )}
 
       {/* Day tabs */}
-      <div className="bg-white rounded-2xl p-1 sm:p-1.5 flex gap-1 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] overflow-x-auto hide-scrollbar">
+      <div className="bg-white rounded-lg sm:rounded-xl p-0.5 flex gap-0.5 border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-x-auto hide-scrollbar">
         {currentDays.map(d => (
           <button key={d} onClick={() => setCurrentDay(d)}
-            className={`flex-1 px-2 sm:px-4 py-1.5 sm:py-2.5 rounded-xl text-[10px] sm:text-sm font-semibold transition-all whitespace-nowrap
+            className={`flex-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-semibold transition-all whitespace-nowrap
               ${currentDay === d ? "text-white shadow-sm" : "text-slate-500 hover:bg-indigo-50 hover:text-indigo-600"}`}
             style={currentDay === d ? { background: "linear-gradient(135deg, #4f46e5, #7c3aed)" } : undefined}>
             {d}

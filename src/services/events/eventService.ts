@@ -60,6 +60,7 @@ export interface EventResponse {
   scannerImage?: string | null;
   notes?: string | null;
   contactsJson?: string | null;
+  contacts?: EventContactPerson[];
   contactDetails?: EventContactPerson[];
   paymentInstructions?: string | null;
 }
@@ -113,8 +114,10 @@ export interface EventRequest {
   scannerImage?: string;
   notes?: string;
   contactsJson?: string;
+  contacts?: EventContactPerson[];
   paymentInstructions?: string;
   registrationDeadline?: string;
+  draftStep?: number;
 }
 
 export interface DashboardStatsResponse {
@@ -159,6 +162,7 @@ export interface RegistrationResponse {
 
 export interface PoojaRegistrationRequest {
   eventId: number;
+  mainEventId?: number;
   activityId?: string;
   eventName: string;
   activityTitle: string;
@@ -191,6 +195,7 @@ export interface PoojaRegistrationRequest {
   status?: string;
   scheduleId?: number;
   reservationId?: number;
+  poojaSevaTimeSlotsId?: number;
   targetUserId?: number;
 }
 
@@ -207,6 +212,7 @@ export interface PoojaScheduleDto {
   availableFamilies: number;
   availableDevotees: number;
   nextTokenSeq: number;
+  timeSlotConfigId?: number;
 }
 
 export interface PoojaReserveRequest {
@@ -489,8 +495,9 @@ export const eventService = {
     return apiClient.post<{ id: number; name: string; description?: string }>("/events/competition-age-groups", { name, description });
   },
 
-  async getPoojaSevas(): Promise<any[]> {
-    return apiClient.get<any[]>("/events/pooja-sevas");
+  async getPoojaSevas(eventId?: number): Promise<any[]> {
+    const qs = eventId ? `?mainEventId=${eventId}&eventId=${eventId}` : "";
+    return apiClient.get<any[]>(`/events/pooja-sevas${qs}`);
   },
 
   async createPoojaSeva(data: any): Promise<any> {
@@ -505,8 +512,9 @@ export const eventService = {
     return apiClient.delete<void>(`/events/pooja-sevas/${id}`);
   },
 
-  async getCulturalEvents(): Promise<any[]> {
-    return apiClient.get<any[]>("/events/cultural-events");
+  async getCulturalEvents(eventId?: number): Promise<any[]> {
+    const qs = eventId ? `?mainEventId=${eventId}&eventId=${eventId}` : "";
+    return apiClient.get<any[]>(`/events/cultural-events${qs}`);
   },
 
   async createCulturalEvent(data: any): Promise<any> {
@@ -521,8 +529,9 @@ export const eventService = {
     return apiClient.delete<void>(`/events/cultural-events/${id}`);
   },
 
-  async getCompetitions(): Promise<any[]> {
-    return apiClient.get<any[]>("/events/competitions");
+  async getCompetitions(eventId?: number): Promise<any[]> {
+    const qs = eventId ? `?mainEventId=${eventId}&eventId=${eventId}` : "";
+    return apiClient.get<any[]>(`/events/competitions${qs}`);
   },
 
   async createCompetition(data: any): Promise<any> {
@@ -538,7 +547,7 @@ export const eventService = {
   },
 
   async getLunchDinners(mainEventId?: number): Promise<any[]> {
-    const qs = mainEventId ? `?mainEventId=${mainEventId}` : "";
+    const qs = mainEventId ? `?mainEventId=${mainEventId}&eventId=${mainEventId}` : "";
     return apiClient.get<any[]>(`/events/lunch-dinners${qs}`);
   },
 
@@ -632,8 +641,14 @@ export const eventService = {
 
     const normalizedPooja = pooja.map((p) => ({
       ...p,
-      activityId: p.activityId || (p.eventId ? `pooja-${p.eventId}` : `pooja-${p.id}`),
-      activityTitle: p.activityTitle || p.poojaSlotName || "Pooja Seva",
+      activityId: (() => {
+        if (p.activityId) {
+          const s = String(p.activityId);
+          return s.startsWith("pooja-") ? s : `pooja-${s}`;
+        }
+        return p.eventId ? `pooja-${p.eventId}` : `pooja-${p.id}`;
+      })(),
+      activityTitle: p.activityTitle || p.eventName || p.poojaSlotName || "Pooja Seva",
       category: p.category || "Pooja",
       passType: p.passType || "Pooja Registration Pass",
       eventDate: p.eventDate || p.poojaSlotDate,
@@ -663,8 +678,14 @@ export const eventService = {
 
     const normalizedPooja = pooja.map((p) => ({
       ...p,
-      activityId: p.activityId || (p.eventId ? `pooja-${p.eventId}` : `pooja-${p.id}`),
-      activityTitle: p.activityTitle || p.poojaSlotName || "Pooja Seva",
+      activityId: (() => {
+        if (p.activityId) {
+          const s = String(p.activityId);
+          return s.startsWith("pooja-") ? s : `pooja-${s}`;
+        }
+        return p.eventId ? `pooja-${p.eventId}` : `pooja-${p.id}`;
+      })(),
+      activityTitle: p.activityTitle || p.eventName || p.poojaSlotName || "Pooja Seva",
       category: p.category || "Pooja",
       passType: p.passType || "Pooja Registration Pass",
       eventDate: p.eventDate || p.poojaSlotDate,

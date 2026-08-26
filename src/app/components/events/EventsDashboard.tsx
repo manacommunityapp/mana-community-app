@@ -28,6 +28,7 @@ import {
   type PendingActionItemResponse,
   type EventResponse,
   type RegistrationResponse,
+  type EventAuctionStatsResponse,
 } from "../../../services/events/eventService";
 import { eventSponsorService, type EventSponsorResponse } from "../../../services/events/eventSponsorService";
 import { eventDonationService } from "../../../services/events/eventDonationService";
@@ -73,8 +74,6 @@ const MOCK_KPIS = [
   { label: "Today's Schedule & Duty", value: "32 Items", sub: "12 programs · 318 duty shifts", icon: Clock, color: "#16A34A", bg: "rgba(22,163,74,0.12)", trend: "Active Today", to: "/events/schedule?tab=programs" },
   { label: "Pending Action Items",    value: "9",      sub: "4 tasks · 5 sponsors", icon: AlertCircle, color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "Action Required", to: "/events/schedule?tab=planning" },
   { label: "Sponsors Raised",         value: "₹6.10L", sub: "19 Active partners",   icon: Star,         color: "#F59E0B", bg: "rgba(245,158,11,0.12)",  trend: "5 pending",       to: "/events/fundraising?tab=sponsors" },
-  // { label: "Food Prepared",           value: "85%",    sub: "4,200 plates est",    icon: Utensils,     color: "#8B5CF6", bg: "rgba(139,92,246,0.12)",  trend: "On schedule",     to: "/events/operations?tab=food" },
-  { label: "Auction Revenue",         value: "₹2.10L", sub: "14 items sold",       icon: Gavel,        color: "#06B6D4", bg: "rgba(6,182,212,0.12)",   trend: "Live now",        to: "/events/fundraising?tab=auction" },
 ];
 
 const MOCK_REG_TREND = [
@@ -238,6 +237,7 @@ export function EventsDashboard() {
   const [tasks, setTasks]               = useState<EventTaskResponse[]>([]);
   const [pendingActionItems, setPendingActionItems] = useState<PendingActionItemResponse[]>([]);
   const [registrations, setRegistrations] = useState<RegistrationResponse[]>([]);
+  const [auctionStats, setAuctionStats] = useState<EventAuctionStatsResponse | null>(null);
   const [tasksDone, setTasksDone]       = useState<Record<string, boolean>>({});
 
   // ── Registered Users section state ──
@@ -264,25 +264,6 @@ export function EventsDashboard() {
     passType?: string;
   };
 
-  const MOCK_REGS: UnifiedReg[] = [
-    { id:'e1', regCode:'EVT-5001', category:'event', activityTitle:'Ganesh Utsav 2026 – Main Event', participantName:'Rajesh Sharma', email:'rajesh@example.com', phone:'+91 98765 43210', devoteeCount:4, bookingFee:300, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', venue:'Community Hall', createdAt:'2026-08-10T10:00:00' },
-    { id:'e2', regCode:'EVT-5002', category:'event', activityTitle:'Ganesh Utsav 2026 – Main Event', participantName:'Meera Deshmukh', email:'meera@example.com', phone:'+91 91234 56789', devoteeCount:2, bookingFee:300, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', venue:'Community Hall', createdAt:'2026-08-10T11:30:00' },
-    { id:'e3', regCode:'EVT-5003', category:'event', activityTitle:'Day 2 – Special Program', participantName:'Amit Verma', email:'amit@example.com', phone:'+91 99887 76655', devoteeCount:1, bookingFee:100, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-28', venue:'Temple Grounds', createdAt:'2026-08-11T09:00:00' },
-    { id:'e4', regCode:'EVT-5004', category:'event', activityTitle:'Day 2 – Special Program (Cancelled)', participantName:'Sunita Patil', email:'sunita@example.com', phone:'+91 98100 22334', devoteeCount:3, bookingFee:200, paymentStatus:'REFUNDED', status:'CANCELLED', isEventCancelled: true, eventDate:'2026-08-28', venue:'Temple Grounds', createdAt:'2026-08-12T14:00:00' },
-    { id:'p1', regCode:'POOJA-1001', category:'pooja', activityTitle:'Maha Ganapathi Abhishekam', participantName:'Ramesh Sharma', extra:'Gotram: Bharadwaj', devoteeCount:3, bookingFee:501, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'08:30 AM', venue:'Main Temple Mandap', createdAt:'2026-08-15T10:30:00' },
-    { id:'p2', regCode:'POOJA-1002', category:'pooja', activityTitle:'Maha Ganapathi Abhishekam', participantName:'Lakshmi Devi', extra:'Gotram: Kashyap', devoteeCount:2, bookingFee:501, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'11:00 AM', venue:'Main Temple Mandap', createdAt:'2026-08-15T14:20:00' },
-    { id:'p3', regCode:'POOJA-1003', category:'pooja', activityTitle:'Satyanarayan Puja', participantName:'Subramaniam K.', extra:'Gotram: Vasishta', devoteeCount:5, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-28', eventTime:'09:00 AM', venue:'Community Hall', createdAt:'2026-08-16T11:00:00' },
-    { id:'p4', regCode:'POOJA-1004', category:'pooja', activityTitle:'Navagraha Homam', participantName:'Annapurna Devi', extra:'Gotram: Bharadwaj', devoteeCount:2, bookingFee:1100, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'06:00 AM', venue:'Homa Kund Area', createdAt:'2026-08-17T08:30:00' },
-    { id:'c1', regCode:'CULT-3001', category:'cultural', activityTitle:'Bharatanatyam – Pushpanjali', participantName:'Meenakshi Sundaram', extra:'Solo · Youth (16-25)', devoteeCount:1, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'10:00 AM', venue:'Main Stage', createdAt:'2026-08-14T10:00:00' },
-    { id:'c2', regCode:'CULT-3002', category:'cultural', activityTitle:'Carnatic Vocal Ensemble', participantName:'Ramakrishnan V.', extra:'Ensemble · Open', devoteeCount:4, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'11:00 AM', venue:'Main Stage', createdAt:'2026-08-14T12:00:00' },
-    { id:'c3', regCode:'CULT-3003', category:'cultural', activityTitle:'Bhajan Sandhya', participantName:'Annapurna Group', extra:'Group · Open', devoteeCount:8, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-28', eventTime:'06:00 PM', venue:'Temple Mandap', createdAt:'2026-08-16T15:00:00' },
-    { id:'comp1', regCode:'COMP-4001', category:'competition', activityTitle:'Drawing Competition – Kids', participantName:'Aarav Sharma', extra:'Kids · Drawing', devoteeCount:1, bookingFee:50, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-28', eventTime:'10:00 AM', venue:'Hall – Room A', createdAt:'2026-08-14T09:00:00' },
-    { id:'comp2', regCode:'COMP-4002', category:'competition', activityTitle:'Elocution – Junior', participantName:'Nidhi Kulkarni', extra:'Junior · Elocution', devoteeCount:1, bookingFee:50, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-28', eventTime:'11:30 AM', venue:'Hall – Room B', createdAt:'2026-08-15T11:00:00' },
-    { id:'comp3', regCode:'COMP-4003', category:'competition', activityTitle:'Classical Singing – Open', participantName:'Keertana S.', extra:'Open · Singing', devoteeCount:1, bookingFee:100, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-29', eventTime:'09:00 AM', venue:'Auditorium', createdAt:'2026-08-16T13:00:00' },
-    { id:'comp4', regCode:'COMP-4004', category:'competition', activityTitle:'Quiz – Youth', participantName:'Arjun Verma', extra:'Youth · Quiz (Team)', devoteeCount:2, bookingFee:80, paymentStatus:'PAID', status:'CONFIRMED', eventDate:'2026-08-29', eventTime:'02:00 PM', venue:'Hall – Room A', createdAt:'2026-08-17T09:30:00' },
-    { id:'m1', regCode:'MEAL-6001', category:'meal', activityTitle:'Maha Prasadam Annadanam Feast', participantName:'Suresh Rao', extra:'Lunch · 4 Tokens', devoteeCount:4, bookingFee:0, paymentStatus:'FREE', status:'CONFIRMED', eventDate:'2026-08-27', eventTime:'12:30 PM', venue:'Dining Hall', createdAt:'2026-08-18T10:00:00' },
-  ];
-
   const [regCat, setRegCat] = useState<RegCat>('all');
   const [regStatusFilter, setRegStatusFilter] = useState<'all' | 'CONFIRMED' | 'PENDING' | 'CANCELLED'>('all');
   const [regSearch, setRegSearch] = useState('');
@@ -291,17 +272,14 @@ export function EventsDashboard() {
   const [expandedActivity, setExpandedActivity] = useState<string|null>(null);
 
   const fetchLiveRegistrations = () => {
-    if (useMock) {
-      setAllUnifiedRegs(MOCK_REGS);
-      return;
-    }
     setLoadingRegs(true);
     Promise.all([
       eventService.getAllRegistrations().catch(() => []),
       eventService.getAllEvents().catch(() => [])
     ])
       .then(([regs, evts]: [any[], any[]]) => {
-        // Collect cancelled event IDs and normalized titles
+        const activeEventsById = new Map<number, any>();
+        const activeEventsByTitle = new Map<string, any>();
         const cancelledEventIds = new Set<number>();
         const cancelledEventTitles = new Set<string>();
 
@@ -311,19 +289,42 @@ export function EventsDashboard() {
             if (evStatus === 'CANCELLED') {
               if (ev.id != null) cancelledEventIds.add(Number(ev.id));
               if (ev.title) cancelledEventTitles.add(ev.title.trim().toLowerCase());
+            } else {
+              if (ev.id != null) activeEventsById.set(Number(ev.id), ev);
+              if (ev.title) activeEventsByTitle.set(ev.title.trim().toLowerCase(), ev);
             }
           });
         }
 
         const rawList = Array.isArray(regs) ? regs : [];
 
-        // If live backend has 0 records and no events, smoothly fallback to MOCK_REGS
-        if (rawList.length === 0 && (!evts || evts.length === 0)) {
-          setAllUnifiedRegs(MOCK_REGS);
+        if (rawList.length === 0) {
+          setAllUnifiedRegs([]);
           return;
         }
 
-        const mapped: UnifiedReg[] = rawList.map((r: any) => {
+        const activeRegs = rawList.filter((r: any) => {
+          const rawStatus = String(r.status || '').toUpperCase();
+          if (rawStatus === 'CANCELLED' || rawStatus === 'REJECTED') return false;
+          if (String(r.eventStatus || '').toUpperCase() === 'CANCELLED') return false;
+
+          const numEventId = r.mainEventId != null ? Number(r.mainEventId) : (r.eventId != null ? Number(r.eventId) : null);
+          const actTitle = String(r.activityTitle || r.eventName || r.eventTitle || '').trim().toLowerCase();
+
+          if (numEventId != null && cancelledEventIds.has(numEventId)) return false;
+          if (actTitle && cancelledEventTitles.has(actTitle)) return false;
+
+          // If database events exist, ensure the parent/main event actually exists and is active
+          if (evts && evts.length > 0) {
+            const exists = (numEventId != null && activeEventsById.has(numEventId)) || (actTitle && activeEventsByTitle.has(actTitle));
+            if (numEventId != null || actTitle) {
+              if (!exists) return false;
+            }
+          }
+          return true;
+        });
+
+        const mapped: UnifiedReg[] = activeRegs.map((r: any) => {
           let attendeeCount = Number(r.devoteeCount ?? r.membersCount ?? 0);
           if (r.membersJson) {
             try {
@@ -346,16 +347,6 @@ export function EventsDashboard() {
           }
           if (!attendeeCount) attendeeCount = 1;
 
-          const isParentEvCancelled =
-            (r.eventId != null && cancelledEventIds.has(Number(r.eventId))) ||
-            (r.mainEventId != null && cancelledEventIds.has(Number(r.mainEventId))) ||
-            (r.activityTitle && cancelledEventTitles.has(String(r.activityTitle).trim().toLowerCase())) ||
-            (r.eventTitle && cancelledEventTitles.has(String(r.eventTitle).trim().toLowerCase())) ||
-            String(r.eventStatus || '').toUpperCase() === 'CANCELLED';
-
-          const rawStatus = String(r.status || 'CONFIRMED').toUpperCase();
-          const finalStatus = isParentEvCancelled && rawStatus !== 'CANCELLED' ? 'CANCELLED' : rawStatus;
-
           let category: RegCat = 'event';
           const catStr = String(r.category || '').toLowerCase();
           const actId = String(r.activityId || '').toLowerCase();
@@ -368,16 +359,16 @@ export function EventsDashboard() {
             id: r.id,
             regCode: r.regCode || `REG-${r.id}`,
             category,
-            activityTitle: r.activityTitle || r.eventTitle || (isParentEvCancelled ? 'Event (Cancelled)' : 'Event'),
-            participantName: r.participantName || r.userName || 'N/A',
+            activityTitle: r.activityTitle || r.eventName || r.eventTitle || 'Community Event',
+            participantName: r.participantName || r.primaryName || r.userName || 'N/A',
             email: r.userEmail || r.email,
             phone: r.phone,
             extra: r.gotram ? `Gotram: ${r.gotram}` : r.ageGroup,
             devoteeCount: attendeeCount,
             bookingFee: r.bookingFee ?? 0,
-            paymentStatus: r.paymentStatus || (finalStatus === 'CANCELLED' ? 'CANCELLED' : 'N/A'),
-            status: finalStatus,
-            isEventCancelled: isParentEvCancelled,
+            paymentStatus: r.paymentStatus || 'PAID',
+            status: r.status || 'CONFIRMED',
+            isEventCancelled: false,
             eventDate: r.eventDate,
             eventTime: r.eventTime,
             venue: r.venue,
@@ -385,10 +376,10 @@ export function EventsDashboard() {
           };
         });
 
-        setAllUnifiedRegs(mapped.length > 0 ? mapped : MOCK_REGS);
+        setAllUnifiedRegs(mapped);
       })
       .catch(() => {
-        setAllUnifiedRegs(MOCK_REGS);
+        setAllUnifiedRegs([]);
       })
       .finally(() => setLoadingRegs(false));
   };
@@ -428,19 +419,59 @@ export function EventsDashboard() {
       eventService.getDashboardStats(),
       eventService.getDashboardAnalytics(),
       eventService.getAllEvents(),
+      eventService.getPoojaSevas(),
       eventSponsorService.getAll(),
       eventDonationService.getAll(),
       eventExpenseService.getAll(),
       eventTaskService.getAll(),
       eventService.getPendingActionItems(),
-    ]).then(([statsR, analyticsR, eventsR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR]) => {
+      eventService.getAuctionStats().catch(() => null),
+    ]).then(([statsR, analyticsR, eventsR, poojasR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR, auctionStatsR]) => {
       if (statsR.status === "fulfilled") setStats(statsR.value);
       if (analyticsR.status === "fulfilled") setAnalytics(analyticsR.value);
+      if (auctionStatsR.status === "fulfilled" && auctionStatsR.value) setAuctionStats(auctionStatsR.value);
 
       if (eventsR.status === "fulfilled") {
-        const evs = eventsR.value;
-        setEvents(evs);
-        const upcoming = [...evs]
+        const evs = Array.isArray(eventsR.value) ? eventsR.value : [];
+        const standalonePoojas: any[] = [];
+        if (poojasR.status === "fulfilled" && Array.isArray(poojasR.value)) {
+          poojasR.value.forEach((p: any) => {
+            if (String(p.status || "").toUpperCase() === "CANCELLED") return;
+            const isStandalone = (p.mainEventId == null || p.mainEventId === "" || p.mainEventId === 0) &&
+                                 (p.eventId == null || p.eventId === "" || p.eventId === 0);
+            if (isStandalone) {
+              standalonePoojas.push({
+                id: `pooja-${p.id}`,
+                rawId: p.id,
+                isStandalonePooja: true,
+                title: p.name || p.title || "Pooja Seva",
+                category: p.category || "Pooja & Seva",
+                type: "Pooja & Seva",
+                startDate: p.startDate || p.date || "Upcoming",
+                endDate: p.endDate || p.startDate || p.date,
+                startTime: p.startTime || p.time || "Morning",
+                endTime: p.endTime,
+                venue: p.mandap || "Main Temple Mandap",
+                location: p.mandap || "Main Temple Mandap",
+                mandap: p.mandap,
+                pandit: p.pandit,
+                isMultiDay: Boolean(p.isMultiDay || (p.startDate && p.endDate && p.startDate !== p.endDate)),
+                slots: p.slots,
+                price: p.isFree ? 0 : Number(p.fee || 501),
+                fee: p.isFree ? 0 : Number(p.fee || 501),
+                isFree: p.isFree,
+                imageUrl: p.coverImage || p.imageUrl || "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
+                description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || p.description || "Sacred Pooja Seva Sankalpam"}`,
+                attendees: 0,
+                registrationCount: 0,
+                status: "ACTIVE",
+              });
+            }
+          });
+        }
+        const combinedEvents = [...evs, ...standalonePoojas];
+        setEvents(combinedEvents);
+        const upcoming = [...combinedEvents]
           .filter(ev => String(ev.status || '').toUpperCase() !== "CANCELLED")
           .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
           .find(ev => new Date(ev.startDate).getTime() >= Date.now() - 86400000);
@@ -474,7 +505,7 @@ export function EventsDashboard() {
         setPendingActionItems(pendingActionsR.value);
       }
 
-      const anyFailed = [statsR, analyticsR, eventsR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR].some(r => r.status === "rejected");
+      const anyFailed = [statsR, analyticsR, eventsR, poojasR, sponsorsR, donationsR, expensesR, tasksR, pendingActionsR].some(r => r.status === "rejected");
       if (anyFailed) setError("Some data failed to load — partial results shown.");
     }).finally(() => setLoading(false));
   }
@@ -626,8 +657,20 @@ export function EventsDashboard() {
       : "No data yet";
     const foodTrend = stats?.foodPlatesCount ? "Live tracking" : "No active menu";
 
-    const auctionRev   = fmtINR(stats?.auctionRevenue ?? 0);
-    const auctionItems = `${stats?.auctionItemCount ?? 0} items sold`;
+    const liveAuctionRev = (stats?.auctionRevenue != null && stats.auctionRevenue > 0)
+      ? stats.auctionRevenue
+      : (auctionStats?.totalRevenue != null ? Number(auctionStats.totalRevenue) : 0);
+    const liveAuctionCount = (stats?.auctionItemCount != null && stats.auctionItemCount > 0)
+      ? stats.auctionItemCount
+      : (auctionStats?.closedItemsCount != null && auctionStats.closedItemsCount > 0
+          ? auctionStats.closedItemsCount
+          : (auctionStats?.totalBidsCount ? auctionStats.totalItems : (auctionStats?.totalItems ?? 0)));
+
+    const auctionRev   = fmtINR(liveAuctionRev);
+    const auctionItems = liveAuctionCount > 0
+      ? `${liveAuctionCount} item${liveAuctionCount > 1 ? 's' : ''} sold`
+      : "0 items sold";
+    const auctionTrend = liveAuctionCount > 0 || (auctionStats?.liveItemsCount ?? 0) > 0 ? "Live now" : "No Active Auction";
 
     // Today's schedule & duty: exact counts from backend (events active today)
     const todayCount          = stats?.todaysScheduleCount ?? 0;
@@ -640,7 +683,7 @@ export function EventsDashboard() {
     const cancelledRegsCount = allUnifiedRegs.filter(r => r.status === "CANCELLED" || r.isEventCancelled).length;
     const totalEventsCount = stats?.totalEvents ?? events.length;
 
-    return [
+    const kpiList = [
       {
         label: "Total Events",
         value: totalEventsCount > 0 ? String(totalEventsCount) : (stats ? String(stats.totalEvents) : "0"),
@@ -696,21 +739,24 @@ export function EventsDashboard() {
         trend: liveDonationTotal > 0 ? "Active" : "No donations yet",
         to: "/events/fundraising?tab=donations",
       },
-      // {
-      //   label: "Live Food Prepared", value: foodPlates,
-      //   sub: foodPct !== "—" ? `${foodPct} target reached` : "Live tracking",
-      //   icon: Utensils, color: "#8B5CF6", bg: "rgba(139,92,246,0.12)", trend: foodTrend,
-      //   to: "/events/operations?tab=food",
-      // },
-      {
-        label: "Auction Revenue", value: auctionRev,
-        sub: auctionItems,
-        icon: Gavel, color: "#06B6D4", bg: "rgba(6,182,212,0.12)",
-        trend: (stats?.auctionItemCount ?? 0) > 0 ? "Bids active" : "No Active Auction",
-        to: "/events/fundraising?tab=auction",
-      },
     ];
-  }, [useMock, stats, sponsorTotal, donationTotal, sponsors, registrations, allUnifiedRegs, todaySchedule, pendingTasks, events]);
+
+    // Only show Auction Revenue KPI card if actual auction items exist in the database
+    if (liveAuctionCount > 0 || liveAuctionRev > 0 || (auctionStats?.totalItems != null && auctionStats.totalItems > 0)) {
+      kpiList.push({
+        label: "Auction Revenue",
+        value: auctionRev,
+        sub: auctionItems,
+        icon: Gavel,
+        color: "#06B6D4",
+        bg: "rgba(6,182,212,0.12)",
+        trend: auctionTrend,
+        to: "/events/fundraising?tab=auction",
+      });
+    }
+
+    return kpiList;
+  }, [useMock, stats, auctionStats, sponsorTotal, donationTotal, sponsors, registrations, allUnifiedRegs, todaySchedule, pendingTasks, events]);
 
   // ── Derived: banner items ─────────────────────────────────────────────────
   const bannerItems: BannerItem[] = useMemo(() => {
@@ -975,7 +1021,7 @@ export function EventsDashboard() {
                     title="View complete event information, sub-events, and logistics"
                   >
                     <Info className="w-3 h-3 text-amber-300" />
-                    <span>Details</span>
+                    <span>Info</span>
                   </button>
                 )}
                 {(useMock || events.length > 0) && (
@@ -1000,37 +1046,42 @@ export function EventsDashboard() {
 
           {/* Center: Manual Carousel Move Controls & Indicators when multiple events exist */}
           {bannerItems.length > 1 && (
-            <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-xs px-2 py-1 rounded-xl border border-white/15 shrink-0 self-start lg:self-center shadow-xs">
+            <div className="flex items-center gap-1.5 sm:gap-2 bg-black/40 backdrop-blur-md px-2.5 py-1.5 rounded-xl border border-white/25 shrink-0 self-start lg:self-center shadow-md">
               <button
                 type="button"
                 onClick={handlePrevBanner}
-                className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                className="w-7 h-7 rounded-lg bg-white/90 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 hover:scale-105"
                 title="Previous Event"
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
               </button>
-              <div className="flex items-center gap-1 px-1">
-                {bannerItems.map((_, dotIdx) => (
-                  <button
-                    key={dotIdx}
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); setCarouselIndex(dotIdx); }}
-                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                      dotIdx === carouselIndex
-                        ? "w-4 bg-amber-400 shadow-xs"
-                        : "w-1.5 bg-white/40 hover:bg-white/70"
-                    }`}
-                    title={`Go to Event ${dotIdx + 1}`}
-                  />
-                ))}
+              <div className="flex items-center gap-1.5 px-1">
+                <span className="text-[10px] sm:text-[11px] font-black text-amber-300 tracking-wide select-none">
+                  {carouselIndex + 1}<span className="text-white/60 font-normal">/{bannerItems.length}</span>
+                </span>
+                <div className="hidden sm:flex items-center gap-1">
+                  {bannerItems.map((_, dotIdx) => (
+                    <button
+                      key={dotIdx}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setCarouselIndex(dotIdx); }}
+                      className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                        dotIdx === carouselIndex
+                          ? "w-4 bg-amber-400 shadow-xs"
+                          : "w-1.5 bg-white/40 hover:bg-white/80"
+                      }`}
+                      title={`Go to Event ${dotIdx + 1}`}
+                    />
+                  ))}
+                </div>
               </div>
               <button
                 type="button"
                 onClick={handleNextBanner}
-                className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
+                className="w-7 h-7 rounded-lg bg-white/90 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90 hover:scale-105"
                 title="Next Event"
               >
-                <ChevronRight className="w-3.5 h-3.5" />
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
               </button>
             </div>
           )}
@@ -1120,7 +1171,7 @@ export function EventsDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
         {kpis.map((kpi: any, idx) => {
           const Icon = kpi.icon;
-          const isLiveCard = !useMock && idx < 6;
+          const isLiveCard = !useMock;
           const isSkeleton = isLiveCard && loading;
           return (
             <div

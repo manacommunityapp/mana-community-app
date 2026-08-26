@@ -1,5 +1,5 @@
 import {
-  BadgeDollarSign,
+  IndianRupee,
   CalendarDays,
   Contact,
   FileText,
@@ -468,7 +468,7 @@ export const emailBlocks: EmailBlockDefinition[] = [
     id: "invoice-summary",
     label: "Invoice Summary",
     category: "Finance",
-    icon: BadgeDollarSign,
+    icon: IndianRupee,
     content: `<table role="presentation" style="width:100%;max-width:640px;margin:0 auto;background:#ffffff;border-collapse:collapse;"><tr><td style="padding:24px 30px;"><h2 style="font-size:20px;margin:0 0 14px;color:#111827;">Invoice Summary</h2><p style="margin:0 0 8px;color:#475569;">Invoice: {{invoiceNumber}}</p><p style="margin:0 0 8px;color:#475569;">Due Date: {{dueDate}}</p><div style="font-size:28px;font-weight:800;color:#0f766e;">{{amountDue}}</div></td></tr></table>`,
   },
   {
@@ -532,7 +532,7 @@ export const emailBlocks: EmailBlockDefinition[] = [
     id: "event-donation-card",
     label: "Event Donation Card",
     category: "Events",
-    icon: BadgeDollarSign,
+    icon: IndianRupee,
     content: `<table role="presentation" style="width:100%;max-width:640px;margin:0 auto;background:#ffffff;border-collapse:collapse;"><tr><td style="padding:0 30px 20px;"><table role="presentation" width="100%" style="background:#fff2e9;border:1px solid #f2c7a6;border-radius:8px;border-collapse:collapse;"><tr><td style="padding:20px 25px;"><table role="presentation" width="100%" cellpadding="6" style="font-size:15px;color:#4a2c00;border-collapse:collapse;"><tr><td style="width:42%;font-weight:bold;font-family:Georgia,serif;">🎯 Suggested Contribution</td><td style="font-family:Georgia,serif;">{{suggestedAmount}}</td></tr><tr><td style="font-weight:bold;font-family:Georgia,serif;">📅 Last Date</td><td style="font-family:Georgia,serif;">{{donationDeadline}}</td></tr><tr><td style="font-weight:bold;font-family:Georgia,serif;">💳 Payment Options</td><td style="font-family:Georgia,serif;">{{paymentOptions}}</td></tr><tr><td style="font-weight:bold;font-family:Georgia,serif;">🧾 UPI ID</td><td style="font-family:Georgia,serif;">{{upiId}}</td></tr><tr><td style="font-weight:bold;font-family:Georgia,serif;">📍 Collection Point</td><td style="font-family:Georgia,serif;">{{collectionPoint}}</td></tr></table></td></tr></table></td></tr></table>`,
   },
   {

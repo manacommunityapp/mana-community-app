@@ -880,6 +880,7 @@ export function EventsUserRegistration() {
   };
 
   const handleConfirm = async () => {
+    if (registering) return;
     if (!useMock && liveEvents.length > 0) {
       setRegistering(true);
       setRegError("");

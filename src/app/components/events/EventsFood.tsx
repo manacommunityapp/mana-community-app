@@ -204,7 +204,13 @@ export function EventsFood() {
 
   const totalPlannedPlates = useMemo(() => {
     if (useMock) return mockMenuItems.reduce((a, m) => a + m.qty, 0);
-    return eventScopedMeals.reduce((a, m) => a + (m.targetPlates || 500), 0);
+    return eventScopedMeals.reduce((a, m) => a + (m.targetPlates || 0), 0);
+  }, [useMock, eventScopedMeals]);
+
+  const activeCaterersCount = useMemo(() => {
+    if (useMock) return 6;
+    const caterers = new Set(eventScopedMeals.map(m => m.caterer?.trim()).filter(Boolean));
+    return caterers.size;
   }, [useMock, eventScopedMeals]);
 
   const totalBookedAttendees = useMemo(() => {
@@ -515,10 +521,10 @@ export function EventsFood() {
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {[
-          { label: "Scheduled Meals", value: String(eventScopedMeals.length || 4), color: "#f97316", sub: "Kitchen batches" },
+          { label: "Scheduled Meals", value: String(eventScopedMeals.length), color: "#f97316", sub: "Kitchen batches" },
           { label: "Target Plates", value: totalPlannedPlates.toLocaleString("en-IN"), color: "#4f46e5", sub: "Total capacity" },
           { label: "Booked Plates", value: totalBookedAttendees.toLocaleString("en-IN"), color: "#10b981", sub: `${readyPct}% capacity` },
-          { label: "Kitchen Teams", value: "6", color: "#7c3aed", sub: "Active caterers" },
+          { label: "Kitchen Teams", value: String(activeCaterersCount), color: "#7c3aed", sub: "Active caterers" },
         ].map((s, i) => (
           <div
             key={s.label}
@@ -544,76 +550,91 @@ export function EventsFood() {
             </button>
           </div>
           <div className="p-3 sm:p-6 space-y-3 sm:space-y-4">
-            {!useMock && eventScopedMeals.length > 0 ? (
-              eventScopedMeals.map((m) => {
-                const bookedCount = liveRegistrations
-                  .filter(r => r.activityId === `meal-${m.id}` || r.activityId === `food-${m.id}` || r.activityTitle === m.name)
-                  .reduce((a, r) => a + (Number(r.devoteeCount ?? 1) || 1), 0);
-                const target = m.targetPlates || 500;
-                const pct = Math.min(100, Math.round((bookedCount / target) * 100));
+            {!useMock ? (
+              eventScopedMeals.length > 0 ? (
+                eventScopedMeals.map((m) => {
+                  const bookedCount = liveRegistrations
+                    .filter(r => r.activityId === `meal-${m.id}` || r.activityId === `food-${m.id}` || r.activityTitle === m.name)
+                    .reduce((a, r) => a + (Number(r.devoteeCount ?? 1) || 1), 0);
+                  const target = m.targetPlates || 0;
+                  const pct = target > 0 ? Math.min(100, Math.round((bookedCount / target) * 100)) : 0;
 
-                return (
-                  <div key={m.id} className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 space-y-2 hover:border-orange-200 transition-all">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-slate-800 text-xs sm:text-sm">{m.name}</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
-                          {m.mealType}
-                        </span>
-                        {m.dietType && (
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">
-                            {m.dietType}
+                  return (
+                    <div key={m.id} className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 space-y-2 hover:border-orange-200 transition-all">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-slate-800 text-xs sm:text-sm">{m.name}</span>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                            {m.mealType}
                           </span>
-                        )}
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700">
-                          {m.isFree ? "Free" : `₹${m.fee}`}
+                          {m.dietType && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">
+                              {m.dietType}
+                            </span>
+                          )}
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700">
+                            {m.isFree ? "Free" : `₹${m.fee}`}
+                          </span>
+                        </div>
+                        <span className="text-xs text-slate-500 font-medium tabular-nums">
+                          <span className="font-bold text-orange-600">{bookedCount}</span> / {target} plates
                         </span>
                       </div>
-                      <span className="text-xs text-slate-500 font-medium tabular-nums">
-                        <span className="font-bold text-orange-600">{bookedCount}</span> / {target} plates
-                      </span>
-                    </div>
 
-                    <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
-                      <div
-                        style={{ width: `${pct}%` }}
-                        className={`h-full rounded-full transition-all ${
-                          pct >= 90 ? "bg-rose-500" : pct >= 60 ? "bg-orange-500" : "bg-emerald-500"
-                        }`}
-                      />
-                    </div>
+                      {target > 0 && (
+                        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div
+                            style={{ width: `${pct}%` }}
+                            className={`h-full rounded-full transition-all ${
+                              pct >= 90 ? "bg-rose-500" : pct >= 60 ? "bg-orange-500" : "bg-emerald-500"
+                            }`}
+                          />
+                        </div>
+                      )}
 
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 flex-wrap gap-2">
-                      <div className="flex items-center gap-3">
-                        <span>📅 {m.date} {m.startTime ? `· ${m.startTime}` : ""}</span>
-                        <span>👨‍🍳 {m.caterer || "Temple Kitchen"}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 ml-auto">
-                        <button
-                          onClick={() => openRsvpModal(m)}
-                          className="px-2 py-1 rounded-lg text-[10px] font-bold bg-orange-100 text-orange-800 hover:bg-orange-200 transition-colors cursor-pointer"
-                        >
-                          RSVP Pass
-                        </button>
-                        <button
-                          onClick={() => openEditMealModal(m)}
-                          className="p-1 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-md transition cursor-pointer"
-                          title="Edit Meal"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteMeal(m.id)}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition cursor-pointer"
-                          title="Delete Meal"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 flex-wrap gap-2">
+                        <div className="flex items-center gap-3">
+                          <span>📅 {m.date} {m.startTime ? `· ${m.startTime}` : ""}</span>
+                          <span>👨‍🍳 {m.caterer || "Temple Kitchen"}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 ml-auto">
+                          <button
+                            onClick={() => openRsvpModal(m)}
+                            className="px-2 py-1 rounded-lg text-[10px] font-bold bg-orange-100 text-orange-800 hover:bg-orange-200 transition-colors cursor-pointer"
+                          >
+                            RSVP Pass
+                          </button>
+                          <button
+                            onClick={() => openEditMealModal(m)}
+                            className="p-1 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded-md transition cursor-pointer"
+                            title="Edit Meal"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteMeal(m.id)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition cursor-pointer"
+                            title="Delete Meal"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })
+              ) : (
+                <div className="py-8 text-center text-slate-400 space-y-2">
+                  <UtensilsCrossed className="w-8 h-8 mx-auto text-slate-300" />
+                  <p className="text-xs font-semibold">No meal batches scheduled for this event yet.</p>
+                  <button
+                    onClick={openCreateMealModal}
+                    className="text-xs text-orange-600 font-bold hover:underline cursor-pointer"
+                  >
+                    + Add First Meal Course
+                  </button>
+                </div>
+              )
             ) : (
               mockMenuItems.map((item, i) => {
                 const pct = Math.round((item.prepared / item.qty) * 100);

@@ -4,7 +4,7 @@ import {
   Filter,
   Loader2,
   Calendar,
-  DollarSign,
+  IndianRupee,
   CreditCard,
 } from "lucide-react";
 import { Card, CardContent } from "../../ui/card";
@@ -204,7 +204,7 @@ export function PaymentsManagement() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1 text-sm font-medium text-foreground">
-                            <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                            <IndianRupee className="h-3.5 w-3.5 text-muted-foreground" />
                             {formatCurrency(p.amount)}
                           </div>
                         </TableCell>

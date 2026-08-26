@@ -1351,7 +1351,9 @@ function EventDetailsDialog({
                                 {(p.startTime || (p.startTimes && p.startTimes.length > 0)) && (
                                   <span className="flex items-center gap-0.5">
                                     <Clock className="w-2.5 h-2.5 text-slate-400" />
-                                    <span>{p.startTimes ? p.startTimes.join(", ") : p.startTime}</span>
+                                    <span>{Array.isArray(p.timeSlotConfig) && p.timeSlotConfig.length > 0
+                                      ? [...new Set(p.timeSlotConfig.map((c: any) => c.startTime).filter(Boolean))].join(", ")
+                                      : p.startTime}</span>
                                   </span>
                                 )}
                               </div>
@@ -2037,7 +2039,10 @@ function EventsList() {
             status: (e.status?.toLowerCase() as EventStatus) || (e.startDate && new Date(e.startDate) > new Date() ? "upcoming" : "completed"),
             visibility: (e.visibility?.toLowerCase() as any) || "community",
             registrations: e.attendees ?? (e as any).registrationCount ?? (e as any).registrations ?? 0,
-            capacity: e.maxAttendees ?? e.capacity ?? 100,
+            capacity: e.capacity ?? e.maxAttendees ?? 100,
+            maxAttendees: e.maxAttendees ?? e.capacity ?? 100,
+            totalCapacity: e.capacity ?? e.maxAttendees ?? 100,
+            ticketTypes: e.ticketTypes,
             coverImage: e.imageUrl || "",
             createdAt: e.createdAt || new Date().toISOString(),
           }));
@@ -2111,6 +2116,9 @@ function EventsList() {
               visibility: (e.visibility?.toLowerCase() as any) || "community",
               registrations: e.attendees ?? (e as any).registrationCount ?? (e as any).registrations ?? 0,
               capacity: e.capacity ?? e.maxAttendees ?? 100,
+              maxAttendees: e.maxAttendees ?? e.capacity ?? 100,
+              totalCapacity: e.capacity ?? e.maxAttendees ?? 100,
+              ticketTypes: e.ticketTypes,
               coverImage: e.imageUrl || "",
               createdAt: e.createdAt || new Date().toISOString(),
             }));
@@ -2321,10 +2329,10 @@ export function EventsSchedule() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-0.5 sm:gap-1 p-0.5 sm:p-1 bg-white rounded-lg sm:rounded-xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-x-auto hide-scrollbar">
+      <div className="flex items-center gap-0.5 p-0.5 bg-white rounded-md sm:rounded-lg border border-slate-100 shadow-[0_2px_6px_rgba(0,0,0,0.04)] overflow-x-auto hide-scrollbar">
         {visibleTabs.map(t => (
           <button key={t.id} onClick={() => handleTabSelect(t.id)}
-            className={`flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[10px] sm:text-sm font-semibold transition-all whitespace-nowrap flex-1 sm:flex-none justify-center ${
+            className={`flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded sm:rounded-md text-[10px] sm:text-xs font-semibold transition-all whitespace-nowrap flex-1 sm:flex-none justify-center ${
               tab === t.id
                 ? "bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm"
                 : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
