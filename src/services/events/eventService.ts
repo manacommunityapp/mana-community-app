@@ -605,29 +605,15 @@ export const eventService = {
   },
 
   async createPoojaRegistration(data: PoojaRegistrationRequest): Promise<any> {
-    try {
-      return await apiClient.post<any>("/events/pooja-registrations", data);
-    } catch {
-      return await apiClient.post<any>("/events/registrations", data);
-    }
+    return apiClient.post<any>("/events/pooja-registrations", data);
   },
 
   async getPoojaRegistrations(): Promise<any[]> {
-    try {
-      return await apiClient.get<any[]>("/events/pooja-registrations");
-    } catch {
-      const all = await apiClient.get<any[]>("/events/registrations");
-      return (all || []).filter((r: any) => r.category === "Pooja" || r.activityId?.startsWith("pooja-"));
-    }
+    return apiClient.get<any[]>("/events/pooja-registrations");
   },
 
   async getMyPoojaRegistrations(): Promise<any[]> {
-    try {
-      return await apiClient.get<any[]>("/events/pooja-registrations/my");
-    } catch {
-      const all = await apiClient.get<any[]>("/events/registrations/my");
-      return (all || []).filter((r: any) => r.category === "Pooja" || r.activityId?.startsWith("pooja-"));
-    }
+    return apiClient.get<any[]>("/events/pooja-registrations/my");
   },
 
   async getMyRegistrations(): Promise<any[]> {
@@ -717,42 +703,26 @@ export const eventService = {
   async updatePoojaRegistration(id: number | string, data: PoojaRegistrationRequest): Promise<any> {
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
-    try {
-      return await apiClient.put<any>(`/events/pooja-registrations/${numericId}`, data);
-    } catch {
-      return await apiClient.put<any>(`/events/registrations/${numericId}`, data);
-    }
+    return apiClient.put<any>(`/events/pooja-registrations/${numericId}`, data);
   },
 
   async cancelRegistration(id: number | string, reason?: string): Promise<void> {
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
     const qs = reason ? `?reason=${encodeURIComponent(reason)}` : "";
-    try {
-      await apiClient.delete<void>(`/events/pooja-registrations/${numericId}${qs}`);
-    } catch {
-      await apiClient.delete<void>(`/events/registrations/${numericId}${qs}`);
-    }
+    await apiClient.delete<void>(`/events/pooja-registrations/${numericId}${qs}`);
   },
 
   async deleteRegistrationPermanent(id: number | string): Promise<void> {
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
-    try {
-      await apiClient.delete<void>(`/events/pooja-registrations/${numericId}?permanent=true`);
-    } catch {
-      await apiClient.delete<void>(`/events/registrations/${numericId}?permanent=true`);
-    }
+    await apiClient.delete<void>(`/events/pooja-registrations/${numericId}?permanent=true`);
   },
 
   async adminCreateRegistration(data: any): Promise<any> {
     if (data?.category?.toLowerCase() === "pooja") {
       const targetParam = data.targetUserId ? `&targetUserId=${data.targetUserId}` : "";
-      try {
-        return await apiClient.post<any>(`/events/pooja-registrations?adminOverride=true${targetParam}`, data);
-      } catch {
-        // fallback
-      }
+      return apiClient.post<any>(`/events/pooja-registrations?adminOverride=true${targetParam}`, data);
     }
     return apiClient.post<any>("/events/registrations?adminOverride=true", data);
   },
