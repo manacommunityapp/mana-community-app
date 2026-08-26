@@ -1589,27 +1589,21 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
                           {/* Activity Card Body */}
                           <div className="p-3.5 sm:p-4 space-y-3.5">
-                            {/* Visual Category Selector & Dropdown */}
-                            <div>
-                              <div className="flex items-center justify-between mb-1.5">
-                                <FieldLabel required>Activity Category / Type</FieldLabel>
-                                <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
-                                  Selected: {currentCategory}
-                                </span>
-                              </div>
-
-                              {/* Dropdown Selector */}
+                            {/* Row 1: Activity Category & Pooja/Seva Title Side-by-Side */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                              {/* Left: Activity Category / Type */}
                               <div>
+                                <div className="flex items-center justify-between mb-1">
+                                  <FieldLabel required>Activity Category / Type</FieldLabel>
+                                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                                    Selected: {currentCategory}
+                                  </span>
+                                </div>
                                 <select
                                   value={currentCategory}
                                   onChange={(e) => {
                                     const newCat = e.target.value;
                                     const updates: Partial<ScheduleActivity> = { categoryType: newCat };
-                                    if (newCat !== "Other" && PRESET_ACTIVITY_TITLES[newCat]) {
-                                      if (!act.name || Object.values(PRESET_ACTIVITY_TITLES).some(list => list.includes(act.name))) {
-                                        updates.name = PRESET_ACTIVITY_TITLES[newCat][0];
-                                      }
-                                    }
                                     updateActivityFields(day.date, act.id, updates);
                                   }}
                                   className={cn(
@@ -1625,11 +1619,8 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   ))}
                                 </select>
                               </div>
-                            </div>
 
-                            {/* Row: Title + (Pooja Type if Pooja & Seva) */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
-                              {/* Left: Activity Title */}
+                              {/* Right: Activity Title (Pooja / Seva Title) */}
                               <div>
                                 <div className="flex items-center justify-between mb-1">
                                   <FieldLabel required>
@@ -1637,175 +1628,135 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   </FieldLabel>
                                 </div>
                                 <Input
-                                  list={`preset-titles-${act.id}`}
                                   value={act.name}
                                   onChange={(e) => updateActivity(day.date, act.id, "name", e.target.value)}
                                   placeholder={isPooja ? "e.g. Maha Ganapathi Homam & Sankalpam" : "e.g. Classical Dance / Drawing Contest"}
                                   className={cn(INPUT_CLS, "h-9 text-xs bg-white font-bold text-slate-900 border-slate-200")}
                                 />
-                                <datalist id={`preset-titles-${act.id}`}>
-                                  {suggestions.map((title, i) => (
-                                    <option key={i} value={title} />
-                                  ))}
-                                </datalist>
-
-                                {suggestions.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1.5">
-                                    <span className="text-[9.5px] font-bold text-slate-400 mr-0.5 py-0.5">Presets:</span>
-                                    {suggestions.slice(0, 3).map((title, i) => (
-                                      <button
-                                        key={i}
-                                        type="button"
-                                        onClick={() => updateActivity(day.date, act.id, "name", title)}
-                                        className={cn(
-                                          "text-[9.5px] px-2 py-0.5 rounded-lg border transition-all cursor-pointer font-bold",
-                                          act.name === title
-                                            ? "bg-indigo-600 text-white border-indigo-600 shadow-2xs"
-                                            : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
-                                        )}
-                                      >
-                                        + {title.split(" ")[0]} {title.split(" ")[1] || ""}
-                                      </button>
-                                    ))}
-                                  </div>
-                                )}
                               </div>
+                            </div>
 
-                              {/* Right: Specialized Section (Pooja Type for Pooja, or Custom Type / Sync info) */}
-                              {isPooja ? (
-                                <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1.5">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-[11px] font-extrabold text-amber-900 flex items-center gap-1">
-                                      <Flame className="w-3.5 h-3.5 text-amber-600" /> Pooja &amp; Seva Type
-                                    </label>
-                                    {addingTypeForActId !== act.id && (
+                            {/* Row 2: Specialized Section (Pooja Type for Pooja, or Custom Type / Sync info) */}
+                            {isPooja ? (
+                              <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <label className="text-[11px] font-extrabold text-amber-900 flex items-center gap-1">
+                                    <Flame className="w-3.5 h-3.5 text-amber-600" /> Pooja &amp; Seva Type
+                                  </label>
+                                  {addingTypeForActId !== act.id && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                      className="text-[10.5px] font-bold text-amber-700 hover:text-amber-900 hover:underline flex items-center gap-0.5 cursor-pointer"
+                                    >
+                                      <Plus className="w-3 h-3" /> Add Custom Type
+                                    </button>
+                                  )}
+                                </div>
+
+                                {addingTypeForActId === act.id ? (
+                                  <div className="space-y-1.5 pt-0.5">
+                                    <div className="flex gap-1.5">
+                                      <Input
+                                        value={newPoojaTypeName}
+                                        onChange={(e) => { setNewPoojaTypeName(e.target.value); setAddTypeError(""); }}
+                                        placeholder="e.g. Navagraha Homam, Deeparadhana..."
+                                        className={cn(INPUT_CLS, "bg-white flex-1 h-8.5 text-xs font-bold border-amber-300")}
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") { e.preventDefault(); handleAddPoojaType(act.id, day.date); }
+                                          if (e.key === "Escape") { setAddingTypeForActId(null); setNewPoojaTypeName(""); }
+                                        }}
+                                      />
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        disabled={addingType || !newPoojaTypeName.trim()}
+                                        onClick={() => handleAddPoojaType(act.id, day.date)}
+                                        className="h-8.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold disabled:opacity-50 shrink-0 shadow-xs cursor-pointer"
+                                      >
+                                        {addingType ? "…" : "Save"}
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => { setAddingTypeForActId(null); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                        className="h-8.5 px-2 rounded-xl bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold shrink-0 border-slate-200"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </div>
+                                    {addTypeError && <p className="text-[10px] font-bold text-rose-600">{addTypeError}</p>}
+                                  </div>
+                                ) : (
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <select
+                                        value={act.poojaType || ""}
+                                        onChange={(e) => updateActivity(day.date, act.id, "poojaType", e.target.value)}
+                                        className="flex-1 h-9 px-3 rounded-xl bg-white border border-amber-300 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-200 cursor-pointer shadow-2xs"
+                                      >
+                                        <option value="">— Select Pooja / Seva Type —</option>
+                                        {poojaTypeOptions.length > 0 ? (
+                                          poojaTypeOptions.map(t => (
+                                            <option key={t.id} value={t.name}>{t.name}</option>
+                                          ))
+                                        ) : (
+                                          <>
+                                            <option value="Maha Pooja">Maha Pooja</option>
+                                            <option value="Archana & Deeparadhana">Archana &amp; Deeparadhana</option>
+                                            <option value="Rudrabhishekam">Rudrabhishekam</option>
+                                            <option value="Homam & Havan">Homam &amp; Havan</option>
+                                            <option value="Maha Sankalpam">Maha Sankalpam</option>
+                                            <option value="Mahamangal Aarti">Mahamangal Aarti</option>
+                                            <option value="Sri Satyanarayana Vratham">Sri Satyanarayana Vratham</option>
+                                            <option value="Special Seva">Special Seva</option>
+                                          </>
+                                        )}
+                                      </select>
                                       <button
                                         type="button"
                                         onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                        className="text-[10.5px] font-bold text-amber-700 hover:text-amber-900 hover:underline flex items-center gap-0.5 cursor-pointer"
+                                        className="h-9 px-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1 transition shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                                        title="Add new Pooja Type"
                                       >
-                                        <Plus className="w-3 h-3" /> Add Custom Type
+                                        <Plus className="w-3.5 h-3.5" />
                                       </button>
-                                    )}
-                                  </div>
-
-                                  {addingTypeForActId === act.id ? (
-                                    <div className="space-y-1.5 pt-0.5">
-                                      <div className="flex gap-1.5">
-                                        <Input
-                                          value={newPoojaTypeName}
-                                          onChange={(e) => { setNewPoojaTypeName(e.target.value); setAddTypeError(""); }}
-                                          placeholder="e.g. Navagraha Homam, Deeparadhana..."
-                                          className={cn(INPUT_CLS, "bg-white flex-1 h-8.5 text-xs font-bold border-amber-300")}
-                                          autoFocus
-                                          onKeyDown={(e) => {
-                                            if (e.key === "Enter") { e.preventDefault(); handleAddPoojaType(act.id, day.date); }
-                                            if (e.key === "Escape") { setAddingTypeForActId(null); setNewPoojaTypeName(""); }
-                                          }}
-                                        />
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          disabled={addingType || !newPoojaTypeName.trim()}
-                                          onClick={() => handleAddPoojaType(act.id, day.date)}
-                                          className="h-8.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold disabled:opacity-50 shrink-0 shadow-xs cursor-pointer"
-                                        >
-                                          {addingType ? "…" : "Save"}
-                                        </Button>
-                                        <Button
-                                          type="button"
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => { setAddingTypeForActId(null); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                          className="h-8.5 px-2 rounded-xl bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold shrink-0 border-slate-200"
-                                        >
-                                          <X className="w-3.5 h-3.5" />
-                                        </Button>
-                                      </div>
-                                      {addTypeError && <p className="text-[10px] font-bold text-rose-600">{addTypeError}</p>}
                                     </div>
-                                  ) : (
-                                    <div className="space-y-1.5">
-                                      <div className="flex items-center gap-1.5">
-                                        <select
-                                          value={act.poojaType || ""}
-                                          onChange={(e) => updateActivity(day.date, act.id, "poojaType", e.target.value)}
-                                          className="flex-1 h-9 px-3 rounded-xl bg-white border border-amber-300 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-200 cursor-pointer shadow-2xs"
-                                        >
-                                          <option value="">— Select Pooja / Seva Type —</option>
-                                          {poojaTypeOptions.length > 0 ? (
-                                            poojaTypeOptions.map(t => (
-                                              <option key={t.id} value={t.name}>{t.name}</option>
-                                            ))
-                                          ) : (
-                                            <>
-                                              <option value="Maha Pooja">Maha Pooja</option>
-                                              <option value="Archana & Deeparadhana">Archana &amp; Deeparadhana</option>
-                                              <option value="Rudrabhishekam">Rudrabhishekam</option>
-                                              <option value="Homam & Havan">Homam &amp; Havan</option>
-                                              <option value="Maha Sankalpam">Maha Sankalpam</option>
-                                              <option value="Mahamangal Aarti">Mahamangal Aarti</option>
-                                              <option value="Sri Satyanarayana Vratham">Sri Satyanarayana Vratham</option>
-                                              <option value="Special Seva">Special Seva</option>
-                                            </>
-                                          )}
-                                        </select>
+
+                                    {/* Quick Clickable Pooja Type Chips */}
+                                    <div className="flex flex-wrap gap-1">
+                                      {["Archana", "Homam", "Abhishekam", "Sankalpam", "Aarti", "Seva"].map((quickType) => (
                                         <button
+                                          key={quickType}
                                           type="button"
-                                          onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                          className="h-9 px-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1 transition shadow-2xs active:scale-95 cursor-pointer shrink-0"
-                                          title="Add new Pooja Type"
+                                          onClick={() => updateActivity(day.date, act.id, "poojaType", quickType)}
+                                          className={cn(
+                                            "text-[9.5px] px-2 py-0.5 rounded-lg border font-bold transition-all cursor-pointer",
+                                            act.poojaType === quickType
+                                              ? "bg-amber-600 text-white border-amber-600 shadow-2xs"
+                                              : "bg-white text-amber-900 border-amber-200 hover:bg-amber-100 hover:border-amber-300"
+                                          )}
                                         >
-                                          <Plus className="w-3.5 h-3.5" />
+                                          {quickType}
                                         </button>
-                                      </div>
-
-                                      {/* Quick Clickable Pooja Type Chips */}
-                                      <div className="flex flex-wrap gap-1">
-                                        {["Archana", "Homam", "Abhishekam", "Sankalpam", "Aarti", "Seva"].map((quickType) => (
-                                          <button
-                                            key={quickType}
-                                            type="button"
-                                            onClick={() => updateActivity(day.date, act.id, "poojaType", quickType)}
-                                            className={cn(
-                                              "text-[9.5px] px-2 py-0.5 rounded-lg border font-bold transition-all cursor-pointer",
-                                              act.poojaType === quickType
-                                                ? "bg-amber-600 text-white border-amber-600 shadow-2xs"
-                                                : "bg-white text-amber-900 border-amber-200 hover:bg-amber-100 hover:border-amber-300"
-                                            )}
-                                          >
-                                            {quickType}
-                                          </button>
-                                        ))}
-                                      </div>
+                                      ))}
                                     </div>
-                                  )}
-                                </div>
-                              ) : isOtherCategory ? (
-                                <div>
-                                  <FieldLabel required>Custom Type Name</FieldLabel>
-                                  <Input
-                                    value={act.customType || ""}
-                                    onChange={(e) => updateActivity(day.date, act.id, "customType", e.target.value)}
-                                    placeholder="e.g. Sports / Workshop / Stage Play"
-                                    className={cn(INPUT_CLS, "h-9 text-xs bg-white font-medium")}
-                                  />
-                                </div>
-                              ) : (
-                                <div className="p-3 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex flex-col justify-center">
-                                  <span className="text-[10px] font-extrabold uppercase text-indigo-400">Sync Destination</span>
-                                  <p className="text-xs font-bold text-indigo-900 mt-0.5">
-                                    {currentCategory === "Lunch" || currentCategory === "Dinner"
-                                      ? "🍽️ Automatically synced to Lunch & Dinner modules"
-                                      : currentCategory === "Cultural Events"
-                                      ? "🎭 Automatically synced to Cultural Events dashboard"
-                                      : currentCategory === "Competitions"
-                                      ? "🏆 Automatically synced to Competitions roster"
-                                      : "⚡ Synced to Programs"}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
+                                  </div>
+                                )}
+                              </div>
+                            ) : isOtherCategory ? (
+                              <div>
+                                <FieldLabel required>Custom Type Name</FieldLabel>
+                                <Input
+                                  value={act.customType || ""}
+                                  onChange={(e) => updateActivity(day.date, act.id, "customType", e.target.value)}
+                                  placeholder="e.g. Sports / Workshop / Stage Play"
+                                  className={cn(INPUT_CLS, "h-9 text-xs bg-white font-medium")}
+                                />
+                              </div>
+                            ) : null}
 
                             {/* Row: Timing (Start & End Time) */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
