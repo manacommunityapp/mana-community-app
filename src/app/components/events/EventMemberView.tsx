@@ -95,9 +95,12 @@ interface Activity {
   isUpdateMode?: boolean;
   /** ID of the parent community/top-level event this sub-event belongs to */
   mainEventId?: string | number;
+  /** Whether registration is required (if false, it is open to all) */
+  needsRegistration?: boolean;
   /** Raw database auction item object if category is Auction */
   rawAuctionItem?: any;
 }
+
 
 interface UserPass {
   id: string;
@@ -732,6 +735,7 @@ export function EventMemberView() {
             slots: p.slots,
             fee: p.isFree ? 0 : Number(p.fee || 501),
             isFree: p.isFree,
+            needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
             availableSeats: Math.max(0, initialSlots - booked),
             image: "🪔",
             description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || ""}`,
@@ -761,6 +765,7 @@ export function EventMemberView() {
               price: p.isFree ? 0 : Number(p.fee || 501),
               fee: p.isFree ? 0 : Number(p.fee || 501),
               isFree: p.isFree,
+              needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
               coverImage: p.coverImage || p.imageUrl || "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
               description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || p.description || "Sacred Pooja Seva Sankalpam"}${isMultiDay ? " (Multi-Day Booking)" : ""}`,
               attendees: booked,
@@ -798,6 +803,8 @@ export function EventMemberView() {
             time: m.startTime && m.endTime ? `${m.startTime} - ${m.endTime}` : (m.startTime || "Afternoon / Evening"),
             venue: m.venue || m.diningHall || m.location || "",
             fee: m.isFree ? 0 : Number(m.fee || 50),
+            isFree: m.isFree,
+            needsRegistration: m.needsRegistration !== undefined && m.needsRegistration !== null ? Boolean(m.needsRegistration) : true,
             availableSeats: Math.max(0, initialPlates - booked),
             image: "🍲",
             description: `Meal: ${m.mealType || "Bhojanam"}. Caterer: ${m.caterer || "Food Committee"}. Menu: ${Array.isArray(m.menuItems) ? m.menuItems.join(", ") : ""}. ${m.notes || ""}`,
@@ -830,6 +837,7 @@ export function EventMemberView() {
             time: c.startTime || "Evening",
             venue: c.stage || c.venue || c.location || "",
             fee: 0,
+            needsRegistration: c.needsRegistration !== undefined && c.needsRegistration !== null ? Boolean(c.needsRegistration) : false,
             availableSeats: Math.max(0, initialSeats - booked),
             image: "🎭",
             description: `Category: ${c.category}. Type: ${c.perfType || "Group"}. Age: ${c.ageGroup || "All"}.`,
@@ -862,12 +870,15 @@ export function EventMemberView() {
             time: cm.startTime || "Morning",
             venue: cm.venue || cm.stage || cm.location || "",
             fee: cm.isFree ? 0 : Number(cm.fee || 100),
+            isFree: cm.isFree,
+            needsRegistration: cm.needsRegistration !== undefined && cm.needsRegistration !== null ? Boolean(cm.needsRegistration) : true,
             availableSeats: Math.max(0, initialMax - booked),
             image: "🏆",
             description: `Category: ${cm.category}. Age Group: ${cm.ageGroup || "Open"}. Rules: ${cm.rules || ""}`,
           });
         });
       }
+
 
       if (auctionItems && Array.isArray(auctionItems)) {
         auctionItems.forEach((item: any) => {
@@ -2136,7 +2147,13 @@ export function EventMemberView() {
                                       <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-white/10 text-white/60 border border-white/10 shrink-0">
                                         Closed
                                       </span>
+                                    ) : subAct.needsRegistration === false ? (
+                                      <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 shrink-0 flex items-center gap-1">
+                                        <Sparkles className="w-2.5 h-2.5 text-emerald-300" />
+                                        <span>Open to All</span>
+                                      </span>
                                     ) : isPooja && (subAct.mainEventId || activeMainEvent?.id) && !isMainReg ? (
+
                                       <button
                                         type="button"
                                         disabled
@@ -2599,7 +2616,15 @@ export function EventMemberView() {
                                 </span>
                               );
                             }
+                            if (act.needsRegistration === false) {
+                              return (
+                                <span className="px-3 py-1.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 text-xs font-bold rounded-xl flex items-center gap-1.5 select-none">
+                                  <Sparkles className="w-3.5 h-3.5 text-emerald-500" /> Open to All (No Pass Needed)
+                                </span>
+                              );
+                            }
                             if (isThisActPooja && act.mainEventId) {
+
                               const isMainReg = isMainEventRegistered(act.mainEventId);
                               if (!isMainReg) {
                                 return (
@@ -3139,15 +3164,22 @@ export function EventMemberView() {
                       </p>
                     )}
 
-                    <button
-                      onClick={() => {
-                        setMobileModal(null);
-                        setSelectedActivity(p);
-                      }}
-                      className="w-full py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-amber-600/20 cursor-pointer"
-                    >
-                      <Flame className="w-3.5 h-3.5" /> Book Devotee Pooja Slot
-                    </button>
+                    {p.needsRegistration === false ? (
+                      <div className="w-full py-2 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 select-none">
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-500" /> Open to All (No Pass Needed)
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setMobileModal(null);
+                          setSelectedActivity(p);
+                        }}
+                        className="w-full py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-amber-600/20 cursor-pointer"
+                      >
+                        <Flame className="w-3.5 h-3.5" /> Book Devotee Pooja Slot
+                      </button>
+                    )}
+
                   </div>
                 ));
               })()}
@@ -4245,7 +4277,15 @@ export function EventMemberView() {
                                     </span>
                                   );
                                 }
+                                if (act.needsRegistration === false) {
+                                  return (
+                                    <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold rounded-lg border border-emerald-500/20 flex items-center gap-1 select-none">
+                                      <Sparkles className="w-3 h-3 text-emerald-500" /> Open to All
+                                    </span>
+                                  );
+                                }
                                 if (isThisActPooja && act.mainEventId) {
+
                                   const isMainReg = isMainEventRegistered(act.mainEventId);
                                   if (!isMainReg) {
                                     return (
