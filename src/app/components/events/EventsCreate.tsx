@@ -891,7 +891,6 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     }
   }, [data.daySchedules]);
 
-  const [poojaTypeOptions, setPoojaTypeOptions] = useState<{ id: number; name: string }[]>([]);
   useEffect(() => {
     eventService.getPoojaTypes().then((types: { id: number; name: string }[]) => {
       if (Array.isArray(types) && types.length > 0) setPoojaTypeOptions(types);
