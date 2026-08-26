@@ -6,7 +6,7 @@ import {
   Globe, Lock, Building2, Heart, Music, Utensils,
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
-  Zap, Star, ArrowRight, Trash2, PlusCircle, Link2, Flame, Copy,
+  Zap, Star, ArrowRight, Trash2, PlusCircle, Link2, Copy,
   Save, Bookmark, XCircle, Mail, CreditCard, QrCode, Phone, User, Info, Loader2,
 } from "lucide-react";
 import { Input } from "../ui/input";
@@ -1769,110 +1769,6 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   className={cn(INPUT_CLS, "h-9 text-xs bg-white font-bold text-slate-900 border-slate-200")}
                                 />
                               </div>
-                            </div>
-
-                            {/* Row 2: Specialized Section (Pooja Type for Pooja, or Custom Type / Sync info) */}
-                            {isPooja ? (
-                              <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                  <label className="text-[11px] font-extrabold text-amber-900 flex items-center gap-1">
-                                    <Flame className="w-3.5 h-3.5 text-amber-600" /> Pooja &amp; Seva Type
-                                  </label>
-                                  {addingTypeForActId !== act.id && (
-                                    <button
-                                      type="button"
-                                      onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                      className="text-[10.5px] font-bold text-amber-700 hover:text-amber-900 hover:underline flex items-center gap-0.5 cursor-pointer"
-                                    >
-                                      <Plus className="w-3 h-3" /> Add Custom Type
-                                    </button>
-                                  )}
-                                </div>
-
-                                {addingTypeForActId === act.id ? (
-                                  <div className="space-y-1.5 pt-0.5">
-                                    <div className="flex gap-1.5">
-                                      <Input
-                                        value={newPoojaTypeName}
-                                        onChange={(e) => { setNewPoojaTypeName(e.target.value); setAddTypeError(""); }}
-                                        placeholder="e.g. Navagraha Homam, Deeparadhana..."
-                                        className={cn(INPUT_CLS, "bg-white flex-1 h-8.5 text-xs font-bold border-amber-300")}
-                                        autoFocus
-                                        onKeyDown={(e) => {
-                                          if (e.key === "Enter") { e.preventDefault(); handleAddPoojaType(act.id, day.date); }
-                                          if (e.key === "Escape") { setAddingTypeForActId(null); setNewPoojaTypeName(""); }
-                                        }}
-                                      />
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        disabled={addingType || !newPoojaTypeName.trim()}
-                                        onClick={() => handleAddPoojaType(act.id, day.date)}
-                                        className="h-8.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold disabled:opacity-50 shrink-0 shadow-xs cursor-pointer"
-                                      >
-                                        {addingType ? "…" : "Save"}
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => { setAddingTypeForActId(null); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                        className="h-8.5 px-2 rounded-xl bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold shrink-0 border-slate-200"
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </Button>
-                                    </div>
-                                    {addTypeError && <p className="text-[10px] font-bold text-rose-600">{addTypeError}</p>}
-                                  </div>
-                                ) : (
-                                  <div className="space-y-1.5">
-                                    <div className="flex items-center gap-1.5">
-                                      <select
-                                        value={act.poojaType || ""}
-                                        onChange={(e) => updateActivity(day.date, act.id, "poojaType", e.target.value)}
-                                        className="flex-1 h-9 px-3 rounded-xl bg-white border border-amber-300 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-200 cursor-pointer shadow-2xs"
-                                      >
-                                        <option value="">— Select Pooja / Seva Type —</option>
-                                        {poojaTypeOptions.length > 0 ? (
-                                          poojaTypeOptions.map(t => (
-                                            <option key={t.id} value={t.name}>{t.name}</option>
-                                          ))
-                                        ) : (
-                                          <>
-                                            <option value="Maha Pooja">Maha Pooja</option>
-                                            <option value="Archana & Deeparadhana">Archana &amp; Deeparadhana</option>
-                                            <option value="Rudrabhishekam">Rudrabhishekam</option>
-                                            <option value="Homam & Havan">Homam &amp; Havan</option>
-                                            <option value="Maha Sankalpam">Maha Sankalpam</option>
-                                            <option value="Mahamangal Aarti">Mahamangal Aarti</option>
-                                            <option value="Sri Satyanarayana Vratham">Sri Satyanarayana Vratham</option>
-                                            <option value="Special Seva">Special Seva</option>
-                                          </>
-                                        )}
-                                      </select>
-                                      <button
-                                        type="button"
-                                        onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                        className="h-9 px-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1 transition shadow-2xs active:scale-95 cursor-pointer shrink-0"
-                                        title="Add new Pooja Type"
-                                      >
-                                        <Plus className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ) : isOtherCategory ? (
-                              <div>
-                                <FieldLabel required>Custom Type Name</FieldLabel>
-                                <Input
-                                  value={act.customType || ""}
-                                  onChange={(e) => updateActivity(day.date, act.id, "customType", e.target.value)}
-                                  placeholder="e.g. Sports / Workshop / Stage Play"
-                                  className={cn(INPUT_CLS, "h-9 text-xs bg-white font-medium")}
-                                />
-                              </div>
-                            ) : null}
 
                               {/* Pooja Type — only for Pooja & Seva, beside Activity Title */}
                               {currentCategory === "Pooja & Seva" && (
@@ -4436,7 +4332,7 @@ export function EventCreateWizard({
   const [publishError, setPublishError] = useState("");
   const [loadingEvent, setLoadingEvent] = useState(false);
 
-  let useMock = true;
+  let useMock = false;
   try { useMock = useEventMock().useMock; } catch {}
 
   const [formData, setFormData] = useState<FormData>(() => {

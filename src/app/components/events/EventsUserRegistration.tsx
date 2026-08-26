@@ -790,7 +790,7 @@ export function EventsUserRegistration() {
   const [registering, setRegistering] = useState(false);
   const [regError, setRegError] = useState("");
 
-  let useMock = true;
+  let useMock = false;
   try { useMock = useEventMock().useMock; } catch {}
 
   const [liveEvents, setLiveEvents] = useState<EventResponse[]>([]);
