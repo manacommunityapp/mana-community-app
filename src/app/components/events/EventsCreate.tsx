@@ -924,12 +924,17 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const handleStartDate = (val: string) => {
     update("startDate", val);
     if (data.multiDay) {
+      const effectiveEnd = data.endDate && data.endDate >= val ? data.endDate : val;
       if (data.endDate && data.endDate < val) {
         update("endDate", val);
       }
-      if (data.daySchedules.length > 0) {
-        const pruned = data.daySchedules.filter(ds => ds.date >= val && (!data.endDate || ds.date <= data.endDate));
-        update("daySchedules", pruned);
+      // Auto-populate schedules for the new range
+      const rangedays = getDaysBetween(val, effectiveEnd);
+      const pruned = data.daySchedules.filter(ds => ds.date >= val && ds.date <= effectiveEnd);
+      const merged = rangedays.map(d => pruned.find(ds => ds.date === d) || { date: d, activities: [] });
+      update("daySchedules", merged);
+      if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
+        setExpandedDay(merged[0]?.date || null);
       }
     }
   };
@@ -937,12 +942,21 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const handleEndDate = (val: string) => {
     update("endDate", val);
     if (data.multiDay && data.startDate && val >= data.startDate) {
-      if (data.daySchedules.length > 0) {
-        const pruned = data.daySchedules.filter(ds => ds.date >= data.startDate && ds.date <= val);
-        update("daySchedules", pruned);
+      // Auto-populate schedules for all dates in the range
+      const rangedays = getDaysBetween(data.startDate, val);
+      const existing = data.daySchedules.filter(ds => ds.date >= data.startDate && ds.date <= val);
+      const merged = rangedays.map(d => existing.find(ds => ds.date === d) || { date: d, activities: [] });
+      update("daySchedules", merged);
+      // Auto-expand to the first newly added day (no activities yet)
+      const firstNew = merged.find(ds => !data.daySchedules.some(ex => ex.date === ds.date));
+      if (firstNew) {
+        setExpandedDay(firstNew.date);
+      } else if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
+        setExpandedDay(merged[0]?.date || null);
       }
     }
   };
+
 
   const handleMultiDayToggle = (v: boolean) => {
     update("multiDay", v);
@@ -952,9 +966,13 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       if (!data.endDate || data.endDate < targetStart) {
         update("endDate", targetEnd);
       }
-      if (data.daySchedules.length > 0) {
-        const valid = data.daySchedules.filter(ds => ds.date >= targetStart && ds.date <= targetEnd);
-        update("daySchedules", valid);
+      // Auto-populate day schedules for every day in the range
+      const rangedays = getDaysBetween(targetStart, targetEnd);
+      const existing = data.daySchedules.filter(ds => ds.date >= targetStart && ds.date <= targetEnd);
+      const merged = rangedays.map(d => existing.find(ds => ds.date === d) || { date: d, activities: [] });
+      update("daySchedules", merged);
+      if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
+        setExpandedDay(merged[0]?.date || null);
       }
     } else {
       if (data.startDate) {
@@ -963,6 +981,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       }
     }
   };
+
 
   const handleAddDay = () => {
     // Look for first unconfigured date in range if multiDay
