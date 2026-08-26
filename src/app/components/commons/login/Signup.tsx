@@ -110,24 +110,24 @@ function BrandPanel() {
               Resident Registration Portal
             </span>
           </div>
-          <h1 className="text-white leading-[1.15] mb-2.5 text-2xl xl:text-3xl font-black tracking-tight">
+          <h2 className="text-white leading-[1.15] mb-2.5 text-2xl xl:text-3xl font-black tracking-tight">
             Your community,
             <br />
             <span className="text-amber-300">at your fingertips.</span>
-          </h1>
+          </h2>
           <p className="text-indigo-100/80 text-xs xl:text-sm leading-relaxed max-w-sm">
             Join thousands of residents enjoying seamless event bookings, live announcements, and digital passes.
           </p>
         </div>
 
         {/* Feature Highlights */}
-        <div className="space-y-3">
+        <div className="space-y-2">
           {FEATURES.map(({ icon: Icon, text }, i) => (
-            <div key={i} className="flex items-start gap-3 group">
-              <div className="w-7 h-7 rounded-xl bg-white/10 group-hover:bg-white/20 transition-colors backdrop-blur-sm flex items-center justify-center shrink-0 border border-white/15 mt-0.5 shadow-xs">
+            <div key={i} className="flex items-start gap-2 group">
+              <div className="w-5 h-5 rounded-xl bg-white/10 group-hover:bg-white/20 transition-colors backdrop-blur-sm flex items-center justify-center shrink-0 border border-white/15 mt-0.5 shadow-xs">
                 <Icon className="w-3.5 h-3.5 text-amber-200" />
               </div>
-              <p className="text-indigo-50/90 text-xs xl:text-[13px] leading-snug font-medium pt-1">{text}</p>
+              <p className="text-indigo-50/90 text-xs xl:text-[12px] leading-snug font-medium pt-1">{text}</p>
             </div>
           ))}
         </div>
@@ -157,7 +157,7 @@ function BrandPanel() {
           <p className="text-indigo-50/90 text-[11px] xl:text-xs leading-relaxed italic">
             "Booking Ganesh Pooja seva for my family was so easy — scanned the QR at the gate and walked straight in!"
           </p>
-          <p className="text-amber-200 text-[10px] xl:text-[11px] font-semibold mt-1">— Rohan K., Lakshmi's Emperia</p>
+          <p className="text-amber-200 text-[10px] xl:text-[11px] font-semibold mt-1"> Lakshmi's Emperia</p>
         </div>
 
         <div className="flex items-center justify-between text-indigo-200/70 text-[11px] px-1">
