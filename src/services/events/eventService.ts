@@ -211,6 +211,7 @@ export interface PoojaScheduleDto {
   availableFamilies: number;
   availableDevotees: number;
   nextTokenSeq: number;
+  timeSlotConfigId?: number;
 }
 
 export interface PoojaReserveRequest {

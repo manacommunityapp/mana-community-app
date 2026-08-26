@@ -79,6 +79,7 @@ interface DaySlotOption {
   time: string;
   name: string;
   left: number;
+  timeSlotConfigId?: number;
 }
 
 interface DaySchedule {
@@ -204,6 +205,7 @@ function buildDaysFromLiveSchedules(liveSchedules: PoojaScheduleDto[], poojaTitl
         time: displayTime,
         name: sessionName,
         left: Math.max(0, avail),
+        timeSlotConfigId: sch.timeSlotConfigId,
       };
     });
 
@@ -692,6 +694,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             time: formattedTime,
             name: sessionName,
             left: Math.max(1, slotLeft),
+            timeSlotConfigId: matchedSingleConfig?.id as number | undefined,
           };
         })
       : [
@@ -904,6 +907,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         status: "CONFIRMED",
         ...(selectedScheduleId ? { scheduleId: selectedScheduleId } : {}),
         ...(reservationId ? { reservationId } : {}),
+        ...(selectedSlot?.timeSlotConfigId ? { poojaSevaTimeSlotsId: selectedSlot.timeSlotConfigId } : {}),
         ...(selectedTargetUserId ? { targetUserId: selectedTargetUserId } : {}),
       };
 

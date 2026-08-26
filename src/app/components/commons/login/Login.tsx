@@ -168,11 +168,11 @@ export function Login() {
                 Community Resident Portal
               </span>
             </div>
-            <h1 className="text-white leading-[1.15] mb-2.5 text-2xl xl:text-3xl font-black tracking-tight">
+            <h4 className="text-white leading-[1.15] mb-2.5 text-2xl xl:text-3xl font-black tracking-tight">
               Welcome back to your
               <br />
               <span className="text-amber-300">vibrant community.</span>
-            </h1>
+            </h4>
             <p className="text-indigo-100/80 text-xs xl:text-sm leading-relaxed max-w-sm">
               Log in to manage bookings, stay updated with society notices, and connect with neighbors seamlessly.
             </p>
