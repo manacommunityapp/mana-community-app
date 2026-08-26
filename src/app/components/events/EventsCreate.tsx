@@ -1724,25 +1724,6 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                         <Plus className="w-3.5 h-3.5" />
                                       </button>
                                     </div>
-
-                                    {/* Quick Clickable Pooja Type Chips */}
-                                    <div className="flex flex-wrap gap-1">
-                                      {["Archana", "Homam", "Abhishekam", "Sankalpam", "Aarti", "Seva"].map((quickType) => (
-                                        <button
-                                          key={quickType}
-                                          type="button"
-                                          onClick={() => updateActivity(day.date, act.id, "poojaType", quickType)}
-                                          className={cn(
-                                            "text-[9.5px] px-2 py-0.5 rounded-lg border font-bold transition-all cursor-pointer",
-                                            act.poojaType === quickType
-                                              ? "bg-amber-600 text-white border-amber-600 shadow-2xs"
-                                              : "bg-white text-amber-900 border-amber-200 hover:bg-amber-100 hover:border-amber-300"
-                                          )}
-                                        >
-                                          {quickType}
-                                        </button>
-                                      ))}
-                                    </div>
                                   </div>
                                 )}
                               </div>
