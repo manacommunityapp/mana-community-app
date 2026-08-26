@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Megaphone, AlertTriangle, Info, Wrench, Shield, X, Trophy, RefreshCw } from "lucide-react";
+import { useNavigate } from "react-router";
+import { Megaphone, AlertTriangle, Info, Wrench, Shield, X, Trophy, RefreshCw, CalendarDays } from "lucide-react";
 import { notificationService } from "../../../services/notices/notificationService";
 import type { NotificationItem } from "../../../services/notices/notificationService";
 
@@ -138,6 +139,7 @@ interface Props {
 }
 
 export function AlertTicker({ speedPxPerSec = 55 }: Props) {
+  const navigate    = useNavigate();
   const trackRef    = useRef<HTMLDivElement>(null);
   const rafRef      = useRef<number>(0);
   const offsetRef   = useRef<number>(0);
@@ -226,11 +228,11 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
     <>
       <div
         className={`relative flex items-stretch overflow-hidden rounded-xl border ${dominant.border} shadow-md ${dominant.bg}`}
-        style={{ minHeight: "44px" }}
+        style={{ minHeight: "28px" }}
         onMouseEnter={() => { pausedRef.current = true; }}
         onMouseLeave={() => { pausedRef.current = false; }}
       >
-        <div className={`flex-shrink-0 flex items-center gap-2 px-3.5 border-r border-white/20`}>
+        <div className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 border-r border-white/20`}>
           <DomIcon className={`w-3.5 h-3.5 ${dominant.text} flex-shrink-0`} />
           <span className={`text-[10px] font-black uppercase tracking-widest ${dominant.text} whitespace-nowrap hidden sm:block`}>
             {dominant.label}
@@ -244,7 +246,7 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
           <div className="absolute right-0 top-0 bottom-0 w-6 z-10 pointer-events-none"
             style={{ background: `linear-gradient(to left, ${CSS_COLORS[dominant.bg] ?? "#4f46e5"}, transparent)` }} />
 
-          <div ref={trackRef} className="inline-flex items-center will-change-transform py-2.5" style={{ whiteSpace: "nowrap" }}>
+          <div ref={trackRef} className="inline-flex items-center will-change-transform py-1" style={{ whiteSpace: "nowrap" }}>
             {looped.map((alert, idx) => {
               const cfg  = CATEGORY_CONFIG[alert.category];
               return (
@@ -296,7 +298,17 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
               <div className="px-5 py-4">
                 <p className="text-sm text-slate-700 leading-relaxed">{activeAlert.message}</p>
               </div>
-              <div className="px-5 pb-5 flex justify-end">
+              <div className="px-5 pb-5 flex items-center justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setActiveAlert(null);
+                    navigate("/events");
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors flex items-center gap-1.5"
+                >
+                  <CalendarDays className="w-3.5 h-3.5 text-indigo-600" />
+                  Event Dashboard
+                </button>
                 <button onClick={() => setActiveAlert(null)}
                   className={`px-5 py-2 rounded-xl text-xs font-bold text-white ${cfg.bg} hover:opacity-90 transition-opacity`}>
                   Got it

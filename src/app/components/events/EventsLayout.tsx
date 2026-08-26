@@ -71,62 +71,60 @@ function EventsLayoutInner() {
   });
 
   return (
-    <div className="flex flex-col gap-2 sm:gap-4 h-full min-h-0">
-      <div className="shrink-0 flex items-center justify-between gap-2 sm:gap-3 border-b border-slate-100 pb-2 sm:pb-3 min-w-0">
-        <div className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-xs shrink-0" style={{ color: "#6b7094" }}>
+    <div className="flex flex-col gap-1 sm:gap-2 h-full min-h-0">
+      <div className="shrink-0 flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5 sm:pb-2 min-w-0">
+        <div className="flex items-center gap-0.5 sm:gap-1 text-[9px] sm:text-[10px] shrink-0" style={{ color: "#6b7094" }}>
           <NavLink to="/" className="hover:underline hover:text-indigo-600 transition-colors">
             Home
           </NavLink>
-          <ChevronRight className="h-3 w-3 shrink-0 text-slate-300" />
+          <ChevronRight className="h-2.5 w-2.5 shrink-0 text-slate-300" />
           <NavLink to="/events" className="hover:underline font-semibold transition-colors" style={{ color: "#4f46e5" }}>
             Events
           </NavLink>
           {activeItem && activeItem.label !== "Dashboard" && (
             <>
-              <ChevronRight className="h-3 w-3 shrink-0 text-slate-300" />
+              <ChevronRight className="h-2.5 w-2.5 shrink-0 text-slate-300" />
               <NavLink to={activeItem.to} className="hover:underline font-bold transition-colors" style={{ color: "#4f46e5" }}>
                 {activeItem.label}
               </NavLink>
             </>
           )}
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2.5 text-right justify-end shrink-0 ml-auto">
+        <div className="flex items-center gap-1.5 sm:gap-2 text-right justify-end shrink-0 ml-auto">
           <DataModeToggle />
           <CreateEventButton />
           <div className="text-right min-w-0 hidden xs:block sm:block">
-            <h2 className="text-xs sm:text-xl font-bold leading-tight truncate" style={{ color: "#0d0d2b" }}>Event Management</h2>
-            <p className="text-xs hidden sm:block" style={{ color: "#6b7094" }}>
-              Planning, Registration, Finance & more
-            </p>
+            <h2 className="text-[11px] sm:text-sm font-bold leading-tight truncate" style={{ color: "#0d0d2b" }}>Event Management</h2>
+            <p className="text-[10px] hidden sm:block" style={{ color: "#6b7094" }}>Planning, Registration, Finance & more</p>
           </div>
           <div
-            className="h-6 w-6 sm:h-9 sm:w-9 rounded-md sm:rounded-xl flex items-center justify-center flex-shrink-0 order-last"
+            className="h-5 w-5 sm:h-7 sm:w-7 rounded sm:rounded-lg flex items-center justify-center flex-shrink-0 order-last"
             style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}
           >
-            <CalendarDays className="h-3 w-3 sm:h-4.5 sm:w-4.5 text-white" />
+            <CalendarDays className="h-2.5 w-2.5 sm:h-3.5 sm:w-3.5 text-white" />
           </div>
         </div>
       </div>
 
       <div
-        className="rounded-lg sm:rounded-xl p-0.5 sm:p-1.5 flex items-center gap-0.5 sm:gap-1 overflow-x-auto shrink-0 hide-scrollbar"
+        className="rounded-md sm:rounded-lg p-0.5 flex items-center gap-0.5 overflow-x-auto shrink-0 hide-scrollbar"
         style={{
           background: "white",
           border: "1px solid rgba(99, 102, 241, 0.12)",
-          boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 12px",
+          boxShadow: "rgba(99, 102, 241, 0.06) 0px 2px 8px",
         }}
       >
         {visibleNav.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className="flex-shrink-0">
             {({ isActive }) => (
               <div
-                className="flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[10px] sm:text-sm font-medium whitespace-nowrap transition-all duration-200 cursor-pointer"
+                className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded sm:rounded-md text-[10px] sm:text-xs font-medium whitespace-nowrap transition-all duration-200 cursor-pointer"
                 style={
                   isActive
                     ? {
                         background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
                         color: "white",
-                        boxShadow: "0 2px 12px rgba(99, 102, 241, 0.35)",
+                        boxShadow: "0 2px 8px rgba(99, 102, 241, 0.3)",
                       }
                     : { color: "rgb(107, 112, 148)", background: "transparent" }
                 }
@@ -143,7 +141,7 @@ function EventsLayoutInner() {
                   }
                 }}
               >
-                <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
                 {label}
               </div>
             )}

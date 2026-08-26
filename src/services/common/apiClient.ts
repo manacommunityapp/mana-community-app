@@ -138,32 +138,87 @@ export function forceLogout(): void {
   }
 }
 
-async function handleResponse<T>(res: Response): Promise<T> {
-  if (!res.ok) {
-    let message = `Request failed with status ${res.status}`;
+function sanitizeErrorMessage(status: number, rawText?: string): string {
+  const text = (rawText || "").trim();
+  const lower = text.toLowerCase();
+
+  // Check for 502 / 503 / 504 / 520 / 521 / 522 / 524
+  if (status === 502 || status === 503 || status === 504 || status === 520 || status === 521 || status === 522 || status === 524) {
+    return "Our servers are temporarily unreachable or undergoing maintenance. Please try again in a few moments.";
+  }
+
+  // Check for HTML or nginx error pages
+  if (
+    lower.includes("<html") ||
+    lower.includes("<!doctype") ||
+    lower.includes("502 bad gateway") ||
+    lower.includes("503 service") ||
+    lower.includes("504 gateway") ||
+    lower.includes("nginx") ||
+    lower.includes("cloudflare") ||
+    lower.includes("bad gateway") ||
+    lower.includes("gateway time-out")
+  ) {
+    return "Unable to connect to the server right now. Please check your network or try again shortly.";
+  }
+
+  // Try parsing JSON error response
+  if (text.startsWith("{") || text.startsWith("[")) {
     try {
-      const text = await res.text();
-      if (text) {
-        try {
-          const parsed = JSON.parse(text);
-          if (parsed && typeof parsed === "object") {
-            if (typeof parsed.message === "string" && parsed.message.trim()) {
-              message = parsed.message;
-            } else if (typeof parsed.error === "string" && parsed.error.trim()) {
-              message = parsed.error;
-            } else {
-              message = text;
-            }
-          } else {
-            message = text;
+      const parsed = JSON.parse(text);
+      if (parsed && typeof parsed === "object") {
+        if (typeof parsed.message === "string" && parsed.message.trim()) {
+          const m = parsed.message.trim();
+          if (m.toLowerCase().includes("<html") || m.toLowerCase().includes("nginx") || m.toLowerCase().includes("502")) {
+            return "Our servers are temporarily unreachable. Please try again in a few moments.";
           }
-        } catch {
-          message = text;
+          return m;
+        }
+        if (typeof parsed.error === "string" && parsed.error.trim()) {
+          const e = parsed.error.trim();
+          if (e.toLowerCase().includes("<html") || e.toLowerCase().includes("nginx") || e.toLowerCase().includes("502")) {
+            return "Our servers are temporarily unreachable. Please try again in a few moments.";
+          }
+          return e;
         }
       }
     } catch {
       // ignore
     }
+  }
+
+  if (status === 401) {
+    return "Invalid email/mobile or password. Please verify your credentials and try again.";
+  }
+
+  if (status === 403) {
+    return "You do not have permission to perform this action.";
+  }
+
+  if (status === 404) {
+    return "The requested service or resource was not found.";
+  }
+
+  if (status >= 500) {
+    return "A server error occurred. Please try again in a few moments.";
+  }
+
+  if (text && text.length < 200 && !text.includes("<") && !text.includes(">")) {
+    return text;
+  }
+
+  return `Request failed (${status}). Please try again later.`;
+}
+
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    let rawText = "";
+    try {
+      rawText = await res.text();
+    } catch {
+      // ignore
+    }
+    const message = sanitizeErrorMessage(res.status, rawText);
     throw new Error(message);
   }
   // 204 No Content
@@ -215,7 +270,7 @@ async function request<T>(path: string, init: RequestInitLike, isRetry = false):
     });
   } catch (err) {
     log.error(`Network error: ${init.method} ${path}`, err, { correlationId });
-    throw err;
+    throw new Error("Unable to connect to the server. Please check your internet connection or try again shortly.");
   }
 
   const duration = Math.round(performance.now() - start);

@@ -1,6 +1,24 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { ShieldCheck, Eye, EyeOff, ArrowRight, Loader2, WifiOff, RefreshCw, ServerCrash, CalendarDays } from "lucide-react";
+import {
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  Loader2,
+  WifiOff,
+  RefreshCw,
+  ServerCrash,
+  CalendarDays,
+  Mail,
+  Lock,
+  Sparkles,
+  CalendarCheck,
+  Bell,
+  QrCode,
+  Heart,
+  Star,
+} from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -22,13 +40,33 @@ function validateIdentifier(value: string): true | string {
   return true;
 }
 
-function isNetworkError(err: unknown): boolean {
-  if (err instanceof TypeError) {
-    const msg = err.message.toLowerCase();
-    return msg.includes("failed to fetch") || msg.includes("network") || msg.includes("load failed");
-  }
-  return false;
+function isNetworkOrServerError(err: unknown): boolean {
+  if (!err) return false;
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return (
+    msg.includes("unable to reach") ||
+    msg.includes("unable to connect") ||
+    msg.includes("unreachable") ||
+    msg.includes("maintenance") ||
+    msg.includes("failed to fetch") ||
+    msg.includes("network") ||
+    msg.includes("502") ||
+    msg.includes("503") ||
+    msg.includes("504") ||
+    msg.includes("gateway") ||
+    msg.includes("nginx") ||
+    msg.includes("server error") ||
+    msg.includes("server is still unavailable") ||
+    msg.includes("connection failed")
+  );
 }
+
+const HIGHLIGHTS = [
+  { icon: CalendarCheck, title: "Event & Seva Bookings", desc: "Instant QR entry passes & slot selection" },
+  { icon: Bell, title: "Society Notices & Alerts", desc: "Real-time updates directly from committee" },
+  { icon: QrCode, title: "Digital Resident Pass", desc: "Seamless gate access for you & your guests" },
+  { icon: Heart, title: "Community Bonding", desc: "Participate in local festivals & initiatives" },
+];
 
 export function Login() {
   const [showPassword, setShowPassword] = useState(false);
@@ -54,11 +92,12 @@ export function Login() {
       await login({ identifier: normalizedIdentifier, password: data.password });
       toast.success("Welcome back!");
       navigate(redirectTo);
-    } catch (err) {
-      if (isNetworkError(err)) {
+    } catch (err: any) {
+      if (isNetworkOrServerError(err)) {
         setServiceError(true);
+        toast.error("Unable to connect to server. Please try again shortly.");
       } else {
-        const message = err instanceof Error ? err.message : "Login failed";
+        const message = err instanceof Error ? err.message : "Invalid credentials. Please verify and try again.";
         toast.error(message);
       }
     }
@@ -82,208 +121,328 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Subtle radial glow behind the card */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
-
-      <style>{`
-        @keyframes ganeshMobileFloat {
-          0%, 100% {
-            transform: translateY(0px) rotate(0deg) scale(1);
-          }
-          25% {
-            transform: translateY(-5px) rotate(-1.5deg) scale(1.02);
-          }
-          50% {
-            transform: translateY(-9px) rotate(0deg) scale(1.04);
-          }
-          75% {
-            transform: translateY(-4px) rotate(1.5deg) scale(1.02);
-          }
-        }
-        @keyframes ganeshAuraPulse {
-          0%, 100% {
-            box-shadow: 0 10px 25px -4px rgba(245, 158, 11, 0.4), 0 0 15px rgba(245, 158, 11, 0.3);
-          }
-          50% {
-            box-shadow: 0 16px 36px -2px rgba(245, 158, 11, 0.6), 0 0 28px rgba(239, 68, 68, 0.4);
-          }
-        }
-        .ganesh-login-float {
-          animation: ganeshMobileFloat 3.6s ease-in-out infinite, ganeshAuraPulse 3s ease-in-out infinite;
-        }
-      `}</style>
-
+    <div className="h-screen w-screen flex bg-background text-foreground selection:bg-primary/20 overflow-hidden">
       <Toaster position="top-center" richColors />
-      <div className="w-full max-w-md relative z-10">
-        {/* Mobile View Devotional Ganesha Banner - Tap to open Event Dashboard */}
-        <div className="sm:hidden mb-5 text-center flex flex-col items-center animate-fade-in">
+
+      {/* ── Left Brand Showcase Panel (Desktop Browser) ────────────────── */}
+      <div
+        className="hidden lg:flex flex-col justify-between relative overflow-hidden lg:w-[420px] xl:w-[480px] 2xl:w-[520px] shrink-0 text-white p-8 xl:p-10 select-none border-r border-white/10"
+        style={{
+          background: "linear-gradient(160deg, #4f46e5 0%, #4338ca 35%, #3730a3 70%, #1e1b4b 100%)",
+        }}
+      >
+        {/* Ambient background glowing orbs */}
+        <div
+          className="absolute -top-16 -right-16 w-80 h-80 rounded-full opacity-30 pointer-events-none blur-3xl"
+          style={{ background: "radial-gradient(circle, #818cf8, transparent)" }}
+        />
+        <div
+          className="absolute -bottom-20 -left-20 w-96 h-96 rounded-full opacity-25 pointer-events-none blur-3xl"
+          style={{ background: "radial-gradient(circle, #c084fc, transparent)" }}
+        />
+        <div
+          className="absolute inset-0 opacity-[0.06] pointer-events-none"
+          style={{
+            backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)",
+            backgroundSize: "24px 24px",
+          }}
+        />
+
+        {/* Top Header & Brand Logo */}
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-6 xl:mb-8">
+            <div className="w-11 h-11 bg-white/15 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/25 shadow-lg shadow-black/10">
+              <ShieldCheck className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className="text-white font-extrabold text-lg tracking-tight leading-none">Mana Community</p>
+              <p className="text-indigo-200 text-xs font-medium mt-1">Your neighborhood, connected</p>
+            </div>
+          </div>
+
+          {/* Hero copy */}
+          <div className="mb-6 xl:mb-8">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 mb-3 shadow-xs">
+              <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+              <span className="text-xs font-bold text-amber-100 tracking-wide">
+                Community Resident Portal
+              </span>
+            </div>
+            <h4 className="text-white leading-[1.15] mb-2.5 text-2xl xl:text-3xl font-black tracking-tight">
+              Welcome back to your
+              <br />
+              <span className="text-amber-300">vibrant community.</span>
+            </h4>
+            <p className="text-indigo-100/80 text-xs xl:text-sm leading-relaxed max-w-sm">
+              Log in to manage bookings, stay updated with society notices, and connect with neighbors seamlessly.
+            </p>
+          </div>
+
+          {/* Key Feature Highlights */}
+          <div className="space-y-3">
+            {HIGHLIGHTS.map(({ icon: Icon, title, desc }, i) => (
+              <div key={i} className="flex items-start gap-3 group">
+                <div className="w-7 h-7 rounded-xl bg-white/10 group-hover:bg-white/20 transition-colors backdrop-blur-sm flex items-center justify-center shrink-0 border border-white/15 mt-0.5 shadow-xs">
+                  <Icon className="w-3.5 h-3.5 text-amber-200" />
+                </div>
+                <div>
+                  <p className="text-white text-xs xl:text-[13px] font-bold leading-tight">{title}</p>
+                  <p className="text-indigo-200/75 text-[11px] xl:text-xs leading-snug mt-0.5">{desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Resident Testimonial / Social Proof */}
+        <div className="relative z-10 pt-4 border-t border-white/10 space-y-3">
+          <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/15 p-3.5 xl:p-4 shadow-lg shadow-black/5">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex -space-x-2">
+                {["#4f46e5", "#818cf8", "#10b981", "#ec4899"].map((c, i) => (
+                  <div
+                    key={i}
+                    className="w-5.5 h-5.5 rounded-full border-2 border-white/60 flex items-center justify-center text-[8.5px] font-bold text-white shadow-xs"
+                    style={{ background: c }}
+                  >
+                    {["R", "S", "M", "P"][i]}
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-0.5">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Star key={i} className="w-3 h-3 fill-amber-300 text-amber-300" />
+                ))}
+              </div>
+            </div>
+            <p className="text-indigo-50/90 text-[11px] xl:text-xs leading-relaxed italic">
+              "Booking event passes and connecting with community members has never been easier."
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between text-indigo-200/70 text-[11px] px-1">
+            <span className="flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              Verified & Secure Portal
+            </span>
+            <span>v2.4.0</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Right Login Form Area (Browser Viewport) ───────────────────── */}
+      <div className="flex-1 flex flex-col justify-between h-full overflow-y-auto relative bg-background">
+        {/* Subtle background glow */}
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[140px] pointer-events-none -z-0" />
+
+        {/* Mobile Header Branding (visible only on small screens) */}
+        <div className="lg:hidden px-4 py-3 flex items-center justify-between border-b border-border bg-card/60 backdrop-blur-sm shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-primary text-white shadow-xs shadow-primary/25">
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-foreground leading-tight">Mana Community</p>
+              <p className="text-[10px] text-muted-foreground">Resident Portal</p>
+            </div>
+          </div>
           <Link
-            to="/events"
-            title="Open Events Dashboard"
-            className="ganesh-login-float relative w-32 h-32 rounded-3xl overflow-hidden border-2 border-amber-400/70 p-0.5 bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-500 hover:scale-105 active:scale-95 transition-all cursor-pointer block"
+            to="/signup"
+            className="text-xs font-bold text-primary hover:text-primary/80 bg-primary/10 px-2.5 py-1 rounded-lg transition-colors"
           >
-            <video
-              src="/ganesh-animated.mp4"
-              autoPlay
-              loop
-              muted
-              playsInline
-              className="w-full h-full object-cover rounded-[22px]"
-            />
+            Sign Up
           </Link>
         </div>
 
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="hidden sm:inline-flex items-center justify-center bg-primary p-3 rounded-2xl mb-4 shadow-lg shadow-primary/20">
-            <ShieldCheck className="h-10 w-10 text-white" />
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-1 sm:mb-2">Welcome Back</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">Sign in to your Mana Community</p>
-        </div>
-
-        {eventContext && (
-          <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 dark:border-indigo-800/50 dark:bg-indigo-950/30 p-4 flex items-start gap-3">
-            <div className="flex-shrink-0 p-2 bg-indigo-100 dark:bg-indigo-900/40 rounded-lg">
-              <CalendarDays className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+        {/* Form Container: Vertically & Horizontally Centered */}
+        <div className="w-full max-w-[440px] mx-auto px-5 sm:px-8 py-4 sm:py-6 my-auto relative z-10 flex flex-col justify-center">
+          {/* Header */}
+          <div className="text-left mb-5">
+            <div className="inline-flex items-center justify-center bg-primary/10 text-primary p-2.5 rounded-xl mb-3 border border-primary/20 shadow-xs">
+              <ShieldCheck className="h-6 w-6 text-primary" />
             </div>
-            <div>
-              <p className="text-sm font-semibold text-indigo-800 dark:text-indigo-300">Event Registration</p>
-              <p className="text-xs text-indigo-600/80 dark:text-indigo-400/80 mt-0.5">
-                Sign in to continue with your event registration.
-              </p>
-            </div>
+            <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+              Sign In to Your Account
+            </h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Enter your registered email or 10-digit mobile number
+            </p>
           </div>
-        )}
 
-        <div className="bg-card rounded-2xl shadow-2xl border border-border p-8">
+          {/* Event Context Notification (if redirected from an event) */}
+          {eventContext && (
+            <div className="mb-4 rounded-xl border border-indigo-200 bg-indigo-50 dark:border-indigo-800/50 dark:bg-indigo-950/30 p-3 flex items-start gap-2.5">
+              <div className="flex-shrink-0 p-1.5 bg-indigo-100 dark:bg-indigo-900/40 rounded-lg">
+                <CalendarDays className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-indigo-800 dark:text-indigo-300">Event Registration</p>
+                <p className="text-[11px] text-indigo-600/80 dark:text-indigo-400/80 mt-0.5">
+                  Sign in to continue with your event registration.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Server Error Alert */}
           {serviceError && (
-            <div className="mb-6 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-950/30 p-5 animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0 p-2.5 bg-red-100 dark:bg-red-900/40 rounded-xl">
-                  <ServerCrash className="w-6 h-6 text-red-600 dark:text-red-400" />
+            <div className="mb-4 rounded-xl border border-red-200 dark:border-red-800/50 bg-red-50 dark:bg-red-950/30 p-3.5 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 p-1.5 bg-red-100 dark:bg-red-900/40 rounded-lg">
+                  <ServerCrash className="w-4 h-4 text-red-600 dark:text-red-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-bold text-red-800 dark:text-red-300 mb-1">
+                  <h3 className="text-xs font-bold text-red-800 dark:text-red-300 mb-0.5">
                     Service Unavailable
                   </h3>
-                  <p className="text-xs text-red-600/80 dark:text-red-400/80 leading-relaxed mb-3">
-                    We're unable to connect to the server right now. This could be due to maintenance or a temporary outage. Please try again in a moment.
+                  <p className="text-[11px] text-red-600/80 dark:text-red-400/80 leading-relaxed mb-2">
+                    We're unable to connect to the server right now.
                   </p>
-                  <div className="flex items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleRetry}
-                      disabled={retrying}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white transition-all disabled:opacity-60 cursor-pointer border-none shadow-sm"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${retrying ? "animate-spin" : ""}`} />
-                      {retrying ? "Checking…" : "Retry Connection"}
-                    </button>
-                    <div className="flex items-center gap-1.5 text-[10px] text-red-500/70 dark:text-red-400/50">
-                      <WifiOff className="w-3 h-3" />
-                      <span>Connection failed</span>
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRetry}
+                    disabled={retrying}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white transition-all disabled:opacity-60 cursor-pointer border-none shadow-xs"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${retrying ? "animate-spin" : ""}`} />
+                    {retrying ? "Checking…" : "Retry Connection"}
+                  </button>
                 </div>
               </div>
             </div>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            <div>
-              <label htmlFor="identifier" className="block text-sm font-medium text-muted-foreground mb-2">
-                Email or Mobile Number
-              </label>
-              <input
-                id="identifier"
-                type="text"
-                inputMode="email"
-                autoComplete="username"
-                {...register("identifier", { validate: validateIdentifier })}
-                className="w-full px-4 py-3 bg-[var(--mana-bg-input)] border border-border rounded-lg placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all"
-                placeholder="Email or 10-digit mobile"
-              />
-              {errors.identifier && (
-                <p className="text-destructive text-xs mt-1">{errors.identifier.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-2">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  {...register("password", { required: "Password is required" })}
-                  className="w-full px-4 py-3 bg-[var(--mana-bg-input)] border border-border rounded-lg placeholder:text-muted-foreground/50 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all pr-11"
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-muted-foreground"
+          {/* Form Card */}
+          <div className="bg-card rounded-2xl shadow-xl shadow-black/[0.03] border border-border p-5 sm:p-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              {/* Identifier Input (Email or Mobile) */}
+              <div>
+                <label
+                  htmlFor="identifier"
+                  className="block text-[11px] font-bold text-foreground/80 mb-1.5 uppercase tracking-wide"
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
+                  Email or Mobile Number
+                </label>
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                    <Mail className="w-4 h-4" />
+                  </div>
+                  <input
+                    id="identifier"
+                    type="text"
+                    inputMode="email"
+                    autoComplete="username"
+                    {...register("identifier", { validate: validateIdentifier })}
+                    className="w-full pl-10 pr-4 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl placeholder:text-muted-foreground/45 focus:ring-2 focus:ring-primary/25 focus:border-primary outline-none transition-all text-xs sm:text-sm text-foreground"
+                    placeholder="name@example.com or 9876543210"
+                  />
+                </div>
+                {errors.identifier && (
+                  <p className="text-destructive text-[11px] mt-1 font-medium">{errors.identifier.message}</p>
+                )}
               </div>
-              {errors.password && (
-                <p className="text-destructive text-xs mt-1">{errors.password.message}</p>
-              )}
+
+              {/* Password Input */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label
+                    htmlFor="password"
+                    className="block text-[11px] font-bold text-foreground/80 uppercase tracking-wide"
+                  >
+                    Password
+                  </label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-[11px] text-primary hover:text-primary/80 font-bold transition-colors"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    {...register("password", { required: "Password is required" })}
+                    className="w-full pl-10 pr-10 py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl placeholder:text-muted-foreground/45 focus:ring-2 focus:ring-primary/25 focus:border-primary outline-none transition-all text-xs sm:text-sm text-foreground"
+                    placeholder="Enter your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    tabIndex={-1}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/70 hover:text-muted-foreground p-0.5 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p className="text-destructive text-[11px] mt-1 font-medium">{errors.password.message}</p>
+                )}
+              </div>
+
+              {/* Remember Me */}
+              <div className="flex items-center">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    {...register("rememberMe")}
+                    className="w-3.5 h-3.5 accent-primary bg-[var(--mana-bg-input)] border-border rounded focus:ring-primary cursor-pointer"
+                  />
+                  <span className="text-xs text-muted-foreground font-medium">Remember this device</span>
+                </label>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                id="login-submit-btn"
+                disabled={isSubmitting}
+                className="w-full flex items-center justify-center py-2.5 sm:py-3 px-4 bg-gradient-to-r from-primary via-primary to-indigo-600 hover:opacity-95 active:scale-[0.99] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md shadow-primary/25 hover:shadow-primary/35 transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Signing in...
+                  </>
+                ) : (
+                  <>
+                    Sign In
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {/* Switch to Signup */}
+            <div className="mt-4 pt-3.5 border-t border-border text-center">
+              <p className="text-xs text-muted-foreground">
+                Don't have an account?{" "}
+                <Link to="/signup" className="text-primary hover:text-primary/80 font-bold transition-colors">
+                  Create an account
+                </Link>
+              </p>
             </div>
+          </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  {...register("rememberMe")}
-                  className="w-4 h-4 accent-primary bg-[var(--mana-bg-input)] border-border rounded focus:ring-primary"
-                />
-                <span className="text-sm text-muted-foreground">Remember me</span>
-              </label>
-              <Link to="/forgot-password" className="text-sm text-primary hover:text-primary/80 font-medium">
-                Forgot password?
-              </Link>
-            </div>
-
-            <button
-              type="submit"
-              id="login-submit-btn"
-              disabled={isSubmitting}
-              className="w-full flex items-center justify-center py-3 px-4 bg-primary hover:bg-primary/90 active:scale-[0.97] text-white font-semibold rounded-lg shadow-lg shadow-primary/20 transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  Sign In
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link to="/signup" className="text-primary hover:text-primary/80 font-medium">
-                Sign up
-              </Link>
+          {/* Quick Disclaimer / Support Link */}
+          <div className="mt-3 text-center">
+            <p className="text-[10.5px] text-muted-foreground/65 leading-relaxed">
+              Protected by 256-bit encryption • By signing in, you agree to our Terms
             </p>
           </div>
         </div>
 
-        <div className="mt-6 text-center">
-          <p className="text-xs text-muted-foreground/60">
-            By signing in, you agree to our Terms of Service and Privacy Policy
-          </p>
+        {/* Desktop Footer Bar */}
+        <div className="border-t border-border px-6 py-2.5 flex items-center justify-center gap-2 text-muted-foreground text-[10.5px] bg-background/50 shrink-0">
+          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+          <span>Official Mana Community Resident Network</span>
         </div>
       </div>
     </div>
   );
 }
+

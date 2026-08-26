@@ -3,7 +3,7 @@ import {
   Loader2,
   Star,
   TrendingUp,
-  DollarSign,
+  IndianRupee,
   BarChart3,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
@@ -117,7 +117,7 @@ export function VendorAnalytics() {
           <CardContent className="pt-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-primary" />
+                <IndianRupee className="h-5 w-5 text-primary" />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Total Revenue</p>

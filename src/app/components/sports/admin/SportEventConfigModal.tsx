@@ -4,6 +4,7 @@ import { cn } from "../../ui/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import { Button } from "../../ui/button";
 import { Calendar } from "../../ui/calendar";
+import { DatePicker } from "../../ui/date-picker";
 import { format } from "date-fns";
 import type { PlayerCategory } from "../../../../types/api";
 import type { SelectedSportWithEvents } from "../types";
@@ -279,25 +280,12 @@ export const SportEventConfigModal: React.FC<SportEventConfigModalProps> = ({
                   {/* Players Born */}
                   <div className="flex flex-col gap-1 text-left">
                     <label className="text-xs text-slate-500 font-semibold">Players Born After</label>
-                    <Popover open={openDatePickerId === ev.id} onOpenChange={(open) => setOpenDatePickerId(open ? ev.id : null)}>
-                      <PopoverTrigger asChild>
-                        <Button variant={"outline"} className={cn("w-full bg-white border-slate-200 hover:bg-slate-50 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-2 h-auto text-sm transition-colors shadow-sm", !ev.playersBorn && "text-slate-400")}>
-                          <CalendarIcon className="mr-2 h-3.5 w-3.5 text-slate-400" />
-                          {ev.playersBorn ? format(new Date(ev.playersBorn), "PPP") : <span>Pick date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0 bg-white" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={ev.playersBorn ? new Date(ev.playersBorn) : undefined}
-                          onSelect={(date) => {
-                            updateEventField(configuringSport.sportId, ev.id, "playersBorn", date ? format(date, "yyyy-MM-dd") : "");
-                            setOpenDatePickerId(null);
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <DatePicker
+                      value={ev.playersBorn}
+                      onChange={(v) => updateEventField(configuringSport.sportId, ev.id, "playersBorn", v)}
+                      placeholder="Pick born after date"
+                      size="sm"
+                    />
                   </div>
 
                   {/* Match Format / Team Settings */}

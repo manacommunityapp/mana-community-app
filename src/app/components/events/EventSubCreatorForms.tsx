@@ -9,6 +9,7 @@ import { eventService, type EventResponse } from "../../../services/events/event
 import { useEventMock } from "./EventMockToggle";
 import { showError } from "../../../utils/ToastUtils";
 import { TimePicker } from "../ui/time-picker";
+import { DatePicker } from "../ui/date-picker";
 
 export interface MainEventOption {
   id: string;
@@ -227,6 +228,7 @@ export function PoojaSevaSection() {
   const { useMock } = useEventMock();
 
   const [poojaTypes, setPoojaTypes] = useState<string[]>(DEFAULT_POOJA_TYPES);
+  const [poojaTypeObjects, setPoojaTypeObjects] = useState<{ id: number; name: string; description?: string }[]>([]);
   const [loadingTypes, setLoadingTypes] = useState<boolean>(false);
   const [showAddTypeModal, setShowAddTypeModal] = useState<boolean>(false);
   const [newTypeName, setNewTypeName] = useState<string>("");
@@ -234,6 +236,7 @@ export function PoojaSevaSection() {
 
   const [form, setForm] = useState({
     mainEventId: "",
+    poojaTypeId: undefined as number | undefined,
     name: "", type: "",
     isMultiDay: false,
     date: "",
@@ -242,7 +245,7 @@ export function PoojaSevaSection() {
     startTimes: ["08:30"],
     duration: "",
     mandap: "", pandit: "", slots: "20", fee: "", isFree: true,
-    timeSlotConfig: [] as { slotDate: string | null; startTime: string; slotCount: number }[],
+    timeSlotConfig: [] as { id?: number; slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number }[],
     items: ["Coconut", "Flowers", "Bananas"], notes: "", isRecurring: false, recurringDays: "",
   });
   const [toast, setToast] = useState("");
@@ -277,6 +280,24 @@ export function PoojaSevaSection() {
     }));
   };
 
+  const updateTimeSlotTitle = (slotDate: string | null, startTime: string, title: string) => {
+    setForm((f) => ({
+      ...f,
+      timeSlotConfig: (f.timeSlotConfig || []).map((e) =>
+        e.slotDate === slotDate && e.startTime === startTime ? { ...e, title } : e
+      ),
+    }));
+  };
+
+  const updateTimeSlotEndTime = (slotDate: string | null, startTime: string, endTime: string) => {
+    setForm((f) => ({
+      ...f,
+      timeSlotConfig: (f.timeSlotConfig || []).map((e) =>
+        e.slotDate === slotDate && e.startTime === startTime ? { ...e, endTime } : e
+      ),
+    }));
+  };
+
   // Sync multi-day slot config
   useEffect(() => {
     const times = (form.startTimes || []).filter(Boolean);
@@ -304,11 +325,11 @@ export function PoojaSevaSection() {
       }
       const existing = form.timeSlotConfig || [];
       const defaultCount = Number(form.slots) || 20;
-      const synced: { slotDate: string | null; startTime: string; slotCount: number }[] = [];
+      const synced: { slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number }[] = [];
       for (const date of days) {
         for (const time of times) {
           const found = existing.find((e) => e.slotDate === date && e.startTime === time);
-          synced.push(found ?? { slotDate: date, startTime: time, slotCount: defaultCount });
+          synced.push(found ?? { slotDate: date, startTime: time, endTime: "", title: "", slotCount: defaultCount });
         }
       }
       set("timeSlotConfig", synced);
@@ -317,7 +338,7 @@ export function PoojaSevaSection() {
       const defaultCount = Number(form.slots) || 20;
       const synced = times.map((time) => {
         const found = existing.find((e) => e.slotDate === null && e.startTime === time);
-        return found ?? { slotDate: null, startTime: time, slotCount: defaultCount };
+        return found ?? { slotDate: null, startTime: time, endTime: "", title: "", slotCount: defaultCount };
       });
       set("timeSlotConfig", synced);
     }
@@ -331,6 +352,7 @@ export function PoojaSevaSection() {
         setLoadingTypes(true);
         const data = await eventService.getPoojaTypes();
         if (data && data.length > 0) {
+          setPoojaTypeObjects(data);
           setPoojaTypes(data.map((t) => t.name));
         }
       } catch (err) {
@@ -355,11 +377,20 @@ export function PoojaSevaSection() {
     const clean = newTypeName.trim();
     try {
       setAddingType(true);
+      let createdType: { id: number; name: string; description?: string } | null = null;
       if (!useMock) {
-        await eventService.createPoojaType(clean);
+        createdType = await eventService.createPoojaType(clean);
+      } else {
+        createdType = { id: Date.now(), name: clean };
+      }
+      if (createdType) {
+        setPoojaTypeObjects((prev) => [...prev.filter((t) => t.name.toLowerCase() !== clean.toLowerCase()), createdType!]);
       }
       setPoojaTypes((prev) => (prev.includes(clean) ? prev : [...prev, clean]));
       set("type", clean);
+      if (createdType?.id) {
+        set("poojaTypeId", createdType.id);
+      }
       setNewTypeName("");
       setShowAddTypeModal(false);
       setToast(`Pooja Type "${clean}" saved to database!`);
@@ -381,6 +412,7 @@ export function PoojaSevaSection() {
       return;
     }
 
+    const matchedTypeId = form.poojaTypeId || poojaTypeObjects.find((t) => t.name.toLowerCase() === form.type.toLowerCase())?.id;
     const validStartTimes = (form.startTimes || []).filter(Boolean);
     const primaryStartTime = validStartTimes[0] || form.startTime || "08:30";
     const calculatedTotalSlots = form.isMultiDay && form.timeSlotConfig && form.timeSlotConfig.length > 0
@@ -406,7 +438,6 @@ export function PoojaSevaSection() {
         ? `${validStartTimes.join(", ")} (${form.duration || 60}m)`
         : primaryStartTime ? `${primaryStartTime} (${form.duration || 60}m)` : "Morning",
       startTime: primaryStartTime,
-      startTimes: validStartTimes,
       venue: form.mandap || "Main Temple Mandap",
       fee: form.isFree ? 0 : Number(form.fee || 501),
       isFree: Boolean(form.isFree),
@@ -420,13 +451,13 @@ export function PoojaSevaSection() {
       if (!useMock) {
         await eventService.createPoojaSeva({
           mainEventId: form.mainEventId,
+          poojaTypeId: matchedTypeId,
           name: form.name,
           type: form.type,
           date: form.date,
           endDate: form.isMultiDay && form.endDate ? form.endDate : undefined,
           multiDay: form.isMultiDay,
           startTime: primaryStartTime,
-          startTimes: validStartTimes,
           duration: form.duration,
           mandap: form.mandap,
           pandit: form.pandit,
@@ -533,7 +564,15 @@ export function PoojaSevaSection() {
                 </button>
               </div>
               <div className="flex items-center gap-2">
-                <Select value={form.type} onChange={(v) => set("type", v)} className="flex-1">
+                <Select
+                  value={form.type}
+                  onChange={(v) => {
+                    const match = poojaTypeObjects.find((t) => t.name.toLowerCase() === (v || "").toLowerCase());
+                    set("type", v);
+                    set("poojaTypeId", match ? match.id : undefined);
+                  }}
+                  className="flex-1"
+                >
                   <option value="">{loadingTypes ? "Loading types from DB..." : "Select ritual type…"}</option>
                   {poojaTypes.map((t) => (
                     <option key={t} value={t}>{t}</option>
@@ -587,7 +626,7 @@ export function PoojaSevaSection() {
                 <Row>
                   <Col>
                     <Label required>Date</Label>
-                    <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+                    <DatePicker value={form.date} onChange={(v) => set("date", v)} size="sm" />
                   </Col>
                   <Col>
                     <Label>Duration (Minutes)</Label>
@@ -640,11 +679,11 @@ export function PoojaSevaSection() {
                 <Row>
                   <Col>
                     <Label required>Start Date</Label>
-                    <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+                    <DatePicker value={form.date} onChange={(v) => set("date", v)} size="sm" />
                   </Col>
                   <Col>
                     <Label required>End Date</Label>
-                    <Input type="date" value={form.endDate} onChange={(v) => set("endDate", v)} min={form.date} />
+                    <DatePicker value={form.endDate} onChange={(v) => set("endDate", v)} min={form.date} size="sm" />
                   </Col>
                 </Row>
                 <Row>
@@ -775,22 +814,47 @@ export function PoojaSevaSection() {
                             {dayTotal} slots this day
                           </span>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                           {dayEntries.map((e) => (
-                            <label key={e.startTime} className="flex flex-col gap-0.5">
-                              <span className="text-[10px] font-semibold text-muted-foreground">⏰ {e.startTime}</span>
-                              <div className="flex items-center gap-1">
+                            <div key={e.startTime} className="p-2.5 rounded-xl bg-background border border-border space-y-2 shadow-2xs">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="font-bold text-foreground">Slot: {e.startTime}</span>
+                                <span className="text-[10px] text-muted-foreground font-medium">Session</span>
+                              </div>
+                              <input
+                                type="text"
+                                value={e.title || ""}
+                                onChange={(ev) => updateTimeSlotTitle(date, e.startTime, ev.target.value)}
+                                className="w-full bg-card border border-border rounded-lg px-2.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-amber-400 placeholder:text-muted-foreground/60"
+                                placeholder="Slot Name (e.g. Morning Homam)"
+                              />
+                              <div className="grid grid-cols-2 gap-1.5">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-[10px] font-semibold text-muted-foreground">Start</span>
+                                  <span className="text-xs font-bold text-foreground bg-muted/40 px-2 py-1 rounded-md border border-border/60">⏰ {e.startTime}</span>
+                                </div>
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-[10px] font-semibold text-muted-foreground">End Time</span>
+                                  <TimePicker
+                                    value={e.endTime || ""}
+                                    onChange={(v) => updateTimeSlotEndTime(date, e.startTime, v)}
+                                    size="sm"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 pt-0.5">
+                                <span className="text-[10px] font-semibold text-muted-foreground shrink-0">Capacity:</span>
                                 <input
                                   type="number"
                                   value={e.slotCount}
                                   onChange={(ev) => updateTimeSlotCount(date, e.startTime, Number(ev.target.value))}
-                                  className="w-full bg-background border border-border rounded-lg px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                  className="w-full bg-card border border-border rounded-lg px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-amber-400"
                                   placeholder="20"
                                   min="1"
                                 />
-                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">slots</span>
+                                <span className="text-[10px] text-muted-foreground whitespace-nowrap font-medium">slots</span>
                               </div>
-                            </label>
+                            </div>
                           ))}
                         </div>
                       </div>
@@ -1165,7 +1229,7 @@ export function CulturalEventsSection() {
           <Row>
             <Col>
               <Label required>Date</Label>
-              <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+              <DatePicker value={form.date} onChange={(v) => set("date", v)} size="sm" />
             </Col>
             <Col>
               <Label required>Start Time</Label>
@@ -1680,7 +1744,7 @@ export function CompetitionsSection() {
               <Row>
                 <Col>
                   <Label required>Date</Label>
-                  <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+                  <DatePicker value={form.date} onChange={(v) => set("date", v)} size="sm" />
                 </Col>
                 <Col>
                   <Label required>Start Time</Label>
@@ -2011,7 +2075,7 @@ export function LunchDinnerSection() {
           <Row>
             <Col>
               <Label required>Date</Label>
-              <Input type="date" value={form.date} onChange={(v) => set("date", v)} />
+              <DatePicker value={form.date} onChange={(v) => set("date", v)} size="sm" />
             </Col>
             <Col>
               <Label required>Start Time</Label>

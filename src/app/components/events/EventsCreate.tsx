@@ -6,7 +6,7 @@ import {
   Globe, Lock, Building2, Heart, Music, Utensils,
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
-  Zap, Star, ArrowRight, Trash2, PlusCircle, Link2, Flame,
+  Zap, Star, ArrowRight, Trash2, PlusCircle, Link2, Flame, Copy,
   Save, Bookmark, XCircle, Mail, CreditCard, QrCode, Phone, User, Info, Loader2,
 } from "lucide-react";
 import { Input } from "../ui/input";
@@ -14,10 +14,12 @@ import { Textarea } from "../ui/textarea";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Switch } from "../ui/switch";
 import { SectionHeader, FieldLabel, ToggleRow } from "./shared";
 
 import { cn } from "../ui/utils";
 import { TimePicker } from "../ui/time-picker";
+import { DatePicker } from "../ui/date-picker";
 import { useAuth } from "../../../contexts/AuthContext";
 import { CREATE_EVENT, MANAGE_EVENT_DASHBOARD } from "../../../constants/permissions";
 import { useEventMock } from "./EventMockToggle";
@@ -78,16 +80,18 @@ interface TicketType { id: string; name: string; price: string; qty: string; des
 interface BudgetItem { id: string; category: string; amount: string; }
 export interface ScheduleActivity {
   id: string;
+  subEventId?: number;
   categoryType: string; // "Pooja & Seva" | "Lunch" | "Dinner" | "Cultural Events" | "Competitions" | "Other"
   customType?: string;
   name: string;
+  poojaType?: string;  // Pooja & Seva: type stored in event_pooja_types
   needsRegistration: boolean;
   registrationFee?: string;
   slots?: string;
   startTime: string;
   endTime: string;
-  description: string;
-  venue?: string;
+  description: string; // maps to notes
+  venue?: string;      // maps to mandap/location
 }
 export interface DaySchedule { date: string; activities: ScheduleActivity[]; }
 
@@ -146,33 +150,114 @@ export async function syncActivitiesToScheduleSubmodules(
 ) {
   const numericEventId = typeof eventId === "number" ? eventId : Number(String(eventId || "").replace(/\D/g, "")) || 1;
 
+  // 1. Group all Pooja & Seva activities across all days by poojaType / name
+  const poojaGroups = new Map<string, { dayDate: string; act: ScheduleActivity }[]>();
+
   for (const day of daySchedules) {
     for (const act of day.activities) {
       if (!act.name || !act.name.trim()) continue;
       const cat = act.categoryType || "Other";
+      if (cat === "Pooja & Seva") {
+        const key = (act.poojaType || act.name).trim().toLowerCase();
+        if (!poojaGroups.has(key)) {
+          poojaGroups.set(key, []);
+        }
+        poojaGroups.get(key)!.push({ dayDate: day.date, act });
+      }
+    }
+  }
+
+  // Sync consolidated poojas (1 single record per pooja type even when selected across multiple days)
+  if (poojaGroups.size > 0) {
+    let existingTypes: { id: number; name: string; description?: string }[] = [];
+    try {
+      existingTypes = await eventService.getPoojaTypes();
+    } catch {}
+
+    for (const [, entries] of poojaGroups.entries()) {
+      if (entries.length === 0) continue;
+      const first = entries[0].act;
+      const poojaTypeName = first.poojaType || first.name || "Pooja";
+
+      // Match or register the pooja type in event_pooja_types
+      let poojaTypeId: number | undefined;
+      const matchedType = existingTypes.find(
+        t => t.name.trim().toLowerCase() === poojaTypeName.trim().toLowerCase()
+      );
+      if (matchedType) {
+        poojaTypeId = matchedType.id;
+      } else {
+        try {
+          const createdType = await eventService.createPoojaType(poojaTypeName);
+          if (createdType?.id) {
+            poojaTypeId = createdType.id;
+            existingTypes.push(createdType);
+          }
+        } catch (e) {
+          console.warn("Pooja type create notice:", e);
+        }
+      }
+
+      // Collect all distinct dates and times
+      const allDates = [...new Set(entries.map(e => e.dayDate).filter(Boolean))].sort();
+      const minDate = allDates[0] || new Date().toISOString().split("T")[0];
+      const maxDate = allDates[allDates.length - 1] || minDate;
+      const isMultiDay = allDates.length > 1;
+
+      const distinctStartTimes = [...new Set(entries.map(e => e.act.startTime || "08:30"))];
+      const timeSlotConfig = entries.map(e => ({
+        slotDate: e.dayDate,
+        startTime: e.act.startTime || "08:30",
+        title: e.act.name || poojaTypeName,
+        slotCount: parseInt(e.act.slots || "50", 10) || 50,
+      }));
+      const totalSlots = timeSlotConfig.reduce((acc, curr) => acc + curr.slotCount, 0);
+
+      const feeNum = parseFloat(first.registrationFee || "0") || 0;
+      const existingSubEventId = entries.find(e => e.act.subEventId)?.act.subEventId;
+
+      const payload = {
+        mainEventId: numericEventId,
+        poojaTypeId: poojaTypeId,
+        name: first.name,
+        type: poojaTypeName,
+        date: minDate,
+        endDate: isMultiDay ? maxDate : undefined,
+        multiDay: isMultiDay,
+        startTime: distinctStartTimes[0] || "08:30",
+        endTime: first.endTime || undefined,
+        mandap: first.venue || "Main Temple Mandap",
+        notes: first.description || "",
+        slots: totalSlots,
+        fee: feeNum,
+        isFree: feeNum === 0,
+        needsRegistration: first.needsRegistration !== false,
+        timeSlotConfig: timeSlotConfig,
+      };
+
+      try {
+        if (existingSubEventId) {
+          await eventService.updatePoojaSeva(existingSubEventId, payload);
+        } else {
+          await eventService.createPoojaSeva(payload);
+        }
+      } catch (e) {
+        console.warn("Database save consolidated pooja notice:", e);
+      }
+    }
+  }
+
+  // 2. Sync remaining category submodules (Lunch/Dinner, Cultural, Competitions)
+  for (const day of daySchedules) {
+    for (const act of day.activities) {
+      if (!act.name || !act.name.trim()) continue;
+      const cat = act.categoryType || "Other";
+      if (cat === "Pooja & Seva") continue; // Handled above in consolidated sync
+
       const feeNum = parseFloat(act.registrationFee || "0") || 0;
       const slotsNum = parseInt(act.slots || "50", 10) || 50;
 
-      if (cat === "Pooja & Seva") {
-        const payload = {
-          mainEventId: numericEventId,
-          name: act.name,
-          type: "Pooja",
-          date: day.date,
-          startTime: act.startTime || "08:30",
-          mandap: act.description || act.venue || "Main Temple Mandap",
-          slots: String(slotsNum),
-          fee: String(feeNum),
-          isFree: feeNum === 0,
-          items: ["Coconut", "Flowers", "Samagri"],
-          notes: act.description || "",
-        };
-        try {
-          await eventService.createPoojaSeva(payload);
-        } catch (e) {
-          console.warn("Database save pooja notice:", e);
-        }
-      } else if (cat === "Lunch" || cat === "Dinner") {
+      if (cat === "Lunch" || cat === "Dinner") {
         const payload = {
           mainEventId: numericEventId,
           name: act.name,
@@ -180,16 +265,21 @@ export async function syncActivitiesToScheduleSubmodules(
           date: day.date,
           startTime: act.startTime || (cat === "Lunch" ? "12:00" : "19:00"),
           endTime: act.endTime || (cat === "Lunch" ? "14:00" : "21:00"),
-          venue: act.description || act.venue || "Community Dining Hall",
+          venue: act.venue || act.description || "Community Dining Hall",
           targetPlates: slotsNum,
           dietType: "Vegetarian",
           fee: feeNum,
           isFree: feeNum === 0,
+          needsRegistration: act.needsRegistration !== false,
           menuItems: ["Mahaprasadam Meal", "Rice", "Curry", "Sweet"],
           notes: act.description || "",
         };
         try {
-          await eventService.createLunchDinner(payload);
+          if (act.subEventId) {
+            await eventService.updateLunchDinner(act.subEventId, payload);
+          } else {
+            await eventService.createLunchDinner(payload);
+          }
         } catch (e) {
           console.warn("Database save meal notice:", e);
         }
@@ -200,13 +290,18 @@ export async function syncActivitiesToScheduleSubmodules(
           category: "Classical Dance & Music",
           date: day.date,
           startTime: act.startTime || "18:00",
-          stage: act.description || act.venue || "Main Stage",
+          stage: act.venue || act.description || "Main Stage",
           requirements: "Sound system & lighting",
           fee: feeNum,
           isFree: feeNum === 0,
+          needsRegistration: act.needsRegistration !== false,
         };
         try {
-          await eventService.createCulturalEvent(payload);
+          if (act.subEventId) {
+            await eventService.updateCulturalEvent(act.subEventId, payload);
+          } else {
+            await eventService.createCulturalEvent(payload);
+          }
         } catch (e) {
           console.warn("Database save cultural notice:", e);
         }
@@ -218,19 +313,25 @@ export async function syncActivitiesToScheduleSubmodules(
           ageGroup: "Open",
           date: day.date,
           startTime: act.startTime || "10:00",
-          venue: act.description || act.venue || "Auditorium",
+          venue: act.venue || act.description || "Auditorium",
           fee: String(feeNum),
           isFree: feeNum === 0,
           maxParticipants: String(slotsNum),
+          needsRegistration: act.needsRegistration !== false,
         };
         try {
-          await eventService.createCompetition(payload);
+          if (act.subEventId) {
+            await eventService.updateCompetition(act.subEventId, payload);
+          } else {
+            await eventService.createCompetition(payload);
+          }
         } catch (e) {
           console.warn("Database save competition notice:", e);
         }
       }
     }
   }
+
 }
 
 /* ─── Constants ─── */
@@ -246,15 +347,23 @@ const EVENT_TYPES = [
   { value: "other",       label: "Other",          icon: Globe,         color: "#64748b", bg: "#f8fafc" },
 ];
 
-const STEPS = [
-  { id: 1, label: "Basics",             desc: "Name, type & visibility",       icon: CalendarDays },
-  { id: 2, label: "Schedule",           desc: "Date, time & venue",            icon: Clock        },
-  { id: 3, label: "Registration",       desc: "Tickets & categories",          icon: Ticket       },
-  { id: 4, label: "Payment & Contacts", desc: "Payment modes, QR & contacts", icon: CreditCard   },
-  { id: 5, label: "Reg. Form",          desc: "Select form template",          icon: FileText     },
-  { id: 6, label: "Budget",             desc: "Allocation & breakdown",        icon: IndianRupee   },
-  { id: 7, label: "Media",              desc: "Cover image & tags",            icon: Image        },
-  { id: 8, label: "Review",             desc: "Verify & publish",              icon: Eye          },
+interface StepItem {
+  id: number;
+  label: string;
+  desc: string;
+  icon: any;
+}
+
+const STEPS: StepItem[] = [
+  { id: 1, label: "Basics",             desc: "Name, type & description",      icon: CalendarDays },
+  { id: 2, label: "Schedule",           desc: "Date, time & day agenda",       icon: Clock        },
+  { id: 3, label: "Venue",              desc: "Venue, city & address",         icon: MapPin       },
+  { id: 4, label: "Registration",       desc: "Tickets & categories",          icon: Ticket       },
+  { id: 5, label: "Payment & Contacts", desc: "Payment modes, QR & contacts", icon: CreditCard   },
+  { id: 6, label: "Reg. Form",          desc: "Select form template",          icon: FileText     },
+  { id: 7, label: "Budget",             desc: "Allocation & breakdown",        icon: IndianRupee  },
+  { id: 8, label: "Media",              desc: "Cover image & tags",            icon: Image        },
+  { id: 9, label: "Review",             desc: "Verify & publish",              icon: Eye          },
 ];
 
 const BUDGET_CATEGORIES = [
@@ -303,8 +412,8 @@ const INITIAL_FORM_DATA: FormData = {
   totalBudget: "", budgetItems: DEFAULT_BUDGET_ITEMS,
   coverImageUrl: "", tags: [],
   registrationFormConfig: { ...GANESH_CHATURTHI_FORM_CONFIG },
-  enableOnlinePayment: true,
-  paymentModes: ["UPI", "Card", "Cash"],
+  enableOnlinePayment: false,
+  paymentModes: ["Cash"],
   upiId: "",
   scannerUrl: "",
   notes: "",
@@ -313,7 +422,10 @@ const INITIAL_FORM_DATA: FormData = {
 };
 
 // shadcn theme tokens: --input-background:#f3f3f5, --border:rgba(0,0,0,0.1), --radius:0.625rem
-const INPUT_CLS = "w-full px-3 py-[7px] h-auto rounded-[0.625rem] border border-black/10 bg-[#f3f3f5] text-[12.5px] text-slate-800 placeholder-slate-400 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-100 transition-all";
+const INPUT_CLS = "w-full px-2.5 py-1.5 h-8.5 rounded-lg border border-black/10 bg-[#f3f3f5] text-[11.5px] text-slate-800 placeholder-slate-400 outline-none focus:border-slate-300 focus:ring-2 focus:ring-slate-100 transition-all";
+
+const reqCls = (isEmpty: boolean) =>
+  isEmpty ? "border-rose-400 focus:border-rose-500 focus:ring-2 focus:ring-rose-200 bg-rose-50/30" : "";
 
 function hexRgba(hex: string, alpha: number): string {
   const h = hex.replace("#", "");
@@ -333,31 +445,42 @@ function persistedMediaUrl(url?: string | null): string | undefined {
 /* ─── Step 1: Basics ─── */
 function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   return (
-    <div className="space-y-4 sm:space-y-7">
-      <SectionHeader icon={FileText} title="Event Details" subtitle="Give your event a name and describe what it's about" />
-
+    <div className="space-y-3.5 sm:space-y-5">
       <div>
         <FieldLabel required>Event Title</FieldLabel>
-        <Input value={data.title} onChange={e => update("title", e.target.value)}
+        <Input
+          value={data.title}
+          onChange={e => update("title", e.target.value)}
           placeholder="e.g. Ganesh Chaturthi 2026 – Grand Celebration"
-          className={cn(INPUT_CLS, "text-base font-medium")} />
+          className={cn(INPUT_CLS, "h-9 text-xs sm:text-[13px] font-semibold", reqCls(!data.title?.trim()))}
+        />
       </div>
 
       <div>
         <FieldLabel required>Event Type</FieldLabel>
-        <div className="flex flex-wrap gap-1.5">
+        <div className={cn("flex flex-wrap gap-1.5 p-1 rounded-xl transition-all", reqCls(!data.eventType && !data.category))}>
           {EVENT_TYPES.map(t => {
-            const selected = data.eventType === t.value;
+            const currentVal = (data.eventType || "").toLowerCase().trim();
+            const currentCat = (data.category || "").toLowerCase().trim();
+            const selected = currentVal === t.value.toLowerCase() || 
+                             currentVal === t.label.toLowerCase() ||
+                             currentCat === t.value.toLowerCase() ||
+                             currentCat === t.label.toLowerCase();
             return (
-              <button key={t.value} onClick={() => update("eventType", t.value)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-[11.5px] font-medium transition-all duration-150"
+              <button key={t.value} onClick={() => {
+                update("eventType", t.value);
+                update("category", t.label);
+              }}
+                type="button"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-semibold transition-all duration-150 cursor-pointer"
                 style={{
                   borderColor: selected ? t.color : "#E2E8F0",
                   background: selected ? hexRgba(t.color, 0.08) : "#FAFAFA",
                   color: selected ? t.color : "#64748B",
-                  boxShadow: selected ? `0 0 0 3px ${hexRgba(t.color, 0.12)}` : "none",
+                  boxShadow: selected ? `0 0 0 2.5px ${hexRgba(t.color, 0.12)}` : "none",
+                  fontWeight: selected ? 700 : 600,
                 }}>
-                <t.icon className="w-[11px] h-[11px]" style={{ color: selected ? t.color : "#94A3B8" }} strokeWidth={2.2} />
+                <t.icon className="w-2.5 h-2.5" style={{ color: selected ? t.color : "#94A3B8" }} strokeWidth={2.2} />
                 {t.label}
               </button>
             );
@@ -366,7 +489,7 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
       </div>
 
       {/* Description & Visibility Side-by-Side */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
         {/* Left: Description */}
         <div className="flex flex-col">
           <FieldLabel required hint={`${data.description.length}/1000`}>Description</FieldLabel>
@@ -375,14 +498,14 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
             onChange={e => update("description", e.target.value)} 
             rows={5}
             placeholder="Describe your event – purpose, highlights, what attendees can expect…"
-            className={cn(INPUT_CLS, "resize-none h-full min-h-[140px]")} 
+            className={cn(INPUT_CLS, "resize-none h-full min-h-[120px] text-xs leading-relaxed", reqCls(!data.description?.trim()))} 
           />
         </div>
 
         {/* Right: Visibility Options */}
         <div className="flex flex-col">
           <FieldLabel>Visibility</FieldLabel>
-          <div className="flex flex-col gap-2 h-full justify-between">
+          <div className="flex flex-col gap-1.5 h-full justify-between">
             {([
               { value: "public",    label: "Public",      icon: Globe,    desc: "Anyone can view & register for event", color: "#059669" },
               { value: "community", label: "Community",   icon: Building2, desc: "Restricted to community members only", color: "#4f46e5" },
@@ -394,23 +517,23 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
                   key={opt.value} 
                   type="button"
                   onClick={() => update("visibility", opt.value)}
-                  className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-[0.625rem] border text-left transition-all duration-150 flex-1 hover:border-slate-300"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all duration-150 flex-1 hover:border-slate-300 cursor-pointer"
                   style={{
                     borderColor: selected ? opt.color : "#E2E8F0",
                     background: selected ? hexRgba(opt.color, 0.05) : "#FAFAFA",
-                    boxShadow: selected ? `0 0 0 3px ${hexRgba(opt.color, 0.10)}` : "none",
+                    boxShadow: selected ? `0 0 0 2.5px ${hexRgba(opt.color, 0.10)}` : "none",
                   }}
                 >
-                  <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
+                  <div className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
                     style={{ background: selected ? hexRgba(opt.color, 0.14) : "#F1F5F9" }}>
-                    <opt.icon className="w-3.5 h-3.5" style={{ color: selected ? opt.color : "#94A3B8" }} strokeWidth={2} />
+                    <opt.icon className="w-3 h-3" style={{ color: selected ? opt.color : "#94A3B8" }} strokeWidth={2} />
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <p className="text-[11.5px] font-bold leading-none" style={{ color: selected ? opt.color : "#334155" }}>{opt.label}</p>
+                      <p className="text-[11px] font-bold leading-none" style={{ color: selected ? opt.color : "#334155" }}>{opt.label}</p>
                       {selected && <span className="w-1.5 h-1.5 rounded-full" style={{ background: opt.color }} />}
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1 leading-tight">{opt.desc}</p>
+                    <p className="text-[9.5px] text-slate-400 mt-0.5 leading-tight truncate">{opt.desc}</p>
                   </div>
                 </button>
               );
@@ -451,88 +574,310 @@ function formatDayLabel(dateStr: string): string {
 }
 
 const FESTIVAL_AGENDA_PLACEHOLDERS: ScheduleActivity[] = [
+  // Pooja & Seva
   { id: "p1", categoryType: "Pooja & Seva", name: "Ganesh Puja & Morning Aarti Ritual", needsRegistration: true, registrationFee: "0", slots: "100", startTime: "08:00", endTime: "09:00", description: "Traditional inauguration & morning stotram aarti", venue: "Main Mandap" },
-  { id: "p2", categoryType: "Cultural Events", name: "Classical Bharatanatyam Dance & Music", needsRegistration: false, registrationFee: "0", slots: "200", startTime: "09:30", endTime: "11:00", description: "Stage performance by community troupe dancers", venue: "Main Stage" },
-  { id: "p3", categoryType: "Competitions", name: "Cultural Talent Hunt & Singing Competition", needsRegistration: true, registrationFee: "0", slots: "50", startTime: "11:15", endTime: "12:45", description: "Youth & adult singing and elocution competition", venue: "Auditorium" },
-  { id: "p4", categoryType: "Lunch", name: "Prasadam & Grand Community Lunch Feast", needsRegistration: true, registrationFee: "0", slots: "500", startTime: "13:00", endTime: "14:30", description: "Buffet dining & prasadam distribution", venue: "Dining Hall" },
-  { id: "p5", categoryType: "Competitions", name: "Youth Sports & Rangoli Art Workshop", needsRegistration: true, registrationFee: "0", slots: "60", startTime: "15:00", endTime: "16:30", description: "Indoor badminton & rangoli competition", venue: "Activity Hall" },
-  { id: "p6", categoryType: "Cultural Events", name: "Chief Guest Speech & Prize Ceremony", needsRegistration: false, registrationFee: "0", slots: "300", startTime: "17:00", endTime: "18:30", description: "Felicitation ceremony & awards distribution", venue: "Main Stage" },
-  { id: "p7", categoryType: "Cultural Events", name: "Grand Evening Musical Night & Orchestra", needsRegistration: false, registrationFee: "0", slots: "400", startTime: "19:00", endTime: "21:30", description: "Live concert & celebrity music performance", venue: "Amphitheatre" },
+  { id: "p2", categoryType: "Pooja & Seva", name: "Maha Ganapathi Homam & Sankalpam", needsRegistration: true, registrationFee: "0", slots: "50", startTime: "08:30", endTime: "10:00", description: "Vedic havan with sacred mantras and sankalpam", venue: "Yagna Shala / Main Mandap" },
+  { id: "p3", categoryType: "Pooja & Seva", name: "Navagraha Pooja & Sahasranama Archana", needsRegistration: true, registrationFee: "0", slots: "75", startTime: "10:30", endTime: "11:30", description: "Nine planetary deity prayers with flower archana", venue: "Main Mandap" },
+  { id: "p4", categoryType: "Pooja & Seva", name: "Evening Maha Mangala Aarti & Deepotsav", needsRegistration: false, registrationFee: "0", slots: "300", startTime: "19:00", endTime: "20:00", description: "Lighting of 1008 deepas & grand evening arati", venue: "Main Stage & Mandap" },
+  { id: "p5", categoryType: "Pooja & Seva", name: "Satyanarayan Swamy Vratam & Katha", needsRegistration: true, registrationFee: "0", slots: "60", startTime: "16:00", endTime: "18:00", description: "Community vratam prayer, katha recitation and prasadam", venue: "Mandap Hall" },
+  
+  // Cultural Events
+  { id: "p6", categoryType: "Cultural Events", name: "Classical Bharatanatyam Dance & Music", needsRegistration: false, registrationFee: "0", slots: "200", startTime: "09:30", endTime: "11:00", description: "Stage performance by community troupe dancers", venue: "Main Stage" },
+  { id: "p7", categoryType: "Cultural Events", name: "Grand Evening Musical Concert & Orchestra", needsRegistration: false, registrationFee: "0", slots: "400", startTime: "19:00", endTime: "21:30", description: "Live concert & devotional celebrity music performance", venue: "Amphitheatre" },
+  { id: "p8", categoryType: "Cultural Events", name: "Chief Guest Speech, Felicitation & Prize Ceremony", needsRegistration: false, registrationFee: "0", slots: "300", startTime: "17:00", endTime: "18:30", description: "Dignitary felicitation ceremony & awards distribution", venue: "Main Stage" },
+  { id: "p9", categoryType: "Cultural Events", name: "Mythological Drama / Natakam: Bhakta Prahlada", needsRegistration: false, registrationFee: "0", slots: "250", startTime: "18:30", endTime: "20:30", description: "Epic stage play performed by community youth drama group", venue: "Main Stage" },
+  { id: "p10", categoryType: "Cultural Events", name: "Kids & Teens Fancy Dress & Cultural Showcase", needsRegistration: true, registrationFee: "0", slots: "80", startTime: "16:30", endTime: "18:00", description: "Traditional mythological costume showcase for kids and youth", venue: "Auditorium" },
+  
+  // Competitions
+  { id: "p11", categoryType: "Competitions", name: "Cultural Talent Hunt & Singing Competition", needsRegistration: true, registrationFee: "0", slots: "50", startTime: "11:15", endTime: "12:45", description: "Youth & adult devotional and classical singing contest", venue: "Auditorium" },
+  { id: "p12", categoryType: "Competitions", name: "Youth & Kids Rangoli Art & Clay Workshop", needsRegistration: true, registrationFee: "0", slots: "60", startTime: "15:00", endTime: "16:30", description: "Traditional floral rangoli & eco-friendly clay art", venue: "Activity Hall" },
+  { id: "p13", categoryType: "Competitions", name: "Drawing & Painting Competition for Children", needsRegistration: true, registrationFee: "0", slots: "60", startTime: "10:00", endTime: "11:30", description: "Art contest for age groups 5-10 and 11-16", venue: "Activity Hall" },
+  { id: "p14", categoryType: "Competitions", name: "Traditional Cooking & Modak Making Contest", needsRegistration: true, registrationFee: "0", slots: "40", startTime: "11:30", endTime: "13:00", description: "Culinary competition for traditional festive delicacies", venue: "Club House" },
+  
+  // Food & Meals
+  { id: "p15", categoryType: "Lunch", name: "Prasadam & Grand Community Lunch Feast", needsRegistration: true, registrationFee: "0", slots: "500", startTime: "13:00", endTime: "14:30", description: "Traditional vegetarian feast & prasadam distribution", venue: "Dining Hall" },
+  { id: "p16", categoryType: "Dinner", name: "Community Annadanam & Mahaprasadam Dinner", needsRegistration: true, registrationFee: "0", slots: "500", startTime: "19:30", endTime: "21:00", description: "Community dinner buffet & sweet distribution", venue: "Dining Hall" },
 ];
 
+interface AgendaPlaceholdersModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  targetDate: string;
+  onAddActivities: (targetDate: string, activities: ScheduleActivity[]) => void;
+}
+
+function AgendaPlaceholdersModal({ isOpen, onClose, targetDate, onAddActivities }: AgendaPlaceholdersModalProps) {
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string>("All");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedIds([]);
+      setCategoryFilter("All");
+      setSearchQuery("");
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const categories = ["All", "Pooja & Seva", "Cultural Events", "Competitions", "Lunch", "Dinner"];
+
+  const filtered = FESTIVAL_AGENDA_PLACEHOLDERS.filter(item => {
+    const matchesCat = categoryFilter === "All" || item.categoryType === categoryFilter;
+    const q = searchQuery.toLowerCase().trim();
+    const matchesQuery = !q || item.name.toLowerCase().includes(q) || (item.description && item.description.toLowerCase().includes(q)) || (item.venue && item.venue.toLowerCase().includes(q));
+    return matchesCat && matchesQuery;
+  });
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleSelectAll = () => {
+    const visibleIds = filtered.map(x => x.id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds(prev => prev.filter(id => !visibleIds.includes(id)));
+    } else {
+      setSelectedIds(prev => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const handleConfirm = () => {
+    const chosen = FESTIVAL_AGENDA_PLACEHOLDERS.filter(p => selectedIds.includes(p.id));
+    if (chosen.length === 0) return;
+    onAddActivities(targetDate, chosen);
+    onClose();
+  };
+
+  const allVisibleSelected = filtered.length > 0 && filtered.every(x => selectedIds.includes(x.id));
+
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+      <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden">
+        
+        {/* Header */}
+        <div className="px-5 py-4 bg-gradient-to-r from-indigo-50 via-purple-50 to-white border-b border-indigo-100 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+              <Sparkles className="w-5 h-5 text-amber-300" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                Select Agenda Placeholders
+                <Badge variant="outline" className="bg-indigo-100/70 border-indigo-200 text-indigo-700 font-bold text-[10px]">
+                  {formatDayLabel(targetDate)}
+                </Badge>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Pick pre-built festival and community agenda templates to add to this day.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-white/80 hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer border border-slate-200/60"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Filters & Search */}
+        <div className="p-3.5 bg-slate-50/80 border-b border-slate-200/80 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search placeholders by activity name, venue, or timing..."
+                className="h-9 pl-3 text-xs bg-white border-slate-200"
+              />
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={handleSelectAll}
+              className="h-9 px-3 text-xs font-bold border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-50 cursor-pointer shrink-0"
+            >
+              {allVisibleSelected ? "Deselect All" : "Select All"}
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5 overflow-x-auto pb-0.5">
+            {categories.map(cat => {
+              const active = categoryFilter === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategoryFilter(cat)}
+                  className={cn(
+                    "px-3 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border",
+                    active
+                      ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60"
+                  )}
+                >
+                  {cat}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* List of Placeholders */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+          {filtered.length === 0 ? (
+            <div className="p-8 text-center text-slate-400 text-xs">
+              No agenda placeholders matching your filter.
+            </div>
+          ) : (
+            filtered.map(item => {
+              const isSelected = selectedIds.includes(item.id);
+              const catColor = ACTIVITY_CATEGORY_OPTIONS.find(c => c.value === item.categoryType)?.color || "#4f46e5";
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => toggleSelect(item.id)}
+                  className={cn(
+                    "p-3.5 rounded-2xl border transition-all cursor-pointer select-none flex items-start gap-3.5",
+                    isSelected
+                      ? "border-indigo-400 bg-indigo-50/50 shadow-xs"
+                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60"
+                  )}
+                >
+                  <div className="pt-0.5">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelect(item.id)}
+                      className="w-4 h-4 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.2"
+                        style={{
+                          color: catColor,
+                          borderColor: hexRgba(catColor, 0.3),
+                          backgroundColor: hexRgba(catColor, 0.08),
+                        }}
+                      >
+                        {item.categoryType}
+                      </Badge>
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-slate-400" />
+                        {item.startTime} – {item.endTime}
+                      </span>
+                      {item.needsRegistration && (
+                        <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-bold">
+                          Pass Required
+                        </Badge>
+                      )}
+                    </div>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 mt-1">
+                      {item.name}
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1">
+                      {item.venue ? `📍 ${item.venue}` : ""} {item.description ? `• ${item.description}` : ""}
+                    </p>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+          <div className="text-xs font-bold text-slate-600">
+            {selectedIds.length > 0 ? (
+              <span className="text-indigo-600 font-extrabold">{selectedIds.length} activities selected</span>
+            ) : (
+              <span className="text-slate-400">Select activities to import</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onClose}
+              className="px-4 text-xs font-bold border-slate-200"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              disabled={selectedIds.length === 0}
+              onClick={handleConfirm}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5 px-4 shadow-sm"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add {selectedIds.length > 0 ? `(${selectedIds.length})` : ""} to Day
+            </Button>
+          </div>
+        </div>
+
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
-  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [expandedDay, setExpandedDay] = useState<string | null>(() => {
+    return data.daySchedules.length > 0 ? data.daySchedules[0].date : null;
+  });
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [notifDayLabel, setNotifDayLabel] = useState<string | undefined>(undefined);
   const [notifActivityTitle, setNotifActivityTitle] = useState<string | undefined>(undefined);
-  const [savedPoojaEvents, setSavedPoojaEvents] = useState<any[]>([]);
-  const [loadingPoojaEvents, setLoadingPoojaEvents] = useState(false);
+  const [placeholderModalOpen, setPlaceholderModalOpen] = useState(false);
+  const [placeholderTargetDate, setPlaceholderTargetDate] = useState<string | null>(null);
 
+  const initializedDayRef = useRef(false);
   useEffect(() => {
-    setLoadingPoojaEvents(true);
-    eventService.getPoojaSevas()
-      .then((res) => {
-        if (Array.isArray(res)) {
-          setSavedPoojaEvents(res);
-        }
-      })
-      .catch((err) => {
-        console.warn("Could not load saved pooja sevas:", err);
-      })
-      .finally(() => {
-        setLoadingPoojaEvents(false);
-      });
+    if (!initializedDayRef.current && data.daySchedules.length > 0) {
+      initializedDayRef.current = true;
+      setExpandedDay(data.daySchedules[0].date);
+    }
+  }, [data.daySchedules]);
+
+  const [poojaTypeOptions, setPoojaTypeOptions] = useState<{ id: number; name: string }[]>([]);
+  useEffect(() => {
+    eventService.getPoojaTypes().then((types: { id: number; name: string }[]) => {
+      if (Array.isArray(types) && types.length > 0) setPoojaTypeOptions(types);
+    }).catch(() => {});
   }, []);
 
-  const getPoojaEventsForDay = (dateStr: string) => {
-    if (!dateStr) return [];
-    return savedPoojaEvents.filter((p) => {
-      if (p.date === dateStr || p.startDate === dateStr) return true;
-      if ((p.isMultiDay || p.multiDay) && p.startDate && p.endDate) {
-        return dateStr >= p.startDate && dateStr <= p.endDate;
-      }
-      if (p.date && p.endDate && p.endDate >= p.date) {
-        return dateStr >= p.date && dateStr <= p.endDate;
-      }
-      return false;
-    });
-  };
+  const [addingTypeForActId, setAddingTypeForActId] = useState<string | null>(null);
+  const [newPoojaTypeName, setNewPoojaTypeName] = useState("");
+  const [addingType, setAddingType] = useState(false);
+  const [addTypeError, setAddTypeError] = useState("");
 
-  const importPoojaToDayAgenda = (dateStr: string, pooja: any) => {
-    const actTime = (Array.isArray(pooja.startTimes) && pooja.startTimes.length > 0)
-      ? pooja.startTimes[0]
-      : pooja.startTime || "08:30";
-    const cleanTime = String(actTime).split(/[–-]/)[0].trim();
-    const newAct: ScheduleActivity = {
-      id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      categoryType: "Pooja & Seva",
-      name: pooja.name || "Pooja Seva",
-      needsRegistration: true,
-      registrationFee: pooja.fee ? String(pooja.fee) : "0",
-      slots: pooja.slots ? String(pooja.slots) : "50",
-      startTime: cleanTime,
-      endTime: "",
-      description: pooja.notes || pooja.type || "",
-      venue: pooja.mandap || pooja.venue || "Main Mandap",
-    };
-    const targetDay = data.daySchedules.find(ds => ds.date === dateStr);
-    if (!targetDay) {
-      const newDay: DaySchedule = {
-        date: dateStr,
-        activities: [newAct],
-      };
-      const updated = [...data.daySchedules, newDay].sort((a, b) => a.date.localeCompare(b.date));
-      update("daySchedules", updated);
-    } else {
-      const updated = data.daySchedules.map(ds =>
-        ds.date === dateStr
-          ? { ...ds, activities: [...ds.activities, newAct] }
-          : ds
-      );
-      update("daySchedules", updated);
+  const handleAddPoojaType = async (actId: string, actDate: string) => {
+    const clean = newPoojaTypeName.trim();
+    if (!clean) return;
+    setAddingType(true);
+    setAddTypeError("");
+    try {
+      const created = await eventService.createPoojaType(clean);
+      setPoojaTypeOptions(prev => prev.some(t => t.name === created.name) ? prev : [...prev, { id: created.id, name: created.name }]);
+      updateActivity(actDate, actId, "poojaType", created.name);
+      setAddingTypeForActId(null);
+      setNewPoojaTypeName("");
+    } catch {
+      setAddTypeError("Failed to save type. Try again.");
+    } finally {
+      setAddingType(false);
     }
-    setExpandedDay(dateStr);
-    showSuccess(`Linked "${pooja.name}" to ${formatDayLabel(dateStr)} agenda`);
   };
 
   const createDefaultSingleActivity = (): ScheduleActivity[] => [
@@ -659,28 +1004,40 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     }
   };
 
-  const loadFestivalPlaceholders = () => {
-    const targetDate = data.startDate || new Date().toISOString().split("T")[0];
-    const placeholders: ScheduleActivity[] = [
-      { id: `a${Date.now()}-1`, categoryType: "Pooja & Seva", name: "Maha Ganapathi Homam & Sankalpam", needsRegistration: true, registrationFee: "0", slots: "100", startTime: "08:30", endTime: "10:30", description: "Main Mandap", venue: "Main Mandap" },
-      { id: `a${Date.now()}-2`, categoryType: "Lunch", name: "Community Mahaprasadam Lunch", needsRegistration: true, registrationFee: "0", slots: "500", startTime: "12:30", endTime: "14:30", description: "Dining Hall", venue: "Dining Hall" },
-      { id: `a${Date.now()}-3`, categoryType: "Competitions", name: "Eco-Friendly Clay Ganesha Making Contest", needsRegistration: true, registrationFee: "0", slots: "50", startTime: "15:30", endTime: "17:00", description: "Auditorium", venue: "Auditorium" },
-      { id: `a${Date.now()}-4`, categoryType: "Cultural Events", name: "Bharatanatyam & Devotional Bhajan Sandhya", needsRegistration: false, registrationFee: "0", slots: "200", startTime: "18:00", endTime: "20:00", description: "Main Stage", venue: "Main Stage" },
-      { id: `a${Date.now()}-5`, categoryType: "Dinner", name: "Evening Prasadam Dinner", needsRegistration: false, registrationFee: "0", slots: "400", startTime: "20:00", endTime: "21:30", description: "Dining Hall", venue: "Dining Hall" },
-    ];
-    if (data.daySchedules.length === 0) {
-      update("daySchedules", [{
-        date: targetDate,
-        activities: placeholders,
-      }]);
-      setExpandedDay(targetDate);
+  const handleOpenPlaceholderModal = (dateStr?: string) => {
+    const target = dateStr || expandedDay || data.startDate || new Date().toISOString().split("T")[0];
+    setPlaceholderTargetDate(target);
+    setPlaceholderModalOpen(true);
+  };
+
+  const handleAddPlaceholders = (targetDate: string, selectedActivities: ScheduleActivity[]) => {
+    if (!targetDate || selectedActivities.length === 0) return;
+    const cloned = selectedActivities.map(p => ({
+      ...p,
+      id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    }));
+    const exists = data.daySchedules.some(ds => ds.date === targetDate);
+    let updated: DaySchedule[];
+    if (exists) {
+      updated = data.daySchedules.map(ds => {
+        if (ds.date === targetDate) {
+          return {
+            ...ds,
+            activities: [...ds.activities, ...cloned],
+          };
+        }
+        return ds;
+      });
     } else {
-      const updated = data.daySchedules.map(ds => ({
-        ...ds,
-        activities: placeholders.map(p => ({ ...p, id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}` })),
-      }));
-      update("daySchedules", updated);
+      const newDay: DaySchedule = {
+        date: targetDate,
+        activities: cloned,
+      };
+      updated = [...data.daySchedules, newDay].sort((a, b) => a.date.localeCompare(b.date));
     }
+    update("daySchedules", updated);
+    setExpandedDay(targetDate);
+    showSuccess(`Added ${selectedActivities.length} activities to ${formatDayLabel(targetDate)}`);
   };
 
   const triggerNotification = (dayLabel?: string, actTitle?: string) => {
@@ -731,40 +1088,128 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     update("daySchedules", updated);
   };
 
+  const updateActivityFields = (date: string, actId: string, fields: Partial<ScheduleActivity>) => {
+    const updated = data.daySchedules.map(ds =>
+      ds.date === date
+        ? { ...ds, activities: ds.activities.map(a => a.id === actId ? { ...a, ...fields } : a) }
+        : ds
+    );
+    update("daySchedules", updated);
+  };
+
+  const cloneActivity = (date: string, actToClone: ScheduleActivity) => {
+    const clonedObj: ScheduleActivity = {
+      ...actToClone,
+      id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      subEventId: undefined, // Fresh subEventId for cloned activity
+    };
+    const updated = data.daySchedules.map(ds => {
+      if (ds.date === date) {
+        const targetIdx = ds.activities.findIndex(a => a.id === actToClone.id);
+        const newActivities = [...ds.activities];
+        if (targetIdx >= 0) {
+          newActivities.splice(targetIdx + 1, 0, clonedObj);
+        } else {
+          newActivities.push(clonedObj);
+        }
+        return {
+          ...ds,
+          activities: newActivities,
+        };
+      }
+      return ds;
+    });
+    update("daySchedules", updated);
+    showSuccess(`Cloned "${actToClone.name || "Sub-Event"}" successfully`);
+  };
+
+  const duplicateAboveActivity = (date: string) => {
+    const daySchedule = data.daySchedules.find(ds => ds.date === date);
+    if (!daySchedule || daySchedule.activities.length === 0) {
+      const currentDayIdx = data.daySchedules.findIndex(ds => ds.date === date);
+      if (currentDayIdx > 0) {
+        const prevDay = data.daySchedules[currentDayIdx - 1];
+        if (prevDay && prevDay.activities.length > 0) {
+          const lastPrevAct = prevDay.activities[prevDay.activities.length - 1];
+          const clonedObj: ScheduleActivity = {
+            ...lastPrevAct,
+            id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            subEventId: undefined,
+          };
+          const updated = data.daySchedules.map(ds =>
+            ds.date === date
+              ? { ...ds, activities: [...ds.activities, clonedObj] }
+              : ds
+          );
+          update("daySchedules", updated);
+          showSuccess(`Copied "${lastPrevAct.name || "Sub-Event"}" from previous day`);
+          return;
+        }
+      }
+      addActivity(date);
+      return;
+    }
+    const lastActivity = daySchedule.activities[daySchedule.activities.length - 1];
+    cloneActivity(date, lastActivity);
+  };
+
   const dayCount = data.daySchedules.length;
 
   return (
-    <div className="space-y-3 sm:space-y-5">
-      <SectionHeader icon={CalendarDays} title="Date & Time" subtitle="When is your event happening?" />
+    <div className="space-y-3 sm:space-y-4">
+      {/* Date & Time Header + Compact Multi-day Toggle */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 sm:px-3 sm:py-2 rounded-xl bg-slate-50 border border-slate-200/90 transition-all hover:bg-slate-100/60 shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+            <CalendarDays className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-800">Multi-day Event</span>
+              <Badge variant="outline" className={cn("text-[9.5px] px-1.5 py-0 font-bold", data.multiDay ? "bg-indigo-50 border-indigo-200 text-indigo-700" : "bg-slate-100 border-slate-200 text-slate-500")}>
+                {data.multiDay ? "Active" : "Single Day"}
+              </Badge>
+            </div>
+            <p className="text-[10px] text-slate-400">
+              {data.multiDay ? "Multiple dates schedule builder enabled" : "Configure single date timing and agenda"}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">{data.multiDay ? "Multi-Day Schedule" : "Single Day"}</span>
+          <Switch checked={data.multiDay} onCheckedChange={handleMultiDayToggle} />
+        </div>
+      </div>
 
-      <ToggleRow checked={data.multiDay} onChange={handleMultiDayToggle}
-      label="Multi-day event" description="Enable to set up a day-wise schedule with activities" />
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* Date & Time Input Grid */}
+      <div className={cn(
+        "grid gap-2.5",
+        data.multiDay ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" : "grid-cols-1 sm:grid-cols-3"
+      )}>
         <div>
           <FieldLabel required>{data.multiDay ? "Start Date" : "Event Date"}</FieldLabel>
-          <Input
-            type="date"
+          <DatePicker
             value={data.startDate}
-            onChange={e => handleStartDate(e.target.value)}
-            className={INPUT_CLS}
+            onChange={v => handleStartDate(v)}
+            size="sm"
+            className={reqCls(!data.startDate)}
           />
         </div>
         {data.multiDay && (
           <div className="animate-fade-in-up">
             <FieldLabel required>End Date</FieldLabel>
-            <Input
-              type="date"
+            <DatePicker
               value={data.endDate}
               min={data.startDate || undefined}
-              onChange={e => handleEndDate(e.target.value)}
+              onChange={v => handleEndDate(v)}
+              size="sm"
               className={cn(
-                INPUT_CLS,
-                isEndDateInvalid && "border-rose-500 focus-visible:ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+                isEndDateInvalid ? "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold" : reqCls(!data.endDate)
               )}
             />
             {isEndDateInvalid && (
-              <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1.5 animate-fadeIn">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+              <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 shrink-0 text-rose-600" />
                 End date cannot be earlier than start date ({data.startDate}).
               </p>
             )}
@@ -775,6 +1220,8 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
           <TimePicker
             value={data.startTime}
             onChange={v => update("startTime", v)}
+            size="sm"
+            className={reqCls(!data.startTime)}
           />
         </div>
         <div>
@@ -782,13 +1229,14 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
           <TimePicker
             value={data.endTime}
             onChange={v => update("endTime", v)}
+            size="sm"
             className={cn(
-              isTimeInvalid && "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+              isTimeInvalid ? "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold" : reqCls(!data.endTime)
             )}
           />
           {isTimeInvalid && (
-            <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1.5 animate-fadeIn">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-600" />
+            <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3 shrink-0 text-rose-600" />
               End time must be after start time ({data.startTime}).
             </p>
           )}
@@ -796,389 +1244,377 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       </div>
 
       {/* Day-wise schedule builder */}
-      <div className="animate-fade-in-up pt-3 border-t border-slate-100 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <SectionHeader icon={Zap} title="Day-wise Agenda & Cultural Activities" subtitle={dayCount > 0 ? `${dayCount} day${dayCount > 1 ? "s" : ""} configured` : "Select a day from dropdown to configure agenda"} />
+      <div className="animate-fade-in-up pt-3 border-t border-slate-200/80 space-y-3.5">
+        {/* Section Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
+              <Zap className="w-4.5 h-4.5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="text-sm font-black text-slate-900 tracking-tight">Day-wise Agenda &amp; Activities</h4>
+                <Badge variant="outline" className="text-[10px] font-extrabold bg-indigo-50/70 border-indigo-200 text-indigo-700 px-2 py-0.5">
+                  {dayCount > 0 ? `${dayCount} Day${dayCount > 1 ? "s" : ""} Configured` : "0 Days"}
+                </Badge>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Organize Poojas, Sevas, Cultural Shows, Prasadam Meals, and Competitions per day.
+              </p>
+            </div>
+          </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleAddDay}
-              className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white gap-1.5 text-xs font-bold rounded-xl shadow-xs cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add Day
-            </Button>
+            {/* Add Day button hidden as of now */}
             <Button
               type="button"
               size="sm"
               variant="outline"
-              onClick={loadFestivalPlaceholders}
-              className="border-indigo-200 bg-indigo-50/60 hover:bg-indigo-100 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
+              onClick={() => handleOpenPlaceholderModal()}
+              className="h-8.5 px-3 text-xs font-bold border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 rounded-xl shadow-2xs gap-1.5 cursor-pointer transition-all active:scale-95"
             >
-              <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Agenda Placeholders
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Agenda Placeholders
             </Button>
             {dayCount > 0 && (
               <Button
                 type="button"
                 size="sm"
+                variant="outline"
                 onClick={() => triggerNotification()}
-                className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
+                className="h-8.5 px-3 text-xs font-bold bg-white border-slate-200 hover:border-indigo-200 text-slate-700 hover:text-indigo-600 rounded-xl shadow-2xs gap-1.5 cursor-pointer transition-all active:scale-95"
               >
-                <Mail className="w-3.5 h-3.5" /> Notify Email
+                <Mail className="w-3.5 h-3.5 text-indigo-500" /> Notify Email
               </Button>
             )}
           </div>
         </div>
 
-        {/* Multi-Day Dropdown Day Selector */}
-        {/* Multi-Day Dropdown Day Selector */}
-        {data.multiDay && allDaysInRange.length > 0 && (
-          <div className="p-3.5 bg-indigo-50/40 border border-indigo-100 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex-1">
-              <label className="text-xs font-extrabold text-slate-800 mb-1.5 flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-indigo-600" />
-                Select Day to Configure Day-wise Events:
-              </label>
-              <select
-                value={expandedDay || ""}
-                onChange={e => handleSelectDay(e.target.value)}
-                className="w-full h-10 px-3.5 rounded-xl bg-white border border-indigo-200 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 cursor-pointer shadow-2xs"
-              >
-                <option value="">-- Choose a Specific Day to Add/Edit Agenda ({allDaysInRange.length} Days in Period) --</option>
-                {allDaysInRange.map((dStr, idx) => {
-                  const dayObj = data.daySchedules.find(ds => ds.date === dStr);
-                  const count = dayObj?.activities?.filter(a => a.name?.trim()).length || 0;
-                  const poojaCount = getPoojaEventsForDay(dStr).length;
-                  return (
-                    <option key={dStr} value={dStr}>
-                      Day {idx + 1} • {formatDayLabel(dStr)} {count > 0 ? `(${count} activities configured)` : "(Not configured yet)"} {poojaCount > 0 ? `• 🪔 ${poojaCount} Saved Pooja Sub-Event${poojaCount > 1 ? "s" : ""}` : ""}
-                    </option>
-                  );
-                })}
-              </select>
+        {/* Interactive Day Switcher Tabs for Multi-Day or Configured Days */}
+        {dayCount > 0 && (
+          <div className="p-2.5 bg-slate-50/80 rounded-2xl border border-slate-200/90 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-indigo-600" /> Select Day Schedule
+              </span>
+              <span className="text-[10.5px] font-medium text-slate-400">
+                Click a day tab to view and manage its agenda
+              </span>
             </div>
-            {expandedDay && (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => addActivity(expandedDay)}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl h-10 sm:mt-5 cursor-pointer shrink-0 shadow-xs"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Activity to Selected Day
-              </Button>
-            )}
+            
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-thin">
+              {data.daySchedules.map((day, idx) => {
+                const isActive = expandedDay === day.date;
+                const actCount = day.activities.filter(a => a.name?.trim()).length;
+                return (
+                  <button
+                    key={day.date}
+                    type="button"
+                    onClick={() => setExpandedDay(day.date)}
+                    className={cn(
+                      "flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0",
+                      isActive
+                        ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-transparent shadow-md shadow-indigo-500/20 ring-2 ring-indigo-300/50"
+                        : "bg-white text-slate-700 border-slate-200 hover:border-indigo-200 hover:bg-slate-50"
+                    )}
+                  >
+                    <span className={cn(
+                      "w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black shrink-0",
+                      isActive ? "bg-white/20 text-white" : "bg-indigo-50 text-indigo-700"
+                    )}>
+                      {idx + 1}
+                    </span>
+                    <span className="truncate max-w-[130px]">{formatDayLabel(day.date)}</span>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[9.5px] px-1.5 py-0 font-extrabold shrink-0",
+                        isActive
+                          ? "bg-white/20 border-white/30 text-white"
+                          : actCount > 0
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                          : "bg-slate-100 border-slate-200 text-slate-500"
+                      )}
+                    >
+                      {actCount} {actCount === 1 ? "activity" : "activities"}
+                    </Badge>
+                  </button>
+                );
+              })}
+
+              {/* Extra unconfigured days quick add pill */}
+              {data.multiDay && allDaysInRange.filter(d => !data.daySchedules.some(ds => ds.date === d)).map(unconfDay => (
+                <button
+                  key={unconfDay}
+                  type="button"
+                  onClick={() => handleSelectDay(unconfDay)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-indigo-300 bg-indigo-50/40 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-400 text-xs font-bold transition-all cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add {formatDayLabel(unconfDay)}</span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        {savedPoojaEvents.length > 0 && (
-          <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fadeIn">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-2xs shrink-0">
-                <Flame className="w-4 h-4" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                  {savedPoojaEvents.length} Saved Pooja & Seva Sub-Event{savedPoojaEvents.length > 1 ? "s" : ""} Available in Database
-                </p>
-                <p className="text-[10.5px] text-amber-700 font-medium">
-                  {expandedDay
-                    ? `Showing day-wise details below for ${formatDayLabel(expandedDay)}. Click "Link to Agenda" to sync.`
-                    : "Select a day from the dropdown above to view and link day-wise pooja details directly to your event agenda."}
-                </p>
-              </div>
-            </div>
-            {dayCount === 0 && allDaysInRange.length > 0 && (
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => handleSelectDay(allDaysInRange[0])}
-                className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl gap-1 shrink-0 cursor-pointer shadow-xs"
-              >
-                <Calendar className="w-3.5 h-3.5" /> Configure Day 1
-              </Button>
-            )}
-          </div>
-        )}
-
+        {/* Empty State when 0 days */}
         {dayCount === 0 && (
-          <div className="p-5 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50 space-y-2.5">
-            <Zap className="w-6 h-6 text-indigo-400 mx-auto" />
+          <div className="p-8 text-center border-2 border-dashed border-indigo-200 rounded-3xl bg-indigo-50/30 space-y-3.5 animate-fade-in">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
+              <Zap className="w-6 h-6" />
+            </div>
             <div>
-              <p className="text-xs font-bold text-slate-700">No Day-wise Agenda Configured</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                {data.multiDay
-                  ? "Select a day from the dropdown above to configure activities for that particular day."
-                  : "Click '+ Add Day' to configure activities for this event."}
+              <p className="text-sm font-extrabold text-slate-800">No Day Agenda Configured Yet</p>
+              <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
+                Add schedule items like Pooja, Archana, Homam, Cultural Performances, and Mahaprasadam Meals to your event agenda.
               </p>
             </div>
-            <Button
-              type="button"
-              onClick={handleAddDay}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add Day 1
-            </Button>
+            <div className="flex items-center justify-center gap-2.5 pt-1">
+              <Button
+                type="button"
+                onClick={handleAddDay}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 text-xs font-bold rounded-xl shadow-md shadow-indigo-500/20 px-4 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Add Day 1 Schedule
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  const targetDate = data.startDate || new Date().toISOString().split("T")[0];
+                  handleOpenPlaceholderModal(targetDate);
+                }}
+                className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer shadow-xs px-4"
+              >
+                <Sparkles className="w-4 h-4 text-amber-500" /> Use Agenda Placeholders
+              </Button>
+            </div>
           </div>
         )}
 
+        {/* Expanded Day Agenda View */}
         {dayCount > 0 && (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {data.daySchedules.map((day, dayIdx) => {
-              const isExpanded = expandedDay === day.date;
+              if (expandedDay && expandedDay !== day.date) return null;
+              const isExpanded = true;
               const filledCount = day.activities.filter(a => a.name).length;
               const totalCount = day.activities.length;
+
               return (
-                <div key={day.date}
-                  className={cn(
-                    "rounded-xl border overflow-hidden transition-all",
-                    isExpanded ? "border-indigo-200 shadow-xs" : "border-slate-200 hover:border-slate-300"
-                  )}>
-                  <div className={cn(
-                    "w-full flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 transition-colors",
-                    isExpanded ? "bg-indigo-50/50" : "bg-white hover:bg-slate-50"
-                  )}>
-                    <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="flex items-center gap-2.5 sm:gap-3 flex-1 text-left">
-                      <div className={cn(
-                        "w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex flex-col items-center justify-center text-white font-black shrink-0",
-                        isExpanded ? "shadow-xs" : ""
-                      )} style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
-                        <span className="text-[9px] leading-none opacity-70">DAY</span>
-                        <span className="text-xs leading-none">{dayIdx + 1}</span>
+                <div
+                  key={day.date}
+                  className="rounded-2xl border border-indigo-100 bg-white overflow-hidden shadow-xs space-y-0 animate-fade-in"
+                >
+                  {/* Day Banner Toolbar */}
+                  <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border-b border-indigo-900/50">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-md shadow-amber-400/20 shrink-0">
+                        D{dayIdx + 1}
                       </div>
                       <div>
-                        <p className="text-xs sm:text-sm font-bold text-slate-800">{formatDayLabel(day.date)}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">
-                          {filledCount}/{totalCount} activities configured
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-extrabold text-white">Day {dayIdx + 1} &bull; {formatDayLabel(day.date)}</h4>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-indigo-200 border border-white/10">
+                            {filledCount} of {totalCount} configured
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-300 mt-0.5">
+                          Configure all activities and seva timings for this specific day
                         </p>
                       </div>
-                    </button>
-                    <div className="flex items-center gap-1.5">
-                      <button
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); triggerNotification(`Day ${dayIdx + 1}`); }}
-                        className="px-2 py-1 rounded-lg bg-white border border-slate-200 text-[10px] font-bold text-slate-700 hover:text-indigo-600 hover:border-indigo-200 flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
+                        size="sm"
+                        onClick={() => addActivity(day.date)}
+                        className="h-8 px-3 text-xs font-bold bg-white text-indigo-950 hover:bg-indigo-50 rounded-xl shadow-xs gap-1.5 cursor-pointer"
                       >
-                        <Mail className="w-3 h-3 text-indigo-500" /> Notify
-                      </button>
+                        <Plus className="w-3.5 h-3.5 text-indigo-600" /> Add Activity
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => handleOpenPlaceholderModal(day.date)}
+                        className="h-8 px-3 text-xs font-bold bg-indigo-800/80 hover:bg-indigo-700 text-white border border-indigo-600/50 rounded-xl gap-1.5 cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Placeholders
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => triggerNotification(`Day ${dayIdx + 1}`)}
+                        className="h-8 px-2.5 text-xs font-bold bg-white/10 hover:bg-white/20 text-white rounded-xl gap-1 cursor-pointer border border-white/10"
+                        title="Send email alert for this day"
+                      >
+                        <Mail className="w-3.5 h-3.5 text-indigo-300" />
+                      </Button>
                       {data.daySchedules.length > 1 && (
-                        <button
+                        <Button
                           type="button"
-                          onClick={(e) => { e.stopPropagation(); handleRemoveDay(day.date); }}
-                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all cursor-pointer"
-                          title="Remove Day"
+                          size="sm"
+                          onClick={() => handleRemoveDay(day.date)}
+                          className="h-8 px-2.5 text-xs font-bold bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 rounded-xl gap-1 cursor-pointer border border-rose-500/30"
+                          title="Remove this entire day"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        </Button>
                       )}
-                      <button onClick={() => setExpandedDay(isExpanded ? null : day.date)} className="p-1">
-                        <ChevronRight className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-200", isExpanded && "rotate-90")} />
-                      </button>
                     </div>
                   </div>
 
-                  {isExpanded && (
-                    <div className="px-3 sm:px-4 pb-3 pt-2 bg-white space-y-2.5 animate-fade-in-up">
-                      {/* Saved Day-Wise Pooja Sub-Events Section */}
-                      {(() => {
-                        const dayPoojas = getPoojaEventsForDay(day.date);
-                        if (dayPoojas.length === 0) return null;
-                        return (
-                          <div className="p-3 sm:p-3.5 rounded-xl bg-gradient-to-r from-amber-50/90 via-orange-50/60 to-amber-50/90 border border-amber-200/90 space-y-2.5 shadow-2xs">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-2xs shrink-0">
-                                  <Flame className="w-3.5 h-3.5" />
-                                </div>
-                                <div>
-                                  <h5 className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                                    Saved Pooja & Seva Sub-Events for {formatDayLabel(day.date)}
-                                    <span className="text-[9.5px] font-extrabold px-1.5 py-0.5 rounded-full bg-amber-200/70 text-amber-900 border border-amber-300/60">
-                                      {dayPoojas.length} In Database
-                                    </span>
-                                  </h5>
-                                  <p className="text-[10px] text-amber-800/80">
-                                    These pooja sub-events are saved in the database for this event date. Click "Link to Agenda" to include in day activities.
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {dayPoojas.map((pooja, pIdx) => {
-                                const isAlreadyInAgenda = day.activities.some(
-                                  a => a.name?.toLowerCase().trim() === pooja.name?.toLowerCase().trim()
-                                );
-                                const timeStr = Array.isArray(pooja.startTimes) && pooja.startTimes.length > 0
-                                  ? pooja.startTimes.join(", ")
-                                  : pooja.startTime || pooja.time || "Scheduled Time";
-
-                                return (
-                                  <div
-                                    key={pooja.id || pIdx}
-                                    className="p-2.5 rounded-lg bg-white border border-amber-200/80 shadow-2xs space-y-1.5"
-                                  >
-                                    <div className="flex items-start justify-between gap-1.5">
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex items-center gap-1.5 flex-wrap">
-                                          <span className="text-xs font-extrabold text-slate-800 truncate">
-                                            {pooja.name}
-                                          </span>
-                                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800">
-                                            {pooja.type || "Pooja Seva"}
-                                          </span>
-                                          {pooja.isFree || pooja.fee == 0 || !pooja.fee ? (
-                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800">
-                                              FREE
-                                            </span>
-                                          ) : (
-                                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-indigo-100 text-indigo-800">
-                                              ₹{pooja.fee}
-                                            </span>
-                                          )}
-                                        </div>
-                                      </div>
-                                      {isAlreadyInAgenda ? (
-                                        <span className="text-[9.5px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-0.5 shrink-0">
-                                          <Check className="w-2.5 h-2.5" /> In Agenda
-                                        </span>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          onClick={() => importPoojaToDayAgenda(day.date, pooja)}
-                                          className="text-[9.5px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md border border-indigo-200 flex items-center gap-0.5 transition-all cursor-pointer shrink-0 shadow-2xs"
-                                        >
-                                          <Plus className="w-2.5 h-2.5 text-indigo-600" /> Link to Agenda
-                                        </button>
-                                      )}
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px] text-slate-600">
-                                      <div className="flex items-center gap-1">
-                                        <Clock className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                        <span className="truncate">{timeStr}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <MapPin className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                        <span className="truncate">{pooja.mandap || pooja.venue || "Main Mandap"}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <User className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                        <span className="truncate">{pooja.pandit || pooja.priestName || "Priest Assigned"}</span>
-                                      </div>
-                                      <div className="flex items-center gap-1">
-                                        <Users className="w-2.5 h-2.5 text-slate-400 shrink-0" />
-                                        <span>{pooja.slots || pooja.availableSeats || "50"} Devotee Slots</span>
-                                      </div>
-                                    </div>
-
-                                    {Array.isArray(pooja.items) && pooja.items.length > 0 && (
-                                      <div className="pt-1 border-t border-amber-100 text-[9.5px] text-amber-900 truncate">
-                                        <span className="font-bold">Items:</span> {pooja.items.filter(Boolean).join(", ")}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })()}
-
-                      {day.activities.length === 0 && (
-                        <div className="p-4 text-center border border-dashed border-indigo-200 rounded-2xl bg-indigo-50/30 space-y-2">
-                          <p className="text-xs font-bold text-slate-700">No activities added for {formatDayLabel(day.date)} yet</p>
-                          <p className="text-[11px] text-slate-500">Click below to add a custom activity or load festival templates.</p>
-                          <div className="flex items-center justify-center gap-2 pt-1">
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => addActivity(day.date)}
-                              className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1 text-xs font-bold rounded-xl shadow-xs cursor-pointer"
-                            >
-                              <Plus className="w-3.5 h-3.5" /> Add Activity
-                            </Button>
+                  {/* Day Activities List */}
+                  <div className="p-3.5 sm:p-4 space-y-3.5 bg-slate-50/50">
+                    {day.activities.length === 0 && (
+                      <div className="p-6 text-center border-2 border-dashed border-indigo-200 rounded-2xl bg-white space-y-2.5">
+                        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                          <Sparkles className="w-5 h-5" />
+                        </div>
+                        <p className="text-xs font-extrabold text-slate-800">No activities on {formatDayLabel(day.date)}</p>
+                        <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
+                          Click below to add a customized ritual/program or import templates.
+                        </p>
+                        <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => addActivity(day.date)}
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Add Activity
+                          </Button>
+                          {dayIdx > 0 && data.daySchedules[dayIdx - 1]?.activities.length > 0 && (
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
-                              onClick={() => {
-                                const placeholders = FESTIVAL_AGENDA_PLACEHOLDERS.map(p => ({
-                                  ...p,
-                                  id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
-                                }));
-                                const updated = data.daySchedules.map(ds => ds.date === day.date ? { ...ds, activities: placeholders } : ds);
-                                update("daySchedules", updated);
-                              }}
-                              className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1 text-xs font-bold rounded-xl cursor-pointer"
+                              onClick={() => duplicateAboveActivity(day.date)}
+                              className="border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
+                              title={`Copy activities from Day ${dayIdx}`}
                             >
-                              <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Load Templates
+                              <Copy className="w-3.5 h-3.5 text-indigo-600" /> Copy Day {dayIdx} Sub-Events
                             </Button>
-                          </div>
-                        </div>
-                      )}
-                      {day.activities.map((act, actIdx) => {
-                        const currentCategory = act.categoryType || "Pooja & Seva";
-                        const suggestions = PRESET_ACTIVITY_TITLES[currentCategory] || [];
-                        const isOtherCategory = currentCategory === "Other";
-
-                        return (
-                          <div
-                            key={act.id}
-                            className="relative p-3 sm:p-4 bg-slate-50/90 rounded-2xl border border-slate-200/90 space-y-3 shadow-2xs group hover:border-indigo-200 transition-all"
+                          )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenPlaceholderModal(day.date)}
+                            className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
                           >
-                            <div className="flex items-center justify-between border-b border-slate-200/60 pb-2">
-                              <div className="flex items-center gap-2">
-                                <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-xs">
-                                  <span className="text-[10px] font-black">{actIdx + 1}</span>
-                                </div>
-                                <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
-                                  {act.categoryType || "Activity"}
-                                </span>
-                                {act.needsRegistration && (
-                                  <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    Registration Required
-                                  </span>
-                                )}
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Agenda Placeholders
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {day.activities.map((act, actIdx) => {
+                      const currentCategory = act.categoryType || "Pooja & Seva";
+                      const suggestions = PRESET_ACTIVITY_TITLES[currentCategory] || [];
+                      const isPooja = currentCategory === "Pooja & Seva";
+                      const isOtherCategory = currentCategory === "Other";
+
+                      return (
+                        <div
+                          key={act.id}
+                          className={cn(
+                            "relative rounded-2xl border transition-all shadow-xs overflow-hidden",
+                            isPooja
+                              ? "border-amber-200 bg-gradient-to-b from-amber-50/40 via-white to-white"
+                              : currentCategory === "Cultural Events"
+                              ? "border-purple-200 bg-gradient-to-b from-purple-50/40 via-white to-white"
+                              : currentCategory === "Competitions"
+                              ? "border-pink-200 bg-gradient-to-b from-pink-50/40 via-white to-white"
+                              : currentCategory === "Lunch" || currentCategory === "Dinner"
+                              ? "border-emerald-200 bg-gradient-to-b from-emerald-50/40 via-white to-white"
+                              : "border-slate-200 bg-white"
+                          )}
+                        >
+                          {/* Activity Card Header */}
+                          <div className={cn(
+                            "flex items-center justify-between px-3.5 py-2.5 border-b",
+                            isPooja ? "border-amber-100 bg-amber-50/60" : "border-slate-100 bg-slate-50/80"
+                          )}>
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0",
+                                isPooja
+                                  ? "bg-amber-500 text-white shadow-xs"
+                                  : "bg-indigo-600 text-white shadow-xs"
+                              )}>
+                                {actIdx + 1}
                               </div>
-                              <div className="flex items-center gap-1.5">
-                                {act.name && (
-                                  <button
-                                    type="button"
-                                    onClick={() => triggerNotification(`Day ${dayIdx + 1}`, act.name)}
-                                    className="text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-lg border border-indigo-200 flex items-center gap-1 transition-all cursor-pointer"
-                                  >
-                                    <Mail className="w-3 h-3" /> Notify
-                                  </button>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-black text-slate-800">
+                                  {act.name || `Activity #${actIdx + 1}`}
+                                </span>
+                                {isPooja && act.poojaType && (
+                                  <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-bold">
+                                    🪔 {act.poojaType}
+                                  </Badge>
                                 )}
-                                {day.activities.length > 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => removeActivity(day.date, act.id)}
-                                    className="opacity-60 group-hover:opacity-100 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all p-1.5 rounded-lg cursor-pointer"
-                                    title="Remove activity"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                {act.needsRegistration && (
+                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9.5px] font-bold">
+                                    Pass Required &bull; ₹{act.registrationFee || "0"}
+                                  </Badge>
                                 )}
                               </div>
                             </div>
 
-                            {/* Row 1: Category / Type Selection */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => cloneActivity(day.date, act)}
+                                className="text-[10px] font-bold text-slate-700 bg-white hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 px-2 py-1 rounded-lg border border-slate-200 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                                title="Duplicate / Clone this sub-event"
+                              >
+                                <Copy className="w-3 h-3 text-indigo-500" /> Clone
+                              </button>
+                              {act.name && (
+                                <button
+                                  type="button"
+                                  onClick={() => triggerNotification(`Day ${dayIdx + 1}`, act.name)}
+                                  className="text-[10px] font-bold text-indigo-600 bg-white hover:bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-200 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                                >
+                                  <Mail className="w-3 h-3 text-indigo-500" /> Notify
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => removeActivity(day.date, act.id)}
+                                className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all p-1.5 rounded-lg cursor-pointer"
+                                title="Remove activity"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Activity Card Body */}
+                          <div className="p-3.5 sm:p-4 space-y-3.5">
+                            {/* Row 1: Activity Category & Pooja/Seva Title Side-by-Side */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                              {/* Left: Activity Category / Type */}
                               <div>
-                                <FieldLabel required>Activity Category / Type</FieldLabel>
+                                <div className="flex items-center justify-between mb-1">
+                                  <FieldLabel required>Activity Category / Type</FieldLabel>
+                                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                                    Selected: {currentCategory}
+                                  </span>
+                                </div>
                                 <select
                                   value={currentCategory}
                                   onChange={(e) => {
                                     const newCat = e.target.value;
-                                    updateActivity(day.date, act.id, "categoryType", newCat);
-                                    if (newCat !== "Other" && PRESET_ACTIVITY_TITLES[newCat]) {
-                                      if (!act.name || Object.values(PRESET_ACTIVITY_TITLES).some((list) => list.includes(act.name))) {
-                                        updateActivity(day.date, act.id, "name", PRESET_ACTIVITY_TITLES[newCat][0]);
-                                      }
-                                    }
+                                    const updates: Partial<ScheduleActivity> = { categoryType: newCat };
+                                    updateActivityFields(day.date, act.id, updates);
                                   }}
-                                  className={cn(INPUT_CLS, "font-bold text-indigo-900 bg-white cursor-pointer")}
+                                  className={cn(
+                                    INPUT_CLS,
+                                    "h-9 text-xs font-bold text-slate-800 bg-white cursor-pointer shadow-2xs",
+                                    reqCls(!currentCategory)
+                                  )}
                                 >
                                   {ACTIVITY_CATEGORY_OPTIONS.map((opt) => (
                                     <option key={opt.value} value={opt.value}>
@@ -1188,212 +1624,289 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                 </select>
                               </div>
 
-                              {isOtherCategory ? (
-                                <div>
-                                  <FieldLabel required>Custom Type Name</FieldLabel>
-                                  <Input
-                                    value={act.customType || ""}
-                                    onChange={(e) => updateActivity(day.date, act.id, "customType", e.target.value)}
-                                    placeholder="e.g. Sports / Workshop / Stage Play"
-                                    className={cn(INPUT_CLS, "bg-white font-medium")}
-                                  />
-                                </div>
-                              ) : (
-                                <div>
-                                  <FieldLabel>Target Schedule Tab</FieldLabel>
-                                  <div className="px-3 py-[7px] rounded-[0.625rem] bg-indigo-50/60 border border-indigo-100 text-[12px] font-semibold text-indigo-700 flex items-center gap-1.5">
-                                    <span>Syncs to:</span>
-                                    <span className="font-bold underline underline-offset-2">
-                                      {currentCategory === "Pooja & Seva"
-                                        ? "Pooja & Seva Tab"
-                                        : currentCategory === "Lunch" || currentCategory === "Dinner"
-                                        ? "Lunch / Dinner Tab"
-                                        : currentCategory === "Cultural Events"
-                                        ? "Cultural Events Tab"
-                                        : currentCategory === "Competitions"
-                                        ? "Competitions Tab"
-                                        : "Programs Tab"}
-                                    </span>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Row 2: Title and Times */}
-                            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2.5 items-end">
+                              {/* Right: Activity Title (Pooja / Seva Title) */}
                               <div>
                                 <div className="flex items-center justify-between mb-1">
-                                  <FieldLabel required>Activity / Event Title</FieldLabel>
-                                  <span className="text-[10px] text-slate-400 font-medium">Select suggestion or type title</span>
+                                  <FieldLabel required>
+                                    {isPooja ? "Pooja / Seva Title" : "Activity / Event Title"}
+                                  </FieldLabel>
                                 </div>
                                 <Input
-                                  list={`preset-titles-${act.id}`}
                                   value={act.name}
                                   onChange={(e) => updateActivity(day.date, act.id, "name", e.target.value)}
-                                  placeholder="e.g. Maha Ganapathi Homam / Classical Dance"
-                                  className={cn(INPUT_CLS, "bg-white font-semibold text-slate-900")}
+                                  placeholder={isPooja ? "e.g. Maha Ganapathi Homam & Sankalpam" : "e.g. Classical Dance / Drawing Contest"}
+                                  className={cn(INPUT_CLS, "h-9 text-xs bg-white font-bold text-slate-900 border-slate-200")}
                                 />
-                                <datalist id={`preset-titles-${act.id}`}>
-                                  {suggestions.map((title, i) => (
-                                    <option key={i} value={title} />
-                                  ))}
-                                </datalist>
+                              </div>
+                            </div>
 
-                                {suggestions.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1.5">
-                                    {suggestions.slice(0, 3).map((title, i) => (
-                                      <button
-                                        key={i}
+                            {/* Row 2: Specialized Section (Pooja Type for Pooja, or Custom Type / Sync info) */}
+                            {isPooja ? (
+                              <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1.5">
+                                <div className="flex items-center justify-between">
+                                  <label className="text-[11px] font-extrabold text-amber-900 flex items-center gap-1">
+                                    <Flame className="w-3.5 h-3.5 text-amber-600" /> Pooja &amp; Seva Type
+                                  </label>
+                                  {addingTypeForActId !== act.id && (
+                                    <button
+                                      type="button"
+                                      onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                      className="text-[10.5px] font-bold text-amber-700 hover:text-amber-900 hover:underline flex items-center gap-0.5 cursor-pointer"
+                                    >
+                                      <Plus className="w-3 h-3" /> Add Custom Type
+                                    </button>
+                                  )}
+                                </div>
+
+                                {addingTypeForActId === act.id ? (
+                                  <div className="space-y-1.5 pt-0.5">
+                                    <div className="flex gap-1.5">
+                                      <Input
+                                        value={newPoojaTypeName}
+                                        onChange={(e) => { setNewPoojaTypeName(e.target.value); setAddTypeError(""); }}
+                                        placeholder="e.g. Navagraha Homam, Deeparadhana..."
+                                        className={cn(INPUT_CLS, "bg-white flex-1 h-8.5 text-xs font-bold border-amber-300")}
+                                        autoFocus
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") { e.preventDefault(); handleAddPoojaType(act.id, day.date); }
+                                          if (e.key === "Escape") { setAddingTypeForActId(null); setNewPoojaTypeName(""); }
+                                        }}
+                                      />
+                                      <Button
                                         type="button"
-                                        onClick={() => updateActivity(day.date, act.id, "name", title)}
-                                        className={cn(
-                                          "text-[9.5px] px-2 py-0.5 rounded-md border transition-all cursor-pointer font-medium",
-                                          act.name === title
-                                            ? "bg-indigo-600 text-white border-indigo-600 font-bold shadow-2xs"
-                                            : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
-                                        )}
+                                        size="sm"
+                                        disabled={addingType || !newPoojaTypeName.trim()}
+                                        onClick={() => handleAddPoojaType(act.id, day.date)}
+                                        className="h-8.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold disabled:opacity-50 shrink-0 shadow-xs cursor-pointer"
                                       >
-                                        + {title.split(" ")[0]} {title.split(" ")[1] || ""}
+                                        {addingType ? "…" : "Save"}
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => { setAddingTypeForActId(null); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                        className="h-8.5 px-2 rounded-xl bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold shrink-0 border-slate-200"
+                                      >
+                                        <X className="w-3.5 h-3.5" />
+                                      </Button>
+                                    </div>
+                                    {addTypeError && <p className="text-[10px] font-bold text-rose-600">{addTypeError}</p>}
+                                  </div>
+                                ) : (
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-center gap-1.5">
+                                      <select
+                                        value={act.poojaType || ""}
+                                        onChange={(e) => updateActivity(day.date, act.id, "poojaType", e.target.value)}
+                                        className="flex-1 h-9 px-3 rounded-xl bg-white border border-amber-300 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-200 cursor-pointer shadow-2xs"
+                                      >
+                                        <option value="">— Select Pooja / Seva Type —</option>
+                                        {poojaTypeOptions.length > 0 ? (
+                                          poojaTypeOptions.map(t => (
+                                            <option key={t.id} value={t.name}>{t.name}</option>
+                                          ))
+                                        ) : (
+                                          <>
+                                            <option value="Maha Pooja">Maha Pooja</option>
+                                            <option value="Archana & Deeparadhana">Archana &amp; Deeparadhana</option>
+                                            <option value="Rudrabhishekam">Rudrabhishekam</option>
+                                            <option value="Homam & Havan">Homam &amp; Havan</option>
+                                            <option value="Maha Sankalpam">Maha Sankalpam</option>
+                                            <option value="Mahamangal Aarti">Mahamangal Aarti</option>
+                                            <option value="Sri Satyanarayana Vratham">Sri Satyanarayana Vratham</option>
+                                            <option value="Special Seva">Special Seva</option>
+                                          </>
+                                        )}
+                                      </select>
+                                      <button
+                                        type="button"
+                                        onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                        className="h-9 px-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1 transition shadow-2xs active:scale-95 cursor-pointer shrink-0"
+                                        title="Add new Pooja Type"
+                                      >
+                                        <Plus className="w-3.5 h-3.5" />
                                       </button>
-                                    ))}
+                                    </div>
                                   </div>
                                 )}
                               </div>
+                            ) : isOtherCategory ? (
+                              <div>
+                                <FieldLabel required>Custom Type Name</FieldLabel>
+                                <Input
+                                  value={act.customType || ""}
+                                  onChange={(e) => updateActivity(day.date, act.id, "customType", e.target.value)}
+                                  placeholder="e.g. Sports / Workshop / Stage Play"
+                                  className={cn(INPUT_CLS, "h-9 text-xs bg-white font-medium")}
+                                />
+                              </div>
+                            ) : null}
 
-                              <div className="w-full sm:w-36">
-                                <FieldLabel required>From</FieldLabel>
+                            {/* Row: Timing (Start & End Time) */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <FieldLabel required>Start Time (From)</FieldLabel>
                                 <TimePicker
                                   value={act.startTime}
                                   onChange={(v) => updateActivity(day.date, act.id, "startTime", v)}
                                   size="sm"
+                                  className={reqCls(!act.startTime)}
                                 />
                               </div>
-                              <div className="w-full sm:w-36">
-                                <FieldLabel required>To</FieldLabel>
+                              <div>
+                                <FieldLabel required>End Time (To)</FieldLabel>
                                 <TimePicker
                                   value={act.endTime}
                                   onChange={(v) => updateActivity(day.date, act.id, "endTime", v)}
                                   size="sm"
+                                  className={cn(
+                                    act.startTime && act.endTime && act.endTime <= act.startTime
+                                      ? "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+                                      : reqCls(!act.endTime)
+                                  )}
                                 />
+                                {Boolean(act.startTime && act.endTime && act.endTime <= act.startTime) && (
+                                  <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3 shrink-0 text-rose-600" />
+                                    End time must be after start time ({act.startTime}).
+                                  </p>
+                                )}
                               </div>
                             </div>
 
-                            {/* Row 3: Registration & Fee Controls */}
-                            <div className="p-2.5 rounded-xl bg-white border border-slate-200/90 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
-                              <label className="flex items-center gap-2 cursor-pointer select-none text-xs font-semibold text-slate-800">
-                                <input
-                                  type="checkbox"
-                                  checked={act.needsRegistration ?? true}
-                                  onChange={(e) => updateActivity(day.date, act.id, "needsRegistration", e.target.checked)}
-                                  className="w-4 h-4 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
-                                />
-                                <span>Requires Member Registration &amp; Pass</span>
-                              </label>
+                            {/* Row: Devotee Pass & Seva Booking Bar */}
+                            <div className="p-3 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-2.5">
+                              <div className="flex items-center justify-between">
+                                <label className="flex items-center gap-2 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={act.needsRegistration ?? true}
+                                    onChange={(e) => updateActivity(day.date, act.id, "needsRegistration", e.target.checked)}
+                                    className="w-4 h-4 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
+                                  />
+                                  <span className="text-xs font-bold text-slate-800">
+                                    {isPooja ? "Requires Devotee Seva Pass / Registration" : "Requires Member Entry Pass"}
+                                  </span>
+                                </label>
+
+                                <Badge variant="outline" className={cn(
+                                  "text-[10px] font-bold",
+                                  act.needsRegistration ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500 border-slate-200"
+                                )}>
+                                  {act.needsRegistration ? "Pass Enabled" : "Open to All"}
+                                </Badge>
+                              </div>
 
                               {act.needsRegistration && (
-                                <div className="flex items-center gap-3">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-[11px] font-bold text-slate-500">Fee (₹):</span>
-                                    <Input
-                                      type="text"
-                                      value={act.registrationFee ?? "0"}
-                                      onChange={(e) => updateActivity(day.date, act.id, "registrationFee", e.target.value)}
-                                      placeholder="0 for Free"
-                                      className="w-24 h-7 text-xs bg-slate-50 font-bold border-slate-200"
-                                    />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100 animate-fade-in">
+                                  <div>
+                                    <FieldLabel>
+                                      {isPooja ? "Seva / Registration Fee (₹)" : "Pass Fee (₹)"}
+                                    </FieldLabel>
+                                    <div className="relative">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
+                                      <Input
+                                        type="text"
+                                        value={act.registrationFee ?? "0"}
+                                        onChange={(e) => updateActivity(day.date, act.id, "registrationFee", e.target.value)}
+                                        placeholder="0 for Free"
+                                        className={cn(INPUT_CLS, "h-8.5 text-xs bg-slate-50 font-bold pl-7 border-slate-200")}
+                                      />
+                                    </div>
                                   </div>
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="text-[11px] font-bold text-slate-500">Capacity/Slots:</span>
-                                    <Input
-                                      type="number"
-                                      value={act.slots ?? "50"}
-                                      onChange={(e) => updateActivity(day.date, act.id, "slots", e.target.value)}
-                                      placeholder="50"
-                                      className="w-20 h-7 text-xs bg-slate-50 font-bold border-slate-200"
-                                    />
+                                  <div>
+                                    <FieldLabel>
+                                      {isPooja ? "Max Devotee Slots / Capacity" : "Available Seats / Slots"}
+                                    </FieldLabel>
+                                    <div className="relative">
+                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
+                                        <Users className="w-3.5 h-3.5" />
+                                      </span>
+                                      <Input
+                                        type="number"
+                                        value={act.slots ?? "50"}
+                                        onChange={(e) => updateActivity(day.date, act.id, "slots", e.target.value)}
+                                        placeholder="50"
+                                        className={cn(INPUT_CLS, "h-8.5 text-xs bg-slate-50 font-bold pl-8 border-slate-200")}
+                                      />
+                                    </div>
                                   </div>
                                 </div>
                               )}
                             </div>
 
-                            {/* Row 4: Description and Location / Venue */}
-                            <div>
-                              <FieldLabel>Description &amp; Location / Mandap</FieldLabel>
-                              <Input
-                                value={act.description}
-                                onChange={(e) => updateActivity(day.date, act.id, "description", e.target.value)}
-                                placeholder="e.g. Main Temple Mandap / Stage A"
-                                className={cn(INPUT_CLS, "bg-white")}
-                              />
+                            {/* Row: Venue + Special Guidelines */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <FieldLabel>{isPooja ? "Mandap / Sacred Venue" : "Stage / Location Venue"}</FieldLabel>
+                                <Input
+                                  value={act.venue || ""}
+                                  onChange={(e) => updateActivity(day.date, act.id, "venue", e.target.value)}
+                                  placeholder={isPooja ? "e.g. Main Temple Mandap / Homa Kundam" : "e.g. Community Stage / Dining Hall"}
+                                  className={cn(INPUT_CLS, "h-8.5 text-xs bg-white border-slate-200")}
+                                />
+                              </div>
+                              <div>
+                                <FieldLabel>{isPooja ? "Devotee Samagri & Special Instructions" : "Description & Instructions"}</FieldLabel>
+                                <Input
+                                  value={act.description}
+                                  onChange={(e) => updateActivity(day.date, act.id, "description", e.target.value)}
+                                  placeholder={isPooja ? "e.g. Devotees to bring coconuts & flowers; traditional attire" : "e.g. Arrive 15 mins prior for registration"}
+                                  className={cn(INPUT_CLS, "h-8.5 text-xs bg-white border-slate-200")}
+                                />
+                              </div>
                             </div>
                           </div>
-                        );
-                      })}
-                      <button 
+                        </div>
+                      );
+                    })}
+
+                    {/* Bottom Day Actions */}
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                      <Button
                         type="button"
                         onClick={() => addActivity(day.date)}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-extrabold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100/80 hover:border-indigo-300 transition-all cursor-pointer shadow-xs mt-2"
+                        className="flex-1 min-w-[200px] h-9 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-bold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 hover:border-indigo-300 transition-all cursor-pointer shadow-xs gap-1.5"
                       >
-                        <Plus className="w-4 h-4 text-indigo-600" /> Add Activity / Item to Day {dayIdx + 1}
-                      </button>
+                        <Plus className="w-3.5 h-3.5 text-indigo-600" /> Add Another Activity to Day {dayIdx + 1}
+                      </Button>
+                      {day.activities.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => duplicateAboveActivity(day.date)}
+                          className="h-9 px-3.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-xs font-bold text-indigo-700 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                          title="Clone / Duplicate the last activity in this day"
+                        >
+                          <Copy className="w-3.5 h-3.5 text-indigo-600" /> Clone Above Activity
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => handleOpenPlaceholderModal(day.date)}
+                        className="h-9 px-3.5 rounded-xl border border-indigo-200 bg-white hover:bg-indigo-50 text-xs font-bold text-indigo-700 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                        title="Pick and import agenda placeholders for this day"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Import Placeholders
+                      </Button>
                     </div>
-                  )}
+                  </div>
                 </div>
               );
             })}
 
-            {/* Bottom Add Day Button */}
+            {/* Bottom Add Next Day Button */}
             <button
               type="button"
               onClick={handleAddDay}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-indigo-300 bg-indigo-50/40 text-xs font-bold text-indigo-700 hover:bg-indigo-50 hover:border-indigo-400 transition-all cursor-pointer shadow-2xs"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-indigo-300 bg-indigo-50/40 text-xs font-bold text-indigo-700 hover:bg-indigo-100/70 hover:border-indigo-400 transition-all cursor-pointer shadow-2xs mt-2"
             >
               <Plus className="w-4 h-4 text-indigo-600" /> Add Day {dayCount + 1} Schedule
             </button>
           </div>
         )}
-      </div>
-
-      {/* Venue */}
-      <div className="pt-2">
-        <SectionHeader icon={MapPin} title="Venue Details" subtitle="Where is your event taking place?" />
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <FieldLabel required>Venue Name</FieldLabel>
-              <Input value={data.venueName} onChange={e => update("venueName", e.target.value)}
-                placeholder="e.g. Community Hall, Society Ground" className={INPUT_CLS} />
-            </div>
-            <div>
-              <FieldLabel required>City</FieldLabel>
-              <Input value={data.city} onChange={e => update("city", e.target.value)} placeholder="City" className={INPUT_CLS} />
-            </div>
-          </div>
-          <div>
-            <FieldLabel required>Address</FieldLabel>
-            <Textarea value={data.venueAddress} onChange={e => update("venueAddress", e.target.value)} rows={2}
-              placeholder="Full address of the venue" className={cn(INPUT_CLS, "resize-none")} />
-          </div>
-          <div>
-            <FieldLabel hint="Optional">Max Capacity</FieldLabel>
-            <Input
-              type="number"
-              min={0}
-              value={data.capacity}
-              onKeyDown={(e) => {
-                if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
-              }}
-              onChange={e => {
-                const val = e.target.value;
-                const parsed = parseInt(val, 10);
-                const sanitized = isNaN(parsed) ? "" : String(Math.max(0, parsed));
-                update("capacity", val === "" ? "" : sanitized);
-              }}
-              placeholder="e.g. 500"
-              className={cn(INPUT_CLS, "sm:w-48")}
-            />
-          </div>
-        </div>
       </div>
 
       {/* Agenda Notification Modal */}
@@ -1404,11 +1917,88 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         dayLabel={notifDayLabel}
         activityTitle={notifActivityTitle}
       />
+
+      {/* Agenda Placeholders Selection Modal */}
+      {placeholderModalOpen && placeholderTargetDate && (
+        <AgendaPlaceholdersModal
+          isOpen={placeholderModalOpen}
+          onClose={() => {
+            setPlaceholderModalOpen(false);
+            setPlaceholderTargetDate(null);
+          }}
+          targetDate={placeholderTargetDate}
+          onAddActivities={handleAddPlaceholders}
+        />
+      )}
     </div>
   );
 }
 
-/* ─── Step 3: Registration ─── */
+/* ─── Step 3: Venue ─── */
+function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <SectionHeader icon={MapPin} title="Venue Details" subtitle="Where is your event taking place?" />
+
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <FieldLabel required>Venue Name</FieldLabel>
+            <Input
+              value={data.venueName}
+              onChange={e => update("venueName", e.target.value)}
+              placeholder="e.g. Community Hall, Society Ground, Main Temple Mandap"
+              className={cn(INPUT_CLS, reqCls(!data.venueName?.trim()))}
+            />
+          </div>
+          <div>
+            <FieldLabel required>City</FieldLabel>
+            <Input
+              value={data.city}
+              onChange={e => update("city", e.target.value)}
+              placeholder="e.g. Hyderabad, Bengaluru, Mumbai"
+              className={cn(INPUT_CLS, reqCls(!data.city?.trim()))}
+            />
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel required>Address</FieldLabel>
+          <Textarea
+            value={data.venueAddress}
+            onChange={e => update("venueAddress", e.target.value)}
+            rows={3}
+            placeholder="Full address of the venue, landmark, street name..."
+            className={cn(INPUT_CLS, "resize-none", reqCls(!data.venueAddress?.trim()))}
+          />
+        </div>
+
+        <div className="sm:w-64">
+          <FieldLabel hint="Optional">Max Capacity (Attendees)</FieldLabel>
+          <Input
+            type="number"
+            min={0}
+            value={data.capacity}
+            onKeyDown={(e) => {
+              if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
+            }}
+            onChange={e => {
+              const val = e.target.value;
+              const parsed = parseInt(val, 10);
+              const sanitized = isNaN(parsed) ? "" : String(Math.max(0, parsed));
+              update("capacity", val === "" ? "" : sanitized);
+            }}
+            placeholder="e.g. 500"
+            className={INPUT_CLS}
+          />
+          <p className="text-[10px] text-slate-400 mt-1">Maximum estimated seating capacity or attendee limit.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Step 4: Registration ─── */
 function Step3Registration({ data, update }: { data: FormData; update: (k: keyof FormData, v: any) => void }) {
   const [dbCategories, setDbCategories] = useState<TicketCategoryMasterResponse[]>([]);
   const [loadingCats, setLoadingCats] = useState(false);
@@ -1494,14 +2084,13 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
             <FieldLabel hint={data.startDate ? `Must be before ${data.startDate}` : undefined}>
               Registration Deadline
             </FieldLabel>
-            <Input
-              type="date"
+            <DatePicker
               value={data.registrationDeadline}
               max={maxDeadlineDate}
-              onChange={e => update("registrationDeadline", e.target.value)}
+              onChange={v => update("registrationDeadline", v)}
+              size="sm"
               className={cn(
-                INPUT_CLS,
-                isDeadlineInvalid && "border-rose-500 focus-visible:ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+                isDeadlineInvalid && "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
               )}
             />
             {isDeadlineInvalid && (
@@ -2150,7 +2739,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
                     value={contact.name}
                     onChange={(e) => updateContact(contact.id, "name", e.target.value)}
                     placeholder="e.g. Ramesh Sharma"
-                    className={cn(INPUT_CLS, "h-8 text-xs py-1 px-2.5")}
+                    className={cn(INPUT_CLS, "h-8 text-xs py-1 px-2.5", reqCls(!contact.name?.trim()))}
                   />
                 </div>
 
@@ -2162,7 +2751,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
                     value={contact.phone}
                     onChange={(e) => updateContact(contact.id, "phone", e.target.value)}
                     placeholder="+91 98765 43210"
-                    className={cn(INPUT_CLS, "h-8 text-xs font-mono py-1 px-2.5")}
+                    className={cn(INPUT_CLS, "h-8 text-xs font-mono py-1 px-2.5", reqCls(!contact.phone?.trim()))}
                   />
                 </div>
 
@@ -3134,12 +3723,21 @@ function Step8Review({ data }: { data: FormData }) {
   const totalAllocated = data.budgetItems.reduce((s, b) => s + (parseFloat(b.amount) || 0), 0);
 
   const warnings: string[] = [];
-  if (!data.title) warnings.push("Event title is required.");
-  if (!data.eventType) warnings.push("Please select an event type.");
+  if (!data.title?.trim()) warnings.push("Event title is required.");
+  if (!data.eventType?.trim()) warnings.push("Please select an event type.");
+  if (!data.description?.trim()) warnings.push("Event description is required.");
   if (!data.startDate) warnings.push("Start date is required.");
-  if (!data.venueName) warnings.push("Venue name is required.");
-  if (data.registrationEnabled && data.registrationDeadline && data.startDate && new Date(data.registrationDeadline) >= new Date(data.startDate)) {
-    warnings.push(`Registration deadline (${data.registrationDeadline}) must be before the event start date (${data.startDate}).`);
+  if (data.multiDay && !data.endDate) warnings.push("End date is required for multi-day events.");
+  if (!data.startTime?.trim()) warnings.push("Start time is required.");
+  if (!data.endTime?.trim()) warnings.push("End time is required.");
+  if (!data.venueName?.trim()) warnings.push("Venue name is required.");
+  if (!data.city?.trim()) warnings.push("City is required.");
+  if (!data.venueAddress?.trim()) warnings.push("Venue address is required.");
+  if (data.enableOnlinePayment && (!data.paymentModes || data.paymentModes.length === 0)) {
+    warnings.push("At least one accepted payment mode is required when online payment is enabled.");
+  }
+  if (data.registrationEnabled && data.registrationDeadline && data.startDate && new Date(data.registrationDeadline) > new Date(data.startDate)) {
+    warnings.push(`Registration deadline (${data.registrationDeadline}) must be on or before the event start date (${data.startDate}).`);
   }
 
   const reviewSections = [
@@ -3152,12 +3750,20 @@ function Step8Review({ data }: { data: FormData }) {
       ],
     },
     {
-      icon: CalendarDays, title: "Schedule & Venue", color: "#7c3aed",
+      icon: CalendarDays, title: "Date & Schedule", color: "#7c3aed",
       rows: [
         { label: "Date",     value: data.startDate ? `${data.startDate}${data.multiDay && data.endDate ? ` → ${data.endDate}` : ""}` : "—" },
         { label: "Time",     value: data.startTime ? `${data.startTime} – ${data.endTime}` : "—" },
-        { label: "Venue",    value: data.venueName ? `${data.venueName}, ${data.city}` : "—" },
-        { label: "Capacity", value: data.capacity ? `${parseInt(data.capacity).toLocaleString()} seats` : "—" },
+        { label: "Schedule", value: data.multiDay ? `${data.daySchedules.length} day(s) configured` : "Single Day Event" },
+      ],
+    },
+    {
+      icon: MapPin, title: "Venue Details", color: "#059669",
+      rows: [
+        { label: "Venue",    value: data.venueName || "—" },
+        { label: "City",     value: data.city || "—" },
+        { label: "Address",  value: data.venueAddress || "—" },
+        { label: "Capacity", value: data.capacity ? `${parseInt(data.capacity).toLocaleString()} attendees` : "Not specified" },
       ],
     },
     ...(data.multiDay && data.daySchedules.length > 0 ? [{
@@ -3273,21 +3879,27 @@ function Step8Review({ data }: { data: FormData }) {
   );
 }
 
-export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLISHED"): EventRequest {
+export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLISHED", draftStep?: number): EventRequest {
   const primaryContact = data.contacts?.[0];
   const coverImageUrl = persistedMediaUrl(data.coverImageUrl);
   const scannerImageUrl = persistedMediaUrl(data.scannerUrl);
-  const contactPayload = (data.contacts || []).map(({ id, name, phone, role, notes }) => ({
+  const contactPayload = (data.contacts || []).map(({ id, name, phone, role, notes }, idx) => ({
     id,
     name,
     phone,
     role,
     notes,
+    displayOrder: idx + 1,
+    isPrimary: idx === 0,
   }));
   return {
     title: data.title,
     description: data.description || undefined,
-    type: data.eventType || undefined,
+    type: data.eventType ? (
+      ["festival", "cultural", "meeting", "workshop", "conference", "party", "fundraiser", "sports"].includes(data.eventType.toLowerCase())
+        ? data.eventType.toUpperCase()
+        : "GENERAL"
+    ) : undefined,
     startDate: data.startDate,
     endDate: data.multiDay && data.endDate ? data.endDate : undefined,
     startTime: data.startTime || undefined,
@@ -3303,6 +3915,7 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
     organizerContact: primaryContact?.phone || undefined,
     ticketTypes: data.ticketTypes,
     ticketTypesJson: undefined,
+    contacts: contactPayload,
     paymentModes: data.enableOnlinePayment ? (data.paymentModes && data.paymentModes.length > 0 ? data.paymentModes.join(",") : undefined) : "Cash",
     upiId: data.enableOnlinePayment ? (data.upiId || undefined) : undefined,
     scannerUrl: data.enableOnlinePayment ? scannerImageUrl : undefined,
@@ -3312,9 +3925,10 @@ export function toEventRequest(data: FormData, statusOverride?: "DRAFT" | "PUBLI
     paymentInstructions: data.enableOnlinePayment ? (data.paymentInstructions || undefined) : undefined,
     venue: data.venueName || undefined,
     city: data.city || undefined,
-    category: data.eventType || undefined,
+    category: data.category || EVENT_TYPES.find(t => t.value === data.eventType)?.label || data.eventType || "Festival",
     status: statusOverride || "PUBLISHED",
     registrationDeadline: data.registrationEnabled && data.registrationDeadline ? data.registrationDeadline : undefined,
+    draftStep: draftStep !== undefined ? draftStep : (statusOverride === "DRAFT" ? 1 : undefined),
   };
 }
 
@@ -3339,12 +3953,21 @@ export function fromEventToFormData(ev: any): FormData {
     } catch {}
   }
 
+  // Extract saved capacity - prioritize true total capacity fields over remaining/available seats
+  const savedCapacity = ev.capacity !== undefined && ev.capacity !== null && String(ev.capacity).trim() !== ""
+    ? String(ev.capacity)
+    : ev.maxAttendees !== undefined && ev.maxAttendees !== null && String(ev.maxAttendees).trim() !== ""
+    ? String(ev.maxAttendees)
+    : ev.totalCapacity !== undefined && ev.totalCapacity !== null && String(ev.totalCapacity).trim() !== ""
+    ? String(ev.totalCapacity)
+    : "100";
+
   const ticketTypes: TicketType[] = rawTicketTypes.length > 0
     ? rawTicketTypes.map((t: any, i: number) => ({
         id: t.id || `t${i + 1}`,
         name: t.name || (i === 0 ? "General" : `Tier ${i + 1}`),
         price: String(t.price ?? "0"),
-        qty: String(t.qty ?? t.seats ?? t.capacity ?? ev.capacity ?? ev.maxAttendees ?? "100"),
+        qty: String(t.capacity ?? t.seats ?? t.qty ?? t.maxSeats ?? savedCapacity ?? "100"),
         description: t.description || "",
       }))
     : [
@@ -3352,7 +3975,7 @@ export function fromEventToFormData(ev: any): FormData {
           id: "t1",
           name: "General",
           price: ev.price !== undefined && ev.price !== null ? String(ev.price) : "0",
-          qty: ev.capacity ? String(ev.capacity) : ev.maxAttendees ? String(ev.maxAttendees) : "100",
+          qty: savedCapacity,
           description: "Open for all community members",
         },
       ];
@@ -3363,11 +3986,106 @@ export function fromEventToFormData(ev: any): FormData {
     locTypeStr === "invite" || locTypeStr === "private" ? "invite" :
     "community";
 
-  const eventTypeLower = (ev.type || ev.category || ev.eventType || "").toLowerCase();
-  const matchedType = EVENT_TYPES.find(t => t.value === eventTypeLower || t.label.toLowerCase() === eventTypeLower)?.value || (eventTypeLower || "festival");
+  const rawTypeCandidates: string[] = [
+    ev.category,
+    ev.eventType,
+    ev.eventCategory,
+    ev.typeName,
+    ev.type,
+  ].filter(Boolean).map((s: any) => String(s).toLowerCase().trim());
+
+  let matchedType = "festival";
+  let matchedFound = false;
+
+  for (const raw of rawTypeCandidates) {
+    const cleanRaw = raw.replace(/[-_]/g, " ");
+
+    const exactVal = EVENT_TYPES.find(t => t.value.toLowerCase() === raw || t.value.toLowerCase() === cleanRaw);
+    if (exactVal) {
+      matchedType = exactVal.value;
+      matchedFound = true;
+      break;
+    }
+
+    const exactLabel = EVENT_TYPES.find(t => t.label.toLowerCase() === raw || t.label.toLowerCase() === cleanRaw);
+    if (exactLabel) {
+      matchedType = exactLabel.value;
+      matchedFound = true;
+      break;
+    }
+
+    if (cleanRaw.includes("health") || cleanRaw.includes("medical") || cleanRaw.includes("camp") || cleanRaw.includes("blood") || cleanRaw.includes("yoga") || cleanRaw.includes("wellness") || cleanRaw.includes("fitness")) {
+      matchedType = "health";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("food") || cleanRaw.includes("dining") || cleanRaw.includes("dinner") || cleanRaw.includes("lunch") || cleanRaw.includes("prasadam") || cleanRaw.includes("annadanam") || cleanRaw.includes("cooking") || cleanRaw.includes("kitchen")) {
+      matchedType = "food";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("sport") || cleanRaw.includes("cricket") || cleanRaw.includes("outdoor") || cleanRaw.includes("trek") || cleanRaw.includes("run") || cleanRaw.includes("marathon") || cleanRaw.includes("badminton") || cleanRaw.includes("football") || cleanRaw.includes("tournament")) {
+      matchedType = "outdoor";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("cultur") || cleanRaw.includes("music") || cleanRaw.includes("dance") || cleanRaw.includes("drama") || cleanRaw.includes("theatre") || cleanRaw.includes("concert") || cleanRaw.includes("art")) {
+      matchedType = "cultural";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("festiv") || cleanRaw.includes("pooja") || cleanRaw.includes("seva") || cleanRaw.includes("diwali") || cleanRaw.includes("ganesh") || cleanRaw.includes("navratri") || cleanRaw.includes("holi") || cleanRaw.includes("durga") || cleanRaw.includes("celebrat")) {
+      matchedType = "festival";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("educat") || cleanRaw.includes("workshop") || cleanRaw.includes("school") || cleanRaw.includes("class") || cleanRaw.includes("training") || cleanRaw.includes("seminar") || cleanRaw.includes("study")) {
+      matchedType = "education";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("corporat") || cleanRaw.includes("business") || cleanRaw.includes("meeting") || cleanRaw.includes("conference") || cleanRaw.includes("agm") || cleanRaw.includes("networking")) {
+      matchedType = "corporate";
+      matchedFound = true;
+      break;
+    }
+    if (cleanRaw.includes("communit") || cleanRaw.includes("social") || cleanRaw.includes("general") || cleanRaw.includes("society") || cleanRaw.includes("gathering") || cleanRaw.includes("resident")) {
+      matchedType = "community";
+      matchedFound = true;
+      break;
+    }
+  }
+
+  if (!matchedFound && rawTypeCandidates.length > 0) {
+    for (const raw of rawTypeCandidates) {
+      const partial = EVENT_TYPES.find(t => raw.includes(t.value) || t.value.includes(raw));
+      if (partial) {
+        matchedType = partial.value;
+        break;
+      }
+    }
+  }
+
+  const resolvedCategory = ev.category || EVENT_TYPES.find(t => t.value === matchedType)?.label || "Festival";
 
   let contacts: EventContactItem[] = [];
-  if (ev.contactsJson) {
+  if (Array.isArray(ev.contacts) && ev.contacts.length > 0) {
+    contacts = ev.contacts.map((c: any, i: number) => ({
+      id: c.id || `c${i + 1}`,
+      name: c.name || "",
+      phone: c.phone || "",
+      role: c.role || "Organizer",
+      notes: c.notes || "",
+    }));
+  } else if (Array.isArray(ev.contactDetails) && ev.contactDetails.length > 0) {
+    contacts = ev.contactDetails.map((c: any, i: number) => ({
+      id: c.id || `c${i + 1}`,
+      name: c.name || "",
+      phone: c.phone || "",
+      role: c.role || "Organizer",
+      notes: c.notes || "",
+    }));
+  } else if (ev.contactsJson) {
     try {
       const parsed = typeof ev.contactsJson === "string" ? JSON.parse(ev.contactsJson) : ev.contactsJson;
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -3380,15 +4098,6 @@ export function fromEventToFormData(ev: any): FormData {
         }));
       }
     } catch {}
-  }
-  if (contacts.length === 0 && Array.isArray(ev.contactDetails) && ev.contactDetails.length > 0) {
-    contacts = ev.contactDetails.map((c: any, i: number) => ({
-      id: c.id || `c${i + 1}`,
-      name: c.name || "",
-      phone: c.phone || "",
-      role: c.role || "Organizer",
-      notes: c.notes || "",
-    }));
   }
   if (contacts.length === 0 && Array.isArray(ev.contacts) && ev.contacts.length > 0) {
     contacts = ev.contacts.map((c: any, i: number) => ({
@@ -3435,10 +4144,22 @@ export function fromEventToFormData(ev: any): FormData {
   const endTime = ev.endTime ? String(ev.endTime).slice(0, 5) : "18:00";
   const multiDay = Boolean(endDate && startDate && endDate !== startDate);
 
+  let rawDaySchedules: DaySchedule[] = Array.isArray(ev.daySchedules) && ev.daySchedules.length > 0 ? ev.daySchedules : [];
+  if (!multiDay && startDate) {
+    const matching = rawDaySchedules.filter((ds: DaySchedule) => ds.date === startDate);
+    if (matching.length > 0) {
+      rawDaySchedules = matching;
+    } else if (rawDaySchedules.length > 0) {
+      rawDaySchedules = [{ date: startDate, activities: rawDaySchedules.flatMap((ds: DaySchedule) => ds.activities || []) }];
+    }
+  } else if (multiDay && startDate && endDate) {
+    rawDaySchedules = rawDaySchedules.filter((ds: DaySchedule) => ds.date >= startDate && ds.date <= endDate);
+  }
+
   return {
     title: ev.title || ev.name || "",
     eventType: matchedType,
-    category: ev.category || ev.type || matchedType || "Festival",
+    category: resolvedCategory,
     description: ev.description || "",
     visibility,
     startDate,
@@ -3446,11 +4167,11 @@ export function fromEventToFormData(ev: any): FormData {
     startTime,
     endTime,
     multiDay,
-    daySchedules: Array.isArray(ev.daySchedules) && ev.daySchedules.length > 0 ? ev.daySchedules : [],
+    daySchedules: rawDaySchedules,
     venueName,
     venueAddress,
     city,
-    capacity: ev.capacity !== undefined && ev.capacity !== null ? String(ev.capacity) : ev.maxAttendees !== undefined && ev.maxAttendees !== null ? String(ev.maxAttendees) : "100",
+    capacity: savedCapacity,
     registrationEnabled: ev.registrationEnabled !== undefined ? Boolean(ev.registrationEnabled) : true,
     registrationDeadline: ev.registrationDeadline ? String(ev.registrationDeadline).split("T")[0] : "",
     ticketTypes,
@@ -3491,7 +4212,22 @@ export function EventCreateWizard({
 }: EventCreateWizardProps) {
   useEscapeKey(onClose);
   const isEditing = isEdit || !!eventId || !!initialData;
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState<number>(() => {
+    const rawId = eventId || initialData?.id;
+    if (initialData?.draftStep && typeof initialData.draftStep === "number" && initialData.draftStep >= 1 && initialData.draftStep <= 8) {
+      return initialData.draftStep;
+    }
+    if (rawId) {
+      try {
+        const localSaved = localStorage.getItem(`mana_draft_step_${rawId}`);
+        if (localSaved && !isNaN(Number(localSaved))) {
+          const s = parseInt(localSaved, 10);
+          if (s >= 1 && s <= 8) return s;
+        }
+      } catch {}
+    }
+    return 1;
+  });
   const [submitted, setSubmitted] = useState(false);
   const [submitType, setSubmitType] = useState<"published" | "draft">("published");
   const [publishing, setPublishing] = useState(false);
@@ -3507,33 +4243,235 @@ export function EventCreateWizard({
     return { ...INITIAL_FORM_DATA };
   });
 
-  // Fetch full details from database API whenever editing an event
+  // Fetch full details and all sub-events from database API whenever editing an event
   useEffect(() => {
     const rawId = eventId || initialData?.id;
     if (rawId) {
       const numId = typeof rawId === "string" ? parseInt(rawId.replace(/\D/g, ""), 10) : Number(rawId);
       if (!isNaN(numId) && numId > 0) {
         setLoadingEvent(true);
-        eventService.getById(numId)
-          .then(ev => {
-            if (ev) {
-              setFormData(fromEventToFormData(ev));
+        Promise.all([
+          eventService.getById(numId).catch(() => null),
+          eventService.getPoojaSevas(numId).catch(() => []),
+          eventService.getCulturalEvents(numId).catch(() => []),
+          eventService.getCompetitions(numId).catch(() => []),
+          eventService.getLunchDinners(numId).catch(() => []),
+        ])
+          .then(([ev, poojas, cults, comps, meals]) => {
+            const baseEvent = ev || initialData;
+            if (baseEvent) {
+              const baseForm = fromEventToFormData(baseEvent);
+
+              // Map all sub-events into daySchedules strictly within event's configured dates
+              const daysMap = new Map<string, ScheduleActivity[]>();
+              const startD = baseForm.startDate;
+              const endD = baseForm.multiDay && baseForm.endDate ? baseForm.endDate : startD;
+              const validDaysList = startD ? (baseForm.multiDay ? getDaysBetween(startD, endD) : [startD]) : [];
+              const validDaysSet = new Set(validDaysList);
+
+              const resolveDay = (rawDate?: string): string | null => {
+                if (!startD) return null;
+                if (!baseForm.multiDay) return startD;
+                if (rawDate && validDaysSet.has(rawDate)) return rawDate;
+                return startD;
+              };
+
+              for (const d of validDaysList) {
+                daysMap.set(d, []);
+              }
+
+              // If baseForm already had daySchedules, preserve them within valid days
+              if (Array.isArray(baseForm.daySchedules)) {
+                for (const ds of baseForm.daySchedules) {
+                  const targetDay = resolveDay(ds.date);
+                  if (targetDay && daysMap.has(targetDay) && Array.isArray(ds.activities)) {
+                    for (const act of ds.activities) {
+                      const list = daysMap.get(targetDay)!;
+                      if (!list.some(a => a.id === act.id || (a.name === act.name && a.startTime === act.startTime))) {
+                        list.push(act);
+                      }
+                    }
+                  }
+                }
+              }
+
+              // 1. Merge Pooja Sevas (including multi-day pooja records across day slots)
+              if (Array.isArray(poojas)) {
+                for (const p of poojas) {
+                  if (p.mainEventId && Number(p.mainEventId) !== numId) continue;
+                  
+                  let targetDates: string[] = [];
+                  if (Array.isArray(p.timeSlotConfig) && p.timeSlotConfig.length > 0) {
+                    targetDates = [...new Set(p.timeSlotConfig.map((ts: any) => resolveDay(ts.slotDate || p.date || p.startDate)).filter(Boolean))] as string[];
+                  }
+                  if (targetDates.length === 0) {
+                    if (p.multiDay && p.endDate && p.date) {
+                      targetDates = getDaysBetween(p.date, p.endDate).map(resolveDay).filter(Boolean) as string[];
+                    } else {
+                      const single = resolveDay(p.date || p.startDate);
+                      if (single) targetDates = [single];
+                    }
+                  }
+
+                  for (const pDate of targetDates) {
+                    if (!pDate || !daysMap.has(pDate)) continue;
+                    const list = daysMap.get(pDate)!;
+                    const daySlotMatch = Array.isArray(p.timeSlotConfig)
+                      ? p.timeSlotConfig.find((ts: any) => ts.slotDate === pDate)
+                      : null;
+                    const actTime = daySlotMatch?.startTime || (Array.isArray(p.startTimes) && p.startTimes.length > 0 ? p.startTimes[0] : p.startTime || "08:30");
+                    const cleanTime = String(actTime).split(/[–-]/)[0].trim();
+                    const slotCount = daySlotMatch?.slotCount ? String(daySlotMatch.slotCount) : (p.slots ? String(p.slots) : "50");
+
+                    const existingIdx = list.findIndex(a => a.subEventId === p.id || (a.categoryType === "Pooja & Seva" && a.name === p.name));
+                    const actObj: ScheduleActivity = {
+                      id: `pooja-${p.id}-${pDate}`,
+                      subEventId: p.id,
+                      categoryType: "Pooja & Seva",
+                      name: daySlotMatch?.title || p.name || "Pooja Seva",
+                      poojaType: p.type || "Pooja",
+                      needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
+                      registrationFee: p.fee ? String(p.fee) : "0",
+                      slots: slotCount,
+                      startTime: cleanTime,
+                      endTime: p.endTime || "",
+                      description: p.notes || "",
+                      venue: p.mandap || p.venue || "Main Mandap",
+                    };
+                    if (existingIdx >= 0) {
+                      list[existingIdx] = actObj;
+                    } else {
+                      list.push(actObj);
+                    }
+                  }
+                }
+              }
+
+              // 2. Merge Cultural Events
+              if (Array.isArray(cults)) {
+                for (const c of cults) {
+                  if (c.mainEventId && Number(c.mainEventId) !== numId) continue;
+                  const cDate = resolveDay(c.date);
+                  if (!cDate || !daysMap.has(cDate)) continue;
+                  const list = daysMap.get(cDate)!;
+                  const existingIdx = list.findIndex(a => a.subEventId === c.id || (a.categoryType === "Cultural Events" && a.name === c.name));
+                  const actObj: ScheduleActivity = {
+                    id: `cult-${c.id}`,
+                    subEventId: c.id,
+                    categoryType: "Cultural Events",
+                    name: c.name || "Cultural Event",
+                    needsRegistration: c.needsRegistration !== undefined && c.needsRegistration !== null ? Boolean(c.needsRegistration) : false,
+                    registrationFee: c.fee ? String(c.fee) : "0",
+                    slots: c.slots ? String(c.slots) : "200",
+                    startTime: c.startTime || "18:00",
+                    endTime: c.endTime || "",
+                    description: c.description || c.requirements || "",
+                    venue: c.stage || c.venue || "Main Stage",
+                  };
+                  if (existingIdx >= 0) {
+                    list[existingIdx] = actObj;
+                  } else {
+                    list.push(actObj);
+                  }
+                }
+              }
+
+              // 3. Merge Competitions
+              if (Array.isArray(comps)) {
+                for (const cmp of comps) {
+                  if (cmp.mainEventId && Number(cmp.mainEventId) !== numId) continue;
+                  const cmpDate = resolveDay(cmp.date);
+                  if (!cmpDate || !daysMap.has(cmpDate)) continue;
+                  const list = daysMap.get(cmpDate)!;
+                  const existingIdx = list.findIndex(a => a.subEventId === cmp.id || (a.categoryType === "Competitions" && a.name === cmp.name));
+                  const actObj: ScheduleActivity = {
+                    id: `comp-${cmp.id}`,
+                    subEventId: cmp.id,
+                    categoryType: "Competitions",
+                    name: cmp.name || "Competition",
+                    needsRegistration: cmp.needsRegistration !== undefined && cmp.needsRegistration !== null ? Boolean(cmp.needsRegistration) : true,
+                    registrationFee: cmp.fee ? String(cmp.fee) : "0",
+                    slots: cmp.maxParticipants || cmp.slots ? String(cmp.maxParticipants || cmp.slots) : "50",
+                    startTime: cmp.startTime || "10:00",
+                    endTime: cmp.endTime || "",
+                    description: cmp.description || (cmp.ageGroup ? `Age Group: ${cmp.ageGroup}` : ""),
+                    venue: cmp.venue || "Auditorium",
+                  };
+                  if (existingIdx >= 0) {
+                    list[existingIdx] = actObj;
+                  } else {
+                    list.push(actObj);
+                  }
+                }
+              }
+
+              // 4. Merge Lunch / Dinners
+              if (Array.isArray(meals)) {
+                for (const m of meals) {
+                  if (m.mainEventId && Number(m.mainEventId) !== numId) continue;
+                  const mDate = resolveDay(m.date);
+                  if (!mDate || !daysMap.has(mDate)) continue;
+                  const list = daysMap.get(mDate)!;
+                  const isDinner = (m.mealType?.toLowerCase() === "dinner" || m.name?.toLowerCase().includes("dinner"));
+                  const catType = isDinner ? "Dinner" : "Lunch";
+                  const existingIdx = list.findIndex(a => a.subEventId === m.id || ((a.categoryType === "Lunch" || a.categoryType === "Dinner") && a.name === m.name));
+                  const actObj: ScheduleActivity = {
+                    id: `meal-${m.id}`,
+                    subEventId: m.id,
+                    categoryType: catType,
+                    name: m.name || (isDinner ? "Community Mahaprasadam Dinner" : "Community Mahaprasadam Lunch"),
+                    needsRegistration: m.needsRegistration !== undefined && m.needsRegistration !== null ? Boolean(m.needsRegistration) : true,
+                    registrationFee: m.fee ? String(m.fee) : "0",
+                    slots: m.targetPlates || m.slots ? String(m.targetPlates || m.slots) : "500",
+                    startTime: m.startTime || (isDinner ? "19:00" : "12:30"),
+                    endTime: m.endTime || (isDinner ? "21:00" : "14:30"),
+                    description: m.notes || m.description || (Array.isArray(m.menuItems) ? m.menuItems.join(", ") : ""),
+                    venue: m.venue || "Community Dining Hall",
+                  };
+
+                  if (existingIdx >= 0) {
+                    list[existingIdx] = actObj;
+                  } else {
+                    list.push(actObj);
+                  }
+                }
+              }
+
+              // Only construct day schedules for valid dates
+              const sortedDates = validDaysList.length > 0 ? validDaysList : (startD ? [startD] : []);
+              const builtDaySchedules: DaySchedule[] = sortedDates.map(d => ({
+                date: d,
+                activities: daysMap.get(d) || [],
+              }));
+
+              baseForm.daySchedules = builtDaySchedules;
+              setFormData(baseForm);
+
+              // If draft, resume to saved draft step
+              const isDraft = String(baseEvent.status || "").toLowerCase() === "draft";
+              if (isDraft || baseEvent.draftStep) {
+                const draftS = baseEvent.draftStep;
+                if (typeof draftS === "number" && draftS >= 1 && draftS <= 8) {
+                  setStep(draftS);
+                } else {
+                  try {
+                    const localSaved = localStorage.getItem(`mana_draft_step_${rawId}`);
+                    if (localSaved && !isNaN(Number(localSaved))) {
+                      const s = parseInt(localSaved, 10);
+                      if (s >= 1 && s <= 8) setStep(s);
+                    }
+                  } catch {}
+                }
+              }
             }
           })
           .catch((err) => {
-            console.warn("Could not fetch full event by ID, falling back to initial data:", err);
+            console.warn("Could not fetch full event and sub-events by ID, falling back to initial data:", err);
           })
           .finally(() => setLoadingEvent(false));
       }
     }
   }, [eventId, initialData?.id]);
-
-  // If initialData object reference changes, update form data
-  useEffect(() => {
-    if (initialData) {
-      setFormData(fromEventToFormData(initialData));
-    }
-  }, [initialData]);
 
   const update = (key: keyof FormData, value: any) =>
     setFormData(prev => ({ ...prev, [key]: value }));
@@ -3562,15 +4500,31 @@ export function EventCreateWizard({
   const validateStep = (currentStep: number): string | null => {
     if (currentStep === 1) {
       if (!formData.title.trim()) return "Please enter an event title.";
-      if (!formData.category && !formData.eventType) return "Please select an event category.";
+      if (!formData.category && !formData.eventType) return "Please select an event category / type.";
+      if (!formData.description.trim()) return "Event description is required.";
     }
     if (currentStep === 2) {
       if (!formData.startDate) return "Event start date is required.";
       if (formData.multiDay && !formData.endDate) return "End date is required for multi-day events.";
       if (isEndDateInvalid) return `End date (${formData.endDate}) cannot be earlier than start date (${formData.startDate}).`;
+      if (!formData.startTime?.trim()) return "Event start time is required.";
+      if (!formData.endTime?.trim()) return "Event end time is required.";
       if (isTimeInvalid) return `End time (${formData.endTime}) must be after start time (${formData.startTime}).`;
+
+      for (const ds of (formData.daySchedules || [])) {
+        for (const act of (ds.activities || [])) {
+          if (act.startTime && act.endTime && act.endTime <= act.startTime) {
+            return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) must be after start time (${act.startTime}).`;
+          }
+        }
+      }
     }
     if (currentStep === 3) {
+      if (!formData.venueName?.trim()) return "Venue name is required.";
+      if (!formData.city?.trim()) return "City is required.";
+      if (!formData.venueAddress?.trim()) return "Venue address is required.";
+    }
+    if (currentStep === 4) {
       if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
       const maxCap = formData.capacity ? parseInt(formData.capacity, 10) : 0;
       if (maxCap > 0 && formData.ticketTypes && formData.ticketTypes.length > 0) {
@@ -3580,23 +4534,56 @@ export function EventCreateWizard({
         }
       }
     }
+    if (currentStep === 5) {
+      if (formData.enableOnlinePayment && (!formData.paymentModes || formData.paymentModes.length === 0)) {
+        return "Please select at least one accepted payment mode when online payment is enabled.";
+      }
+    }
     return null;
   };
 
   const validateAll = (): string | null => {
+    // Step 1 — Basics
     if (!formData.title.trim()) return "Event title is required.";
+    if (!formData.eventType && !formData.category) return "Please select an event type / category.";
+    if (!formData.description.trim()) return "Event description is required.";
+
+    // Step 2 — Schedule
     if (!formData.startDate) return "Event start date is required.";
     if (formData.multiDay && !formData.endDate) return "End date is required for multi-day events.";
     if (isEndDateInvalid) return `End date (${formData.endDate}) cannot be earlier than start date (${formData.startDate}).`;
+    if (!formData.startTime?.trim()) return "Event start time is required.";
+    if (!formData.endTime?.trim()) return "Event end time is required.";
     if (isTimeInvalid) return `End time (${formData.endTime}) must be after start time (${formData.startTime}).`;
+
+    for (const ds of (formData.daySchedules || [])) {
+      for (const act of (ds.activities || [])) {
+        if (act.startTime && act.endTime && act.endTime <= act.startTime) {
+          return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) must be after start time (${act.startTime}).`;
+        }
+      }
+    }
+
+    // Step 3 — Venue
+    if (!formData.venueName?.trim()) return "Venue name is required.";
+    if (!formData.city?.trim()) return "City is required.";
+    if (!formData.venueAddress?.trim()) return "Venue address is required.";
+
+    // Step 4 — Registration
     if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
     const maxCap = formData.capacity ? parseInt(formData.capacity, 10) : 0;
     if (maxCap > 0 && formData.ticketTypes && formData.ticketTypes.length > 0) {
-      const totalCategorySeats = formData.ticketTypes.reduce((sum, t) => sum + (parseInt(t.qty || "0", 10) || 0), 0);
+      const totalCategorySeats = formData.ticketTypes.reduce((sum: number, t: any) => sum + (parseInt(t.qty || "0", 10) || 0), 0);
       if (totalCategorySeats > maxCap) {
         return `Total seats across all ticket categories (${totalCategorySeats}) cannot exceed Event Max Capacity (${maxCap}). Please adjust category seat allocations.`;
       }
     }
+
+    // Step 5 — Payment
+    if (formData.enableOnlinePayment && (!formData.paymentModes || formData.paymentModes.length === 0)) {
+      return "Please select at least one accepted payment mode when online payment is enabled.";
+    }
+
     return null;
   };
 
@@ -3607,7 +4594,7 @@ export function EventCreateWizard({
       return;
     }
     setPublishError("");
-    setStep(s => Math.min(STEPS.length, s + 1));
+    setStep((s: number) => Math.min(STEPS.length, s + 1));
   };
 
   const handleSaveDraft = async () => {
@@ -3619,13 +4606,14 @@ export function EventCreateWizard({
     setSavingDraft(true);
     setPublishError("");
     try {
-      const reqPayload = toEventRequest(formData, "DRAFT");
+      const reqPayload = toEventRequest(formData, "DRAFT", step);
       let resultEvent: any = {
         ...(initialData || {}),
         ...formData,
         id: eventId || (initialData as any)?.id || "EVT-" + Date.now(),
         venue: formData.venueName,
         status: "draft",
+        draftStep: step,
       };
 
       if (!useMock) {
@@ -3641,6 +4629,13 @@ export function EventCreateWizard({
           const resp = await eventService.create(reqPayload);
           if (resp) resultEvent = resp;
         }
+      }
+
+      const targetId = resultEvent.id || eventId || (initialData as any)?.id;
+      if (targetId) {
+        try {
+          localStorage.setItem(`mana_draft_step_${targetId}`, String(step));
+        } catch {}
       }
 
       await syncActivitiesToScheduleSubmodules(formData.daySchedules, formData.title, resultEvent.id);
@@ -3673,13 +4668,14 @@ export function EventCreateWizard({
     setPublishing(true);
     setPublishError("");
     try {
-      const reqPayload = toEventRequest(formData, "PUBLISHED");
+      const reqPayload = toEventRequest(formData, "PUBLISHED", 1);
       let resultEvent: any = {
         ...(initialData || {}),
         ...formData,
         id: eventId || (initialData as any)?.id || "EVT-" + Date.now(),
         venue: formData.venueName,
         status: "upcoming",
+        draftStep: undefined,
       };
 
       if (!useMock) {
@@ -3695,6 +4691,13 @@ export function EventCreateWizard({
           const resp = await eventService.create(reqPayload);
           if (resp) resultEvent = resp;
         }
+      }
+
+      const targetId = resultEvent.id || eventId || (initialData as any)?.id;
+      if (targetId) {
+        try {
+          localStorage.removeItem(`mana_draft_step_${targetId}`);
+        } catch {}
       }
 
       await syncActivitiesToScheduleSubmodules(formData.daySchedules, formData.title, resultEvent.id);
@@ -3748,21 +4751,40 @@ export function EventCreateWizard({
         <p className="text-slate-500 mb-10 max-w-sm mx-auto">
           <span className="font-semibold text-slate-700">"{formData.title || "Your event"}"</span> has been {isEditing ? "successfully updated." : (isDraft ? "saved as a draft. You can edit and publish it anytime." : `created and is now ${formData.visibility === "public" ? "publicly visible" : "live for your community"}.`)}
         </p>
-        <div className="flex gap-3 justify-center">
+        <div className="flex flex-wrap gap-2.5 justify-center items-center">
           {isEditing ? (
-            <button onClick={() => { setSubmitted(false); }}
-              className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition-all cursor-pointer">
+            <button
+              type="button"
+              onClick={() => { setSubmitted(false); }}
+              className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-all cursor-pointer shadow-2xs"
+            >
               Continue Editing
             </button>
           ) : (
-            <button onClick={() => { setSubmitted(false); setStep(1); setFormData({ ...INITIAL_FORM_DATA }); }}
-              className="px-6 py-3 rounded-xl bg-slate-100 text-slate-700 font-semibold text-sm hover:bg-slate-200 transition-all cursor-pointer">
+            <button
+              type="button"
+              onClick={() => { setSubmitted(false); setStep(1); setFormData({ ...INITIAL_FORM_DATA }); }}
+              className="px-5 py-2.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm hover:bg-slate-200 transition-all cursor-pointer shadow-2xs"
+            >
               Create Another
             </button>
           )}
           {onClose && (
-            <button onClick={onClose}
-              className="px-6 py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm hover:bg-indigo-700 transition-all shadow-md cursor-pointer">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-700 font-bold text-sm hover:bg-slate-50 transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
+            >
+              <X className="w-4 h-4 text-slate-500" />
+              <span>Close</span>
+            </button>
+          )}
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition-all shadow-md cursor-pointer"
+            >
               View All Events
             </button>
           )}
@@ -3774,12 +4796,13 @@ export function EventCreateWizard({
   const stepComponents: Record<number, React.ReactNode> = {
     1: <Step1Basics data={formData} update={update} />,
     2: <Step2Schedule data={formData} update={update} />,
-    3: <Step3Registration data={formData} update={update} />,
-    4: <Step4PaymentAndContacts data={formData} update={update} />,
-    5: <Step5FormTemplate data={formData} update={update} />,
-    6: <Step6Budget data={formData} update={update} />,
-    7: <Step7Media data={formData} update={update} />,
-    8: <Step8Review data={formData} />,
+    3: <Step3Venue data={formData} update={update} />,
+    4: <Step3Registration data={formData} update={update} />,
+    5: <Step4PaymentAndContacts data={formData} update={update} />,
+    6: <Step5FormTemplate data={formData} update={update} />,
+    7: <Step6Budget data={formData} update={update} />,
+    8: <Step7Media data={formData} update={update} />,
+    9: <Step8Review data={formData} />,
   };
 
   return (
@@ -3820,7 +4843,7 @@ export function EventCreateWizard({
       {/* ── Body: Stepper Sidebar + Form Content ── */}
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Left Stepper Sidebar (Desktop/Tablet) */}
-        <div className="w-56 hidden md:flex flex-col justify-between bg-slate-50 border-r border-slate-200 p-4 shrink-0 overflow-y-auto">
+        <div className="w-48 sm:w-52 hidden md:flex flex-col justify-between bg-slate-50 border-r border-slate-200 p-3 shrink-0 overflow-y-auto">
           <div className="space-y-1">
             {STEPS.map(s => {
               const done = step > s.id;
@@ -3831,7 +4854,7 @@ export function EventCreateWizard({
                   type="button"
                   onClick={() => (done || active) && setStep(s.id)}
                   className={cn(
-                    "flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold w-full text-left transition-all",
+                    "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-bold w-full text-left transition-all",
                     active
                       ? "bg-white border border-purple-200 text-purple-700 shadow-xs"
                       : done
@@ -3841,7 +4864,7 @@ export function EventCreateWizard({
                 >
                   <span
                     className={cn(
-                      "w-5 h-5 rounded-md flex items-center justify-center text-[11px] font-bold shrink-0",
+                      "w-4.5 h-4.5 rounded-md flex items-center justify-center text-[10px] font-bold shrink-0",
                       active
                         ? "bg-purple-600 text-white"
                         : done
@@ -3849,10 +4872,11 @@ export function EventCreateWizard({
                         : "bg-slate-200 text-slate-500"
                     )}
                   >
-                    {done ? <Check className="w-3 h-3 stroke-[3]" /> : s.id}
+                    {done ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : s.id}
                   </span>
                   <div className="truncate">
-                    <p className="leading-tight">{s.label}</p>
+                    <p className="leading-tight truncate">{s.label}</p>
+                    <p className="text-[9px] text-slate-400 font-normal truncate mt-0.5">{s.desc}</p>
                   </div>
                 </button>
               );
@@ -3860,17 +4884,17 @@ export function EventCreateWizard({
           </div>
 
           {/* Status Box */}
-          <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-2.5 text-xs shadow-xs mt-4">
-            <span className={cn("w-2.5 h-2.5 rounded-full shrink-0", isEditing ? "bg-indigo-500" : "bg-emerald-500 animate-pulse")}></span>
+          <div className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center gap-2 text-xs shadow-xs mt-3">
+            <span className={cn("w-2 h-2 rounded-full shrink-0", isEditing ? "bg-indigo-500" : "bg-emerald-500 animate-pulse")}></span>
             <div>
-              <p className="font-bold text-slate-800 text-[11px]">{isEditing ? "Editing mode" : "Draft status"}</p>
-              <p className="text-[10px] text-slate-400 font-medium">{isEditing ? "Updating live/draft event" : "Autosaved just now"}</p>
+              <p className="font-bold text-slate-800 text-[10.5px]">{isEditing ? "Editing mode" : "Draft status"}</p>
+              <p className="text-[9px] text-slate-400 font-medium">{isEditing ? "Updating live/draft event" : "Autosaved just now"}</p>
             </div>
           </div>
         </div>
 
         {/* Form Scroller Container */}
-        <div style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties} className="px-4 sm:px-6 py-5">
+        <div style={{ flex: "1 1 0", minHeight: 0, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties} className="px-4 sm:px-6 md:px-8 py-5">
           {/* Mobile Top Pill Bar Fallback */}
           <div className="md:hidden mb-4 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-1">
@@ -3892,17 +4916,17 @@ export function EventCreateWizard({
             </div>
           </div>
 
-          <div key={step} className="animate-fade-in-up max-w-4xl mx-auto">
+          <div key={step} className="animate-fade-in-up max-w-5xl xl:max-w-6xl mx-auto w-full">
             {stepComponents[step]}
           </div>
         </div>
       </div>
 
       {/* ── Footer Navigation Bar ── */}
-      <div className="flex-shrink-0 px-6 py-3.5 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-        <button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1}
+      <div className="flex-shrink-0 px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+        <button onClick={() => setStep((s: number) => Math.max(1, s - 1))} disabled={step === 1}
           className={cn(
-            "flex items-center gap-1 px-4 py-2 rounded-xl text-xs font-bold transition-all",
+            "flex items-center gap-1 px-3.5 py-1.5 rounded-xl text-[11px] font-bold transition-all",
             step === 1 ? "opacity-0 pointer-events-none" : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 shadow-xs"
           )}>
           <ChevronLeft className="w-3.5 h-3.5" /> Back
@@ -3925,12 +4949,12 @@ export function EventCreateWizard({
         {step < STEPS.length ? (
           <div className="flex items-center gap-2">
             <button onClick={handleSaveDraft} disabled={savingDraft || publishing}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all shadow-xs disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[11px] font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all shadow-xs disabled:opacity-50">
               <Bookmark className="w-3.5 h-3.5 text-amber-500" />
               <span>{savingDraft ? "Saving…" : isEditing ? "Save Draft" : "Save Draft"}</span>
             </button>
             <button onClick={handleNext}
-              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-all">
+              className="flex items-center gap-1.5 px-4.5 py-1.5 rounded-xl text-[11px] font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-all">
               Next Step <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -3938,12 +4962,12 @@ export function EventCreateWizard({
           <div className="flex items-center gap-2">
             {publishError && <span className="text-[11px] text-rose-600 font-medium max-w-[160px] truncate">{publishError}</span>}
             <button onClick={handleSaveDraft} disabled={savingDraft || publishing}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all shadow-xs disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[11px] font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-100 transition-all shadow-xs disabled:opacity-50">
               <Bookmark className="w-3.5 h-3.5 text-amber-500" />
               <span>{savingDraft ? "Saving…" : "Save Draft"}</span>
             </button>
             <button onClick={handlePublish} disabled={publishing || savingDraft}
-              className="flex items-center gap-1.5 px-5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md transition-all disabled:opacity-60">
+              className="flex items-center gap-1.5 px-4.5 py-1.5 rounded-xl text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-md transition-all disabled:opacity-60">
               <Check className="w-3.5 h-3.5" /> {publishing ? "Saving…" : isEditing ? "Update Event" : "Publish Event"}
             </button>
           </div>
@@ -4018,16 +5042,16 @@ export function EditEventDialog({
             pointerEvents: "auto",
             background: "#fff",
             width: "100%",
-            maxWidth: "54rem",
+            maxWidth: "84rem",
             height: "100dvh",
-            maxHeight: "92dvh",
+            maxHeight: "94dvh",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
             boxShadow: "0 0 0 1px rgba(0,0,0,0.06), 0 4px 6px -1px rgba(0,0,0,0.04), 0 20px 50px -12px rgba(79,70,229,0.22)",
             borderRadius: 0,
           }}
-          className="sm:rounded-2xl sm:h-[min(90vh,760px)] sm:max-h-[92vh] sm:m-3 md:m-4 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
+          className="sm:rounded-2xl sm:h-[min(94vh,860px)] sm:max-h-[94vh] sm:w-[96vw] sm:max-w-[1340px] sm:m-2 md:m-3 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
           onClick={e => e.stopPropagation()}
         >
           <EventCreateWizard
@@ -4090,17 +5114,17 @@ export function CreateEventDialog({ open, onOpenChange }: { open: boolean; onOpe
             pointerEvents: "auto",
             background: "#fff",
             width: "100%",
-            maxWidth: "54rem",  /* max-w-4xl */
-            /* Mobile: full screen; tablet/desktop: bounded compact */
+            maxWidth: "84rem",  /* max-w-7xl */
+            /* Mobile: full screen; tablet/desktop: wide bounded */
             height: "100dvh",
-            maxHeight: "92dvh",
+            maxHeight: "94dvh",
             display: "flex",
             flexDirection: "column",
             overflow: "hidden",
             boxShadow: "0 0 0 1px rgba(0,0,0,0.06), 0 4px 6px -1px rgba(0,0,0,0.04), 0 20px 50px -12px rgba(79,70,229,0.22)",
             borderRadius: 0,
           }}
-          className="sm:rounded-2xl sm:h-[min(90vh,760px)] sm:max-h-[92vh] sm:m-3 md:m-4 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
+          className="sm:rounded-2xl sm:h-[min(94vh,860px)] sm:max-h-[94vh] sm:w-[96vw] sm:max-w-[1340px] sm:m-2 md:m-3 sm:border sm:border-slate-200/60 sm:ring-1 sm:ring-black/5 animate-fade-in-up"
           onClick={e => e.stopPropagation()}
         >
           <EventCreateWizard
@@ -4168,7 +5192,7 @@ export function CreateEventButton({ className }: { className?: string }) {
 /* ─── Route-compatible page export (backward compat with /events/create) ─── */
 export function EventsCreate() {
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden" style={{ height: "calc(100vh - 220px)", minHeight: "600px" }}>
+    <div className="w-full max-w-7xl mx-auto bg-white rounded-2xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.04)] overflow-hidden" style={{ height: "calc(100vh - 140px)", minHeight: "650px" }}>
       <EventCreateWizard />
     </div>
   );

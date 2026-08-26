@@ -16,9 +16,8 @@ import {
   Trash2,
   Loader2,
   Tag,
-  DollarSign
+  IndianRupee,
 } from "lucide-react";
-import { useEventMock } from "./EventMockToggle";
 import {
   eventService,
   type EventAuctionItemResponse,
@@ -61,7 +60,6 @@ const emptyForm: EventAuctionItemRequest = {
 };
 
 export function EventsAuction() {
-  const { useMock } = useEventMock();
   const [items, setItems] = useState<EventAuctionItemResponse[]>([]);
   const [stats, setStats] = useState<EventAuctionStatsResponse | null>(null);
   const [recentBids, setRecentBids] = useState<EventAuctionBidResponse[]>([]);
@@ -102,6 +100,9 @@ export function EventsAuction() {
           return s !== "CANCELLED" && s !== "CLOSED" && s !== "ARCHIVED";
         });
         setEvents(activeList);
+        if (activeList.length > 0) {
+          setSelectedEventId(activeList[0].id);
+        }
       })
       .catch(() => {});
   }, []);
@@ -128,7 +129,24 @@ export function EventsAuction() {
 
   useEffect(() => {
     loadData();
-  }, [useMock, selectedEventId]);
+
+    // Background polling every 8s for live real-time bidding updates without loading spinner flicker
+    const interval = setInterval(() => {
+      Promise.all([
+        eventService.getAuctionItems(selectedEventId || undefined),
+        eventService.getRecentAuctionBids().catch(() => []),
+        eventService.getAuctionStats(selectedEventId || undefined).catch(() => null),
+      ])
+        .then(([fetchedItems, fetchedRecentBids, fetchedStats]) => {
+          setItems(fetchedItems || []);
+          setRecentBids(fetchedRecentBids || []);
+          setStats(fetchedStats);
+        })
+        .catch(() => {});
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [selectedEventId]);
 
   // Open Create Modal
   const openCreateModal = () => {
@@ -349,7 +367,7 @@ export function EventsAuction() {
       {/* Real-time KPI Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {[
-          { label: "Total Raised", value: `₹${Number(totalRevenue).toLocaleString("en-IN")}`, icon: DollarSign, color: "#10b981", bg: "bg-emerald-50 text-emerald-600" },
+          { label: "Total Raised", value: `₹${Number(totalRevenue).toLocaleString("en-IN")}`, icon: IndianRupee, color: "#10b981", bg: "bg-emerald-50 text-emerald-600" },
           { label: "Live Items", value: liveCount, icon: Flame, color: "#ef4444", bg: "bg-rose-50 text-rose-600" },
           { label: "Total Bids Placed", value: totalBids, icon: Gavel, color: "#f59e0b", bg: "bg-amber-50 text-amber-600" },
           { label: "Highest Bid", value: `₹${Number(highestBid).toLocaleString("en-IN")}`, icon: Trophy, color: "#6366f1", bg: "bg-indigo-50 text-indigo-600" },

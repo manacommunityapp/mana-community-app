@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Clock, Check, ChevronDown, Sparkles } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Clock, Check, ChevronDown } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { Popover, PopoverTrigger, PopoverContent } from "./popover";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -18,13 +19,6 @@ export interface TimePickerProps {
   presets?: string[];
   id?: string;
 }
-
-const DEFAULT_PRESETS = [
-  "06:00 AM", "07:00 AM", "08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM",
-  "10:00 AM", "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM", "01:00 PM",
-  "02:00 PM", "03:30 PM", "04:00 PM", "05:00 PM", "05:30 PM", "06:00 PM",
-  "06:30 PM", "07:00 PM", "07:30 PM", "08:00 PM", "08:30 PM", "09:00 PM"
-];
 
 const HOURS = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
 const MINUTES = ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"];
@@ -49,49 +43,64 @@ export function parseTimeToComponents(timeStr?: string): {
   if (match12) {
     let hr = parseInt(match12[1], 10);
     const min = match12[2].padStart(2, "0");
-    const rawPeriod = match12[3]?.toUpperCase();
+    const rawPeriod = (match12[3] || "").toUpperCase();
 
-    if (rawPeriod === "AM" || rawPeriod === "PM") {
-      const p = rawPeriod as "AM" | "PM";
-      let h24 = hr;
-      if (p === "AM" && hr === 12) h24 = 0;
-      if (p === "PM" && hr < 12) h24 = hr + 12;
-      return {
-        hour12: String(hr === 0 ? 12 : hr > 12 ? hr - 12 : hr).padStart(2, "0"),
-        minute: min,
-        period: p,
-        value24: `${String(h24).padStart(2, "0")}:${min}`,
-      };
-    } else {
-      // 24-hour format e.g. "14:30"
-      const period: "AM" | "PM" = hr >= 12 ? "PM" : "AM";
-      const h12 = hr === 0 ? 12 : hr > 12 ? hr - 12 : hr;
-      return {
-        hour12: String(h12).padStart(2, "0"),
-        minute: min,
-        period,
-        value24: `${String(hr).padStart(2, "0")}:${min}`,
-      };
+    let period: "AM" | "PM" = rawPeriod === "PM" ? "PM" : "AM";
+    if (!rawPeriod) {
+      period = hr >= 12 ? "PM" : "AM";
     }
+
+    let h12 = hr;
+    if (h12 > 12) h12 = h12 - 12;
+    if (h12 === 0) h12 = 12;
+
+    const hour12Str = String(h12).padStart(2, "0");
+    const val24 = formatTo24(hour12Str, min, period);
+
+    return {
+      hour12: hour12Str,
+      minute: min,
+      period,
+      value24: val24,
+    };
+  }
+
+  // Match 24-hour format "14:30"
+  const match24 = clean.match(/^(\d{1,2}):(\d{2})$/);
+  if (match24) {
+    const hr = parseInt(match24[1], 10);
+    const min = match24[2].padStart(2, "0");
+    const period: "AM" | "PM" = hr >= 12 ? "PM" : "AM";
+
+    let h12 = hr % 12;
+    if (h12 === 0) h12 = 12;
+
+    const hour12Str = String(h12).padStart(2, "0");
+    const hr24Str = String(hr).padStart(2, "0");
+
+    return {
+      hour12: hour12Str,
+      minute: min,
+      period,
+      value24: `${hr24Str}:${min}`,
+    };
   }
 
   return { hour12: "08", minute: "00", period: "AM", value24: "08:00" };
 }
 
 /**
- * Converts 12h components to 24h format "HH:mm"
+ * Formats 12h components into 24h string "HH:MM"
  */
-export function formatTo24(hour12: string | number, minute: string | number, period: "AM" | "PM"): string {
-  let hr = typeof hour12 === "string" ? parseInt(hour12, 10) : hour12;
-  const min = String(minute).padStart(2, "0");
-  if (isNaN(hr)) hr = 8;
-  if (period === "AM" && hr === 12) hr = 0;
+export function formatTo24(hour12: string, minute: string, period: "AM" | "PM"): string {
+  let hr = parseInt(hour12, 10);
   if (period === "PM" && hr < 12) hr += 12;
-  return `${String(hr).padStart(2, "0")}:${min}`;
+  if (period === "AM" && hr === 12) hr = 0;
+  return `${String(hr).padStart(2, "0")}:${minute.padStart(2, "0")}`;
 }
 
 /**
- * Formats a 24h or 12h time string to readable "hh:mm AM/PM"
+ * Formats any time string into clean 12-hour format e.g. "08:30 AM"
  */
 export function formatTime12Hour(timeStr?: string): string {
   if (!timeStr) return "";
@@ -100,7 +109,7 @@ export function formatTime12Hour(timeStr?: string): string {
 }
 
 /**
- * ─── TimePicker Component with Popover & Quick Presets ───
+ * ─── TimePicker Component with Popover Portal & Quick Presets ───
  */
 export function TimePicker({
   value,
@@ -109,10 +118,8 @@ export function TimePicker({
   placeholder = "Select Time",
   disabled = false,
   size = "md",
-  presets = DEFAULT_PRESETS,
 }: TimePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   const comp = parseTimeToComponents(value);
   const [selectedHour, setSelectedHour] = useState(comp.hour12);
@@ -128,18 +135,6 @@ export function TimePicker({
     }
   }, [value]);
 
-  // Click outside to close
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isOpen]);
-
   const handleTimeChange = (h: string, m: string, p: "AM" | "PM") => {
     setSelectedHour(h);
     setSelectedMinute(m);
@@ -148,184 +143,153 @@ export function TimePicker({
     onChange(val24);
   };
 
-  const handlePresetSelect = (presetStr: string) => {
-    const parsed = parseTimeToComponents(presetStr);
-    handleTimeChange(parsed.hour12, parsed.minute, parsed.period);
-    setIsOpen(false);
-  };
-
   const displayTime = value ? formatTime12Hour(value) : "";
 
   return (
-    <div ref={containerRef} className={cn("relative inline-block w-full", className)}>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "w-full flex items-center justify-between gap-2 px-3 rounded-xl border bg-white text-slate-800 transition-all cursor-pointer select-none text-left focus:outline-none focus:ring-2 focus:ring-amber-400/50 shadow-2xs hover:border-amber-400/80",
-          size === "sm" && "py-1.5 text-xs h-8",
-          size === "md" && "py-2 text-sm h-9.5",
-          size === "lg" && "py-2.5 text-sm h-11",
-          disabled && "opacity-50 cursor-not-allowed bg-slate-50",
-          isOpen ? "border-amber-500 ring-2 ring-amber-400/20" : "border-slate-200"
-        )}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <Clock className={cn("text-amber-500 shrink-0", size === "sm" ? "w-3.5 h-3.5" : "w-4 h-4")} />
-          <span className={cn("font-medium truncate", !displayTime && "text-slate-400 font-normal")}>
-            {displayTime || placeholder}
-          </span>
-        </div>
-        <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0", isOpen && "rotate-180")} />
-      </button>
-
-      {/* Popover Dropdown */}
-      {isOpen && (
-        <div className="absolute z-50 mt-1.5 left-0 w-72 sm:w-80 p-3 bg-white rounded-2xl border border-slate-200 shadow-xl space-y-3 animate-in fade-in-50 zoom-in-95 duration-150">
-          {/* Header & Selected Live Preview */}
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-              <Clock className="w-3.5 h-3.5 text-amber-500" />
-              <span>Select Time</span>
-            </div>
-            <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
-              {selectedHour}:{selectedMinute} {selectedPeriod}
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className={cn(
+            "w-full flex items-center justify-between gap-2 px-2.5 rounded-xl border bg-white text-slate-800 transition-all cursor-pointer select-none text-left focus:outline-none focus:ring-2 focus:ring-amber-400/50 shadow-2xs hover:border-amber-400/80",
+            size === "sm" && "py-1 text-xs h-7.5",
+            size === "md" && "py-1.5 text-xs sm:text-sm h-8.5",
+            size === "lg" && "py-2 text-sm h-10",
+            disabled && "opacity-50 cursor-not-allowed bg-slate-50",
+            isOpen ? "border-amber-500 ring-2 ring-amber-400/20" : "border-slate-200",
+            className
+          )}
+        >
+          <div className="flex items-center gap-1.5 min-w-0">
+            <Clock className={cn("text-amber-500 shrink-0", size === "sm" ? "w-3 h-3" : "w-3.5 h-3.5")} />
+            <span className={cn("font-semibold text-xs truncate", !displayTime && "text-slate-400 font-normal")}>
+              {displayTime || placeholder}
             </span>
           </div>
+          <ChevronDown className={cn("w-3 h-3 text-slate-400 transition-transform duration-200 shrink-0", isOpen && "rotate-180")} />
+        </button>
+      </PopoverTrigger>
 
-          {/* Hour, Minute & Period Columns */}
-          <div className="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-            {/* Hours Column */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block text-center">
-                Hour
-              </label>
-              <div className="max-h-36 overflow-y-auto space-y-0.5 custom-scrollbar pr-0.5">
-                {HOURS.map((h) => {
-                  const isSelected = selectedHour === h;
-                  return (
-                    <button
-                      key={h}
-                      type="button"
-                      onClick={() => handleTimeChange(h, selectedMinute, selectedPeriod)}
-                      className={cn(
-                        "w-full py-1 text-xs font-bold rounded-lg transition-all cursor-pointer text-center",
-                        isSelected
-                          ? "bg-amber-500 text-white shadow-xs"
-                          : "text-slate-600 hover:bg-white hover:text-slate-900"
-                      )}
-                    >
-                      {h}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+      {/* Popover Content (Portal Overlay Above All Other Divs/Fields) */}
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        className="z-[9999] w-60 sm:w-64 p-3 bg-white rounded-2xl border border-slate-200 shadow-2xl space-y-2.5 outline-none"
+      >
+        {/* Header & Selected Live Preview */}
+        <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+            <Clock className="w-3.5 h-3.5 text-amber-500" />
+            <span>Select Time</span>
+          </div>
+          <span className="text-xs font-black px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+            {selectedHour}:{selectedMinute} {selectedPeriod}
+          </span>
+        </div>
 
-            {/* Minutes Column */}
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block text-center">
-                Minute
-              </label>
-              <div className="max-h-36 overflow-y-auto space-y-0.5 custom-scrollbar pr-0.5">
-                {MINUTES.map((m) => {
-                  const isSelected = selectedMinute === m;
-                  return (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => handleTimeChange(selectedHour, m, selectedPeriod)}
-                      className={cn(
-                        "w-full py-1 text-xs font-bold rounded-lg transition-all cursor-pointer text-center",
-                        isSelected
-                          ? "bg-amber-500 text-white shadow-xs"
-                          : "text-slate-600 hover:bg-white hover:text-slate-900"
-                      )}
-                    >
-                      {m}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* AM / PM Toggle */}
-            <div className="space-y-1 flex flex-col">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block text-center">
-                Period
-              </label>
-              <div className="space-y-1.5 my-auto">
-                <button
-                  type="button"
-                  onClick={() => handleTimeChange(selectedHour, selectedMinute, "AM")}
-                  className={cn(
-                    "w-full py-2.5 text-xs font-black rounded-xl transition-all cursor-pointer border",
-                    selectedPeriod === "AM"
-                      ? "bg-amber-500 text-white border-amber-600 shadow-xs"
-                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
-                  )}
-                >
-                  AM
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTimeChange(selectedHour, selectedMinute, "PM")}
-                  className={cn(
-                    "w-full py-2.5 text-xs font-black rounded-xl transition-all cursor-pointer border",
-                    selectedPeriod === "PM"
-                      ? "bg-amber-500 text-white border-amber-600 shadow-xs"
-                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
-                  )}
-                >
-                  PM
-                </button>
-              </div>
+        {/* Hour, Minute & Period Columns */}
+        <div className="grid grid-cols-3 gap-1.5 bg-slate-50 p-2 rounded-xl border border-slate-100">
+          {/* Hours Column */}
+          <div className="space-y-1">
+            <label className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 block text-center">
+              Hour
+            </label>
+            <div className="max-h-32 overflow-y-auto space-y-0.5 custom-scrollbar pr-0.5">
+              {HOURS.map((h) => {
+                const isSelected = selectedHour === h;
+                return (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => handleTimeChange(h, selectedMinute, selectedPeriod)}
+                    className={cn(
+                      "w-full py-1 text-xs font-bold rounded-lg transition-all cursor-pointer text-center",
+                      isSelected
+                        ? "bg-amber-500 text-white shadow-xs"
+                        : "text-slate-600 hover:bg-white hover:text-slate-900"
+                    )}
+                  >
+                    {h}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Quick Popular Presets */}
-          {presets.length > 0 && (
-            <div className="space-y-1.5 pt-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-500" /> Popular Times
-              </span>
-              <div className="grid grid-cols-3 gap-1 max-h-24 overflow-y-auto pr-0.5 custom-scrollbar">
-                {presets.map((preset) => {
-                  const isCurrent = displayTime === preset;
-                  return (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => handlePresetSelect(preset)}
-                      className={cn(
-                        "px-1.5 py-1 text-[10.5px] font-semibold rounded-md transition-all cursor-pointer text-center truncate",
-                        isCurrent
-                          ? "bg-amber-100 text-amber-900 border border-amber-300 font-bold"
-                          : "bg-slate-50 text-slate-600 hover:bg-amber-50 hover:text-amber-800 border border-slate-100"
-                      )}
-                    >
-                      {preset}
-                    </button>
-                  );
-                })}
-              </div>
+          {/* Minutes Column */}
+          <div className="space-y-1">
+            <label className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 block text-center">
+              Min
+            </label>
+            <div className="max-h-32 overflow-y-auto space-y-0.5 custom-scrollbar pr-0.5">
+              {MINUTES.map((m) => {
+                const isSelected = selectedMinute === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => handleTimeChange(selectedHour, m, selectedPeriod)}
+                    className={cn(
+                      "w-full py-1 text-xs font-bold rounded-lg transition-all cursor-pointer text-center",
+                      isSelected
+                        ? "bg-amber-500 text-white shadow-xs"
+                        : "text-slate-600 hover:bg-white hover:text-slate-900"
+                    )}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
             </div>
-          )}
+          </div>
 
-          {/* Done Button */}
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-end">
-            <button
-              type="button"
-              onClick={() => setIsOpen(false)}
-              className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-2xs transition-all cursor-pointer flex items-center gap-1"
-            >
-              <Check className="w-3.5 h-3.5" /> Done
-            </button>
+          {/* AM / PM Toggle */}
+          <div className="space-y-1 flex flex-col">
+            <label className="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 block text-center">
+              Period
+            </label>
+            <div className="space-y-1.5 my-auto">
+              <button
+                type="button"
+                onClick={() => handleTimeChange(selectedHour, selectedMinute, "AM")}
+                className={cn(
+                  "w-full py-2 text-xs font-black rounded-xl transition-all cursor-pointer border",
+                  selectedPeriod === "AM"
+                    ? "bg-amber-500 text-white border-amber-600 shadow-xs"
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                )}
+              >
+                AM
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTimeChange(selectedHour, selectedMinute, "PM")}
+                className={cn(
+                  "w-full py-2 text-xs font-black rounded-xl transition-all cursor-pointer border",
+                  selectedPeriod === "PM"
+                    ? "bg-amber-500 text-white border-amber-600 shadow-xs"
+                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                )}
+              >
+                PM
+              </button>
+            </div>
           </div>
         </div>
-      )}
-    </div>
+
+        {/* Done Button */}
+        <div className="pt-2 border-t border-slate-100 flex items-center justify-end">
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+          >
+            <Check className="w-3.5 h-3.5" /> Done
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 

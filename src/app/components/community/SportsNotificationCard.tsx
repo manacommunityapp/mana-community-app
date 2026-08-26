@@ -40,25 +40,25 @@ function SportEventRow({ ev, onNavigate }: { ev: SportsEvent; onNavigate: () => 
         <Trophy className="w-3 h-3 text-sky-600" />
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[11px] font-bold text-slate-800 truncate leading-tight">{ev.name}</div>
+        <div className="text-xs font-bold text-slate-800 truncate leading-tight">{ev.name}</div>
         <div className="flex items-center flex-wrap gap-1.5 mt-0.5">
           {ev.sport?.name && (
-            <span className="text-[8px] font-bold text-slate-500">{ev.sport.name}</span>
+            <span className="text-xs font-bold text-slate-500">{ev.sport.name}</span>
           )}
           {ev.eventDateStart && (
-            <span className="text-[8px] text-slate-400 flex items-center gap-0.5">
-              <Calendar className="w-2 h-2" />{formatDate(ev.eventDateStart)}
+            <span className="text-xs text-slate-400 flex items-center gap-0.5">
+              <Calendar className="w-2.5 h-2.5" />{formatDate(ev.eventDateStart)}
             </span>
           )}
           {ev.venue?.name && (
-            <span className="text-[8px] text-slate-400 flex items-center gap-0.5 truncate max-w-[80px]">
-              <MapPin className="w-2 h-2" />{ev.venue.name}
+            <span className="text-xs text-slate-400 flex items-center gap-0.5 truncate max-w-[80px]">
+              <MapPin className="w-2.5 h-2.5" />{ev.venue.name}
             </span>
           )}
         </div>
       </div>
       <div className="flex items-center gap-1 flex-shrink-0">
-        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full border ${badge.cls}`}>
+        <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full border ${badge.cls}`}>
           {badge.label}
         </span>
         <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-sky-500 transition-colors" />
@@ -67,21 +67,29 @@ function SportEventRow({ ev, onNavigate }: { ev: SportsEvent; onNavigate: () => 
   );
 }
 
+import { resolveNotificationUrl } from "../commons/layout/NotificationBell";
+
 // ─── NotificationRow ───────────────────────────────────────────────────────
-function NotificationRow({ n }: { n: NotificationItem }) {
+function NotificationRow({ n, onNavigate }: { n: NotificationItem; onNavigate: (url: string) => void }) {
   const isSports = n.category?.toLowerCase() === "sports" || n.type === "SPORTS_EVENT";
+  const targetUrl = resolveNotificationUrl(n);
   return (
-    <div className="flex items-start gap-2 p-1.5 rounded-lg border border-slate-50 bg-white">
+    <button
+      type="button"
+      onClick={() => onNavigate(targetUrl)}
+      className="w-full text-left flex items-start gap-2 p-2 rounded-lg border border-slate-100 bg-white hover:bg-sky-50/40 hover:border-sky-200 transition-all group cursor-pointer"
+    >
       <div className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 mt-0.5 ${
         isSports ? "bg-sky-50 text-sky-600" : "bg-indigo-50 text-indigo-600"
       }`}>
         {isSports ? <Trophy className="w-3 h-3" /> : <Bell className="w-3 h-3" />}
       </div>
       <div className="flex-1 min-w-0">
-        <div className="text-[10px] font-semibold text-slate-800 leading-tight">{n.title}</div>
-        {n.body && <div className="text-[9px] text-slate-500 mt-0.5 leading-snug line-clamp-1">{n.body}</div>}
+        <div className="text-xs font-bold text-slate-800 leading-tight group-hover:text-sky-700 transition-colors">{n.title}</div>
+        {n.body && <div className="text-xs text-slate-500 mt-0.5 leading-snug line-clamp-1">{n.body}</div>}
       </div>
-    </div>
+      <ChevronRight className="w-3 h-3 text-slate-300 group-hover:text-sky-500 group-hover:translate-x-0.5 transition-all flex-shrink-0 mt-1" />
+    </button>
   );
 }
 
@@ -160,11 +168,11 @@ export function SportsNotificationCard({ defaultTab = "events", defaultExpanded 
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="text-xs font-bold text-slate-900 leading-tight truncate">Sports Hub</h3>
-          <p className="text-[10px] text-slate-500 font-medium leading-tight truncate">Tournaments, matches & alerts</p>
+          <p className="text-xs text-slate-500 font-medium leading-tight truncate">Tournaments, matches & alerts</p>
         </div>
         <div className="flex items-center gap-1.5">
           {currentCount > 0 && (
-            <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
+            <span className="text-xs font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
               {currentCount}
             </span>
           )}
@@ -184,26 +192,26 @@ export function SportsNotificationCard({ defaultTab = "events", defaultExpanded 
             <button
               type="button"
               onClick={() => setTab("events")}
-              className={`flex-1 flex items-center justify-center gap-1 py-2 text-[10px] font-bold transition-all border-b-2 cursor-pointer ${
+              className={`flex-1 flex items-center justify-center gap-1 py-2 text-xs font-bold transition-all border-b-2 cursor-pointer ${
                 tab === "events"
                   ? "border-sky-500 text-sky-700 bg-white shadow-2xs"
                   : "border-transparent text-slate-400 hover:text-slate-600"
               }`}
             >
               <Award className="w-3 h-3" />
-              Events {hasEvents && <span className="bg-sky-100 text-sky-600 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold">{events.length}</span>}
+              Events {hasEvents && <span className="bg-sky-100 text-sky-600 px-1.5 py-0.2 rounded-full text-xs font-extrabold">{events.length}</span>}
             </button>
             <button
               type="button"
               onClick={() => setTab("notifications")}
-              className={`flex-1 flex items-center justify-center gap-1 py-2 text-[10px] font-bold transition-all border-b-2 cursor-pointer ${
+              className={`flex-1 flex items-center justify-center gap-1 py-2 text-xs font-bold transition-all border-b-2 cursor-pointer ${
                 tab === "notifications"
                   ? "border-indigo-500 text-indigo-700 bg-white shadow-2xs"
                   : "border-transparent text-slate-400 hover:text-slate-600"
               }`}
             >
               <Bell className="w-3 h-3" />
-              Alerts {sportsNotifs.length > 0 && <span className="bg-indigo-100 text-indigo-600 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold">{sportsNotifs.length}</span>}
+              Alerts {sportsNotifs.length > 0 && <span className="bg-indigo-100 text-indigo-600 px-1.5 py-0.2 rounded-full text-xs font-extrabold">{sportsNotifs.length}</span>}
             </button>
           </div>
 
@@ -214,7 +222,7 @@ export function SportsNotificationCard({ defaultTab = "events", defaultExpanded 
                 {loadingEvents ? (
                   <div className="flex items-center justify-center py-4 text-slate-400">
                     <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                    <span className="text-[10px]">Loading events...</span>
+                    <span className="text-xs">Loading events...</span>
                   </div>
                 ) : hasEvents ? (
                   events.slice(0, 5).map(ev => (
@@ -227,14 +235,14 @@ export function SportsNotificationCard({ defaultTab = "events", defaultExpanded 
                 ) : (
                   <div className="text-center py-4 text-slate-400">
                     <Trophy className="w-5 h-5 mx-auto mb-1 opacity-30" />
-                    <p className="text-[10px]">No open sports events right now.</p>
+                    <p className="text-xs">No open sports events right now.</p>
                   </div>
                 )}
                 {events.length > 5 && (
                   <button
                     type="button"
                     onClick={() => navigate("/sports")}
-                    className="w-full py-1 text-[9px] font-bold text-sky-600 hover:text-sky-800 hover:bg-sky-50 rounded transition-colors flex items-center justify-center gap-0.5"
+                    className="w-full py-1 text-xs font-bold text-sky-600 hover:text-sky-800 hover:bg-sky-50 rounded transition-colors flex items-center justify-center gap-0.5"
                   >
                     View all {events.length} events <ChevronRight className="w-2.5 h-2.5" />
                   </button>
@@ -247,20 +255,20 @@ export function SportsNotificationCard({ defaultTab = "events", defaultExpanded 
                 {loadingNotifs ? (
                   <div className="flex items-center justify-center py-4 text-slate-400">
                     <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
-                    <span className="text-[10px]">Loading alerts...</span>
+                    <span className="text-xs">Loading alerts...</span>
                   </div>
                 ) : sportsNotifs.length > 0 ? (
                   sportsNotifs.slice(0, 8).map(n => (
-                    <NotificationRow key={n.id} n={n} />
+                    <NotificationRow key={n.id} n={n} onNavigate={(url) => navigate(url)} />
                   ))
                 ) : notifs.length > 0 ? (
                   notifs.slice(0, 8).map(n => (
-                    <NotificationRow key={n.id} n={n} />
+                    <NotificationRow key={n.id} n={n} onNavigate={(url) => navigate(url)} />
                   ))
                 ) : (
                   <div className="text-center py-4 text-slate-400">
                     <Bell className="w-5 h-5 mx-auto mb-1 opacity-30" />
-                    <p className="text-[10px]">No notifications yet.</p>
+                    <p className="text-xs">No notifications yet.</p>
                   </div>
                 )}
               </>
@@ -269,11 +277,11 @@ export function SportsNotificationCard({ defaultTab = "events", defaultExpanded 
 
           {/* Footer CTA */}
           <div className="border-t border-slate-100 px-2.5 py-1.5 flex items-center justify-between bg-slate-50/40">
-            <span className="text-[9px] text-slate-400">Sports Hub</span>
+            <span className="text-xs text-slate-400">Sports Hub</span>
             <button
               type="button"
               onClick={() => navigate("/sports")}
-              className="text-[9px] font-bold text-sky-600 hover:text-sky-800 flex items-center gap-0.5 transition-colors"
+              className="text-xs font-bold text-sky-600 hover:text-sky-800 flex items-center gap-0.5 transition-colors"
             >
               Explore <ChevronRight className="w-2.5 h-2.5" />
             </button>

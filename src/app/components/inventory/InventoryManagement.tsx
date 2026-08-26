@@ -15,7 +15,7 @@ import {
   CheckCircle,
   Clock,
   X,
-  DollarSign,
+  IndianRupee,
   ArrowUpRight,
   ArrowDownLeft,
   Loader2

@@ -45,6 +45,10 @@ import {
   CheckCircle,
   Edit3,
   Info,
+  Zap,
+  IndianRupee,
+  History,
+  Lock,
 } from "lucide-react";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { PoojaRegistrationModal } from "./PoojaRegistrationModal";
@@ -80,12 +84,19 @@ interface Activity {
   mandap?: string;
   pandit?: string;
   slots?: number | string;
+  capacity?: number;
+  maxAttendees?: number;
+  totalCapacity?: number;
+  seats?: number;
+  ticketTypes?: any[];
   isFree?: boolean;
   existingRegistration?: any;
   registrationId?: string | number;
   isUpdateMode?: boolean;
   /** ID of the parent community/top-level event this sub-event belongs to */
   mainEventId?: string | number;
+  /** Raw database auction item object if category is Auction */
+  rawAuctionItem?: any;
 }
 
 interface UserPass {
@@ -122,57 +133,6 @@ interface UserPass {
   paymentMethod?: string;
 }
 
-const INITIAL_ACTIVITIES: Activity[] = [
-  {
-    id: "act-1",
-    title: "Maha Ganapathi Archana & Silver Shield Pooja",
-    category: "Pooja",
-    date: "22 Aug 2026",
-    time: "08:00 AM - 09:30 AM",
-    venue: "Main Temple Mandap, Gate 1",
-    fee: 501,
-    availableSeats: 14,
-    image: "🪔",
-    description: "Special morning Sankalpa and Archana with personalized names announced by Priests.",
-  },
-  {
-    id: "act-4",
-    title: "Community Satvik Mahaprasadam (Lunch & Dinner)",
-    category: "Food",
-    date: "22 Aug 2026",
-    time: "12:30 PM - 03:00 PM & 07:30 PM - 10:00 PM",
-    venue: "Annadanam Dining Hall, Gate 2",
-    fee: 0,
-    availableSeats: 450,
-    image: "🍲",
-    description: "Traditional Satvik Bhojanam (Lunch and Dinner Mahaprasadam) served freely to all community devotees.",
-  },
-  {
-    id: "act-2",
-    title: "Kids Classical Fusion Dance Performance",
-    category: "Cultural",
-    date: "23 Aug 2026",
-    time: "05:30 PM - 07:00 PM",
-    venue: "Auditorium Stage A",
-    fee: 0,
-    availableSeats: 6,
-    image: "🎭",
-    description: "Group performance event. Costumes & track upload required before Aug 18.",
-  },
-  {
-    id: "act-3",
-    title: "Community Eco-Ganesha Making Competition",
-    category: "Competitions",
-    date: "21 Aug 2026",
-    time: "10:00 AM - 12:00 PM",
-    venue: "Clubhouse Activity Hall",
-    fee: 150,
-    availableSeats: 8,
-    image: "🎨",
-    description: "Clay provided on spot. Bring your own decorations. Top 3 winner trophies.",
-  },
-];
-
 const INITIAL_PASSES: UserPass[] = [];
 
 function countdownFrom(dateStr?: string | null, timeStr?: string | null) {
@@ -185,7 +145,7 @@ function countdownFrom(dateStr?: string | null, timeStr?: string | null) {
     dt = new Date(`${dateStr}${timeStr ? "T" + timeStr : "T00:00:00"}`).getTime();
   }
   if (isNaN(dt)) {
-    dt = new Date("2026-08-27T00:00:00").getTime();
+    return { days: 0, hours: 0, mins: 0, secs: 0 };
   }
   const diff = Math.max(0, dt - Date.now());
   return {
@@ -196,9 +156,292 @@ function countdownFrom(dateStr?: string | null, timeStr?: string | null) {
   };
 }
 
+interface MemberAuctionBidModalProps {
+  activity: Activity;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function MemberAuctionBidModal({ activity, onClose, onSuccess }: MemberAuctionBidModalProps) {
+  const item = activity.rawAuctionItem || {
+    id: typeof activity.id === "string" ? Number(activity.id.replace(/\D/g, "")) : activity.id,
+    name: activity.title,
+    category: activity.category || "General",
+    description: activity.description,
+    basePrice: activity.fee || 5000,
+    currentBid: activity.fee || 0,
+    minIncrement: 500,
+    imageEmoji: activity.image || "🪔",
+    status: "LIVE",
+    bidCount: 0,
+    leaderName: null,
+  };
+
+  const itemId = typeof item.id === "number" ? item.id : Number(String(item.id).replace(/\D/g, "")) || 1;
+  const isLive = item.status === "LIVE";
+  const isClosed = item.status === "CLOSED";
+  const minInc = item.minIncrement || 500;
+  const currentBid = Number(item.currentBid) || 0;
+  const basePrice = Number(item.basePrice) || 0;
+  const nextMinBid = item.bidCount === 0 || currentBid === 0 ? basePrice : currentBid + minInc;
+
+  const [bidAmount, setBidAmount] = useState<number>(nextMinBid);
+  const [bidsHistory, setBidsHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const loadHistory = async () => {
+    if (!itemId) return;
+    setLoadingHistory(true);
+    try {
+      const bids = await eventService.getAuctionBids(itemId);
+      setBidsHistory(bids || []);
+    } catch {
+      // fallback
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    loadHistory();
+    setBidAmount(nextMinBid);
+  }, [itemId, nextMinBid]);
+
+  const handlePlaceBid = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (bidAmount < nextMinBid) {
+      setError(`Minimum required bid amount is ₹${nextMinBid.toLocaleString("en-IN")}`);
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+      await eventService.placeAuctionBid(itemId, bidAmount);
+      showSuccess(`🎉 Bid of ₹${bidAmount.toLocaleString("en-IN")} placed successfully on ${item.name}!`);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err?.message || "Failed to place bid.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg sm:max-w-xl bg-card border border-border text-card-foreground rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto relative animate-scaleUp"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close Button */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground flex items-center justify-center cursor-pointer transition-colors shadow-2xs z-10"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* Header with Item Details */}
+        <div className="flex items-start gap-3.5 pr-8">
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-3xl sm:text-4xl flex items-center justify-center shrink-0">
+            {item.imageEmoji || "🪔"}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                {item.category || "Festival Auction"}
+              </span>
+              <span
+                className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                  isLive
+                    ? "bg-rose-500/10 text-rose-600 border-rose-500/20"
+                    : isClosed
+                    ? "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700"
+                    : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+                }`}
+              >
+                {isLive && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />}
+                {isLive ? "Live Bidding" : isClosed ? "Closed / Won" : "Upcoming"}
+              </span>
+            </div>
+            <h3 className="text-base sm:text-lg font-black text-foreground mt-1 leading-snug">
+              {item.name}
+            </h3>
+            {item.description && (
+              <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
+                {item.description}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Pricing & High Bidder Banner */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3.5 rounded-2xl bg-muted/40 border border-border/80 text-xs">
+          <div>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase">Base Price</span>
+            <p className="font-bold text-foreground text-sm">₹{basePrice.toLocaleString("en-IN")}</p>
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase">Current Highest Bid</span>
+            <p className="font-black text-emerald-600 text-base sm:text-lg">
+              {currentBid > 0 ? `₹${currentBid.toLocaleString("en-IN")}` : "No bids yet"}
+            </p>
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase">Leading Devotee</span>
+            <p className="font-bold text-foreground truncate">
+              {item.leaderName ? `👑 ${item.leaderName}` : "—"}
+            </p>
+            <span className="text-[10px] text-muted-foreground">{item.bidCount || 0} total bids</span>
+          </div>
+        </div>
+
+        {/* Bidding Form if LIVE */}
+        {isLive && (
+          <form onSubmit={handlePlaceBid} className="space-y-3 p-4 rounded-2xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-black text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-amber-600" /> Enter Your Bid Amount (₹)
+              </label>
+              <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                Min: ₹{nextMinBid.toLocaleString("en-IN")}
+              </span>
+            </div>
+
+            {/* Quick Increment Preset Chips */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase">Quick Add:</span>
+              {[500, 1000, 2000, 5000, 10000].map((inc) => {
+                const targetVal = Math.max(nextMinBid, (currentBid || basePrice) + inc);
+                return (
+                  <button
+                    key={inc}
+                    type="button"
+                    onClick={() => setBidAmount(targetVal)}
+                    className="px-2 py-1 rounded-lg text-[10.5px] font-extrabold bg-card border border-border text-foreground hover:bg-amber-100 hover:border-amber-300 dark:hover:bg-amber-900/40 transition-colors cursor-pointer"
+                  >
+                    +₹{inc.toLocaleString("en-IN")}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom Input */}
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-black text-sm text-muted-foreground">₹</span>
+              <input
+                type="number"
+                min={nextMinBid}
+                step={minInc}
+                value={bidAmount}
+                onChange={(e) => setBidAmount(Number(e.target.value))}
+                className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-border bg-background text-sm font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+              />
+            </div>
+
+            {error && (
+              <p className="text-xs font-semibold text-rose-600 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" /> {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting || bidAmount < nextMinBid}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs sm:text-sm font-black shadow-md cursor-pointer flex items-center justify-center gap-2 disabled:opacity-50 transition-all active:scale-[0.98]"
+            >
+              {submitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Gavel className="w-4 h-4" />
+              )}
+              Place Sacred Bid of ₹{bidAmount.toLocaleString("en-IN")}
+            </button>
+          </form>
+        )}
+
+        {/* If CLOSED */}
+        {isClosed && (
+          <div className="p-4 rounded-2xl bg-muted/60 border border-border text-center space-y-1.5">
+            <Trophy className="w-8 h-8 text-amber-500 mx-auto" />
+            <p className="text-xs font-bold text-foreground">Auction Item Closed</p>
+            {item.leaderName ? (
+              <p className="text-xs text-emerald-600 font-extrabold">
+                🎉 Won by {item.leaderName} for ₹{currentBid.toLocaleString("en-IN")}!
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">No bids were placed before close.</p>
+            )}
+          </div>
+        )}
+
+        {/* Live Bid History Section */}
+        <div className="space-y-2 pt-2 border-t border-border">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
+              <History className="w-3.5 h-3.5 text-primary" /> Live Devotee Bidding History
+            </span>
+            <button
+              type="button"
+              onClick={loadHistory}
+              disabled={loadingHistory}
+              className="text-[11px] text-primary hover:underline flex items-center gap-1 cursor-pointer"
+            >
+              <RefreshCw className={`w-3 h-3 ${loadingHistory ? "animate-spin" : ""}`} /> Refresh Bids
+            </button>
+          </div>
+
+          <div className="max-h-40 overflow-y-auto space-y-1.5 hide-scrollbar">
+            {loadingHistory && bidsHistory.length === 0 ? (
+              <div className="py-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-600" /> Loading bids…
+              </div>
+            ) : bidsHistory.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-3">
+                No bids recorded yet. Be the first devotee to bid!
+              </p>
+            ) : (
+              bidsHistory.map((b: any, idx: number) => (
+                <div
+                  key={b.id || idx}
+                  className={`flex items-center justify-between p-2 rounded-xl text-xs border ${
+                    idx === 0
+                      ? "bg-amber-500/10 border-amber-500/30 text-foreground font-bold"
+                      : "bg-muted/30 border-border/50 text-muted-foreground"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm">{idx === 0 ? "👑" : "👤"}</span>
+                    <span className="truncate">{b.bidderName || "Devotee"}</span>
+                    {idx === 0 && (
+                      <span className="text-[9px] font-black uppercase text-amber-700 dark:text-amber-400 bg-amber-200/60 dark:bg-amber-900/60 px-1.5 py-0.2 rounded">
+                        Highest
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="font-extrabold text-foreground">₹{Number(b.amount).toLocaleString("en-IN")}</span>
+                    <span className="text-[10px] text-muted-foreground">{b.timeAgo || "recent"}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function EventMemberView() {
   const { user, isSuperAdmin } = useAuth();
-  const { useMock } = useEventMock();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
@@ -210,11 +453,11 @@ export function EventMemberView() {
   const [showHeroSubEvents, setShowHeroSubEvents] = useState(false);
   const [detailedEvent, setDetailedEvent] = useState<any | null>(null);
   const [mobileModal, setMobileModal] = useState<"pooja" | "meals" | "passes" | "family" | null>(null);
-  const [passesList, setPassesList] = useState<UserPass[]>(() => (useMock ? INITIAL_PASSES : []));
+  const [passesList, setPassesList] = useState<UserPass[]>([]);
   const [passesFilter, setPassesFilter] = useState<"ACTIVE" | "CANCELLED" | "EXPIRED" | "CLOSED" | "ALL">("ACTIVE");
   const [mobilePassesFilter, setMobilePassesFilter] = useState<"ACTIVE" | "CANCELLED" | "EXPIRED" | "ALL">("ACTIVE");
   const [passesSearch, setPassesSearch] = useState<string>("");
-  const [activitiesList, setActivitiesList] = useState<Activity[]>(() => (useMock ? INITIAL_ACTIVITIES : []));
+  const [activitiesList, setActivitiesList] = useState<Activity[]>([]);
   const [mainEventsList, setMainEventsList] = useState<any[]>([]);
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
@@ -236,6 +479,7 @@ export function EventMemberView() {
   const [editFlatNo, setEditFlatNo] = useState("");
   const [cancelConfirmMode, setCancelConfirmMode] = useState(false);
   const [isSavingManage, setIsSavingManage] = useState(false);
+  const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
   const [manageSuccess, setManageSuccess] = useState<string | null>(null);
   const [manageError, setManageError] = useState<string | null>(null);
 
@@ -257,49 +501,17 @@ export function EventMemberView() {
   useEscapeKey(() => { if (!isSavingManage) { setManagePassModal(null); setCancelConfirmMode(false); } }, Boolean(managePassModal));
   useEscapeKey(() => { setSelectedActivity(null); }, Boolean(selectedActivity));
 
-  const DEFAULT_MOCK_MAIN_EVENTS = [
-    {
-      id: "1",
-      title: "Ganesh Chaturthi Utsav 2026",
-      category: "Grand Festival",
-      startDate: "2026-08-27",
-      endDate: "2026-09-06",
-      startTime: "08:30",
-      venue: "Main Community Grounds, Sector 4",
-      location: "Main Community Grounds, Sector 4",
-      coverImage: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
-      attendees: 1842,
-      price: 0,
-      description: "Grand 10-Day Festival, Cultural Competitions & Community Feasts",
-    },
-    {
-      id: "2",
-      title: "Diwali Mahotsav 2026",
-      category: "Grand Festival",
-      startDate: "2026-10-28",
-      endDate: "2026-11-02",
-      startTime: "18:00",
-      venue: "Central Amphitheatre & Grounds",
-      location: "Central Amphitheatre & Grounds",
-      coverImage: "https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1200&q=80",
-      attendees: 950,
-      price: 0,
-      description: "Festival of Lights Celebration, Aarti, Fireworks & Cultural Night",
-    },
-  ];
-
   const bannerMainEvents = useMemo(() => {
     if (mainEventsList.length > 0) return mainEventsList;
-    if (useMock) return DEFAULT_MOCK_MAIN_EVENTS;
     const parentActs = activitiesList.filter(a => String(a.id).startsWith("event-"));
     if (parentActs.length > 0) return parentActs;
-    return activitiesList.slice(0, 1);
-  }, [mainEventsList, useMock, activitiesList]);
+    return [];
+  }, [mainEventsList, activitiesList]);
 
   // Hero Banner Carousel & Live Countdown Ticker (Main Events only)
   const [heroBannerIndex, setHeroBannerIndex] = useState(0);
   const [isHeroBannerHovered, setIsHeroBannerHovered] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(() => countdownFrom("2026-08-27", null));
+  const [timeLeft, setTimeLeft] = useState(() => countdownFrom(null, null));
 
   // Auto-move hero banner every 4.5s (pauses on hover or when any modal/registration is open)
   useEffect(() => {
@@ -326,10 +538,11 @@ export function EventMemberView() {
     showQRPass,
   ]);
 
-  const activeMainEvent = bannerMainEvents[Math.min(heroBannerIndex, bannerMainEvents.length - 1)] || bannerMainEvents[0];
+  const activeMainEvent = bannerMainEvents[Math.min(heroBannerIndex, Math.max(0, bannerMainEvents.length - 1))] || null;
 
   const eventSubActivities = useMemo(() => {
-    if (!activeMainEvent) return [];
+    if (!activeMainEvent || activeMainEvent.isStandalonePooja) return [];
+    const activeIdClean = String(activeMainEvent.id).replace(/^event-/, "");
     return activitiesList.filter((a) => {
       // Exclude the parent main event itself
       if (
@@ -340,45 +553,24 @@ export function EventMemberView() {
         return false;
       }
       // Check mainEventId linkage
-      if (a.mainEventId != null && activeMainEvent.id != null) {
-        if (
-          String(a.mainEventId) === String(activeMainEvent.id) ||
-          String(a.mainEventId) === `event-${activeMainEvent.id}`
-        ) {
+      if (a.mainEventId != null) {
+        const aMidClean = String(a.mainEventId).replace(/^event-/, "");
+        if (aMidClean === activeIdClean) {
           return true;
         }
       }
-      if ((a as any)?.eventId != null && activeMainEvent.id != null) {
-        if (
-          String((a as any).eventId) === String(activeMainEvent.id) ||
-          String((a as any).eventId) === `event-${activeMainEvent.id}`
-        ) {
+      if ((a as any)?.eventId != null) {
+        const aEidClean = String((a as any).eventId).replace(/^event-/, "");
+        if (aEidClean === activeIdClean) {
           return true;
         }
-      }
-      // Check date overlap with main event date range
-      const mainStart = activeMainEvent.startDate || activeMainEvent.date;
-      const mainEnd = activeMainEvent.endDate || mainStart;
-      if (mainStart && a.date) {
-        if (a.date >= mainStart && (!mainEnd || a.date <= mainEnd)) {
-          return true;
-        }
-      }
-      if ((a as any)?.startDate && mainStart) {
-        if ((a as any).startDate >= mainStart && (!mainEnd || (a as any).startDate <= mainEnd)) {
-          return true;
-        }
-      }
-      // If only 1 main event exists in banner, link all sub-events to it
-      if (bannerMainEvents.length === 1) {
-        return true;
       }
       return false;
     });
-  }, [activeMainEvent, activitiesList, bannerMainEvents.length]);
+  }, [activeMainEvent, activitiesList]);
 
   useEffect(() => {
-    const targetDate = activeMainEvent?.startDate || activeMainEvent?.date || "2026-08-27";
+    const targetDate = activeMainEvent?.startDate || activeMainEvent?.date || null;
     const targetTime = activeMainEvent?.startTime || activeMainEvent?.time || null;
 
     setTimeLeft(countdownFrom(targetDate, targetTime));
@@ -390,24 +582,21 @@ export function EventMemberView() {
 
   const handlePrevHeroBanner = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (bannerMainEvents.length === 0) return;
     setHeroBannerIndex((prev) => (prev - 1 + bannerMainEvents.length) % bannerMainEvents.length);
   };
 
   const handleNextHeroBanner = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (bannerMainEvents.length === 0) return;
     setHeroBannerIndex((prev) => (prev + 1) % bannerMainEvents.length);
   };
 
   // Fetch activities & main events & dashboard metrics from live REST API
   const fetchLiveDataFromBackend = async () => {
-    if (useMock) {
-      setActivitiesList(INITIAL_ACTIVITIES);
-      return;
-    }
-
     try {
       setLoadingApiData(true);
-      const [allEvents, poojas, culturals, comps, meals, stats, allRegistrations] = await Promise.all([
+      const [allEvents, poojas, culturals, comps, meals, stats, allRegistrations, auctionItems] = await Promise.all([
         eventService.getAllEvents().catch(() => eventService.getUpcomingEvents()).catch(() => []),
         eventService.getPoojaSevas().catch(() => []),
         eventService.getCulturalEvents().catch(() => []),
@@ -415,20 +604,27 @@ export function EventMemberView() {
         eventService.getLunchDinners().catch(() => []),
         eventService.getDashboardStats().catch(() => null),
         eventService.getAllRegistrations().catch(() => []),
+        eventService.getAuctionItems().catch(() => []),
       ]);
 
       setLiveStats(stats);
 
       const getBookedCount = (actId: string, title?: string) => {
         if (!Array.isArray(allRegistrations)) return 0;
+        const isPoojaAct = actId.startsWith("pooja-");
+        const actIdNumeric = actId.replace(/\D/g, "");
         return allRegistrations
-          .filter(
-            (r: any) =>
-              r &&
-              r.status !== "CANCELLED" &&
-              (r.activityId === actId ||
-                (title && r.activityTitle && r.activityTitle.trim().toLowerCase() === title.trim().toLowerCase()))
-          )
+          .filter((r: any) => {
+            if (!r || r.status === "CANCELLED") return false;
+            if (r.activityId === actId) return true;
+            // Flexible match for Pooja: backend may return numeric or prefixed activityId
+            if (isPoojaAct && actIdNumeric) {
+              const rStr = String(r.activityId ?? "");
+              if (rStr === actIdNumeric || rStr === `pooja-${actIdNumeric}`) return true;
+            }
+            return Boolean(title && r.activityTitle &&
+              r.activityTitle.trim().toLowerCase() === title.trim().toLowerCase());
+          })
           .reduce((acc: number, r: any) => acc + (Number(r.devoteeCount) || 1), 0);
       };
 
@@ -459,7 +655,6 @@ export function EventMemberView() {
         });
 
         const running = allEvents.filter((ev: any) => String(ev.status || "").toUpperCase() !== "CANCELLED");
-        setMainEventsList(running);
         running.forEach((ev: any) => {
           const initialCapacity = ev.capacity || ev.maxAttendees || 50;
           const booked = getBookedCount(`event-${ev.id}`, ev.title);
@@ -469,22 +664,32 @@ export function EventMemberView() {
             category: ev.category || ev.type || "Pooja",
             date: ev.startDate ? String(ev.startDate) : "Upcoming",
             time: ev.startTime || "Morning",
-            venue: ev.venue || ev.location || "Main Temple Mandap, Gate 1",
+            venue: ev.venue || ev.location || ev.city || ev.address || "",
             fee: ev.price ? Number(ev.price) : 0,
             availableSeats: Math.max(0, initialCapacity - booked),
+            capacity: initialCapacity,
+            maxAttendees: initialCapacity,
+            slots: initialCapacity,
+            seats: initialCapacity,
+            ticketTypes: ev.ticketTypes,
             image: "📅",
             description: ev.description || "Community Parent Event",
           });
         });
       }
 
+      const standalonePoojaEvents: any[] = [];
+
       if (poojas && Array.isArray(poojas)) {
         poojas.forEach((p: any) => {
           // Exclude if pooja itself is cancelled
           if (String(p.status || "").toUpperCase() === "CANCELLED") return;
 
+          const isStandalone = (p.mainEventId == null || p.mainEventId === "" || p.mainEventId === 0) &&
+                               (p.eventId == null || p.eventId === "" || p.eventId === 0);
+
           // Exclude if parent event is cancelled or not active
-          if (p.mainEventId != null) {
+          if (!isStandalone && p.mainEventId != null) {
             const mid = String(p.mainEventId);
             if (cancelledEventIds.has(mid) || cancelledEventIds.has(`event-${mid}`)) {
               return;
@@ -493,7 +698,7 @@ export function EventMemberView() {
               return;
             }
           }
-          if (p.eventId != null) {
+          if (!isStandalone && p.eventId != null) {
             const eid = String(p.eventId);
             if (cancelledEventIds.has(eid) || cancelledEventIds.has(`event-${eid}`)) {
               return;
@@ -502,24 +707,26 @@ export function EventMemberView() {
               return;
             }
           }
-          if (p.parentEventTitle && cancelledEventTitles.has(p.parentEventTitle.trim().toLowerCase())) {
+          if (!isStandalone && p.parentEventTitle && cancelledEventTitles.has(p.parentEventTitle.trim().toLowerCase())) {
             return;
           }
 
           const initialSlots = p.slots != null ? p.slots : 20;
           const booked = getBookedCount(`pooja-${p.id}`, p.name);
-          fetchedActivities.push({
+          const isMultiDay = Boolean(p.isMultiDay || (p.startDate && p.endDate && p.startDate !== p.endDate));
+
+          const poojaAct: Activity = {
             id: `pooja-${p.id || Date.now()}`,
-            title: p.name || "Pooja Seva",
+            title: p.name || p.title || "Pooja Seva",
             category: "Pooja",
             date: p.date ? String(p.date) : (p.startDate ? String(p.startDate) : "Upcoming"),
             startDate: p.startDate || p.date,
             endDate: p.endDate,
-            isMultiDay: p.isMultiDay,
+            isMultiDay,
             time: p.startTime ? `${p.startTime}` : (p.time || "Morning"),
             startTime: p.startTime,
             startTimes: p.startTimes,
-            venue: p.mandap || "Main Temple Mandap, Gate 1",
+            venue: p.mandap || p.venue || p.location || "",
             mandap: p.mandap,
             pandit: p.pandit,
             slots: p.slots,
@@ -528,11 +735,43 @@ export function EventMemberView() {
             availableSeats: Math.max(0, initialSlots - booked),
             image: "🪔",
             description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || ""}`,
-            // Track parent event linkage for strict deduplication
-            mainEventId: p.mainEventId != null ? String(p.mainEventId) : undefined,
-          });
+            mainEventId: !isStandalone && p.mainEventId != null ? String(p.mainEventId) : undefined,
+          };
+
+          fetchedActivities.push(poojaAct);
+
+          if (isStandalone) {
+            standalonePoojaEvents.push({
+              id: `pooja-${p.id}`,
+              rawId: p.id,
+              isStandalonePooja: true,
+              title: p.name || p.title || "Pooja Seva",
+              category: p.category || "Pooja & Seva",
+              type: "Pooja & Seva",
+              startDate: p.startDate || p.date || "Upcoming",
+              endDate: p.endDate || p.startDate || p.date,
+              startTime: p.startTime || p.time || "Morning",
+              endTime: p.endTime,
+              venue: p.mandap || p.venue || p.location || "",
+              location: p.mandap || p.venue || p.location || "",
+              mandap: p.mandap,
+              pandit: p.pandit,
+              isMultiDay,
+              slots: p.slots,
+              price: p.isFree ? 0 : Number(p.fee || 501),
+              fee: p.isFree ? 0 : Number(p.fee || 501),
+              isFree: p.isFree,
+              coverImage: p.coverImage || p.imageUrl || "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
+              description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || p.description || "Sacred Pooja Seva Sankalpam"}${isMultiDay ? " (Multi-Day Booking)" : ""}`,
+              attendees: booked,
+              registrationCount: booked,
+            });
+          }
         });
       }
+
+      const allRunning = allEvents ? allEvents.filter((ev: any) => String(ev.status || "").toUpperCase() !== "CANCELLED") : [];
+      setMainEventsList([...allRunning, ...standalonePoojaEvents]);
 
       if (meals && Array.isArray(meals)) {
         meals.forEach((m: any) => {
@@ -557,7 +796,7 @@ export function EventMemberView() {
             category: "Food",
             date: m.date ? String(m.date) : "Upcoming",
             time: m.startTime && m.endTime ? `${m.startTime} - ${m.endTime}` : (m.startTime || "Afternoon / Evening"),
-            venue: m.venue || "Annadanam Dining Hall, Gate 2",
+            venue: m.venue || m.diningHall || m.location || "",
             fee: m.isFree ? 0 : Number(m.fee || 50),
             availableSeats: Math.max(0, initialPlates - booked),
             image: "🍲",
@@ -589,7 +828,7 @@ export function EventMemberView() {
             category: "Cultural",
             date: c.date ? String(c.date) : "Upcoming",
             time: c.startTime || "Evening",
-            venue: c.stage || "Auditorium Stage A",
+            venue: c.stage || c.venue || c.location || "",
             fee: 0,
             availableSeats: Math.max(0, initialSeats - booked),
             image: "🎭",
@@ -621,7 +860,7 @@ export function EventMemberView() {
             category: "Competitions",
             date: cm.date ? String(cm.date) : "Upcoming",
             time: cm.startTime || "Morning",
-            venue: cm.venue || "Clubhouse Activity Hall",
+            venue: cm.venue || cm.stage || cm.location || "",
             fee: cm.isFree ? 0 : Number(cm.fee || 100),
             availableSeats: Math.max(0, initialMax - booked),
             image: "🏆",
@@ -630,7 +869,35 @@ export function EventMemberView() {
         });
       }
 
+      if (auctionItems && Array.isArray(auctionItems)) {
+        auctionItems.forEach((item: any) => {
+          if (String(item.status || "").toUpperCase() === "CANCELLED") return;
+          if (item.eventId != null) {
+            const eid = String(item.eventId);
+            if (cancelledEventIds.has(eid) || cancelledEventIds.has(`event-${eid}`)) return;
+            if (allEvents && allEvents.length > 0 && !activeEventIds.has(eid) && !activeEventIds.has(`event-${eid}`)) return;
+          }
 
+          const currentBidNum = Number(item.currentBid) || 0;
+          const basePriceNum = Number(item.basePrice) || 0;
+          const displayPrice = currentBidNum > 0 ? currentBidNum : basePriceNum;
+
+          fetchedActivities.push({
+            id: `auction-${item.id || Date.now()}`,
+            title: item.name || "Festival Auction Item",
+            category: "Auction",
+            date: item.status === "LIVE" ? "🔴 Live Bidding" : item.status === "CLOSED" ? "🏁 Closed" : "⏳ Upcoming Auction",
+            time: item.status === "LIVE" ? "Bidding in Progress" : "Auction Floor",
+            venue: item.eventTitle || item.venue || item.location || "",
+            fee: displayPrice,
+            availableSeats: item.status === "CLOSED" ? 0 : 1,
+            image: item.imageEmoji || "🪔",
+            description: `${item.description || "Holy festival fundraising auction."}${item.leaderName ? ` Highest Bid: ₹${displayPrice.toLocaleString("en-IN")} by ${item.leaderName} (${item.bidCount || 0} bids)` : ` Base Price: ₹${basePriceNum.toLocaleString("en-IN")}`}`,
+            mainEventId: item.eventId != null ? String(item.eventId) : undefined,
+            rawAuctionItem: item,
+          });
+        });
+      }
 
       setActivitiesList(fetchedActivities);
     } catch (err) {
@@ -699,11 +966,6 @@ export function EventMemberView() {
 
   // Load User Passes dynamically from database API
   const loadUserPasses = async () => {
-    if (useMock) {
-      setPassesList(INITIAL_PASSES);
-      return;
-    }
-
     try {
       const [liveRegs, allEvents] = await Promise.all([
         eventService.getMyRegistrations().catch(() => []),
@@ -743,11 +1005,19 @@ export function EventMemberView() {
           }
           if (!attendeeCount) attendeeCount = 1;
 
+          // Detect Pooja registrations — their eventId equals the seva's own numeric id (not a community
+          // event id). If a community event shares that number (e.g. an old completed event), the lookup
+          // would wrongly mark the Pooja pass as EXPIRED/CLOSED. Skip community-event cross-reference
+          // for Pooja; their expiry is already handled by the slot date (r.eventDate) below.
+          const isPooja = r.category === "Pooja" ||
+                          String(r.passType || "").toLowerCase().includes("pooja") ||
+                          String(r.activityId || "").startsWith("pooja-");
+
           // Cross-reference parent event
-          const parentEvent = (r.mainEventId != null && eventsById.get(String(r.mainEventId))) ||
-                              (r.eventId != null && eventsById.get(String(r.eventId))) ||
-                              (r.eventName && eventsByTitle.get(r.eventName.trim().toLowerCase())) ||
-                              (r.activityTitle && eventsByTitle.get(r.activityTitle.trim().toLowerCase())) ||
+          const parentEvent = (r.mainEventId != null && !isPooja && eventsById.get(String(r.mainEventId))) ||
+                              (r.eventId != null && !isPooja && eventsById.get(String(r.eventId))) ||
+                              (r.eventName && !isPooja && eventsByTitle.get(r.eventName.trim().toLowerCase())) ||
+                              (r.activityTitle && !isPooja && eventsByTitle.get(r.activityTitle.trim().toLowerCase())) ||
                               null;
 
           const regStatusStr = String(r.status || "").toUpperCase();
@@ -771,7 +1041,9 @@ export function EventMemberView() {
             } else if (parentEvent.startDate && !parentEvent.endDate && parentEvent.startDate < todayStr) {
               isExpired = true;
             }
-          } else if (r.eventDate && r.eventDate < todayStr && !r.eventDate.includes("Upcoming")) {
+          } else if (!isPooja && r.eventDate && r.eventDate < todayStr && !r.eventDate.includes("Upcoming")) {
+            // Pooja passes must never expire by slot date alone — their slot date is a booking slot,
+            // not an event end date, and a past slot still represents an active registration.
             isExpired = true;
           }
 
@@ -794,16 +1066,29 @@ export function EventMemberView() {
             statusReason = "Awaiting committee approval / verification";
           }
 
+          const rawCat = String(r.category || "").toLowerCase();
+          const rawActId = String(r.activityId || "");
+          const isPoojaPass = rawCat.includes("pooja") ||
+                              rawCat.includes("seva") ||
+                              rawActId.startsWith("pooja-") ||
+                              Boolean(r.scheduleId) ||
+                              Boolean(r.poojaSlot);
+
+          const isCompPass = rawCat.includes("competition") || rawActId.startsWith("comp-");
+          const isCultPass = rawCat.includes("cultural") || rawActId.startsWith("cult-");
+          const isFoodPass = rawCat.includes("food") || rawCat.includes("meal") || rawActId.startsWith("meal-") || rawActId.startsWith("food-");
+
           return {
             id: String(r.id),
-            // activityId is stored as "pooja-5" or "5" — normalise to full "pooja-N" form when possible
+            // activityId is stored as "pooja-5" or "event-1" or "5"
             activityId: r.activityId ? String(r.activityId) : undefined,
-            // Canonical numeric-only id of the Pooja Seva for normalised matching
-            poojaSevaId: r.activityId ? String(r.activityId).replace(/\D/g, "") || undefined : undefined,
+            category: isPoojaPass ? "Pooja" : isCompPass ? "Competitions" : isCultPass ? "Cultural" : isFoodPass ? "Food" : "General",
+            // Canonical numeric-only id of the Pooja Seva strictly when it is an actual pooja registration
+            poojaSevaId: isPoojaPass ? (rawActId.startsWith("pooja-") ? rawActId.replace(/^pooja-/, "") : (String(r.poojaSevaId || r.activityId || "").replace(/\D/g, "") || undefined)) : undefined,
             // Parent community event id (different from the pooja seva's own id)
             mainEventId: r.mainEventId != null ? String(r.mainEventId) : undefined,
             eventId: r.eventId ? String(r.eventId) : undefined,
-            passType: r.passType || `${r.category || "Event"} Registration Pass`,
+            passType: r.passType || `${isPoojaPass ? "Pooja" : isCompPass ? "Competition" : isCultPass ? "Cultural" : isFoodPass ? "Food" : "Event"} Registration Pass`,
             title: r.activityTitle || r.eventName || (parentEvent ? parentEvent.title : "Community Event"),
             participantName: r.participantName || r.primaryName || "Devotee",
             phone: r.phone,
@@ -863,13 +1148,17 @@ export function EventMemberView() {
       window.removeEventListener("mana_registrations_updated", handleRegUpdate);
       window.removeEventListener("mana_family_updated", loadFamilyMembers);
     };
-  }, [useMock, user]);
+  }, [user]);
 
   // Compute dynamic counters for Quick Actions
   const poojaCount = useMemo(() => activitiesList.filter((a) => a.category === "Pooja").length, [activitiesList]);
   const foodCount = useMemo(() => activitiesList.filter((a) => a.category === "Food").length, [activitiesList]);
   const culturalCount = useMemo(() => activitiesList.filter((a) => a.category === "Cultural").length, [activitiesList]);
   const compCount = useMemo(() => activitiesList.filter((a) => a.category === "Competitions").length, [activitiesList]);
+  const auctionCount = useMemo(
+    () => activitiesList.filter((a) => a.category?.toLowerCase() === "auction" || Boolean(a.rawAuctionItem)).length,
+    [activitiesList]
+  );
 
   const isPoojaActivity = (cat?: string) =>
     Boolean(cat && (cat.toLowerCase().includes("pooja") || cat.toLowerCase().includes("seva")));
@@ -921,31 +1210,41 @@ export function EventMemberView() {
   }, [passesList, mobilePassesFilter, activePasses, cancelledPasses, expiredPasses]);
 
   const dynamicQuickActions = useMemo(() => {
-    const volunteerBadge = useMock
-      ? "12 Teams Duty"
-      : liveStats?.totalVolunteers !== undefined && liveStats.totalVolunteers > 0
-      ? `${liveStats.totalVolunteers} Duties`
-      : "0 Duties";
+    const volunteerBadge =
+      liveStats?.totalVolunteers !== undefined && liveStats.totalVolunteers > 0
+        ? `${liveStats.totalVolunteers} Duties`
+        : "0 Duties";
 
-    const donateBadge = useMock
-      ? "₹6.2L Raised"
-      : liveStats?.totalRevenue !== undefined && liveStats.totalRevenue > 0
-      ? `₹${(liveStats.totalRevenue).toLocaleString()} Raised`
-      : "₹0 Raised";
+    const donateBadge =
+      liveStats?.totalRevenue !== undefined && liveStats.totalRevenue > 0
+        ? `₹${liveStats.totalRevenue.toLocaleString()} Raised`
+        : "₹0 Raised";
 
-    const foodBadge = useMock
-      ? "4.2K Free"
-      : liveStats?.foodPlatesCount !== undefined && liveStats.foodPlatesCount > 0
-      ? `${liveStats.foodPlatesCount.toLocaleString()} Plates`
-      : "0 Served";
+    const foodBadge =
+      foodCount > 0
+        ? `${foodCount} Meal Slot${foodCount === 1 ? "" : "s"}`
+        : liveStats?.foodPlatesCount !== undefined && liveStats.foodPlatesCount > 0
+        ? `${liveStats.foodPlatesCount.toLocaleString()} Plates`
+        : "0 Served";
 
-    const auctionBadge = useMock
-      ? "₹18,500 Bid"
-      : liveStats?.auctionRevenue !== undefined && liveStats.auctionRevenue > 0
-      ? `₹${liveStats.auctionRevenue.toLocaleString()} Bid`
-      : "No Bids";
+    const liveAuctionCount = activitiesList.filter(
+      (a) => a.rawAuctionItem?.status === "LIVE"
+    ).length;
 
-    return [
+    const upcomingAuctionCount = activitiesList.filter(
+      (a) => a.rawAuctionItem?.status === "UPCOMING"
+    ).length;
+
+    const auctionBadge =
+      liveAuctionCount > 0
+        ? `${liveAuctionCount} Live Item${liveAuctionCount === 1 ? "" : "s"}`
+        : upcomingAuctionCount > 0
+        ? `${upcomingAuctionCount} Upcoming`
+        : liveStats?.auctionRevenue !== undefined && liveStats.auctionRevenue > 0
+        ? `₹${liveStats.auctionRevenue.toLocaleString()} Bid`
+        : "0 Items";
+
+    const actions = [
       {
         id: "pooja",
         label: "Pooja & Seva",
@@ -959,7 +1258,7 @@ export function EventMemberView() {
         label: "Lunch / Dinner",
         icon: Utensils,
         color: "bg-orange-500/10 text-orange-600 border-orange-300/30",
-        badge: foodCount > 0 ? `${foodCount} Meal Slot${foodCount === 1 ? "" : "s"}` : foodBadge,
+        badge: foodBadge,
         category: "Food",
       },
       {
@@ -1011,13 +1310,9 @@ export function EventMemberView() {
         category: "Auction",
       },
     ];
-  }, [poojaCount, foodCount, culturalCount, familyMembers.length, activePasses.length, useMock, liveStats]);
 
-  const userActivePoojaPass = useMemo(() => {
-    return activePasses.find(
-      (p) => (isPoojaActivity(p.category) || isPoojaActivity(p.passType) || Boolean(p.poojaSevaId))
-    );
-  }, [activePasses]);
+    return actions;
+  }, [poojaCount, foodCount, culturalCount, compCount, auctionCount, familyMembers.length, activePasses.length, liveStats, activitiesList]);
 
   /**
    * Safe matching between an Activity and user's booked Passes list.
@@ -1028,67 +1323,143 @@ export function EventMemberView() {
 
     const actIdStr = String(act.id || "").trim();
     const actIdNumeric = actIdStr.replace(/\D/g, "");
-    const isActPooja = isPoojaActivity(act.category);
+    const isActPooja = isPoojaActivity(act.category) || actIdStr.startsWith("pooja-");
     const isActComp = act.category?.toLowerCase().includes("competition") || actIdStr.startsWith("comp-");
     const isActCult = act.category?.toLowerCase().includes("cultural") || actIdStr.startsWith("cult-");
+    const isActFood = act.category?.toLowerCase().includes("food") || act.category?.toLowerCase().includes("meal") || actIdStr.startsWith("meal-") || actIdStr.startsWith("food-");
+    const isMainEvent = actIdStr.startsWith("event-") || (!isActPooja && !isActComp && !isActCult && !isActFood);
     const cleanActTitle = (act.title || "").trim().toLowerCase();
-    const actMainEventId = act.mainEventId ? String(act.mainEventId) : null;
+    const actMainEventId = act.mainEventId ? String(act.mainEventId).replace(/\D/g, "") : null;
 
     return activePasses.find((p) => {
       if (p.status === "CANCELLED" || p.isEventCancelled || p.isEventExpired) return false;
 
       const passActIdStr = String(p.activityId || "").trim();
+      const passActIdNumeric = passActIdStr.replace(/\D/g, "");
       const passPoojaIdStr = p.poojaSevaId ? String(p.poojaSevaId).trim() : "";
-      const isPassPooja = isPoojaActivity(p.category) || Boolean(p.poojaSevaId);
+      const passCatLower = String(p.category || "").toLowerCase();
+      const passTypeLower = String(p.passType || "").toLowerCase();
+
+      const isPassPooja = isPoojaActivity(p.category) ||
+                          isPoojaActivity(p.passType) ||
+                          passActIdStr.startsWith("pooja-") ||
+                          (Boolean(p.poojaSevaId) && (passCatLower.includes("pooja") || passTypeLower.includes("pooja")));
+
       const isPassComp = p.category?.toLowerCase().includes("competition") || passActIdStr.startsWith("comp-");
       const isPassCult = p.category?.toLowerCase().includes("cultural") || passActIdStr.startsWith("cult-");
-
-      // Strategy 1: Exact activityId string match (e.g. "pooja-1" === "pooja-1")
-      if (passActIdStr && actIdStr && passActIdStr === actIdStr) {
-        return true;
-      }
-
-      // Strategy 2: Direct poojaSevaId matching (strictly only when both are pooja)
-      if (isActPooja && isPassPooja) {
-        if (passPoojaIdStr && (passPoojaIdStr === actIdStr || passPoojaIdStr === actIdNumeric)) {
-          return true;
-        }
-        const passActIdNumeric = passActIdStr.replace(/\D/g, "");
-        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric && (passActIdStr.startsWith("pooja-") || actIdStr.startsWith("pooja-"))) {
-          return true;
-        }
-      }
-
-      // Strategy 3: Type/category matching for comp/cult
-      if (isActComp && isPassComp) {
-        const passActIdNumeric = passActIdStr.replace(/\D/g, "");
-        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
-          return true;
-        }
-      }
-      if (isActCult && isPassCult) {
-        const passActIdNumeric = passActIdStr.replace(/\D/g, "");
-        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
-          return true;
-        }
-      }
-
-      // Strategy 4: Exact title match (requires matching categories)
+      const isPassFood = p.category?.toLowerCase().includes("meal") || p.category?.toLowerCase().includes("food") || passActIdStr.startsWith("meal-") || passActIdStr.startsWith("food-");
+      const isPassMainEvent = passActIdStr.startsWith("event-") || (!isPassPooja && !isPassComp && !isPassCult && !isPassFood);
       const cleanPassTitle = (p.title || "").trim().toLowerCase();
-      if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) {
-        if (isActPooja !== isPassPooja) return false;
-        if (isActComp !== isPassComp) return false;
-        if (isActCult !== isPassCult) return false;
+      const passMainEventId = p.mainEventId ? String(p.mainEventId).replace(/\D/g, "") : (p.eventId ? String(p.eventId).replace(/\D/g, "") : null);
 
-        const passMainEventId = p.mainEventId ? String(p.mainEventId) : null;
-        if (actMainEventId && passMainEventId) {
-          return actMainEventId === passMainEventId;
+      // ── Category Check 1: POOJA ACTIVITY ──
+      if (isActPooja) {
+        // A Pooja activity MUST ONLY match a Pooja pass. NEVER a main event pass!
+        if (!isPassPooja || isPassMainEvent) return false;
+
+        // 1. Exact activityId (e.g. "pooja-1" === "pooja-1")
+        if (passActIdStr && actIdStr && passActIdStr === actIdStr) {
+          return true;
         }
-        return true;
+        // 2. Canonical numeric ID when both are prefixed with pooja- (only return true; fall through on mismatch)
+        if (actIdNumeric && passActIdNumeric && passActIdStr.startsWith("pooja-") && actIdStr.startsWith("pooja-") && actIdNumeric === passActIdNumeric) {
+          return true;
+        }
+        // 3. poojaSevaId match
+        if (passPoojaIdStr && actIdNumeric && passPoojaIdStr === actIdNumeric) {
+          return true;
+        }
+        // 4. Exact Title match
+        if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) {
+          if (actMainEventId && passMainEventId) {
+            return actMainEventId === passMainEventId;
+          }
+          return true;
+        }
+        return false;
+      }
+
+      // ── Category Check 2: MAIN EVENT ACTIVITY ──
+      if (isMainEvent) {
+        if (!isPassMainEvent || isPassPooja || isPassComp || isPassCult || isPassFood) return false;
+        if (passActIdStr && actIdStr && passActIdStr === actIdStr) return true;
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) return true;
+        if (actIdNumeric && passMainEventId && actIdNumeric === passMainEventId) return true;
+        if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) return true;
+        return false;
+      }
+
+      // ── Category Check 3: COMPETITIONS ──
+      if (isActComp) {
+        if (!isPassComp) return false;
+        if (passActIdStr && actIdStr && passActIdStr === actIdStr) return true;
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) return true;
+        if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) return true;
+        return false;
+      }
+
+      // ── Category Check 4: CULTURAL ──
+      if (isActCult) {
+        if (!isPassCult) return false;
+        if (passActIdStr && actIdStr && passActIdStr === actIdStr) return true;
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) return true;
+        if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) return true;
+        return false;
+      }
+
+      // ── Category Check 5: FOOD / MEALS ──
+      if (isActFood) {
+        if (!isPassFood) return false;
+        if (passActIdStr && actIdStr && passActIdStr === actIdStr) return true;
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) return true;
+        if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) return true;
+        return false;
       }
 
       return false;
     });
+  };
+
+  /**
+   * Helper to check if current user is registered for a parent main event.
+   * Standalone poojas (targetMainEventId is null or undefined) return true.
+   */
+  const isMainEventRegistered = (targetMainEventId?: string | number | null): boolean => {
+    if (!targetMainEventId) return true;
+    const targetIdStr = String(targetMainEventId).replace(/\D/g, "");
+    if (!targetIdStr) return true;
+
+    // 1. Check in active passes for main event pass
+    const hasPass = activePasses.some((p) => {
+      if (p.status === "CANCELLED" || p.isEventCancelled || p.isEventExpired) return false;
+      const passActIdStr = String(p.activityId || "").trim();
+      const passActIdNumeric = passActIdStr.replace(/\D/g, "");
+      const passCatLower = String(p.category || "").toLowerCase();
+      const passTypeLower = String(p.passType || "").toLowerCase();
+
+      const isPassPooja = isPoojaActivity(p.category) || isPoojaActivity(p.passType) || passActIdStr.startsWith("pooja-");
+      const isPassComp = p.category?.toLowerCase().includes("competition") || passActIdStr.startsWith("comp-");
+      const isPassCult = p.category?.toLowerCase().includes("cultural") || passActIdStr.startsWith("cult-");
+      const isPassFood = p.category?.toLowerCase().includes("meal") || p.category?.toLowerCase().includes("food") || passActIdStr.startsWith("meal-") || passActIdStr.startsWith("food-");
+      const isPassMainEvent = passActIdStr.startsWith("event-") || passCatLower === "general" || (!isPassPooja && !isPassComp && !isPassCult && !isPassFood);
+
+      if (isPassMainEvent) {
+        const passMainEventId = p.mainEventId ? String(p.mainEventId).replace(/\D/g, "") : (p.eventId ? String(p.eventId).replace(/\D/g, "") : null);
+        if (passActIdNumeric && passActIdNumeric === targetIdStr) return true;
+        if (passMainEventId && passMainEventId === targetIdStr) return true;
+      }
+      return false;
+    });
+
+    if (hasPass) return true;
+
+    // 2. Check in mainEventsList / bannerMainEvents
+    const parentEvent = (mainEventsList || []).find((e) => String(e.id || (e as any).rawId).replace(/\D/g, "") === targetIdStr);
+    if (parentEvent && (parentEvent.isRegistered || (parentEvent as any).hasRegistered)) {
+      return true;
+    }
+
+    return false;
   };
 
   const handleOpenUpdateRegistration = (act: Activity, existingPass: UserPass) => {
@@ -1106,7 +1477,7 @@ export function EventMemberView() {
 
   const handleDeleteFamilyMember = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!useMock && !id.startsWith("fam-") && id !== "self") {
+    if (!id.startsWith("fam-") && id !== "self") {
       try {
         await eventService.deleteFamilyMember(Number(id));
       } catch (err: any) {
@@ -1132,16 +1503,14 @@ export function EventMemberView() {
 
     let createdId = "fam-" + Date.now();
 
-    if (!useMock) {
-      try {
-        const saved = await eventService.addFamilyMember(payload);
-        if (saved && saved.id) {
-          createdId = String(saved.id);
-        }
-      } catch (err: any) {
-        showError(err?.message || "Failed to add family member");
-        return;
+    try {
+      const saved = await eventService.addFamilyMember(payload);
+      if (saved && saved.id) {
+        createdId = String(saved.id);
       }
+    } catch (err: any) {
+      showError(err?.message || "Failed to add family member");
+      return;
     }
 
     const createdMember: FamilyMember = {
@@ -1267,40 +1636,60 @@ export function EventMemberView() {
   };
 
   const handleBookingSubmit = async () => {
+    if (isBookingSubmitting) return;
     if (!selectedActivity) return;
-    const attendingNames = familyMembers
-      .filter((f) => selectedMembers.includes(f.id))
-      .map((f) => f.name)
-      .join(", ");
+    setIsBookingSubmitting(true);
+    try {
+      const attendingNames = familyMembers
+        .filter((f) => selectedMembers.includes(f.id))
+        .map((f) => f.name)
+        .join(", ");
 
-    const attendeeLabel = attendingNames || user?.fullName || (user?.email ? user.email.split("@")[0] : "Devotee");
-    const regCode = `MNA-2026-${(selectedActivity.category || "EVT").toUpperCase().slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const attendeeLabel = attendingNames || user?.fullName || (user?.email ? user.email.split("@")[0] : "Devotee");
+      const regCode = `MNA-2026-${(selectedActivity.category || "EVT").toUpperCase().slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
-    const isPaid = (selectedActivity.fee || 0) > 0;
-    const passPayload = {
-      regCode,
-      activityId: selectedActivity.id,
-      activityTitle: selectedActivity.title,
-      category: selectedActivity.category,
-      passType: `${selectedActivity.category} Registration Pass`,
-      participantName: attendeeLabel,
-      attendingDevotees: attendingNames,
-      devoteeCount: Math.max(1, selectedMembers.length),
-      eventDate: selectedActivity.date,
-      eventTime: selectedActivity.time,
-      venue: selectedActivity.venue,
-      bookingFee: (selectedActivity.fee || 0) * Math.max(1, selectedMembers.length),
-      paymentStatus: isPaid ? "PAID" : "FREE",
-      paymentReceiptUrl: isPaid && paymentReceiptUrl ? paymentReceiptUrl : undefined,
-      transactionId: isPaid && transactionId ? transactionId : undefined,
-      paymentMethod: isPaid ? paymentMethod : undefined,
-      status: "CONFIRMED",
-      qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${regCode}`,
-    };
+      const isPaid = (selectedActivity.fee || 0) > 0;
+      const resolvedMainId: number | undefined = (() => {
+        if (selectedActivity.mainEventId) {
+          const n = Number(String(selectedActivity.mainEventId).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
+        }
+        if ((selectedActivity as any).eventId) {
+          const n = Number(String((selectedActivity as any).eventId).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
+        }
+        if (activeMainEvent?.id) {
+          const n = typeof activeMainEvent.id === "number" ? activeMainEvent.id : Number(String(activeMainEvent.id).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
+        }
+        return undefined;
+      })();
 
-    let createdId = "pass-" + Date.now();
+      const passPayload = {
+        regCode,
+        activityId: selectedActivity.id,
+        mainEventId: resolvedMainId,
+        eventId: resolvedMainId,
+        activityTitle: selectedActivity.title,
+        category: selectedActivity.category,
+        passType: `${selectedActivity.category} Registration Pass`,
+        participantName: attendeeLabel,
+        attendingDevotees: attendingNames,
+        devoteeCount: Math.max(1, selectedMembers.length),
+        eventDate: selectedActivity.date,
+        eventTime: selectedActivity.time,
+        venue: selectedActivity.venue,
+        bookingFee: (selectedActivity.fee || 0) * Math.max(1, selectedMembers.length),
+        paymentStatus: isPaid ? "PAID" : "FREE",
+        paymentReceiptUrl: isPaid && paymentReceiptUrl ? paymentReceiptUrl : undefined,
+        transactionId: isPaid && transactionId ? transactionId : undefined,
+        paymentMethod: isPaid ? paymentMethod : undefined,
+        status: "CONFIRMED",
+        qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${regCode}`,
+      };
 
-    if (!useMock) {
+      let createdId = "pass-" + Date.now();
+
       try {
         const isPooja = selectedActivity.category?.toLowerCase().includes("pooja");
         const saved = isPooja
@@ -1310,35 +1699,37 @@ export function EventMemberView() {
           createdId = String(saved.id);
         }
       } catch (err: any) {
-        showError(err?.message || "Registration failed. The activity capacity has been reached.");
+        showError(err?.response?.data?.message || err?.message || "Registration failed. The activity capacity has been reached.");
         return;
       }
+
+      const newPass: UserPass = {
+        id: createdId,
+        passType: passPayload.passType,
+        title: passPayload.activityTitle,
+        participantName: passPayload.participantName,
+        regId: regCode,
+        date: passPayload.eventDate,
+        time: passPayload.eventTime,
+        venue: passPayload.venue,
+        status: "CONFIRMED",
+        qrCodeUrl: passPayload.qrCodeUrl,
+        bookingFee: passPayload.bookingFee,
+        paymentStatus: passPayload.paymentStatus,
+        paymentReceiptUrl: passPayload.paymentReceiptUrl,
+        transactionId: passPayload.transactionId,
+        paymentMethod: passPayload.paymentMethod,
+      };
+
+      setPassesList((prev) => [newPass, ...prev]);
+      showSuccess(`Registered for ${selectedActivity.title}. E-Pass issued to ${attendeeLabel}!`);
+      setSelectedActivity(null);
+      setPaymentReceiptUrl("");
+      setTransactionId("");
+      setActiveTab("passes");
+    } finally {
+      setIsBookingSubmitting(false);
     }
-
-    const newPass: UserPass = {
-      id: createdId,
-      passType: passPayload.passType,
-      title: passPayload.activityTitle,
-      participantName: passPayload.participantName,
-      regId: regCode,
-      date: passPayload.eventDate,
-      time: passPayload.eventTime,
-      venue: passPayload.venue,
-      status: "CONFIRMED",
-      qrCodeUrl: passPayload.qrCodeUrl,
-      bookingFee: passPayload.bookingFee,
-      paymentStatus: passPayload.paymentStatus,
-      paymentReceiptUrl: passPayload.paymentReceiptUrl,
-      transactionId: passPayload.transactionId,
-      paymentMethod: passPayload.paymentMethod,
-    };
-
-    setPassesList((prev) => [newPass, ...prev]);
-    showSuccess(`Registered for ${selectedActivity.title}. E-Pass issued to ${attendeeLabel}!`);
-    setSelectedActivity(null);
-    setPaymentReceiptUrl("");
-    setTransactionId("");
-    setActiveTab("passes");
   };
 
   const handleDownloadPDFPass = (pass: UserPass) => {
@@ -1505,72 +1896,59 @@ export function EventMemberView() {
                 }}
               />
               <div className="relative z-10 p-2.5 sm:p-3.5 text-white space-y-2">
-                {/* ── Line 1: 🔥 Main Event Category & Events Available & Carousel Navigation Controller ── */}
-                <div className="flex items-center justify-between gap-1.5 flex-nowrap overflow-x-auto hide-scrollbar">
-                  <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
-                    <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs whitespace-nowrap shrink-0">
-                      🔥 {activeMainEvent?.category || activeMainEvent?.type || "Grand Festival"}
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[9px] sm:text-[9.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
-                      <span className={`w-1.5 h-1.5 rounded-full ${bannerMainEvents.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
-                      <span>{bannerMainEvents.length > 0 ? (bannerMainEvents.length > 1 ? `Live · Event ${heroBannerIndex + 1} of ${bannerMainEvents.length}` : "Live · 1 Event") : "0 Events Available"}</span>
-                    </span>
-                    {activeMainEvent && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDetailedEvent(activeMainEvent);
-                        }}
-                        className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white text-[9px] sm:text-[9.5px] font-extrabold border border-white/30 backdrop-blur-md shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
-                        title="View complete event information, sub-events, and schedule"
-                      >
-                        <Info className="w-3 h-3 text-amber-300" />
-                        <span>Details</span>
-                      </button>
-                    )}
-                    {(activeMainEvent?.attendees ?? activeMainEvent?.registrationCount) != null && (
-                      <span className="text-[11px] font-semibold text-white/80 hidden sm:inline-flex items-center gap-1">
-                        <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {activeMainEvent.attendees ?? activeMainEvent.registrationCount ?? 0} registered
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Carousel Navigation Controller */}
-                  {bannerMainEvents.length > 1 && (
-                    <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur-xs px-2 py-1 rounded-xl border border-white/15 shrink-0 self-start lg:self-center shadow-xs">
-                      <button
-                        type="button"
-                        onClick={handlePrevHeroBanner}
-                        className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
-                        title="Previous Event"
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                      </button>
-                      <div className="flex items-center gap-1 px-1">
-                        {bannerMainEvents.map((_, dotIdx) => (
-                          <button
-                            key={dotIdx}
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); setHeroBannerIndex(dotIdx); }}
-                            className={`h-1.5 rounded-full transition-all cursor-pointer ${
-                              dotIdx === heroBannerIndex
-                                ? "w-4 bg-amber-400 shadow-xs"
-                                : "w-1.5 bg-white/40 hover:bg-white/70"
-                            }`}
-                            title={`Go to Event ${dotIdx + 1}`}
-                          />
-                        ))}
+                {/* ── Line 1: 🔥 Main Event Category & Live Event Indicator with Embedded Nav Controls & Details ── */}
+                <div className="flex items-center gap-1.5 flex-nowrap overflow-x-auto hide-scrollbar">
+                  <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-400/25 text-amber-200 border border-amber-300/30 uppercase tracking-wider shadow-2xs whitespace-nowrap shrink-0">
+                    🔥 {activeMainEvent?.category || activeMainEvent?.type || "Grand Festival"}
+                  </span>
+                  
+                  {/* Live Event Badge with Embedded Nav Buttons */}
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-900/40 text-slate-200 text-[9px] sm:text-[9.5px] font-bold border border-white/15 backdrop-blur-xs whitespace-nowrap shrink-0">
+                    <span className={`w-1.5 h-1.5 rounded-full ${bannerMainEvents.length > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-400"}`} />
+                    <span>{bannerMainEvents.length > 0 ? "Live Event" : "0 Events Available"}</span>
+                    {bannerMainEvents.length > 1 && (
+                      <div className="inline-flex items-center gap-1 bg-black/30 backdrop-blur-md px-1.5 py-0.5 rounded-full border border-white/20 shrink-0 shadow-xs ml-0.5">
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handlePrevHeroBanner(e); }}
+                          className="w-5 h-5 rounded-full bg-white/80 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90"
+                          title="Previous Event"
+                        >
+                          <ChevronLeft className="w-3 h-3 stroke-[2.5]" />
+                        </button>
+                        <span className="text-[9px] sm:text-[10px] font-black text-amber-300 tracking-wide select-none px-0.5">
+                          {heroBannerIndex + 1}<span className="text-white/60 font-normal">/{bannerMainEvents.length}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleNextHeroBanner(e); }}
+                          className="w-5 h-5 rounded-full bg-white/80 hover:bg-white text-slate-900 hover:text-amber-600 flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-90"
+                          title="Next Event"
+                        >
+                          <ChevronRight className="w-3 h-3 stroke-[2.5]" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={handleNextHeroBanner}
-                        className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-all cursor-pointer shadow-xs active:scale-95"
-                        title="Next Event"
-                      >
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    )}
+                  </span>
+
+                  {activeMainEvent && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDetailedEvent(activeMainEvent);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white text-[9px] sm:text-[9.5px] font-extrabold border border-white/30 backdrop-blur-md shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
+                      title="View complete event information, sub-events, and schedule"
+                    >
+                      <Info className="w-3 h-3 text-amber-300" />
+                      <span>Info</span>
+                    </button>
+                  )}
+                  {(activeMainEvent?.attendees ?? activeMainEvent?.registrationCount) != null && (
+                    <span className="text-[11px] font-semibold text-white/80 hidden sm:inline-flex items-center gap-1 shrink-0">
+                      <Ticket className="w-3.5 h-3.5 text-indigo-200" /> {activeMainEvent.attendees ?? activeMainEvent.registrationCount ?? 0} registered
+                    </span>
                   )}
                 </div>
 
@@ -1605,22 +1983,28 @@ export function EventMemberView() {
                     <div className="min-w-0 flex-1 space-y-0.5">
                       <h2 className="text-sm sm:text-base font-black text-white leading-snug drop-shadow-sm truncate">
                         {bannerMainEvents.length > 0
-                          ? (activeMainEvent?.title || "Community Festival")
+                          ? (activeMainEvent?.title || "Community Event")
                           : "No Events Created Yet"}
                       </h2>
                       <div className="flex items-center gap-1.5 sm:gap-2 text-[10.5px] font-medium text-white/90 overflow-hidden">
-                        <span className="flex items-center gap-1 shrink-0">
-                          <Calendar className="w-3 h-3 text-amber-300 shrink-0" />
-                          <span className="whitespace-nowrap">
-                            {activeMainEvent?.startDate || activeMainEvent?.date || "Upcoming"}
-                            {activeMainEvent?.endDate && activeMainEvent.endDate !== (activeMainEvent.startDate || activeMainEvent.date) ? ` – ${activeMainEvent.endDate}` : ""}
+                        {(activeMainEvent?.startDate || activeMainEvent?.date) && (
+                          <span className="flex items-center gap-1 shrink-0">
+                            <Calendar className="w-3 h-3 text-amber-300 shrink-0" />
+                            <span className="whitespace-nowrap">
+                              {activeMainEvent?.startDate || activeMainEvent?.date}
+                              {activeMainEvent?.endDate && activeMainEvent.endDate !== (activeMainEvent.startDate || activeMainEvent.date) ? ` – ${activeMainEvent.endDate}` : ""}
+                            </span>
                           </span>
-                        </span>
-                        <span className="text-white/40 shrink-0">·</span>
-                        <span className="flex items-center gap-1 truncate max-w-[140px] sm:max-w-[220px]">
-                          <MapPin className="w-3 h-3 text-indigo-200 shrink-0" />
-                          <span className="truncate">{activeMainEvent?.venue || activeMainEvent?.location || activeMainEvent?.city || "Main Community Grounds"}</span>
-                        </span>
+                        )}
+                        {(activeMainEvent?.venue || activeMainEvent?.location || activeMainEvent?.city || activeMainEvent?.address) && (
+                          <>
+                            {(activeMainEvent?.startDate || activeMainEvent?.date) && <span className="text-white/40 shrink-0">·</span>}
+                            <span className="flex items-center gap-1 truncate max-w-[140px] sm:max-w-[220px]">
+                              <MapPin className="w-3 h-3 text-indigo-200 shrink-0" />
+                              <span className="truncate">{activeMainEvent?.venue || activeMainEvent?.location || activeMainEvent?.city || activeMainEvent?.address}</span>
+                            </span>
+                          </>
+                        )}
                         {(activeMainEvent?.startTime || activeMainEvent?.time) && (
                           <>
                             <span className="text-white/40 shrink-0">·</span>
@@ -1641,23 +2025,25 @@ export function EventMemberView() {
                     <button
                       type="button"
                       onClick={() => setShowHeroSubEvents(!showHeroSubEvents)}
-                      className="w-full flex items-center justify-between px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 backdrop-blur-xs transition-all cursor-pointer select-none text-left group shadow-xs active:scale-[0.99]"
+                      className="w-full flex items-center justify-between px-2.5 sm:px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 backdrop-blur-xs transition-all cursor-pointer select-none text-left group shadow-xs active:scale-[0.99] gap-2"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-xs">🪔</span>
-                        <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-200">
-                          Festival Sub-Events &amp; Sevas
+                      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+                        <span className="text-xs shrink-0">🪔</span>
+                        <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-200 truncate">
+                          Sub-Events &amp; Sevas
                         </span>
-                        <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-amber-400/25 text-amber-100 border border-amber-300/30">
-                          {eventSubActivities.length} Available
+                        <span className="shrink-0 text-[9px] sm:text-[9.5px] font-black px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-xs border border-amber-300 flex items-center gap-1 leading-none">
+                          <span>{eventSubActivities.length}</span>
+                          <span>Available</span>
                         </span>
                       </div>
-                      <div className="flex items-center gap-1 text-[9.5px] font-bold text-white/85 group-hover:text-white">
-                        <span>{showHeroSubEvents ? "Hide Sub-Events" : "Show Sub-Events"}</span>
+                      <div className="flex items-center gap-1 text-[9.5px] font-bold text-white/90 group-hover:text-white shrink-0">
+                        <span className="hidden sm:inline">{showHeroSubEvents ? "Hide Sub-Events" : "Show Sub-Events"}</span>
+                        <span className="sm:hidden">{showHeroSubEvents ? "Hide" : "View"}</span>
                         {showHeroSubEvents ? (
-                          <ChevronUp className="w-3.5 h-3.5 text-amber-300" />
+                          <ChevronUp className="w-3.5 h-3.5 text-amber-300 shrink-0" />
                         ) : (
-                          <ChevronDown className="w-3.5 h-3.5 text-amber-300" />
+                          <ChevronDown className="w-3.5 h-3.5 text-amber-300 shrink-0" />
                         )}
                       </div>
                     </button>
@@ -1721,45 +2107,61 @@ export function EventMemberView() {
                                 </div>
                               </div>
 
-                              <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-white/10 text-[9.5px]">
-                                <span className="text-white/70 truncate flex items-center gap-1">
-                                  <MapPin className="w-2.5 h-2.5 text-slate-300 shrink-0" />
-                                  <span className="truncate max-w-[110px]">{subAct.venue || "Temple Mandap"}</span>
-                                  {subAct.availableSeats != null && (
-                                    <span className="text-amber-200/90 font-medium ml-1">({subAct.availableSeats} slots)</span>
-                                  )}
-                                </span>
+                              {(() => {
+                                const isMainReg = isMainEventRegistered(subAct.mainEventId || activeMainEvent?.id);
 
-                                {existingPass ? (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenUpdateRegistration(subAct, existingPass);
-                                    }}
-                                    className="px-2 py-0.5 text-[9.5px] font-black rounded-md bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-400/40 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
-                                  >
-                                    <Edit3 className="w-2.5 h-2.5" />
-                                    <span>Update Pass</span>
-                                  </button>
-                                ) : isClosed ? (
-                                  <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-white/10 text-white/60 border border-white/10 shrink-0">
-                                    Closed
-                                  </span>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedActivity(subAct);
-                                    }}
-                                    className="px-2.5 py-0.5 text-[9.5px] font-black rounded-md bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
-                                  >
-                                    <Ticket className="w-2.5 h-2.5" />
-                                    <span>{isPooja ? "Book Seva" : "Register"}</span>
-                                  </button>
-                                )}
-                              </div>
+                                return (
+                                  <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-white/10 text-[9.5px]">
+                                    <span className="text-white/70 truncate flex items-center gap-1">
+                                      <MapPin className="w-2.5 h-2.5 text-slate-300 shrink-0" />
+                                      <span className="truncate max-w-[110px]">{subAct.venue || "Temple Mandap"}</span>
+                                      {subAct.availableSeats != null && (
+                                        <span className="text-amber-200/90 font-medium ml-1">({subAct.availableSeats} slots)</span>
+                                      )}
+                                    </span>
+
+                                    {existingPass ? (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleOpenUpdateRegistration(subAct, existingPass);
+                                        }}
+                                        className="px-2 py-0.5 text-[9.5px] font-black rounded-md bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-400/40 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
+                                      >
+                                        <Edit3 className="w-2.5 h-2.5" />
+                                        <span>Update Pass</span>
+                                      </button>
+                                    ) : isClosed ? (
+                                      <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-white/10 text-white/60 border border-white/10 shrink-0">
+                                        Closed
+                                      </span>
+                                    ) : isPooja && (subAct.mainEventId || activeMainEvent?.id) && !isMainReg ? (
+                                      <button
+                                        type="button"
+                                        disabled
+                                        className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-white/10 text-white/50 border border-white/15 shadow-none flex items-center gap-1 shrink-0 cursor-not-allowed"
+                                        title="Main event registration is mandatory before booking this Pooja Seva"
+                                      >
+                                        <Lock className="w-2.5 h-2.5 text-amber-300" />
+                                        <span>Main Pass Required</span>
+                                      </button>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedActivity(subAct);
+                                        }}
+                                        className="px-2.5 py-0.5 text-[9.5px] font-black rounded-md bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
+                                      >
+                                        <Ticket className="w-2.5 h-2.5" />
+                                        <span>{isPooja ? "Book Seva" : "Register"}</span>
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           );
                         })}
@@ -1977,17 +2379,6 @@ export function EventMemberView() {
                 <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5 sm:gap-2">
                   <Sparkles className="w-3.5 h-3.5 text-primary shrink-0" />
                   <span>Quick Actions</span>
-                  {isSuperAdmin && (
-                    useMock ? (
-                      <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                        ⚡ Mock
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[9.5px] font-black bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span> Live
-                      </span>
-                    )
-                  )}
                 </h3>
                 {selectedCategoryFilter && (
                   <button
@@ -2009,7 +2400,7 @@ export function EventMemberView() {
                       key={action.id}
                       onClick={() => {
                         if (action.action === "family" || action.id === "family") {
-                          setShowAddMemberModal(true);
+                          setMobileModal("family");
                           return;
                         }
                         const isMobileScreen = typeof window !== "undefined" && window.innerWidth < 768;
@@ -2083,13 +2474,25 @@ export function EventMemberView() {
                 </h3>
                 {selectedCategoryFilter ? (
                   <button
+                    type="button"
                     onClick={() => setSelectedCategoryFilter(null)}
                     className="text-xs text-rose-600 font-bold hover:underline cursor-pointer"
                   >
                     Show All
                   </button>
+                ) : activePasses.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("passes")}
+                    className="text-xs text-primary font-bold hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    <span>My Active Passes ({activePasses.length})</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </button>
                 ) : (
-                  <span className="text-xs text-primary font-bold hidden sm:inline">All Active Registrations</span>
+                  <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1.5 hidden sm:inline-flex">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Live Schedule
+                  </span>
                 )}
               </div>
 
@@ -2155,7 +2558,6 @@ export function EventMemberView() {
                           {(() => {
                             const existingPass = getExistingPassForActivity(act);
                             const isThisActPooja = isPoojaActivity(act.category);
-                            const isOtherPoojaBooked = isThisActPooja && !existingPass && Boolean(userActivePoojaPass);
                             const isClosed = isRegistrationClosed(act);
                             const isFull = act.availableSeats !== undefined && act.availableSeats <= 0;
 
@@ -2183,26 +2585,6 @@ export function EventMemberView() {
                               );
                             }
 
-                            if (isOtherPoojaBooked) {
-                              return (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const registeredAct = activitiesList.find(a => getExistingPassForActivity(a) && isPoojaActivity(a.category));
-                                    if (registeredAct && userActivePoojaPass) {
-                                      handleOpenUpdateRegistration(registeredAct, userActivePoojaPass);
-                                    } else if (userActivePoojaPass) {
-                                      showWarning(`You are already registered for "${userActivePoojaPass.title}". Only one pooja slot is allowed per family. You can reschedule your existing slot.`);
-                                    }
-                                  }}
-                                  className="px-2.5 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-bold rounded-xl border border-amber-500/30 flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
-                                  title={`You have already booked a slot for "${userActivePoojaPass?.title}". Click to reschedule your existing slot.`}
-                                >
-                                  <ShieldCheck className="w-3.5 h-3.5 text-amber-600" /> Slot Booked
-                                </button>
-                              );
-                            }
-
                             if (isFull) {
                               return (
                                 <span className="px-3 py-1.5 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-bold rounded-xl border border-rose-500/20 flex items-center gap-1.5 select-none">
@@ -2217,6 +2599,47 @@ export function EventMemberView() {
                                 </span>
                               );
                             }
+                            if (isThisActPooja && act.mainEventId) {
+                              const isMainReg = isMainEventRegistered(act.mainEventId);
+                              if (!isMainReg) {
+                                return (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-not-allowed shadow-none"
+                                    title="Registration for the main event is mandatory before booking this Pooja Seva. Please register for the main event first."
+                                  >
+                                    <Lock className="w-3.5 h-3.5 text-amber-500" /> Main Pass Required
+                                  </button>
+                                );
+                              }
+                            }
+
+                            if (act.category?.toLowerCase() === "auction" || Boolean(act.rawAuctionItem)) {
+                              const isLive = act.rawAuctionItem?.status === "LIVE";
+                              const isClosed = act.rawAuctionItem?.status === "CLOSED";
+                              if (isClosed) {
+                                return (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedActivity(act)}
+                                    className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-muted hover:bg-muted/80 text-muted-foreground text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+                                  >
+                                    <Trophy className="w-3.5 h-3.5 text-amber-500" /> View Winner
+                                  </button>
+                                );
+                              }
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedActivity(act)}
+                                  className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95"
+                                >
+                                  <Gavel className="w-3.5 h-3.5" /> {isLive ? "Place Live Bid" : "View Auction"}
+                                </button>
+                              );
+                            }
+
                             return (
                               <button
                                 type="button"
@@ -3343,9 +3766,20 @@ export function EventMemberView() {
         </div>
       )}
 
-      {/* ─── EVENT REGISTRATION PORTAL WIZARD / DEDICATED POOJA REGISTRATION MODAL ─── */}
+      {/* ─── EVENT REGISTRATION PORTAL WIZARD / DEDICATED POOJA REGISTRATION MODAL / AUCTION BID MODAL ─── */}
       {selectedActivity && (
-        selectedActivity.category?.toLowerCase().includes("pooja") || selectedActivity.category?.toLowerCase().includes("seva") ? (
+        selectedActivity.category?.toLowerCase() === "auction" || Boolean(selectedActivity.rawAuctionItem) ? (
+          <MemberAuctionBidModal
+            activity={selectedActivity}
+            onClose={() => {
+              setSelectedActivity(null);
+              fetchLiveDataFromBackend();
+            }}
+            onSuccess={() => {
+              fetchLiveDataFromBackend();
+            }}
+          />
+        ) : selectedActivity.category?.toLowerCase().includes("pooja") || selectedActivity.category?.toLowerCase().includes("seva") ? (
           <PoojaRegistrationModal
             event={{
               id: selectedActivity.id,
@@ -3377,12 +3811,62 @@ export function EventMemberView() {
               // Pass parent community event id for correct deduplication scoping
               mainEventId: selectedActivity.mainEventId,
             }}
+            isMainEventRegistered={isMainEventRegistered(selectedActivity.mainEventId)}
+            onRegisterMainEvent={() => {
+              const targetParentId = selectedActivity.mainEventId || activeMainEvent?.id;
+              const parentEv = (mainEventsList || []).find((e) => String(e.id || (e as any).rawId).replace(/\D/g, "") === String(targetParentId).replace(/\D/g, "")) || activeMainEvent;
+              if (parentEv) {
+                setSelectedActivity({
+                  id: `event-${parentEv.id}`,
+                  title: parentEv.title,
+                  category: "General",
+                  date: String(parentEv.startDate || ""),
+                  time: String(parentEv.startTime || ""),
+                  venue: parentEv.location || (parentEv as any).venue || "",
+                  fee: 0,
+                  availableSeats: 500,
+                  image: "🎉",
+                  description: parentEv.description || "Community Parent Event",
+                });
+              }
+            }}
             onClose={() => {
               setSelectedActivity(null);
               fetchLiveDataFromBackend();
+              loadUserPasses();
             }}
             onSuccess={() => {
+              // Optimistic slot decrement so the count drops immediately
+              if (selectedActivity) {
+                setActivitiesList((prev) =>
+                  prev.map((a) =>
+                    a.id === selectedActivity.id
+                      ? { ...a, availableSeats: Math.max(0, (a.availableSeats ?? 1) - 1) }
+                      : a
+                  )
+                );
+                // Optimistic pass insertion so "Reschedule Slot" appears immediately
+                const actIdStr = String(selectedActivity.id);
+                const optimisticPass: UserPass = {
+                  id: `optimistic-${Date.now()}`,
+                  activityId: actIdStr,
+                  poojaSevaId: actIdStr.replace(/\D/g, "") || undefined,
+                  category: "Pooja",
+                  passType: "Pooja Registration Pass",
+                  title: selectedActivity.title,
+                  participantName: user?.fullName || "Devotee",
+                  regId: `MNA-POOJA-${Date.now()}`,
+                  date: selectedActivity.date || "Upcoming",
+                  time: selectedActivity.time || "Scheduled",
+                  venue: selectedActivity.venue || "Temple",
+                  status: "CONFIRMED",
+                  qrCodeUrl: "",
+                };
+                setPassesList((prev) => [optimisticPass, ...prev]);
+              }
+              // Then refresh from backend to get confirmed data
               fetchLiveDataFromBackend();
+              loadUserPasses();
             }}
           />
         ) : (
@@ -3402,8 +3886,9 @@ export function EventMemberView() {
                   registrationId: (selectedActivity as any)?.registrationId,
                   isUpdateMode: (selectedActivity as any)?.isUpdateMode,
                   availableSeats: selectedActivity.availableSeats,
-                  capacity: (selectedActivity as any)?.capacity ?? (selectedActivity as any)?.slots ?? selectedActivity.availableSeats,
-                  seats: (selectedActivity as any)?.seats ?? selectedActivity.availableSeats,
+                  capacity: (selectedActivity as any)?.capacity ?? (selectedActivity as any)?.maxAttendees ?? (selectedActivity as any)?.slots ?? (selectedActivity as any)?.seats ?? selectedActivity.availableSeats ?? 100,
+                  maxAttendees: (selectedActivity as any)?.maxAttendees ?? (selectedActivity as any)?.capacity ?? (selectedActivity as any)?.slots ?? (selectedActivity as any)?.seats ?? selectedActivity.availableSeats ?? 100,
+                  seats: (selectedActivity as any)?.seats ?? (selectedActivity as any)?.capacity ?? (selectedActivity as any)?.maxAttendees ?? (selectedActivity as any)?.slots ?? selectedActivity.availableSeats ?? 100,
                   ticketTypes: (selectedActivity as any)?.ticketTypes && (selectedActivity as any).ticketTypes.length > 0
                     ? (selectedActivity as any).ticketTypes
                     : [
@@ -3411,8 +3896,8 @@ export function EventMemberView() {
                           id: `pass-${selectedActivity.id}`,
                           name: `${selectedActivity.title} Pass`,
                           price: selectedActivity.fee || "0",
-                          qty: selectedActivity.availableSeats ?? (selectedActivity as any)?.capacity ?? (selectedActivity as any)?.slots ?? 100,
-                          seats: selectedActivity.availableSeats ?? (selectedActivity as any)?.seats ?? (selectedActivity as any)?.capacity ?? (selectedActivity as any)?.slots ?? 100,
+                          qty: (selectedActivity as any)?.capacity ?? (selectedActivity as any)?.maxAttendees ?? (selectedActivity as any)?.slots ?? (selectedActivity as any)?.seats ?? selectedActivity.availableSeats ?? 100,
+                          seats: (selectedActivity as any)?.seats ?? (selectedActivity as any)?.capacity ?? (selectedActivity as any)?.maxAttendees ?? (selectedActivity as any)?.slots ?? selectedActivity.availableSeats ?? 100,
                           description: selectedActivity.description || `Entry & seva pass for ${selectedActivity.title}`,
                         },
                       ],
@@ -3714,10 +4199,8 @@ export function EventMemberView() {
                               {(() => {
                                 const existingPass = getExistingPassForActivity(act);
                                 const isThisActPooja = isPoojaActivity(act.category);
-                                const isOtherPoojaBooked = isThisActPooja && !existingPass && Boolean(userActivePoojaPass);
                                 const isClosed = isRegistrationClosed(act);
                                 const isFull = act.availableSeats !== undefined && act.availableSeats <= 0;
-
                                 if (existingPass) {
                                   if (isThisActPooja) {
                                     return (
@@ -3748,27 +4231,6 @@ export function EventMemberView() {
                                   );
                                 }
 
-                                if (isOtherPoojaBooked) {
-                                  return (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setMobileQuickActionModal(null);
-                                        const registeredAct = activitiesList.find(a => getExistingPassForActivity(a) && isPoojaActivity(a.category));
-                                        if (registeredAct && userActivePoojaPass) {
-                                          handleOpenUpdateRegistration(registeredAct, userActivePoojaPass);
-                                        } else if (userActivePoojaPass) {
-                                          showWarning(`You are already registered for "${userActivePoojaPass.title}". Only one pooja slot is allowed per family. You can reschedule your existing slot.`);
-                                        }
-                                      }}
-                                      className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 text-[11px] font-bold rounded-lg border border-amber-500/30 flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
-                                      title={`You have already booked a slot for "${userActivePoojaPass?.title}". Click to reschedule your existing slot.`}
-                                    >
-                                      <ShieldCheck className="w-3 h-3 text-amber-600" /> Slot Booked
-                                    </button>
-                                  );
-                                }
-
                                 if (isFull) {
                                   return (
                                     <span className="px-2.5 py-1 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[11px] font-bold rounded-lg border border-rose-500/20 flex items-center gap-1 select-none">
@@ -3783,6 +4245,37 @@ export function EventMemberView() {
                                     </span>
                                   );
                                 }
+                                if (isThisActPooja && act.mainEventId) {
+                                  const isMainReg = isMainEventRegistered(act.mainEventId);
+                                  if (!isMainReg) {
+                                    return (
+                                      <button
+                                        type="button"
+                                        disabled
+                                        className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-not-allowed shadow-none"
+                                        title="Registration for the main event is mandatory before booking this Pooja Seva"
+                                      >
+                                        <Lock className="w-3 h-3 text-amber-500" /> Main Pass Required
+                                      </button>
+                                    );
+                                  }
+                                }
+                                if (act.category?.toLowerCase() === "auction" || Boolean(act.rawAuctionItem)) {
+                                  const isLive = act.rawAuctionItem?.status === "LIVE";
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedActivity(act);
+                                        setMobileQuickActionModal(null);
+                                      }}
+                                      className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                                    >
+                                      <Gavel className="w-3 h-3" /> {isLive ? "Place Live Bid" : "View Auction"}
+                                    </button>
+                                  );
+                                }
+
                                 return (
                                   <button
                                     type="button"

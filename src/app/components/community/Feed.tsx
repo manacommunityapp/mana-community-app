@@ -1171,33 +1171,9 @@ export function Feed() {
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 items-start">
-        <div className="lg:col-span-3 space-y-4 sm:space-y-5">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-2 sm:gap-3 items-start">
+        <div className="lg:col-span-3 space-y-2 sm:space-y-2.5">
           <AlertTicker />
-
-          {/* Search Bar (Hidden on Mobile) */}
-          {canEdit && (
-            <div className="hidden sm:flex items-center gap-2">
-              <div className={`flex-1 flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 transition-all ${showSearch ? "ring-2 ring-indigo-500" : ""}`}>
-                <Search className="w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search posts, hashtags, people..."
-                  className="flex-1 bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onFocus={() => setShowSearch(true)}
-                  onBlur={() => setTimeout(() => setShowSearch(false), 200)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
-                />
-                {searchQuery && (
-                  <button onClick={() => { setSearchQuery(""); setActiveFilter("ALL"); }} className="text-slate-400 hover:text-slate-600">
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Filter Tabs */}
           <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pb-1">
@@ -1222,21 +1198,22 @@ export function Feed() {
 
           {/* Facebook-style Short Composer Trigger Bar */}
           <div className={cn(
-            "bg-white rounded-xl shadow-xs border p-2.5 sm:p-3.5 sm:space-y-3 transition-all",
+            "bg-white rounded-xl shadow-xs border p-2 sm:p-2.5 transition-all",
             canPost
               ? "border-slate-200/90 hover:border-slate-300"
               : "border-slate-200/70 bg-slate-50/40"
           )}>
-            {/* Main row: Mobile shows avatar + button + action symbols; Desktop shows avatar + full button */}
-            <div className="flex items-center gap-2 sm:gap-3">
+            {/* Single row: avatar + text button + divider + action icons */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <div className={cn(
-                "h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-xs sm:text-sm shadow-xs",
+                "h-7 w-7 sm:h-8 sm:w-8 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold text-xs shadow-xs",
                 canPost
                   ? "bg-gradient-to-br from-indigo-500 to-violet-600"
                   : "bg-slate-400 opacity-80"
               )}>
                 {getInitials(user?.fullName)}
               </div>
+
               <button
                 type="button"
                 onClick={() => {
@@ -1247,7 +1224,7 @@ export function Feed() {
                   }
                 }}
                 className={cn(
-                  "flex-1 min-w-0 rounded-full px-3.5 py-2 sm:px-4 sm:py-2.5 text-xs sm:text-sm text-left transition-colors border truncate flex items-center gap-2",
+                  "flex-1 min-w-0 rounded-full px-3 py-1.5 sm:px-3.5 sm:py-2 text-xs text-left transition-colors border truncate flex items-center gap-1.5",
                   canPost
                     ? "bg-slate-100/90 text-slate-500 border-slate-200/50 hover:bg-slate-200/70 hover:text-slate-700 cursor-pointer"
                     : "bg-slate-100/70 text-slate-400 border-slate-200/60 cursor-not-allowed opacity-90"
@@ -1257,11 +1234,8 @@ export function Feed() {
                 {!canPost ? (
                   <>
                     <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                    <span className="hidden sm:inline font-medium text-slate-500">Only community administrators can post updates</span>
+                    <span className="hidden sm:inline font-medium text-slate-500">Only admins can post</span>
                     <span className="sm:hidden inline font-medium text-slate-500">Only admins can post</span>
-                    <span className="ml-auto text-[10px] font-bold text-slate-400 bg-slate-200/80 px-2 py-0.5 rounded-full hidden md:inline-flex items-center gap-1 shrink-0">
-                      <Lock className="w-2.5 h-2.5" /> Admin Only
-                    </span>
                   </>
                 ) : (
                   <>
@@ -1271,186 +1245,75 @@ export function Feed() {
                 )}
               </button>
 
-              {/* Mobile view only: symbols beside the feed button */}
-              <div className="flex sm:hidden items-center gap-0.5 shrink-0">
+              {/* Divider */}
+              <div className="h-5 w-px bg-slate-200 shrink-0" />
+
+              {/* Action icon buttons — always visible, right of text input */}
+              <div className="flex items-center gap-0.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
-                    if (!canPost) {
-                      toast.info("Posting is restricted to community administrators.");
-                      return;
-                    }
+                    if (!canPost) { toast.info("Posting is restricted to community administrators."); return; }
                     setIsCreateModalOpen(true);
                     setTimeout(() => imageFileInputRef.current?.click(), 150);
                   }}
                   className={cn(
-                    "p-1.5 rounded-full transition-colors",
-                    canPost
-                      ? "text-emerald-600 hover:bg-slate-100 cursor-pointer"
-                      : "text-emerald-600/60 opacity-60 cursor-not-allowed hover:bg-transparent"
+                    "p-1.5 rounded-lg transition-colors",
+                    canPost ? "text-emerald-600 hover:bg-emerald-50 cursor-pointer" : "text-slate-400 opacity-50 cursor-not-allowed"
                   )}
-                  title={canPost ? "Photo / Video" : "Only community administrators can post"}
+                  title={canPost ? "Photo / Video" : "Only admins can post"}
                 >
-                  <ImageIcon className="w-4 h-4" />
+                  <ImageIcon className="w-3.5 h-3.5" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
-                    if (!canPost) {
-                      toast.info("Posting is restricted to community administrators.");
-                      return;
-                    }
+                    if (!canPost) { toast.info("Posting is restricted to community administrators."); return; }
                     setComposerType("POLL");
                     setIsCreateModalOpen(true);
                   }}
                   className={cn(
-                    "p-1.5 rounded-full transition-colors",
-                    canPost
-                      ? "text-indigo-600 hover:bg-slate-100 cursor-pointer"
-                      : "text-indigo-600/60 opacity-60 cursor-not-allowed hover:bg-transparent"
+                    "p-1.5 rounded-lg transition-colors",
+                    canPost ? "text-indigo-500 hover:bg-indigo-50 cursor-pointer" : "text-slate-400 opacity-50 cursor-not-allowed"
                   )}
-                  title={canPost ? "Poll" : "Only community administrators can post"}
+                  title={canPost ? "Poll" : "Only admins can post"}
                 >
-                  <BarChart3 className="w-4 h-4" />
+                  <BarChart3 className="w-3.5 h-3.5" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
-                    if (!canPost) {
-                      toast.info("Posting is restricted to community administrators.");
-                      return;
-                    }
+                    if (!canPost) { toast.info("Posting is restricted to community administrators."); return; }
                     setComposerType("EVENT");
                     setIsCreateModalOpen(true);
                   }}
                   className={cn(
-                    "p-1.5 rounded-full transition-colors",
-                    canPost
-                      ? "text-amber-600 hover:bg-slate-100 cursor-pointer"
-                      : "text-amber-600/60 opacity-60 cursor-not-allowed hover:bg-transparent"
+                    "p-1.5 rounded-lg transition-colors",
+                    canPost ? "text-amber-500 hover:bg-amber-50 cursor-pointer" : "text-slate-400 opacity-50 cursor-not-allowed"
                   )}
-                  title={canPost ? "Event" : "Only community administrators can post"}
+                  title={canPost ? "Event" : "Only admins can post"}
                 >
-                  <Calendar className="w-4 h-4" />
+                  <Calendar className="w-3.5 h-3.5" />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
-                    if (!canPost) {
-                      toast.info("Posting is restricted to community administrators.");
-                      return;
-                    }
+                    if (!canPost) { toast.info("Posting is restricted to community administrators."); return; }
                     setComposerType("ANNOUNCEMENT");
                     setIsCreateModalOpen(true);
                   }}
                   className={cn(
-                    "p-1.5 rounded-full transition-colors",
-                    canPost
-                      ? "text-rose-600 hover:bg-slate-100 cursor-pointer"
-                      : "text-rose-600/60 opacity-60 cursor-not-allowed hover:bg-transparent"
+                    "p-1.5 rounded-lg transition-colors",
+                    canPost ? "text-rose-500 hover:bg-rose-50 cursor-pointer" : "text-slate-400 opacity-50 cursor-not-allowed"
                   )}
-                  title={canPost ? "Announcement" : "Only community administrators can post"}
+                  title={canPost ? "Announcement" : "Only admins can post"}
                 >
-                  <Megaphone className="w-4 h-4" />
+                  <Megaphone className="w-3.5 h-3.5" />
                 </button>
               </div>
-            </div>
-
-            {/* Website / Desktop view: bottom row with symbols + labels */}
-            <div className={cn(
-              "hidden sm:flex border-t pt-2 items-center justify-between gap-1 text-xs font-semibold",
-              canPost ? "border-slate-100 text-slate-600" : "border-slate-100/60 text-slate-400"
-            )}>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!canPost) {
-                    toast.info("Posting is restricted to community administrators.");
-                    return;
-                  }
-                  setIsCreateModalOpen(true);
-                  setTimeout(() => imageFileInputRef.current?.click(), 150);
-                }}
-                className={cn(
-                  "flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors",
-                  canPost
-                    ? "text-slate-600 hover:bg-slate-50 hover:text-emerald-600 cursor-pointer"
-                    : "text-slate-500 opacity-60 cursor-not-allowed hover:bg-transparent"
-                )}
-                title={!canPost ? "Only community administrators can post" : undefined}
-              >
-                <ImageIcon className="w-4 h-4 text-emerald-500" />
-                <span>Photo / Video</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (!canPost) {
-                    toast.info("Posting is restricted to community administrators.");
-                    return;
-                  }
-                  setComposerType("POLL");
-                  setIsCreateModalOpen(true);
-                }}
-                className={cn(
-                  "flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors",
-                  canPost
-                    ? "text-slate-600 hover:bg-slate-50 hover:text-indigo-600 cursor-pointer"
-                    : "text-slate-500 opacity-60 cursor-not-allowed hover:bg-transparent"
-                )}
-                title={!canPost ? "Only community administrators can post" : undefined}
-              >
-                <BarChart3 className="w-4 h-4 text-indigo-500" />
-                <span>Poll</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (!canPost) {
-                    toast.info("Posting is restricted to community administrators.");
-                    return;
-                  }
-                  setComposerType("EVENT");
-                  setIsCreateModalOpen(true);
-                }}
-                className={cn(
-                  "flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors",
-                  canPost
-                    ? "text-slate-600 hover:bg-slate-50 hover:text-amber-600 cursor-pointer"
-                    : "text-slate-500 opacity-60 cursor-not-allowed hover:bg-transparent"
-                )}
-                title={!canPost ? "Only community administrators can post" : undefined}
-              >
-                <Calendar className="w-4 h-4 text-amber-500" />
-                <span>Event</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (!canPost) {
-                    toast.info("Posting is restricted to community administrators.");
-                    return;
-                  }
-                  setComposerType("ANNOUNCEMENT");
-                  setIsCreateModalOpen(true);
-                }}
-                className={cn(
-                  "flex-1 py-1.5 px-2 rounded-lg flex items-center justify-center gap-2 transition-colors",
-                  canPost
-                    ? "text-slate-600 hover:bg-slate-50 hover:text-rose-600 cursor-pointer"
-                    : "text-slate-500 opacity-60 cursor-not-allowed hover:bg-transparent"
-                )}
-                title={!canPost ? "Only community administrators can post" : undefined}
-              >
-                <Megaphone className="w-4 h-4 text-rose-500" />
-                <span>Announcement</span>
-              </button>
             </div>
           </div>
 
@@ -1464,7 +1327,7 @@ export function Feed() {
                 }}
               />
 
-              <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] z-10 animate-in zoom-in-95 duration-200">
+              <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-md sm:max-w-md overflow-hidden flex flex-col max-h-[85vh] z-10 animate-in zoom-in-95 duration-200">
                 {/* Modal Header */}
                 <div className="px-4 py-3.5 border-b border-slate-100 flex items-center justify-between relative bg-white shrink-0">
                   <div className="w-8" />
@@ -2216,7 +2079,7 @@ const PostCard = React.memo(function PostCard({
   };
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border p-4 sm:p-5 transition-all hover:shadow-md ${
+    <div className={`bg-white rounded-xl shadow-sm border p-3 sm:p-4 transition-all hover:shadow-md ${
       post.priority === "EMERGENCY" ? "border-red-300 bg-red-50/30 ring-1 ring-red-200" :
       post.pinned ? "border-indigo-200 bg-indigo-50/20" :
       post.official ? "border-amber-200 bg-amber-50/10" : "border-slate-200"
@@ -2234,9 +2097,9 @@ const PostCard = React.memo(function PostCard({
       )}
 
       {/* Header */}
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-700 font-bold text-sm border border-slate-200 overflow-hidden">
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-700 font-bold text-xs border border-slate-200 overflow-hidden">
             {post.authorProfilePic ? (
               <img src={post.authorProfilePic} alt="" className="w-full h-full object-cover" />
             ) : (
@@ -2245,7 +2108,7 @@ const PostCard = React.memo(function PostCard({
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-semibold text-slate-900 text-sm">{post.authorName}</span>
+              <span className="font-semibold text-slate-900 text-[0.9375rem]">{post.authorName}</span>
               {post.official && <CheckCircle className="w-3.5 h-3.5 text-green-500" />}
               {post.postType && post.postType !== "GENERAL" && (
                 <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md ${typeConfig.color}`}>
@@ -2460,7 +2323,7 @@ const PostCard = React.memo(function PostCard({
 
       {!isEditing && post.title && <h3 className="text-base font-bold text-slate-900 mb-2 text-left">{post.title}</h3>}
 
-      {!isEditing && <p className="text-slate-800 text-sm mb-3 whitespace-pre-line leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: post.content.replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>').replace(/@(\w+)/g, '<span class="text-blue-600 font-semibold">@$1</span>') }} />}
+      {!isEditing && <p className="text-slate-800 text-[0.9375rem] mb-2 whitespace-pre-line leading-relaxed text-left" dangerouslySetInnerHTML={{ __html: post.content.replace(/#(\w+)/g, '<span class="text-indigo-600 font-semibold cursor-pointer hover:underline">#$1</span>').replace(/@(\w+)/g, '<span class="text-blue-600 font-semibold">@$1</span>') }} />}
 
       {/* Hashtags display */}
       {post.hashtags && (
@@ -2630,7 +2493,7 @@ const PostCard = React.memo(function PostCard({
       )}
 
       {/* Actions Bar */}
-      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-slate-500 text-sm relative">
+      <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between text-slate-500 text-sm relative">
         <div className="relative">
           <button
             onClick={() => onShowReactionPicker()}

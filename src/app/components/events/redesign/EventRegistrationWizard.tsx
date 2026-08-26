@@ -105,6 +105,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   );
 
   const [currentStep, setCurrentStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [categories, setCategories] = useState<TicketCategoryItem[]>([]);
   const [selectedCatId, setSelectedCatId] = useState<string>("");
   const [eventDetails, setEventDetails] = useState<any>(event || null);
@@ -135,6 +136,19 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   const [existingReg, setExistingReg] = useState<any>(() => event?.existingRegistration || null);
   const isUpdateMode = Boolean(event?.isUpdateMode || existingReg);
   const existingRegId = event?.registrationId || existingReg?.id || (event as any)?.regId;
+
+  // Event registrations to track capacity and availability per ticket tier
+  const [eventRegistrations, setEventRegistrations] = useState<any[]>([]);
+
+  useEffect(() => {
+    const eventId = event?.id || eventDetails?.id || event?.mainEventId;
+    if (!eventId) return;
+    eventService.getEventRegistrations(eventId).then((regs) => {
+      if (Array.isArray(regs)) {
+        setEventRegistrations(regs);
+      }
+    }).catch(() => {/* fallback gracefully */});
+  }, [event?.id, eventDetails?.id, event?.mainEventId]);
   const activeEvent = eventDetails || event;
   const deadlineStr = activeEvent?.registrationDeadline || activeEvent?.regDeadline || event?.registrationDeadline;
   const isDeadlinePassed = Boolean(
@@ -159,7 +173,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     emergencyContact: "",
     flatNo: (authUser?.block && authUser?.flatNo) ? `${authUser.block}-${authUser.flatNo}` : (authUser?.flatNo || ""),
     colonyAddress: "",
-    poojaSlot: "Morning Aarti (07:00 AM - 11:00 AM)",
+    poojaSlot: "",
     paymentMode: "UPI",
     transactionRef: "",
     receiptUploaded: false,
@@ -420,12 +434,11 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         cats = ticketCategories.map((cat, idx) => {
           const categorySeats =
             cat.seats ??
+            cat.capacity ??
             cat.qty ??
             (cat as any).quantity ??
-            cat.capacity ??
-            cat.availableSeats ??
             cat.slots ??
-            (targetEvent?.availableSeats ?? targetEvent?.capacity ?? targetEvent?.seats ?? targetEvent?.slots);
+            (targetEvent?.capacity ?? targetEvent?.maxAttendees ?? targetEvent?.seats ?? targetEvent?.slots ?? targetEvent?.availableSeats);
           return {
             ...cat,
             id: cat.id || `cat-${idx}`,
@@ -441,18 +454,17 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           cats = rawTypes.map((item: any, idx: number) => {
             const dynamicSeats =
               item.seats ??
+              item.capacity ??
               item.qty ??
               item.quantity ??
-              item.capacity ??
-              item.availableSeats ??
               item.slots ??
               item.maxSeats ??
               item.totalSeats ??
-              targetEvent.availableSeats ??
               targetEvent.capacity ??
+              targetEvent.maxAttendees ??
               targetEvent.seats ??
               targetEvent.slots ??
-              targetEvent.maxAttendees;
+              targetEvent.availableSeats;
 
             if (typeof item === "string") {
               return {
@@ -559,6 +571,37 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     event?.qrCodeUrl ||
     event?.paymentQrUrl ||
     event?.scannerImage;
+
+  // Derive event-level payment configuration
+  const rawEventPaymentModes: string[] = (() => {
+    const raw = eventDetails?.paymentModes ?? event?.paymentModes;
+    if (!raw) return [];
+    if (typeof raw === "string") return raw.split(",").map((s: string) => s.trim()).filter(Boolean);
+    if (Array.isArray(raw)) return raw as string[];
+    return [];
+  })();
+
+  // Only show modes the organiser configured; fall back to all 3 if nothing configured
+  const allowedModeIds = rawEventPaymentModes.length > 0 ? rawEventPaymentModes.map((m) => m.toLowerCase()) : ["upi", "card", "cash"];
+  const isManualPaymentOnly =
+    rawEventPaymentModes.length > 0 &&
+    rawEventPaymentModes.every((m) => ["cash", "manual"].includes(m.toLowerCase()));
+
+  // Contacts set by the organiser (name, phone, role)
+  const eventContacts: Array<{ name?: string; phone?: string; role?: string; notes?: string }> = (() => {
+    const c = eventDetails?.contacts ?? event?.contacts;
+    if (Array.isArray(c)) return c.filter((x: any) => x && (x.name || x.phone));
+    return [];
+  })();
+
+  // Payment notes / instructions from event
+  const eventPaymentNotes: string =
+    eventDetails?.paymentInstructions ||
+    eventDetails?.notes ||
+    event?.paymentInstructions ||
+    event?.notes ||
+    "";
+
 
   const isFreeEvent =
     event?.isFree === true ||
@@ -691,6 +734,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   };
 
   const handleComplete = async (modeOverride?: string) => {
+    if (isSubmitting) return;
     if (isEventFull) {
       showWarning(`This event has reached its maximum capacity of ${maxEventCapacity} attendees.`);
       return;
@@ -713,33 +757,71 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       ? "PENDING"
       : "PAID";
 
+    setIsSubmitting(true);
     try {
+      const resolvedMainEventId: number | undefined = (() => {
+        if (event?.mainEventId) {
+          const n = Number(String(event.mainEventId).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
+        }
+        if (event?.id) {
+          const n = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
+          if (!isNaN(n) && n > 0) return n;
+        }
+        return undefined;
+      })();
+
+      const resolvedActivityId = event?.id
+        ? (String(event.id).startsWith("event-") || String(event.id).startsWith("pooja-") || String(event.id).startsWith("food-") || String(event.id).startsWith("comp-") || String(event.id).startsWith("cult-") ? String(event.id) : `event-${event.id}`)
+        : (resolvedMainEventId ? `event-${resolvedMainEventId}` : undefined);
+
+      const resolvedEventDate = event?.date || event?.startDate || new Date().toISOString().slice(0, 10);
+      const resolvedEventTime =
+        (event?.startTime && event?.endTime ? `${event.startTime} - ${event.endTime}` : undefined) ||
+        event?.time ||
+        event?.startTime ||
+        (formData.poojaSlot && formData.poojaSlot.trim().length > 0 ? formData.poojaSlot : undefined) ||
+        "All Day";
+
+      const primaryAttendeeName = formData.fullName.trim() || authUser?.fullName || "Devotee";
+      const primaryPhone = formData.phone.trim() || authUser?.phone || "";
+      const primaryEmail = formData.email.trim() || authUser?.email || "";
+      const primaryFlat = formData.flatNo?.trim() || (authUser?.block && authUser?.flatNo ? `${authUser.block}-${authUser.flatNo}` : authUser?.flatNo) || "";
+
       const regPayload = {
-        eventId: event?.id ? (typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, "")) || 1) : 1,
-        activityId: event?.id ? String(event.id) : undefined,
+        eventId: resolvedMainEventId || 1,
+        mainEventId: resolvedMainEventId,
+        activityId: resolvedActivityId,
         eventName: event?.title || "Community Festival",
         activityTitle: event?.title || "Community Festival",
         category: formData.category || event?.category || "Event",
-        primaryName: formData.fullName,
-        participantName: formData.fullName,
-        phone: formData.phone,
-        email: formData.email,
-        gotram: formData.gotram || undefined,
-        flatNo: formData.flatNo,
+        passType: formData.category || event?.category || "Event",
+        primaryName: primaryAttendeeName,
+        participantName: primaryAttendeeName,
+        phone: primaryPhone,
+        email: primaryEmail,
+        gotram: formData.gotram?.trim() || undefined,
+        flatNo: primaryFlat,
         membersCount: Math.max(1, formData.members.length || 1),
         devoteeCount: Math.max(1, formData.members.length || 1),
-        attendingDevotees: formData.members.map((m) => m.name).filter(Boolean).join(", "),
-        membersJson: JSON.stringify(formData.members.map(m => ({ ...m, age: Math.max(0, Math.min(120, Number(m.age) || 0)) }))),
-        eventDate: event?.date || "2026",
-        eventTime: event?.time || formData.poojaSlot,
-        venue: event?.venue || "Community Mandap",
+        attendingDevotees: formData.members.map((m) => m.name).filter(Boolean).join(", ") || primaryAttendeeName,
+        membersJson: JSON.stringify(formData.members.map(m => ({
+          name: m.name?.trim() || "",
+          age: Math.max(0, Math.min(120, Number(m.age) || 0)),
+          gender: m.gender || "Male",
+          relationship: m.relationship || "Self",
+        }))),
+        eventDate: resolvedEventDate,
+        eventTime: resolvedEventTime,
+        venue: event?.venue || event?.location || "Community Mandap",
         bookingFee: Math.max(0, (isAnyAdmin && adminPaymentStatus === "FREE") ? 0 : (formData.numericPrice || 0)),
         paymentStatus,
         paymentMethod: selectedMode,
         paymentReceiptUrl: formData.receiptUrl || undefined,
         transactionId: formData.transactionRef || undefined,
-        userId: selectedTargetUserId || undefined,
-        user: selectedTargetUserId ? { id: selectedTargetUserId } : undefined,
+        status: isAnyAdmin ? "CONFIRMED" : (selectedMode === "Pay Later" ? "PENDING" : "CONFIRMED"),
+        userId: selectedTargetUserId || (authUser?.userId ? Number(authUser.userId) : (authUser as any)?.id ? Number((authUser as any).id) : undefined),
+        user: (selectedTargetUserId || authUser?.userId || (authUser as any)?.id) ? { id: selectedTargetUserId || (authUser?.userId ? Number(authUser.userId) : Number((authUser as any)?.id)) } : undefined,
       };
 
       if (isUpdateMode && existingRegId) {
@@ -764,28 +846,23 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           showSuccess("Registration completed successfully!");
         } catch (apiErr: any) {
           const errMsg = apiErr?.response?.data?.message || apiErr?.message || "";
+          const status = apiErr?.response?.status;
           console.warn("Backend createRegistration API error:", apiErr);
-          if (errMsg && (errMsg.toLowerCase().includes("deadline") || errMsg.toLowerCase().includes("passed") || errMsg.toLowerCase().includes("cancelled") || errMsg.toLowerCase().includes("ended") || errMsg.toLowerCase().includes("full"))) {
-            showWarning(errMsg);
+          if (status === 409 || (errMsg && (
+            errMsg.toLowerCase().includes("already registered") ||
+            errMsg.toLowerCase().includes("already have an active registration") ||
+            errMsg.toLowerCase().includes("deadline") ||
+            errMsg.toLowerCase().includes("passed") ||
+            errMsg.toLowerCase().includes("cancelled") ||
+            errMsg.toLowerCase().includes("ended") ||
+            errMsg.toLowerCase().includes("full")
+          ))) {
+            showWarning(errMsg || "You are already registered for this event.");
             return;
           }
-          if (event?.id) {
-            const numericEventId = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
-            if (!isNaN(numericEventId) && numericEventId > 0) {
-              try {
-                await eventService.register(numericEventId);
-                showSuccess("Registration completed successfully!");
-              } catch (regErr: any) {
-                const regErrMsg = regErr?.response?.data?.message || regErr?.message || "Registration deadline has passed. Contact admin for manual registration.";
-                showWarning(regErrMsg);
-                return;
-              }
-            }
-          } else {
-            if (errMsg) {
-              showWarning(errMsg);
-              return;
-            }
+          if (errMsg) {
+            showWarning(errMsg);
+            return;
           }
         }
       }
@@ -823,14 +900,35 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       setFormData((prev) => ({ ...prev, paymentMode: selectedMode }));
       setIsSuccess(true);
     } catch (err: any) {
-      const errMsg = err?.message || "Registration deadline has passed. Contact admin for manual registration.";
+      const errMsg = err?.response?.data?.message || err?.message || "Registration failed. Please check your details and try again.";
       console.warn("Registration API error:", err);
       showWarning(errMsg);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="flex flex-col justify-between h-full min-h-[520px] sm:min-h-[580px] space-y-3.5">
+    <div className="relative flex flex-col justify-between h-full min-h-[520px] sm:min-h-[580px] space-y-3.5">
+      {/* Submitting Loading Overlay to prevent multiple clicks and show clear loading state */}
+      {isSubmitting && (
+        <div className="absolute inset-0 z-50 rounded-2xl sm:rounded-3xl bg-background/85 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center animate-fadeIn select-none pointer-events-auto shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shadow-lg animate-pulse mb-3.5">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+          <h4 className="text-base font-extrabold text-foreground tracking-tight">
+            {isUpdateMode ? "Updating Your Registration..." : "Processing Your Registration..."}
+          </h4>
+          <p className="text-xs text-muted-foreground mt-1 max-w-xs leading-relaxed">
+            Please wait while we confirm your registration details and generate your pass. Do not refresh or click again.
+          </p>
+          <div className="mt-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold border border-primary/20">
+            <Sparkles className="w-3.5 h-3.5 animate-spin" />
+            <span>Securing seats & syncing passes...</span>
+          </div>
+        </div>
+      )}
+
       {/* Wizard Header */}
       <div className="flex items-center justify-between border-b border-border pb-3 shrink-0">
         <div className="min-w-0 pr-3">
@@ -954,12 +1052,38 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                   const selected = selectedCatId === catId;
                   const priceText = formatPrice(cat.price);
 
-                  const categorySeats = cat.seats ?? cat.qty ?? (cat as any).capacity ?? (cat as any).availableSeats ?? (cat as any).slots;
+                  const rawSeats = cat.seats ?? cat.qty ?? (cat as any).capacity ?? (cat as any).availableSeats ?? (cat as any).slots;
+                  const categorySeats = rawSeats != null && rawSeats !== "" ? Number(rawSeats) : null;
+
+                  // Calculate registered count for this category
+                  const categoryRegisteredCount = (() => {
+                    if (eventRegistrations.length > 0) {
+                      const matchingRegs = eventRegistrations.filter((r) => {
+                        const isCancelled = r.status === "CANCELLED" || r.status === "REJECTED";
+                        if (isCancelled) return false;
+                        const regCat = (r.category || r.ticketCategory || r.passType || "").toLowerCase().trim();
+                        const thisCat = (cat.name || "").toLowerCase().trim();
+                        if (categories.length > 1 && regCat && thisCat) {
+                          return regCat === thisCat || regCat.includes(thisCat) || thisCat.includes(regCat);
+                        }
+                        return true;
+                      });
+                      return matchingRegs.reduce((sum, r) => {
+                        const membersCount = Array.isArray(r.members) ? r.members.length : (r.devoteeCount || r.attendeesCount || r.membersCount || 1);
+                        return sum + (Number(membersCount) || 1);
+                      }, 0);
+                    }
+                    return Number((cat as any).registeredSeats ?? (cat as any).bookedSeats ?? (cat as any).registeredCount ?? (categories.length === 1 ? (activeEvent?.registeredAttendees ?? activeEvent?.totalRegistrations ?? activeEvent?.attendees ?? 0) : 0));
+                  })();
+
+                  const availableSeats = categorySeats != null && categorySeats > 0 ? Math.max(0, categorySeats - categoryRegisteredCount) : null;
+                  const isSoldOut = categorySeats != null && categorySeats > 0 && availableSeats !== null && availableSeats <= 0;
 
                   return (
                     <div
                       key={catId}
                       onClick={() => {
+                        if (isSoldOut && !isAnyAdmin && !isUpdateMode) return;
                         setSelectedCatId(catId);
                         setFormData((prev) => ({
                           ...prev,
@@ -968,10 +1092,12 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                           numericPrice: parseNumericPrice(cat.price),
                         }));
                       }}
-                      className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer select-none flex flex-col justify-between gap-2 ${
-                        selected
-                          ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20"
-                          : "border-border bg-card hover:border-primary/50"
+                      className={`p-3.5 rounded-2xl border-2 transition-all select-none flex flex-col justify-between gap-2 ${
+                        isSoldOut && !isAnyAdmin && !isUpdateMode
+                          ? "border-border/60 bg-muted/40 opacity-60 cursor-not-allowed"
+                          : selected
+                            ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20 cursor-pointer"
+                            : "border-border bg-card hover:border-primary/50 cursor-pointer"
                       }`}
                     >
                       <div className="flex items-start justify-between gap-2">
@@ -994,16 +1120,34 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                       </div>
 
                       <div>
-                        <h4 className="text-xs sm:text-sm font-black text-foreground">{cat.name}</h4>
+                        <h4 className="text-xs sm:text-sm font-black text-foreground flex items-center gap-1.5 flex-wrap">
+                          <span>{cat.name}</span>
+                          {isSoldOut && (
+                            <span className="text-[9px] font-black uppercase px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900">
+                              Sold Out
+                            </span>
+                          )}
+                        </h4>
                         <p className="text-[10.5px] text-muted-foreground mt-0.5 leading-snug line-clamp-2">
                           {cat.description || (categorySeats ? `${categorySeats} seats allocated` : "Standard event pass tier")}
                         </p>
                       </div>
 
-                      {categorySeats != null && categorySeats !== "" && (
+                      {categorySeats != null && (
                         <div className="pt-2 border-t border-border/60 flex items-center justify-between text-[9.5px] font-bold text-muted-foreground">
-                          <span>Capacity: {categorySeats} {Number(categorySeats) === 1 ? "seat" : "seats"}</span>
-                          {selected && <span className="text-primary font-extrabold">Selected ✓</span>}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span>
+                              <strong className={isSoldOut ? "text-rose-600 dark:text-rose-400 font-black" : "text-foreground font-extrabold"}>
+                                {categoryRegisteredCount}/{categorySeats}
+                              </strong>{" "}
+                              registered
+                            </span>
+                            <span>·</span>
+                            <span className={isSoldOut ? "text-rose-600 dark:text-rose-400 font-bold" : availableSeats !== null && availableSeats <= 10 ? "text-amber-600 dark:text-amber-400 font-bold" : "text-emerald-600 dark:text-emerald-400 font-bold"}>
+                              {isSoldOut ? "Sold out" : `${availableSeats} left`}
+                            </span>
+                          </div>
+                          {selected && <span className="text-primary font-extrabold shrink-0">Selected ✓</span>}
                         </div>
                       )}
                     </div>
@@ -1593,42 +1737,52 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
               ) : (
                 /* PAID EVENT: Payment Modes Selection & Verification */
                 <>
-                  {/* Payment Modes */}
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
+                  {/* Payment Modes — filtered to what the organiser configured */}
+                  {(() => {
+                    const allModes = [
                       { id: "UPI", label: "UPI / QR Code", desc: "Instant scan & pay", icon: QrCode },
                       { id: "Card", label: "Cards / NetBanking", desc: "Online gateway", icon: CreditCard },
                       { id: "Cash", label: "Cash / Counter", desc: "Pay at venue", icon: IndianRupee },
-                    ].map((mode) => {
-                      const Icon = mode.icon;
-                      const isSelected = (formData.paymentMode || "UPI") === mode.id;
-                      return (
-                        <div
-                          key={mode.id}
-                          onClick={() => setFormData({ ...formData, paymentMode: mode.id })}
-                          className={`p-2.5 rounded-2xl border cursor-pointer transition-all flex flex-col items-center text-center gap-1.5 select-none ${
-                            isSelected
-                              ? "bg-primary/10 border-primary shadow-xs ring-2 ring-primary/20"
-                              : "bg-muted/40 border-border hover:border-primary/40"
-                          }`}
-                        >
-                          <div
-                            className={`p-2 rounded-xl shrink-0 ${
-                              isSelected ? "bg-primary text-white shadow-xs" : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            <Icon className="w-4 h-4" />
-                          </div>
-                          <p className={`text-xs font-bold truncate ${isSelected ? "text-primary" : "text-foreground"}`}>
-                            {mode.label}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
+                    ];
+                    const visibleModes = allModes.filter((m) =>
+                      allowedModeIds.includes(m.id.toLowerCase())
+                    );
+                    const cols = visibleModes.length === 1 ? "grid-cols-1" : visibleModes.length === 2 ? "grid-cols-2" : "grid-cols-3";
+                    return (
+                      <div className={`grid ${cols} gap-2`}>
+                        {visibleModes.map((mode) => {
+                          const Icon = mode.icon;
+                          const defaultMode = isManualPaymentOnly ? "Cash" : "UPI";
+                          const isSelected = (formData.paymentMode || defaultMode) === mode.id;
+                          return (
+                            <div
+                              key={mode.id}
+                              onClick={() => setFormData({ ...formData, paymentMode: mode.id })}
+                              className={`p-2.5 rounded-2xl border cursor-pointer transition-all flex flex-col items-center text-center gap-1.5 select-none ${
+                                isSelected
+                                  ? "bg-primary/10 border-primary shadow-xs ring-2 ring-primary/20"
+                                  : "bg-muted/40 border-border hover:border-primary/40"
+                              }`}
+                            >
+                              <div
+                                className={`p-2 rounded-xl shrink-0 ${
+                                  isSelected ? "bg-primary text-white shadow-xs" : "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                <Icon className="w-4 h-4" />
+                              </div>
+                              <p className={`text-xs font-bold truncate ${isSelected ? "text-primary" : "text-foreground"}`}>
+                                {mode.label}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
 
                   {/* Dynamic Mode Details */}
-                  {(formData.paymentMode === "UPI" || !formData.paymentMode) && (
+                  {(formData.paymentMode === "UPI" || (!formData.paymentMode && !isManualPaymentOnly)) && (
                     <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-foreground">Scan & Pay via any UPI App</span>
@@ -1725,21 +1879,58 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                     </div>
                   )}
 
-                  {formData.paymentMode === "Cash" && (
-                    <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-1 text-left">
-                      <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                        <IndianRupee className="w-4 h-4 text-emerald-500" /> Pay Cash at Helpdesk
+                  {(formData.paymentMode === "Cash" || (isManualPaymentOnly && !formData.paymentMode)) && (
+                    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 space-y-3 text-left">
+                      <p className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                        <IndianRupee className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        {isManualPaymentOnly ? "Manual / Cash Payment" : "Pay Cash at Helpdesk"}
                       </p>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Your spot is reserved. Please show this registration e-pass and pay cash at the event registration
-                        counter on the day of the event.
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                        {eventPaymentNotes ||
+                          "Your spot is reserved. Please show this registration e-pass and pay cash at the event registration counter on the day of the event."}
                       </p>
+
+                      {/* Event contacts to pay or reach out to */}
+                      {eventContacts.length > 0 && (
+                        <div className="pt-2 border-t border-amber-200 dark:border-amber-800/40 space-y-2">
+                          <p className="text-[10px] font-black text-amber-800 dark:text-amber-300 uppercase tracking-wide">
+                            📞 Contact to Pay
+                          </p>
+                          <div className="space-y-1.5">
+                            {eventContacts.map((c, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white/60 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/30"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-foreground truncate">{c.name || "Event Contact"}</p>
+                                  {c.role && (
+                                    <p className="text-[10px] text-muted-foreground truncate">{c.role}</p>
+                                  )}
+                                  {c.notes && (
+                                    <p className="text-[10px] text-muted-foreground truncate">{c.notes}</p>
+                                  )}
+                                </div>
+                                {c.phone && (
+                                  <a
+                                    href={`tel:${c.phone}`}
+                                    className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-500 text-white text-[10px] font-black hover:bg-amber-600 transition-colors flex items-center gap-1"
+                                  >
+                                    📞 {c.phone}
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
               )}
             </div>
           )}
+
 
           {/* Controls Navigation */}
           <div className="pt-3 border-t border-border flex items-center justify-between gap-2 shrink-0">
@@ -1768,15 +1959,29 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                 {formData.numericPrice > 0 && !isUpdateMode && (
                   <button
                     type="button"
+                    disabled={isSubmitting}
                     onClick={() => handleComplete("Pay Later")}
-                    className="px-3.5 py-2 rounded-xl border border-border bg-muted hover:bg-muted/80 text-foreground text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                    className="px-3.5 py-2 rounded-xl border border-border bg-muted hover:bg-muted/80 text-foreground text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Clock className="w-3.5 h-3.5 text-amber-500" />
-                    Pay Later
+                    {isSubmitting ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
+                    ) : (
+                      <Clock className="w-3.5 h-3.5 text-amber-500" />
+                    )}
+                    {isSubmitting ? "Processing..." : "Pay Later"}
                   </button>
                 )}
-                <TouchButton variant="primary" size="sm" icon={isUpdateMode ? RefreshCw : CheckCircle2} onClick={() => handleComplete()}>
-                  {isUpdateMode
+                <TouchButton
+                  variant="primary"
+                  size="sm"
+                  disabled={isSubmitting}
+                  icon={isSubmitting ? Loader2 : (isUpdateMode ? RefreshCw : CheckCircle2)}
+                  className={`cursor-pointer ${isSubmitting ? "opacity-75 cursor-not-allowed" : ""}`}
+                  onClick={() => handleComplete()}
+                >
+                  {isSubmitting
+                    ? "Processing Registration..."
+                    : isUpdateMode
                     ? "Update Registration"
                     : formData.numericPrice === 0
                     ? "Complete Free Registration"
