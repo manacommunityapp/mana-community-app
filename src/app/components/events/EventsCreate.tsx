@@ -231,6 +231,7 @@ export async function syncActivitiesToScheduleSubmodules(
         slots: totalSlots,
         fee: feeNum,
         isFree: feeNum === 0,
+        needsRegistration: first.needsRegistration !== false,
         timeSlotConfig: timeSlotConfig,
       };
 
@@ -269,6 +270,7 @@ export async function syncActivitiesToScheduleSubmodules(
           dietType: "Vegetarian",
           fee: feeNum,
           isFree: feeNum === 0,
+          needsRegistration: act.needsRegistration !== false,
           menuItems: ["Mahaprasadam Meal", "Rice", "Curry", "Sweet"],
           notes: act.description || "",
         };
@@ -292,6 +294,7 @@ export async function syncActivitiesToScheduleSubmodules(
           requirements: "Sound system & lighting",
           fee: feeNum,
           isFree: feeNum === 0,
+          needsRegistration: act.needsRegistration !== false,
         };
         try {
           if (act.subEventId) {
@@ -314,6 +317,7 @@ export async function syncActivitiesToScheduleSubmodules(
           fee: String(feeNum),
           isFree: feeNum === 0,
           maxParticipants: String(slotsNum),
+          needsRegistration: act.needsRegistration !== false,
         };
         try {
           if (act.subEventId) {
@@ -327,6 +331,7 @@ export async function syncActivitiesToScheduleSubmodules(
       }
     }
   }
+
 }
 
 /* ─── Constants ─── */
@@ -4325,7 +4330,7 @@ export function EventCreateWizard({
                       categoryType: "Pooja & Seva",
                       name: daySlotMatch?.title || p.name || "Pooja Seva",
                       poojaType: p.type || "Pooja",
-                      needsRegistration: true,
+                      needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
                       registrationFee: p.fee ? String(p.fee) : "0",
                       slots: slotCount,
                       startTime: cleanTime,
@@ -4355,7 +4360,7 @@ export function EventCreateWizard({
                     subEventId: c.id,
                     categoryType: "Cultural Events",
                     name: c.name || "Cultural Event",
-                    needsRegistration: Boolean(c.needsRegistration),
+                    needsRegistration: c.needsRegistration !== undefined && c.needsRegistration !== null ? Boolean(c.needsRegistration) : false,
                     registrationFee: c.fee ? String(c.fee) : "0",
                     slots: c.slots ? String(c.slots) : "200",
                     startTime: c.startTime || "18:00",
@@ -4384,7 +4389,7 @@ export function EventCreateWizard({
                     subEventId: cmp.id,
                     categoryType: "Competitions",
                     name: cmp.name || "Competition",
-                    needsRegistration: true,
+                    needsRegistration: cmp.needsRegistration !== undefined && cmp.needsRegistration !== null ? Boolean(cmp.needsRegistration) : true,
                     registrationFee: cmp.fee ? String(cmp.fee) : "0",
                     slots: cmp.maxParticipants || cmp.slots ? String(cmp.maxParticipants || cmp.slots) : "50",
                     startTime: cmp.startTime || "10:00",
@@ -4415,7 +4420,7 @@ export function EventCreateWizard({
                     subEventId: m.id,
                     categoryType: catType,
                     name: m.name || (isDinner ? "Community Mahaprasadam Dinner" : "Community Mahaprasadam Lunch"),
-                    needsRegistration: Boolean(m.needsRegistration),
+                    needsRegistration: m.needsRegistration !== undefined && m.needsRegistration !== null ? Boolean(m.needsRegistration) : true,
                     registrationFee: m.fee ? String(m.fee) : "0",
                     slots: m.targetPlates || m.slots ? String(m.targetPlates || m.slots) : "500",
                     startTime: m.startTime || (isDinner ? "19:00" : "12:30"),
@@ -4423,6 +4428,7 @@ export function EventCreateWizard({
                     description: m.notes || m.description || (Array.isArray(m.menuItems) ? m.menuItems.join(", ") : ""),
                     venue: m.venue || "Community Dining Hall",
                   };
+
                   if (existingIdx >= 0) {
                     list[existingIdx] = actObj;
                   } else {

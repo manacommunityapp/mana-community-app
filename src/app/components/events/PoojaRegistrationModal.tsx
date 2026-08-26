@@ -79,6 +79,7 @@ interface DaySlotOption {
   time: string;
   name: string;
   left: number;
+  timeSlotConfigId?: number;
 }
 
 interface DaySchedule {
@@ -197,13 +198,14 @@ function buildDaysFromLiveSchedules(liveSchedules: PoojaScheduleDto[], poojaTitl
       const endFmt = sch.endTime ? formatTime12Hour(sch.endTime) : "";
       const displayTime = endFmt ? `${startFmt} – ${endFmt}` : `${startFmt} onwards`;
       const sessionName = (sch as any).notes?.trim() || sch.poojaName || poojaTitle || (schedulesForDay.length === 1 ? "Pooja Seva" : `Session #${sIdx + 1}`);
-      const avail = Math.min(sch.availableFamilies, sch.availableDevotees);
+      const avail = sch.availableDevotees !== undefined ? sch.availableDevotees : sch.availableFamilies;
 
       return {
         icon,
         time: displayTime,
         name: sessionName,
         left: Math.max(0, avail),
+        timeSlotConfigId: sch.timeSlotConfigId,
       };
     });
 
@@ -405,7 +407,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [registerOnBehalf, setRegisterOnBehalf] = useState<boolean>(false);
   const [communityUsers, setCommunityUsers] = useState<any[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState<string>("");
-  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState<boolean>(false);
   const [selectedTargetUserId, setSelectedTargetUserId] = useState<number | null>(null);
 
   // Load community users for Admin on-behalf registration
@@ -692,6 +693,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             time: formattedTime,
             name: sessionName,
             left: Math.max(1, slotLeft),
+            timeSlotConfigId: (matchedSingleConfig as any)?.id as number | undefined,
           };
         })
       : [
@@ -710,7 +712,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       const key = makeLiveScheduleKey(sch.scheduleDate, sch.startTime);
       map.set(key, {
         scheduleId: sch.id,
-        availLeft: Math.min(sch.availableFamilies, sch.availableDevotees),
+        availLeft: sch.availableDevotees !== undefined ? sch.availableDevotees : sch.availableFamilies,
       });
     }
     return map;
@@ -904,6 +906,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         status: "CONFIRMED",
         ...(selectedScheduleId ? { scheduleId: selectedScheduleId } : {}),
         ...(reservationId ? { reservationId } : {}),
+        ...(selectedSlot?.timeSlotConfigId ? { poojaSevaTimeSlotsId: selectedSlot.timeSlotConfigId } : {}),
         ...(selectedTargetUserId ? { targetUserId: selectedTargetUserId } : {}),
       };
 
