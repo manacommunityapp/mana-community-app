@@ -150,7 +150,7 @@ function getLiveSlotInfo(
   return map.get(`${dateValue}__${normalized}`);
 }
 
-function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule[] {
+function buildPoojaScheduleDays(event: any, defaultSlots: DaySlotOption[], poojaTitle?: string): DaySchedule[] {
   let startRaw = event?.startDate || event?.date;
   let endRaw = event?.endDate;
   let isMultiDay = Boolean(event?.isMultiDay || event?.multiDay);
@@ -174,7 +174,7 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
         dateStr: "Pooja Day",
         shortDate: "Day 1",
         dateValue: undefined,
-        slots,
+        slots: defaultSlots,
       },
     ];
   }
@@ -190,15 +190,34 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
         dateStr: String(startRaw),
         shortDate: String(startRaw),
         dateValue: String(startRaw),
-        slots,
+        slots: defaultSlots,
       },
     ];
   }
 
+  const timeSlotConfig: { slotDate: string | null; startTime: string; title?: string; slotCount: number }[] =
+    Array.isArray(event?.timeSlotConfig) ? event.timeSlotConfig : [];
+
+  const mapConfigToSlots = (configs: typeof timeSlotConfig, fallbackSlots: DaySlotOption[]): DaySlotOption[] => {
+    if (configs.length === 0) return fallbackSlots;
+    return configs.map((cfg, idx) => {
+      const icon = idx === 0 ? "🌅" : idx === 1 ? "☀️" : idx === 2 ? "🪔" : "✨";
+      const sessionName = cfg.title?.trim() || poojaTitle || (configs.length === 1 ? "Pooja Seva" : `Session #${idx + 1}`);
+      const cleanTime = String(cfg.startTime).replace(/\(.*?\)/g, "").trim();
+      const formattedTime = cleanTime.includes("–") || cleanTime.includes("-") || cleanTime.toLowerCase().includes("am") || cleanTime.toLowerCase().includes("pm")
+        ? cleanTime
+        : `${cleanTime} onwards`;
+      return {
+        icon,
+        time: formattedTime,
+        name: sessionName,
+        left: Math.max(1, cfg.slotCount),
+      };
+    });
+  };
+
   // Multi-day Pooja with multiple sequential calendar days
   if ((isMultiDay || (endDate && endDate.getTime() > startDate.getTime())) && endDate && endDate.getTime() >= startDate.getTime()) {
-    const timeSlotConfig: { slotDate: string | null; startTime: string; slotCount: number }[] =
-      Array.isArray(event?.timeSlotConfig) ? event.timeSlotConfig : [];
     const days: DaySchedule[] = [];
     const cur = new Date(startDate.getTime());
     let count = 1;
@@ -207,12 +226,8 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
       const dateKey = formatDateKey(cur);
       const dayConfigs = timeSlotConfig.filter(e => e.slotDate === dateKey);
       const daySpecificSlots: DaySlotOption[] = dayConfigs.length > 0
-        ? slots.map(s => {
-            const rawTime = normalizeSlotStartTime(s.time);
-            const match = dayConfigs.find(e => s.time.includes(e.startTime) || e.startTime === rawTime);
-            return match ? { ...s, left: match.slotCount } : s;
-          })
-        : slots;
+        ? mapConfigToSlots(dayConfigs, defaultSlots)
+        : defaultSlots;
       days.push({
         id: count,
         dayLabel: `Day ${count} (${dayLabel})`,
@@ -223,7 +238,8 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
       });
       cur.setDate(cur.getDate() + 1);
       count++;
-    }    const startFmt = formatPoojaDate(startDate);
+    }
+    const startFmt = formatPoojaDate(startDate);
     return days.length > 0
       ? days
       : [
@@ -233,7 +249,7 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
             dateStr: startFmt.dateStr,
             shortDate: startFmt.shortDate,
             dateValue: formatDateKey(startDate),
-            slots,
+            slots: defaultSlots,
           },
         ];
   }
@@ -241,15 +257,9 @@ function buildPoojaScheduleDays(event: any, slots: DaySlotOption[]): DaySchedule
   // Single Day Pooja
   const { dayLabel, dateStr, shortDate } = formatPoojaDate(startDate);
   const dateKey = formatDateKey(startDate);
-  const singleDayConfigs: { slotDate: string | null; startTime: string; slotCount: number }[] =
-    Array.isArray(event?.timeSlotConfig) ? event.timeSlotConfig.filter((e: any) => !e.slotDate) : [];
-  const singleDaySlots: DaySlotOption[] = singleDayConfigs.length > 0
-    ? slots.map(s => {
-        const rawTime = normalizeSlotStartTime(s.time);
-        const match = singleDayConfigs.find(e => s.time.includes(e.startTime) || e.startTime === rawTime);
-        return match ? { ...s, left: match.slotCount } : s;
-      })
-    : slots;
+  const singleDayConfigs = timeSlotConfig.filter((e) => !e.slotDate || e.slotDate === dateKey);
+  const singleDaySlots: DaySlotOption[] = mapConfigToSlots(singleDayConfigs, defaultSlots);
+
   return [
     {
       id: 1,
@@ -604,7 +614,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           { icon: "🪔", time: "06:30 PM – 08:00 PM", name: "Sandhya Aarti & Archana", left: Math.max(1, totalSlotsCount) },
         ];
 
-    return buildPoojaScheduleDays(event, defaultSlots);
+    return buildPoojaScheduleDays(event, defaultSlots, poojaTitle);
   }, [event?.id, event?.startDate, event?.date, event?.endDate, event?.time, poojaTitle, totalSlotsCount, event?.timeSlotConfig]);
 
   // Build lookup map: "dateValue__startTime" → {scheduleId, availLeft} from live backend data
