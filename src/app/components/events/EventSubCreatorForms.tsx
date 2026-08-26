@@ -245,7 +245,7 @@ export function PoojaSevaSection() {
     startTimes: ["08:30"],
     duration: "",
     mandap: "", pandit: "", slots: "20", fee: "", isFree: true,
-    timeSlotConfig: [] as { slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number }[],
+    timeSlotConfig: [] as { id?: number; slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number }[],
     items: ["Coconut", "Flowers", "Bananas"], notes: "", isRecurring: false, recurringDays: "",
   });
   const [toast, setToast] = useState("");

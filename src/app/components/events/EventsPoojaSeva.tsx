@@ -10,7 +10,7 @@ import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse, type PoojaScheduleDto } from "../../../services/events/eventService";
 import { TimePicker, TimeSelect } from "../ui/time-picker";
 
-type TimeSlotEntry = { slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number };
+type TimeSlotEntry = { id?: number; slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number };
 
 type PoojaSeva = {
   id: number;
