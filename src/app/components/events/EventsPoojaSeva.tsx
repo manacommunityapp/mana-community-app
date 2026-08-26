@@ -10,10 +10,12 @@ import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse, type PoojaScheduleDto } from "../../../services/events/eventService";
 import { TimePicker, TimeSelect } from "../ui/time-picker";
 
-type TimeSlotEntry = { slotDate: string | null; startTime: string; slotCount: number };
+type TimeSlotEntry = { id?: number; slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number };
 
 type PoojaSeva = {
   id: number;
+  mainEventId?: number;
+  poojaTypeId?: number;
   name: string;
   type: string;
   date: string;
@@ -77,6 +79,7 @@ const mockRegistrations: BookingRegistration[] = [
 
 const emptyPoojaForm = {
   mainEventId: "",
+  poojaTypeId: undefined as number | undefined,
   name: "",
   type: "",
   isMultiDay: false,
@@ -125,6 +128,7 @@ export function EventsPoojaSeva() {
   const [editingPoojaId, setEditingPoojaId] = useState<number | null>(null);
   const [poojaForm, setPoojaForm] = useState(emptyPoojaForm);
   const [poojaTypes, setPoojaTypes] = useState<string[]>(DEFAULT_POOJA_TYPES);
+  const [poojaTypeObjects, setPoojaTypeObjects] = useState<{ id: number; name: string; description?: string }[]>([]);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -200,6 +204,10 @@ export function EventsPoojaSeva() {
     ])
       .then(([sevas, regs, types]) => {
         setPoojaSevas(sevas || []);
+        if (Array.isArray(types) && types.length > 0) {
+          setPoojaTypeObjects(types);
+          setPoojaTypes(types.map(t => t.name));
+        }
         const poojaRegs = (regs || [])
           .filter((r: any) => {
             return r.category === "Pooja" || r.activityId?.startsWith("pooja-");
@@ -288,9 +296,11 @@ export function EventsPoojaSeva() {
   const openEditModal = (p: PoojaSeva) => {
     const pAny = p as any;
     const parentId = pAny.mainEventId ? String(pAny.mainEventId) : pAny.eventId ? String(pAny.eventId) : "";
+    const matchedTypeId = p.poojaTypeId || poojaTypeObjects.find(t => t.name.toLowerCase() === (p.type || "").toLowerCase())?.id;
     setEditingPoojaId(p.id);
     setPoojaForm({
       mainEventId: parentId,
+      poojaTypeId: matchedTypeId,
       name: p.name,
       type: p.type,
       isMultiDay: p.multiDay || false,
@@ -326,6 +336,7 @@ export function EventsPoojaSeva() {
       return;
     }
 
+    const matchedTypeId = poojaForm.poojaTypeId || poojaTypeObjects.find(t => t.name.toLowerCase() === poojaForm.type.toLowerCase())?.id;
     const validStartTimes = poojaForm.startTimes.filter(Boolean);
     const calculatedTotalSlots = poojaForm.isMultiDay && poojaForm.timeSlotConfig.length > 0
       ? poojaForm.timeSlotConfig.reduce((acc, curr) => acc + (Number(curr.slotCount) || 0), 0)
@@ -333,13 +344,13 @@ export function EventsPoojaSeva() {
 
     const payload = {
       mainEventId: poojaForm.mainEventId || undefined,
+      poojaTypeId: matchedTypeId,
       name: poojaForm.name,
       type: poojaForm.type,
       date: poojaForm.date,
       endDate: poojaForm.isMultiDay && poojaForm.endDate ? poojaForm.endDate : undefined,
       multiDay: poojaForm.isMultiDay,
       startTime: validStartTimes[0] || poojaForm.startTime,
-      startTimes: validStartTimes,
       duration: poojaForm.duration ? Number(poojaForm.duration) : undefined,
       mandap: poojaForm.mandap || undefined,
       pandit: poojaForm.pandit || undefined,
@@ -348,6 +359,8 @@ export function EventsPoojaSeva() {
         ? poojaForm.timeSlotConfig.map(e => ({
             slotDate: e.slotDate || null,
             startTime: e.startTime,
+            endTime: e.endTime?.trim() || undefined,
+            title: e.title?.trim() || undefined,
             slotCount: Number(e.slotCount) || 20,
           }))
         : undefined,
@@ -397,11 +410,20 @@ export function EventsPoojaSeva() {
     try {
       setAddingType(true);
       setAddTypeError("");
+      let createdType: { id: number; name: string; description?: string } | null = null;
       if (!useMock) {
-        await eventService.createPoojaType(clean, newTypeDesc.trim() || undefined);
+        createdType = await eventService.createPoojaType(clean, newTypeDesc.trim() || undefined);
+      } else {
+        createdType = { id: Date.now(), name: clean, description: newTypeDesc.trim() || undefined };
+      }
+      if (createdType) {
+        setPoojaTypeObjects(prev => [...prev.filter(t => t.name.toLowerCase() !== clean.toLowerCase()), createdType!]);
       }
       setPoojaTypes(prev => (prev.includes(clean) ? prev : [...prev, clean]));
       set("type", clean);
+      if (createdType?.id) {
+        set("poojaTypeId", createdType.id);
+      }
       setNewTypeName("");
       setNewTypeDesc("");
       setShowAddTypeModal(false);
@@ -767,6 +789,24 @@ export function EventsPoojaSeva() {
     }));
   };
 
+  const updateTimeSlotTitle = (slotDate: string | null, startTime: string, title: string) => {
+    setPoojaForm(f => ({
+      ...f,
+      timeSlotConfig: f.timeSlotConfig.map(e =>
+        e.slotDate === slotDate && e.startTime === startTime ? { ...e, title } : e
+      ),
+    }));
+  };
+
+  const updateTimeSlotEndTime = (slotDate: string | null, startTime: string, endTime: string) => {
+    setPoojaForm(f => ({
+      ...f,
+      timeSlotConfig: f.timeSlotConfig.map(e =>
+        e.slotDate === slotDate && e.startTime === startTime ? { ...e, endTime } : e
+      ),
+    }));
+  };
+
   // Sync timeSlotConfig when times, dates, or multiDay toggle changes
   const startTimesKey = poojaForm.startTimes.filter(Boolean).join(",");
   useEffect(() => {
@@ -783,7 +823,7 @@ export function EventsPoojaSeva() {
         for (const date of range) {
           for (const time of times) {
             const found = existing.find(e => e.slotDate === date && e.startTime === time);
-            synced.push(found ?? { slotDate: date, startTime: time, slotCount: defaultCount });
+            synced.push(found ?? { slotDate: date, startTime: time, endTime: "", title: "", slotCount: defaultCount });
           }
         }
         return { ...f, timeSlotConfig: synced };
@@ -794,7 +834,7 @@ export function EventsPoojaSeva() {
         const defaultCount = Number(f.slots) || 20;
         const synced: TimeSlotEntry[] = times.map(time => {
           const found = existing.find(e => e.slotDate === null && e.startTime === time);
-          return found ?? { slotDate: null, startTime: time, slotCount: defaultCount };
+          return found ?? { slotDate: null, startTime: time, endTime: "", title: "", slotCount: defaultCount };
         });
         return { ...f, timeSlotConfig: synced };
       });
@@ -918,7 +958,9 @@ export function EventsPoojaSeva() {
                       </span>
                       {pooja.startTime && (
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />
-                          {pooja.startTimes?.length ? pooja.startTimes.join(", ") : pooja.startTime}
+                          {Array.isArray(pooja.timeSlotConfig) && pooja.timeSlotConfig.length > 0
+                            ? [...new Set(pooja.timeSlotConfig.map((c: any) => c.startTime).filter(Boolean))].join(", ")
+                            : pooja.startTime}
                           {pooja.duration ? ` (${pooja.duration}m)` : ""}
                         </span>
                       )}
@@ -1647,13 +1689,13 @@ export function EventsPoojaSeva() {
                       </div>
                       <div>
                         <label className="block font-semibold text-slate-700 mb-1 text-[11px]">Slot Time</label>
-                        {selectedPoojaForReg.startTimes && selectedPoojaForReg.startTimes.length > 0 ? (
+                        {Array.isArray(selectedPoojaForReg.timeSlotConfig) && selectedPoojaForReg.timeSlotConfig.length > 0 ? (
                           <select
                             value={regForm.eventTime}
                             onChange={e => setRegForm({ ...regForm, eventTime: e.target.value })}
                             className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
                           >
-                            {selectedPoojaForReg.startTimes.map(t => (
+                            {[...new Set(selectedPoojaForReg.timeSlotConfig.map((c: any) => c.startTime).filter(Boolean))].map((t: string) => (
                               <option key={t} value={t}>⏰ {t}</option>
                             ))}
                           </select>
@@ -1946,7 +1988,12 @@ export function EventsPoojaSeva() {
                   <div className="flex items-center gap-2">
                     <select
                       value={poojaForm.type}
-                      onChange={e => set("type", e.target.value)}
+                      onChange={e => {
+                        const chosen = e.target.value;
+                        const match = poojaTypeObjects.find(t => t.name.toLowerCase() === chosen.toLowerCase());
+                        set("type", chosen);
+                        set("poojaTypeId", match ? match.id : undefined);
+                      }}
                       className="flex-1 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
                       required
                     >
@@ -2104,22 +2151,47 @@ export function EventsPoojaSeva() {
                         <span>Slots for each Time Slot:</span>
                         <span className="text-slate-400 font-normal">Defaults to {poojaForm.slots || 20}</span>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         {poojaForm.timeSlotConfig.map(e => (
-                          <label key={e.startTime} className="flex flex-col gap-0.5">
-                            <span className="text-[10px] font-semibold text-slate-500">⏰ {e.startTime}</span>
-                            <div className="flex items-center gap-1">
+                          <div key={e.startTime} className="p-2.5 rounded-xl bg-white border border-slate-200 space-y-2 shadow-2xs">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="font-bold text-slate-700">Slot: {e.startTime}</span>
+                              <span className="text-[10px] text-slate-400 font-medium">Configure Time &amp; Cap</span>
+                            </div>
+                            <input
+                              type="text"
+                              value={e.title || ""}
+                              onChange={ev => updateTimeSlotTitle(null, e.startTime, ev.target.value)}
+                              className="w-full border border-slate-200 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-300 placeholder:text-slate-400/70"
+                              placeholder="Slot Name (e.g. Morning Batch)"
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[10px] font-semibold text-slate-500">Start Time</span>
+                                <span className="text-xs font-bold text-slate-800 bg-slate-50 px-2 py-1 rounded-md border border-slate-200/80">⏰ {e.startTime}</span>
+                              </div>
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-[10px] font-semibold text-slate-500">End Time</span>
+                                <TimePicker
+                                  value={e.endTime || ""}
+                                  onChange={v => updateTimeSlotEndTime(null, e.startTime, v)}
+                                  size="sm"
+                                />
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 pt-0.5">
+                              <span className="text-[10px] font-semibold text-slate-500 shrink-0">Capacity:</span>
                               <input
                                 type="number"
                                 value={e.slotCount}
                                 onChange={ev => updateTimeSlotCount(null, e.startTime, Number(ev.target.value))}
-                                className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-white"
+                                className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-300 bg-slate-50/50"
                                 placeholder="20"
                                 min="1"
                               />
-                              <span className="text-[9px] text-slate-400 whitespace-nowrap">slots</span>
+                              <span className="text-[10px] text-slate-400 whitespace-nowrap font-medium">slots</span>
                             </div>
-                          </label>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -2159,21 +2231,46 @@ export function EventsPoojaSeva() {
                                 {dayTotal} slots this day
                               </span>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                               {dayEntries.map(e => (
-                                <label key={e.startTime} className="flex flex-col gap-0.5">
-                                  <span className="text-[10px] font-semibold text-slate-600">⏰ {e.startTime}</span>
-                                  <div className="flex items-center gap-1">
+                                <div key={e.startTime} className="p-2.5 rounded-xl bg-slate-50/60 border border-slate-200 space-y-2">
+                                  <div className="flex items-center justify-between text-[11px]">
+                                    <span className="font-bold text-slate-700">Slot: {e.startTime}</span>
+                                    <span className="text-[10px] text-slate-400 font-medium">Session</span>
+                                  </div>
+                                  <input
+                                    type="text"
+                                    value={e.title || ""}
+                                    onChange={ev => updateTimeSlotTitle(date, e.startTime, ev.target.value)}
+                                    className="w-full border border-slate-200 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-300 placeholder:text-slate-400/70 bg-white"
+                                    placeholder="Slot Name (e.g. Morning Homam)"
+                                  />
+                                  <div className="grid grid-cols-2 gap-1.5">
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="text-[10px] font-semibold text-slate-500">Start</span>
+                                      <span className="text-xs font-bold text-slate-800 bg-white px-2 py-1 rounded-md border border-slate-200/80">⏰ {e.startTime}</span>
+                                    </div>
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="text-[10px] font-semibold text-slate-500">End Time</span>
+                                      <TimePicker
+                                        value={e.endTime || ""}
+                                        onChange={v => updateTimeSlotEndTime(date, e.startTime, v)}
+                                        size="sm"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 pt-0.5">
+                                    <span className="text-[10px] font-semibold text-slate-500 shrink-0">Capacity:</span>
                                     <input
                                       type="number"
                                       value={e.slotCount}
                                       onChange={ev => updateTimeSlotCount(date, e.startTime, Number(ev.target.value))}
-                                      className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300 bg-slate-50/50"
+                                      className="w-full border border-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-300 bg-white"
                                       placeholder="20" min="1"
                                     />
-                                    <span className="text-[9px] text-slate-400 whitespace-nowrap">slots</span>
+                                    <span className="text-[10px] text-slate-400 whitespace-nowrap font-medium">slots</span>
                                   </div>
-                                </label>
+                                </div>
                               ))}
                             </div>
                           </div>

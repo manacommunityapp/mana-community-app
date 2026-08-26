@@ -4,6 +4,7 @@ import { ContactNameAutocomplete } from "./ContactNameAutocomplete";
 import { Popover, PopoverContent, PopoverTrigger } from "../../ui/popover";
 import { Button } from "../../ui/button";
 import { Calendar } from "../../ui/calendar";
+import { DatePicker } from "../../ui/date-picker";
 import { format } from "date-fns";
 import { cn } from "../../ui/utils";
 import type { SportMeta, PlayerCategory, Venue, SportFormEntry } from "../../../../types/api";
@@ -345,52 +346,25 @@ export function SportsEventSection({
                       <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                           <label className="text-xs text-slate-500 font-semibold">Start Date *</label>
-                          <Popover open={openDatePickerKey === `${form.id}-${ev.id}-startDate`} onOpenChange={(open) => setOpenDatePickerKey(open ? `${form.id}-${ev.id}-startDate` : null)}>
-                            <PopoverTrigger asChild>
-                              <Button variant={"outline"} className={cn("w-full bg-white hover:bg-slate-50 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-2 h-auto text-sm transition-colors shadow-sm", ev.startDate ? "border-slate-200" : "border-red-300 text-slate-400")}>
-                                <CalendarIcon className="mr-2 h-3.5 w-3.5 text-slate-400" />
-                                {ev.startDate ? format(new Date(ev.startDate), "PPP") : <span>Pick date</span>}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 bg-white" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={ev.startDate ? new Date(ev.startDate) : undefined}
-                                onSelect={(date) => {
-                                  updateSportFormEvent(form.id, ev.id, "startDate", date ? format(date, "yyyy-MM-dd") : "");
-                                  setOpenDatePickerKey(null);
-                                }}
-                                disabled={isDateDisabled}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
+                          <DatePicker
+                            value={ev.startDate}
+                            onChange={(v) => updateSportFormEvent(form.id, ev.id, "startDate", v)}
+                            placeholder="Pick start date"
+                            size="sm"
+                          />
                           {!ev.startDate && (
                             <span className="text-[10px] text-red-500 font-medium">Start Date is required</span>
                           )}
                         </div>
                         <div className="flex flex-col gap-1">
                           <label className="text-xs text-slate-500 font-semibold">End Date *</label>
-                          <Popover open={openDatePickerKey === `${form.id}-${ev.id}-endDate`} onOpenChange={(open) => setOpenDatePickerKey(open ? `${form.id}-${ev.id}-endDate` : null)}>
-                            <PopoverTrigger asChild>
-                              <Button variant={"outline"} className={cn("w-full bg-white hover:bg-slate-50 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-2 h-auto text-sm transition-colors shadow-sm", ev.endDate ? "border-slate-200" : "border-red-300 text-slate-400")}>
-                                <CalendarIcon className="mr-2 h-3.5 w-3.5 text-slate-400" />
-                                {ev.endDate ? format(new Date(ev.endDate), "PPP") : <span>Pick date</span>}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 bg-white" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={ev.endDate ? new Date(ev.endDate) : undefined}
-                                onSelect={(date) => {
-                                  updateSportFormEvent(form.id, ev.id, "endDate", date ? format(date, "yyyy-MM-dd") : "");
-                                  setOpenDatePickerKey(null);
-                                }}
-                                disabled={isDateDisabled}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
+                          <DatePicker
+                            value={ev.endDate}
+                            min={ev.startDate || undefined}
+                            onChange={(v) => updateSportFormEvent(form.id, ev.id, "endDate", v)}
+                            placeholder="Pick end date"
+                            size="sm"
+                          />
                           {!ev.endDate && (
                             <span className="text-[10px] text-red-500 font-medium">End Date is required</span>
                           )}
@@ -587,25 +561,12 @@ export function SportsEventSection({
                         </div>
                         <div>
                           <label className="text-xs text-slate-500 font-semibold block mb-1">Players Born After *</label>
-                          <Popover open={openDatePickerKey === `${form.id}-${ev.id}-playersBorn`} onOpenChange={(open) => setOpenDatePickerKey(open ? `${form.id}-${ev.id}-playersBorn` : null)}>
-                            <PopoverTrigger asChild>
-                              <Button variant={"outline"} className={cn("w-full bg-white hover:bg-slate-50 hover:text-slate-800 text-slate-800 justify-start text-left font-normal px-3 py-2 h-auto text-sm transition-colors shadow-sm", ev.playersBorn ? "border-slate-200" : "border-red-300 text-slate-400")}>
-                                <CalendarIcon className="mr-2 h-3.5 w-3.5 text-slate-400" />
-                                {ev.playersBorn ? format(new Date(ev.playersBorn), "PPP") : <span>Pick date</span>}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 bg-white" align="start">
-                              <Calendar
-                                mode="single"
-                                selected={ev.playersBorn ? new Date(ev.playersBorn) : undefined}
-                                onSelect={(date) => {
-                                  updateSportFormEvent(form.id, ev.id, "playersBorn", date ? format(date, "yyyy-MM-dd") : "");
-                                  setOpenDatePickerKey(null);
-                                }}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
+                          <DatePicker
+                            value={ev.playersBorn}
+                            onChange={(v) => updateSportFormEvent(form.id, ev.id, "playersBorn", v)}
+                            placeholder="Pick born after date"
+                            size="sm"
+                          />
                         </div>
                       </div>
 

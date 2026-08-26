@@ -228,11 +228,11 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
     <>
       <div
         className={`relative flex items-stretch overflow-hidden rounded-xl border ${dominant.border} shadow-md ${dominant.bg}`}
-        style={{ minHeight: "44px" }}
+        style={{ minHeight: "28px" }}
         onMouseEnter={() => { pausedRef.current = true; }}
         onMouseLeave={() => { pausedRef.current = false; }}
       >
-        <div className={`flex-shrink-0 flex items-center gap-2 px-3.5 border-r border-white/20`}>
+        <div className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 border-r border-white/20`}>
           <DomIcon className={`w-3.5 h-3.5 ${dominant.text} flex-shrink-0`} />
           <span className={`text-[10px] font-black uppercase tracking-widest ${dominant.text} whitespace-nowrap hidden sm:block`}>
             {dominant.label}
@@ -246,7 +246,7 @@ export function AlertTicker({ speedPxPerSec = 55 }: Props) {
           <div className="absolute right-0 top-0 bottom-0 w-6 z-10 pointer-events-none"
             style={{ background: `linear-gradient(to left, ${CSS_COLORS[dominant.bg] ?? "#4f46e5"}, transparent)` }} />
 
-          <div ref={trackRef} className="inline-flex items-center will-change-transform py-2.5" style={{ whiteSpace: "nowrap" }}>
+          <div ref={trackRef} className="inline-flex items-center will-change-transform py-1" style={{ whiteSpace: "nowrap" }}>
             {looped.map((alert, idx) => {
               const cfg  = CATEGORY_CONFIG[alert.category];
               return (
