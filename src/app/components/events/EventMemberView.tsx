@@ -1041,7 +1041,9 @@ export function EventMemberView() {
             } else if (parentEvent.startDate && !parentEvent.endDate && parentEvent.startDate < todayStr) {
               isExpired = true;
             }
-          } else if (r.eventDate && r.eventDate < todayStr && !r.eventDate.includes("Upcoming")) {
+          } else if (!isPooja && r.eventDate && r.eventDate < todayStr && !r.eventDate.includes("Upcoming")) {
+            // Pooja passes must never expire by slot date alone — their slot date is a booking slot,
+            // not an event end date, and a past slot still represents an active registration.
             isExpired = true;
           }
 
