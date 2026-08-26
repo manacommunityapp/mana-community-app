@@ -2071,10 +2071,10 @@ function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormDa
         </div>
 
         <div className="sm:w-64">
-          <FieldLabel hint="Optional">Max Capacity (Attendees)</FieldLabel>
+          <FieldLabel required>Max Capacity (Attendees)</FieldLabel>
           <Input
             type="number"
-            min={0}
+            min={1}
             value={data.capacity}
             onKeyDown={(e) => {
               if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
@@ -2086,7 +2086,7 @@ function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormDa
               update("capacity", val === "" ? "" : sanitized);
             }}
             placeholder="e.g. 500"
-            className={INPUT_CLS}
+            className={cn(INPUT_CLS, reqCls(!data.capacity || parseInt(data.capacity, 10) <= 0))}
           />
           <p className="text-[10px] text-slate-400 mt-1">Maximum estimated seating capacity or attendee limit.</p>
         </div>
@@ -4621,6 +4621,10 @@ export function EventCreateWizard({
       if (!formData.venueName?.trim()) return "Venue name is required.";
       if (!formData.city?.trim()) return "City is required.";
       if (!formData.venueAddress?.trim()) return "Venue address is required.";
+      const parsedCap = formData.capacity ? parseInt(formData.capacity, 10) : 0;
+      if (!formData.capacity || isNaN(parsedCap) || parsedCap <= 0) {
+        return "Max Capacity (Attendees) is required and must be greater than 0.";
+      }
     }
     if (currentStep === 4) {
       if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
@@ -4666,6 +4670,10 @@ export function EventCreateWizard({
     if (!formData.venueName?.trim()) return "Venue name is required.";
     if (!formData.city?.trim()) return "City is required.";
     if (!formData.venueAddress?.trim()) return "Venue address is required.";
+    const parsedCap = formData.capacity ? parseInt(formData.capacity, 10) : 0;
+    if (!formData.capacity || isNaN(parsedCap) || parsedCap <= 0) {
+      return "Max Capacity (Attendees) is required and must be greater than 0.";
+    }
 
     // Step 4 — Registration
     if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
