@@ -1747,6 +1747,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   value={act.startTime}
                                   onChange={(v) => updateActivity(day.date, act.id, "startTime", v)}
                                   size="sm"
+                                  className={reqCls(!act.startTime)}
                                 />
                               </div>
                               <div>
@@ -1755,7 +1756,18 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   value={act.endTime}
                                   onChange={(v) => updateActivity(day.date, act.id, "endTime", v)}
                                   size="sm"
+                                  className={cn(
+                                    act.startTime && act.endTime && act.endTime <= act.startTime
+                                      ? "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+                                      : reqCls(!act.endTime)
+                                  )}
                                 />
+                                {Boolean(act.startTime && act.endTime && act.endTime <= act.startTime) && (
+                                  <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3 shrink-0 text-rose-600" />
+                                    End time must be after start time ({act.startTime}).
+                                  </p>
+                                )}
                               </div>
                             </div>
 
@@ -4493,6 +4505,14 @@ export function EventCreateWizard({
       if (!formData.startTime?.trim()) return "Event start time is required.";
       if (!formData.endTime?.trim()) return "Event end time is required.";
       if (isTimeInvalid) return `End time (${formData.endTime}) must be after start time (${formData.startTime}).`;
+
+      for (const ds of (formData.daySchedules || [])) {
+        for (const act of (ds.activities || [])) {
+          if (act.startTime && act.endTime && act.endTime <= act.startTime) {
+            return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) must be after start time (${act.startTime}).`;
+          }
+        }
+      }
     }
     if (currentStep === 3) {
       if (!formData.venueName?.trim()) return "Venue name is required.";
@@ -4530,6 +4550,14 @@ export function EventCreateWizard({
     if (!formData.startTime?.trim()) return "Event start time is required.";
     if (!formData.endTime?.trim()) return "Event end time is required.";
     if (isTimeInvalid) return `End time (${formData.endTime}) must be after start time (${formData.startTime}).`;
+
+    for (const ds of (formData.daySchedules || [])) {
+      for (const act of (ds.activities || [])) {
+        if (act.startTime && act.endTime && act.endTime <= act.startTime) {
+          return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) must be after start time (${act.startTime}).`;
+        }
+      }
+    }
 
     // Step 3 — Venue
     if (!formData.venueName?.trim()) return "Venue name is required.";
