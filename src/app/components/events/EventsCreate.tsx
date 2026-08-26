@@ -208,6 +208,7 @@ export async function syncActivitiesToScheduleSubmodules(
       const timeSlotConfig = entries.map(e => ({
         slotDate: e.dayDate,
         startTime: e.act.startTime || "08:30",
+        title: e.act.name || poojaTypeName,
         slotCount: parseInt(e.act.slots || "50", 10) || 50,
       }));
       const totalSlots = timeSlotConfig.reduce((acc, curr) => acc + curr.slotCount, 0);
@@ -4379,7 +4380,7 @@ export function EventCreateWizard({
                       id: `pooja-${p.id}-${pDate}`,
                       subEventId: p.id,
                       categoryType: "Pooja & Seva",
-                      name: p.name || "Pooja Seva",
+                      name: daySlotMatch?.title || p.name || "Pooja Seva",
                       poojaType: p.type || "Pooja",
                       needsRegistration: true,
                       registrationFee: p.fee ? String(p.fee) : "0",
