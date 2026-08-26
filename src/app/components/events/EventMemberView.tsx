@@ -1050,16 +1050,29 @@ export function EventMemberView() {
             statusReason = "Awaiting committee approval / verification";
           }
 
+          const rawCat = String(r.category || "").toLowerCase();
+          const rawActId = String(r.activityId || "");
+          const isPoojaPass = rawCat.includes("pooja") ||
+                              rawCat.includes("seva") ||
+                              rawActId.startsWith("pooja-") ||
+                              Boolean(r.scheduleId) ||
+                              Boolean(r.poojaSlot);
+
+          const isCompPass = rawCat.includes("competition") || rawActId.startsWith("comp-");
+          const isCultPass = rawCat.includes("cultural") || rawActId.startsWith("cult-");
+          const isFoodPass = rawCat.includes("food") || rawCat.includes("meal") || rawActId.startsWith("meal-") || rawActId.startsWith("food-");
+
           return {
             id: String(r.id),
-            // activityId is stored as "pooja-5" or "5" — normalise to full "pooja-N" form when possible
+            // activityId is stored as "pooja-5" or "event-1" or "5"
             activityId: r.activityId ? String(r.activityId) : undefined,
-            // Canonical numeric-only id of the Pooja Seva for normalised matching
-            poojaSevaId: r.activityId ? String(r.activityId).replace(/\D/g, "") || undefined : undefined,
+            category: isPoojaPass ? "Pooja" : isCompPass ? "Competitions" : isCultPass ? "Cultural" : isFoodPass ? "Food" : "General",
+            // Canonical numeric-only id of the Pooja Seva strictly when it is an actual pooja registration
+            poojaSevaId: isPoojaPass ? (rawActId.startsWith("pooja-") ? rawActId.replace(/^pooja-/, "") : (String(r.poojaSevaId || r.activityId || "").replace(/\D/g, "") || undefined)) : undefined,
             // Parent community event id (different from the pooja seva's own id)
             mainEventId: r.mainEventId != null ? String(r.mainEventId) : undefined,
             eventId: r.eventId ? String(r.eventId) : undefined,
-            passType: r.passType || `${r.category || "Event"} Registration Pass`,
+            passType: r.passType || `${isPoojaPass ? "Pooja" : isCompPass ? "Competition" : isCultPass ? "Cultural" : isFoodPass ? "Food" : "Event"} Registration Pass`,
             title: r.activityTitle || r.eventName || (parentEvent ? parentEvent.title : "Community Event"),
             participantName: r.participantName || r.primaryName || "Devotee",
             phone: r.phone,
@@ -1294,13 +1307,13 @@ export function EventMemberView() {
 
     const actIdStr = String(act.id || "").trim();
     const actIdNumeric = actIdStr.replace(/\D/g, "");
-    const isActPooja = isPoojaActivity(act.category);
+    const isActPooja = isPoojaActivity(act.category) || actIdStr.startsWith("pooja-");
     const isActComp = act.category?.toLowerCase().includes("competition") || actIdStr.startsWith("comp-");
     const isActCult = act.category?.toLowerCase().includes("cultural") || actIdStr.startsWith("cult-");
     const isActFood = act.category?.toLowerCase().includes("food") || act.category?.toLowerCase().includes("meal") || actIdStr.startsWith("meal-") || actIdStr.startsWith("food-");
     const isMainEvent = actIdStr.startsWith("event-") || (!isActPooja && !isActComp && !isActCult && !isActFood);
     const cleanActTitle = (act.title || "").trim().toLowerCase();
-    const actMainEventId = act.mainEventId ? String(act.mainEventId) : null;
+    const actMainEventId = act.mainEventId ? String(act.mainEventId).replace(/\D/g, "") : null;
 
     return activePasses.find((p) => {
       if (p.status === "CANCELLED" || p.isEventCancelled || p.isEventExpired) return false;
@@ -1308,73 +1321,83 @@ export function EventMemberView() {
       const passActIdStr = String(p.activityId || "").trim();
       const passActIdNumeric = passActIdStr.replace(/\D/g, "");
       const passPoojaIdStr = p.poojaSevaId ? String(p.poojaSevaId).trim() : "";
-      const isPassPooja = isPoojaActivity(p.category) || isPoojaActivity(p.passType) || Boolean(p.poojaSevaId) || passActIdStr.startsWith("pooja-");
+      const passCatLower = String(p.category || "").toLowerCase();
+      const passTypeLower = String(p.passType || "").toLowerCase();
+
+      const isPassPooja = isPoojaActivity(p.category) ||
+                          isPoojaActivity(p.passType) ||
+                          passActIdStr.startsWith("pooja-") ||
+                          (Boolean(p.poojaSevaId) && (passCatLower.includes("pooja") || passTypeLower.includes("pooja")));
+
       const isPassComp = p.category?.toLowerCase().includes("competition") || passActIdStr.startsWith("comp-");
       const isPassCult = p.category?.toLowerCase().includes("cultural") || passActIdStr.startsWith("cult-");
       const isPassFood = p.category?.toLowerCase().includes("meal") || p.category?.toLowerCase().includes("food") || passActIdStr.startsWith("meal-") || passActIdStr.startsWith("food-");
       const isPassMainEvent = passActIdStr.startsWith("event-") || (!isPassPooja && !isPassComp && !isPassCult && !isPassFood);
       const cleanPassTitle = (p.title || "").trim().toLowerCase();
-      const passMainEventId = p.mainEventId ? String(p.mainEventId) : (p.eventId ? String(p.eventId) : null);
+      const passMainEventId = p.mainEventId ? String(p.mainEventId).replace(/\D/g, "") : (p.eventId ? String(p.eventId).replace(/\D/g, "") : null);
 
-      // Strategy 1: Exact activityId string match (e.g. "pooja-1" === "pooja-1" or "event-15" === "event-15")
-      if (passActIdStr && actIdStr && passActIdStr === actIdStr) {
-        return true;
-      }
+      // ── Category Check 1: POOJA ACTIVITY ──
+      if (isActPooja) {
+        // A Pooja activity MUST ONLY match a Pooja pass. NEVER a main event pass!
+        if (!isPassPooja || isPassMainEvent) return false;
 
-      // Strategy 2: Main Event ID & Cross-reference matching (e.g. event-15, mainEventId: 15, eventId: 15)
-      if (isMainEvent && isPassMainEvent) {
-        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
+        // 1. Exact activityId (e.g. "pooja-1" === "pooja-1")
+        if (passActIdStr && actIdStr && passActIdStr === actIdStr) {
           return true;
         }
-        if (actIdNumeric && passMainEventId && actIdNumeric === passMainEventId) {
+        // 2. Canonical numeric ID when both are prefixed with pooja-
+        if (actIdNumeric && passActIdNumeric && passActIdStr.startsWith("pooja-") && actIdStr.startsWith("pooja-")) {
+          return actIdNumeric === passActIdNumeric;
+        }
+        // 3. poojaSevaId match
+        if (passPoojaIdStr && actIdNumeric && passPoojaIdStr === actIdNumeric) {
           return true;
         }
-        if (passActIdStr === `event-${actIdNumeric}` || actIdStr === `event-${passActIdNumeric}`) {
-          return true;
-        }
-      }
-
-      // Strategy 3: Direct poojaSevaId matching (strictly only when both are pooja)
-      if (isActPooja && isPassPooja) {
-        if (passPoojaIdStr && (passPoojaIdStr === actIdStr || passPoojaIdStr === actIdNumeric)) {
-          return true;
-        }
-        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
-          return true;
-        }
-      }
-
-      // Strategy 4: Type/category matching for comp/cult/food
-      if (isActComp && isPassComp) {
-        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
-          return true;
-        }
-      }
-      if (isActCult && isPassCult) {
-        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
-          return true;
-        }
-      }
-      if (isActFood && isPassFood) {
-        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) {
-          return true;
-        }
-      }
-
-      // Strategy 5: Exact or contained title match
-      if (cleanPassTitle && cleanActTitle) {
-        if (cleanPassTitle === cleanActTitle || cleanPassTitle.includes(cleanActTitle) || cleanActTitle.includes(cleanPassTitle)) {
-          if (isActPooja && isPassPooja) return true;
-          if (isActComp && isPassComp) return true;
-          if (isActCult && isPassCult) return true;
-          if (isActFood && isPassFood) return true;
-          if (isMainEvent && isPassMainEvent) {
-            if (actMainEventId && passMainEventId) {
-              return actMainEventId === passMainEventId;
-            }
-            return true;
+        // 4. Exact Title match
+        if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) {
+          if (actMainEventId && passMainEventId) {
+            return actMainEventId === passMainEventId;
           }
+          return true;
         }
+        return false;
+      }
+
+      // ── Category Check 2: MAIN EVENT ACTIVITY ──
+      if (isMainEvent) {
+        if (!isPassMainEvent || isPassPooja || isPassComp || isPassCult || isPassFood) return false;
+        if (passActIdStr && actIdStr && passActIdStr === actIdStr) return true;
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) return true;
+        if (actIdNumeric && passMainEventId && actIdNumeric === passMainEventId) return true;
+        if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) return true;
+        return false;
+      }
+
+      // ── Category Check 3: COMPETITIONS ──
+      if (isActComp) {
+        if (!isPassComp) return false;
+        if (passActIdStr && actIdStr && passActIdStr === actIdStr) return true;
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) return true;
+        if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) return true;
+        return false;
+      }
+
+      // ── Category Check 4: CULTURAL ──
+      if (isActCult) {
+        if (!isPassCult) return false;
+        if (passActIdStr && actIdStr && passActIdStr === actIdStr) return true;
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) return true;
+        if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) return true;
+        return false;
+      }
+
+      // ── Category Check 5: FOOD / MEALS ──
+      if (isActFood) {
+        if (!isPassFood) return false;
+        if (passActIdStr && actIdStr && passActIdStr === actIdStr) return true;
+        if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) return true;
+        if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) return true;
+        return false;
       }
 
       return false;
@@ -1390,20 +1413,22 @@ export function EventMemberView() {
     const targetIdStr = String(targetMainEventId).replace(/\D/g, "");
     if (!targetIdStr) return true;
 
-    // 1. Check in active passes
+    // 1. Check in active passes for main event pass
     const hasPass = activePasses.some((p) => {
       if (p.status === "CANCELLED" || p.isEventCancelled || p.isEventExpired) return false;
       const passActIdStr = String(p.activityId || "").trim();
       const passActIdNumeric = passActIdStr.replace(/\D/g, "");
-      const passMainEventId = p.mainEventId ? String(p.mainEventId).replace(/\D/g, "") : (p.eventId ? String(p.eventId).replace(/\D/g, "") : null);
+      const passCatLower = String(p.category || "").toLowerCase();
+      const passTypeLower = String(p.passType || "").toLowerCase();
 
-      const isPassPooja = isPoojaActivity(p.category) || isPoojaActivity(p.passType) || Boolean(p.poojaSevaId) || passActIdStr.startsWith("pooja-");
+      const isPassPooja = isPoojaActivity(p.category) || isPoojaActivity(p.passType) || passActIdStr.startsWith("pooja-");
       const isPassComp = p.category?.toLowerCase().includes("competition") || passActIdStr.startsWith("comp-");
       const isPassCult = p.category?.toLowerCase().includes("cultural") || passActIdStr.startsWith("cult-");
       const isPassFood = p.category?.toLowerCase().includes("meal") || p.category?.toLowerCase().includes("food") || passActIdStr.startsWith("meal-") || passActIdStr.startsWith("food-");
-      const isPassMainEvent = passActIdStr.startsWith("event-") || (!isPassPooja && !isPassComp && !isPassCult && !isPassFood);
+      const isPassMainEvent = passActIdStr.startsWith("event-") || passCatLower === "general" || (!isPassPooja && !isPassComp && !isPassCult && !isPassFood);
 
       if (isPassMainEvent) {
+        const passMainEventId = p.mainEventId ? String(p.mainEventId).replace(/\D/g, "") : (p.eventId ? String(p.eventId).replace(/\D/g, "") : null);
         if (passActIdNumeric && passActIdNumeric === targetIdStr) return true;
         if (passMainEventId && passMainEventId === targetIdStr) return true;
       }
