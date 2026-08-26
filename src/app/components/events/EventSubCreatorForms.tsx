@@ -245,7 +245,7 @@ export function PoojaSevaSection() {
     startTimes: ["08:30"],
     duration: "",
     mandap: "", pandit: "", slots: "20", fee: "", isFree: true,
-    timeSlotConfig: [] as { slotDate: string | null; startTime: string; title?: string; slotCount: number }[],
+    timeSlotConfig: [] as { slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number }[],
     items: ["Coconut", "Flowers", "Bananas"], notes: "", isRecurring: false, recurringDays: "",
   });
   const [toast, setToast] = useState("");
@@ -289,6 +289,15 @@ export function PoojaSevaSection() {
     }));
   };
 
+  const updateTimeSlotEndTime = (slotDate: string | null, startTime: string, endTime: string) => {
+    setForm((f) => ({
+      ...f,
+      timeSlotConfig: (f.timeSlotConfig || []).map((e) =>
+        e.slotDate === slotDate && e.startTime === startTime ? { ...e, endTime } : e
+      ),
+    }));
+  };
+
   // Sync multi-day slot config
   useEffect(() => {
     const times = (form.startTimes || []).filter(Boolean);
@@ -316,11 +325,11 @@ export function PoojaSevaSection() {
       }
       const existing = form.timeSlotConfig || [];
       const defaultCount = Number(form.slots) || 20;
-      const synced: { slotDate: string | null; startTime: string; title?: string; slotCount: number }[] = [];
+      const synced: { slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number }[] = [];
       for (const date of days) {
         for (const time of times) {
           const found = existing.find((e) => e.slotDate === date && e.startTime === time);
-          synced.push(found ?? { slotDate: date, startTime: time, title: "", slotCount: defaultCount });
+          synced.push(found ?? { slotDate: date, startTime: time, endTime: "", title: "", slotCount: defaultCount });
         }
       }
       set("timeSlotConfig", synced);
@@ -329,7 +338,7 @@ export function PoojaSevaSection() {
       const defaultCount = Number(form.slots) || 20;
       const synced = times.map((time) => {
         const found = existing.find((e) => e.slotDate === null && e.startTime === time);
-        return found ?? { slotDate: null, startTime: time, title: "", slotCount: defaultCount };
+        return found ?? { slotDate: null, startTime: time, endTime: "", title: "", slotCount: defaultCount };
       });
       set("timeSlotConfig", synced);
     }
@@ -807,30 +816,45 @@ export function PoojaSevaSection() {
                             {dayTotal} slots this day
                           </span>
                         </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                           {dayEntries.map((e) => (
-                            <div key={e.startTime} className="p-2 rounded-lg bg-background border border-border space-y-1.5 shadow-2xs">
-                              <div className="flex items-center justify-between text-[10px]">
-                                <span className="font-bold text-foreground">⏰ {e.startTime}</span>
-                                <span className="text-muted-foreground">Capacity</span>
+                            <div key={e.startTime} className="p-2.5 rounded-xl bg-background border border-border space-y-2 shadow-2xs">
+                              <div className="flex items-center justify-between text-[11px]">
+                                <span className="font-bold text-foreground">Slot: {e.startTime}</span>
+                                <span className="text-[10px] text-muted-foreground font-medium">Session</span>
                               </div>
                               <input
                                 type="text"
                                 value={e.title || ""}
                                 onChange={(ev) => updateTimeSlotTitle(date, e.startTime, ev.target.value)}
-                                className="w-full bg-card border border-border rounded-md px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-amber-400 placeholder:text-muted-foreground/60"
+                                className="w-full bg-card border border-border rounded-lg px-2.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-amber-400 placeholder:text-muted-foreground/60"
                                 placeholder="Slot Name (e.g. Morning Homam)"
                               />
-                              <div className="flex items-center gap-1">
+                              <div className="grid grid-cols-2 gap-1.5">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-[10px] font-semibold text-muted-foreground">Start</span>
+                                  <span className="text-xs font-bold text-foreground bg-muted/40 px-2 py-1 rounded-md border border-border/60">⏰ {e.startTime}</span>
+                                </div>
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="text-[10px] font-semibold text-muted-foreground">End Time</span>
+                                  <TimePicker
+                                    value={e.endTime || ""}
+                                    onChange={(v) => updateTimeSlotEndTime(date, e.startTime, v)}
+                                    size="sm"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 pt-0.5">
+                                <span className="text-[10px] font-semibold text-muted-foreground shrink-0">Capacity:</span>
                                 <input
                                   type="number"
                                   value={e.slotCount}
                                   onChange={(ev) => updateTimeSlotCount(date, e.startTime, Number(ev.target.value))}
-                                  className="w-full bg-card border border-border rounded-md px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                  className="w-full bg-card border border-border rounded-lg px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-amber-400"
                                   placeholder="20"
                                   min="1"
                                 />
-                                <span className="text-[9px] text-muted-foreground whitespace-nowrap">slots</span>
+                                <span className="text-[10px] text-muted-foreground whitespace-nowrap font-medium">slots</span>
                               </div>
                             </div>
                           ))}
