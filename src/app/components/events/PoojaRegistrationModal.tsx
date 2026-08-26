@@ -407,7 +407,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [registerOnBehalf, setRegisterOnBehalf] = useState<boolean>(false);
   const [communityUsers, setCommunityUsers] = useState<any[]>([]);
   const [userSearchQuery, setUserSearchQuery] = useState<string>("");
-  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState<boolean>(false);
   const [selectedTargetUserId, setSelectedTargetUserId] = useState<number | null>(null);
 
   // Load community users for Admin on-behalf registration
@@ -694,7 +693,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             time: formattedTime,
             name: sessionName,
             left: Math.max(1, slotLeft),
-            timeSlotConfigId: matchedSingleConfig?.id as number | undefined,
+            timeSlotConfigId: (matchedSingleConfig as any)?.id as number | undefined,
           };
         })
       : [

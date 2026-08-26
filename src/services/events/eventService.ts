@@ -195,6 +195,7 @@ export interface PoojaRegistrationRequest {
   status?: string;
   scheduleId?: number;
   reservationId?: number;
+  poojaSevaTimeSlotsId?: number;
   targetUserId?: number;
 }
 
@@ -786,7 +787,7 @@ export const eventService = {
   },
 
   async updatePoojaScheduleStatus(id: number, status: string): Promise<PoojaScheduleDto> {
-    return apiClient.patch<PoojaScheduleDto>(`/events/pooja-schedules/${id}/status?status=${status}`, {});
+    return apiClient.patch<PoojaScheduleDto>(`/events/pooja-schedules/${id}/status`, { status });
   },
 
   async deletePoojaSchedule(id: number): Promise<void> {
