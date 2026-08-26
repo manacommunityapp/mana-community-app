@@ -1039,17 +1039,21 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     update("multiDay", v);
     if (v) {
       const targetStart = data.startDate || new Date().toISOString().split("T")[0];
-      const targetEnd = data.endDate && data.endDate >= targetStart ? data.endDate : targetStart;
-      if (!data.endDate || data.endDate < targetStart) {
-        update("endDate", targetEnd);
-      }
-      // Auto-populate day schedules for every day in the range
-      const rangedays = getDaysBetween(targetStart, targetEnd);
-      const existing = data.daySchedules.filter(ds => ds.date >= targetStart && ds.date <= targetEnd);
-      const merged = rangedays.map(d => existing.find(ds => ds.date === d) || { date: d, activities: [] });
-      update("daySchedules", merged);
-      if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
-        setExpandedDay(merged[0]?.date || null);
+      // Do NOT auto-set endDate. Only sync schedules if valid endDate already exists.
+      if (data.endDate && data.endDate >= targetStart) {
+        const rangedays = getDaysBetween(targetStart, data.endDate);
+        const existing = data.daySchedules.filter(ds => ds.date >= targetStart && ds.date <= data.endDate);
+        const merged = rangedays.map(d => existing.find(ds => ds.date === d) || { date: d, activities: [] });
+        update("daySchedules", merged);
+        if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
+          setExpandedDay(merged[0]?.date || null);
+        }
+      } else {
+        if (targetStart) {
+          const existingForStart = data.daySchedules.find(ds => ds.date === targetStart);
+          update("daySchedules", existingForStart ? [existingForStart] : [{ date: targetStart, activities: [] }]);
+          setExpandedDay(targetStart);
+        }
       }
     } else {
       if (data.startDate) {
