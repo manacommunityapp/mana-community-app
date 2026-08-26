@@ -1351,7 +1351,9 @@ function EventDetailsDialog({
                                 {(p.startTime || (p.startTimes && p.startTimes.length > 0)) && (
                                   <span className="flex items-center gap-0.5">
                                     <Clock className="w-2.5 h-2.5 text-slate-400" />
-                                    <span>{p.startTimes ? p.startTimes.join(", ") : p.startTime}</span>
+                                    <span>{Array.isArray(p.timeSlotConfig) && p.timeSlotConfig.length > 0
+                                      ? [...new Set(p.timeSlotConfig.map((c: any) => c.startTime).filter(Boolean))].join(", ")
+                                      : p.startTime}</span>
                                   </span>
                                 )}
                               </div>

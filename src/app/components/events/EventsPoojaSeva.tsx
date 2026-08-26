@@ -351,7 +351,6 @@ export function EventsPoojaSeva() {
       endDate: poojaForm.isMultiDay && poojaForm.endDate ? poojaForm.endDate : undefined,
       multiDay: poojaForm.isMultiDay,
       startTime: validStartTimes[0] || poojaForm.startTime,
-      startTimes: validStartTimes,
       duration: poojaForm.duration ? Number(poojaForm.duration) : undefined,
       mandap: poojaForm.mandap || undefined,
       pandit: poojaForm.pandit || undefined,
@@ -959,7 +958,9 @@ export function EventsPoojaSeva() {
                       </span>
                       {pooja.startTime && (
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />
-                          {pooja.startTimes?.length ? pooja.startTimes.join(", ") : pooja.startTime}
+                          {Array.isArray(pooja.timeSlotConfig) && pooja.timeSlotConfig.length > 0
+                            ? [...new Set(pooja.timeSlotConfig.map((c: any) => c.startTime).filter(Boolean))].join(", ")
+                            : pooja.startTime}
                           {pooja.duration ? ` (${pooja.duration}m)` : ""}
                         </span>
                       )}
@@ -1688,13 +1689,13 @@ export function EventsPoojaSeva() {
                       </div>
                       <div>
                         <label className="block font-semibold text-slate-700 mb-1 text-[11px]">Slot Time</label>
-                        {selectedPoojaForReg.startTimes && selectedPoojaForReg.startTimes.length > 0 ? (
+                        {Array.isArray(selectedPoojaForReg.timeSlotConfig) && selectedPoojaForReg.timeSlotConfig.length > 0 ? (
                           <select
                             value={regForm.eventTime}
                             onChange={e => setRegForm({ ...regForm, eventTime: e.target.value })}
                             className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
                           >
-                            {selectedPoojaForReg.startTimes.map(t => (
+                            {[...new Set(selectedPoojaForReg.timeSlotConfig.map((c: any) => c.startTime).filter(Boolean))].map((t: string) => (
                               <option key={t} value={t}>⏰ {t}</option>
                             ))}
                           </select>

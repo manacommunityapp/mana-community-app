@@ -640,7 +640,8 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
     ? rawFee
     : parseFloat(String(rawFee).replace(/[^0-9.]/g, "")) || 0;
 
-  // Derive configured start times if available from Pooja event creation or live booking schedules
+  // Derive configured start times — primary: liveSchedules (event_pooja_seva_time_slots via API),
+  // fallback: timeSlotConfig stored on the event record (also from event_pooja_seva_time_slots)
   const scheduleDays = React.useMemo(() => {
     if (Array.isArray(liveSchedules) && liveSchedules.length > 0) {
       const daysFromLive = buildDaysFromLiveSchedules(liveSchedules, poojaTitle);
@@ -649,8 +650,11 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       }
     }
 
-    const configuredTimes: string[] = Array.isArray((event as any)?.startTimes) && (event as any).startTimes.filter(Boolean).length > 0
-      ? (event as any).startTimes.filter(Boolean)
+    const timeSlotConfigs: { slotDate: string | null; startTime: string; slotCount: number }[] =
+      Array.isArray((event as any)?.timeSlotConfig) ? (event as any).timeSlotConfig : [];
+
+    const configuredTimes: string[] = timeSlotConfigs.length > 0
+      ? [...new Set(timeSlotConfigs.map(c => c.startTime).filter(Boolean))]
       : event?.time && event.time.includes(",")
       ? event.time.split(",").map((t: string) => t.trim()).filter(Boolean)
       : event?.startTime
@@ -658,9 +662,6 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       : event?.time
       ? [event.time]
       : [];
-
-    const timeSlotConfigs: { slotDate: string | null; startTime: string; slotCount: number }[] =
-      Array.isArray((event as any)?.timeSlotConfig) ? (event as any).timeSlotConfig : [];
 
     const defaultSlots: DaySlotOption[] = configuredTimes.length > 0
       ? configuredTimes.map((t, idx) => {

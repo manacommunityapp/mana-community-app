@@ -231,7 +231,6 @@ export async function syncActivitiesToScheduleSubmodules(
         slots: totalSlots,
         fee: feeNum,
         isFree: feeNum === 0,
-        startTimes: distinctStartTimes,
         timeSlotConfig: timeSlotConfig,
       };
 

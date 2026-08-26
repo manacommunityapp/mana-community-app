@@ -438,7 +438,6 @@ export function PoojaSevaSection() {
         ? `${validStartTimes.join(", ")} (${form.duration || 60}m)`
         : primaryStartTime ? `${primaryStartTime} (${form.duration || 60}m)` : "Morning",
       startTime: primaryStartTime,
-      startTimes: validStartTimes,
       venue: form.mandap || "Main Temple Mandap",
       fee: form.isFree ? 0 : Number(form.fee || 501),
       isFree: Boolean(form.isFree),
@@ -459,7 +458,6 @@ export function PoojaSevaSection() {
           endDate: form.isMultiDay && form.endDate ? form.endDate : undefined,
           multiDay: form.isMultiDay,
           startTime: primaryStartTime,
-          startTimes: validStartTimes,
           duration: form.duration,
           mandap: form.mandap,
           pandit: form.pandit,
