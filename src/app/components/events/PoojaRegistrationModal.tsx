@@ -197,7 +197,7 @@ function buildDaysFromLiveSchedules(liveSchedules: PoojaScheduleDto[], poojaTitl
       const endFmt = sch.endTime ? formatTime12Hour(sch.endTime) : "";
       const displayTime = endFmt ? `${startFmt} – ${endFmt}` : `${startFmt} onwards`;
       const sessionName = (sch as any).notes?.trim() || sch.poojaName || poojaTitle || (schedulesForDay.length === 1 ? "Pooja Seva" : `Session #${sIdx + 1}`);
-      const avail = Math.min(sch.availableFamilies, sch.availableDevotees);
+      const avail = sch.availableDevotees !== undefined ? sch.availableDevotees : sch.availableFamilies;
 
       return {
         icon,
@@ -710,7 +710,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       const key = makeLiveScheduleKey(sch.scheduleDate, sch.startTime);
       map.set(key, {
         scheduleId: sch.id,
-        availLeft: Math.min(sch.availableFamilies, sch.availableDevotees),
+        availLeft: sch.availableDevotees !== undefined ? sch.availableDevotees : sch.availableFamilies,
       });
     }
     return map;

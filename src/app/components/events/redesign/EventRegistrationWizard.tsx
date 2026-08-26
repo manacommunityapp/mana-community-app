@@ -572,6 +572,37 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
     event?.paymentQrUrl ||
     event?.scannerImage;
 
+  // Derive event-level payment configuration
+  const rawEventPaymentModes: string[] = (() => {
+    const raw = eventDetails?.paymentModes ?? event?.paymentModes;
+    if (!raw) return [];
+    if (typeof raw === "string") return raw.split(",").map((s: string) => s.trim()).filter(Boolean);
+    if (Array.isArray(raw)) return raw as string[];
+    return [];
+  })();
+
+  // Only show modes the organiser configured; fall back to all 3 if nothing configured
+  const allowedModeIds = rawEventPaymentModes.length > 0 ? rawEventPaymentModes.map((m) => m.toLowerCase()) : ["upi", "card", "cash"];
+  const isManualPaymentOnly =
+    rawEventPaymentModes.length > 0 &&
+    rawEventPaymentModes.every((m) => ["cash", "manual"].includes(m.toLowerCase()));
+
+  // Contacts set by the organiser (name, phone, role)
+  const eventContacts: Array<{ name?: string; phone?: string; role?: string; notes?: string }> = (() => {
+    const c = eventDetails?.contacts ?? event?.contacts;
+    if (Array.isArray(c)) return c.filter((x: any) => x && (x.name || x.phone));
+    return [];
+  })();
+
+  // Payment notes / instructions from event
+  const eventPaymentNotes: string =
+    eventDetails?.paymentInstructions ||
+    eventDetails?.notes ||
+    event?.paymentInstructions ||
+    event?.notes ||
+    "";
+
+
   const isFreeEvent =
     event?.isFree === true ||
     formData.numericPrice === 0 ||
@@ -1706,42 +1737,52 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
               ) : (
                 /* PAID EVENT: Payment Modes Selection & Verification */
                 <>
-                  {/* Payment Modes */}
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
+                  {/* Payment Modes — filtered to what the organiser configured */}
+                  {(() => {
+                    const allModes = [
                       { id: "UPI", label: "UPI / QR Code", desc: "Instant scan & pay", icon: QrCode },
                       { id: "Card", label: "Cards / NetBanking", desc: "Online gateway", icon: CreditCard },
                       { id: "Cash", label: "Cash / Counter", desc: "Pay at venue", icon: IndianRupee },
-                    ].map((mode) => {
-                      const Icon = mode.icon;
-                      const isSelected = (formData.paymentMode || "UPI") === mode.id;
-                      return (
-                        <div
-                          key={mode.id}
-                          onClick={() => setFormData({ ...formData, paymentMode: mode.id })}
-                          className={`p-2.5 rounded-2xl border cursor-pointer transition-all flex flex-col items-center text-center gap-1.5 select-none ${
-                            isSelected
-                              ? "bg-primary/10 border-primary shadow-xs ring-2 ring-primary/20"
-                              : "bg-muted/40 border-border hover:border-primary/40"
-                          }`}
-                        >
-                          <div
-                            className={`p-2 rounded-xl shrink-0 ${
-                              isSelected ? "bg-primary text-white shadow-xs" : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            <Icon className="w-4 h-4" />
-                          </div>
-                          <p className={`text-xs font-bold truncate ${isSelected ? "text-primary" : "text-foreground"}`}>
-                            {mode.label}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
+                    ];
+                    const visibleModes = allModes.filter((m) =>
+                      allowedModeIds.includes(m.id.toLowerCase())
+                    );
+                    const cols = visibleModes.length === 1 ? "grid-cols-1" : visibleModes.length === 2 ? "grid-cols-2" : "grid-cols-3";
+                    return (
+                      <div className={`grid ${cols} gap-2`}>
+                        {visibleModes.map((mode) => {
+                          const Icon = mode.icon;
+                          const defaultMode = isManualPaymentOnly ? "Cash" : "UPI";
+                          const isSelected = (formData.paymentMode || defaultMode) === mode.id;
+                          return (
+                            <div
+                              key={mode.id}
+                              onClick={() => setFormData({ ...formData, paymentMode: mode.id })}
+                              className={`p-2.5 rounded-2xl border cursor-pointer transition-all flex flex-col items-center text-center gap-1.5 select-none ${
+                                isSelected
+                                  ? "bg-primary/10 border-primary shadow-xs ring-2 ring-primary/20"
+                                  : "bg-muted/40 border-border hover:border-primary/40"
+                              }`}
+                            >
+                              <div
+                                className={`p-2 rounded-xl shrink-0 ${
+                                  isSelected ? "bg-primary text-white shadow-xs" : "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                <Icon className="w-4 h-4" />
+                              </div>
+                              <p className={`text-xs font-bold truncate ${isSelected ? "text-primary" : "text-foreground"}`}>
+                                {mode.label}
+                              </p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
 
                   {/* Dynamic Mode Details */}
-                  {(formData.paymentMode === "UPI" || !formData.paymentMode) && (
+                  {(formData.paymentMode === "UPI" || (!formData.paymentMode && !isManualPaymentOnly)) && (
                     <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-foreground">Scan & Pay via any UPI App</span>
@@ -1838,21 +1879,58 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                     </div>
                   )}
 
-                  {formData.paymentMode === "Cash" && (
-                    <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-1 text-left">
-                      <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                        <IndianRupee className="w-4 h-4 text-emerald-500" /> Pay Cash at Helpdesk
+                  {(formData.paymentMode === "Cash" || (isManualPaymentOnly && !formData.paymentMode)) && (
+                    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 space-y-3 text-left">
+                      <p className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                        <IndianRupee className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        {isManualPaymentOnly ? "Manual / Cash Payment" : "Pay Cash at Helpdesk"}
                       </p>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Your spot is reserved. Please show this registration e-pass and pay cash at the event registration
-                        counter on the day of the event.
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
+                        {eventPaymentNotes ||
+                          "Your spot is reserved. Please show this registration e-pass and pay cash at the event registration counter on the day of the event."}
                       </p>
+
+                      {/* Event contacts to pay or reach out to */}
+                      {eventContacts.length > 0 && (
+                        <div className="pt-2 border-t border-amber-200 dark:border-amber-800/40 space-y-2">
+                          <p className="text-[10px] font-black text-amber-800 dark:text-amber-300 uppercase tracking-wide">
+                            📞 Contact to Pay
+                          </p>
+                          <div className="space-y-1.5">
+                            {eventContacts.map((c, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white/60 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/30"
+                              >
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-foreground truncate">{c.name || "Event Contact"}</p>
+                                  {c.role && (
+                                    <p className="text-[10px] text-muted-foreground truncate">{c.role}</p>
+                                  )}
+                                  {c.notes && (
+                                    <p className="text-[10px] text-muted-foreground truncate">{c.notes}</p>
+                                  )}
+                                </div>
+                                {c.phone && (
+                                  <a
+                                    href={`tel:${c.phone}`}
+                                    className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-500 text-white text-[10px] font-black hover:bg-amber-600 transition-colors flex items-center gap-1"
+                                  >
+                                    📞 {c.phone}
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </>
               )}
             </div>
           )}
+
 
           {/* Controls Navigation */}
           <div className="pt-3 border-t border-border flex items-center justify-between gap-2 shrink-0">
