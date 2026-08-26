@@ -425,8 +425,7 @@ const BUDGET_CATEGORIES = [
 ];
 
 const DEFAULT_TICKET_TYPES: TicketType[] = [
-  { id: "t1", name: "General",   price: "0",   qty: "0", description: "Open for all community members" },
-  { id: "t2", name: "Volunteer", price: "0",   qty: "0", description: "Volunteer registration & duty pass" },
+  { id: "t1", name: "General", price: "0", qty: "0", description: "Open for all community members" },
 ];
 
 const DEFAULT_BUDGET_ITEMS: BudgetItem[] = [
@@ -2212,13 +2211,9 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
           <div>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h4 className="text-sm font-bold text-slate-700">Ticket Categories</h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">Define different registration tiers from database categories</p>
+                <h4 className="text-sm font-bold text-slate-700">Ticket Category</h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">Define registration category tier from database categories</p>
               </div>
-              <button onClick={addTicket}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer">
-                <Plus className="w-3.5 h-3.5" /> Add Category Tier
-              </button>
             </div>
 
             {maxEventCapacity > 0 && (
@@ -2268,23 +2263,16 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
               </div>
             )}
             <div className="space-y-3">
-              {data.ticketTypes.map((ticket, i) => (
+              {(data.ticketTypes.length > 0 ? data.ticketTypes.slice(0, 1) : DEFAULT_TICKET_TYPES).map((ticket, i) => (
                 <div key={ticket.id}
                   className="p-3 sm:p-5 bg-white rounded-xl border border-slate-200 space-y-3 sm:space-y-4 hover:border-slate-300 transition-colors group animate-fade-in-up">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ background: i === 0 ? "#eef2ff" : i === 1 ? "#fef9ee" : "#f0fdf4" }}>
-                        <Star className="w-3.5 h-3.5" style={{ color: i === 0 ? "#4f46e5" : i === 1 ? "#d97706" : "#059669" }} />
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-indigo-50">
+                        <Star className="w-3.5 h-3.5 text-indigo-600" />
                       </div>
-                      <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Category {i + 1}</span>
+                      <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Category 1</span>
                     </div>
-                    {data.ticketTypes.length > 1 && (
-                      <button onClick={() => removeTicket(ticket.id)}
-                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded-lg hover:bg-rose-50 cursor-pointer">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
@@ -4064,9 +4052,9 @@ export function fromEventToFormData(ev: any): FormData {
     : "100";
 
   const ticketTypes: TicketType[] = rawTicketTypes.length > 0
-    ? rawTicketTypes.map((t: any, i: number) => ({
+    ? rawTicketTypes.slice(0, 1).map((t: any, i: number) => ({
         id: t.id || `t${i + 1}`,
-        name: t.name || (i === 0 ? "General" : `Tier ${i + 1}`),
+        name: t.name || "General",
         price: String(t.price ?? "0"),
         qty: String(t.capacity ?? t.seats ?? t.qty ?? t.maxSeats ?? savedCapacity ?? "100"),
         description: t.description || "",
