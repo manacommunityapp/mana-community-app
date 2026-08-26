@@ -1395,15 +1395,20 @@ function EventDetailsDialog({
                           )}
                         </div>
 
-                        {p.slots != null && (
-                          <div className="pt-1.5 border-t border-amber-200/60 flex items-center justify-between text-[10px] font-semibold text-slate-500">
-                            <span>Devotee Capacity</span>
-                            <span className="text-amber-800 font-bold">{p.slots} slots</span>
-                          </div>
-                        )}
+                        <div className="pt-1.5 border-t border-amber-200/60 flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                          <span>{p.needsRegistration === false ? "Registration" : "Devotee Capacity"}</span>
+                          {p.needsRegistration === false ? (
+                            <span className="text-emerald-700 font-bold flex items-center gap-1">
+                              <Sparkles className="w-2.5 h-2.5 text-emerald-600" /> Open to All
+                            </span>
+                          ) : (
+                            <span className="text-amber-800 font-bold">{p.slots || 20} slots</span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
+
 
                 {/* Render Cultural Events */}
                 {(activeSubTab === "all" || activeSubTab === "cultural") &&

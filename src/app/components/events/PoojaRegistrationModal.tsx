@@ -830,12 +830,21 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       }
     }
 
+    // Detect a slot change in update mode so we can use the reschedule endpoint.
+    // Only reschedule when the EXISTING scheduleId is known (non-null) AND the user picked a different one.
+    // If existingReg.scheduleId is null (old registration before scheduleId tracking), fall back to a plain update.
+    const slotChangedInUpdateMode = isUpdateMode &&
+      selectedScheduleId !== null &&
+      existingReg?.scheduleId != null &&
+      selectedScheduleId !== existingReg.scheduleId;
+
     setIsSubmitting(true);
     setReservationError(null);
     try {
       // ── Pre-hold a capacity slot (new registrations only — reschedule handles its own slot swap) ──
       let reservationId: number | undefined;
       if (selectedScheduleId && !isUpdateMode) {
+
         const idempotencyKey = (typeof crypto !== "undefined" && crypto.randomUUID)
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -939,6 +948,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               ...(selectedSlot?.timeSlotConfigId ? { poojaSevaTimeSlotsId: selectedSlot.timeSlotConfigId } : {}),
             } as any);
             showSuccess("🪔 Pooja registration updated successfully!");
+
           } catch (apiErr: any) {
             const errMsg = apiErr?.response?.data?.message || apiErr?.message || "Failed to update pooja registration.";
             showWarning(errMsg);

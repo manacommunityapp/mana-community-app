@@ -3,8 +3,9 @@ import {
   Flame, Plus, Loader2, AlertCircle, Pencil, Trash2, Users, Clock, MapPin,
   Calendar, IndianRupee, X, Star, ChevronDown, ChevronUp, User, Ban,
   CheckCircle2, Search, UserPlus, Edit3, Save, Phone, Mail, FileText, AlertTriangle,
-  CalendarDays, LayoutList, ShieldOff, RefreshCw,
+  CalendarDays, LayoutList, ShieldOff, RefreshCw, Sparkles, Ticket,
 } from "lucide-react";
+
 import { toast } from "sonner";
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse, type PoojaScheduleDto } from "../../../services/events/eventService";
@@ -30,9 +31,11 @@ type PoojaSeva = {
   timeSlotConfig?: TimeSlotEntry[];
   fee?: number;
   isFree?: boolean;
+  needsRegistration?: boolean;
   items?: string[];
   notes?: string;
 };
+
 
 type BookingRegistration = {
   id: number;
@@ -94,9 +97,11 @@ const emptyPoojaForm = {
   timeSlotConfig: [] as TimeSlotEntry[],
   fee: "501",
   isFree: true,
+  needsRegistration: true,
   items: ["Coconut", "Flowers", "Bananas"],
   notes: "",
 };
+
 
 const emptyRegForm = {
   participantName: "",
@@ -315,6 +320,7 @@ export function EventsPoojaSeva() {
       timeSlotConfig: p.timeSlotConfig || [],
       fee: String(p.fee || 0),
       isFree: p.isFree || false,
+      needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
       items: p.items || ["Coconut", "Flowers", "Bananas"],
       notes: p.notes || "",
     });
@@ -366,9 +372,11 @@ export function EventsPoojaSeva() {
         : undefined,
       fee: poojaForm.isFree ? 0 : Number(poojaForm.fee || 0),
       isFree: poojaForm.isFree,
+      needsRegistration: poojaForm.needsRegistration !== false,
       items: poojaForm.items.filter(Boolean),
       notes: poojaForm.notes || undefined,
     };
+
 
     setSaving(true);
     setFormError("");
@@ -913,8 +921,20 @@ export function EventsPoojaSeva() {
                     <div className="flex items-start justify-between gap-2 flex-wrap">
                       <div>
                         <p className="font-bold text-slate-800 text-sm sm:text-base">{pooja.name}</p>
-                        <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 mt-1">{pooja.type}</span>
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                          <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700">{pooja.type}</span>
+                          {pooja.needsRegistration === false ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <Sparkles className="w-2.5 h-2.5" /> Open to All
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                              <Ticket className="w-2.5 h-2.5" /> Pass Required
+                            </span>
+                          )}
+                        </div>
                       </div>
+
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleOpenAddReg(pooja)}
@@ -969,11 +989,16 @@ export function EventsPoojaSeva() {
                     </div>
 
                     <div className="flex items-center gap-3 mt-2 flex-wrap">
-                      {pooja.slots && (
+                      {pooja.needsRegistration === false ? (
+                        <span className="text-xs font-semibold text-emerald-600">
+                          <Sparkles className="w-3 h-3 inline mr-1" />Open Entry / No Pass Required
+                        </span>
+                      ) : pooja.slots ? (
                         <span className="text-xs font-semibold text-indigo-600">
                           <Users className="w-3 h-3 inline mr-1" />{activeRegsForPooja.length}/{pooja.slots} slots booked
                         </span>
-                      )}
+                      ) : null}
+
                       <span className="text-xs font-semibold text-emerald-600">
                         {pooja.isFree ? "Free" : `₹${pooja.fee?.toLocaleString("en-IN")}`}
                       </span>
@@ -1272,6 +1297,7 @@ export function EventsPoojaSeva() {
                   {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
               </div>
+
 
               {/* Expanded Registrations Table */}
               {isExpanded && (
@@ -2114,8 +2140,38 @@ export function EventsPoojaSeva() {
                 </label>
               </div>
 
+              {/* Requires Devotee Seva Pass / Registration Toggle */}
+              <div className="p-3.5 bg-amber-50/70 rounded-2xl border border-amber-200/80 shadow-2xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={poojaForm.needsRegistration ?? true}
+                      onChange={e => set("needsRegistration", e.target.checked)}
+                      className="w-4 h-4 rounded text-amber-600 accent-amber-600 cursor-pointer"
+                    />
+                    <span className="text-xs font-bold text-slate-800">
+                      Requires Devotee Seva Pass / Registration
+                    </span>
+                  </label>
+                  <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${
+                    (poojaForm.needsRegistration ?? true)
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-slate-100 text-slate-500 border-slate-200"
+                  }`}>
+                    {(poojaForm.needsRegistration ?? true) ? "Pass Required" : "Open to All"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {(poojaForm.needsRegistration ?? true)
+                    ? "Devotees must register or book a slot pass to attend this Pooja / Seva."
+                    : "This seva/ritual is open to all devotees without any pass or prior registration."}
+                </p>
+              </div>
+
               {/* Slots Configuration */}
-              {!poojaForm.isMultiDay ? (
+              {(poojaForm.needsRegistration ?? true) && (!poojaForm.isMultiDay ? (
+
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100 space-y-3">
                   <label className="flex flex-col gap-1">
                     <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
@@ -2279,7 +2335,8 @@ export function EventsPoojaSeva() {
                     </div>
                   )}
                 </div>
-              )}
+              ))}
+
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1">
