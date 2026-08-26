@@ -84,7 +84,7 @@ export interface ScheduleActivity {
   categoryType: string; // "Pooja & Seva" | "Lunch" | "Dinner" | "Cultural Events" | "Competitions" | "Other"
   customType?: string;
   name: string;
-  poojaType?: string;  // Pooja & Seva: type stored in event_pooja_types
+  poojaType?: string;  // Pooja & Seva: type from event_pooja_types (e.g. "Ganapati Homam")
   needsRegistration: boolean;
   registrationFee?: string;
   slots?: string;
@@ -257,7 +257,45 @@ export async function syncActivitiesToScheduleSubmodules(
       const feeNum = parseFloat(act.registrationFee || "0") || 0;
       const slotsNum = parseInt(act.slots || "50", 10) || 50;
 
-      if (cat === "Lunch" || cat === "Dinner") {
+      if (cat === "Pooja & Seva") {
+        // Auto-register the selected poojaType in event_pooja_types if it doesn't exist yet
+        if (act.poojaType) {
+          try {
+            const existingTypes = await eventService.getPoojaTypes();
+            const typeExists = existingTypes.some((t: { name: string }) => t.name === act.poojaType);
+            if (!typeExists) {
+              await eventService.createPoojaType(act.poojaType);
+            }
+          } catch (e) {
+            console.warn("Pooja type ensure notice:", e);
+          }
+        }
+        const slotTime = act.startTime || "08:30";
+        const payload = {
+          mainEventId: numericEventId,
+          name: act.name,
+          type: act.poojaType || "Pooja",
+          date: day.date,
+          startTime: slotTime,
+          endTime: act.endTime || undefined,
+          mandap: act.venue || "Main Temple Mandap",
+          notes: act.description || "",
+          slots: slotsNum,
+          fee: feeNum,
+          isFree: feeNum === 0,
+          startTimes: [slotTime],
+          timeSlotConfig: [{ slotDate: day.date, startTime: slotTime, slotCount: slotsNum }],
+        };
+        try {
+          if (act.subEventId) {
+            await eventService.updatePoojaSeva(act.subEventId, payload);
+          } else {
+            await eventService.createPoojaSeva(payload);
+          }
+        } catch (e) {
+          console.warn("Database save pooja notice:", e);
+        }
+      } else if (cat === "Lunch" || cat === "Dinner") {
         const payload = {
           mainEventId: numericEventId,
           name: act.name,
@@ -839,8 +877,11 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [notifDayLabel, setNotifDayLabel] = useState<string | undefined>(undefined);
   const [notifActivityTitle, setNotifActivityTitle] = useState<string | undefined>(undefined);
+  const [savedPoojaEvents, setSavedPoojaEvents] = useState<any[]>([]);
+  const [loadingPoojaEvents, setLoadingPoojaEvents] = useState(false);
   const [placeholderModalOpen, setPlaceholderModalOpen] = useState(false);
   const [placeholderTargetDate, setPlaceholderTargetDate] = useState<string | null>(null);
+  const [poojaTypeOptions, setPoojaTypeOptions] = useState<{ id: number; name: string }[]>([]);
 
   const initializedDayRef = useRef(false);
   useEffect(() => {
@@ -861,6 +902,43 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const [newPoojaTypeName, setNewPoojaTypeName] = useState("");
   const [addingType, setAddingType] = useState(false);
   const [addTypeError, setAddTypeError] = useState("");
+
+  const importPoojaToDayAgenda = (dateStr: string, pooja: any) => {
+    const actTime = (Array.isArray(pooja.startTimes) && pooja.startTimes.length > 0)
+      ? pooja.startTimes[0]
+      : pooja.startTime || "08:30";
+    const cleanTime = String(actTime).split(/[–-]/)[0].trim();
+    const newAct: ScheduleActivity = {
+      id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      subEventId: pooja.id,
+      categoryType: "Pooja & Seva",
+      name: pooja.name || "Pooja Seva",
+      poojaType: pooja.type || "Pooja",
+      needsRegistration: true,
+      registrationFee: pooja.fee ? String(pooja.fee) : "0",
+      slots: pooja.slots ? String(pooja.slots) : "50",
+      startTime: cleanTime,
+      endTime: "",
+      description: pooja.notes || "",
+      venue: pooja.mandap || pooja.venue || "Main Mandap",
+    };
+    const targetDay = data.daySchedules.find(ds => ds.date === dateStr);
+    if (!targetDay) {
+      const newDay: DaySchedule = {
+        date: dateStr,
+        activities: [newAct],
+      };
+      const updated = [...data.daySchedules, newDay].sort((a, b) => a.date.localeCompare(b.date));
+      update("daySchedules", updated);
+    } else {
+      const updated = data.daySchedules.map(ds =>
+        ds.date === dateStr
+          ? { ...ds, activities: [...ds.activities, newAct] }
+          : ds
+      );
+      update("daySchedules", updated);
+    }
+  };
 
   const handleAddPoojaType = async (actId: string, actDate: string) => {
     const clean = newPoojaTypeName.trim();
@@ -1624,6 +1702,41 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                 </select>
                               </div>
 
+                              {isOtherCategory ? (
+                                <div>
+                                  <FieldLabel required>Custom Type Name</FieldLabel>
+                                  <Input
+                                    value={act.customType || ""}
+                                    onChange={(e) => updateActivity(day.date, act.id, "customType", e.target.value)}
+                                    placeholder="e.g. Sports / Workshop / Stage Play"
+                                    className={cn(INPUT_CLS, "bg-white font-medium")}
+                                  />
+                                </div>
+                              ) : currentCategory !== "Pooja & Seva" ? (
+                                <div>
+                                  <FieldLabel>Syncs To</FieldLabel>
+                                  <div className="px-3 py-[7px] rounded-[0.625rem] bg-indigo-50/60 border border-indigo-100 text-[12px] font-semibold text-indigo-700 flex items-center gap-1.5">
+                                    <span className="font-bold underline underline-offset-2">
+                                      {currentCategory === "Lunch" || currentCategory === "Dinner"
+                                        ? "Lunch / Dinner Tab"
+                                        : currentCategory === "Cultural Events"
+                                        ? "Cultural Events Tab"
+                                        : currentCategory === "Competitions"
+                                        ? "Competitions Tab"
+                                        : "Programs Tab"}
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </div>
+
+                            {/* Row 2: Title + (Pooja Type if Pooja & Seva) + Times */}
+                            <div className={cn(
+                              "grid gap-2.5 items-end",
+                              currentCategory === "Pooja & Seva"
+                                ? "grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto]"
+                                : "grid-cols-1 sm:grid-cols-[1fr_auto_auto]"
+                            )}>
                               {/* Right: Activity Title (Pooja / Seva Title) */}
                               <div>
                                 <div className="flex items-center justify-between mb-1">
@@ -1743,9 +1856,79 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               </div>
                             ) : null}
 
-                            {/* Row: Timing (Start & End Time) */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div>
+                              {/* Pooja Type — only for Pooja & Seva, beside Activity Title */}
+                              {currentCategory === "Pooja & Seva" && (
+                                <div className="w-full sm:min-w-[180px]">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <FieldLabel required>Pooja Type</FieldLabel>
+                                    {addingTypeForActId !== act.id && (
+                                      <button
+                                        type="button"
+                                        onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                        className="text-[11px] font-bold text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-0.5 cursor-pointer"
+                                      >
+                                        <Plus className="w-3 h-3" /> Add New
+                                      </button>
+                                    )}
+                                  </div>
+                                  {addingTypeForActId === act.id ? (
+                                    <div className="space-y-1">
+                                      <div className="flex gap-1">
+                                        <Input
+                                          value={newPoojaTypeName}
+                                          onChange={(e) => { setNewPoojaTypeName(e.target.value); setAddTypeError(""); }}
+                                          placeholder="New type name..."
+                                          className={cn(INPUT_CLS, "bg-white flex-1 text-xs")}
+                                          autoFocus
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") { e.preventDefault(); handleAddPoojaType(act.id, day.date); }
+                                            if (e.key === "Escape") { setAddingTypeForActId(null); setNewPoojaTypeName(""); }
+                                          }}
+                                        />
+                                        <button
+                                          type="button"
+                                          disabled={addingType || !newPoojaTypeName.trim()}
+                                          onClick={() => handleAddPoojaType(act.id, day.date)}
+                                          className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold disabled:opacity-50 shrink-0 transition-all"
+                                        >
+                                          {addingType ? "…" : "Save"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => { setAddingTypeForActId(null); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                          className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 text-[10px] font-bold shrink-0"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                      {addTypeError && <p className="text-[10px] text-rose-500">{addTypeError}</p>}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center gap-1.5">
+                                      <select
+                                        value={act.poojaType || ""}
+                                        onChange={(e) => updateActivity(day.date, act.id, "poojaType", e.target.value)}
+                                        className={cn(INPUT_CLS, "bg-white cursor-pointer flex-1")}
+                                      >
+                                        <option value="">— Select Type —</option>
+                                        {poojaTypeOptions.map(t => (
+                                          <option key={t.id} value={t.name}>{t.name}</option>
+                                        ))}
+                                      </select>
+                                      <button
+                                        type="button"
+                                        onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
+                                        className="p-[7px] rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition shrink-0 shadow-2xs active:scale-95"
+                                        title="Create new Pooja Type"
+                                      >
+                                        <Plus className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              <div className="w-full sm:w-36">
                                 <FieldLabel required>Start Time (From)</FieldLabel>
                                 <TimePicker
                                   value={act.startTime}

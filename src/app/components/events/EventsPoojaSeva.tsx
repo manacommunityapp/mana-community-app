@@ -1298,7 +1298,6 @@ export function EventsPoojaSeva() {
                 </button>
               </div>
 
-
               {/* Expanded Registrations Table */}
               {isExpanded && (
                 <div className="border-t border-slate-100 bg-slate-50/40 p-3 sm:p-5 space-y-3">
