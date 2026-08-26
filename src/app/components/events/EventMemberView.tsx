@@ -3823,9 +3823,40 @@ export function EventMemberView() {
             onClose={() => {
               setSelectedActivity(null);
               fetchLiveDataFromBackend();
+              loadUserPasses();
             }}
             onSuccess={() => {
+              // Optimistic slot decrement so the count drops immediately
+              if (selectedActivity) {
+                setActivitiesList((prev) =>
+                  prev.map((a) =>
+                    a.id === selectedActivity.id
+                      ? { ...a, availableSeats: Math.max(0, (a.availableSeats ?? 1) - 1) }
+                      : a
+                  )
+                );
+                // Optimistic pass insertion so "Reschedule Slot" appears immediately
+                const actIdStr = String(selectedActivity.id);
+                const optimisticPass: UserPass = {
+                  id: `optimistic-${Date.now()}`,
+                  activityId: actIdStr,
+                  poojaSevaId: actIdStr.replace(/\D/g, "") || undefined,
+                  category: "Pooja",
+                  passType: "Pooja Registration Pass",
+                  title: selectedActivity.title,
+                  participantName: user?.fullName || "Devotee",
+                  regId: `MNA-POOJA-${Date.now()}`,
+                  date: selectedActivity.date || "Upcoming",
+                  time: selectedActivity.time || "Scheduled",
+                  venue: selectedActivity.venue || "Temple",
+                  status: "CONFIRMED",
+                  qrCodeUrl: "",
+                };
+                setPassesList((prev) => [optimisticPass, ...prev]);
+              }
+              // Then refresh from backend to get confirmed data
               fetchLiveDataFromBackend();
+              loadUserPasses();
             }}
           />
         ) : (
