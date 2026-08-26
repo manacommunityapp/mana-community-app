@@ -68,22 +68,22 @@ const FEATURES = [
 function BrandPanel() {
   return (
     <div
-      className="hidden lg:flex flex-col justify-between relative overflow-hidden h-screen sticky top-0 text-white p-7 xl:p-10 select-none border-r border-white/10"
+      className="hidden lg:flex flex-col justify-between relative overflow-hidden h-screen sticky top-0 text-white p-8 xl:p-10 select-none border-r border-white/10"
       style={{
         background: "linear-gradient(160deg, #4f46e5 0%, #4338ca 35%, #3730a3 70%, #1e1b4b 100%)",
       }}
     >
       {/* Decorative ambient glowing orbs */}
       <div
-        className="absolute -top-12 -right-12 w-80 h-80 rounded-full opacity-25 pointer-events-none blur-3xl"
+        className="absolute -top-16 -right-16 w-80 h-80 rounded-full opacity-30 pointer-events-none blur-3xl"
         style={{ background: "radial-gradient(circle, #818cf8, transparent)" }}
       />
       <div
-        className="absolute -bottom-16 -left-16 w-96 h-96 rounded-full opacity-20 pointer-events-none blur-3xl"
+        className="absolute -bottom-20 -left-20 w-96 h-96 rounded-full opacity-25 pointer-events-none blur-3xl"
         style={{ background: "radial-gradient(circle, #c084fc, transparent)" }}
       />
       <div
-        className="absolute inset-0 opacity-[0.07] pointer-events-none"
+        className="absolute inset-0 opacity-[0.06] pointer-events-none"
         style={{
           backgroundImage: "radial-gradient(circle, #ffffff 1px, transparent 1px)",
           backgroundSize: "24px 24px",
@@ -93,24 +93,24 @@ function BrandPanel() {
       {/* Top Header & Brand Logo */}
       <div className="relative z-10">
         <div className="flex items-center gap-3 mb-6 xl:mb-8">
-          <div className="w-10 h-10 bg-white/15 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/25 shadow-lg shadow-black/10">
-            <ShieldCheck className="w-5 h-5 text-white" />
+          <div className="w-11 h-11 bg-white/15 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/25 shadow-lg shadow-black/10">
+            <ShieldCheck className="w-6 h-6 text-white" />
           </div>
           <div>
-            <p className="text-white font-extrabold text-base tracking-tight leading-none">Mana Community</p>
-            <p className="text-indigo-200 text-[11px] font-medium mt-1">Your neighborhood, connected</p>
+            <p className="text-white font-extrabold text-lg tracking-tight leading-none">Mana Community</p>
+            <p className="text-indigo-200 text-xs font-medium mt-1">Your neighborhood, connected</p>
           </div>
         </div>
 
         {/* Hero copy */}
         <div className="mb-6 xl:mb-8">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 mb-3 shadow-sm">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 mb-3 shadow-xs">
             <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
-            <span className="text-[11px] font-bold text-amber-100 tracking-wide">
-              Ganesh Festival 2026 Edition
+            <span className="text-xs font-bold text-amber-100 tracking-wide">
+              Resident Registration Portal
             </span>
           </div>
-          <h1 className="text-white leading-[1.15] mb-2.5 text-2xl xl:text-3xl font-extrabold tracking-tight">
+          <h1 className="text-white leading-[1.15] mb-2.5 text-2xl xl:text-3xl font-black tracking-tight">
             Your community,
             <br />
             <span className="text-amber-300">at your fingertips.</span>
@@ -121,13 +121,13 @@ function BrandPanel() {
         </div>
 
         {/* Feature Highlights */}
-        <div className="space-y-2.5 xl:space-y-3">
+        <div className="space-y-3">
           {FEATURES.map(({ icon: Icon, text }, i) => (
             <div key={i} className="flex items-start gap-3 group">
-              <div className="w-6.5 h-6.5 rounded-lg bg-white/10 group-hover:bg-white/20 transition-colors backdrop-blur-sm flex items-center justify-center shrink-0 border border-white/15 mt-0.5 shadow-sm">
+              <div className="w-7 h-7 rounded-xl bg-white/10 group-hover:bg-white/20 transition-colors backdrop-blur-sm flex items-center justify-center shrink-0 border border-white/15 mt-0.5 shadow-xs">
                 <Icon className="w-3.5 h-3.5 text-amber-200" />
               </div>
-              <p className="text-indigo-50/90 text-xs xl:text-[13px] leading-snug font-medium pt-0.5">{text}</p>
+              <p className="text-indigo-50/90 text-xs xl:text-[13px] leading-snug font-medium pt-1">{text}</p>
             </div>
           ))}
         </div>
@@ -141,7 +141,7 @@ function BrandPanel() {
               {["#4f46e5", "#818cf8", "#10b981", "#ec4899"].map((c, i) => (
                 <div
                   key={i}
-                  className="w-5.5 h-5.5 rounded-full border-2 border-white/60 flex items-center justify-center text-[8.5px] font-bold text-white shadow-sm"
+                  className="w-5.5 h-5.5 rounded-full border-2 border-white/60 flex items-center justify-center text-[8.5px] font-bold text-white shadow-xs"
                   style={{ background: c }}
                 >
                   {["R", "K", "S", "P"][i]}
@@ -160,9 +160,12 @@ function BrandPanel() {
           <p className="text-amber-200 text-[10px] xl:text-[11px] font-semibold mt-1">— Rohan K., Lakshmi's Emperia</p>
         </div>
 
-        <div className="flex items-center justify-center gap-1.5 text-indigo-200/70 text-[11px]">
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-          <span>Verified resident portal</span>
+        <div className="flex items-center justify-between text-indigo-200/70 text-[11px] px-1">
+          <span className="flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+            Verified resident portal
+          </span>
+          <span>v2.4.0</span>
         </div>
       </div>
     </div>
@@ -463,17 +466,17 @@ export function Signup() {
   const labelCls = "block text-[10px] sm:text-xs font-semibold text-foreground/80 mb-1 uppercase tracking-wide";
 
   return (
-    <div className="min-h-screen flex bg-background text-foreground selection:bg-primary/20 overflow-hidden">
+    <div className="h-screen w-screen flex bg-background text-foreground selection:bg-primary/20 overflow-hidden">
       <Toaster position="top-center" richColors />
 
       {/* Left Brand Showcase Panel (Desktop Browser) */}
-      <div className="lg:w-[380px] xl:w-[420px] 2xl:w-[460px] shrink-0">
+      <div className="lg:w-[420px] xl:w-[480px] 2xl:w-[520px] shrink-0">
         <BrandPanel />
       </div>
 
       {/* Right Multi-Step Form Panel (Browser Viewport) */}
       <div
-        className="flex-1 flex flex-col justify-between bg-background h-screen overflow-y-auto relative"
+        className="flex-1 flex flex-col justify-between bg-background h-full overflow-y-auto relative"
         ref={formRef}
       >
         {/* Subtle radial ambient glow */}
