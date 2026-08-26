@@ -453,6 +453,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [existingReg, setExistingReg] = useState<any>(() => event?.existingRegistration || null);
   const isUpdateMode = Boolean(event?.isUpdateMode || existingReg);
   const existingRegId = event?.registrationId || existingReg?.id || (event as any)?.regId;
+  const prasadamAvailable = Boolean((event as any)?.prasadamAvailable);
   const isPoojaCancelled =
     String(event?.status || "").toUpperCase() === "CANCELLED" ||
     String((event as any)?.parentStatus || "").toUpperCase() === "CANCELLED" ||
@@ -832,9 +833,9 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
     setIsSubmitting(true);
     setReservationError(null);
     try {
-      // ── Pre-hold a capacity slot if the live booking engine is wired ──
+      // ── Pre-hold a capacity slot (new registrations only — reschedule handles its own slot swap) ──
       let reservationId: number | undefined;
-      if (selectedScheduleId) {
+      if (selectedScheduleId && !isUpdateMode) {
         const idempotencyKey = (typeof crypto !== "undefined" && crypto.randomUUID)
           ? crypto.randomUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -914,7 +915,29 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         const numericId = typeof existingRegId === "number" ? existingRegId : Number(String(existingRegId).replace(/\D/g, ""));
         if (!isNaN(numericId) && numericId > 0) {
           try {
-            await eventService.updatePoojaRegistration(numericId, regPayload);
+            // C-3: If the user picked a (possibly new) schedule slot, use the reschedule endpoint
+            // which atomically releases the old slot hold and acquires the new one.
+            const existingScheduleId = (existingReg as any)?.scheduleId ?? (event?.existingRegistration as any)?.scheduleId;
+            if (selectedScheduleId && selectedScheduleId !== existingScheduleId) {
+              const rescheduleKey = (typeof crypto !== "undefined" && crypto.randomUUID)
+                ? crypto.randomUUID()
+                : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+              await eventService.rescheduleRegistration(numericId, selectedScheduleId, rescheduleKey);
+            }
+            // Update text fields (name, gotram, prasadamMode, display slot text, etc.)
+            await eventService.updatePoojaRegistration(numericId, {
+              participantName: devoteeName,
+              primaryName: devoteeName,
+              phone: devoteePhone,
+              gotram: gotram?.trim() || undefined,
+              flatNo: devoteeFlat,
+              prasadamMode,
+              poojaSlotName: selectedSlotDisplayName,
+              poojaSlotDate: selectedDateValue,
+              poojaSlotTime: selectedSlotStartTime,
+              venue: venueName,
+              ...(selectedSlot?.timeSlotConfigId ? { poojaSevaTimeSlotsId: selectedSlot.timeSlotConfigId } : {}),
+            } as any);
             showSuccess("🪔 Pooja registration updated successfully!");
           } catch (apiErr: any) {
             const errMsg = apiErr?.response?.data?.message || apiErr?.message || "Failed to update pooja registration.";
@@ -1449,23 +1472,39 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
                   </div>
 
-                  {/* Home Delivery (Disabled) */}
+                  {/* Home Delivery — enabled only when admin has set prasadamAvailable=true */}
                   <div
-                    className="rounded-xl border border-border/60 bg-muted/40 p-2.5 text-left opacity-60 cursor-not-allowed select-none flex items-center justify-between gap-2"
-                    title="Home delivery is not applicable for this pooja seva."
+                    className={`rounded-xl border p-2.5 text-left flex items-center justify-between gap-2 transition-colors ${
+                      prasadamAvailable
+                        ? prasadamMode === "home_delivery"
+                          ? "border-primary bg-primary/10 shadow-2xs cursor-pointer"
+                          : "border-border/80 bg-card hover:border-primary/50 cursor-pointer"
+                        : "border-border/60 bg-muted/40 opacity-60 cursor-not-allowed select-none"
+                    }`}
+                    title={prasadamAvailable ? "" : "Home delivery is not available for this pooja seva."}
+                    onClick={() => prasadamAvailable && setPrasadamMode("home_delivery")}
                   >
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-1.5">
-                        <span className="block text-xs font-bold text-muted-foreground">Home Delivery</span>
-                        <span className="text-[9px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.1 rounded border border-border">
-                          Disabled
+                        <span className={`block text-xs font-bold ${prasadamAvailable ? "text-foreground" : "text-muted-foreground"}`}>
+                          Home Delivery
                         </span>
+                        {!prasadamAvailable && (
+                          <span className="text-[9px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.1 rounded border border-border">
+                            Unavailable
+                          </span>
+                        )}
                       </div>
                       <span className="text-[9.5px] text-muted-foreground block leading-tight">
-                        Doorstep delivery is currently unavailable for this pooja.
+                        {prasadamAvailable
+                          ? "Prasadam will be delivered to your registered address after the ritual."
+                          : "Doorstep delivery is not available for this pooja."}
                       </span>
                     </div>
-                    <div className="w-3.5 h-3.5 rounded-full border border-muted-foreground/40 shrink-0" />
+                    {prasadamAvailable && prasadamMode === "home_delivery"
+                      ? <CheckCircle2 className="w-4.5 h-4.5 text-primary shrink-0" />
+                      : <div className="w-3.5 h-3.5 rounded-full border border-muted-foreground/40 shrink-0" />
+                    }
                   </div>
                 </div>
               </div>

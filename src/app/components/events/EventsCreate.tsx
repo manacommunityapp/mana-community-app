@@ -4319,7 +4319,8 @@ export function EventCreateWizard({
                     const daySlotMatch = Array.isArray(p.timeSlotConfig)
                       ? p.timeSlotConfig.find((ts: any) => ts.slotDate === pDate)
                       : null;
-                    const actTime = daySlotMatch?.startTime || (Array.isArray(p.startTimes) && p.startTimes.length > 0 ? p.startTimes[0] : p.startTime || "08:30");
+                    const firstConfigTime = Array.isArray(p.timeSlotConfig) && p.timeSlotConfig.length > 0 ? (p.timeSlotConfig[0] as any)?.startTime : null;
+                    const actTime = daySlotMatch?.startTime || firstConfigTime || p.startTime || "08:30";
                     const cleanTime = String(actTime).split(/[–-]/)[0].trim();
                     const slotCount = daySlotMatch?.slotCount ? String(daySlotMatch.slotCount) : (p.slots ? String(p.slots) : "50");
 
