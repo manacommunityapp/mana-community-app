@@ -208,6 +208,7 @@ export async function syncActivitiesToScheduleSubmodules(
       const timeSlotConfig = entries.map(e => ({
         slotDate: e.dayDate,
         startTime: e.act.startTime || "08:30",
+        endTime: e.act.endTime || first.endTime || undefined,
         title: e.act.name || poojaTypeName,
         slotCount: parseInt(e.act.slots || "50", 10) || 50,
       }));
