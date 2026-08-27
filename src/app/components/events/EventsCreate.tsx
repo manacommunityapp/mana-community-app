@@ -6,7 +6,7 @@ import {
   Globe, Lock, Building2, Heart, Music, Utensils,
   Briefcase, GraduationCap, Tent, Plus, X, Upload,
   Tag, AlertCircle, Check, Ticket, Eye, FileText,
-  Zap, Star, ArrowRight, Trash2, PlusCircle, Link2, Flame, Copy,
+  Zap, Star, ArrowRight, Trash2, PlusCircle, Link2, Copy,
   Save, Bookmark, XCircle, Mail, CreditCard, QrCode, Phone, User, Info, Loader2,
 } from "lucide-react";
 import { Input } from "../ui/input";
@@ -208,6 +208,7 @@ export async function syncActivitiesToScheduleSubmodules(
       const timeSlotConfig = entries.map(e => ({
         slotDate: e.dayDate,
         startTime: e.act.startTime || "08:30",
+        endTime: e.act.endTime || first.endTime || undefined,
         title: e.act.name || poojaTypeName,
         slotCount: parseInt(e.act.slots || "50", 10) || 50,
       }));
@@ -235,14 +236,10 @@ export async function syncActivitiesToScheduleSubmodules(
         timeSlotConfig: timeSlotConfig,
       };
 
-      try {
-        if (existingSubEventId) {
-          await eventService.updatePoojaSeva(existingSubEventId, payload);
-        } else {
-          await eventService.createPoojaSeva(payload);
-        }
-      } catch (e) {
-        console.warn("Database save consolidated pooja notice:", e);
+      if (existingSubEventId) {
+        await eventService.updatePoojaSeva(existingSubEventId, payload);
+      } else {
+        await eventService.createPoojaSeva(payload);
       }
     }
   }
@@ -257,45 +254,7 @@ export async function syncActivitiesToScheduleSubmodules(
       const feeNum = parseFloat(act.registrationFee || "0") || 0;
       const slotsNum = parseInt(act.slots || "50", 10) || 50;
 
-      if (cat === "Pooja & Seva") {
-        // Auto-register the selected poojaType in event_pooja_types if it doesn't exist yet
-        if (act.poojaType) {
-          try {
-            const existingTypes = await eventService.getPoojaTypes();
-            const typeExists = existingTypes.some((t: { name: string }) => t.name === act.poojaType);
-            if (!typeExists) {
-              await eventService.createPoojaType(act.poojaType);
-            }
-          } catch (e) {
-            console.warn("Pooja type ensure notice:", e);
-          }
-        }
-        const slotTime = act.startTime || "08:30";
-        const payload = {
-          mainEventId: numericEventId,
-          name: act.name,
-          type: act.poojaType || "Pooja",
-          date: day.date,
-          startTime: slotTime,
-          endTime: act.endTime || undefined,
-          mandap: act.venue || "Main Temple Mandap",
-          notes: act.description || "",
-          slots: slotsNum,
-          fee: feeNum,
-          isFree: feeNum === 0,
-          startTimes: [slotTime],
-          timeSlotConfig: [{ slotDate: day.date, startTime: slotTime, slotCount: slotsNum }],
-        };
-        try {
-          if (act.subEventId) {
-            await eventService.updatePoojaSeva(act.subEventId, payload);
-          } else {
-            await eventService.createPoojaSeva(payload);
-          }
-        } catch (e) {
-          console.warn("Database save pooja notice:", e);
-        }
-      } else if (cat === "Lunch" || cat === "Dinner") {
+      if (cat === "Lunch" || cat === "Dinner") {
         const payload = {
           mainEventId: numericEventId,
           name: act.name,
@@ -312,14 +271,10 @@ export async function syncActivitiesToScheduleSubmodules(
           menuItems: ["Mahaprasadam Meal", "Rice", "Curry", "Sweet"],
           notes: act.description || "",
         };
-        try {
-          if (act.subEventId) {
-            await eventService.updateLunchDinner(act.subEventId, payload);
-          } else {
-            await eventService.createLunchDinner(payload);
-          }
-        } catch (e) {
-          console.warn("Database save meal notice:", e);
+        if (act.subEventId) {
+          await eventService.updateLunchDinner(act.subEventId, payload);
+        } else {
+          await eventService.createLunchDinner(payload);
         }
       } else if (cat === "Cultural Events") {
         const payload = {
@@ -334,14 +289,10 @@ export async function syncActivitiesToScheduleSubmodules(
           isFree: feeNum === 0,
           needsRegistration: act.needsRegistration !== false,
         };
-        try {
-          if (act.subEventId) {
-            await eventService.updateCulturalEvent(act.subEventId, payload);
-          } else {
-            await eventService.createCulturalEvent(payload);
-          }
-        } catch (e) {
-          console.warn("Database save cultural notice:", e);
+        if (act.subEventId) {
+          await eventService.updateCulturalEvent(act.subEventId, payload);
+        } else {
+          await eventService.createCulturalEvent(payload);
         }
       } else if (cat === "Competitions") {
         const payload = {
@@ -357,14 +308,10 @@ export async function syncActivitiesToScheduleSubmodules(
           maxParticipants: String(slotsNum),
           needsRegistration: act.needsRegistration !== false,
         };
-        try {
-          if (act.subEventId) {
-            await eventService.updateCompetition(act.subEventId, payload);
-          } else {
-            await eventService.createCompetition(payload);
-          }
-        } catch (e) {
-          console.warn("Database save competition notice:", e);
+        if (act.subEventId) {
+          await eventService.updateCompetition(act.subEventId, payload);
+        } else {
+          await eventService.createCompetition(payload);
         }
       }
     }
@@ -425,8 +372,7 @@ const BUDGET_CATEGORIES = [
 ];
 
 const DEFAULT_TICKET_TYPES: TicketType[] = [
-  { id: "t1", name: "General",   price: "0",   qty: "0", description: "Open for all community members" },
-  { id: "t2", name: "Volunteer", price: "0",   qty: "0", description: "Volunteer registration & duty pass" },
+  { id: "t1", name: "General", price: "0", qty: "0", description: "Open for all community members" },
 ];
 
 const DEFAULT_BUDGET_ITEMS: BudgetItem[] = [
@@ -1010,9 +956,12 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       const pruned = data.daySchedules.filter(ds => ds.date >= val && ds.date <= effectiveEnd);
       const merged = rangedays.map(d => pruned.find(ds => ds.date === d) || { date: d, activities: [] });
       update("daySchedules", merged);
-      if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
-        setExpandedDay(merged[0]?.date || null);
-      }
+      // Always show 1st day
+      setExpandedDay(merged[0]?.date || val);
+    } else {
+      const existingForStart = data.daySchedules.find(ds => ds.date === val);
+      update("daySchedules", existingForStart ? [existingForStart] : [{ date: val, activities: [] }]);
+      setExpandedDay(val);
     }
   };
 
@@ -1024,12 +973,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       const existing = data.daySchedules.filter(ds => ds.date >= data.startDate && ds.date <= val);
       const merged = rangedays.map(d => existing.find(ds => ds.date === d) || { date: d, activities: [] });
       update("daySchedules", merged);
-      // Auto-expand to the first newly added day (no activities yet)
-      const firstNew = merged.find(ds => !data.daySchedules.some(ex => ex.date === ds.date));
-      if (firstNew) {
-        setExpandedDay(firstNew.date);
-      } else if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
-        setExpandedDay(merged[0]?.date || null);
+      // Keep Day 1 (1st day) active
+      if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
+        setExpandedDay(merged[0]?.date || data.startDate);
       }
     }
   };
@@ -1039,22 +985,25 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     update("multiDay", v);
     if (v) {
       const targetStart = data.startDate || new Date().toISOString().split("T")[0];
-      const targetEnd = data.endDate && data.endDate >= targetStart ? data.endDate : targetStart;
-      if (!data.endDate || data.endDate < targetStart) {
-        update("endDate", targetEnd);
-      }
-      // Auto-populate day schedules for every day in the range
-      const rangedays = getDaysBetween(targetStart, targetEnd);
-      const existing = data.daySchedules.filter(ds => ds.date >= targetStart && ds.date <= targetEnd);
-      const merged = rangedays.map(d => existing.find(ds => ds.date === d) || { date: d, activities: [] });
-      update("daySchedules", merged);
-      if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
-        setExpandedDay(merged[0]?.date || null);
+      // Do NOT auto-set endDate. Only sync schedules if valid endDate already exists.
+      if (data.endDate && data.endDate >= targetStart) {
+        const rangedays = getDaysBetween(targetStart, data.endDate);
+        const existing = data.daySchedules.filter(ds => ds.date >= targetStart && ds.date <= data.endDate);
+        const merged = rangedays.map(d => existing.find(ds => ds.date === d) || { date: d, activities: [] });
+        update("daySchedules", merged);
+        setExpandedDay(merged[0]?.date || targetStart);
+      } else {
+        if (targetStart) {
+          const existingForStart = data.daySchedules.find(ds => ds.date === targetStart);
+          update("daySchedules", existingForStart ? [existingForStart] : [{ date: targetStart, activities: [] }]);
+          setExpandedDay(targetStart);
+        }
       }
     } else {
       if (data.startDate) {
         const existingForStart = data.daySchedules.find(ds => ds.date === data.startDate);
         update("daySchedules", existingForStart ? [existingForStart] : []);
+        setExpandedDay(data.startDate);
       }
     }
   };
@@ -1769,110 +1718,6 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   className={cn(INPUT_CLS, "h-9 text-xs bg-white font-bold text-slate-900 border-slate-200")}
                                 />
                               </div>
-                            </div>
-
-                            {/* Row 2: Specialized Section (Pooja Type for Pooja, or Custom Type / Sync info) */}
-                            {isPooja ? (
-                              <div className="p-3 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-1.5">
-                                <div className="flex items-center justify-between">
-                                  <label className="text-[11px] font-extrabold text-amber-900 flex items-center gap-1">
-                                    <Flame className="w-3.5 h-3.5 text-amber-600" /> Pooja &amp; Seva Type
-                                  </label>
-                                  {addingTypeForActId !== act.id && (
-                                    <button
-                                      type="button"
-                                      onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                      className="text-[10.5px] font-bold text-amber-700 hover:text-amber-900 hover:underline flex items-center gap-0.5 cursor-pointer"
-                                    >
-                                      <Plus className="w-3 h-3" /> Add Custom Type
-                                    </button>
-                                  )}
-                                </div>
-
-                                {addingTypeForActId === act.id ? (
-                                  <div className="space-y-1.5 pt-0.5">
-                                    <div className="flex gap-1.5">
-                                      <Input
-                                        value={newPoojaTypeName}
-                                        onChange={(e) => { setNewPoojaTypeName(e.target.value); setAddTypeError(""); }}
-                                        placeholder="e.g. Navagraha Homam, Deeparadhana..."
-                                        className={cn(INPUT_CLS, "bg-white flex-1 h-8.5 text-xs font-bold border-amber-300")}
-                                        autoFocus
-                                        onKeyDown={(e) => {
-                                          if (e.key === "Enter") { e.preventDefault(); handleAddPoojaType(act.id, day.date); }
-                                          if (e.key === "Escape") { setAddingTypeForActId(null); setNewPoojaTypeName(""); }
-                                        }}
-                                      />
-                                      <Button
-                                        type="button"
-                                        size="sm"
-                                        disabled={addingType || !newPoojaTypeName.trim()}
-                                        onClick={() => handleAddPoojaType(act.id, day.date)}
-                                        className="h-8.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold disabled:opacity-50 shrink-0 shadow-xs cursor-pointer"
-                                      >
-                                        {addingType ? "…" : "Save"}
-                                      </Button>
-                                      <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => { setAddingTypeForActId(null); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                        className="h-8.5 px-2 rounded-xl bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold shrink-0 border-slate-200"
-                                      >
-                                        <X className="w-3.5 h-3.5" />
-                                      </Button>
-                                    </div>
-                                    {addTypeError && <p className="text-[10px] font-bold text-rose-600">{addTypeError}</p>}
-                                  </div>
-                                ) : (
-                                  <div className="space-y-1.5">
-                                    <div className="flex items-center gap-1.5">
-                                      <select
-                                        value={act.poojaType || ""}
-                                        onChange={(e) => updateActivity(day.date, act.id, "poojaType", e.target.value)}
-                                        className="flex-1 h-9 px-3 rounded-xl bg-white border border-amber-300 text-xs font-bold text-slate-800 outline-none focus:ring-2 focus:ring-amber-200 cursor-pointer shadow-2xs"
-                                      >
-                                        <option value="">— Select Pooja / Seva Type —</option>
-                                        {poojaTypeOptions.length > 0 ? (
-                                          poojaTypeOptions.map(t => (
-                                            <option key={t.id} value={t.name}>{t.name}</option>
-                                          ))
-                                        ) : (
-                                          <>
-                                            <option value="Maha Pooja">Maha Pooja</option>
-                                            <option value="Archana & Deeparadhana">Archana &amp; Deeparadhana</option>
-                                            <option value="Rudrabhishekam">Rudrabhishekam</option>
-                                            <option value="Homam & Havan">Homam &amp; Havan</option>
-                                            <option value="Maha Sankalpam">Maha Sankalpam</option>
-                                            <option value="Mahamangal Aarti">Mahamangal Aarti</option>
-                                            <option value="Sri Satyanarayana Vratham">Sri Satyanarayana Vratham</option>
-                                            <option value="Special Seva">Special Seva</option>
-                                          </>
-                                        )}
-                                      </select>
-                                      <button
-                                        type="button"
-                                        onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                        className="h-9 px-2.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 text-xs font-bold flex items-center gap-1 transition shadow-2xs active:scale-95 cursor-pointer shrink-0"
-                                        title="Add new Pooja Type"
-                                      >
-                                        <Plus className="w-3.5 h-3.5" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            ) : isOtherCategory ? (
-                              <div>
-                                <FieldLabel required>Custom Type Name</FieldLabel>
-                                <Input
-                                  value={act.customType || ""}
-                                  onChange={(e) => updateActivity(day.date, act.id, "customType", e.target.value)}
-                                  placeholder="e.g. Sports / Workshop / Stage Play"
-                                  className={cn(INPUT_CLS, "h-9 text-xs bg-white font-medium")}
-                                />
-                              </div>
-                            ) : null}
 
                               {/* Pooja Type — only for Pooja & Seva, beside Activity Title */}
                               {currentCategory === "Pooja & Seva" && (
@@ -2175,10 +2020,10 @@ function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormDa
         </div>
 
         <div className="sm:w-64">
-          <FieldLabel hint="Optional">Max Capacity (Attendees)</FieldLabel>
+          <FieldLabel required>Max Capacity (Attendees)</FieldLabel>
           <Input
             type="number"
-            min={0}
+            min={1}
             value={data.capacity}
             onKeyDown={(e) => {
               if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
@@ -2190,7 +2035,7 @@ function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormDa
               update("capacity", val === "" ? "" : sanitized);
             }}
             placeholder="e.g. 500"
-            className={INPUT_CLS}
+            className={cn(INPUT_CLS, reqCls(!data.capacity || parseInt(data.capacity, 10) <= 0))}
           />
           <p className="text-[10px] text-slate-400 mt-1">Maximum estimated seating capacity or attendee limit.</p>
         </div>
@@ -2312,13 +2157,9 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
           <div>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h4 className="text-sm font-bold text-slate-700">Ticket Categories</h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">Define different registration tiers from database categories</p>
+                <h4 className="text-sm font-bold text-slate-700">Ticket Category</h4>
+                <p className="text-[11px] text-slate-400 mt-0.5">Define registration category tier from database categories</p>
               </div>
-              <button onClick={addTicket}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-all cursor-pointer">
-                <Plus className="w-3.5 h-3.5" /> Add Category Tier
-              </button>
             </div>
 
             {maxEventCapacity > 0 && (
@@ -2368,23 +2209,16 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
               </div>
             )}
             <div className="space-y-3">
-              {data.ticketTypes.map((ticket, i) => (
+              {(data.ticketTypes.length > 0 ? data.ticketTypes.slice(0, 1) : DEFAULT_TICKET_TYPES).map((ticket, i) => (
                 <div key={ticket.id}
                   className="p-3 sm:p-5 bg-white rounded-xl border border-slate-200 space-y-3 sm:space-y-4 hover:border-slate-300 transition-colors group animate-fade-in-up">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                        style={{ background: i === 0 ? "#eef2ff" : i === 1 ? "#fef9ee" : "#f0fdf4" }}>
-                        <Star className="w-3.5 h-3.5" style={{ color: i === 0 ? "#4f46e5" : i === 1 ? "#d97706" : "#059669" }} />
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center bg-indigo-50">
+                        <Star className="w-3.5 h-3.5 text-indigo-600" />
                       </div>
-                      <span className="text-xs font-black text-slate-400 uppercase tracking-wider">Category {i + 1}</span>
+                      <span className="text-xs font-black text-slate-500 uppercase tracking-wider">Category 1</span>
                     </div>
-                    {data.ticketTypes.length > 1 && (
-                      <button onClick={() => removeTicket(ticket.id)}
-                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-500 transition-all p-1 rounded-lg hover:bg-rose-50 cursor-pointer">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
@@ -4164,9 +3998,9 @@ export function fromEventToFormData(ev: any): FormData {
     : "100";
 
   const ticketTypes: TicketType[] = rawTicketTypes.length > 0
-    ? rawTicketTypes.map((t: any, i: number) => ({
+    ? rawTicketTypes.slice(0, 1).map((t: any, i: number) => ({
         id: t.id || `t${i + 1}`,
-        name: t.name || (i === 0 ? "General" : `Tier ${i + 1}`),
+        name: t.name || "General",
         price: String(t.price ?? "0"),
         qty: String(t.capacity ?? t.seats ?? t.qty ?? t.maxSeats ?? savedCapacity ?? "100"),
         description: t.description || "",
@@ -4436,7 +4270,7 @@ export function EventCreateWizard({
   const [publishError, setPublishError] = useState("");
   const [loadingEvent, setLoadingEvent] = useState(false);
 
-  let useMock = true;
+  let useMock = false;
   try { useMock = useEventMock().useMock; } catch {}
 
   const [formData, setFormData] = useState<FormData>(() => {
@@ -4725,6 +4559,10 @@ export function EventCreateWizard({
       if (!formData.venueName?.trim()) return "Venue name is required.";
       if (!formData.city?.trim()) return "City is required.";
       if (!formData.venueAddress?.trim()) return "Venue address is required.";
+      const parsedCap = formData.capacity ? parseInt(formData.capacity, 10) : 0;
+      if (!formData.capacity || isNaN(parsedCap) || parsedCap <= 0) {
+        return "Max Capacity (Attendees) is required and must be greater than 0.";
+      }
     }
     if (currentStep === 4) {
       if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
@@ -4770,6 +4608,10 @@ export function EventCreateWizard({
     if (!formData.venueName?.trim()) return "Venue name is required.";
     if (!formData.city?.trim()) return "City is required.";
     if (!formData.venueAddress?.trim()) return "Venue address is required.";
+    const parsedCap = formData.capacity ? parseInt(formData.capacity, 10) : 0;
+    if (!formData.capacity || isNaN(parsedCap) || parsedCap <= 0) {
+      return "Max Capacity (Attendees) is required and must be greater than 0.";
+    }
 
     // Step 4 — Registration
     if (isDeadlineInvalid) return `Registration deadline must be on or before the event start date (${formData.startDate}).`;
