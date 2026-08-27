@@ -1009,9 +1009,12 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       const pruned = data.daySchedules.filter(ds => ds.date >= val && ds.date <= effectiveEnd);
       const merged = rangedays.map(d => pruned.find(ds => ds.date === d) || { date: d, activities: [] });
       update("daySchedules", merged);
-      if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
-        setExpandedDay(merged[0]?.date || null);
-      }
+      // Always show 1st day
+      setExpandedDay(merged[0]?.date || val);
+    } else {
+      const existingForStart = data.daySchedules.find(ds => ds.date === val);
+      update("daySchedules", existingForStart ? [existingForStart] : [{ date: val, activities: [] }]);
+      setExpandedDay(val);
     }
   };
 
@@ -1023,12 +1026,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       const existing = data.daySchedules.filter(ds => ds.date >= data.startDate && ds.date <= val);
       const merged = rangedays.map(d => existing.find(ds => ds.date === d) || { date: d, activities: [] });
       update("daySchedules", merged);
-      // Auto-expand to the first newly added day (no activities yet)
-      const firstNew = merged.find(ds => !data.daySchedules.some(ex => ex.date === ds.date));
-      if (firstNew) {
-        setExpandedDay(firstNew.date);
-      } else if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
-        setExpandedDay(merged[0]?.date || null);
+      // Keep Day 1 (1st day) active
+      if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
+        setExpandedDay(merged[0]?.date || data.startDate);
       }
     }
   };
@@ -1044,9 +1044,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         const existing = data.daySchedules.filter(ds => ds.date >= targetStart && ds.date <= data.endDate);
         const merged = rangedays.map(d => existing.find(ds => ds.date === d) || { date: d, activities: [] });
         update("daySchedules", merged);
-        if (!expandedDay || !merged.some(ds => ds.date === expandedDay)) {
-          setExpandedDay(merged[0]?.date || null);
-        }
+        setExpandedDay(merged[0]?.date || targetStart);
       } else {
         if (targetStart) {
           const existingForStart = data.daySchedules.find(ds => ds.date === targetStart);
@@ -1058,6 +1056,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       if (data.startDate) {
         const existingForStart = data.daySchedules.find(ds => ds.date === data.startDate);
         update("daySchedules", existingForStart ? [existingForStart] : []);
+        setExpandedDay(data.startDate);
       }
     }
   };
