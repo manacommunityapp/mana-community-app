@@ -1107,6 +1107,9 @@ export function EventMemberView() {
             devoteeCount: attendeeCount,
             attendingDevotees: r.attendingDevotees,
             gotram: r.gotram,
+            tokenNumber: r.tokenNumber,
+            registrationStatus: r.status,
+            registrationSource: r.registrationSource,
             regId: r.regCode || `MNA-2026-${r.id}`,
             date: r.eventDate || (parentEvent?.startDate ? String(parentEvent.startDate) : "Upcoming"),
             time: r.eventTime || (parentEvent?.startTime ? String(parentEvent.startTime) : "Scheduled"),
@@ -2903,8 +2906,44 @@ export function EventMemberView() {
 
                         <div className="text-xs text-muted-foreground space-y-1">
                           <p>Attendee: <strong className="text-foreground">{p.participantName}</strong></p>
+                          {(p as any).gotram && <p>Gotram: <strong className="text-foreground">{(p as any).gotram}</strong></p>}
                           <p>Date &amp; Time: <strong className="text-foreground">{p.date} • {p.time}</strong></p>
-                          <p className="font-mono text-[10.5px] text-muted-foreground/80">Reg ID: {p.regId}</p>
+                          <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                            <span className="font-mono text-[10.5px] text-muted-foreground/80">Reg ID: {p.regId}</span>
+                            {(p as any).tokenNumber && (
+                              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200">
+                                🎫 Token #{(p as any).tokenNumber}
+                              </span>
+                            )}
+                          </div>
+                          {/* Full lifecycle status badge */}
+                          {(() => {
+                            const s = String((p as any).registrationStatus || p.status || "CONFIRMED");
+                            const cfg: Record<string, string> = {
+                              CONFIRMED:   "bg-emerald-50 text-emerald-700 border-emerald-200",
+                              CHECKED_IN:  "bg-teal-50 text-teal-700 border-teal-200",
+                              IN_PROGRESS: "bg-blue-50 text-blue-700 border-blue-200",
+                              COMPLETED:   "bg-indigo-50 text-indigo-700 border-indigo-200",
+                              RESCHEDULED: "bg-violet-50 text-violet-700 border-violet-200",
+                              PENDING:     "bg-amber-50 text-amber-700 border-amber-200",
+                              NO_SHOW:     "bg-orange-50 text-orange-700 border-orange-200",
+                              EXPIRED:     "bg-slate-100 text-slate-500 border-slate-200",
+                              CANCELLED:   "bg-rose-50 text-rose-700 border-rose-200",
+                            };
+                            const cls = cfg[s] ?? "bg-muted/50 text-muted-foreground border-border";
+                            return (
+                              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${cls}`}>
+                                  {s}
+                                </span>
+                                {(p as any).registrationSource === "ADMIN" && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-extrabold bg-violet-50 text-violet-700 border border-violet-200">
+                                    Admin-registered
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
                           {p.transactionId && (
                             <p className="font-mono text-[10px] text-indigo-600 dark:text-indigo-400">
                               Txn: {p.transactionId}

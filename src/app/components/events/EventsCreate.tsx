@@ -433,6 +433,7 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
       <div>
         <FieldLabel required>Event Title</FieldLabel>
         <Input
+          data-testid="event-title-input"
           value={data.title}
           onChange={e => update("title", e.target.value)}
           placeholder="e.g. Ganesh Chaturthi 2026 – Grand Celebration"
@@ -456,6 +457,7 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
                 update("category", t.label);
               }}
                 type="button"
+                data-testid={`event-type-${t.value}`}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10.5px] font-semibold transition-all duration-150 cursor-pointer"
                 style={{
                   borderColor: selected ? t.color : "#E2E8F0",
@@ -478,6 +480,7 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
         <div className="flex flex-col">
           <FieldLabel required hint={`${data.description.length}/1000`}>Description</FieldLabel>
           <Textarea 
+            data-testid="event-description-input"
             value={data.description} 
             onChange={e => update("description", e.target.value)} 
             rows={5}
@@ -500,6 +503,7 @@ function Step1Basics({ data, update }: { data: FormData; update: (k: keyof FormD
                 <button 
                   key={opt.value} 
                   type="button"
+                  data-testid={`event-visibility-${opt.value}`}
                   onClick={() => update("visibility", opt.value)}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all duration-150 flex-1 hover:border-slate-300 cursor-pointer"
                   style={{
@@ -1222,7 +1226,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         </div>
         <div className="flex items-center gap-2 self-end sm:self-auto">
           <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">{data.multiDay ? "Multi-Day Schedule" : "Single Day"}</span>
-          <Switch checked={data.multiDay} onCheckedChange={handleMultiDayToggle} />
+          <Switch data-testid="event-multi-day-switch" checked={data.multiDay} onCheckedChange={handleMultiDayToggle} />
         </div>
       </div>
 
@@ -1234,6 +1238,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         <div>
           <FieldLabel required>{data.multiDay ? "Start Date" : "Event Date"}</FieldLabel>
           <DatePicker
+            id="event-start-date"
             value={data.startDate}
             onChange={v => handleStartDate(v)}
             size="sm"
@@ -1244,6 +1249,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
           <div className="animate-fade-in-up">
             <FieldLabel required>End Date</FieldLabel>
             <DatePicker
+              id="event-end-date"
               value={data.endDate}
               min={data.startDate || undefined}
               onChange={v => handleEndDate(v)}
@@ -1263,6 +1269,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         <div>
           <FieldLabel required>Start Time</FieldLabel>
           <TimePicker
+            id="event-start-time"
             value={data.startTime}
             onChange={v => update("startTime", v)}
             size="sm"
@@ -1272,6 +1279,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
         <div>
           <FieldLabel required>End Time</FieldLabel>
           <TimePicker
+            id="event-end-time"
             value={data.endTime}
             onChange={v => update("endTime", v)}
             size="sm"
@@ -1353,6 +1361,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                   <button
                     key={day.date}
                     type="button"
+                    data-testid={`event-day-tab-${day.date}`}
                     onClick={() => setExpandedDay(day.date)}
                     className={cn(
                       "flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0",
@@ -1472,6 +1481,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                     <div className="flex items-center gap-2 flex-wrap">
                       <Button
                         type="button"
+                        data-testid={`event-add-activity-${day.date}`}
                         size="sm"
                         onClick={() => addActivity(day.date)}
                         className="h-8 px-3 text-xs font-bold bg-white text-indigo-950 hover:bg-indigo-50 rounded-xl shadow-xs gap-1.5 cursor-pointer"
@@ -1563,6 +1573,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                       return (
                         <div
                           key={act.id}
+                          data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}`}
                           className={cn(
                             "relative rounded-2xl border transition-all shadow-xs overflow-hidden",
                             isPooja
@@ -1649,6 +1660,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   </span>
                                 </div>
                                 <select
+                                  data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-category`}
                                   value={currentCategory}
                                   onChange={(e) => {
                                     const newCat = e.target.value;
@@ -1712,6 +1724,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   </FieldLabel>
                                 </div>
                                 <Input
+                                  data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-title`}
                                   value={act.name}
                                   onChange={(e) => updateActivity(day.date, act.id, "name", e.target.value)}
                                   placeholder={isPooja ? "e.g. Maha Ganapathi Homam & Sankalpam" : "e.g. Classical Dance / Drawing Contest"}
@@ -1769,6 +1782,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   ) : (
                                     <div className="flex items-center gap-1.5">
                                       <select
+                                        data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-pooja-type`}
                                         value={act.poojaType || ""}
                                         onChange={(e) => updateActivity(day.date, act.id, "poojaType", e.target.value)}
                                         className={cn(INPUT_CLS, "bg-white cursor-pointer flex-1")}
@@ -1794,6 +1808,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               <div className="w-full sm:w-36">
                                 <FieldLabel required>Start Time (From)</FieldLabel>
                                 <TimePicker
+                                  id={`event-activity-${dayIdx + 1}-${actIdx + 1}-start-time`}
                                   value={act.startTime}
                                   onChange={(v) => updateActivity(day.date, act.id, "startTime", v)}
                                   size="sm"
@@ -1803,6 +1818,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               <div>
                                 <FieldLabel required>End Time (To)</FieldLabel>
                                 <TimePicker
+                                  id={`event-activity-${dayIdx + 1}-${actIdx + 1}-end-time`}
                                   value={act.endTime}
                                   onChange={(v) => updateActivity(day.date, act.id, "endTime", v)}
                                   size="sm"
@@ -1853,6 +1869,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                     <div className="relative">
                                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
                                       <Input
+                                        data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-fee`}
                                         type="text"
                                         value={act.registrationFee ?? "0"}
                                         onChange={(e) => updateActivity(day.date, act.id, "registrationFee", e.target.value)}
@@ -1870,6 +1887,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                         <Users className="w-3.5 h-3.5" />
                                       </span>
                                       <Input
+                                        data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-slots`}
                                         type="number"
                                         value={act.slots ?? "50"}
                                         onChange={(e) => updateActivity(day.date, act.id, "slots", e.target.value)}
@@ -1887,6 +1905,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               <div>
                                 <FieldLabel>{isPooja ? "Mandap / Sacred Venue" : "Stage / Location Venue"}</FieldLabel>
                                 <Input
+                                  data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-venue`}
                                   value={act.venue || ""}
                                   onChange={(e) => updateActivity(day.date, act.id, "venue", e.target.value)}
                                   placeholder={isPooja ? "e.g. Main Temple Mandap / Homa Kundam" : "e.g. Community Stage / Dining Hall"}
@@ -1896,6 +1915,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               <div>
                                 <FieldLabel>{isPooja ? "Devotee Samagri & Special Instructions" : "Description & Instructions"}</FieldLabel>
                                 <Input
+                                  data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-description`}
                                   value={act.description}
                                   onChange={(e) => updateActivity(day.date, act.id, "description", e.target.value)}
                                   placeholder={isPooja ? "e.g. Devotees to bring coconuts & flowers; traditional attire" : "e.g. Arrive 15 mins prior for registration"}
@@ -1991,6 +2011,7 @@ function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormDa
           <div>
             <FieldLabel required>Venue Name</FieldLabel>
             <Input
+              data-testid="event-venue-name-input"
               value={data.venueName}
               onChange={e => update("venueName", e.target.value)}
               placeholder="e.g. Community Hall, Society Ground, Main Temple Mandap"
@@ -2000,6 +2021,7 @@ function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormDa
           <div>
             <FieldLabel required>City</FieldLabel>
             <Input
+              data-testid="event-city-input"
               value={data.city}
               onChange={e => update("city", e.target.value)}
               placeholder="e.g. Hyderabad, Bengaluru, Mumbai"
@@ -2011,6 +2033,7 @@ function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormDa
         <div>
           <FieldLabel required>Address</FieldLabel>
           <Textarea
+            data-testid="event-venue-address-input"
             value={data.venueAddress}
             onChange={e => update("venueAddress", e.target.value)}
             rows={3}
@@ -2022,6 +2045,7 @@ function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormDa
         <div className="sm:w-64">
           <FieldLabel required>Max Capacity (Attendees)</FieldLabel>
           <Input
+            data-testid="event-capacity-input"
             type="number"
             min={1}
             value={data.capacity}
@@ -2131,6 +2155,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
               Registration Deadline
             </FieldLabel>
             <DatePicker
+              id="event-registration-deadline"
               value={data.registrationDeadline}
               max={maxDeadlineDate}
               onChange={v => update("registrationDeadline", v)}
@@ -2274,6 +2299,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
                         </div>
                       ) : (
                         <select
+                          data-testid="event-ticket-category-select"
                           value={ticket.name}
                           onChange={e => updateTicket(ticket.id, "name", e.target.value)}
                           className={cn(INPUT_CLS, "bg-white cursor-pointer font-medium")}
@@ -2293,6 +2319,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
                     <div>
                       <FieldLabel>Price (₹)</FieldLabel>
                       <Input
+                        data-testid="event-ticket-price-input"
                         type="number"
                         min={0}
                         value={ticket.price}
@@ -2312,6 +2339,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
                     <div>
                       <FieldLabel>Seats</FieldLabel>
                       <Input
+                        data-testid="event-ticket-seats-input"
                         type="number"
                         min={0}
                         value={ticket.qty}
@@ -2332,6 +2360,7 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
                   <div>
                     <FieldLabel>Description</FieldLabel>
                     <Input value={ticket.description} onChange={e => updateTicket(ticket.id, "description", e.target.value)}
+                      data-testid="event-ticket-description-input"
                       placeholder="What's included for this category?" className={INPUT_CLS} />
                   </div>
                 </div>
@@ -2437,6 +2466,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div
+            data-testid="event-payment-online"
             onClick={() => update("enableOnlinePayment", true)}
             className={cn(
               "p-3 rounded-xl border cursor-pointer transition-all flex items-start gap-2.5 select-none",
@@ -2465,6 +2495,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
           </div>
 
           <div
+            data-testid="event-payment-manual"
             onClick={() => {
               update("enableOnlinePayment", false);
               update("paymentModes", ["Cash"]);
@@ -2703,6 +2734,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
 
         <div>
           <Textarea
+            data-testid="event-notes-input"
             rows={3}
             value={data.notes}
             onChange={(e) => update("notes", e.target.value)}
@@ -2734,6 +2766,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
 
           <button
             type="button"
+            data-testid="event-add-contact-button"
             onClick={addContact}
             className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-[11px] font-bold transition-all cursor-pointer shadow-2xs shrink-0"
           >
@@ -2746,6 +2779,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
           {(data.contacts || []).map((contact, idx) => (
             <div
               key={contact.id || idx}
+              data-testid={`event-contact-${idx + 1}`}
               className="p-2.5 sm:p-3 rounded-xl bg-slate-50/80 border border-slate-200/80 hover:border-slate-300 transition-all space-y-2"
             >
               <div className="flex items-center justify-between">
@@ -2771,6 +2805,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
                     Full Name <span className="text-rose-500">*</span>
                   </label>
                   <Input
+                    data-testid={`event-contact-${idx + 1}-name`}
                     value={contact.name}
                     onChange={(e) => updateContact(contact.id, "name", e.target.value)}
                     placeholder="e.g. Ramesh Sharma"
@@ -2783,6 +2818,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
                     Phone / Mobile <span className="text-rose-500">*</span>
                   </label>
                   <Input
+                    data-testid={`event-contact-${idx + 1}-phone`}
                     value={contact.phone}
                     onChange={(e) => updateContact(contact.id, "phone", e.target.value)}
                     placeholder="+91 98765 43210"
@@ -2795,6 +2831,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
                     Role / Committee
                   </label>
                   <Input
+                    data-testid={`event-contact-${idx + 1}-role`}
                     value={contact.role}
                     onChange={(e) => updateContact(contact.id, "role", e.target.value)}
                     placeholder="e.g. Coordinator, Food Lead"
@@ -2807,6 +2844,7 @@ function Step4PaymentAndContacts({ data, update }: { data: FormData; update: (k:
                     Notes
                   </label>
                   <Input
+                    data-testid={`event-contact-${idx + 1}-notes`}
                     value={contact.notes || ""}
                     onChange={(e) => updateContact(contact.id, "notes", e.target.value)}
                     placeholder="e.g. Available at helpdesk after 6 PM"

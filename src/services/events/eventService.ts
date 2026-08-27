@@ -197,6 +197,64 @@ export interface PoojaRegistrationRequest {
   reservationId?: number;
   poojaSevaTimeSlotsId?: number;
   targetUserId?: number;
+  // Audit fields (set by backend; present on responses)
+  registrationSource?: "SELF" | "ADMIN" | "IMPORT";
+  registeredBy?: number;
+  overrideUsed?: boolean;
+  overrideReason?: string;
+}
+
+/** Request body for POST /api/events/pooja-registrations/admin-create */
+export interface AdminPoojaRegistrationRequest {
+  targetUserId: number;
+  overrideReason?: string;
+  eventId?: number;
+  scheduleId?: number;
+  reservationId?: number;
+  poojaSevaTimeSlotsId?: number;
+  poojaSlotName?: string;
+  poojaSlotDate?: string;
+  poojaSlotTime?: string;
+  participantName: string;
+  gotram?: string;
+  phone?: string;
+  email?: string;
+  flatNo?: string;
+  devoteeCount?: number;
+  attendingDevotees?: string;
+  venue?: string;
+  mandap?: string;
+  panditName?: string;
+  bookingFee?: number;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  prasadamMode?: string;
+  status?: string;
+  notes?: string;
+}
+
+/** A single devotee row from event_pooja_booking_participants */
+export interface PoojaBookingParticipant {
+  id: number;
+  registrationId: number;
+  name: string;
+  gotram?: string;
+  nakshatra?: string;
+  relation?: string;
+  qrCodeUrl?: string;
+  checkedIn: boolean;
+  checkedInAt?: string;
+  createdAt: string;
+}
+
+/** Minimal user projection returned by GET /api/events/pooja-registrations/admin/user-search */
+export interface UserSearchResult {
+  id: number;
+  fullName?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  flatNo?: string;
 }
 
 export interface PoojaScheduleDto {
@@ -721,10 +779,52 @@ export const eventService = {
 
   async adminCreateRegistration(data: any): Promise<any> {
     if (data?.category?.toLowerCase() === "pooja") {
-      const targetParam = data.targetUserId ? `&targetUserId=${data.targetUserId}` : "";
-      return apiClient.post<any>(`/events/pooja-registrations?adminOverride=true${targetParam}`, data);
+      // Use the dedicated admin-create endpoint so targetUserId/overrideReason travel in the body
+      const body: AdminPoojaRegistrationRequest = {
+        targetUserId: data.targetUserId,
+        overrideReason: data.overrideReason,
+        eventId: data.eventId,
+        scheduleId: data.scheduleId,
+        reservationId: data.reservationId,
+        poojaSevaTimeSlotsId: data.poojaSevaTimeSlotsId,
+        poojaSlotName: data.poojaSlotName || data.activityTitle,
+        poojaSlotDate: data.poojaSlotDate || data.eventDate,
+        poojaSlotTime: data.poojaSlotTime || data.eventTime,
+        participantName: data.participantName || data.primaryName || "",
+        gotram: data.gotram,
+        phone: data.phone,
+        email: data.email,
+        flatNo: data.flatNo,
+        devoteeCount: data.devoteeCount,
+        attendingDevotees: data.attendingDevotees,
+        venue: data.venue,
+        bookingFee: data.bookingFee,
+        paymentStatus: data.paymentStatus,
+        paymentMethod: data.paymentMethod,
+        prasadamMode: data.prasadamMode,
+        status: data.status,
+        notes: data.notes,
+      };
+      return apiClient.post<any>("/events/pooja-registrations/admin-create", body);
     }
     return apiClient.post<any>("/events/registrations?adminOverride=true", data);
+  },
+
+  /** Search community members by name — used by admin manual registration picker. */
+  async searchCommunityUsers(query: string, communityId?: number): Promise<UserSearchResult[]> {
+    const qs = new URLSearchParams({ q: query || "" });
+    if (communityId) qs.set("communityId", String(communityId));
+    return apiClient.get<UserSearchResult[]>(`/events/pooja-registrations/admin/user-search?${qs}`);
+  },
+
+  /** Fetch the normalized participant rows for a Pooja registration. */
+  async getPoojaRegistrationParticipants(registrationId: number): Promise<PoojaBookingParticipant[]> {
+    return apiClient.get<PoojaBookingParticipant[]>(`/events/pooja-registrations/${registrationId}/participants`);
+  },
+
+  /** Update the status of a config-level time slot (OPEN / BLOCKED / CLOSED). */
+  async updatePoojaTimeSlotStatus(slotId: number, status: "OPEN" | "BLOCKED" | "CLOSED"): Promise<any> {
+    return apiClient.patch<any>(`/events/pooja-sevas/time-slots/${slotId}/status`, { status });
   },
 
   async getSchedulesByPooja(poojaId: number): Promise<PoojaScheduleDto[]> {

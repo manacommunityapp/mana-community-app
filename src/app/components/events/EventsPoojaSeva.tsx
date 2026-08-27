@@ -8,10 +8,10 @@ import {
 
 import { toast } from "sonner";
 import { useEventMock } from "./EventMockToggle";
-import { eventService, type EventResponse, type PoojaScheduleDto } from "../../../services/events/eventService";
+import { eventService, type EventResponse, type PoojaScheduleDto, type UserSearchResult } from "../../../services/events/eventService";
 import { TimePicker, TimeSelect } from "../ui/time-picker";
 
-type TimeSlotEntry = { id?: number; slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number };
+type TimeSlotEntry = { id?: number; slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number; status?: "OPEN" | "BLOCKED" | "CLOSED" };
 
 type PoojaSeva = {
   id: number;
@@ -57,6 +57,12 @@ type BookingRegistration = {
   email?: string;
   notes?: string;
   createdAt: string;
+  // Audit fields from backend
+  registrationSource?: "SELF" | "ADMIN" | "IMPORT";
+  registeredBy?: number;
+  overrideUsed?: boolean;
+  overrideReason?: string;
+  tokenNumber?: number;
 };
 
 const DEFAULT_POOJA_TYPES = [
@@ -117,6 +123,8 @@ const emptyRegForm = {
   paymentStatus: "PAID",
   status: "CONFIRMED",
   notes: "",
+  overrideReason: "",
+  targetUserId: undefined as number | undefined,
 };
 
 export function EventsPoojaSeva() {
@@ -154,6 +162,26 @@ export function EventsPoojaSeva() {
   const [regSelectedScheduleId, setRegSelectedScheduleId] = useState<number | null>(null);
   const [regSchedulesLoading, setRegSchedulesLoading] = useState(false);
   const [regSchedules, setRegSchedules] = useState<PoojaScheduleDto[]>([]);
+
+  // Participants panel state (per registration row)
+  const [expandedParticipantRegId, setExpandedParticipantRegId] = useState<number | null>(null);
+  const [participantsByRegId, setParticipantsByRegId] = useState<Record<number, any[]>>({});
+  const [participantsLoading, setParticipantsLoading] = useState<Record<number, boolean>>({});
+
+  const loadParticipants = (regId: number) => {
+    if (participantsByRegId[regId] !== undefined) return; // already fetched
+    setParticipantsLoading(prev => ({ ...prev, [regId]: true }));
+    eventService.getPoojaRegistrationParticipants(regId)
+      .then(rows => setParticipantsByRegId(prev => ({ ...prev, [regId]: rows || [] })))
+      .catch(() => setParticipantsByRegId(prev => ({ ...prev, [regId]: [] })))
+      .finally(() => setParticipantsLoading(prev => ({ ...prev, [regId]: false })));
+  };
+
+  // Admin user-search state (for admin-create flow)
+  const [userSearchQuery, setUserSearchQuery] = useState("");
+  const [userSearchResults, setUserSearchResults] = useState<UserSearchResult[]>([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const [selectedTargetUser, setSelectedTargetUser] = useState<UserSearchResult | null>(null);
 
   // Per-pooja search and status filter state
   const [regSearch, setRegSearch] = useState<Record<number, string>>({});
@@ -619,11 +647,29 @@ export function EventsPoojaSeva() {
     fetchRegSchedules(pooja);
   };
 
+  const handleUserSearch = async (q: string) => {
+    setUserSearchQuery(q);
+    if (!q.trim() || q.trim().length < 2) { setUserSearchResults([]); return; }
+    setUserSearchLoading(true);
+    try {
+      const results = await eventService.searchCommunityUsers(q.trim());
+      setUserSearchResults(results || []);
+    } catch {
+      setUserSearchResults([]);
+    } finally {
+      setUserSearchLoading(false);
+    }
+  };
+
   const handleSaveRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPoojaForReg) return;
     if (!regForm.participantName.trim()) {
       setRegFormError("Devotee / Participant Name is required");
+      return;
+    }
+    if (!editingReg && !regForm.targetUserId && !selectedTargetUser) {
+      setRegFormError("Please select a member to register on their behalf");
       return;
     }
 
@@ -645,6 +691,8 @@ export function EventsPoojaSeva() {
       status: regForm.status,
       notes: regForm.notes.trim() || undefined,
       mainEventId: undefined,
+      targetUserId: regForm.targetUserId ?? selectedTargetUser?.id,
+      overrideReason: regForm.overrideReason?.trim() || undefined,
       ...(regSelectedScheduleId ? { scheduleId: regSelectedScheduleId } : {}),
     };
 
@@ -693,6 +741,9 @@ export function EventsPoojaSeva() {
       setRegForm(emptyRegForm);
       setRegSelectedScheduleId(null);
       setRegSchedules([]);
+      setSelectedTargetUser(null);
+      setUserSearchQuery("");
+      setUserSearchResults([]);
       window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
     } catch (err: any) {
       setRegFormError(err?.message || "Failed to save registration");
@@ -813,6 +864,26 @@ export function EventsPoojaSeva() {
         e.slotDate === slotDate && e.startTime === startTime ? { ...e, endTime } : e
       ),
     }));
+  };
+
+  const updateTimeSlotStatus = (slotDate: string | null, startTime: string, status: "OPEN" | "BLOCKED" | "CLOSED") => {
+    setPoojaForm(f => ({
+      ...f,
+      timeSlotConfig: f.timeSlotConfig.map(e =>
+        e.slotDate === slotDate && e.startTime === startTime ? { ...e, status } : e
+      ),
+    }));
+  };
+
+  const handlePersistSlotStatus = async (slot: TimeSlotEntry, status: "OPEN" | "BLOCKED" | "CLOSED") => {
+    updateTimeSlotStatus(slot.slotDate, slot.startTime, status);
+    if (!slot.id || useMock) return;
+    try {
+      await eventService.updatePoojaTimeSlotStatus(slot.id, status);
+      toast.success(`Slot ${slot.startTime} marked ${status}`);
+    } catch {
+      toast.error("Failed to update slot status — reload to retry");
+    }
   };
 
   // Sync timeSlotConfig when times, dates, or multiDay toggle changes
@@ -1383,7 +1454,19 @@ export function EventsPoojaSeva() {
                               const isCancelled = r.status === "CANCELLED" || r.status === "REJECTED";
                               return (
                                 <tr key={r.id} className={`hover:bg-slate-50/80 transition-colors ${isCancelled ? "opacity-60 bg-rose-50/20" : ""}`}>
-                                  <td className="px-3 py-2.5 font-mono font-bold text-amber-700">{r.regCode}</td>
+                                  <td className="px-3 py-2.5">
+                                    <div className="font-mono font-bold text-amber-700">{r.regCode}</div>
+                                    {(r as any).registrationSource === "ADMIN" && (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-violet-50 text-violet-700 border border-violet-200 mt-0.5">
+                                        Admin
+                                      </span>
+                                    )}
+                                    {(r as any).overrideUsed && (
+                                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-orange-50 text-orange-700 border border-orange-200 mt-0.5 ml-1">
+                                        Override
+                                      </span>
+                                    )}
+                                  </td>
                                   <td className="px-3 py-2.5">
                                     <div className="font-semibold text-slate-800">{r.participantName}</div>
                                     <div className="text-[10px] text-slate-400 flex items-center gap-1.5 flex-wrap mt-0.5">
@@ -1414,15 +1497,27 @@ export function EventsPoojaSeva() {
                                     </span>
                                   </td>
                                   <td className="px-3 py-2.5">
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                      r.status === "CONFIRMED" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
-                                      r.status === "CANCELLED" ? "bg-rose-50 text-rose-700 border border-rose-200" :
-                                      "bg-amber-50 text-amber-700 border border-amber-200"
-                                    }`}>
-                                      {r.status === "CONFIRMED" && <CheckCircle2 className="w-3 h-3" />}
-                                      {r.status === "CANCELLED" && <Ban className="w-3 h-3" />}
-                                      {r.status}
-                                    </span>
+                                    {(() => {
+                                      const s = r.status || "CONFIRMED";
+                                      const cfg: Record<string, { cls: string; icon: React.ReactNode }> = {
+                                        CONFIRMED:   { cls: "bg-emerald-50 text-emerald-700 border-emerald-200",  icon: <CheckCircle2 className="w-3 h-3" /> },
+                                        CHECKED_IN:  { cls: "bg-teal-50 text-teal-700 border-teal-200",          icon: <CheckCircle2 className="w-3 h-3" /> },
+                                        IN_PROGRESS: { cls: "bg-blue-50 text-blue-700 border-blue-200",          icon: <RefreshCw className="w-3 h-3" /> },
+                                        COMPLETED:   { cls: "bg-indigo-50 text-indigo-700 border-indigo-200",    icon: <Sparkles className="w-3 h-3" /> },
+                                        RESCHEDULED: { cls: "bg-violet-50 text-violet-700 border-violet-200",    icon: <CalendarDays className="w-3 h-3" /> },
+                                        PENDING:     { cls: "bg-amber-50 text-amber-700 border-amber-200",       icon: <Clock className="w-3 h-3" /> },
+                                        NO_SHOW:     { cls: "bg-orange-50 text-orange-700 border-orange-200",    icon: <ShieldOff className="w-3 h-3" /> },
+                                        EXPIRED:     { cls: "bg-slate-100 text-slate-500 border-slate-200",      icon: <Clock className="w-3 h-3" /> },
+                                        CANCELLED:   { cls: "bg-rose-50 text-rose-700 border-rose-200",          icon: <Ban className="w-3 h-3" /> },
+                                        REJECTED:    { cls: "bg-rose-50 text-rose-700 border-rose-200",          icon: <Ban className="w-3 h-3" /> },
+                                      };
+                                      const { cls, icon } = cfg[s] ?? { cls: "bg-amber-50 text-amber-700 border-amber-200", icon: null };
+                                      return (
+                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${cls}`}>
+                                          {icon}{s}
+                                        </span>
+                                      );
+                                    })()}
                                   </td>
                                   <td className="px-3 py-2.5 text-right">
                                     <div className="flex items-center justify-end gap-1">
@@ -1457,9 +1552,56 @@ export function EventsPoojaSeva() {
                                       >
                                         <Trash2 className="w-3.5 h-3.5" />
                                       </button>
+
+                                      {/* Toggle participants */}
+                                      <button
+                                        type="button"
+                                        title={expandedParticipantRegId === r.id ? "Collapse participants" : "View participants"}
+                                        onClick={() => {
+                                          if (expandedParticipantRegId === r.id) {
+                                            setExpandedParticipantRegId(null);
+                                          } else {
+                                            setExpandedParticipantRegId(r.id);
+                                            loadParticipants(r.id);
+                                          }
+                                        }}
+                                        className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors cursor-pointer"
+                                      >
+                                        <Users className="w-3.5 h-3.5" />
+                                      </button>
                                     </div>
                                   </td>
                                 </tr>
+
+                                {/* ── Participants sub-row ── */}
+                                {expandedParticipantRegId === r.id && (
+                                  <tr key={`${r.id}-participants`}>
+                                    <td colSpan={7} className="px-4 py-2 bg-teal-50/60 border-b border-teal-100">
+                                      {participantsLoading[r.id] ? (
+                                        <div className="flex items-center gap-2 text-[11px] text-teal-700 py-1">
+                                          <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading participants…
+                                        </div>
+                                      ) : (participantsByRegId[r.id] || []).length === 0 ? (
+                                        <p className="text-[11px] text-slate-400 py-1">
+                                          No individual participant rows yet — devotees stored in attending list above.
+                                        </p>
+                                      ) : (
+                                        <div className="flex flex-wrap gap-2 py-1">
+                                          {(participantsByRegId[r.id] || []).map((p: any, idx: number) => (
+                                            <div key={p.id ?? idx} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-[10.5px] font-medium ${p.checkedIn ? "bg-teal-100 border-teal-300 text-teal-800" : "bg-white border-slate-200 text-slate-700"}`}>
+                                              <span className="font-bold">{p.name}</span>
+                                              {p.gotram && <span className="text-slate-400">· {p.gotram}</span>}
+                                              {p.relation && <span className="text-slate-400">· {p.relation}</span>}
+                                              {p.checkedIn
+                                                ? <CheckCircle2 className="w-3 h-3 text-teal-600" title={`Checked in ${p.checkedInAt ?? ""}`} />
+                                                : <span className="text-slate-300">○</span>}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </td>
+                                  </tr>
+                                )}
                               );
                             })}
                           </tbody>
@@ -1511,6 +1653,64 @@ export function EventsPoojaSeva() {
               {regFormError && (
                 <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700">
                   <AlertCircle className="w-4 h-4 shrink-0" /> {regFormError}
+                </div>
+              )}
+
+              {/* ── Member Search (admin picks the target user) ── */}
+              {!editingReg && (
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Register On Behalf Of (Member) *
+                  </label>
+                  {selectedTargetUser ? (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 border border-amber-300 rounded-xl">
+                      <User className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span className="flex-1 text-sm font-medium text-slate-700">
+                        {selectedTargetUser.fullName || selectedTargetUser.name}
+                        {selectedTargetUser.flatNo && <span className="text-slate-400 ml-1">· {selectedTargetUser.flatNo}</span>}
+                      </span>
+                      <button type="button" onClick={() => { setSelectedTargetUser(null); setUserSearchQuery(""); setUserSearchResults([]); }} className="p-0.5 hover:text-rose-600 text-slate-400 cursor-pointer">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <div className="flex items-center gap-2 px-3 py-2 border border-slate-200 rounded-xl">
+                        <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                        <input
+                          type="text"
+                          placeholder="Search by name (min 2 chars)…"
+                          value={userSearchQuery}
+                          onChange={e => handleUserSearch(e.target.value)}
+                          className="flex-1 text-sm outline-none bg-transparent"
+                        />
+                        {userSearchLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500 shrink-0" />}
+                      </div>
+                      {userSearchResults.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-10 max-h-40 overflow-y-auto">
+                          {userSearchResults.map(u => (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedTargetUser(u);
+                                setUserSearchQuery("");
+                                setUserSearchResults([]);
+                                if (!regForm.participantName) {
+                                  setRegForm(prev => ({ ...prev, participantName: u.fullName || u.name || "" }));
+                                }
+                              }}
+                              className="w-full text-left px-3 py-2 hover:bg-amber-50 text-sm cursor-pointer"
+                            >
+                              <span className="font-medium">{u.fullName || u.name}</span>
+                              {u.flatNo && <span className="text-slate-400 ml-1">· {u.flatNo}</span>}
+                              {u.email && <span className="text-slate-400 ml-1 hidden sm:inline">· {u.email}</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1798,6 +1998,21 @@ export function EventsPoojaSeva() {
                   className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-300 resize-none"
                 />
               </div>
+
+              {!editingReg && (
+                <div>
+                  <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Override Reason
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Slot full but family requested special consideration"
+                    value={regForm.overrideReason}
+                    onChange={e => setRegForm({ ...regForm, overrideReason: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+                  />
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
@@ -2246,6 +2461,22 @@ export function EventsPoojaSeva() {
                               />
                               <span className="text-[10px] text-slate-400 whitespace-nowrap font-medium">slots</span>
                             </div>
+                            <div className="flex items-center gap-1.5 pt-0.5">
+                              <span className="text-[10px] font-semibold text-slate-500 shrink-0">Status:</span>
+                              <select
+                                value={e.status || "OPEN"}
+                                onChange={ev => handlePersistSlotStatus(e, ev.target.value as "OPEN" | "BLOCKED" | "CLOSED")}
+                                className={`flex-1 border rounded-lg px-2 py-1 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-amber-300 cursor-pointer ${
+                                  (e.status || "OPEN") === "OPEN" ? "border-emerald-300 text-emerald-700 bg-emerald-50" :
+                                  (e.status) === "BLOCKED" ? "border-orange-300 text-orange-700 bg-orange-50" :
+                                  "border-rose-300 text-rose-700 bg-rose-50"
+                                }`}
+                              >
+                                <option value="OPEN">OPEN</option>
+                                <option value="BLOCKED">BLOCKED</option>
+                                <option value="CLOSED">CLOSED</option>
+                              </select>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -2324,6 +2555,22 @@ export function EventsPoojaSeva() {
                                       placeholder="20" min="1"
                                     />
                                     <span className="text-[10px] text-slate-400 whitespace-nowrap font-medium">slots</span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 pt-0.5">
+                                    <span className="text-[10px] font-semibold text-slate-500 shrink-0">Status:</span>
+                                    <select
+                                      value={e.status || "OPEN"}
+                                      onChange={ev => handlePersistSlotStatus(e, ev.target.value as "OPEN" | "BLOCKED" | "CLOSED")}
+                                      className={`flex-1 border rounded-lg px-2 py-1 text-xs font-bold focus:outline-none cursor-pointer ${
+                                        (e.status || "OPEN") === "OPEN" ? "border-emerald-300 text-emerald-700 bg-emerald-50" :
+                                        (e.status) === "BLOCKED" ? "border-orange-300 text-orange-700 bg-orange-50" :
+                                        "border-rose-300 text-rose-700 bg-rose-50"
+                                      }`}
+                                    >
+                                      <option value="OPEN">OPEN</option>
+                                      <option value="BLOCKED">BLOCKED</option>
+                                      <option value="CLOSED">CLOSED</option>
+                                    </select>
                                   </div>
                                 </div>
                               ))}
