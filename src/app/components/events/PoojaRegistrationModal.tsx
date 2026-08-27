@@ -265,7 +265,7 @@ function buildPoojaScheduleDays(event: any, defaultSlots: DaySlotOption[], pooja
     ];
   }
 
-  const timeSlotConfig: { slotDate: string | null; startTime: string; title?: string; slotCount: number }[] =
+  const timeSlotConfig: { id?: number; slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number }[] =
     Array.isArray(event?.timeSlotConfig) ? event.timeSlotConfig : [];
 
   const mapConfigToSlots = (configs: typeof timeSlotConfig, fallbackSlots: DaySlotOption[]): DaySlotOption[] => {
@@ -274,14 +274,16 @@ function buildPoojaScheduleDays(event: any, defaultSlots: DaySlotOption[], pooja
       const icon = idx === 0 ? "🌅" : idx === 1 ? "☀️" : idx === 2 ? "🪔" : "✨";
       const sessionName = cfg.title?.trim() || poojaTitle || (configs.length === 1 ? "Pooja Seva" : `Session #${idx + 1}`);
       const cleanTime = String(cfg.startTime).replace(/\(.*?\)/g, "").trim();
+      const endClean = cfg.endTime ? formatTime12Hour(String(cfg.endTime).replace(/\(.*?\)/g, "").trim()) : "";
       const formattedTime = cleanTime.includes("–") || cleanTime.includes("-") || cleanTime.toLowerCase().includes("am") || cleanTime.toLowerCase().includes("pm")
         ? cleanTime
-        : `${cleanTime} onwards`;
+        : endClean ? `${formatTime12Hour(cleanTime)} – ${endClean}` : `${cleanTime} onwards`;
       return {
         icon,
         time: formattedTime,
         name: sessionName,
         left: Math.max(1, cfg.slotCount),
+        timeSlotConfigId: cfg.id,
       };
     });
   };
@@ -679,22 +681,25 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
             : `Session #${idx + 1}`;
           const cleanTime = String(t).replace(/\(.*?\)/g, "").trim();
           const rawTime = cleanTime.split(" ")[0];
-          const formattedTime = cleanTime.includes("–") || cleanTime.includes("-") || cleanTime.toLowerCase().includes("am") || cleanTime.toLowerCase().includes("pm")
-            ? cleanTime
-            : `${cleanTime} onwards`;
 
           const matchedSingleConfig = timeSlotConfigs.find(
             c => (!c.slotDate || c.slotDate === event?.startDate || c.slotDate === event?.date) &&
                  (c.startTime === cleanTime || c.startTime === rawTime)
           );
           const slotLeft = matchedSingleConfig ? matchedSingleConfig.slotCount : totalSlotsCount;
+          const endClean = matchedSingleConfig?.endTime
+            ? formatTime12Hour(String(matchedSingleConfig.endTime).replace(/\(.*?\)/g, "").trim())
+            : "";
+          const formattedTime = cleanTime.includes("–") || cleanTime.includes("-") || cleanTime.toLowerCase().includes("am") || cleanTime.toLowerCase().includes("pm")
+            ? cleanTime
+            : endClean ? `${formatTime12Hour(cleanTime)} – ${endClean}` : `${cleanTime} onwards`;
 
           return {
             icon,
             time: formattedTime,
             name: sessionName,
             left: Math.max(1, slotLeft),
-            timeSlotConfigId: (matchedSingleConfig as any)?.id as number | undefined,
+            timeSlotConfigId: matchedSingleConfig?.id,
           };
         })
       : [
