@@ -658,7 +658,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       }
     }
 
-    const timeSlotConfigs: { slotDate: string | null; startTime: string; slotCount: number }[] =
+    const timeSlotConfigs: { id?: number; slotDate: string | null; startTime: string; endTime?: string; slotCount: number }[] =
       Array.isArray((event as any)?.timeSlotConfig) ? (event as any).timeSlotConfig : [];
 
     const configuredTimes: string[] = timeSlotConfigs.length > 0
