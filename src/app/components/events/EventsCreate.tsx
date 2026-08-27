@@ -235,14 +235,10 @@ export async function syncActivitiesToScheduleSubmodules(
         timeSlotConfig: timeSlotConfig,
       };
 
-      try {
-        if (existingSubEventId) {
-          await eventService.updatePoojaSeva(existingSubEventId, payload);
-        } else {
-          await eventService.createPoojaSeva(payload);
-        }
-      } catch (e) {
-        console.warn("Database save consolidated pooja notice:", e);
+      if (existingSubEventId) {
+        await eventService.updatePoojaSeva(existingSubEventId, payload);
+      } else {
+        await eventService.createPoojaSeva(payload);
       }
     }
   }
@@ -257,45 +253,7 @@ export async function syncActivitiesToScheduleSubmodules(
       const feeNum = parseFloat(act.registrationFee || "0") || 0;
       const slotsNum = parseInt(act.slots || "50", 10) || 50;
 
-      if (cat === "Pooja & Seva") {
-        // Auto-register the selected poojaType in event_pooja_types if it doesn't exist yet
-        if (act.poojaType) {
-          try {
-            const existingTypes = await eventService.getPoojaTypes();
-            const typeExists = existingTypes.some((t: { name: string }) => t.name === act.poojaType);
-            if (!typeExists) {
-              await eventService.createPoojaType(act.poojaType);
-            }
-          } catch (e) {
-            console.warn("Pooja type ensure notice:", e);
-          }
-        }
-        const slotTime = act.startTime || "08:30";
-        const payload = {
-          mainEventId: numericEventId,
-          name: act.name,
-          type: act.poojaType || "Pooja",
-          date: day.date,
-          startTime: slotTime,
-          endTime: act.endTime || undefined,
-          mandap: act.venue || "Main Temple Mandap",
-          notes: act.description || "",
-          slots: slotsNum,
-          fee: feeNum,
-          isFree: feeNum === 0,
-          startTimes: [slotTime],
-          timeSlotConfig: [{ slotDate: day.date, startTime: slotTime, slotCount: slotsNum }],
-        };
-        try {
-          if (act.subEventId) {
-            await eventService.updatePoojaSeva(act.subEventId, payload);
-          } else {
-            await eventService.createPoojaSeva(payload);
-          }
-        } catch (e) {
-          console.warn("Database save pooja notice:", e);
-        }
-      } else if (cat === "Lunch" || cat === "Dinner") {
+      if (cat === "Lunch" || cat === "Dinner") {
         const payload = {
           mainEventId: numericEventId,
           name: act.name,
@@ -312,14 +270,10 @@ export async function syncActivitiesToScheduleSubmodules(
           menuItems: ["Mahaprasadam Meal", "Rice", "Curry", "Sweet"],
           notes: act.description || "",
         };
-        try {
-          if (act.subEventId) {
-            await eventService.updateLunchDinner(act.subEventId, payload);
-          } else {
-            await eventService.createLunchDinner(payload);
-          }
-        } catch (e) {
-          console.warn("Database save meal notice:", e);
+        if (act.subEventId) {
+          await eventService.updateLunchDinner(act.subEventId, payload);
+        } else {
+          await eventService.createLunchDinner(payload);
         }
       } else if (cat === "Cultural Events") {
         const payload = {
@@ -334,14 +288,10 @@ export async function syncActivitiesToScheduleSubmodules(
           isFree: feeNum === 0,
           needsRegistration: act.needsRegistration !== false,
         };
-        try {
-          if (act.subEventId) {
-            await eventService.updateCulturalEvent(act.subEventId, payload);
-          } else {
-            await eventService.createCulturalEvent(payload);
-          }
-        } catch (e) {
-          console.warn("Database save cultural notice:", e);
+        if (act.subEventId) {
+          await eventService.updateCulturalEvent(act.subEventId, payload);
+        } else {
+          await eventService.createCulturalEvent(payload);
         }
       } else if (cat === "Competitions") {
         const payload = {
@@ -357,14 +307,10 @@ export async function syncActivitiesToScheduleSubmodules(
           maxParticipants: String(slotsNum),
           needsRegistration: act.needsRegistration !== false,
         };
-        try {
-          if (act.subEventId) {
-            await eventService.updateCompetition(act.subEventId, payload);
-          } else {
-            await eventService.createCompetition(payload);
-          }
-        } catch (e) {
-          console.warn("Database save competition notice:", e);
+        if (act.subEventId) {
+          await eventService.updateCompetition(act.subEventId, payload);
+        } else {
+          await eventService.createCompetition(payload);
         }
       }
     }
