@@ -122,16 +122,21 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
       setLoadingSubEvents(true);
       try {
         const numId = eventId ? Number(eventId) : undefined;
+        if (!numId) {
+          setLoadingSubEvents(false);
+          return;
+        }
+
         const [poojasRes, mealsRes, cultRes, compsRes, sponsorsRes] = await Promise.allSettled([
-          numId ? eventService.getPoojaSevas(numId) : Promise.resolve([]),
-          numId ? eventService.getLunchDinners(numId) : Promise.resolve([]),
-          eventService.getCulturalEvents(),
-          eventService.getCompetitions(),
-          numId ? eventSponsorService.getSponsors(numId) : Promise.resolve([]),
+          eventService.getPoojaSevas(numId),
+          eventService.getLunchDinners(numId),
+          eventService.getCulturalEvents(numId),
+          eventService.getCompetitions(numId),
+          eventSponsorService.getSponsors(numId),
         ]);
 
         if (poojasRes.status === "fulfilled" && Array.isArray(poojasRes.value) && poojasRes.value.length > 0) {
-          const list = numId ? poojasRes.value.filter((p: any) => p.mainEventId == numId || p.eventId == numId) : [];
+          const list = poojasRes.value.filter((p: any) => p.mainEventId == numId || p.eventId == numId);
           if (list.length > 0) {
             setSubPoojas(list.map((p: any) => ({
               id: `pooja-${p.id}`,
@@ -150,7 +155,7 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
         }
 
         if (mealsRes.status === "fulfilled" && Array.isArray(mealsRes.value) && mealsRes.value.length > 0) {
-          const list = numId ? mealsRes.value.filter((m: any) => m.mainEventId == numId || m.eventId == numId) : mealsRes.value;
+          const list = mealsRes.value.filter((m: any) => m.mainEventId == numId || m.eventId == numId);
           if (list.length > 0) {
             setSubMeals(list.map((m: any) => ({
               id: `food-${m.id}`,
@@ -168,6 +173,44 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
           }
         }
 
+        if (cultRes.status === "fulfilled" && Array.isArray(cultRes.value) && cultRes.value.length > 0) {
+          const list = cultRes.value.filter((c: any) => c.mainEventId == numId || c.eventId == numId);
+          if (list.length > 0) {
+            setSubCulturals(list.map((c: any) => ({
+              id: `cult-${c.id}`,
+              title: c.name || c.title || "Cultural Program",
+              category: "Cultural",
+              date: c.date || "Scheduled",
+              time: c.startTime && c.endTime ? `${c.startTime} - ${c.endTime}` : (c.startTime || "Evening"),
+              venue: c.venue || "Main Stage / Auditorium",
+              fee: c.fee ? Number(c.fee) : 0,
+              availableSeats: c.slots || 100,
+              description: c.description || `Performance: ${c.programType || "Cultural Act"} by ${c.artistName || "Community Artists"}.`,
+              artistName: c.artistName,
+              programType: c.programType,
+            })));
+          }
+        }
+
+        if (compsRes.status === "fulfilled" && Array.isArray(compsRes.value) && compsRes.value.length > 0) {
+          const list = compsRes.value.filter((cp: any) => cp.mainEventId == numId || cp.eventId == numId);
+          if (list.length > 0) {
+            setSubComps(list.map((cp: any) => ({
+              id: `comp-${cp.id}`,
+              title: cp.name || cp.title || "Competition",
+              category: "Competition",
+              date: cp.date || "Scheduled",
+              time: cp.startTime && cp.endTime ? `${cp.startTime} - ${cp.endTime}` : (cp.startTime || "Afternoon"),
+              venue: cp.venue || "Activity Hall",
+              fee: cp.fee ? Number(cp.fee) : 0,
+              availableSeats: cp.slots || 50,
+              description: cp.description || `Category: ${cp.category || "General"}. Age group: ${cp.ageGroup || "All ages"}.`,
+              ageGroup: cp.ageGroup,
+              prizes: cp.prizes,
+            })));
+          }
+        }
+
         if (sponsorsRes.status === "fulfilled" && Array.isArray(sponsorsRes.value)) {
           setSponsors(sponsorsRes.value);
         }
@@ -179,7 +222,7 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
     };
 
     fetchApiSubEvents();
-  }, [isOpen, event, eventId, rawId, eventTitle, allActivities]);
+  }, [isOpen, eventId, rawId, eventTitle, eventLocation, event?.isStandalonePooja]);
 
   if (!isOpen || !event) return null;
 

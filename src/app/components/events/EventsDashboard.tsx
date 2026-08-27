@@ -792,13 +792,14 @@ export function EventsDashboard() {
       showRegisterModal ||
       showAICopilot ||
       showQRModal ||
+      Boolean(showEventDetailsModal) ||
       Boolean(selectedRegisterEvent)
     ) return;
     const timer = setInterval(() => {
       setCarouselIndex((prev) => (prev + 1) % bannerItems.length);
     }, 4500);
     return () => clearInterval(timer);
-  }, [bannerItems.length, isBannerHovered, showRegisterModal, showAICopilot, showQRModal, selectedRegisterEvent]);
+  }, [bannerItems.length, isBannerHovered, showRegisterModal, showAICopilot, showQRModal, showEventDetailsModal, selectedRegisterEvent]);
 
   // Sync countdown target with active banner item
   useEffect(() => {
@@ -1010,12 +1011,12 @@ export function EventsDashboard() {
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-400" /> 0 Events Available
                   </span>
                 )}
-                {(currentBanner.raw || currentBanner.title) && (
+                {(useMock || events.length > 0) && currentBanner?.raw && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setShowEventDetailsModal(currentBanner.raw || currentBanner);
+                      setShowEventDetailsModal(currentBanner.raw);
                     }}
                     className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white/30 active:scale-95 text-white text-[9px] sm:text-[9.5px] font-extrabold border border-white/30 backdrop-blur-md shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0"
                     title="View complete event information, sub-events, and logistics"
