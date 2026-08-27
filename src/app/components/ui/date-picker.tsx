@@ -310,6 +310,7 @@ export function DatePicker({
           type="button"
           id={id}
           name={name}
+          data-testid={id}
           disabled={disabled}
           className={cn(
             "w-full flex items-center justify-between border bg-card text-foreground transition-all cursor-pointer shadow-2xs group text-left",
@@ -555,6 +556,8 @@ export function DatePicker({
               <button
                 key={day.dateStr}
                 type="button"
+                data-date={day.dateStr}
+                data-testid={id ? `${id}-day-${day.dateStr}` : undefined}
                 disabled={day.isDisabled}
                 onClick={(e) => !day.isDisabled && handleSelectDate(day.dateStr, e)}
                 className={cn(

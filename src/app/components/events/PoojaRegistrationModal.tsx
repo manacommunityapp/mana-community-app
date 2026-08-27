@@ -379,9 +379,13 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const [isGotramLoading, setIsGotramLoading] = useState<boolean>(!event?.gotram && !event?.existingRegistration?.gotram);
   const [isGotramFromDb, setIsGotramFromDb] = useState<boolean>(Boolean(event?.gotram || event?.existingRegistration?.gotram));
   const [prasadamMode, setPrasadamMode] = useState<"mandap" | "home_delivery">("mandap");
+  const [attendingDevotees, setAttendingDevotees] = useState<string>(
+    () => event?.existingRegistration?.attendingDevotees || ""
+  );
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
   const [registrationCode, setRegistrationCode] = useState<string>("");
+  const [tokenNumber, setTokenNumber] = useState<number | null>(null);
   const [copiedPass, setCopiedPass] = useState<boolean>(false);
   const [alreadyRegisteredTitle, setAlreadyRegisteredTitle] = useState<string | null>(null);
 
@@ -919,6 +923,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         paymentMethod: numericFee === 0 ? "Free Seva" : paymentMode,
         prasadamMode,
         status: "CONFIRMED",
+        ...(attendingDevotees.trim() ? { attendingDevotees: attendingDevotees.trim() } : {}),
         ...(selectedScheduleId ? { scheduleId: selectedScheduleId } : {}),
         ...(reservationId ? { reservationId } : {}),
         ...(selectedSlot?.timeSlotConfigId ? { poojaSevaTimeSlotsId: selectedSlot.timeSlotConfigId } : {}),
@@ -964,6 +969,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         try {
           const savedReg = await eventService.createPoojaRegistration(regPayload);
           if (savedReg?.regCode) setRegistrationCode(savedReg.regCode);
+          if (savedReg?.tokenNumber) setTokenNumber(savedReg.tokenNumber);
           showSuccess("🪔 Pooja Seva booked successfully! Digital Sankalpam Pass generated.");
         } catch (apiErr: any) {
           const errMsg = apiErr?.response?.data?.message || apiErr?.message || "";
@@ -1417,6 +1423,20 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     </label>
                   </div>
 
+                  {/* Attending family members (comma-separated) */}
+                  <label className="block text-[10.5px] font-bold text-foreground">
+                    <span className="mb-0.5 block">Attending Family Members</span>
+                    <input
+                      value={attendingDevotees}
+                      onChange={(e) => setAttendingDevotees(e.target.value)}
+                      className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      placeholder="e.g. Priya Sharma, Arjun Sharma (comma-separated)"
+                    />
+                    <span className="text-[9.5px] text-muted-foreground mt-0.5 block">
+                      Each name becomes an individual participant row — enables per-devotee QR pass &amp; check-in
+                    </span>
+                  </label>
+
                   {isAnyAdmin && (
                     <div className="rounded-xl border border-border bg-card/50 p-2 space-y-1.5">
                       <div className="flex items-center justify-between">
@@ -1660,6 +1680,18 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                   <span className="text-muted-foreground block">Prasadam:</span>
                   <strong className="text-emerald-600 dark:text-emerald-400">Mandap Counter</strong>
                 </div>
+                {attendingDevotees.trim() && (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground block">Attending Family:</span>
+                    <strong className="text-foreground">{attendingDevotees}</strong>
+                  </div>
+                )}
+                {tokenNumber && (
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground block">Queue Token:</span>
+                    <strong className="text-amber-700 text-sm">🎫 Token #{tokenNumber}</strong>
+                  </div>
+                )}
                 <div className="col-span-2">
                   <span className="text-muted-foreground block">Seva Contribution:</span>
                   <strong className="text-primary">{isFreeEvent ? "Free Seva" : isUpdateMode ? `₹${numericFee} (Already Paid)` : `₹${numericFee} (Paid)`}</strong>
