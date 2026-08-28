@@ -224,8 +224,11 @@ export function EventsPoojaSeva() {
 
   useEffect(() => {
     eventService.getAll().then(evts => {
-      setEvents(evts);
-    }).catch(() => {});
+      const safeEvts = Array.isArray(evts) ? evts : Array.isArray((evts as any)?.content) ? (evts as any).content : [];
+      setEvents(safeEvts);
+    }).catch(() => {
+      setEvents([]);
+    });
   }, []);
 
   const loadData = () => {
@@ -237,19 +240,22 @@ export function EventsPoojaSeva() {
     setLoading(true);
     setError("");
     Promise.all([
-      eventService.getPoojaSevas(),
-      eventService.getPoojaRegistrations(),
-      eventService.getPoojaTypes(),
+      eventService.getPoojaSevas().catch(() => []),
+      eventService.getPoojaRegistrations().catch(() => []),
+      eventService.getPoojaTypes().catch(() => []),
     ])
       .then(([sevas, regs, types]) => {
-        setPoojaSevas(sevas || []);
-        if (Array.isArray(types) && types.length > 0) {
-          setPoojaTypeObjects(types);
-          setPoojaTypes(types.map(t => t.name));
+        const safeSevas = Array.isArray(sevas) ? sevas : Array.isArray((sevas as any)?.content) ? (sevas as any).content : [];
+        setPoojaSevas(safeSevas);
+        const safeTypes = Array.isArray(types) ? types : [];
+        if (safeTypes.length > 0) {
+          setPoojaTypeObjects(safeTypes);
+          setPoojaTypes(safeTypes.map(t => t.name));
         }
-        const poojaRegs = (regs || [])
+        const safeRegs = Array.isArray(regs) ? regs : Array.isArray((regs as any)?.content) ? (regs as any).content : [];
+        const poojaRegs = safeRegs
           .filter((r: any) => {
-            return r.category === "Pooja" || r.activityId?.startsWith("pooja-");
+            return r && (r.category === "Pooja" || (typeof r.activityId === "string" && r.activityId.startsWith("pooja-")));
           })
           .map((r: any) => {
             let count = Number(r.devoteeCount ?? r.membersCount ?? 0);
@@ -268,7 +274,7 @@ export function EventsPoojaSeva() {
             };
           });
         setRegistrations(poojaRegs);
-        if (types?.length > 0) setPoojaTypes(types.map((t: any) => t.name));
+        if (safeTypes.length > 0) setPoojaTypes(safeTypes.map((t: any) => t.name));
       })
       .catch(e => {
         setError(e?.message || "Failed to load pooja data from database");
@@ -302,9 +308,10 @@ export function EventsPoojaSeva() {
   };
 
   const getRegistrationsForPooja = (pooja: PoojaSeva) => {
+    const safeRegs = Array.isArray(registrations) ? registrations : [];
     const raw = useMock
-      ? registrations.filter(r => r.activityId === `pooja-${pooja.id}`)
-      : registrations.filter(r => matchesPooja(r, pooja));
+      ? safeRegs.filter(r => r.activityId === `pooja-${pooja.id}`)
+      : safeRegs.filter(r => matchesPooja(r, pooja));
 
     const searchQ = (regSearch[pooja.id] || "").toLowerCase().trim();
     const filterSt = regFilterStatus[pooja.id] || "ALL";
@@ -312,7 +319,7 @@ export function EventsPoojaSeva() {
     return raw.filter(r => {
       const matchSearch =
         !searchQ ||
-        r.participantName.toLowerCase().includes(searchQ) ||
+        (r.participantName && r.participantName.toLowerCase().includes(searchQ)) ||
         (r.gotram && r.gotram.toLowerCase().includes(searchQ)) ||
         (r.regCode && r.regCode.toLowerCase().includes(searchQ)) ||
         (r.phone && r.phone.includes(searchQ));
@@ -327,8 +334,8 @@ export function EventsPoojaSeva() {
     });
   };
 
-  const activeEvents = events.filter(ev => {
-    const s = String(ev.status || "").toUpperCase();
+  const activeEvents = (Array.isArray(events) ? events : []).filter(ev => {
+    const s = String(ev?.status || "").toUpperCase();
     return s !== "CANCELLED" && s !== "CLOSED" && s !== "ARCHIVED";
   });
 
@@ -947,7 +954,7 @@ export function EventsPoojaSeva() {
     }
   }, [poojaForm.isMultiDay, poojaForm.date, poojaForm.endDate, startTimesKey]);
 
-  const activeRegistrations = registrations.filter(r => r.status !== "CANCELLED" && r.status !== "REJECTED");
+  const activeRegistrations = (Array.isArray(registrations) ? registrations : []).filter(r => r.status !== "CANCELLED" && r.status !== "REJECTED");
   const totalRegisteredDevotees = activeRegistrations.reduce((a, r) => a + (r.devoteeCount || 1), 0);
 
   return (
@@ -982,7 +989,7 @@ export function EventsPoojaSeva() {
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
         {[
-          { label: "Total Poojas", value: poojaSevas.length, color: "#f59e0b" },
+          { label: "Total Poojas", value: (Array.isArray(poojaSevas) ? poojaSevas : []).length, color: "#f59e0b" },
           { label: "Active Registrations", value: activeRegistrations.length, color: "#6366f1" },
           { label: "Total Devotees", value: totalRegisteredDevotees, color: "#10b981" },
           { label: "Paid Bookings", value: activeRegistrations.filter(r => r.paymentStatus === "PAID").length, color: "#0891b2" },
@@ -996,11 +1003,12 @@ export function EventsPoojaSeva() {
 
       {/* Pooja List with expandable registrations */}
       <div className="space-y-3">
-        {poojaSevas.map(pooja => {
+        {(Array.isArray(poojaSevas) ? poojaSevas : []).map(pooja => {
           const regs = getRegistrationsForPooja(pooja);
+          const safeRegs = Array.isArray(registrations) ? registrations : [];
           const rawPoojaRegs = useMock
-            ? registrations.filter(r => r.activityId === `pooja-${pooja.id}`)
-            : registrations.filter(r => matchesPooja(r, pooja));
+            ? safeRegs.filter(r => r.activityId === `pooja-${pooja.id}`)
+            : safeRegs.filter(r => matchesPooja(r, pooja));
           const isExpanded = expandedPoojaId === pooja.id;
           const activeRegsForPooja = rawPoojaRegs.filter(r => r.status !== "CANCELLED" && r.status !== "REJECTED");
           const totalDevotees = activeRegsForPooja.reduce((a, r) => a + (r.devoteeCount || 1), 0);
@@ -2431,14 +2439,14 @@ export function EventsPoojaSeva() {
                     </div>
                   </label>
 
-                  {poojaForm.startTimes.filter(Boolean).length > 1 && (
+                  {(Array.isArray(poojaForm.startTimes) ? poojaForm.startTimes : []).filter(Boolean).length > 1 && (
                     <div className="pt-2 border-t border-slate-200/70 space-y-2">
                       <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
                         <span>Slots for each Time Slot:</span>
                         <span className="text-slate-400 font-normal">Defaults to {poojaForm.slots || 20}</span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        {poojaForm.timeSlotConfig.map(e => (
+                        {(Array.isArray(poojaForm.timeSlotConfig) ? poojaForm.timeSlotConfig : []).map(e => (
                           <div key={e.startTime} className="p-2.5 rounded-xl bg-white border border-slate-200 space-y-2 shadow-2xs">
                             <div className="flex items-center justify-between text-[11px]">
                               <span className="font-bold text-slate-700">Slot: {e.startTime}</span>
@@ -2507,21 +2515,21 @@ export function EventsPoojaSeva() {
                       Multi-Day Slots (for each Day &amp; Time Slot)
                     </span>
                     <span className="text-[11px] font-extrabold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200 shadow-2xs">
-                      Total Capacity: {poojaForm.timeSlotConfig.reduce((acc, curr) => acc + (Number(curr.slotCount) || 0), 0)} Slots
+                      Total Capacity: {(Array.isArray(poojaForm.timeSlotConfig) ? poojaForm.timeSlotConfig : []).reduce((acc, curr) => acc + (Number(curr.slotCount) || 0), 0)} Slots
                     </span>
                   </div>
 
-                  {poojaForm.timeSlotConfig.length === 0 ? (
+                  {(Array.isArray(poojaForm.timeSlotConfig) ? poojaForm.timeSlotConfig : []).length === 0 ? (
                     <p className="text-xs text-slate-400 italic">
                       Please enter Start Date, End Date, and at least one Start Time above to configure slots for each multi-day session.
                     </p>
                   ) : (
                     <div className="space-y-2.5">
-                      {Array.from(new Set(poojaForm.timeSlotConfig.map(e => e.slotDate as string))).map(date => {
+                      {Array.from(new Set((Array.isArray(poojaForm.timeSlotConfig) ? poojaForm.timeSlotConfig : []).map(e => e.slotDate as string))).map(date => {
                         const [y, m, d] = (date || "").split("-").map(Number);
                         const dateObj = y && m && d ? new Date(y, m - 1, d, 12, 0, 0) : new Date();
                         const dayLabel = dateObj.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
-                        const dayEntries = poojaForm.timeSlotConfig.filter(e => e.slotDate === date);
+                        const dayEntries = (Array.isArray(poojaForm.timeSlotConfig) ? poojaForm.timeSlotConfig : []).filter(e => e.slotDate === date);
                         const dayTotal = dayEntries.reduce((a, c) => a + (Number(c.slotCount) || 0), 0);
                         return (
                           <div key={date} className="bg-white rounded-xl border border-slate-200 p-2.5 shadow-2xs">

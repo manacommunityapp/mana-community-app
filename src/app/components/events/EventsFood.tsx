@@ -14,6 +14,7 @@ import {
   type MealRegistrationResponse,
 } from "../../../services/events/eventProgramService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
+import { LunchDinnerRegistrationModal } from "./LunchDinnerRegistrationModal";
 
 type LunchDinner = {
   id: number;
@@ -122,15 +123,6 @@ export function EventsFood() {
   // Devotee Quick Pass RSVP Modal
   const [showRsvpModal, setShowRsvpModal] = useState(false);
   const [rsvpMeal, setRsvpMeal] = useState<LunchDinner | null>(null);
-  const [rsvpForm, setRsvpForm] = useState({
-    participantName: "",
-    phone: "",
-    devoteeCount: 1,
-    dietPreference: "VEG",
-    notes: "",
-  });
-  const [savingRsvp, setSavingRsvp] = useState(false);
-  const [rsvpSuccess, setRsvpSuccess] = useState(false);
 
   useEffect(() => {
     eventService.getAll().then(evts => {
@@ -388,36 +380,7 @@ export function EventsFood() {
   // Devotee RSVP
   const openRsvpModal = (m: LunchDinner) => {
     setRsvpMeal(m);
-    setRsvpForm({ participantName: "", phone: "", devoteeCount: 1, dietPreference: m.dietType || "VEG", notes: "" });
-    setRsvpSuccess(false);
     setShowRsvpModal(true);
-  };
-
-  const handleRsvpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rsvpMeal || !rsvpForm.participantName.trim()) return;
-    setSavingRsvp(true);
-    try {
-      await eventService.createRegistration({
-        eventId: selectedEventId || 1,
-        mainEventId: selectedEventId || 1,
-        activityId: `meal-${rsvpMeal.id}`,
-        activityTitle: rsvpMeal.name,
-        activityType: "LUNCH_DINNER",
-        participantName: rsvpForm.participantName.trim(),
-        phone: rsvpForm.phone.trim(),
-        devoteeCount: rsvpForm.devoteeCount,
-        bookingFee: (rsvpMeal.fee || 0) * rsvpForm.devoteeCount,
-        paymentStatus: (rsvpMeal.isFree || (rsvpMeal.fee || 0) === 0) ? "FREE" : "PAID",
-        notes: `Diet: ${rsvpForm.dietPreference} · ${rsvpForm.notes}`,
-      });
-      setRsvpSuccess(true);
-      setTimeout(() => { setShowRsvpModal(false); loadData(); }, 1200);
-    } catch (err: any) {
-      setError(err?.message || "Failed to book food pass");
-    } finally {
-      setSavingRsvp(false);
-    }
   };
 
   // Export CSV
@@ -1116,95 +1079,17 @@ export function EventsFood() {
       )}
 
       {/* Devotee Quick Pass RSVP Modal */}
-      {showRsvpModal && rsvpMeal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-              <h3 className="font-bold text-slate-800">Book Food Pass — {rsvpMeal.name}</h3>
-              <button
-                type="button"
-                onClick={() => setShowRsvpModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleRsvpSubmit} className="px-6 py-5 space-y-4">
-              {rsvpSuccess ? (
-                <div className="py-6 text-center space-y-2">
-                  <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
-                  <p className="font-bold text-slate-800">Pass Booked Successfully!</p>
-                </div>
-              ) : (
-                <>
-                  <label className="flex flex-col gap-1">
-                    <span className="text-xs font-semibold text-slate-500">Devotee Name *</span>
-                    <input
-                      type="text"
-                      value={rsvpForm.participantName}
-                      onChange={e => setRsvpForm(f => ({ ...f, participantName: e.target.value }))}
-                      className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                      placeholder="e.g. Ramesh Sharma"
-                      required
-                    />
-                  </label>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold text-slate-500">Phone *</span>
-                      <input
-                        type="tel"
-                        value={rsvpForm.phone}
-                        onChange={e => setRsvpForm(f => ({ ...f, phone: e.target.value }))}
-                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                        placeholder="9876543210"
-                        required
-                      />
-                    </label>
-
-                    <label className="flex flex-col gap-1">
-                      <span className="text-xs font-semibold text-slate-500">Devotee Count</span>
-                      <input
-                        type="number"
-                        min="1"
-                        max="20"
-                        value={rsvpForm.devoteeCount}
-                        onChange={e => setRsvpForm(f => ({ ...f, devoteeCount: Math.max(1, parseInt(e.target.value) || 1) }))}
-                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                      />
-                    </label>
-                  </div>
-
-                  <div className="p-3 rounded-xl bg-orange-50/70 border border-orange-200 text-xs flex items-center justify-between">
-                    <span className="text-slate-600">Total Booking Fee:</span>
-                    <span className="font-extrabold text-orange-700 text-sm">
-                      {rsvpMeal.isFree || (rsvpMeal.fee || 0) === 0 ? "FREE" : `₹${(rsvpMeal.fee || 0) * rsvpForm.devoteeCount}`}
-                    </span>
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowRsvpModal(false)}
-                      className="flex-1 px-4 py-2.5 text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={savingRsvp}
-                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition disabled:opacity-60 cursor-pointer"
-                    >
-                      {savingRsvp && <Loader2 className="w-4 h-4 animate-spin" />}
-                      Confirm Booking
-                    </button>
-                  </div>
-                </>
-              )}
-            </form>
-          </div>
-        </div>
-      )}
+      <LunchDinnerRegistrationModal
+        isOpen={showRsvpModal}
+        onClose={() => {
+          setShowRsvpModal(false);
+          setRsvpMeal(null);
+        }}
+        meal={rsvpMeal}
+        onSuccess={() => {
+          loadData();
+        }}
+      />
     </div>
   );
 }

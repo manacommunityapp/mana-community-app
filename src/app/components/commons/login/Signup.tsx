@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import {
   ShieldCheck,
@@ -29,6 +29,8 @@ import {
   Zap,
   ChevronDown,
   RefreshCw,
+  Search,
+  X,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { toast, Toaster } from "sonner";
@@ -321,6 +323,182 @@ function SectionHead({ num, title, sub }: { num: number; title: string; sub: str
   );
 }
 
+// ── Searchable Select Combobox Dropdown ─────────────────────────
+interface SearchableDropdownOption {
+  value: string;
+  label: string;
+  sublabel?: string;
+  badge?: string;
+}
+
+interface SearchableDropdownProps {
+  id?: string;
+  label: string;
+  placeholder: string;
+  searchPlaceholder?: string;
+  value: string;
+  options: SearchableDropdownOption[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  disabledHint?: string;
+  icon: React.ComponentType<{ className?: string }>;
+  error?: string;
+  required?: boolean;
+}
+
+function SearchableDropdown({
+  id,
+  label,
+  placeholder,
+  searchPlaceholder = "Search...",
+  value,
+  options,
+  onChange,
+  disabled = false,
+  disabledHint,
+  icon: Icon,
+  error,
+  required = false,
+}: SearchableDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      setSearch("");
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    }
+  }, [isOpen]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(
+      (opt) =>
+        opt.label.toLowerCase().includes(q) ||
+        (opt.sublabel && opt.sublabel.toLowerCase().includes(q)) ||
+        opt.value.toLowerCase().includes(q)
+    );
+  }, [search, options]);
+
+  const selectedOpt = options.find((o) => o.value === value);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <div className="flex items-center justify-between mb-0.5 sm:mb-1">
+        <label htmlFor={id} className="block text-[10px] sm:text-xs font-semibold text-foreground/80 uppercase tracking-wide">
+          {label} {required && "*"}
+        </label>
+        {selectedOpt && (
+          <span className="text-[9px] sm:text-[10px] text-primary font-bold">
+            {selectedOpt.badge || selectedOpt.label}
+          </span>
+        )}
+      </div>
+
+      <button
+        type="button"
+        id={id}
+        disabled={disabled}
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full py-1.5 sm:py-2.5 px-3 bg-[var(--mana-bg-input)] border ${
+          error ? "border-destructive ring-1 ring-destructive/20" : isOpen ? "border-primary ring-2 ring-primary/25" : "border-border"
+        } rounded-xl text-foreground flex items-center justify-between transition-all text-xs sm:text-sm text-left disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-xs`}
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground shrink-0" />
+          <span className={`truncate ${selectedOpt ? "font-bold text-foreground" : "text-muted-foreground/60"}`}>
+            {selectedOpt ? selectedOpt.label : disabled && disabledHint ? disabledHint : placeholder}
+          </span>
+        </div>
+        <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform shrink-0 ml-1.5 ${isOpen ? "rotate-180 text-primary" : ""}`} />
+      </button>
+
+      {error && <p className="text-destructive text-[10px] sm:text-xs mt-0.5 sm:mt-1">{error}</p>}
+      {!disabled && !error && disabledHint && !value && (
+        <p className="text-[10px] text-muted-foreground mt-0.5 sm:mt-1">{disabledHint}</p>
+      )}
+
+      {/* Popover Dropdown with Search */}
+      {isOpen && !disabled && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-64">
+          {/* Search filter input inside dropdown */}
+          <div className="p-2 border-b border-border bg-slate-50 dark:bg-slate-900/60 sticky top-0 z-10 flex items-center gap-1.5">
+            <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0 ml-1" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="w-full bg-transparent text-xs py-1 px-1 text-foreground placeholder:text-muted-foreground/60 outline-none"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="p-1 text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Options List */}
+          <div className="overflow-y-auto p-1.5 space-y-0.5 max-h-48 scrollbar-thin">
+            {filtered.length === 0 ? (
+              <div className="py-4 text-center text-xs text-muted-foreground">
+                No matches found for "{search}"
+              </div>
+            ) : (
+              filtered.map((opt) => {
+                const isSelected = opt.value === value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      onChange(opt.value);
+                      setIsOpen(false);
+                    }}
+                    className={`w-full px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between text-left transition-colors cursor-pointer ${
+                      isSelected
+                        ? "bg-primary text-white font-bold shadow-xs"
+                        : "hover:bg-accent text-foreground"
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{opt.label}</p>
+                      {opt.sublabel && (
+                        <p className={`text-[10px] truncate ${isSelected ? "text-white/80" : "text-muted-foreground"}`}>
+                          {opt.sublabel}
+                        </p>
+                      )}
+                    </div>
+                    {isSelected && <Check className="w-3.5 h-3.5 ml-2 shrink-0 text-white" />}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Registration / Signup Component ─────────────────────
 export function Signup() {
   const [step, setStep] = useState<Step>(1);
@@ -333,6 +511,9 @@ export function Signup() {
   const [isLoadingBlocks, setIsLoadingBlocks] = useState<boolean>(false);
   const [selectedFloor, setSelectedFloor] = useState<number | "">("");
   const [blockConfigs, setBlockConfigs] = useState<BlockConfigResponse[]>(DEFAULT_BLOCK_CONFIGS);
+  const [flatSearchQuery, setFlatSearchQuery] = useState<string>("");
+  const [showFlatSearchMenu, setShowFlatSearchMenu] = useState<boolean>(false);
+  const flatSearchContainerRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
 
   const { register: registerUser } = useAuth();
@@ -389,6 +570,66 @@ export function Signup() {
     const base = Number(selectedFloor) * 100;
     return Array.from({ length: flatsCount }, (_, i) => String(base + i + 1));
   })();
+
+  // All community flats flat list for quick searching across all blocks & floors
+  const allCommunityFlats = useMemo(() => {
+    const list: { block: string; floor: number; flatNo: string; label: string }[] = [];
+    for (const bc of blockConfigs) {
+      const totalFloors = bc.totalFloors || 10;
+      for (let fl = 1; fl <= totalFloors; fl++) {
+        const floorObj = bc.floors?.find((f) => f.floor === fl);
+        let flats = floorObj?.flats;
+        if (!flats || flats.length === 0) {
+          const flatsCount = bc.flatsPerFloor || (bc.blockName.toUpperCase() === "C" ? 12 : 11);
+          const base = fl * 100;
+          flats = Array.from({ length: flatsCount }, (_, i) => String(base + i + 1));
+        }
+        for (const fNo of flats) {
+          list.push({
+            block: bc.blockName,
+            floor: fl,
+            flatNo: fNo,
+            label: `Block ${bc.blockName} · Floor ${fl} · Flat ${fNo}`,
+          });
+        }
+      }
+    }
+    return list;
+  }, [blockConfigs]);
+
+  const matchingFlats = useMemo(() => {
+    const q = flatSearchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return allCommunityFlats
+      .filter((item) => {
+        return (
+          item.flatNo.toLowerCase().includes(q) ||
+          `block ${item.block}`.toLowerCase().includes(q) ||
+          `${item.block}-${item.flatNo}`.toLowerCase().includes(q) ||
+          item.label.toLowerCase().includes(q)
+        );
+      })
+      .slice(0, 12);
+  }, [flatSearchQuery, allCommunityFlats]);
+
+  const selectQuickFlat = (item: { block: string; floor: number; flatNo: string }) => {
+    setValue("block", item.block, { shouldValidate: true });
+    setSelectedFloor(item.floor);
+    setValue("flatNo", item.flatNo, { shouldValidate: true });
+    clearErrors(["block", "flatNo"]);
+    setFlatSearchQuery("");
+    setShowFlatSearchMenu(false);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (flatSearchContainerRef.current && !flatSearchContainerRef.current.contains(e.target as Node)) {
+        setShowFlatSearchMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleSuggestPassword = () => {
     const suggested = generateStrongPassword(10);
@@ -1014,143 +1255,152 @@ export function Signup() {
                       </div>
                     )}
 
-                    {/* 3 Cascading Dropdowns: Block -> Floor -> Flat Number */}
+                    {/* Quick Smart Flat Search across all blocks & floors */}
+                    <div className="relative" ref={flatSearchContainerRef}>
+                      <label className="block text-[10px] sm:text-xs font-semibold text-foreground/80 mb-1 uppercase tracking-wide">
+                        Quick Flat Search
+                      </label>
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="text"
+                          value={flatSearchQuery}
+                          onFocus={() => setShowFlatSearchMenu(true)}
+                          onChange={(e) => {
+                            setFlatSearchQuery(e.target.value);
+                            setShowFlatSearchMenu(true);
+                          }}
+                          placeholder="Search flat number (e.g. 101, 1005, B-203)..."
+                          className={`${inputBase} pl-8 sm:pl-10 pr-8`}
+                        />
+                        {flatSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFlatSearchQuery("");
+                              setShowFlatSearchMenu(false);
+                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer p-0.5"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Quick Search Suggestions Popover */}
+                      {showFlatSearchMenu && flatSearchQuery.trim() && (
+                        <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-card border border-border rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-150 p-1.5 space-y-0.5">
+                          {matchingFlats.length === 0 ? (
+                            <div className="py-3 text-center text-xs text-muted-foreground">
+                              No flats found matching "{flatSearchQuery}"
+                            </div>
+                          ) : (
+                            matchingFlats.map((item) => (
+                              <button
+                                key={`${item.block}-${item.flatNo}`}
+                                type="button"
+                                onClick={() => selectQuickFlat(item)}
+                                className="w-full px-3 py-2 rounded-lg text-xs flex items-center justify-between text-left hover:bg-primary/10 hover:text-primary transition-colors cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="w-6 h-6 rounded-md bg-primary/15 text-primary font-bold flex items-center justify-center text-[10px]">
+                                    {item.block}
+                                  </span>
+                                  <div>
+                                    <p className="font-bold text-foreground">Flat {item.flatNo}</p>
+                                    <p className="text-[10px] text-muted-foreground">Floor {item.floor} · Block {item.block}</p>
+                                  </div>
+                                </div>
+                                <span className="text-[10px] font-semibold bg-secondary px-2 py-0.5 rounded text-secondary-foreground">
+                                  Select
+                                </span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 my-1">
+                      <div className="h-[1px] bg-border flex-1" />
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">or select below</span>
+                      <div className="h-[1px] bg-border flex-1" />
+                    </div>
+
+                    {/* 3 Cascading Searchable Dropdowns: Block -> Floor -> Flat Number */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3.5 xl:gap-4">
-                      {/* 1. Block Dropdown */}
-                      <div>
-                        <div className="flex items-center justify-between mb-0.5 sm:mb-1">
-                          <label htmlFor="blockSelect" className={labelCls}>
-                            Block / Wing *
-                          </label>
-                          {block && (
-                            <span className="text-[9px] sm:text-[10px] text-primary font-bold">
-                              Block {block}
-                            </span>
-                          )}
-                        </div>
-                        <div className="relative">
-                          <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          <select
-                            id="blockSelect"
-                            {...register("block", {
-                              required: communityType === "apartment" ? "Block is required" : false,
-                            })}
-                            value={block || ""}
-                            onChange={(e) => {
-                              const newBlock = e.target.value;
-                              setValue("block", newBlock, { shouldValidate: true });
-                              setSelectedFloor("");
-                              setValue("flatNo", "", { shouldValidate: false });
-                              clearErrors(["block", "flatNo"]);
-                            }}
-                            className={`${inputBase} pl-8 sm:pl-10 pr-8 appearance-none cursor-pointer`}
-                          >
-                            <option value="">Select Block</option>
-                            {blockConfigs.map((bc) => (
-                              <option key={bc.blockName} value={bc.blockName}>
-                                {bc.blockName} Block ({bc.flatsPerFloor} flats/floor)
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground w-3.5 h-3.5" />
-                        </div>
-                        {errors.block && (
-                          <p className="text-destructive text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.block.message}</p>
-                        )}
-                      </div>
+                      {/* 1. Block Searchable Dropdown */}
+                      <SearchableDropdown
+                        id="blockSelect"
+                        label="Block / Wing"
+                        required
+                        placeholder="Select Block"
+                        searchPlaceholder="Search block name..."
+                        value={block || ""}
+                        icon={Layers}
+                        error={errors.block?.message}
+                        options={blockConfigs.map((bc) => ({
+                          value: bc.blockName,
+                          label: `Block ${bc.blockName}`,
+                          sublabel: `${bc.flatsPerFloor} flats/floor · ${bc.totalFloors} floors (${bc.totalFlats} flats)`,
+                          badge: `Block ${bc.blockName}`,
+                        }))}
+                        onChange={(newBlock) => {
+                          setValue("block", newBlock, { shouldValidate: true });
+                          setSelectedFloor("");
+                          setValue("flatNo", "", { shouldValidate: false });
+                          clearErrors(["block", "flatNo"]);
+                        }}
+                      />
 
-                      {/* 2. Floor Dropdown */}
-                      <div>
-                        <div className="flex items-center justify-between mb-0.5 sm:mb-1">
-                          <label htmlFor="floorSelect" className={labelCls}>
-                            Floor *
-                          </label>
-                          {selectedFloor && (
-                            <span className="text-[9px] sm:text-[10px] text-primary font-bold">
-                              Floor {selectedFloor}
-                            </span>
-                          )}
-                        </div>
-                        <div className="relative">
-                          <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          <select
-                            id="floorSelect"
-                            disabled={!block}
-                            value={selectedFloor}
-                            onChange={(e) => {
-                              const fl = e.target.value ? Number(e.target.value) : "";
-                              setSelectedFloor(fl);
-                              setValue("flatNo", "", { shouldValidate: false });
-                              clearErrors(["flatNo"]);
-                            }}
-                            className={`${inputBase} pl-8 sm:pl-10 pr-8 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
-                          >
-                            <option value="">{!block ? "Select Block First" : "Select Floor"}</option>
-                            {availableFloors.map((fl) => (
-                              <option key={fl} value={fl}>
-                                Floor {fl}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground w-3.5 h-3.5" />
-                        </div>
-                        {!block && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5 sm:mt-1">
-                            Choose a block to view floors
-                          </p>
-                        )}
-                      </div>
+                      {/* 2. Floor Searchable Dropdown */}
+                      <SearchableDropdown
+                        id="floorSelect"
+                        label="Floor"
+                        required
+                        disabled={!block}
+                        disabledHint="Select Block First"
+                        placeholder="Select Floor"
+                        searchPlaceholder="Search floor number..."
+                        value={selectedFloor ? String(selectedFloor) : ""}
+                        icon={Building2}
+                        options={availableFloors.map((fl) => ({
+                          value: String(fl),
+                          label: `Floor ${fl}`,
+                          sublabel: `${activeBlockConfig?.flatsPerFloor || 11} flats on this floor`,
+                          badge: `Floor ${fl}`,
+                        }))}
+                        onChange={(flStr) => {
+                          const fl = flStr ? Number(flStr) : "";
+                          setSelectedFloor(fl);
+                          setValue("flatNo", "", { shouldValidate: false });
+                          clearErrors(["flatNo"]);
+                        }}
+                      />
 
-                      {/* 3. Flat Number Dropdown */}
-                      <div>
-                        <div className="flex items-center justify-between mb-0.5 sm:mb-1">
-                          <label htmlFor="flatSelect" className={labelCls}>
-                            Flat Number *
-                          </label>
-                          {flatNo && (
-                            <span className="text-[9px] sm:text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                              Flat {flatNo}
-                            </span>
-                          )}
-                        </div>
-                        <div className="relative">
-                          <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          <select
-                            id="flatSelect"
-                            disabled={!block || !selectedFloor}
-                            {...register("flatNo", {
-                              required: communityType === "apartment" ? "Flat number is required" : false,
-                            })}
-                            value={flatNo || ""}
-                            onChange={(e) => {
-                              setValue("flatNo", e.target.value, { shouldValidate: true });
-                            }}
-                            className={`${inputBase} pl-8 sm:pl-10 pr-8 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
-                          >
-                            <option value="">
-                              {!block
-                                ? "Select Block First"
-                                : !selectedFloor
-                                ? "Select Floor First"
-                                : "Select Flat Number"}
-                            </option>
-                            {availableFlats.map((flat) => (
-                              <option key={flat} value={flat}>
-                                Flat {flat}
-                              </option>
-                            ))}
-                          </select>
-                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground w-3.5 h-3.5" />
-                        </div>
-                        {errors.flatNo && (
-                          <p className="text-destructive text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.flatNo.message}</p>
-                        )}
-                        {!selectedFloor && block && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5 sm:mt-1">
-                            Choose a floor to view flats
-                          </p>
-                        )}
-                      </div>
+                      {/* 3. Flat Number Searchable Dropdown */}
+                      <SearchableDropdown
+                        id="flatSelect"
+                        label="Flat Number"
+                        required
+                        disabled={!block || !selectedFloor}
+                        disabledHint={!block ? "Select Block First" : "Select Floor First"}
+                        placeholder="Select Flat Number"
+                        searchPlaceholder="Search flat number (e.g. 101, 1005)..."
+                        value={flatNo || ""}
+                        icon={Home}
+                        error={errors.flatNo?.message}
+                        options={availableFlats.map((flat) => ({
+                          value: flat,
+                          label: `Flat ${flat}`,
+                          sublabel: `Floor ${selectedFloor} · Block ${block}`,
+                          badge: `Flat ${flat}`,
+                        }))}
+                        onChange={(flat) => {
+                          setValue("flatNo", flat, { shouldValidate: true });
+                          clearErrors(["flatNo"]);
+                        }}
+                      />
                     </div>
 
                     {/* Admin Verification Reassurance */}

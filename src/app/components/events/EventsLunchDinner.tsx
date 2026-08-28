@@ -8,6 +8,7 @@ import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { TimePicker } from "../ui/time-picker";
 import { useAuth } from "../../../contexts/AuthContext";
+import { LunchDinnerRegistrationModal } from "./LunchDinnerRegistrationModal";
 
 type LunchDinner = {
   id: number;
@@ -89,17 +90,6 @@ export function EventsLunchDinner() {
 
   const [showRsvpModal, setShowRsvpModal] = useState(false);
   const [rsvpMeal, setRsvpMeal] = useState<LunchDinner | null>(null);
-  const [rsvpForm, setRsvpForm] = useState({
-    participantName: "",
-    phone: "",
-    familyCount: "1",
-    devoteeCount: 1,
-    dietType: "VEG",
-    notes: "",
-  });
-  const [savingRsvp, setSavingRsvp] = useState(false);
-  const [rsvpSuccess, setRsvpSuccess] = useState(false);
-  const [rsvpError, setRsvpError] = useState("");
 
   useEffect(() => {
     eventService.getAll().then((data) => setEvents(data || [])).catch(() => {});
@@ -224,45 +214,7 @@ export function EventsLunchDinner() {
 
   const openRsvp = (meal: LunchDinner) => {
     setRsvpMeal(meal);
-    setRsvpForm({
-      participantName: authUser?.fullName || "",
-      phone: authUser?.phone || "",
-      familyCount: "1",
-      devoteeCount: 1,
-      dietType: "VEG",
-      notes: "",
-    });
-    setRsvpSuccess(false);
-    setRsvpError("");
     setShowRsvpModal(true);
-  };
-
-  const handleRsvpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rsvpMeal) return;
-    const count = Math.max(1, Number(rsvpForm.familyCount) || 1);
-    setSavingRsvp(true);
-    try {
-      const regPayload = {
-        category: "Meal",
-        activityId: `meal-${rsvpMeal.id}`,
-        activityTitle: rsvpMeal.name,
-        mainEventId: rsvpMeal.mainEventId || undefined,
-        eventId: rsvpMeal.mainEventId || undefined,
-        participantName: rsvpForm.participantName.trim(),
-        phone: rsvpForm.phone.trim() || undefined,
-        devoteeCount: count,
-        eventDate: rsvpMeal.date,
-        bookingFee: (rsvpMeal.isFree ? 0 : (rsvpMeal.fee || 0)) * count,
-        paymentStatus: rsvpMeal.isFree ? "FREE" : "PAID",
-        status: "CONFIRMED",
-      };
-      if (!useMock) await eventService.adminCreateRegistration(regPayload);
-      setRsvpSuccess(true);
-      window.dispatchEvent(new CustomEvent("mana_activities_updated"));
-      setTimeout(() => { setShowRsvpModal(false); setRsvpSuccess(false); loadData(); }, 1500);
-    } catch (err: any) { setRsvpError(err?.message || "Failed to book"); }
-    finally { setSavingRsvp(false); }
   };
 
   const exportMealCsv = (meal: LunchDinner) => {
@@ -908,154 +860,17 @@ export function EventsLunchDinner() {
       )}
 
       {/* Meal Registration Modal */}
-      {showRsvpModal && rsvpMeal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
-
-            {/* Header */}
-            <div className="relative px-5 pt-5 pb-4 text-center bg-gradient-to-b from-orange-50 to-white border-b border-orange-100">
-              <button
-                onClick={() => setShowRsvpModal(false)}
-                className="absolute top-3.5 right-3.5 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <div className="w-12 h-12 rounded-2xl bg-orange-500 text-white flex items-center justify-center text-xl mx-auto mb-2 shadow-md">
-                🍽️
-              </div>
-              <h3 className="font-extrabold text-slate-800 text-base">Register for Meal</h3>
-              <p className="text-[11px] text-slate-500 mt-0.5 font-medium">{rsvpMeal.name}</p>
-              <div className="flex items-center justify-center gap-3 mt-2 text-[10px] text-slate-400 font-semibold flex-wrap">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-3 h-3 text-orange-400" /> {rsvpMeal.date}
-                </span>
-                {rsvpMeal.startTime && (
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3 text-orange-400" /> {rsvpMeal.startTime}{rsvpMeal.endTime ? ` – ${rsvpMeal.endTime}` : ""}
-                  </span>
-                )}
-                <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-bold">
-                  {rsvpMeal.isFree ? "Free" : `₹${rsvpMeal.fee?.toLocaleString("en-IN")} / head`}
-                </span>
-              </div>
-            </div>
-
-            <form onSubmit={handleRsvpSubmit} className="px-5 py-5 space-y-4">
-              {rsvpError && (
-                <div className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
-                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {rsvpError}
-                </div>
-              )}
-
-              {rsvpSuccess ? (
-                <div className="flex flex-col items-center gap-2 py-4 text-center">
-                  <div className="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-                  </div>
-                  <p className="text-sm font-extrabold text-emerald-700">Registration Confirmed!</p>
-                  <p className="text-[11px] text-slate-400">Your meal pass has been issued.</p>
-                </div>
-              ) : (
-                <>
-                  {/* Name — pre-filled from logged-in user */}
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
-                      Your Name
-                    </label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                      <input
-                        type="text"
-                        value={rsvpForm.participantName}
-                        onChange={(e) => setRsvpForm((f) => ({ ...f, participantName: e.target.value }))}
-                        className="w-full pl-8 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 bg-slate-50/60"
-                        placeholder="Your full name"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* Phone — pre-filled from logged-in user */}
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
-                      Phone Number
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">📞</span>
-                      <input
-                        type="tel"
-                        value={rsvpForm.phone}
-                        onChange={(e) => setRsvpForm((f) => ({ ...f, phone: e.target.value }))}
-                        className="w-full pl-8 pr-3 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 bg-slate-50/60"
-                        placeholder="Your phone number"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Family Count */}
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase tracking-wider mb-1">
-                      Family Count (Total Members)
-                    </label>
-                    <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5">
-                      <button
-                        type="button"
-                        onClick={() => setRsvpForm((f) => ({ ...f, familyCount: String(Math.max(1, Number(f.familyCount) - 1)) }))}
-                        className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold text-lg flex items-center justify-center hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 transition-colors cursor-pointer shadow-xs"
-                      >
-                        −
-                      </button>
-                      <div className="flex-1 text-center">
-                        <span className="text-2xl font-black text-slate-800">{rsvpForm.familyCount}</span>
-                        <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-wide">
-                          {Number(rsvpForm.familyCount) === 1 ? "member" : "members"}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setRsvpForm((f) => ({ ...f, familyCount: String(Math.min(50, Number(f.familyCount) + 1)) }))}
-                        className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold text-lg flex items-center justify-center hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 transition-colors cursor-pointer shadow-xs"
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Fee Summary */}
-                  {!rsvpMeal.isFree && (
-                    <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-orange-50 border border-orange-200">
-                      <span className="text-xs font-semibold text-slate-600">
-                        ₹{rsvpMeal.fee?.toLocaleString("en-IN")} × {rsvpForm.familyCount}
-                      </span>
-                      <span className="text-sm font-extrabold text-orange-700">
-                        ₹{((rsvpMeal.fee || 0) * (Number(rsvpForm.familyCount) || 1)).toLocaleString("en-IN")}
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowRsvpModal(false)}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 border border-slate-200 transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={savingRsvp}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                    >
-                      {savingRsvp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                      Confirm Registration
-                    </button>
-                  </div>
-                </>
-              )}
-            </form>
-          </div>
-        </div>
-      )}
+      <LunchDinnerRegistrationModal
+        isOpen={showRsvpModal}
+        onClose={() => {
+          setShowRsvpModal(false);
+          setRsvpMeal(null);
+        }}
+        meal={rsvpMeal}
+        onSuccess={() => {
+          loadData();
+        }}
+      />
     </div>
   );
 }
