@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { PoojaRegistrationModal } from "./PoojaRegistrationModal";
+import { LunchDinnerRegistrationModal } from "./LunchDinnerRegistrationModal";
 import { EventCompleteDetailsModal } from "./EventCompleteDetailsModal";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
@@ -3839,110 +3840,168 @@ export function EventMemberView() {
         </div>
       )}
 
-      {/* ─── EVENT REGISTRATION PORTAL WIZARD / DEDICATED POOJA REGISTRATION MODAL / AUCTION BID MODAL ─── */}
-      {selectedActivity && (
-        selectedActivity.category?.toLowerCase() === "auction" || Boolean(selectedActivity.rawAuctionItem) ? (
-          <MemberAuctionBidModal
-            activity={selectedActivity}
-            onClose={() => {
-              setSelectedActivity(null);
-              fetchLiveDataFromBackend();
-            }}
-            onSuccess={() => {
-              fetchLiveDataFromBackend();
-            }}
-          />
-        ) : selectedActivity.category?.toLowerCase().includes("pooja") || selectedActivity.category?.toLowerCase().includes("seva") ? (
-          <PoojaRegistrationModal
-            event={{
-              id: selectedActivity.id,
-              title: selectedActivity.title,
-              description: selectedActivity.description,
-              category: selectedActivity.category,
-              fee: selectedActivity.fee,
-              isFree: selectedActivity.isFree,
-              date: selectedActivity.date,
-              startDate: selectedActivity.startDate || selectedActivity.date,
-              endDate: selectedActivity.endDate,
-              isMultiDay: selectedActivity.isMultiDay,
-              time: selectedActivity.time,
-              startTime: selectedActivity.startTime,
-              startTimes: selectedActivity.startTimes,
-              venue: selectedActivity.venue,
-              mandap: selectedActivity.mandap || selectedActivity.venue,
-              pandit: selectedActivity.pandit,
-              availableSeats: selectedActivity.availableSeats || 24,
-              slots: selectedActivity.slots,
-              timeSlotConfig: (selectedActivity as any)?.timeSlotConfig,
-              parentEventTitle: "Ganesh Utsav 2026",
-              gotram: passesList.find((p) => p.gotram)?.gotram || (selectedActivity as any)?.gotram || (selectedActivity as any)?.existingRegistration?.gotram,
-              notes: (selectedActivity as any)?.notes,
-              samagri: (selectedActivity as any)?.samagri,
-              existingRegistration: (selectedActivity as any)?.existingRegistration,
-              registrationId: (selectedActivity as any)?.registrationId,
-              isUpdateMode: (selectedActivity as any)?.isUpdateMode,
-              // Pass parent community event id for correct deduplication scoping
-              mainEventId: selectedActivity.mainEventId,
-            }}
-            isMainEventRegistered={isMainEventRegistered(selectedActivity.mainEventId)}
-            onRegisterMainEvent={() => {
-              const targetParentId = selectedActivity.mainEventId || activeMainEvent?.id;
-              const parentEv = (mainEventsList || []).find((e) => String(e.id || (e as any).rawId).replace(/\D/g, "") === String(targetParentId).replace(/\D/g, "")) || activeMainEvent;
-              if (parentEv) {
-                setSelectedActivity({
-                  id: `event-${parentEv.id}`,
-                  title: parentEv.title,
-                  category: "General",
-                  date: String(parentEv.startDate || ""),
-                  time: String(parentEv.startTime || ""),
-                  venue: parentEv.location || (parentEv as any).venue || "",
-                  fee: 0,
-                  availableSeats: 500,
-                  image: "🎉",
-                  description: parentEv.description || "Community Parent Event",
-                });
-              }
-            }}
-            onClose={() => {
-              setSelectedActivity(null);
-              fetchLiveDataFromBackend();
-              loadUserPasses();
-            }}
-            onSuccess={() => {
-              // Optimistic slot decrement so the count drops immediately
-              if (selectedActivity) {
-                setActivitiesList((prev) =>
-                  prev.map((a) =>
-                    a.id === selectedActivity.id
-                      ? { ...a, availableSeats: Math.max(0, (a.availableSeats ?? 1) - 1) }
-                      : a
-                  )
-                );
-                // Optimistic pass insertion so "Reschedule Slot" appears immediately
-                const actIdStr = String(selectedActivity.id);
-                const optimisticPass: UserPass = {
-                  id: `optimistic-${Date.now()}`,
-                  activityId: actIdStr,
-                  poojaSevaId: actIdStr.replace(/\D/g, "") || undefined,
-                  category: "Pooja",
-                  passType: "Pooja Registration Pass",
-                  title: selectedActivity.title,
-                  participantName: user?.fullName || "Devotee",
-                  regId: `MNA-POOJA-${Date.now()}`,
-                  date: selectedActivity.date || "Upcoming",
-                  time: selectedActivity.time || "Scheduled",
-                  venue: selectedActivity.venue || "Temple",
-                  status: "CONFIRMED",
-                  qrCodeUrl: "",
-                };
-                setPassesList((prev) => [optimisticPass, ...prev]);
-              }
-              // Then refresh from backend to get confirmed data
-              fetchLiveDataFromBackend();
-              loadUserPasses();
-            }}
-          />
-        ) : (
+      {/* ─── EVENT REGISTRATION PORTAL WIZARD / DEDICATED POOJA REGISTRATION MODAL / AUCTION BID MODAL / LUNCH DINNER MODAL ─── */}
+      {selectedActivity && (() => {
+        const cat = String(selectedActivity.category || "").toLowerCase();
+        const actId = String(selectedActivity.id || "");
+        const actTitle = String(selectedActivity.title || "").toLowerCase();
+
+        const isAuction = cat === "auction" || Boolean(selectedActivity.rawAuctionItem);
+        const isMeal =
+          cat.includes("meal") ||
+          cat.includes("food") ||
+          cat.includes("lunch") ||
+          cat.includes("dinner") ||
+          cat.includes("prasadam") ||
+          cat.includes("annadanam") ||
+          actId.startsWith("meal-") ||
+          actId.startsWith("food-") ||
+          actTitle.includes("lunch") ||
+          actTitle.includes("dinner") ||
+          actTitle.includes("bhojanam") ||
+          actTitle.includes("annadanam") ||
+          actTitle.includes("prasadam feast");
+
+        if (isAuction) {
+          return (
+            <MemberAuctionBidModal
+              activity={selectedActivity}
+              onClose={() => {
+                setSelectedActivity(null);
+                fetchLiveDataFromBackend();
+              }}
+              onSuccess={() => {
+                fetchLiveDataFromBackend();
+              }}
+            />
+          );
+        }
+
+        if (isMeal) {
+          return (
+            <LunchDinnerRegistrationModal
+              isOpen={Boolean(selectedActivity)}
+              onClose={() => {
+                setSelectedActivity(null);
+                fetchLiveDataFromBackend();
+                loadUserPasses();
+              }}
+              meal={{
+                id: actId.replace(/\D/g, "") || actId,
+                name: selectedActivity.title,
+                mealType: cat.includes("dinner") || actTitle.includes("dinner") ? "DINNER" : cat.includes("lunch") || actTitle.includes("lunch") ? "LUNCH" : "MEAL PASS",
+                date: selectedActivity.date || selectedActivity.startDate,
+                startTime: selectedActivity.startTime || selectedActivity.time,
+                endTime: (selectedActivity as any)?.endTime,
+                venue: selectedActivity.venue,
+                fee: selectedActivity.fee,
+                isFree: selectedActivity.isFree,
+                mainEventId: selectedActivity.mainEventId ? Number(String(selectedActivity.mainEventId).replace(/\D/g, "")) : undefined,
+              }}
+              onSuccess={() => {
+                setSelectedActivity(null);
+                fetchLiveDataFromBackend();
+                loadUserPasses();
+              }}
+            />
+          );
+        }
+
+        if (cat.includes("pooja") || cat.includes("seva")) {
+          return (
+            <PoojaRegistrationModal
+              event={{
+                id: selectedActivity.id,
+                title: selectedActivity.title,
+                description: selectedActivity.description,
+                category: selectedActivity.category,
+                fee: selectedActivity.fee,
+                isFree: selectedActivity.isFree,
+                date: selectedActivity.date,
+                startDate: selectedActivity.startDate || selectedActivity.date,
+                endDate: selectedActivity.endDate,
+                isMultiDay: selectedActivity.isMultiDay,
+                time: selectedActivity.time,
+                startTime: selectedActivity.startTime,
+                startTimes: selectedActivity.startTimes,
+                venue: selectedActivity.venue,
+                mandap: selectedActivity.mandap || selectedActivity.venue,
+                pandit: selectedActivity.pandit,
+                availableSeats: selectedActivity.availableSeats || 24,
+                slots: selectedActivity.slots,
+                timeSlotConfig: (selectedActivity as any)?.timeSlotConfig,
+                parentEventTitle: "Ganesh Utsav 2026",
+                gotram: passesList.find((p) => p.gotram)?.gotram || (selectedActivity as any)?.gotram || (selectedActivity as any)?.existingRegistration?.gotram,
+                notes: (selectedActivity as any)?.notes,
+                samagri: (selectedActivity as any)?.samagri,
+                existingRegistration: (selectedActivity as any)?.existingRegistration,
+                registrationId: (selectedActivity as any)?.registrationId,
+                isUpdateMode: (selectedActivity as any)?.isUpdateMode,
+                // Pass parent community event id for correct deduplication scoping
+                mainEventId: selectedActivity.mainEventId,
+              }}
+              isMainEventRegistered={isMainEventRegistered(selectedActivity.mainEventId)}
+              onRegisterMainEvent={() => {
+                const targetParentId = selectedActivity.mainEventId || activeMainEvent?.id;
+                const parentEv = (mainEventsList || []).find((e) => String(e.id || (e as any).rawId).replace(/\D/g, "") === String(targetParentId).replace(/\D/g, "")) || activeMainEvent;
+                if (parentEv) {
+                  setSelectedActivity({
+                    id: `event-${parentEv.id}`,
+                    title: parentEv.title,
+                    category: "General",
+                    date: String(parentEv.startDate || ""),
+                    time: String(parentEv.startTime || ""),
+                    venue: parentEv.location || (parentEv as any).venue || "",
+                    fee: 0,
+                    availableSeats: 500,
+                    image: "🎉",
+                    description: parentEv.description || "Community Parent Event",
+                  });
+                }
+              }}
+              onClose={() => {
+                setSelectedActivity(null);
+                fetchLiveDataFromBackend();
+                loadUserPasses();
+              }}
+              onSuccess={() => {
+                // Optimistic slot decrement so the count drops immediately
+                if (selectedActivity) {
+                  setActivitiesList((prev) =>
+                    prev.map((a) =>
+                      a.id === selectedActivity.id
+                        ? { ...a, availableSeats: Math.max(0, (a.availableSeats ?? 1) - 1) }
+                        : a
+                    )
+                  );
+                  // Optimistic pass insertion so "Reschedule Slot" appears immediately
+                  const actIdStr = String(selectedActivity.id);
+                  const optimisticPass: UserPass = {
+                    id: `optimistic-${Date.now()}`,
+                    activityId: actIdStr,
+                    poojaSevaId: actIdStr.replace(/\D/g, "") || undefined,
+                    category: "Pooja",
+                    passType: "Pooja Registration Pass",
+                    title: selectedActivity.title,
+                    participantName: user?.fullName || "Devotee",
+                    regId: `MNA-POOJA-${Date.now()}`,
+                    date: selectedActivity.date || "Upcoming",
+                    time: selectedActivity.time || "Scheduled",
+                    venue: selectedActivity.venue || "Temple",
+                    status: "CONFIRMED",
+                    qrCodeUrl: "",
+                  };
+                  setPassesList((prev) => [optimisticPass, ...prev]);
+                }
+                // Then refresh from backend to get confirmed data
+                fetchLiveDataFromBackend();
+                loadUserPasses();
+              }}
+            />
+          );
+        }
+
+        return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn">
             <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 min-h-[85vh] sm:min-h-[640px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp">
               <EventRegistrationWizard
@@ -3982,8 +4041,8 @@ export function EventMemberView() {
               />
             </div>
           </div>
-        )
-      )}
+        );
+      })()}
 
       {/* ─── QR GATE PASS MODAL (DIGITAL PASS WALLET) ─── */}
       {showQRPass && (

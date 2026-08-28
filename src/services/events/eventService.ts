@@ -717,8 +717,16 @@ export const eventService = {
       apiClient.get<any[]>("/events/pooja-registrations"),
     ]);
 
-    const general = generalRegs.status === "fulfilled" && Array.isArray(generalRegs.value) ? generalRegs.value : [];
-    const pooja = poojaRegs.status === "fulfilled" && Array.isArray(poojaRegs.value) ? poojaRegs.value : [];
+    const unwrap = (val: any): any[] => {
+      if (Array.isArray(val)) return val;
+      if (Array.isArray(val?.content)) return val.content;
+      if (Array.isArray(val?.data)) return val.data;
+      if (Array.isArray(val?.items)) return val.items;
+      return [];
+    };
+
+    const general = generalRegs.status === "fulfilled" ? unwrap(generalRegs.value) : [];
+    const pooja = poojaRegs.status === "fulfilled" ? unwrap(poojaRegs.value) : [];
 
     const normalizedPooja = pooja.map((p) => ({
       ...p,
