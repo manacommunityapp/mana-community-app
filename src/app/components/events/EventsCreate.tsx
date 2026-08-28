@@ -824,6 +824,12 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   const [expandedDay, setExpandedDay] = useState<string | null>(() => {
     return data.daySchedules.length > 0 ? data.daySchedules[0].date : null;
   });
+  // Sync expandedDay when async data loads after this step mounts
+  useEffect(() => {
+    if (!expandedDay && data.daySchedules.length > 0) {
+      setExpandedDay(data.daySchedules[0].date);
+    }
+  }, [data.daySchedules]);
   const [notifModalOpen, setNotifModalOpen] = useState(false);
   const [notifDayLabel, setNotifDayLabel] = useState<string | undefined>(undefined);
   const [notifActivityTitle, setNotifActivityTitle] = useState<string | undefined>(undefined);
@@ -2050,8 +2056,10 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               )}
 
                               {(() => {
-                                const isStartBeforeEvent = Boolean(data.startTime && act.startTime && act.startTime < data.startTime);
-                                const isEndAfterEvent = Boolean(data.endTime && act.endTime && act.endTime > data.endTime);
+                                const isFirstDay = !data.multiDay || day.date === data.startDate;
+                                const isLastDay = !data.multiDay || day.date === (data.endDate || data.startDate);
+                                const isStartBeforeEvent = Boolean(isFirstDay && data.startTime && act.startTime && act.startTime < data.startTime);
+                                const isEndAfterEvent = Boolean(isLastDay && data.endTime && act.endTime && act.endTime > data.endTime);
                                 const isEndBeforeStart = Boolean(act.startTime && act.endTime && act.endTime <= act.startTime);
 
                                 return (
@@ -2059,7 +2067,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                     <div className="w-full sm:w-40">
                                       <div className="flex items-center justify-between">
                                         <FieldLabel required>Start Time (From)</FieldLabel>
-                                        {data.startTime && (
+                                        {data.startTime && isFirstDay && (
                                           <span className="text-[9px] text-slate-400 font-bold">Min: {data.startTime}</span>
                                         )}
                                       </div>
@@ -2084,7 +2092,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                     <div className="w-full sm:w-40">
                                       <div className="flex items-center justify-between">
                                         <FieldLabel required>End Time (To)</FieldLabel>
-                                        {data.endTime && (
+                                        {data.endTime && isLastDay && (
                                           <span className="text-[9px] text-slate-400 font-bold">Max: {data.endTime}</span>
                                         )}
                                       </div>
@@ -4368,13 +4376,13 @@ export function fromEventToFormData(ev: any): FormData {
     } catch {}
   }
 
-  // Extract saved capacity - prioritize true total capacity fields over remaining/available seats
-  const savedCapacity = ev.capacity !== undefined && ev.capacity !== null && String(ev.capacity).trim() !== ""
-    ? String(ev.capacity)
-    : ev.maxAttendees !== undefined && ev.maxAttendees !== null && String(ev.maxAttendees).trim() !== ""
+  // Prefer maxAttendees (fixed admin-configured total) over capacity (remaining seats counter, decremented by bookings)
+  const savedCapacity = ev.maxAttendees !== undefined && ev.maxAttendees !== null && String(ev.maxAttendees).trim() !== "" && Number(ev.maxAttendees) > 0
     ? String(ev.maxAttendees)
-    : ev.totalCapacity !== undefined && ev.totalCapacity !== null && String(ev.totalCapacity).trim() !== ""
+    : ev.totalCapacity !== undefined && ev.totalCapacity !== null && String(ev.totalCapacity).trim() !== "" && Number(ev.totalCapacity) > 0
     ? String(ev.totalCapacity)
+    : ev.capacity !== undefined && ev.capacity !== null && String(ev.capacity).trim() !== ""
+    ? String(ev.capacity)
     : "100";
 
   const ticketTypes: TicketType[] = rawTicketTypes.length > 0
@@ -4559,7 +4567,9 @@ export function fromEventToFormData(ev: any): FormData {
   const endTime = ev.endTime ? String(ev.endTime).slice(0, 5) : "18:00";
   const multiDay = Boolean(endDate && startDate && endDate !== startDate);
 
-  let rawDaySchedules: DaySchedule[] = Array.isArray(ev.daySchedules) && ev.daySchedules.length > 0 ? ev.daySchedules : [];
+  let rawDaySchedules: DaySchedule[] = Array.isArray(ev.daySchedules) && ev.daySchedules.length > 0
+    ? ev.daySchedules.map((ds: DaySchedule) => ({ ...ds, date: String(ds.date || "").split("T")[0] }))
+    : [];
   if (!multiDay && startDate) {
     const matching = rawDaySchedules.filter((ds: DaySchedule) => ds.date === startDate);
     if (matching.length > 0) {
@@ -4687,7 +4697,11 @@ export function EventCreateWizard({
               const resolveDay = (rawDate?: string): string | null => {
                 if (!startD) return null;
                 if (!baseForm.multiDay) return startD;
-                if (rawDate && validDaysSet.has(rawDate)) return rawDate;
+                if (rawDate) {
+                  // Normalize ISO datetime strings to "YYYY-MM-DD" before lookup
+                  const dateOnly = String(rawDate).split("T")[0];
+                  if (validDaysSet.has(dateOnly)) return dateOnly;
+                }
                 return startD;
               };
 
@@ -4710,54 +4724,84 @@ export function EventCreateWizard({
                 }
               }
 
-              // 1. Merge Pooja Sevas (including multi-day pooja records across day slots)
+              // 1. Merge Pooja Sevas — one activity card per time slot entry
               if (Array.isArray(poojas)) {
                 for (const p of poojas) {
                   if (p.mainEventId && Number(p.mainEventId) !== numId) continue;
-                  
-                  let targetDates: string[] = [];
+
+                  const toHHMM = (t: any) => {
+                    const s = String(t || "").split(/[–\-]/)[0].trim();
+                    // strip seconds from "HH:MM:SS" → "HH:MM"
+                    return s.length >= 5 ? s.substring(0, 5) : s || "08:30";
+                  };
+
                   if (Array.isArray(p.timeSlotConfig) && p.timeSlotConfig.length > 0) {
-                    targetDates = [...new Set(p.timeSlotConfig.map((ts: any) => resolveDay(ts.slotDate || p.date || p.startDate)).filter(Boolean))] as string[];
-                  }
-                  if (targetDates.length === 0) {
+                    // Each time slot row → one separate activity card
+                    for (const ts of p.timeSlotConfig as any[]) {
+                      const pDate = resolveDay(ts.slotDate || p.date || p.startDate);
+                      if (!pDate || !daysMap.has(pDate)) continue;
+                      const list = daysMap.get(pDate)!;
+                      const cleanTime = toHHMM(ts.startTime || p.startTime);
+                      const slotCount = ts.slotCount ? String(ts.slotCount) : (p.slots ? String(p.slots) : "50");
+                      const actId = `pooja-${p.id}-${pDate}-${cleanTime.replace(/:/g, "")}`;
+                      const existingIdx = list.findIndex(a => a.id === actId || (a.subEventId === p.id && a.startTime === cleanTime));
+                      const actObj: ScheduleActivity = {
+                        id: actId,
+                        subEventId: p.id,
+                        categoryType: "Pooja & Seva",
+                        name: ts.title || p.name || "Pooja Seva",
+                        poojaType: p.type || "Pooja",
+                        needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
+                        registrationFee: p.fee ? String(p.fee) : "0",
+                        slots: slotCount,
+                        startTime: cleanTime,
+                        endTime: toHHMM(ts.endTime || p.endTime),
+                        description: p.notes || "",
+                        venue: p.mandap || p.venue || "Main Mandap",
+                      };
+                      if (existingIdx >= 0) {
+                        list[existingIdx] = actObj;
+                      } else {
+                        list.push(actObj);
+                      }
+                    }
+                  } else {
+                    // No timeSlotConfig — fall back to the pooja seva's own date/time
+                    let targetDates: string[] = [];
                     if (p.multiDay && p.endDate && p.date) {
-                      targetDates = getDaysBetween(p.date, p.endDate).map(resolveDay).filter(Boolean) as string[];
+                      targetDates = getDaysBetween(
+                        String(p.date).split("T")[0],
+                        String(p.endDate).split("T")[0]
+                      ).map(resolveDay).filter(Boolean) as string[];
                     } else {
                       const single = resolveDay(p.date || p.startDate);
                       if (single) targetDates = [single];
                     }
-                  }
-
-                  for (const pDate of targetDates) {
-                    if (!pDate || !daysMap.has(pDate)) continue;
-                    const list = daysMap.get(pDate)!;
-                    const daySlotMatch = Array.isArray(p.timeSlotConfig)
-                      ? p.timeSlotConfig.find((ts: any) => ts.slotDate === pDate)
-                      : null;
-                    const firstConfigTime = Array.isArray(p.timeSlotConfig) && p.timeSlotConfig.length > 0 ? (p.timeSlotConfig[0] as any)?.startTime : null;
-                    const actTime = daySlotMatch?.startTime || firstConfigTime || p.startTime || "08:30";
-                    const cleanTime = String(actTime).split(/[–-]/)[0].trim();
-                    const slotCount = daySlotMatch?.slotCount ? String(daySlotMatch.slotCount) : (p.slots ? String(p.slots) : "50");
-
-                    const existingIdx = list.findIndex(a => a.subEventId === p.id || (a.categoryType === "Pooja & Seva" && a.name === p.name));
-                    const actObj: ScheduleActivity = {
-                      id: `pooja-${p.id}-${pDate}`,
-                      subEventId: p.id,
-                      categoryType: "Pooja & Seva",
-                      name: daySlotMatch?.title || p.name || "Pooja Seva",
-                      poojaType: p.type || "Pooja",
-                      needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
-                      registrationFee: p.fee ? String(p.fee) : "0",
-                      slots: slotCount,
-                      startTime: cleanTime,
-                      endTime: p.endTime || "",
-                      description: p.notes || "",
-                      venue: p.mandap || p.venue || "Main Mandap",
-                    };
-                    if (existingIdx >= 0) {
-                      list[existingIdx] = actObj;
-                    } else {
-                      list.push(actObj);
+                    for (const pDate of targetDates) {
+                      if (!pDate || !daysMap.has(pDate)) continue;
+                      const list = daysMap.get(pDate)!;
+                      const cleanTime = toHHMM(p.startTime);
+                      const actId = `pooja-${p.id}-${pDate}`;
+                      const existingIdx = list.findIndex(a => a.id === actId || (a.subEventId === p.id && a.startTime === cleanTime));
+                      const actObj: ScheduleActivity = {
+                        id: actId,
+                        subEventId: p.id,
+                        categoryType: "Pooja & Seva",
+                        name: p.name || "Pooja Seva",
+                        poojaType: p.type || "Pooja",
+                        needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
+                        registrationFee: p.fee ? String(p.fee) : "0",
+                        slots: p.slots ? String(p.slots) : "50",
+                        startTime: cleanTime,
+                        endTime: toHHMM(p.endTime),
+                        description: p.notes || "",
+                        venue: p.mandap || p.venue || "Main Mandap",
+                      };
+                      if (existingIdx >= 0) {
+                        list[existingIdx] = actObj;
+                      } else {
+                        list.push(actObj);
+                      }
                     }
                   }
                 }
@@ -4928,14 +4972,16 @@ export function EventCreateWizard({
       if (isTimeInvalid) return `End time (${formData.endTime}) must be after start time (${formData.startTime}).`;
 
       for (const ds of (formData.daySchedules || [])) {
+        const isFirstDay = !formData.multiDay || ds.date === formData.startDate;
+        const isLastDay = !formData.multiDay || ds.date === (formData.endDate || formData.startDate);
         for (const act of (ds.activities || [])) {
           if (act.startTime && act.endTime && act.endTime <= act.startTime) {
             return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) must be after start time (${act.startTime}).`;
           }
-          if (formData.startTime && act.startTime && act.startTime < formData.startTime) {
+          if (isFirstDay && formData.startTime && act.startTime && act.startTime < formData.startTime) {
             return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": Start time (${act.startTime}) cannot be earlier than event start time (${formData.startTime}).`;
           }
-          if (formData.endTime && act.endTime && act.endTime > formData.endTime) {
+          if (isLastDay && formData.endTime && act.endTime && act.endTime > formData.endTime) {
             return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) cannot be later than event end time (${formData.endTime}).`;
           }
         }
@@ -4983,14 +5029,16 @@ export function EventCreateWizard({
     if (isTimeInvalid) return `End time (${formData.endTime}) must be after start time (${formData.startTime}).`;
 
     for (const ds of (formData.daySchedules || [])) {
+      const isFirstDay = !formData.multiDay || ds.date === formData.startDate;
+      const isLastDay = !formData.multiDay || ds.date === (formData.endDate || formData.startDate);
       for (const act of (ds.activities || [])) {
         if (act.startTime && act.endTime && act.endTime <= act.startTime) {
           return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) must be after start time (${act.startTime}).`;
         }
-        if (formData.startTime && act.startTime && act.startTime < formData.startTime) {
+        if (isFirstDay && formData.startTime && act.startTime && act.startTime < formData.startTime) {
           return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": Start time (${act.startTime}) cannot be earlier than event start time (${formData.startTime}).`;
         }
-        if (formData.endTime && act.endTime && act.endTime > formData.endTime) {
+        if (isLastDay && formData.endTime && act.endTime && act.endTime > formData.endTime) {
           return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) cannot be later than event end time (${formData.endTime}).`;
         }
       }

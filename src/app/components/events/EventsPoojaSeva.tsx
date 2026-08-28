@@ -57,6 +57,12 @@ type BookingRegistration = {
   email?: string;
   notes?: string;
   createdAt: string;
+  // Fields stored by backend entity (not activityId/activityTitle)
+  poojaSlotName?: string;
+  poojaSlotDate?: string;
+  poojaSlotTime?: string;
+  poojaSevaTimeSlotsId?: number;
+  scheduleId?: number;
   // Audit fields from backend
   registrationSource?: "SELF" | "ADMIN" | "IMPORT";
   registeredBy?: number;
@@ -286,12 +292,19 @@ export function EventsPoojaSeva() {
     };
   }, [useMock]);
 
+  const matchesPooja = (r: BookingRegistration, pooja: PoojaSeva): boolean => {
+    if (r.activityId === `pooja-${pooja.id}` || r.activityId === String(pooja.id)) return true;
+    if (r.activityTitle === pooja.name || r.poojaSlotName === pooja.name) return true;
+    if (r.poojaSevaTimeSlotsId && Array.isArray(pooja.timeSlotConfig)) {
+      return pooja.timeSlotConfig.some(ts => ts.id != null && Number(ts.id) === Number(r.poojaSevaTimeSlotsId));
+    }
+    return false;
+  };
+
   const getRegistrationsForPooja = (pooja: PoojaSeva) => {
     const raw = useMock
       ? registrations.filter(r => r.activityId === `pooja-${pooja.id}`)
-      : registrations.filter(r =>
-          r.activityTitle === pooja.name || r.activityId === `pooja-${pooja.id}` || r.activityId === String(pooja.id)
-        );
+      : registrations.filter(r => matchesPooja(r, pooja));
 
     const searchQ = (regSearch[pooja.id] || "").toLowerCase().trim();
     const filterSt = regFilterStatus[pooja.id] || "ALL";
@@ -626,7 +639,7 @@ export function EventsPoojaSeva() {
   const handleOpenEditReg = (pooja: PoojaSeva, reg: BookingRegistration) => {
     setSelectedPoojaForReg(pooja);
     setEditingReg(reg);
-    setRegSelectedScheduleId((reg as any).scheduleId ?? null);
+    setRegSelectedScheduleId(reg.scheduleId ?? null);
     setRegForm({
       participantName: reg.participantName || "",
       attendingDevotees: reg.attendingDevotees || "",
@@ -634,8 +647,8 @@ export function EventsPoojaSeva() {
       devoteeCount: reg.devoteeCount || 1,
       phone: reg.phone || "",
       email: reg.email || "",
-      eventDate: reg.eventDate || pooja.date,
-      eventTime: reg.eventTime || pooja.startTimes?.[0] || pooja.startTime || "",
+      eventDate: reg.poojaSlotDate || reg.eventDate || pooja.date,
+      eventTime: reg.poojaSlotTime || reg.eventTime || pooja.startTimes?.[0] || pooja.startTime || "",
       venue: reg.venue || pooja.mandap || "Main Temple Mandap",
       bookingFee: Number(reg.bookingFee || 0),
       paymentStatus: reg.paymentStatus || "PAID",
@@ -675,24 +688,30 @@ export function EventsPoojaSeva() {
       return;
     }
 
+    const slotDate = regForm.eventDate || selectedPoojaForReg.date;
+    const slotTime = regForm.eventTime || selectedPoojaForReg.startTime || "";
     const payload = {
+      // Legacy / local-state fields (used for mock and immediate UI update)
       activityId: `pooja-${selectedPoojaForReg.id}`,
       activityTitle: selectedPoojaForReg.name,
       category: "Pooja",
+      eventDate: slotDate,
+      eventTime: slotTime,
+      // Correct backend entity field names (what actually gets persisted)
+      poojaSlotName: selectedPoojaForReg.name,
+      poojaSlotDate: slotDate,
+      poojaSlotTime: slotTime,
       participantName: regForm.participantName.trim(),
       attendingDevotees: regForm.attendingDevotees.trim() || undefined,
       gotram: regForm.gotram.trim() || undefined,
       devoteeCount: Math.max(1, Number(regForm.devoteeCount) || 1),
       phone: regForm.phone.trim() || undefined,
       email: regForm.email.trim() || undefined,
-      eventDate: regForm.eventDate || selectedPoojaForReg.date,
-      eventTime: regForm.eventTime || selectedPoojaForReg.startTime || "08:30 AM",
       venue: regForm.venue || selectedPoojaForReg.mandap || "Main Temple Mandap",
       bookingFee: Number(regForm.bookingFee) || 0,
       paymentStatus: regForm.paymentStatus,
       status: regForm.status,
       notes: regForm.notes.trim() || undefined,
-      mainEventId: undefined,
       targetUserId: regForm.targetUserId ?? selectedTargetUser?.id,
       overrideReason: regForm.overrideReason?.trim() || undefined,
       ...(regSelectedScheduleId ? { scheduleId: regSelectedScheduleId } : {}),
@@ -708,7 +727,7 @@ export function EventsPoojaSeva() {
             prev.map(r => (r.id === editingReg.id ? { ...r, ...payload } : r))
           );
         } else {
-          const updated = await eventService.updateRegistration(editingReg.id, payload);
+          const updated = await eventService.updatePoojaRegistration(editingReg.id, payload as any);
           setRegistrations(prev =>
             prev.map(r => (r.id === editingReg.id ? { ...r, ...updated, ...payload } : r))
           );
@@ -730,6 +749,12 @@ export function EventsPoojaSeva() {
               id: created.id || Date.now(),
               regCode: created.regCode || `POOJA-${created.id || 'REG'}`,
               ...payload,
+              // Ensure backend-returned fields override the payload so matchesPooja works post-create
+              poojaSlotName: created.poojaSlotName || payload.poojaSlotName,
+              poojaSlotDate: created.poojaSlotDate || payload.poojaSlotDate,
+              poojaSlotTime: created.poojaSlotTime || payload.poojaSlotTime,
+              poojaSevaTimeSlotsId: created.poojaSevaTimeSlotsId,
+              scheduleId: created.scheduleId ?? (regSelectedScheduleId ?? undefined),
               createdAt: created.createdAt || new Date().toISOString(),
             },
             ...prev,
@@ -975,9 +1000,7 @@ export function EventsPoojaSeva() {
           const regs = getRegistrationsForPooja(pooja);
           const rawPoojaRegs = useMock
             ? registrations.filter(r => r.activityId === `pooja-${pooja.id}`)
-            : registrations.filter(r =>
-                r.activityTitle === pooja.name || r.activityId === `pooja-${pooja.id}` || r.activityId === String(pooja.id)
-              );
+            : registrations.filter(r => matchesPooja(r, pooja));
           const isExpanded = expandedPoojaId === pooja.id;
           const activeRegsForPooja = rawPoojaRegs.filter(r => r.status !== "CANCELLED" && r.status !== "REJECTED");
           const totalDevotees = activeRegsForPooja.reduce((a, r) => a + (r.devoteeCount || 1), 0);
@@ -1484,8 +1507,8 @@ export function EventsPoojaSeva() {
                                     </span>
                                   </td>
                                   <td className="px-3 py-2.5 text-slate-600 hidden md:table-cell whitespace-nowrap">
-                                    <div>{r.eventDate || pooja.date}</div>
-                                    <div className="text-[10px] text-slate-400">{r.eventTime || pooja.startTime}</div>
+                                    <div>{r.poojaSlotDate || r.eventDate || pooja.date}</div>
+                                    <div className="text-[10px] text-slate-400">{r.poojaSlotTime || r.eventTime || pooja.startTime}</div>
                                   </td>
                                   <td className="px-3 py-2.5 hidden lg:table-cell">
                                     <div className="font-semibold text-slate-700">
@@ -1761,18 +1784,7 @@ export function EventsPoojaSeva() {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Attending Family Members / Devotees
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Priya Sharma, Arjun Sharma"
-                  value={regForm.attendingDevotees}
-                  onChange={e => setRegForm({ ...regForm, attendingDevotees: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-                />
-              </div>
+              {/* Attending Family Members field hidden per UI requirement */}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>

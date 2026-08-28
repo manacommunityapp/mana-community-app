@@ -62,6 +62,7 @@ interface FamilyMember {
   name: string;
   relation: string;
   age: number;
+  dob?: string;
   avatar: string;
 }
 
@@ -492,7 +493,7 @@ export function EventMemberView() {
   const [newMember, setNewMember] = useState({
     name: "",
     relation: "Son",
-    age: "",
+    dob: "",
     avatar: "👦",
   });
 
@@ -1507,10 +1508,19 @@ export function EventMemberView() {
     e.preventDefault();
     if (!newMember.name.trim()) return;
 
+    let computedAge = 18;
+    if (newMember.dob) {
+      const birth = new Date(newMember.dob);
+      if (!isNaN(birth.getTime())) {
+        computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+      }
+    }
+
     const payload = {
       name: newMember.name.trim(),
       relation: newMember.relation,
-      age: Number(newMember.age) || 18,
+      dob: newMember.dob || undefined,
+      age: computedAge,
       avatar: newMember.avatar,
       status: "ACTIVE",
     };
@@ -1531,6 +1541,7 @@ export function EventMemberView() {
       id: createdId,
       name: payload.name,
       relation: payload.relation,
+      dob: payload.dob,
       age: payload.age,
       avatar: payload.avatar,
     };
@@ -1538,7 +1549,7 @@ export function EventMemberView() {
     const updatedList = [...familyMembers, createdMember];
     setFamilyMembers(updatedList);
     setSelectedMembers((prev) => [...prev, createdMember.id]);
-    setNewMember({ name: "", relation: "Son", age: "", avatar: "👦" });
+    setNewMember({ name: "", relation: "Son", dob: "", avatar: "👦" });
     setShowAddMemberModal(false);
   };
 
@@ -2360,7 +2371,7 @@ export function EventMemberView() {
                                   )}
                                 </div>
                                 <p className="text-[10px] text-muted-foreground font-medium truncate">
-                                  {member.relation} • Age {member.age}
+                                  {member.relation}{member.dob ? ` • ${new Date(member.dob).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}` : member.age ? ` • Age ${member.age}` : ""}
                                   {isPrimary && (user?.flatNo || user?.block) && ` • Flat ${user?.block ? `${user?.block}-` : ""}${user?.flatNo || ""}`}
                                 </p>
                               </div>
@@ -3662,7 +3673,9 @@ export function EventMemberView() {
                             <span className="text-[10px] font-extrabold px-1.5 py-0.2 rounded-full bg-primary/10 text-primary uppercase">
                               {member.relation}
                             </span>
-                            {member.age ? (
+                            {member.dob ? (
+                              <span className="text-[10px] text-muted-foreground">{new Date(member.dob).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
+                            ) : member.age ? (
                               <span className="text-[10px] text-muted-foreground">{member.age} yrs</span>
                             ) : null}
                           </div>
@@ -3772,24 +3785,13 @@ export function EventMemberView() {
 
                 <div>
                   <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
-                    Age *
+                    Date of Birth
                   </label>
                   <input
-                    type="number"
-                    min="1"
-                    max="110"
-                    required
-                    value={newMember.age}
-                    onKeyDown={(e) => {
-                      if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
-                    }}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      const parsed = parseInt(val, 10);
-                      const sanitized = isNaN(parsed) ? "" : String(Math.max(0, Math.min(110, parsed)));
-                      setNewMember({ ...newMember, age: sanitized });
-                    }}
-                    placeholder="25"
+                    type="date"
+                    max={new Date().toISOString().split("T")[0]}
+                    value={newMember.dob}
+                    onChange={(e) => setNewMember({ ...newMember, dob: e.target.value })}
                     className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                 </div>

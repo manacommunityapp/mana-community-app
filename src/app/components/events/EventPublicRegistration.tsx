@@ -65,7 +65,7 @@ const MOCK_EVENT = {
 interface FamilyMember {
   id: string;
   name: string;
-  age: string;
+  dob: string;
   gender: string;
   relationship: string;
 }
@@ -74,7 +74,7 @@ interface RegistrationForm {
   registrationType: "individual" | "family" | "";
   firstName: string;
   lastName: string;
-  age: string;
+  dob: string;
   gender: string;
   email: string;
   phone: string;
@@ -216,8 +216,8 @@ function Step1Type({ form, update }: { form: RegistrationForm; update: (k: keyof
 
 /* ─── Step 2: Personal Details ─── */
 function Step2Details({ form, update }: { form: RegistrationForm; update: (k: keyof RegistrationForm, v: any) => void }) {
-  const ageNum = parseInt(form.age);
-  const ageCat = !isNaN(ageNum) ? getAgeCategory(ageNum) : "";
+  const ageNum = form.dob ? calculateAge(form.dob) : 0;
+  const ageCat = ageNum > 0 ? getAgeCategory(ageNum) : "";
 
   return (
     <div className="space-y-4">
@@ -241,23 +241,14 @@ function Step2Details({ form, update }: { form: RegistrationForm; update: (k: ke
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <Label className={LABEL_CLS}>Age<span className="text-rose-500 ml-0.5">*</span></Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min={0}
-                  max={120}
-                  value={form.age}
-                  onChange={e => update("age", e.target.value)}
-                  placeholder="e.g. 32"
-                  className={INPUT_CLS}
-                />
-                {ageCat && (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">
-                    {ageCat}
-                  </span>
-                )}
-              </div>
+              <Label className={LABEL_CLS}>Date of Birth<span className="text-rose-500 ml-0.5">*</span></Label>
+              <Input
+                type="date"
+                max={new Date().toISOString().split("T")[0]}
+                value={form.dob}
+                onChange={e => update("dob", e.target.value)}
+                className={INPUT_CLS}
+              />
             </div>
             <div>
               <Label className={LABEL_CLS}>Gender<span className="text-rose-500 ml-0.5">*</span></Label>
@@ -337,7 +328,7 @@ function Step3Family({
       ...prev,
       familyMembers: [
         ...prev.familyMembers,
-        { id: generateId(), name: "", age: "", gender: "", relationship: "" },
+        { id: generateId(), name: "", dob: "", gender: "", relationship: "" },
       ],
     }));
   };
@@ -380,8 +371,8 @@ function Step3Family({
       <div className="space-y-4">
         {form.familyMembers.map((member, idx) => {
           const RelIcon = relationshipIcons[member.relationship] || UserPlus;
-          const ageNum = parseInt(member.age);
-          const ageCat = !isNaN(ageNum) ? getAgeCategory(ageNum) : "";
+          const ageNum = member.dob ? calculateAge(member.dob) : 0;
+          const ageCat = ageNum > 0 ? getAgeCategory(ageNum) : "";
 
           return (
             <div
@@ -435,23 +426,14 @@ function Step3Family({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <Label className={LABEL_CLS}>Age<span className="text-rose-500 ml-0.5">*</span></Label>
-                  <div className="relative">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={120}
-                      value={member.age}
-                      onChange={e => updateMember(member.id, "age", e.target.value)}
-                      placeholder="Age"
-                      className={INPUT_CLS}
-                    />
-                    {ageCat && (
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[9px] font-semibold text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded-full">
-                        {ageCat}
-                      </span>
-                    )}
-                  </div>
+                  <Label className={LABEL_CLS}>Date of Birth</Label>
+                  <Input
+                    type="date"
+                    max={new Date().toISOString().split("T")[0]}
+                    value={member.dob}
+                    onChange={e => updateMember(member.id, "dob", e.target.value)}
+                    className={INPUT_CLS}
+                  />
                 </div>
                 <div>
                   <Label className={LABEL_CLS}>Gender<span className="text-rose-500 ml-0.5">*</span></Label>
@@ -811,8 +793,8 @@ function Step5Review({ form, event }: { form: RegistrationForm; event: typeof MO
                   <p className="font-bold text-slate-700 text-sm">{totalAttendees}</p>
                 </div>
                 <div>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Age</p>
-                  <p className="font-bold text-slate-700 text-sm">{form.age || "—"}</p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Date of Birth</p>
+                  <p className="font-bold text-slate-700 text-sm">{form.dob ? new Date(form.dob).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</p>
                 </div>
                 <div>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Gender</p>
@@ -848,7 +830,7 @@ function Step5Review({ form, event }: { form: RegistrationForm; event: typeof MO
                         {idx + 1}
                       </span>
                       <span className="font-semibold text-slate-700 flex-1 min-w-0 truncate">{member.name || "—"}</span>
-                      <span className="text-slate-400">{member.age ? `${member.age} yrs` : "—"}</span>
+                      <span className="text-slate-400">{member.dob ? new Date(member.dob).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—"}</span>
                       <Badge className="px-1.5 py-0 text-[9px] bg-violet-100 text-violet-700 border-none">
                         {member.relationship || "—"}
                       </Badge>
@@ -1114,7 +1096,7 @@ export function EventPublicRegistration() {
     registrationType: "individual",
     firstName: "",
     lastName: "",
-    age: "",
+    dob: "",
     gender: "",
     email: "",
     phone: "",
@@ -1146,13 +1128,12 @@ export function EventPublicRegistration() {
     if (authUser) {
       const parts = (authUser.fullName || "").trim().split(" ");
       const userDob = authUser.dateOfBirth || (authUser as any)?.dob;
-      const calculatedAge = calculateAge(userDob);
       setForm(prev => ({
         ...prev,
         firstName: parts[0] || prev.firstName,
         lastName: parts.slice(1).join(" ") || prev.lastName,
         email: authUser.email || prev.email,
-        age: prev.age || (calculatedAge > 0 ? String(calculatedAge) : ""),
+        dob: prev.dob || userDob || "",
       }));
     }
 
@@ -1163,14 +1144,13 @@ export function EventPublicRegistration() {
           const parts = (u.fullName || "").trim().split(" ");
           const flat = u.flatNo ? (u.block ? `${u.block}-${u.flatNo}` : u.flatNo) : "";
           const userDob = u.dateOfBirth || (u as any)?.dob || authUser?.dateOfBirth || (authUser as any)?.dob;
-          const calculatedAge = calculateAge(userDob);
           setForm(prev => ({
             ...prev,
             firstName: parts[0] || prev.firstName,
             lastName: parts.slice(1).join(" ") || prev.lastName,
             email: u.email || prev.email,
             phone: u.phone || prev.phone,
-            age: prev.age || (calculatedAge > 0 ? String(calculatedAge) : ""),
+            dob: prev.dob || userDob || "",
             gender: u.gender || prev.gender,
             flatNo: flat || prev.flatNo,
             colonyAddress: flat ? `${flat}, Mana Community, Miyapur, Hyderabad` : prev.colonyAddress,
@@ -1196,10 +1176,10 @@ export function EventPublicRegistration() {
 
   const canNext = (): boolean => {
     if (step === 1) return !!form.registrationType;
-    if (step === 2) return !!(form.firstName && form.age && form.phone && form.email && form.gender);
+    if (step === 2) return !!(form.firstName && form.phone && form.email && form.gender);
     if (step === 3) {
       if (form.registrationType !== "family") return true;
-      return form.familyMembers.length > 0 && form.familyMembers.every(m => m.name && m.age && m.relationship && m.gender);
+      return form.familyMembers.length > 0 && form.familyMembers.every(m => m.name && m.relationship && m.gender);
     }
     if (step === 4) return form.agreeTerms;
     if (step === 55) return !!form.paymentMethod;
@@ -1233,7 +1213,8 @@ export function EventPublicRegistration() {
           const participants = [
             {
               fullName: primaryName,
-              age: Number(form.age),
+              dob: form.dob || undefined,
+              age: calculateAge(form.dob) || undefined,
               gender: form.gender,
               relationship: "Self",
               email: form.email,
@@ -1241,7 +1222,8 @@ export function EventPublicRegistration() {
             },
             ...form.familyMembers.map(member => ({
               fullName: member.name,
-              age: Number(member.age),
+              dob: member.dob || undefined,
+              age: calculateAge(member.dob) || undefined,
               gender: member.gender,
               relationship: member.relationship,
             })),

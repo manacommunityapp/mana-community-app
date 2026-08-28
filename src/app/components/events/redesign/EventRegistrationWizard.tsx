@@ -710,8 +710,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           showWarning(`Please enter the name for attendee #${i + 1}.`);
           return;
         }
-        if (!mem.age || Number(mem.age) <= 0) {
-          showWarning(`Please enter a valid age (> 0) for attendee #${i + 1} (${mem.name || "Member"}).`);
+        if (!(mem as any).dob && (!mem.age || Number(mem.age) <= 0)) {
+          showWarning(`Please enter a date of birth for attendee #${i + 1} (${mem.name || "Member"}).`);
           return;
         }
         if (!mem.gender?.trim()) {
@@ -807,7 +807,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         attendingDevotees: formData.members.map((m) => m.name).filter(Boolean).join(", ") || primaryAttendeeName,
         membersJson: JSON.stringify(formData.members.map(m => ({
           name: m.name?.trim() || "",
-          age: Math.max(0, Math.min(120, Number(m.age) || 0)),
+          dob: (m as any).dob || undefined,
+          age: Math.max(0, Math.min(120, (m as any).dob ? calculateAge((m as any).dob) : (Number(m.age) || 0))),
           gender: m.gender || "Male",
           relationship: m.relationship || "Self",
         }))),
@@ -877,11 +878,13 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           for (let i = 1; i < formData.members.length; i++) {
             const mem = formData.members[i];
             if (mem.name && mem.name.trim() && !existingNames.has(mem.name.trim().toLowerCase())) {
-              const avatar = mem.gender === "Female" ? (mem.age < 18 ? "👧" : "👩") : (mem.age < 18 ? "👦" : "👨");
+              const computedAge = (mem as any).dob ? calculateAge((mem as any).dob) : (Number(mem.age) || 20);
+              const avatar = mem.gender === "Female" ? (computedAge < 18 ? "👧" : "👩") : (computedAge < 18 ? "👦" : "👨");
               await eventService.addFamilyMember({
                 name: mem.name.trim(),
                 relation: (mem as any).relationship || "Family",
-                age: Number(mem.age) || 20,
+                dob: (mem as any).dob || undefined,
+                age: computedAge,
                 gender: mem.gender || "Male",
                 avatar,
                 status: "ACTIVE",
@@ -1456,7 +1459,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                         onClick={() => {
                           const newToAdd = availableSaved.map((sm) => ({
                             name: sm.name,
-                            age: Number(sm.age) || 25,
+                            dob: sm.dob || undefined,
+                            age: sm.dob ? calculateAge(sm.dob) : (Number(sm.age) || 25),
                             gender: sm.gender || (sm.relation?.toLowerCase().includes("wife") || sm.relation?.toLowerCase().includes("mother") || sm.relation?.toLowerCase().includes("daughter") || sm.relation?.toLowerCase().includes("sister") ? "Female" : "Male"),
                             relationship: sm.relation || "Family",
                           }));
@@ -1479,7 +1483,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                           onClick={() => {
                             const newMember = {
                               name: sm.name,
-                              age: Number(sm.age) || 25,
+                              dob: sm.dob || undefined,
+                              age: sm.dob ? calculateAge(sm.dob) : (Number(sm.age) || 25),
                               gender: sm.gender || (sm.relation?.toLowerCase().includes("wife") || sm.relation?.toLowerCase().includes("mother") || sm.relation?.toLowerCase().includes("daughter") || sm.relation?.toLowerCase().includes("sister") ? "Female" : "Male"),
                               relationship: sm.relation || "Family",
                             };
@@ -1582,25 +1587,20 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                       </div>
                       <div className="col-span-6 sm:col-span-2">
                         <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-between">
-                          <span>Age *</span>
-                          {idx === 0 && mem.age > 0 && (
+                          <span>Date of Birth</span>
+                          {idx === 0 && (mem as any).dob && (
                             <span className="text-[9px] text-primary font-semibold lowercase">from profile</span>
                           )}
                         </label>
                         <input
-                          type="number"
-                          placeholder="Age"
-                          min={1}
-                          max={120}
-                          value={mem.age || ""}
-                          onKeyDown={(e) => {
-                            if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
-                          }}
+                          type="date"
+                          max={new Date().toISOString().split("T")[0]}
+                          value={(mem as any).dob || ""}
                           onChange={(e) => {
-                            const val = e.target.value;
-                            const parsed = parseInt(val, 10);
                             const updated = [...formData.members];
-                            updated[idx].age = isNaN(parsed) ? 0 : Math.max(0, Math.min(120, parsed));
+                            const dob = e.target.value;
+                            (updated[idx] as any).dob = dob;
+                            updated[idx].age = dob ? calculateAge(dob) : 0;
                             setFormData({ ...formData, members: updated });
                           }}
                           className="w-full h-9 px-2.5 rounded-xl bg-[var(--mana-bg-input)] text-xs font-semibold border border-border outline-none text-foreground"

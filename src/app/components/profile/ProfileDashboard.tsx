@@ -234,7 +234,7 @@ export function ProfileDashboard() {
   const [memberForm, setMemberForm] = useState<Partial<FamilyMember>>({
     name: "",
     relation: "Spouse",
-    age: undefined,
+    dob: "",
     gender: "Female",
     phone: "",
     email: "",
@@ -267,7 +267,7 @@ export function ProfileDashboard() {
     setMemberForm({
       name: "",
       relation: "Spouse",
-      age: undefined,
+      dob: "",
       gender: "Female",
       phone: "",
       email: "",
@@ -306,11 +306,21 @@ export function ProfileDashboard() {
 
     setIsSavingMember(true);
     try {
+      // Derive age from dob so age-based stats remain accurate
+      let computedAge = memberForm.age;
+      if (memberForm.dob) {
+        const birth = new Date(memberForm.dob);
+        if (!isNaN(birth.getTime())) {
+          computedAge = Math.floor((Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000));
+        }
+      }
+      const payload = { ...memberForm, age: computedAge };
+
       if (editingMember) {
-        await familyService.updateFamilyMember(editingMember.id, memberForm);
+        await familyService.updateFamilyMember(editingMember.id, payload);
         toast.success(`Updated ${memberForm.name}'s details`);
       } else {
-        await familyService.addFamilyMember(memberForm);
+        await familyService.addFamilyMember(payload);
         toast.success(`Added ${memberForm.name} to your family list`);
       }
       setIsFamilyModalOpen(false);
@@ -985,7 +995,7 @@ export function ProfileDashboard() {
                           </div>
                           <div className="min-w-0">
                             <p className="font-semibold text-foreground truncate">{member.name}</p>
-                            <p className="text-[10px] text-muted-foreground">{member.age ? `${member.age} yrs` : member.gender || ""}</p>
+                            <p className="text-[10px] text-muted-foreground">{member.dob ? new Date(member.dob).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : member.gender || ""}</p>
                           </div>
                         </div>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
@@ -1258,9 +1268,9 @@ export function ProfileDashboard() {
                                       )}>
                                         {member.relation}
                                       </span>
-                                      {member.age && (
+                                      {member.dob && (
                                         <span className="text-[9.5px] sm:text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-                                          {member.age} yrs
+                                          {new Date(member.dob).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
                                         </span>
                                       )}
                                       {member.gender && (
@@ -1456,15 +1466,13 @@ export function ProfileDashboard() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div>
                         <label className="block text-[11px] sm:text-xs font-bold text-foreground uppercase tracking-wider mb-1">
-                          Age (Years)
+                          Date of Birth
                         </label>
                         <input
-                          type="number"
-                          min="0"
-                          max="120"
-                          placeholder="e.g. 32"
-                          value={memberForm.age || ""}
-                          onChange={(e) => setMemberForm({ ...memberForm, age: e.target.value ? Number(e.target.value) : undefined })}
+                          type="date"
+                          max={new Date().toISOString().split("T")[0]}
+                          value={memberForm.dob || ""}
+                          onChange={(e) => setMemberForm({ ...memberForm, dob: e.target.value || undefined })}
                           className="w-full px-3.5 py-2 sm:py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-primary/20 outline-none"
                         />
                       </div>
