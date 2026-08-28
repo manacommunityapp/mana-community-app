@@ -57,6 +57,20 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
   const eventVenueAddress = event?.venueAddress || event?.address || "";
   const eventCity         = event?.city || "";
   const eventLocation     = eventVenueName || eventCity || eventVenueAddress || "";
+
+  // Resolve full contacts list from whichever field is populated
+  const eventContacts: { name: string; phone: string; role: string; notes?: string; email?: string }[] = (() => {
+    if (Array.isArray(event?.contacts) && event.contacts.length > 0) return event.contacts;
+    if (Array.isArray(event?.contactDetails) && event.contactDetails.length > 0) return event.contactDetails;
+    if (event?.contactsJson) {
+      try {
+        const parsed = typeof event.contactsJson === "string" ? JSON.parse(event.contactsJson) : event.contactsJson;
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [];
+  })();
+  const filledContacts = eventContacts.filter(c => c.name?.trim() || c.phone?.trim());
   const eventDescription = event?.description || "Experience the grand spiritual and cultural celebrations with traditional rituals, sacred pooja sevas, community feasts, cultural stage performances, and festive competitions for all residents.";
   const eventImage = event?.imageUrl || event?.image || "https://images.unsplash.com/photo-1544717305-2782549b5136?w=1200&auto=format&fit=crop&q=80";
   const eventStartDate = event?.startDate || event?.date || "Upcoming";
@@ -483,10 +497,29 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
                     <Phone className="w-4 h-4 text-emerald-500" /> Organizing Committee &amp; Help Desk
                   </h4>
                   <div className="text-xs text-muted-foreground space-y-1">
-                    <p><strong className="text-foreground">Lead Coordinator:</strong> {organizerName}</p>
-                    <p><strong className="text-foreground">Helpline / WhatsApp:</strong> {organizerContact}</p>
-                    <p><strong className="text-foreground">Emergency Desk:</strong> Control Room at Main Gate</p>
-                    <p><strong className="text-foreground">Medical / First Aid:</strong> Clubhouse Room 102</p>
+                    {filledContacts.length > 0 ? (
+                      filledContacts.map((c, i) => (
+                        <p key={i}>
+                          <strong className="text-foreground">{c.role || "Coordinator"}:</strong>{" "}
+                          {[c.name, c.phone].filter(Boolean).join(" · ")}
+                          {c.notes?.trim() && (
+                            <span className="text-muted-foreground/70"> — {c.notes}</span>
+                          )}
+                        </p>
+                      ))
+                    ) : (
+                      <>
+                        {organizerName && (
+                          <p><strong className="text-foreground">Lead Coordinator:</strong> {organizerName}</p>
+                        )}
+                        {organizerContact && (
+                          <p><strong className="text-foreground">Helpline / WhatsApp:</strong> {organizerContact}</p>
+                        )}
+                        {!organizerName && !organizerContact && (
+                          <p className="italic text-muted-foreground/60">Contact details not yet configured.</p>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
