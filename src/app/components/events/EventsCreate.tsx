@@ -2135,14 +2135,14 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
   const isCapacityExceeded = maxEventCapacity > 0 && totalCategorySeats > maxEventCapacity;
 
   return (
-    <div className="space-y-4 sm:space-y-7">
+    <div className="space-y-2.5">
       <SectionHeader icon={Ticket} title="Registration Settings" subtitle="Configure how attendees can register for your event" />
 
-      <ToggleRow checked={data.registrationEnabled} onChange={v => update("registrationEnabled", v)}
-        label="Enable event registration" description="Allow attendees to register for this event" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <ToggleRow checked={data.registrationEnabled} onChange={v => update("registrationEnabled", v)}
+          label="Enable event registration" description="Allow attendees to register for this event" />
 
-      {data.registrationEnabled && (
-        <div className="space-y-6 animate-fade-in-up">
+        {data.registrationEnabled ? (
           <div>
             <FieldLabel hint={data.startDate ? `Must be before ${data.startDate}` : undefined}>
               Registration Deadline
@@ -2158,14 +2158,18 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
               )}
             />
             {isDeadlineInvalid && (
-              <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                Registration deadline must be before the event start date ({data.startDate}).
+              <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 shrink-0" />
+                Deadline must be before event start ({data.startDate}).
               </p>
             )}
           </div>
+        ) : <div />}
+      </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {data.registrationEnabled && (
+        <div className="space-y-2 animate-fade-in-up">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <ToggleRow checked={data.requireApproval} onChange={v => update("requireApproval", v)}
               label="Require approval" description="Admin must approve each registration" />
             <ToggleRow checked={data.allowWaitlist} onChange={v => update("allowWaitlist", v)}
