@@ -1029,6 +1029,10 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       d.setDate(d.getDate() + 1);
       nextDateStr = d.toISOString().split("T")[0];
     }
+    if (data.multiDay && data.endDate && nextDateStr > data.endDate) {
+      showError(`Cannot add day beyond event end date (${formatDayLabel(data.endDate)}). Please extend the End Date in Event Details first.`);
+      return;
+    }
     const newDay: DaySchedule = {
       date: nextDateStr,
       activities: [],
@@ -1036,7 +1040,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     const updated = [...data.daySchedules, newDay];
     update("daySchedules", updated);
     if (data.multiDay) {
-      update("endDate", nextDateStr);
+      if (!data.endDate || nextDateStr > data.endDate) {
+        update("endDate", nextDateStr);
+      }
     }
     setExpandedDay(nextDateStr);
   };
@@ -1096,6 +1102,12 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
   };
 
   const addActivity = (date: string) => {
+    const defaultStart = data.startTime || "09:00";
+    let defaultEnd = data.endTime || "10:30";
+    if (data.startTime && data.endTime && defaultEnd <= defaultStart) {
+      defaultEnd = data.endTime;
+    }
+
     const updated = data.daySchedules.map(ds =>
       ds.date === date
         ? {
@@ -1109,8 +1121,8 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                 needsRegistration: true,
                 registrationFee: "0",
                 slots: "50",
-                startTime: "09:00",
-                endTime: "10:30",
+                startTime: defaultStart,
+                endTime: defaultEnd,
                 description: "",
                 venue: "",
               }
@@ -1150,7 +1162,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     const clonedObj: ScheduleActivity = {
       ...actToClone,
       id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      subEventId: undefined, // Fresh subEventId for cloned activity
+      subEventId: undefined,
     };
     const updated = data.daySchedules.map(ds => {
       if (ds.date === date) {
@@ -1170,6 +1182,170 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
     });
     update("daySchedules", updated);
     showSuccess(`Cloned "${actToClone.name || "Sub-Event"}" successfully`);
+  };
+
+  const cloneActivityToNextDay = (currentDate: string, actToClone: ScheduleActivity) => {
+    if (!data.multiDay) {
+      showError("Cannot clone to next day for a single-day event. Enable 'Multi-Day Event' and set an End Date in Event Details first.");
+      return;
+    }
+
+    const currentIdx = data.daySchedules.findIndex(ds => ds.date === currentDate);
+    let nextDateStr: string;
+    let targetDayExists = false;
+
+    if (currentIdx >= 0 && currentIdx < data.daySchedules.length - 1) {
+      nextDateStr = data.daySchedules[currentIdx + 1].date;
+      targetDayExists = true;
+    } else {
+      const d = new Date(currentDate + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      nextDateStr = d.toISOString().split("T")[0];
+      targetDayExists = data.daySchedules.some(ds => ds.date === nextDateStr);
+    }
+
+    if (data.endDate && nextDateStr > data.endDate) {
+      showError(`Cannot clone beyond event end date (${formatDayLabel(data.endDate)}). Please extend the End Date in Event Details first.`);
+      return;
+    }
+
+    // Clamp activity times within event bounds
+    let clampedStart = actToClone.startTime;
+    let clampedEnd = actToClone.endTime;
+    if (data.startTime && clampedStart && clampedStart < data.startTime) {
+      clampedStart = data.startTime;
+    }
+    if (data.endTime && clampedEnd && clampedEnd > data.endTime) {
+      clampedEnd = data.endTime;
+    }
+    if (clampedStart && clampedEnd && clampedEnd <= clampedStart) {
+      clampedEnd = data.endTime || clampedEnd;
+    }
+
+    const clonedObj: ScheduleActivity = {
+      ...actToClone,
+      id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      startTime: clampedStart,
+      endTime: clampedEnd,
+      subEventId: undefined,
+    };
+
+    let updated: DaySchedule[];
+    if (targetDayExists) {
+      updated = data.daySchedules.map(ds =>
+        ds.date === nextDateStr
+          ? { ...ds, activities: [...ds.activities, clonedObj] }
+          : ds
+      );
+    } else {
+      const newDay: DaySchedule = {
+        date: nextDateStr,
+        activities: [clonedObj],
+      };
+      updated = [...data.daySchedules, newDay].sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    update("daySchedules", updated);
+    setExpandedDay(nextDateStr);
+    showSuccess(`Cloned "${actToClone.name || "Activity"}" to Next Day (${formatDayLabel(nextDateStr)})`);
+  };
+
+  const cloneAllActivitiesToNextDay = (currentDate: string) => {
+    if (!data.multiDay) {
+      showError("Cannot clone to next day for a single-day event. Enable 'Multi-Day Event' and set an End Date in Event Details first.");
+      return;
+    }
+
+    const currentDay = data.daySchedules.find(ds => ds.date === currentDate);
+    if (!currentDay || currentDay.activities.length === 0) {
+      showError("No activities found on this day to clone");
+      return;
+    }
+
+    const currentIdx = data.daySchedules.findIndex(ds => ds.date === currentDate);
+    let nextDateStr: string;
+    let targetDayExists = false;
+
+    if (currentIdx >= 0 && currentIdx < data.daySchedules.length - 1) {
+      nextDateStr = data.daySchedules[currentIdx + 1].date;
+      targetDayExists = true;
+    } else {
+      const d = new Date(currentDate + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      nextDateStr = d.toISOString().split("T")[0];
+      targetDayExists = data.daySchedules.some(ds => ds.date === nextDateStr);
+    }
+
+    if (data.endDate && nextDateStr > data.endDate) {
+      showError(`Cannot clone beyond event end date (${formatDayLabel(data.endDate)}). Please extend the End Date in Event Details first.`);
+      return;
+    }
+
+    const clonedActivities: ScheduleActivity[] = currentDay.activities.map(act => {
+      let clampedStart = act.startTime;
+      let clampedEnd = act.endTime;
+      if (data.startTime && clampedStart && clampedStart < data.startTime) {
+        clampedStart = data.startTime;
+      }
+      if (data.endTime && clampedEnd && clampedEnd > data.endTime) {
+        clampedEnd = data.endTime;
+      }
+      if (clampedStart && clampedEnd && clampedEnd <= clampedStart) {
+        clampedEnd = data.endTime || clampedEnd;
+      }
+      return {
+        ...act,
+        id: `a${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        startTime: clampedStart,
+        endTime: clampedEnd,
+        subEventId: undefined,
+      };
+    });
+
+    let updated: DaySchedule[];
+    if (targetDayExists) {
+      updated = data.daySchedules.map(ds =>
+        ds.date === nextDateStr
+          ? { ...ds, activities: [...ds.activities, ...clonedActivities] }
+          : ds
+      );
+    } else {
+      const newDay: DaySchedule = {
+        date: nextDateStr,
+        activities: clonedActivities,
+      };
+      updated = [...data.daySchedules, newDay].sort((a, b) => a.date.localeCompare(b.date));
+    }
+
+    update("daySchedules", updated);
+    setExpandedDay(nextDateStr);
+    showSuccess(`Cloned all ${clonedActivities.length} activities to Next Day (${formatDayLabel(nextDateStr)})`);
+  };
+
+  const goToPrevDay = (currentDate: string) => {
+    const currentIdx = data.daySchedules.findIndex(ds => ds.date === currentDate);
+    if (currentIdx > 0) {
+      setExpandedDay(data.daySchedules[currentIdx - 1].date);
+    }
+  };
+
+  const goToNextDay = (currentDate: string) => {
+    if (!data.multiDay) {
+      return;
+    }
+    const currentIdx = data.daySchedules.findIndex(ds => ds.date === currentDate);
+    if (currentIdx >= 0 && currentIdx < data.daySchedules.length - 1) {
+      setExpandedDay(data.daySchedules[currentIdx + 1].date);
+    } else {
+      // At the end of configured days: check if we can add/navigate within endDate
+      const d = new Date(currentDate + "T00:00:00");
+      d.setDate(d.getDate() + 1);
+      const nextDateStr = d.toISOString().split("T")[0];
+      if (data.endDate && nextDateStr > data.endDate) {
+        return;
+      }
+      handleAddDay();
+    }
   };
 
   const duplicateAboveActivity = (date: string) => {
@@ -1454,6 +1630,13 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
               const filledCount = day.activities.filter(a => a.name).length;
               const totalCount = day.activities.length;
 
+              const isPrevDayDisabled = dayIdx === 0 || Boolean(data.startDate && day.date <= data.startDate);
+              const isNextDayDisabled = !data.multiDay || (
+                dayIdx === data.daySchedules.length - 1 &&
+                Boolean(data.endDate && day.date >= data.endDate)
+              );
+              const isCloneToNextDisabled = !data.multiDay || Boolean(data.endDate && day.date >= data.endDate);
+
               return (
                 <div
                   key={day.date}
@@ -1479,6 +1662,57 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
+                      {data.multiDay && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={isPrevDayDisabled}
+                          onClick={() => goToPrevDay(day.date)}
+                          className={cn(
+                            "h-8 px-2.5 text-xs font-bold rounded-xl gap-1 cursor-pointer transition-all border",
+                            isPrevDayDisabled
+                              ? "opacity-40 pointer-events-none bg-white/5 border-white/10 text-slate-400"
+                              : "bg-white/15 hover:bg-white/25 text-white border-white/20 shadow-xs"
+                          )}
+                          title={isPrevDayDisabled ? "This is the start date" : `Go to Previous Day (Day ${dayIdx})`}
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" /> Prev Day
+                        </Button>
+                      )}
+                      {data.multiDay && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={isNextDayDisabled}
+                          onClick={() => goToNextDay(day.date)}
+                          className={cn(
+                            "h-8 px-2.5 text-xs font-bold rounded-xl gap-1 cursor-pointer border shadow-xs transition-all",
+                            isNextDayDisabled
+                              ? "opacity-40 pointer-events-none bg-white/5 border-white/10 text-slate-400"
+                              : "bg-white/15 hover:bg-white/25 text-white border-white/20"
+                          )}
+                          title={isNextDayDisabled ? `Reached event end date (${formatDayLabel(data.endDate || day.date)})` : `Go to Next Day (Day ${dayIdx + 2})`}
+                        >
+                          Next Day <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      {day.activities.length > 0 && data.multiDay && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={isCloneToNextDisabled}
+                          onClick={() => cloneAllActivitiesToNextDay(day.date)}
+                          className={cn(
+                            "h-8 px-2.5 text-xs font-bold rounded-xl gap-1 cursor-pointer border shadow-xs transition-all",
+                            isCloneToNextDisabled
+                              ? "opacity-40 pointer-events-none bg-amber-500/5 border-amber-500/10 text-amber-300/40"
+                              : "bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border-amber-500/30"
+                          )}
+                          title={isCloneToNextDisabled ? `Cannot clone beyond end date (${formatDayLabel(data.endDate || day.date)})` : "Clone all activities from this day into next day"}
+                        >
+                          <Copy className="w-3.5 h-3.5 text-amber-400" /> Clone Day to Next
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         data-testid={`event-add-activity-${day.date}`}
@@ -1627,6 +1861,22 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               >
                                 <Copy className="w-3 h-3 text-indigo-500" /> Clone
                               </button>
+                              {data.multiDay && (
+                                <button
+                                  type="button"
+                                  disabled={isCloneToNextDisabled}
+                                  onClick={() => cloneActivityToNextDay(day.date, act)}
+                                  className={cn(
+                                    "text-[10px] font-bold px-2 py-1 rounded-lg border flex items-center gap-1 transition-all cursor-pointer shadow-2xs",
+                                    isCloneToNextDisabled
+                                      ? "opacity-40 pointer-events-none bg-slate-100 border-slate-200 text-slate-400"
+                                      : "text-amber-700 bg-amber-50/90 hover:bg-amber-100 hover:text-amber-800 hover:border-amber-300 border-amber-200"
+                                  )}
+                                  title={isCloneToNextDisabled ? `Cannot clone beyond end date (${formatDayLabel(data.endDate || day.date)})` : "Clone this activity into the Next Day schedule"}
+                                >
+                                  <ArrowRight className="w-3 h-3 text-amber-600" /> To Next Day
+                                </button>
+                              )}
                               {act.name && (
                                 <button
                                   type="button"
@@ -1805,36 +2055,72 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                 </div>
                               )}
 
-                              <div className="w-full sm:w-36">
-                                <FieldLabel required>Start Time (From)</FieldLabel>
-                                <TimePicker
-                                  id={`event-activity-${dayIdx + 1}-${actIdx + 1}-start-time`}
-                                  value={act.startTime}
-                                  onChange={(v) => updateActivity(day.date, act.id, "startTime", v)}
-                                  size="sm"
-                                  className={reqCls(!act.startTime)}
-                                />
-                              </div>
-                              <div>
-                                <FieldLabel required>End Time (To)</FieldLabel>
-                                <TimePicker
-                                  id={`event-activity-${dayIdx + 1}-${actIdx + 1}-end-time`}
-                                  value={act.endTime}
-                                  onChange={(v) => updateActivity(day.date, act.id, "endTime", v)}
-                                  size="sm"
-                                  className={cn(
-                                    act.startTime && act.endTime && act.endTime <= act.startTime
-                                      ? "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
-                                      : reqCls(!act.endTime)
-                                  )}
-                                />
-                                {Boolean(act.startTime && act.endTime && act.endTime <= act.startTime) && (
-                                  <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
-                                    <AlertCircle className="w-3 h-3 shrink-0 text-rose-600" />
-                                    End time must be after start time ({act.startTime}).
-                                  </p>
-                                )}
-                              </div>
+                              {(() => {
+                                const isStartBeforeEvent = Boolean(data.startTime && act.startTime && act.startTime < data.startTime);
+                                const isEndAfterEvent = Boolean(data.endTime && act.endTime && act.endTime > data.endTime);
+                                const isEndBeforeStart = Boolean(act.startTime && act.endTime && act.endTime <= act.startTime);
+
+                                return (
+                                  <>
+                                    <div className="w-full sm:w-40">
+                                      <div className="flex items-center justify-between">
+                                        <FieldLabel required>Start Time (From)</FieldLabel>
+                                        {data.startTime && (
+                                          <span className="text-[9px] text-slate-400 font-bold">Min: {data.startTime}</span>
+                                        )}
+                                      </div>
+                                      <TimePicker
+                                        id={`event-activity-${dayIdx + 1}-${actIdx + 1}-start-time`}
+                                        value={act.startTime}
+                                        onChange={(v) => updateActivity(day.date, act.id, "startTime", v)}
+                                        size="sm"
+                                        className={cn(
+                                          isStartBeforeEvent
+                                            ? "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+                                            : reqCls(!act.startTime)
+                                        )}
+                                      />
+                                      {isStartBeforeEvent && (
+                                        <p className="text-[10px] sm:text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                                          <AlertCircle className="w-3 h-3 shrink-0 text-rose-600" />
+                                          Cannot be earlier than event start ({data.startTime}).
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="w-full sm:w-40">
+                                      <div className="flex items-center justify-between">
+                                        <FieldLabel required>End Time (To)</FieldLabel>
+                                        {data.endTime && (
+                                          <span className="text-[9px] text-slate-400 font-bold">Max: {data.endTime}</span>
+                                        )}
+                                      </div>
+                                      <TimePicker
+                                        id={`event-activity-${dayIdx + 1}-${actIdx + 1}-end-time`}
+                                        value={act.endTime}
+                                        onChange={(v) => updateActivity(day.date, act.id, "endTime", v)}
+                                        size="sm"
+                                        className={cn(
+                                          isEndBeforeStart || isEndAfterEvent
+                                            ? "border-rose-500 ring-2 ring-rose-200 bg-rose-50/20 text-rose-900 font-semibold"
+                                            : reqCls(!act.endTime)
+                                        )}
+                                      />
+                                      {isEndBeforeStart && (
+                                        <p className="text-[10px] sm:text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                                          <AlertCircle className="w-3 h-3 shrink-0 text-rose-600" />
+                                          End time must be after start time ({act.startTime}).
+                                        </p>
+                                      )}
+                                      {!isEndBeforeStart && isEndAfterEvent && (
+                                        <p className="text-[10px] sm:text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                                          <AlertCircle className="w-3 h-3 shrink-0 text-rose-600" />
+                                          Cannot be later than event end ({data.endTime}).
+                                        </p>
+                                      )}
+                                    </div>
+                                  </>
+                                );
+                              })()}
                             </div>
 
                             {/* Row: Devotee Pass & Seva Booking Bar */}
@@ -1948,6 +2234,23 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                           <Copy className="w-3.5 h-3.5 text-indigo-600" /> Clone Above Activity
                         </Button>
                       )}
+                      {day.activities.length > 0 && data.multiDay && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={isCloneToNextDisabled}
+                          onClick={() => cloneAllActivitiesToNextDay(day.date)}
+                          className={cn(
+                            "h-9 px-3.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-xs",
+                            isCloneToNextDisabled
+                              ? "opacity-40 pointer-events-none bg-slate-50 border-slate-200 text-slate-400"
+                              : "border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-800"
+                          )}
+                          title={isCloneToNextDisabled ? `Cannot clone beyond end date (${formatDayLabel(data.endDate || day.date)})` : "Clone all activities from this day into the next day schedule"}
+                        >
+                          <Copy className="w-3.5 h-3.5 text-amber-600" /> Clone Day to Next
+                        </Button>
+                      )}
                       <Button
                         type="button"
                         variant="outline"
@@ -1959,6 +2262,48 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                       </Button>
                     </div>
                   </div>
+
+                  {/* Day Navigation Footer */}
+                  {data.multiDay && (
+                    <div className="flex items-center justify-between px-4 py-2.5 bg-slate-100/70 border-t border-slate-200 text-xs">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isPrevDayDisabled}
+                        onClick={() => goToPrevDay(day.date)}
+                        className={cn(
+                          "h-8 px-3 text-xs font-bold rounded-xl gap-1 cursor-pointer transition-all border",
+                          isPrevDayDisabled
+                            ? "opacity-40 pointer-events-none bg-white border-slate-200 text-slate-400"
+                            : "bg-white hover:bg-indigo-50 text-slate-700 border-slate-300 shadow-xs"
+                        )}
+                        title={isPrevDayDisabled ? "This is the start date" : `Go to Previous Day (Day ${dayIdx})`}
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5 text-slate-600" /> Previous Day
+                      </Button>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-slate-500">
+                          Day {dayIdx + 1} of {data.daySchedules.length}
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={isNextDayDisabled}
+                        onClick={() => goToNextDay(day.date)}
+                        className={cn(
+                          "h-8 px-3 text-xs font-bold rounded-xl gap-1 cursor-pointer shadow-xs transition-all border",
+                          isNextDayDisabled
+                            ? "opacity-40 pointer-events-none bg-white border-slate-200 text-slate-400"
+                            : "bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-600"
+                        )}
+                        title={isNextDayDisabled ? `Reached event end date (${formatDayLabel(data.endDate || day.date)})` : `Go to Next Day (Day ${dayIdx + 2})`}
+                      >
+                        Next Day <ChevronRight className="w-3.5 h-3.5 text-white" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -2142,14 +2487,14 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
   const isCapacityExceeded = maxEventCapacity > 0 && totalCategorySeats > maxEventCapacity;
 
   return (
-    <div className="space-y-4 sm:space-y-7">
+    <div className="space-y-2.5">
       <SectionHeader icon={Ticket} title="Registration Settings" subtitle="Configure how attendees can register for your event" />
 
-      <ToggleRow checked={data.registrationEnabled} onChange={v => update("registrationEnabled", v)}
-        label="Enable event registration" description="Allow attendees to register for this event" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <ToggleRow checked={data.registrationEnabled} onChange={v => update("registrationEnabled", v)}
+          label="Enable event registration" description="Allow attendees to register for this event" />
 
-      {data.registrationEnabled && (
-        <div className="space-y-6 animate-fade-in-up">
+        {data.registrationEnabled ? (
           <div>
             <FieldLabel hint={data.startDate ? `Must be before ${data.startDate}` : undefined}>
               Registration Deadline
@@ -2165,14 +2510,18 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
               )}
             />
             {isDeadlineInvalid && (
-              <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                Registration deadline must be before the event start date ({data.startDate}).
+              <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 shrink-0" />
+                Deadline must be before event start ({data.startDate}).
               </p>
             )}
           </div>
+        ) : <div />}
+      </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {data.registrationEnabled && (
+        <div className="space-y-2 animate-fade-in-up">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <ToggleRow checked={data.requireApproval} onChange={v => update("requireApproval", v)}
               label="Require approval" description="Admin must approve each registration" />
             <ToggleRow checked={data.allowWaitlist} onChange={v => update("allowWaitlist", v)}
@@ -4590,6 +4939,12 @@ export function EventCreateWizard({
           if (act.startTime && act.endTime && act.endTime <= act.startTime) {
             return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) must be after start time (${act.startTime}).`;
           }
+          if (formData.startTime && act.startTime && act.startTime < formData.startTime) {
+            return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": Start time (${act.startTime}) cannot be earlier than event start time (${formData.startTime}).`;
+          }
+          if (formData.endTime && act.endTime && act.endTime > formData.endTime) {
+            return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) cannot be later than event end time (${formData.endTime}).`;
+          }
         }
       }
     }
@@ -4638,6 +4993,12 @@ export function EventCreateWizard({
       for (const act of (ds.activities || [])) {
         if (act.startTime && act.endTime && act.endTime <= act.startTime) {
           return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) must be after start time (${act.startTime}).`;
+        }
+        if (formData.startTime && act.startTime && act.startTime < formData.startTime) {
+          return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": Start time (${act.startTime}) cannot be earlier than event start time (${formData.startTime}).`;
+        }
+        if (formData.endTime && act.endTime && act.endTime > formData.endTime) {
+          return `Day Schedule (${ds.date}) — Activity "${act.name || 'Activity'}": End time (${act.endTime}) cannot be later than event end time (${formData.endTime}).`;
         }
       }
     }

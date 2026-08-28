@@ -1880,36 +1880,31 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                   )}
 
                   {(formData.paymentMode === "Cash" || (isManualPaymentOnly && !formData.paymentMode)) && (
-                    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 space-y-3 text-left">
-                      <p className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                        <IndianRupee className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                        {isManualPaymentOnly ? "Manual / Cash Payment" : "Pay Cash at Helpdesk"}
-                      </p>
-                      <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
-                        {eventPaymentNotes ||
-                          "Your spot is reserved. Please show this registration e-pass and pay cash at the event registration counter on the day of the event."}
-                      </p>
+                    <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-3">
+                      <div className="flex items-center gap-1.5">
+                        <IndianRupee className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span className="text-xs font-bold text-foreground">
+                          {isManualPaymentOnly ? "Manual / Cash Payment" : "Cash Payment"}
+                        </span>
+                      </div>
 
-                      {/* Event contacts to pay or reach out to */}
+                      {eventPaymentNotes && (
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">{eventPaymentNotes}</p>
+                      )}
+
                       {eventContacts.length > 0 && (
-                        <div className="pt-2 border-t border-amber-200 dark:border-amber-800/40 space-y-2">
-                          <p className="text-[10px] font-black text-amber-800 dark:text-amber-300 uppercase tracking-wide">
-                            📞 Contact to Pay
-                          </p>
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wide">📞 Contact to Pay</p>
                           <div className="space-y-1.5">
                             {eventContacts.map((c, idx) => (
                               <div
                                 key={idx}
-                                className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white/60 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/30"
+                                className="flex items-center justify-between gap-2 p-2 rounded-xl bg-card border border-border"
                               >
                                 <div className="min-w-0">
                                   <p className="text-xs font-bold text-foreground truncate">{c.name || "Event Contact"}</p>
-                                  {c.role && (
-                                    <p className="text-[10px] text-muted-foreground truncate">{c.role}</p>
-                                  )}
-                                  {c.notes && (
-                                    <p className="text-[10px] text-muted-foreground truncate">{c.notes}</p>
-                                  )}
+                                  {c.role && <p className="text-[10px] text-muted-foreground truncate">{c.role}</p>}
+                                  {c.notes && <p className="text-[10px] text-muted-foreground truncate">{c.notes}</p>}
                                 </div>
                                 {c.phone && (
                                   <a
@@ -1924,6 +1919,39 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                           </div>
                         </div>
                       )}
+
+                      {/* Upload payment screenshot */}
+                      <label
+                        className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border-2 border-dashed cursor-pointer transition-all select-none ${
+                          formData.receiptUploaded
+                            ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : "border-border bg-card hover:border-primary/50 text-primary"
+                        }`}
+                      >
+                        {isUploadingReceipt ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="text-xs font-bold">Uploading to S3...</span>
+                          </>
+                        ) : formData.receiptUploaded ? (
+                          <>
+                            <Upload className="w-4 h-4" />
+                            <span className="text-xs font-bold">Payment Screenshot Attached ✓</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4" />
+                            <span className="text-xs font-bold">Upload Payment Screenshot</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingReceipt}
+                          onChange={handleScreenshotUpload}
+                          className="hidden"
+                        />
+                      </label>
                     </div>
                   )}
                 </>

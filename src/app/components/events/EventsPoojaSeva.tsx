@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import {
   Flame, Plus, Loader2, AlertCircle, Pencil, Trash2, Users, Clock, MapPin,
   Calendar, IndianRupee, X, Star, ChevronDown, ChevronUp, User, Ban,
@@ -641,6 +641,8 @@ export function EventsPoojaSeva() {
       paymentStatus: reg.paymentStatus || "PAID",
       status: reg.status || "CONFIRMED",
       notes: reg.notes || "",
+      overrideReason: "",
+      targetUserId: undefined,
     });
     setRegFormError("");
     setShowRegModal(true);
@@ -1453,7 +1455,8 @@ export function EventsPoojaSeva() {
                             {regs.map(r => {
                               const isCancelled = r.status === "CANCELLED" || r.status === "REJECTED";
                               return (
-                                <tr key={r.id} className={`hover:bg-slate-50/80 transition-colors ${isCancelled ? "opacity-60 bg-rose-50/20" : ""}`}>
+                                <Fragment key={r.id}>
+                                <tr className={`hover:bg-slate-50/80 transition-colors ${isCancelled ? "opacity-60 bg-rose-50/20" : ""}`}>
                                   <td className="px-3 py-2.5">
                                     <div className="font-mono font-bold text-amber-700">{r.regCode}</div>
                                     {(r as any).registrationSource === "ADMIN" && (
@@ -1593,7 +1596,7 @@ export function EventsPoojaSeva() {
                                               {p.gotram && <span className="text-slate-400">· {p.gotram}</span>}
                                               {p.relation && <span className="text-slate-400">· {p.relation}</span>}
                                               {p.checkedIn
-                                                ? <CheckCircle2 className="w-3 h-3 text-teal-600" title={`Checked in ${p.checkedInAt ?? ""}`} />
+                                                ? <CheckCircle2 className="w-3 h-3 text-teal-600" />
                                                 : <span className="text-slate-300">○</span>}
                                             </div>
                                           ))}
@@ -1602,6 +1605,7 @@ export function EventsPoojaSeva() {
                                     </td>
                                   </tr>
                                 )}
+                                </Fragment>
                               );
                             })}
                           </tbody>

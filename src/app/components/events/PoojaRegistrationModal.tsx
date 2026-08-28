@@ -658,7 +658,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       }
     }
 
-    const timeSlotConfigs: { slotDate: string | null; startTime: string; slotCount: number }[] =
+    const timeSlotConfigs: { id?: number; slotDate: string | null; startTime: string; endTime?: string; slotCount: number }[] =
       Array.isArray((event as any)?.timeSlotConfig) ? (event as any).timeSlotConfig : [];
 
     const configuredTimes: string[] = timeSlotConfigs.length > 0
@@ -1141,7 +1141,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
           <GlassCard
             isDark={isDark}
             hoverScale={false}
-            className="flex-1 flex flex-col justify-between p-2.5 sm:p-3 border border-border rounded-xl overflow-y-auto space-y-2.5 shadow-2xs my-1 bg-muted/20 max-h-[58vh]"
+            className="flex-1 min-h-0 flex flex-col p-2.5 sm:p-3 border border-border rounded-xl overflow-y-auto space-y-2.5 shadow-2xs my-1 bg-muted/20"
           >
             {isMainPassMissing && (
               <div className="p-2.5 sm:p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 text-amber-800 dark:text-amber-300 animate-fadeIn">
@@ -1384,58 +1384,60 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="rounded-xl bg-card border border-border p-2.5 space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <label className="block text-[10.5px] font-bold text-foreground">
+                        <span className="mb-0.5 block">Yajaman / Devotee Name *</span>
+                        <input
+                          value={devoteeName}
+                          onChange={(e) => setDevoteeName(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          placeholder="Enter devotee name"
+                        />
+                      </label>
+                      <label className="block text-[10.5px] font-bold text-foreground">
+                        <span className="mb-0.5 block">Phone Number *</span>
+                        <input
+                          value={devoteePhone}
+                          onChange={(e) => setDevoteePhone(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          placeholder="Enter phone number"
+                        />
+                      </label>
+                      <label className="block text-[10.5px] font-bold text-foreground">
+                        <span className="mb-0.5 block">Flat / Block</span>
+                        <input
+                          value={devoteeFlat}
+                          onChange={(e) => setDevoteeFlat(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          placeholder="Flat or block"
+                        />
+                      </label>
+                      <label className="block text-[10.5px] font-bold text-foreground">
+                        <span className="mb-0.5 block">Gotram</span>
+                        <input
+                          value={gotram}
+                          onChange={(e) => setGotram(e.target.value)}
+                          className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                          placeholder="Optional gotram"
+                        />
+                      </label>
+                    </div>
+
+                    {/* Attending family members (comma-separated) */}
                     <label className="block text-[10.5px] font-bold text-foreground">
-                      <span className="mb-0.5 block">Yajaman / Devotee Name *</span>
+                      <span className="mb-0.5 block">Attending Family Members</span>
                       <input
-                        value={devoteeName}
-                        onChange={(e) => setDevoteeName(e.target.value)}
+                        value={attendingDevotees}
+                        onChange={(e) => setAttendingDevotees(e.target.value)}
                         className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                        placeholder="Enter devotee name"
+                        placeholder="e.g. Priya Sharma, Arjun Sharma (comma-separated)"
                       />
-                    </label>
-                    <label className="block text-[10.5px] font-bold text-foreground">
-                      <span className="mb-0.5 block">Phone Number *</span>
-                      <input
-                        value={devoteePhone}
-                        onChange={(e) => setDevoteePhone(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                        placeholder="Enter phone number"
-                      />
-                    </label>
-                    <label className="block text-[10.5px] font-bold text-foreground">
-                      <span className="mb-0.5 block">Flat / Block</span>
-                      <input
-                        value={devoteeFlat}
-                        onChange={(e) => setDevoteeFlat(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                        placeholder="Flat or block"
-                      />
-                    </label>
-                    <label className="block text-[10.5px] font-bold text-foreground">
-                      <span className="mb-0.5 block">Gotram</span>
-                      <input
-                        value={gotram}
-                        onChange={(e) => setGotram(e.target.value)}
-                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                        placeholder="Optional gotram"
-                      />
+                      <span className="text-[9.5px] text-muted-foreground mt-0.5 block">
+                        Each name becomes an individual participant row — enables per-devotee QR pass &amp; check-in
+                      </span>
                     </label>
                   </div>
-
-                  {/* Attending family members (comma-separated) */}
-                  <label className="block text-[10.5px] font-bold text-foreground">
-                    <span className="mb-0.5 block">Attending Family Members</span>
-                    <input
-                      value={attendingDevotees}
-                      onChange={(e) => setAttendingDevotees(e.target.value)}
-                      className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                      placeholder="e.g. Priya Sharma, Arjun Sharma (comma-separated)"
-                    />
-                    <span className="text-[9.5px] text-muted-foreground mt-0.5 block">
-                      Each name becomes an individual participant row — enables per-devotee QR pass &amp; check-in
-                    </span>
-                  </label>
 
                   {isAnyAdmin && (
                     <div className="rounded-xl border border-border bg-card/50 p-2 space-y-1.5">
