@@ -1297,35 +1297,34 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       </div>
 
       {/* Day-wise schedule builder */}
-      <div className="animate-fade-in-up pt-3 border-t border-slate-200/80 space-y-3.5">
+      <div className="animate-fade-in-up pt-2.5 border-t border-slate-200/80 space-y-2.5">
         {/* Section Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-md shadow-amber-500/20 shrink-0">
-              <Zap className="w-4.5 h-4.5" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-0.5">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 text-white flex items-center justify-center shadow-sm shadow-amber-500/20 shrink-0">
+              <Zap className="w-3.5 h-3.5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h4 className="text-sm font-black text-slate-900 tracking-tight">Day-wise Agenda &amp; Activities</h4>
-                <Badge variant="outline" className="text-[10px] font-extrabold bg-indigo-50/70 border-indigo-200 text-indigo-700 px-2 py-0.5">
+              <div className="flex items-center gap-1.5">
+                <h4 className="text-xs font-black text-slate-900 tracking-tight">Day-wise Agenda &amp; Activities</h4>
+                <Badge variant="outline" className="text-[9px] font-extrabold bg-indigo-50/70 border-indigo-200 text-indigo-700 px-1.5 py-0">
                   {dayCount > 0 ? `${dayCount} Day${dayCount > 1 ? "s" : ""} Configured` : "0 Days"}
                 </Badge>
               </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Organize Poojas, Sevas, Cultural Shows, Prasadam Meals, and Competitions per day.
+              <p className="text-[10px] text-slate-400 mt-0">
+                Organize Poojas, Sevas, Cultural Shows, Meals &amp; Competitions per day.
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Add Day button hidden as of now */}
+          <div className="flex items-center gap-1.5 flex-wrap">
             <Button
               type="button"
               size="sm"
               variant="outline"
               onClick={() => handleOpenPlaceholderModal()}
-              className="h-8.5 px-3 text-xs font-bold border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 rounded-xl shadow-2xs gap-1.5 cursor-pointer transition-all active:scale-95"
+              className="h-7 px-2.5 text-[11px] font-bold border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 rounded-lg shadow-2xs gap-1 cursor-pointer transition-all active:scale-95"
             >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Agenda Placeholders
+              <Sparkles className="w-3 h-3 text-amber-500" /> Placeholders
             </Button>
             {dayCount > 0 && (
               <Button
@@ -1333,9 +1332,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                 size="sm"
                 variant="outline"
                 onClick={() => triggerNotification()}
-                className="h-8.5 px-3 text-xs font-bold bg-white border-slate-200 hover:border-indigo-200 text-slate-700 hover:text-indigo-600 rounded-xl shadow-2xs gap-1.5 cursor-pointer transition-all active:scale-95"
+                className="h-7 px-2.5 text-[11px] font-bold bg-white border-slate-200 hover:border-indigo-200 text-slate-600 hover:text-indigo-600 rounded-lg shadow-2xs gap-1 cursor-pointer transition-all active:scale-95"
               >
-                <Mail className="w-3.5 h-3.5 text-indigo-500" /> Notify Email
+                <Mail className="w-3 h-3 text-indigo-500" /> Notify
               </Button>
             )}
           </div>
@@ -1343,17 +1342,17 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
         {/* Interactive Day Switcher Tabs for Multi-Day or Configured Days */}
         {dayCount > 0 && (
-          <div className="p-2.5 bg-slate-50/80 rounded-2xl border border-slate-200/90 space-y-2">
+          <div className="p-2 bg-slate-50/80 rounded-xl border border-slate-200/90 space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-indigo-600" /> Select Day Schedule
+              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
+                <Calendar className="w-3 h-3 text-indigo-500" /> Select Day Schedule
               </span>
-              <span className="text-[10.5px] font-medium text-slate-400">
-                Click a day tab to view and manage its agenda
+              <span className="text-[9.5px] text-slate-400">
+                Click a tab to manage its agenda
               </span>
             </div>
-            
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-thin">
+
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-thin">
               {data.daySchedules.map((day, idx) => {
                 const isActive = expandedDay === day.date;
                 const actCount = day.activities.filter(a => a.name?.trim()).length;
@@ -1364,31 +1363,31 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                     data-testid={`event-day-tab-${day.date}`}
                     onClick={() => setExpandedDay(day.date)}
                     className={cn(
-                      "flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer shrink-0",
+                      "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold transition-all cursor-pointer shrink-0",
                       isActive
-                        ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-transparent shadow-md shadow-indigo-500/20 ring-2 ring-indigo-300/50"
-                        : "bg-white text-slate-700 border-slate-200 hover:border-indigo-200 hover:bg-slate-50"
+                        ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-transparent shadow-sm shadow-indigo-500/20 ring-1 ring-indigo-300/50"
+                        : "bg-white text-slate-600 border-slate-200 hover:border-indigo-200 hover:bg-slate-50"
                     )}
                   >
                     <span className={cn(
-                      "w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black shrink-0",
+                      "w-4 h-4 rounded flex items-center justify-center text-[9px] font-black shrink-0",
                       isActive ? "bg-white/20 text-white" : "bg-indigo-50 text-indigo-700"
                     )}>
                       {idx + 1}
                     </span>
-                    <span className="truncate max-w-[130px]">{formatDayLabel(day.date)}</span>
+                    <span className="truncate max-w-[110px]">{formatDayLabel(day.date)}</span>
                     <Badge
                       variant="outline"
                       className={cn(
-                        "text-[9.5px] px-1.5 py-0 font-extrabold shrink-0",
+                        "text-[9px] px-1 py-0 font-extrabold shrink-0",
                         isActive
                           ? "bg-white/20 border-white/30 text-white"
                           : actCount > 0
                           ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                          : "bg-slate-100 border-slate-200 text-slate-500"
+                          : "bg-slate-100 border-slate-200 text-slate-400"
                       )}
                     >
-                      {actCount} {actCount === 1 ? "activity" : "activities"}
+                      {actCount}
                     </Badge>
                   </button>
                 );
@@ -1400,9 +1399,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                   key={unconfDay}
                   type="button"
                   onClick={() => handleSelectDay(unconfDay)}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-indigo-300 bg-indigo-50/40 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-400 text-xs font-bold transition-all cursor-pointer shrink-0"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-dashed border-indigo-300 bg-indigo-50/40 text-indigo-600 hover:bg-indigo-100 hover:border-indigo-400 text-[11px] font-bold transition-all cursor-pointer shrink-0"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-3 h-3" />
                   <span>Add {formatDayLabel(unconfDay)}</span>
                 </button>
               ))}
@@ -1412,23 +1411,23 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
         {/* Empty State when 0 days */}
         {dayCount === 0 && (
-          <div className="p-8 text-center border-2 border-dashed border-indigo-200 rounded-3xl bg-indigo-50/30 space-y-3.5 animate-fade-in">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
-              <Zap className="w-6 h-6" />
+          <div className="p-5 text-center border-2 border-dashed border-indigo-200 rounded-2xl bg-indigo-50/30 space-y-2.5 animate-fade-in">
+            <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center mx-auto shadow-sm">
+              <Zap className="w-4.5 h-4.5" />
             </div>
             <div>
-              <p className="text-sm font-extrabold text-slate-800">No Day Agenda Configured Yet</p>
-              <p className="text-xs text-slate-500 max-w-md mx-auto mt-1">
-                Add schedule items like Pooja, Archana, Homam, Cultural Performances, and Mahaprasadam Meals to your event agenda.
+              <p className="text-xs font-extrabold text-slate-800">No Day Agenda Configured Yet</p>
+              <p className="text-[11px] text-slate-500 max-w-md mx-auto mt-0.5">
+                Add Pooja, Homam, Cultural Performances, and Meals to your event agenda.
               </p>
             </div>
-            <div className="flex items-center justify-center gap-2.5 pt-1">
+            <div className="flex items-center justify-center gap-2 pt-0.5">
               <Button
                 type="button"
                 onClick={handleAddDay}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 text-xs font-bold rounded-xl shadow-md shadow-indigo-500/20 px-4 cursor-pointer"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-[11px] font-bold rounded-lg shadow-sm shadow-indigo-500/20 px-3 h-7 cursor-pointer"
               >
-                <Plus className="w-4 h-4" /> Add Day 1 Schedule
+                <Plus className="w-3 h-3" /> Add Day 1 Schedule
               </Button>
               <Button
                 type="button"
@@ -1437,9 +1436,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                   const targetDate = data.startDate || new Date().toISOString().split("T")[0];
                   handleOpenPlaceholderModal(targetDate);
                 }}
-                className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer shadow-xs px-4"
+                className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1.5 text-[11px] font-bold rounded-lg cursor-pointer shadow-xs px-3 h-7"
               >
-                <Sparkles className="w-4 h-4 text-amber-500" /> Use Agenda Placeholders
+                <Sparkles className="w-3 h-3 text-amber-500" /> Use Placeholders
               </Button>
             </div>
           </div>
@@ -1447,7 +1446,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
         {/* Expanded Day Agenda View */}
         {dayCount > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {data.daySchedules.map((day, dayIdx) => {
               if (expandedDay && expandedDay !== day.date) return null;
               const isExpanded = true;
@@ -1457,87 +1456,84 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
               return (
                 <div
                   key={day.date}
-                  className="rounded-2xl border border-indigo-100 bg-white overflow-hidden shadow-xs space-y-0 animate-fade-in"
+                  className="rounded-xl border border-indigo-100 bg-white overflow-hidden shadow-xs animate-fade-in"
                 >
                   {/* Day Banner Toolbar */}
-                  <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-3 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border-b border-indigo-900/50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-md shadow-amber-400/20 shrink-0">
+                  <div className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-3 py-2 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white border-b border-indigo-900/50">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 text-slate-950 font-black text-[10px] flex items-center justify-center shadow-sm shadow-amber-400/20 shrink-0">
                         D{dayIdx + 1}
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="text-sm font-extrabold text-white">Day {dayIdx + 1} &bull; {formatDayLabel(day.date)}</h4>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/10 text-indigo-200 border border-white/10">
-                            {filledCount} of {totalCount} configured
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-xs font-extrabold text-white">Day {dayIdx + 1} &bull; {formatDayLabel(day.date)}</h4>
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/10 text-indigo-200 border border-white/10">
+                            {filledCount}/{totalCount} configured
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-300 mt-0.5">
-                          Configure all activities and seva timings for this specific day
-                        </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <Button
                         type="button"
                         data-testid={`event-add-activity-${day.date}`}
                         size="sm"
                         onClick={() => addActivity(day.date)}
-                        className="h-8 px-3 text-xs font-bold bg-white text-indigo-950 hover:bg-indigo-50 rounded-xl shadow-xs gap-1.5 cursor-pointer"
+                        className="h-7 px-2.5 text-[11px] font-bold bg-white text-indigo-950 hover:bg-indigo-50 rounded-lg shadow-xs gap-1 cursor-pointer"
                       >
-                        <Plus className="w-3.5 h-3.5 text-indigo-600" /> Add Activity
+                        <Plus className="w-3 h-3 text-indigo-600" /> Add Activity
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         onClick={() => handleOpenPlaceholderModal(day.date)}
-                        className="h-8 px-3 text-xs font-bold bg-indigo-800/80 hover:bg-indigo-700 text-white border border-indigo-600/50 rounded-xl gap-1.5 cursor-pointer"
+                        className="h-7 px-2.5 text-[11px] font-bold bg-indigo-800/80 hover:bg-indigo-700 text-white border border-indigo-600/50 rounded-lg gap-1 cursor-pointer"
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-amber-300" /> Placeholders
+                        <Sparkles className="w-3 h-3 text-amber-300" /> Placeholders
                       </Button>
                       <Button
                         type="button"
                         size="sm"
                         onClick={() => triggerNotification(`Day ${dayIdx + 1}`)}
-                        className="h-8 px-2.5 text-xs font-bold bg-white/10 hover:bg-white/20 text-white rounded-xl gap-1 cursor-pointer border border-white/10"
+                        className="h-7 px-2 text-[11px] font-bold bg-white/10 hover:bg-white/20 text-white rounded-lg gap-1 cursor-pointer border border-white/10"
                         title="Send email alert for this day"
                       >
-                        <Mail className="w-3.5 h-3.5 text-indigo-300" />
+                        <Mail className="w-3 h-3 text-indigo-300" />
                       </Button>
                       {data.daySchedules.length > 1 && (
                         <Button
                           type="button"
                           size="sm"
                           onClick={() => handleRemoveDay(day.date)}
-                          className="h-8 px-2.5 text-xs font-bold bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 rounded-xl gap-1 cursor-pointer border border-rose-500/30"
+                          className="h-7 px-2 text-[11px] font-bold bg-rose-500/20 hover:bg-rose-500/40 text-rose-300 rounded-lg gap-1 cursor-pointer border border-rose-500/30"
                           title="Remove this entire day"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3 h-3" />
                         </Button>
                       )}
                     </div>
                   </div>
 
                   {/* Day Activities List */}
-                  <div className="p-3.5 sm:p-4 space-y-3.5 bg-slate-50/50">
+                  <div className="p-2.5 space-y-2.5 bg-slate-50/50">
                     {day.activities.length === 0 && (
-                      <div className="p-6 text-center border-2 border-dashed border-indigo-200 rounded-2xl bg-white space-y-2.5">
-                        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
-                          <Sparkles className="w-5 h-5" />
+                      <div className="p-4 text-center border-2 border-dashed border-indigo-200 rounded-xl bg-white space-y-2">
+                        <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                          <Sparkles className="w-4 h-4" />
                         </div>
-                        <p className="text-xs font-extrabold text-slate-800">No activities on {formatDayLabel(day.date)}</p>
-                        <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
-                          Click below to add a customized ritual/program or import templates.
+                        <p className="text-[11px] font-extrabold text-slate-700">No activities on {formatDayLabel(day.date)}</p>
+                        <p className="text-[10px] text-slate-400 max-w-sm mx-auto">
+                          Add a customized ritual/program or import templates.
                         </p>
-                        <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
                           <Button
                             type="button"
                             size="sm"
                             onClick={() => addActivity(day.date)}
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 text-xs font-bold rounded-xl shadow-xs cursor-pointer"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1 text-[11px] font-bold rounded-lg shadow-xs cursor-pointer h-7 px-2.5"
                           >
-                            <Plus className="w-3.5 h-3.5" /> Add Activity
+                            <Plus className="w-3 h-3" /> Add Activity
                           </Button>
                           {dayIdx > 0 && data.daySchedules[dayIdx - 1]?.activities.length > 0 && (
                             <Button
@@ -1545,10 +1541,10 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               size="sm"
                               variant="outline"
                               onClick={() => duplicateAboveActivity(day.date)}
-                              className="border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
+                              className="border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-indigo-700 gap-1 text-[11px] font-bold rounded-lg cursor-pointer h-7 px-2.5"
                               title={`Copy activities from Day ${dayIdx}`}
                             >
-                              <Copy className="w-3.5 h-3.5 text-indigo-600" /> Copy Day {dayIdx} Sub-Events
+                              <Copy className="w-3 h-3 text-indigo-600" /> Copy Day {dayIdx}
                             </Button>
                           )}
                           <Button
@@ -1556,9 +1552,9 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                             size="sm"
                             variant="outline"
                             onClick={() => handleOpenPlaceholderModal(day.date)}
-                            className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1.5 text-xs font-bold rounded-xl cursor-pointer"
+                            className="border-indigo-200 bg-white hover:bg-indigo-50 text-indigo-700 gap-1 text-[11px] font-bold rounded-lg cursor-pointer h-7 px-2.5"
                           >
-                            <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Agenda Placeholders
+                            <Sparkles className="w-3 h-3 text-amber-500" /> Placeholders
                           </Button>
                         </div>
                       </div>
@@ -1575,88 +1571,88 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                           key={act.id}
                           data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}`}
                           className={cn(
-                            "relative rounded-2xl border transition-all shadow-xs overflow-hidden",
+                            "relative rounded-xl border transition-all shadow-xs overflow-hidden",
                             isPooja
-                              ? "border-amber-200 bg-gradient-to-b from-amber-50/40 via-white to-white"
+                              ? "border-amber-200 bg-gradient-to-b from-amber-50/30 via-white to-white"
                               : currentCategory === "Cultural Events"
-                              ? "border-purple-200 bg-gradient-to-b from-purple-50/40 via-white to-white"
+                              ? "border-purple-200 bg-gradient-to-b from-purple-50/30 via-white to-white"
                               : currentCategory === "Competitions"
-                              ? "border-pink-200 bg-gradient-to-b from-pink-50/40 via-white to-white"
+                              ? "border-pink-200 bg-gradient-to-b from-pink-50/30 via-white to-white"
                               : currentCategory === "Lunch" || currentCategory === "Dinner"
-                              ? "border-emerald-200 bg-gradient-to-b from-emerald-50/40 via-white to-white"
+                              ? "border-emerald-200 bg-gradient-to-b from-emerald-50/30 via-white to-white"
                               : "border-slate-200 bg-white"
                           )}
                         >
                           {/* Activity Card Header */}
                           <div className={cn(
-                            "flex items-center justify-between px-3.5 py-2.5 border-b",
-                            isPooja ? "border-amber-100 bg-amber-50/60" : "border-slate-100 bg-slate-50/80"
+                            "flex items-center justify-between px-3 py-2 border-b",
+                            isPooja ? "border-amber-100 bg-amber-50/50" : "border-slate-100 bg-slate-50/70"
                           )}>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                               <div className={cn(
-                                "w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-black shrink-0",
+                                "w-5 h-5 rounded flex items-center justify-center text-[9px] font-black shrink-0",
                                 isPooja
-                                  ? "bg-amber-500 text-white shadow-xs"
-                                  : "bg-indigo-600 text-white shadow-xs"
+                                  ? "bg-amber-500 text-white"
+                                  : "bg-indigo-600 text-white"
                               )}>
                                 {actIdx + 1}
                               </div>
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="text-xs font-black text-slate-800">
+                              <div className="flex items-center gap-1 flex-wrap">
+                                <span className="text-[11px] font-black text-slate-800">
                                   {act.name || `Activity #${actIdx + 1}`}
                                 </span>
                                 {isPooja && act.poojaType && (
-                                  <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-bold">
+                                  <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300 text-[9px] font-bold px-1.5 py-0">
                                     🪔 {act.poojaType}
                                   </Badge>
                                 )}
                                 {act.needsRegistration && (
-                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9.5px] font-bold">
-                                    Pass Required &bull; ₹{act.registrationFee || "0"}
+                                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] font-bold px-1.5 py-0">
+                                    Pass &bull; ₹{act.registrationFee || "0"}
                                   </Badge>
                                 )}
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() => cloneActivity(day.date, act)}
-                                className="text-[10px] font-bold text-slate-700 bg-white hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 px-2 py-1 rounded-lg border border-slate-200 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                                className="text-[10px] font-bold text-slate-600 bg-white hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 px-1.5 py-0.5 rounded border border-slate-200 flex items-center gap-0.5 transition-all cursor-pointer"
                                 title="Duplicate / Clone this sub-event"
                               >
-                                <Copy className="w-3 h-3 text-indigo-500" /> Clone
+                                <Copy className="w-2.5 h-2.5 text-indigo-500" /> Clone
                               </button>
                               {act.name && (
                                 <button
                                   type="button"
                                   onClick={() => triggerNotification(`Day ${dayIdx + 1}`, act.name)}
-                                  className="text-[10px] font-bold text-indigo-600 bg-white hover:bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-200 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                                  className="text-[10px] font-bold text-indigo-600 bg-white hover:bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200 flex items-center gap-0.5 transition-all cursor-pointer"
                                 >
-                                  <Mail className="w-3 h-3 text-indigo-500" /> Notify
+                                  <Mail className="w-2.5 h-2.5 text-indigo-500" /> Notify
                                 </button>
                               )}
                               <button
                                 type="button"
                                 onClick={() => removeActivity(day.date, act.id)}
-                                className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all p-1.5 rounded-lg cursor-pointer"
+                                className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all p-1 rounded cursor-pointer"
                                 title="Remove activity"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Trash2 className="w-3 h-3" />
                               </button>
                             </div>
                           </div>
 
                           {/* Activity Card Body */}
-                          <div className="p-3.5 sm:p-4 space-y-3.5">
+                          <div className="p-2.5 sm:p-3 space-y-2.5">
                             {/* Row 1: Activity Category & Pooja/Seva Title Side-by-Side */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
                               {/* Left: Activity Category / Type */}
                               <div>
-                                <div className="flex items-center justify-between mb-1">
-                                  <FieldLabel required>Activity Category / Type</FieldLabel>
-                                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
-                                    Selected: {currentCategory}
+                                <div className="flex items-center justify-between mb-0.5">
+                                  <FieldLabel required>Category / Type</FieldLabel>
+                                  <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0 rounded-full border border-indigo-200">
+                                    {currentCategory}
                                   </span>
                                 </div>
                                 <select
@@ -1669,7 +1665,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   }}
                                   className={cn(
                                     INPUT_CLS,
-                                    "h-9 text-xs font-bold text-slate-800 bg-white cursor-pointer shadow-2xs",
+                                    "h-8 text-xs font-bold text-slate-800 bg-white cursor-pointer shadow-2xs",
                                     reqCls(!currentCategory)
                                   )}
                                 >
@@ -1688,13 +1684,13 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                     value={act.customType || ""}
                                     onChange={(e) => updateActivity(day.date, act.id, "customType", e.target.value)}
                                     placeholder="e.g. Sports / Workshop / Stage Play"
-                                    className={cn(INPUT_CLS, "bg-white font-medium")}
+                                    className={cn(INPUT_CLS, "h-8 bg-white font-medium text-xs")}
                                   />
                                 </div>
                               ) : currentCategory !== "Pooja & Seva" ? (
                                 <div>
                                   <FieldLabel>Syncs To</FieldLabel>
-                                  <div className="px-3 py-[7px] rounded-[0.625rem] bg-indigo-50/60 border border-indigo-100 text-[12px] font-semibold text-indigo-700 flex items-center gap-1.5">
+                                  <div className="px-2.5 py-1.5 rounded-lg bg-indigo-50/60 border border-indigo-100 text-[11px] font-semibold text-indigo-700 flex items-center gap-1.5">
                                     <span className="font-bold underline underline-offset-2">
                                       {currentCategory === "Lunch" || currentCategory === "Dinner"
                                         ? "Lunch / Dinner Tab"
@@ -1711,39 +1707,37 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
 
                             {/* Row 2: Title + (Pooja Type if Pooja & Seva) + Times */}
                             <div className={cn(
-                              "grid gap-2.5 items-end",
+                              "grid gap-2 items-end",
                               currentCategory === "Pooja & Seva"
                                 ? "grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto]"
                                 : "grid-cols-1 sm:grid-cols-[1fr_auto_auto]"
                             )}>
-                              {/* Right: Activity Title (Pooja / Seva Title) */}
+                              {/* Activity Title */}
                               <div>
-                                <div className="flex items-center justify-between mb-1">
-                                  <FieldLabel required>
-                                    {isPooja ? "Pooja / Seva Title" : "Activity / Event Title"}
-                                  </FieldLabel>
-                                </div>
+                                <FieldLabel required>
+                                  {isPooja ? "Pooja / Seva Title" : "Activity / Event Title"}
+                                </FieldLabel>
                                 <Input
                                   data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-title`}
                                   value={act.name}
                                   onChange={(e) => updateActivity(day.date, act.id, "name", e.target.value)}
                                   placeholder={isPooja ? "e.g. Maha Ganapathi Homam & Sankalpam" : "e.g. Classical Dance / Drawing Contest"}
-                                  className={cn(INPUT_CLS, "h-9 text-xs bg-white font-bold text-slate-900 border-slate-200")}
+                                  className={cn(INPUT_CLS, "h-8 text-xs bg-white font-bold text-slate-900 border-slate-200")}
                                 />
                               </div>
 
-                              {/* Pooja Type — only for Pooja & Seva, beside Activity Title */}
+                              {/* Pooja Type — only for Pooja & Seva */}
                               {currentCategory === "Pooja & Seva" && (
-                                <div className="w-full sm:min-w-[180px]">
-                                  <div className="flex items-center justify-between mb-1">
+                                <div className="w-full sm:min-w-[160px]">
+                                  <div className="flex items-center justify-between mb-0.5">
                                     <FieldLabel required>Pooja Type</FieldLabel>
                                     {addingTypeForActId !== act.id && (
                                       <button
                                         type="button"
                                         onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                        className="text-[11px] font-bold text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-0.5 cursor-pointer"
+                                        className="text-[10px] font-bold text-amber-600 hover:text-amber-700 hover:underline flex items-center gap-0.5 cursor-pointer"
                                       >
-                                        <Plus className="w-3 h-3" /> Add New
+                                        <Plus className="w-2.5 h-2.5" /> Add New
                                       </button>
                                     )}
                                   </div>
@@ -1754,7 +1748,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                           value={newPoojaTypeName}
                                           onChange={(e) => { setNewPoojaTypeName(e.target.value); setAddTypeError(""); }}
                                           placeholder="New type name..."
-                                          className={cn(INPUT_CLS, "bg-white flex-1 text-xs")}
+                                          className={cn(INPUT_CLS, "h-8 bg-white flex-1 text-xs")}
                                           autoFocus
                                           onKeyDown={(e) => {
                                             if (e.key === "Enter") { e.preventDefault(); handleAddPoojaType(act.id, day.date); }
@@ -1765,14 +1759,14 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                           type="button"
                                           disabled={addingType || !newPoojaTypeName.trim()}
                                           onClick={() => handleAddPoojaType(act.id, day.date)}
-                                          className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold disabled:opacity-50 shrink-0 transition-all"
+                                          className="px-2 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold disabled:opacity-50 shrink-0 transition-all"
                                         >
                                           {addingType ? "…" : "Save"}
                                         </button>
                                         <button
                                           type="button"
                                           onClick={() => { setAddingTypeForActId(null); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                          className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-500 text-[10px] font-bold shrink-0"
+                                          className="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 text-[10px] font-bold shrink-0"
                                         >
                                           ✕
                                         </button>
@@ -1780,12 +1774,12 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                       {addTypeError && <p className="text-[10px] text-rose-500">{addTypeError}</p>}
                                     </div>
                                   ) : (
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1">
                                       <select
                                         data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-pooja-type`}
                                         value={act.poojaType || ""}
                                         onChange={(e) => updateActivity(day.date, act.id, "poojaType", e.target.value)}
-                                        className={cn(INPUT_CLS, "bg-white cursor-pointer flex-1")}
+                                        className={cn(INPUT_CLS, "h-8 bg-white cursor-pointer flex-1 text-xs")}
                                       >
                                         <option value="">— Select Type —</option>
                                         {poojaTypeOptions.map(t => (
@@ -1795,18 +1789,18 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                       <button
                                         type="button"
                                         onClick={() => { setAddingTypeForActId(act.id); setNewPoojaTypeName(""); setAddTypeError(""); }}
-                                        className="p-[7px] rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition shrink-0 shadow-2xs active:scale-95"
+                                        className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition shrink-0 active:scale-95"
                                         title="Create new Pooja Type"
                                       >
-                                        <Plus className="w-3.5 h-3.5" />
+                                        <Plus className="w-3 h-3" />
                                       </button>
                                     </div>
                                   )}
                                 </div>
                               )}
 
-                              <div className="w-full sm:w-36">
-                                <FieldLabel required>Start Time (From)</FieldLabel>
+                              <div className="w-full sm:w-32">
+                                <FieldLabel required>Start Time</FieldLabel>
                                 <TimePicker
                                   id={`event-activity-${dayIdx + 1}-${actIdx + 1}-start-time`}
                                   value={act.startTime}
@@ -1816,7 +1810,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                 />
                               </div>
                               <div>
-                                <FieldLabel required>End Time (To)</FieldLabel>
+                                <FieldLabel required>End Time</FieldLabel>
                                 <TimePicker
                                   id={`event-activity-${dayIdx + 1}-${actIdx + 1}-end-time`}
                                   value={act.endTime}
@@ -1829,31 +1823,30 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   )}
                                 />
                                 {Boolean(act.startTime && act.endTime && act.endTime <= act.startTime) && (
-                                  <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
-                                    <AlertCircle className="w-3 h-3 shrink-0 text-rose-600" />
-                                    End time must be after start time ({act.startTime}).
+                                  <p className="text-[10px] font-semibold text-rose-600 mt-0.5 flex items-center gap-1">
+                                    <AlertCircle className="w-2.5 h-2.5 shrink-0 text-rose-600" />
+                                    End must be after {act.startTime}.
                                   </p>
                                 )}
                               </div>
                             </div>
 
                             {/* Row: Devotee Pass & Seva Booking Bar */}
-                            <div className="p-3 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-2.5">
+                            <div className="px-2.5 py-2 rounded-lg bg-white border border-slate-200/90 shadow-2xs space-y-2">
                               <div className="flex items-center justify-between">
-                                <label className="flex items-center gap-2 cursor-pointer select-none">
+                                <label className="flex items-center gap-1.5 cursor-pointer select-none">
                                   <input
                                     type="checkbox"
                                     checked={act.needsRegistration ?? true}
                                     onChange={(e) => updateActivity(day.date, act.id, "needsRegistration", e.target.checked)}
-                                    className="w-4 h-4 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
+                                    className="w-3.5 h-3.5 rounded text-indigo-600 accent-indigo-600 cursor-pointer"
                                   />
-                                  <span className="text-xs font-bold text-slate-800">
-                                    {isPooja ? "Requires Devotee Seva Pass / Registration" : "Requires Member Entry Pass"}
+                                  <span className="text-[11px] font-bold text-slate-700">
+                                    {isPooja ? "Requires Seva Pass / Registration" : "Requires Member Entry Pass"}
                                   </span>
                                 </label>
-
                                 <Badge variant="outline" className={cn(
-                                  "text-[10px] font-bold",
+                                  "text-[9px] font-bold px-1.5 py-0",
                                   act.needsRegistration ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-slate-100 text-slate-500 border-slate-200"
                                 )}>
                                   {act.needsRegistration ? "Pass Enabled" : "Open to All"}
@@ -1861,30 +1854,30 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               </div>
 
                               {act.needsRegistration && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100 animate-fade-in">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1.5 border-t border-slate-100 animate-fade-in">
                                   <div>
                                     <FieldLabel>
-                                      {isPooja ? "Seva / Registration Fee (₹)" : "Pass Fee (₹)"}
+                                      {isPooja ? "Seva Fee (₹)" : "Pass Fee (₹)"}
                                     </FieldLabel>
                                     <div className="relative">
-                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
+                                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">₹</span>
                                       <Input
                                         data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-fee`}
                                         type="text"
                                         value={act.registrationFee ?? "0"}
                                         onChange={(e) => updateActivity(day.date, act.id, "registrationFee", e.target.value)}
                                         placeholder="0 for Free"
-                                        className={cn(INPUT_CLS, "h-8.5 text-xs bg-slate-50 font-bold pl-7 border-slate-200")}
+                                        className={cn(INPUT_CLS, "h-8 text-xs bg-slate-50 font-bold pl-6 border-slate-200")}
                                       />
                                     </div>
                                   </div>
                                   <div>
                                     <FieldLabel>
-                                      {isPooja ? "Max Devotee Slots / Capacity" : "Available Seats / Slots"}
+                                      {isPooja ? "Max Slots / Capacity" : "Available Seats"}
                                     </FieldLabel>
                                     <div className="relative">
-                                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs">
-                                        <Users className="w-3.5 h-3.5" />
+                                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                                        <Users className="w-3 h-3" />
                                       </span>
                                       <Input
                                         data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-slots`}
@@ -1892,7 +1885,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                         value={act.slots ?? "50"}
                                         onChange={(e) => updateActivity(day.date, act.id, "slots", e.target.value)}
                                         placeholder="50"
-                                        className={cn(INPUT_CLS, "h-8.5 text-xs bg-slate-50 font-bold pl-8 border-slate-200")}
+                                        className={cn(INPUT_CLS, "h-8 text-xs bg-slate-50 font-bold pl-7 border-slate-200")}
                                       />
                                     </div>
                                   </div>
@@ -1900,26 +1893,26 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                               )}
                             </div>
 
-                            {/* Row: Venue + Special Guidelines */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {/* Row: Venue + Guidelines */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                               <div>
-                                <FieldLabel>{isPooja ? "Mandap / Sacred Venue" : "Stage / Location Venue"}</FieldLabel>
+                                <FieldLabel>{isPooja ? "Mandap / Venue" : "Stage / Venue"}</FieldLabel>
                                 <Input
                                   data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-venue`}
                                   value={act.venue || ""}
                                   onChange={(e) => updateActivity(day.date, act.id, "venue", e.target.value)}
-                                  placeholder={isPooja ? "e.g. Main Temple Mandap / Homa Kundam" : "e.g. Community Stage / Dining Hall"}
-                                  className={cn(INPUT_CLS, "h-8.5 text-xs bg-white border-slate-200")}
+                                  placeholder={isPooja ? "e.g. Main Temple Mandap" : "e.g. Community Stage / Dining Hall"}
+                                  className={cn(INPUT_CLS, "h-8 text-xs bg-white border-slate-200")}
                                 />
                               </div>
                               <div>
-                                <FieldLabel>{isPooja ? "Devotee Samagri & Special Instructions" : "Description & Instructions"}</FieldLabel>
+                                <FieldLabel>{isPooja ? "Samagri & Instructions" : "Description & Instructions"}</FieldLabel>
                                 <Input
                                   data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-description`}
                                   value={act.description}
                                   onChange={(e) => updateActivity(day.date, act.id, "description", e.target.value)}
-                                  placeholder={isPooja ? "e.g. Devotees to bring coconuts & flowers; traditional attire" : "e.g. Arrive 15 mins prior for registration"}
-                                  className={cn(INPUT_CLS, "h-8.5 text-xs bg-white border-slate-200")}
+                                  placeholder={isPooja ? "e.g. Bring coconuts & flowers; traditional attire" : "e.g. Arrive 15 mins prior for registration"}
+                                  className={cn(INPUT_CLS, "h-8 text-xs bg-white border-slate-200")}
                                 />
                               </div>
                             </div>
@@ -1929,23 +1922,23 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                     })}
 
                     {/* Bottom Day Actions */}
-                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
                       <Button
                         type="button"
                         onClick={() => addActivity(day.date)}
-                        className="flex-1 min-w-[200px] h-9 rounded-xl border-2 border-dashed border-indigo-200 text-xs font-bold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 hover:border-indigo-300 transition-all cursor-pointer shadow-xs gap-1.5"
+                        className="flex-1 min-w-[160px] h-8 rounded-lg border-2 border-dashed border-indigo-200 text-[11px] font-bold text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 hover:border-indigo-300 transition-all cursor-pointer gap-1"
                       >
-                        <Plus className="w-3.5 h-3.5 text-indigo-600" /> Add Another Activity to Day {dayIdx + 1}
+                        <Plus className="w-3 h-3 text-indigo-600" /> Add Activity to Day {dayIdx + 1}
                       </Button>
                       {day.activities.length > 0 && (
                         <Button
                           type="button"
                           variant="outline"
                           onClick={() => duplicateAboveActivity(day.date)}
-                          className="h-9 px-3.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-xs font-bold text-indigo-700 flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
+                          className="h-8 px-3 rounded-lg border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100 text-[11px] font-bold text-indigo-700 flex items-center gap-1 transition-all cursor-pointer"
                           title="Clone / Duplicate the last activity in this day"
                         >
-                          <Copy className="w-3.5 h-3.5 text-indigo-600" /> Clone Above Activity
+                          <Copy className="w-3 h-3 text-indigo-600" /> Clone Above Activity
                         </Button>
                       )}
                       <Button
@@ -2142,14 +2135,14 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
   const isCapacityExceeded = maxEventCapacity > 0 && totalCategorySeats > maxEventCapacity;
 
   return (
-    <div className="space-y-4 sm:space-y-7">
+    <div className="space-y-2.5">
       <SectionHeader icon={Ticket} title="Registration Settings" subtitle="Configure how attendees can register for your event" />
 
-      <ToggleRow checked={data.registrationEnabled} onChange={v => update("registrationEnabled", v)}
-        label="Enable event registration" description="Allow attendees to register for this event" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <ToggleRow checked={data.registrationEnabled} onChange={v => update("registrationEnabled", v)}
+          label="Enable event registration" description="Allow attendees to register for this event" />
 
-      {data.registrationEnabled && (
-        <div className="space-y-6 animate-fade-in-up">
+        {data.registrationEnabled ? (
           <div>
             <FieldLabel hint={data.startDate ? `Must be before ${data.startDate}` : undefined}>
               Registration Deadline
@@ -2165,14 +2158,18 @@ function Step3Registration({ data, update }: { data: FormData; update: (k: keyof
               )}
             />
             {isDeadlineInvalid && (
-              <p className="text-xs font-semibold text-rose-600 mt-1.5 flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                Registration deadline must be before the event start date ({data.startDate}).
+              <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 shrink-0" />
+                Deadline must be before event start ({data.startDate}).
               </p>
             )}
           </div>
+        ) : <div />}
+      </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {data.registrationEnabled && (
+        <div className="space-y-2 animate-fade-in-up">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <ToggleRow checked={data.requireApproval} onChange={v => update("requireApproval", v)}
               label="Require approval" description="Admin must approve each registration" />
             <ToggleRow checked={data.allowWaitlist} onChange={v => update("allowWaitlist", v)}

@@ -41,12 +41,12 @@ export function ToggleRow({ checked, onChange, label, description }: {
 }) {
   return (
     <div className={cn(
-      "flex items-center justify-between p-2.5 sm:p-3 rounded-xl border transition-all",
+      "flex items-center justify-between px-2.5 py-2 rounded-lg border transition-all",
       checked ? "bg-indigo-50/50 border-indigo-200" : "bg-slate-50 border-slate-100"
     )}>
       <div>
-        <span className="text-[11px] sm:text-xs font-semibold text-slate-700">{label}</span>
-        {description && <p className="text-[9.5px] text-slate-400 mt-0.5">{description}</p>}
+        <span className="text-[11px] font-semibold text-slate-700">{label}</span>
+        {description && <p className="text-[9.5px] text-slate-400 leading-tight">{description}</p>}
       </div>
       <Switch checked={checked} onCheckedChange={onChange} />
     </div>
