@@ -330,6 +330,7 @@ export function Signup() {
   const [isLoadingCommunities, setIsLoadingCommunities] = useState<boolean>(true);
   const [communitiesError, setCommunitiesError] = useState<string | null>(null);
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);
+  const [isLoadingBlocks, setIsLoadingBlocks] = useState<boolean>(false);
   const [selectedFloor, setSelectedFloor] = useState<number | "">("");
   const [blockConfigs, setBlockConfigs] = useState<BlockConfigResponse[]>(DEFAULT_BLOCK_CONFIGS);
   const formRef = useRef<HTMLDivElement>(null);
@@ -368,7 +369,7 @@ export function Signup() {
   const communityType = watch("communityType");
   const communityCode = watch("communityCode");
 
-  // Computed block layout and flat numbers
+  // Computed block layout and flat numbers loaded from database
   const activeBlockConfig = blockConfigs.find(
     (bc) => bc.blockName.toUpperCase() === (block || "").toUpperCase()
   );
@@ -383,8 +384,7 @@ export function Signup() {
     if (floorObj && floorObj.flats && floorObj.flats.length > 0) {
       return floorObj.flats;
     }
-    // Dynamic fallback generation based on rules:
-    // A/B/D -> 11 flats; C -> 12 flats
+    // Dynamic generation from DB config row values:
     const flatsCount = activeBlockConfig.flatsPerFloor || (activeBlockConfig.blockName.toUpperCase() === "C" ? 12 : 11);
     const base = Number(selectedFloor) * 100;
     return Array.from({ length: flatsCount }, (_, i) => String(base + i + 1));
@@ -415,7 +415,7 @@ export function Signup() {
     loadCommunities();
   }, [communityType]);
 
-  const handleCommunityChange = (communityIdStr: string) => {
+  const handleCommunityChange = async (communityIdStr: string) => {
     setSelectedCommunityId(communityIdStr);
     setSelectedFloor("");
     setValue("block", "", { shouldValidate: false });
@@ -432,15 +432,19 @@ export function Signup() {
       if (found.blockConfigs && found.blockConfigs.length > 0) {
         setBlockConfigs(found.blockConfigs);
       } else {
-        communityService.getBlockConfigs(found.id)
-          .then((cfgs) => {
-            if (Array.isArray(cfgs) && cfgs.length > 0) {
-              setBlockConfigs(cfgs);
-            } else {
-              setBlockConfigs(DEFAULT_BLOCK_CONFIGS);
-            }
-          })
-          .catch(() => setBlockConfigs(DEFAULT_BLOCK_CONFIGS));
+        setIsLoadingBlocks(true);
+        try {
+          const cfgs = await communityService.getBlockConfigs(found.id);
+          if (Array.isArray(cfgs) && cfgs.length > 0) {
+            setBlockConfigs(cfgs);
+          } else {
+            setBlockConfigs(DEFAULT_BLOCK_CONFIGS);
+          }
+        } catch {
+          setBlockConfigs(DEFAULT_BLOCK_CONFIGS);
+        } finally {
+          setIsLoadingBlocks(false);
+        }
       }
     }
   };
