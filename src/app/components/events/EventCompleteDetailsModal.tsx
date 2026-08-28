@@ -53,7 +53,10 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
   const rawId = event?.id != null ? String(event.id) : "";
   const eventTitle = event?.title || event?.name || "Community Event";
   const eventCategory = event?.category || event?.type || "Event";
-  const eventLocation = event?.venue || event?.location || event?.city || event?.address || "";
+  const eventVenueName    = event?.venueName  || event?.venue    || event?.location  || "";
+  const eventVenueAddress = event?.venueAddress || event?.address || "";
+  const eventCity         = event?.city || "";
+  const eventLocation     = eventVenueName || eventCity || eventVenueAddress || "";
   const eventDescription = event?.description || "Experience the grand spiritual and cultural celebrations with traditional rituals, sacred pooja sevas, community feasts, cultural stage performances, and festive competitions for all residents.";
   const eventImage = event?.imageUrl || event?.image || "https://images.unsplash.com/photo-1544717305-2782549b5136?w=1200&auto=format&fit=crop&q=80";
   const eventStartDate = event?.startDate || event?.date || "Upcoming";
@@ -451,10 +454,27 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
                     <MapPin className="w-4 h-4 text-rose-500" /> Venue &amp; Mandap Setup
                   </h4>
                   <div className="text-xs text-muted-foreground space-y-1">
-                    <p><strong className="text-foreground">Location:</strong> {eventLocation}</p>
-                    <p><strong className="text-foreground">Main Stage:</strong> Central Temple Pavilion / Mandap Gate 1</p>
-                    <p><strong className="text-foreground">Dining Area:</strong> Annadanam Hall, Ground Floor (Gate 2)</p>
-                    <p><strong className="text-foreground">Parking:</strong> Designated Visitor Parking Lot B &amp; C</p>
+                    {eventVenueName && (
+                      <p><strong className="text-foreground">Venue:</strong> {eventVenueName}</p>
+                    )}
+                    {eventVenueAddress && (
+                      <p><strong className="text-foreground">Address:</strong> {eventVenueAddress}</p>
+                    )}
+                    {eventCity && (
+                      <p><strong className="text-foreground">City:</strong> {eventCity}</p>
+                    )}
+                    {(subPoojas[0]?.mandap || subPoojas[0]?.venue || event?.mandap) && (
+                      <p>
+                        <strong className="text-foreground">Main Mandap:</strong>{" "}
+                        {subPoojas[0]?.mandap || subPoojas[0]?.venue || event?.mandap}
+                      </p>
+                    )}
+                    {subMeals[0]?.venue && (
+                      <p><strong className="text-foreground">Dining Area:</strong> {subMeals[0].venue}</p>
+                    )}
+                    {!eventVenueName && !eventVenueAddress && !eventCity && !event?.mandap && !subPoojas[0]?.venue && !subMeals[0]?.venue && (
+                      <p className="italic text-muted-foreground/60">Venue details not yet configured for this event.</p>
+                    )}
                   </div>
                 </div>
 
