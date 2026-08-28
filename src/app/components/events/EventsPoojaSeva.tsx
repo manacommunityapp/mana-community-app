@@ -57,12 +57,15 @@ type BookingRegistration = {
   email?: string;
   notes?: string;
   createdAt: string;
-  // Fields stored by backend entity (not activityId/activityTitle)
   poojaSlotName?: string;
   poojaSlotDate?: string;
   poojaSlotTime?: string;
   poojaSevaTimeSlotsId?: number;
   scheduleId?: number;
+  poojaId?: number | string;
+  poojaSevaId?: number | string;
+  eventId?: number | string;
+  eventName?: string;
   // Audit fields from backend
   registrationSource?: "SELF" | "ADMIN" | "IMPORT";
   registeredBy?: number;
@@ -241,21 +244,36 @@ export function EventsPoojaSeva() {
     setError("");
     Promise.all([
       eventService.getPoojaSevas().catch(() => []),
-      eventService.getPoojaRegistrations().catch(() => []),
+      eventService.getAllRegistrations().catch(() => []),
       eventService.getPoojaTypes().catch(() => []),
     ])
       .then(([sevas, regs, types]) => {
-        const safeSevas = Array.isArray(sevas) ? sevas : Array.isArray((sevas as any)?.content) ? (sevas as any).content : [];
+        const safeSevas = Array.isArray(sevas) ? sevas : Array.isArray((sevas as any)?.content) ? (sevas as any).content : Array.isArray((sevas as any)?.data) ? (sevas as any).data : [];
         setPoojaSevas(safeSevas);
-        const safeTypes = Array.isArray(types) ? types : [];
+        const safeTypes = Array.isArray(types) ? types : Array.isArray((types as any)?.content) ? (types as any).content : [];
         if (safeTypes.length > 0) {
           setPoojaTypeObjects(safeTypes);
-          setPoojaTypes(safeTypes.map(t => t.name));
+          setPoojaTypes(safeTypes.map((t: any) => t.name));
         }
-        const safeRegs = Array.isArray(regs) ? regs : Array.isArray((regs as any)?.content) ? (regs as any).content : [];
+        const safeRegs = Array.isArray(regs) ? regs : Array.isArray((regs as any)?.content) ? (regs as any).content : Array.isArray((regs as any)?.data) ? (regs as any).data : [];
         const poojaRegs = safeRegs
           .filter((r: any) => {
-            return r && (r.category === "Pooja" || (typeof r.activityId === "string" && r.activityId.startsWith("pooja-")));
+            if (!r) return false;
+            const cat = String(r.category || "").toLowerCase();
+            const actId = String(r.activityId || "");
+            const title = String(r.activityTitle || r.poojaSlotName || r.eventName || "").toLowerCase().trim();
+            return (
+              cat === "pooja" ||
+              cat === "seva" ||
+              cat.includes("pooja") ||
+              cat.includes("seva") ||
+              actId.startsWith("pooja-") ||
+              Boolean(r.poojaSlotName) ||
+              Boolean(r.poojaSevaId) ||
+              Boolean(r.poojaId) ||
+              Boolean(r.poojaSevaTimeSlotsId) ||
+              safeSevas.some((s: any) => s.name && s.name.toLowerCase().trim() === title)
+            );
           })
           .map((r: any) => {
             let count = Number(r.devoteeCount ?? r.membersCount ?? 0);
@@ -299,11 +317,30 @@ export function EventsPoojaSeva() {
   }, [useMock]);
 
   const matchesPooja = (r: BookingRegistration, pooja: PoojaSeva): boolean => {
-    if (r.activityId === `pooja-${pooja.id}` || r.activityId === String(pooja.id)) return true;
-    if (r.activityTitle === pooja.name || r.poojaSlotName === pooja.name) return true;
+    if (!r || !pooja) return false;
+    const poojaIdStr = String(pooja.id ?? "").trim();
+    const poojaName = (pooja.name || "").trim().toLowerCase();
+
+    // 1. Direct ID matching
+    if (r.activityId === `pooja-${poojaIdStr}` || String(r.activityId) === poojaIdStr) return true;
+    if (r.poojaId != null && String(r.poojaId) === poojaIdStr) return true;
+    if (r.poojaSevaId != null && String(r.poojaSevaId) === poojaIdStr) return true;
+    if (r.scheduleId != null && String(r.scheduleId) === poojaIdStr) return true;
+    if ((r as any).eventId != null && String((r as any).eventId) === poojaIdStr) return true;
+
+    // 2. Title / Name matching (case-insensitive & trimmed)
+    const actTitle = (r.activityTitle || "").trim().toLowerCase();
+    const slotName = (r.poojaSlotName || "").trim().toLowerCase();
+    const evName = ((r as any).eventName || "").trim().toLowerCase();
+    if (poojaName && (actTitle === poojaName || slotName === poojaName || evName === poojaName)) return true;
+
+    // 3. Time slot ID matching
     if (r.poojaSevaTimeSlotsId && Array.isArray(pooja.timeSlotConfig)) {
-      return pooja.timeSlotConfig.some(ts => ts.id != null && Number(ts.id) === Number(r.poojaSevaTimeSlotsId));
+      if (pooja.timeSlotConfig.some(ts => ts.id != null && String(ts.id) === String(r.poojaSevaTimeSlotsId))) {
+        return true;
+      }
     }
+
     return false;
   };
 
