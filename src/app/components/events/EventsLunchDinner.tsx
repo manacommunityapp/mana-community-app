@@ -93,6 +93,9 @@ export function EventsLunchDinner() {
     participantName: "",
     phone: "",
     familyCount: "1",
+    devoteeCount: 1,
+    dietType: "VEG",
+    notes: "",
   });
   const [savingRsvp, setSavingRsvp] = useState(false);
   const [rsvpSuccess, setRsvpSuccess] = useState(false);
@@ -225,6 +228,9 @@ export function EventsLunchDinner() {
       participantName: authUser?.fullName || "",
       phone: authUser?.phone || "",
       familyCount: "1",
+      devoteeCount: 1,
+      dietType: "VEG",
+      notes: "",
     });
     setRsvpSuccess(false);
     setRsvpError("");

@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   Building2, MapPin, Users, Globe, Loader2, ShieldCheck,
-  Plus, Pencil, Trash2, X, Search, Inbox,
+  Plus, Pencil, Trash2, X, Search, Inbox, Layers, Home, Info, AlertCircle,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { communityService } from "../../../services/community/communityService";
 import { confirmAction } from "../../../utils/AlertUtils";
-import type { CommunityResponse } from "../../../types/api";
+import type { CommunityResponse, BlockConfigResponse } from "../../../types/api";
 
 const COMMUNITY_TYPES = [
   { value: "APARTMENT", label: "Apartment / Society" },
@@ -20,6 +20,19 @@ const TYPE_LABEL: Record<string, string> = Object.fromEntries(
   COMMUNITY_TYPES.map((t) => [t.value, t.label])
 );
 
+interface BlockFormItem {
+  blockName: string;
+  totalFloors: number;
+  flatsPerFloor: number;
+}
+
+const DEFAULT_BLOCKS_FORM: BlockFormItem[] = [
+  { blockName: "A", totalFloors: 10, flatsPerFloor: 11 },
+  { blockName: "B", totalFloors: 10, flatsPerFloor: 11 },
+  { blockName: "C", totalFloors: 10, flatsPerFloor: 12 },
+  { blockName: "D", totalFloors: 10, flatsPerFloor: 11 },
+];
+
 const emptyForm = {
   name: "",
   type: "APARTMENT",
@@ -28,6 +41,7 @@ const emptyForm = {
   state: "",
   area: "",
   inviteCode: "",
+  blockConfigs: DEFAULT_BLOCKS_FORM as BlockFormItem[],
 };
 
 type FormData = typeof emptyForm;
@@ -62,11 +76,36 @@ export function AdminCommunity() {
   }, [load]);
 
   const openCreate = () => {
-    setForm(emptyForm);
+    setForm({
+      ...emptyForm,
+      blockConfigs: DEFAULT_BLOCKS_FORM.map((b) => ({ ...b })),
+    });
     setModal("create");
   };
 
-  const openEdit = (c: CommunityResponse) => {
+  const openEdit = async (c: CommunityResponse) => {
+    let blocks: BlockFormItem[] = [];
+    if (c.blockConfigs && c.blockConfigs.length > 0) {
+      blocks = c.blockConfigs.map((b) => ({
+        blockName: b.blockName,
+        totalFloors: b.totalFloors || 10,
+        flatsPerFloor: b.flatsPerFloor || 11,
+      }));
+    } else if (c.type === "APARTMENT") {
+      try {
+        const dbBlocks = await communityService.getBlockConfigs(c.id);
+        if (Array.isArray(dbBlocks) && dbBlocks.length > 0) {
+          blocks = dbBlocks.map((b) => ({
+            blockName: b.blockName,
+            totalFloors: b.totalFloors || 10,
+            flatsPerFloor: b.flatsPerFloor || 11,
+          }));
+        }
+      } catch {
+        blocks = DEFAULT_BLOCKS_FORM.map((b) => ({ ...b }));
+      }
+    }
+
     setForm({
       name: c.name || "",
       type: c.type || "APARTMENT",
@@ -75,6 +114,7 @@ export function AdminCommunity() {
       state: c.state || "",
       area: c.area || "",
       inviteCode: c.inviteCode || "",
+      blockConfigs: blocks.length > 0 ? blocks : DEFAULT_BLOCKS_FORM.map((b) => ({ ...b })),
     });
     setModal(c);
   };
@@ -83,20 +123,91 @@ export function AdminCommunity() {
     if (!saving) setModal(null);
   };
 
+  const handleBlockChange = (index: number, field: keyof BlockFormItem, value: any) => {
+    setForm((prev) => {
+      const updated = [...prev.blockConfigs];
+      updated[index] = { ...updated[index], [field]: value };
+      return { ...prev, blockConfigs: updated };
+    });
+  };
+
+  const handleAddBlock = () => {
+    setForm((prev) => {
+      const existingNames = prev.blockConfigs.map((b) => b.blockName.toUpperCase());
+      const nextChar = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        .split("")
+        .find((char) => !existingNames.includes(char)) || `B${prev.blockConfigs.length + 1}`;
+      return {
+        ...prev,
+        blockConfigs: [
+          ...prev.blockConfigs,
+          { blockName: nextChar, totalFloors: 10, flatsPerFloor: 11 },
+        ],
+      };
+    });
+  };
+
+  const handleRemoveBlock = (index: number) => {
+    setForm((prev) => ({
+      ...prev,
+      blockConfigs: prev.blockConfigs.filter((_, i) => i !== index),
+    }));
+  };
+
+  const totalCalculatedFlats = form.blockConfigs.reduce(
+    (sum, b) => sum + (Number(b.totalFloors) || 0) * (Number(b.flatsPerFloor) || 0),
+    0
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.city.trim() || !form.type) {
       toast.error("Name, type and city are required");
       return;
     }
+
+    if (form.type === "APARTMENT") {
+      if (form.blockConfigs.length === 0) {
+        toast.error("Apartment community must have at least 1 block configured");
+        return;
+      }
+      for (const b of form.blockConfigs) {
+        if (!b.blockName?.trim()) {
+          toast.error("All blocks must have a valid block name");
+          return;
+        }
+        if (Number(b.totalFloors) <= 0 || Number(b.flatsPerFloor) <= 0) {
+          toast.error(`Block ${b.blockName} must have positive floor and flats count`);
+          return;
+        }
+      }
+    }
+
     setSaving(true);
     try {
+      const payload: any = {
+        name: form.name.trim(),
+        type: form.type,
+        subtype: form.subtype?.trim() || undefined,
+        city: form.city.trim(),
+        state: form.state?.trim() || undefined,
+        area: form.area?.trim() || undefined,
+        inviteCode: form.inviteCode?.trim() || undefined,
+        blockConfigs: form.type === "APARTMENT"
+          ? form.blockConfigs.map((b) => ({
+              blockName: b.blockName.trim().toUpperCase(),
+              totalFloors: Number(b.totalFloors),
+              flatsPerFloor: Number(b.flatsPerFloor),
+            }))
+          : undefined,
+      };
+
       if (modal === "create") {
-        await communityService.createCommunity(form);
-        toast.success(`Community "${form.name}" created`);
-      } else if (modal) {
-        await communityService.updateCommunity(modal.id, form);
-        toast.success(`Community "${form.name}" updated`);
+        await communityService.createCommunity(payload);
+        toast.success(`Community "${form.name}" created with ${form.blockConfigs.length} blocks (${totalCalculatedFlats} flats) saved to database`);
+      } else if (modal && typeof modal === "object") {
+        await communityService.updateCommunity(modal.id, payload);
+        toast.success(`Community "${form.name}" and block configurations updated in database`);
       }
       setModal(null);
       load();
@@ -148,7 +259,7 @@ export function AdminCommunity() {
             Community Management
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Create, edit and manage communities on the platform.
+            Create, edit and manage communities and database block configurations.
           </p>
         </div>
         <button
@@ -195,67 +306,79 @@ export function AdminCommunity() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((c) => (
-            <div
-              key={c.id}
-              className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 transition-all hover:border-indigo-300 hover:shadow-md"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div
-                    className="h-11 w-11 rounded-xl flex items-center justify-center text-white shrink-0"
-                    style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
-                  >
-                    <Building2 className="w-5 h-5" />
+          {filtered.map((c) => {
+            const blockCount = c.blockConfigs?.length || (c.type === "APARTMENT" ? 4 : 0);
+            const flatTotal = c.blockConfigs?.reduce((a, b) => a + (b.totalFlats || (b.totalFloors * b.flatsPerFloor)), 0) || (c.type === "APARTMENT" ? 450 : 0);
+
+            return (
+              <div
+                key={c.id}
+                className="rounded-2xl border border-border bg-card p-4 flex flex-col gap-3 transition-all hover:border-indigo-300 hover:shadow-md"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className="h-11 w-11 rounded-xl flex items-center justify-center text-white shrink-0"
+                      style={{ background: "linear-gradient(135deg, #6366f1, #8b5cf6)" }}
+                    >
+                      <Building2 className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-foreground truncate">{c.name}</h3>
+                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                        <span className="inline-block text-[10px] font-bold uppercase tracking-wide text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
+                          {TYPE_LABEL[c.type] || c.type}
+                        </span>
+                        {c.type === "APARTMENT" && blockCount > 0 && (
+                          <span className="inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">
+                            {blockCount} Blocks · {flatTotal} Flats (DB Configured)
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-bold text-foreground truncate">{c.name}</h3>
-                    <span className="inline-block mt-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
-                      {TYPE_LABEL[c.type] || c.type}
+                </div>
+
+                <div className="text-xs text-muted-foreground space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span className="truncate">
+                      {[c.area, c.city, c.state].filter(Boolean).join(", ") || "No location set"}
                     </span>
                   </div>
+                  {c.inviteCode && (
+                    <div className="flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                      <span className="font-mono uppercase">{c.inviteCode}</span>
+                    </div>
+                  )}
+                  {c.subtype && (
+                    <div className="flex items-center gap-1.5">
+                      <Globe className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                      <span className="truncate">{c.subtype}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2 pt-1 mt-auto border-t border-border">
+                  <button
+                    onClick={() => openEdit(c)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 mt-2 text-xs font-semibold rounded-lg text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" /> Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(c)}
+                    disabled={deletingId === c.id}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 mt-2 text-xs font-semibold rounded-lg text-red-600 border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+                  >
+                    {deletingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    Delete
+                  </button>
                 </div>
               </div>
-
-              <div className="text-xs text-muted-foreground space-y-1.5">
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  <span className="truncate">
-                    {[c.area, c.city, c.state].filter(Boolean).join(", ") || "No location set"}
-                  </span>
-                </div>
-                {c.inviteCode && (
-                  <div className="flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                    <span className="font-mono uppercase">{c.inviteCode}</span>
-                  </div>
-                )}
-                {c.subtype && (
-                  <div className="flex items-center gap-1.5">
-                    <Globe className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                    <span className="truncate">{c.subtype}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 pt-1 mt-auto border-t border-border">
-                <button
-                  onClick={() => openEdit(c)}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 mt-2 text-xs font-semibold rounded-lg text-indigo-600 border border-indigo-200 hover:bg-indigo-50 transition-colors"
-                >
-                  <Pencil className="w-3.5 h-3.5" /> Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(c)}
-                  disabled={deletingId === c.id}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 mt-2 text-xs font-semibold rounded-lg text-red-600 border border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
-                >
-                  {deletingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -320,6 +443,112 @@ export function AdminCommunity() {
                   </Field>
                 </div>
               </section>
+
+              {/* Block & Flat Configuration preview and edit for APARTMENT communities */}
+              {form.type === "APARTMENT" && (
+                <section className="space-y-3 bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-border">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-indigo-500" /> Block & Flat Database Configuration
+                      </h4>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        These block details will be saved to the database table <code className="text-indigo-600 font-mono">community_block_config</code>.
+                      </p>
+                    </div>
+                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950 px-2.5 py-1 rounded-full border border-indigo-200">
+                      Total: {totalCalculatedFlats} Flats
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 pt-1">
+                    {form.blockConfigs.map((b, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3 bg-card border border-border rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs"
+                      >
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <span className="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                            {b.blockName || "?"}
+                          </span>
+                          <div className="flex-1 sm:w-28">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Block Name</label>
+                            <input
+                              type="text"
+                              value={b.blockName}
+                              maxLength={4}
+                              onChange={(e) => handleBlockChange(idx, "blockName", e.target.value.toUpperCase())}
+                              className="w-full px-2.5 py-1 bg-input-background border border-border rounded-lg text-xs font-bold text-foreground uppercase"
+                              placeholder="A"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 w-full sm:w-auto flex-1">
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Total Floors</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={50}
+                              value={b.totalFloors}
+                              onChange={(e) => handleBlockChange(idx, "totalFloors", Number(e.target.value))}
+                              className="w-full px-2.5 py-1 bg-input-background border border-border rounded-lg text-xs font-semibold text-foreground"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase">Flats / Floor</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={50}
+                              value={b.flatsPerFloor}
+                              onChange={(e) => handleBlockChange(idx, "flatsPerFloor", Number(e.target.value))}
+                              className="w-full px-2.5 py-1 bg-input-background border border-border rounded-lg text-xs font-semibold text-foreground"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto border-t sm:border-t-0 pt-2 sm:pt-0 border-border">
+                          <div className="text-left sm:text-right">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase block">Capacity</span>
+                            <span className="text-xs font-bold text-indigo-600">
+                              {(Number(b.totalFloors) || 0) * (Number(b.flatsPerFloor) || 0)} flats
+                            </span>
+                          </div>
+                          {form.blockConfigs.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveBlock(idx)}
+                              className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                              title="Delete Block"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={handleAddBlock}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-indigo-600 border border-indigo-200 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 transition-colors"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add Block
+                    </button>
+                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Info className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                      <span>Flats are indexed per floor (e.g. Fl 1: 101–111, Fl 10: 1001–1011).</span>
+                    </div>
+                  </div>
+                </section>
+              )}
 
               <section className="space-y-4">
                 <h4 className="text-sm font-semibold text-foreground flex items-center gap-2 border-b border-border pb-2">

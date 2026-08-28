@@ -517,7 +517,7 @@ export function EventMemberFlow() {
               <JourneyNode
                 eyebrow="Step 3"
                 title="Add Family Members"
-                description="Add name, age and relationship for multiple family members."
+                description="Add name, date of birth and relationship for multiple family members."
                 icon={UserPlus}
                 tone="teal"
                 complete={familyComplete}

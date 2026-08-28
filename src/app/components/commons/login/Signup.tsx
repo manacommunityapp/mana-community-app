@@ -34,7 +34,7 @@ import { Link, useNavigate } from "react-router";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { communityService } from "../../../../services/community/communityService";
-import type { CommunityResponse } from "../../../../types/api";
+import type { CommunityResponse, BlockConfigResponse } from "../../../../types/api";
 import { PasswordStrengthMeter } from "../PasswordStrengthMeter";
 import { evaluatePassword, generateStrongPassword } from "../../../../utils/passwordStrength";
 
@@ -55,6 +55,69 @@ type SignupFormValues = {
   flatNo: string;
   terms: boolean;
 };
+
+// ── Default Block Configuration for APARTMENT communities ───────────────
+// A/B/D: 10 floors, 11 flats per floor = 110 flats each
+// C: 10 floors, 12 flats per floor = 120 flats
+// Total = 450 flats
+const DEFAULT_BLOCK_CONFIGS: BlockConfigResponse[] = [
+  {
+    blockName: "A",
+    totalFloors: 10,
+    flatsPerFloor: 11,
+    totalFlats: 110,
+    floors: Array.from({ length: 10 }, (_, i) => {
+      const fl = i + 1;
+      const base = fl * 100;
+      return {
+        floor: fl,
+        flats: Array.from({ length: 11 }, (_, j) => String(base + j + 1)),
+      };
+    }),
+  },
+  {
+    blockName: "B",
+    totalFloors: 10,
+    flatsPerFloor: 11,
+    totalFlats: 110,
+    floors: Array.from({ length: 10 }, (_, i) => {
+      const fl = i + 1;
+      const base = fl * 100;
+      return {
+        floor: fl,
+        flats: Array.from({ length: 11 }, (_, j) => String(base + j + 1)),
+      };
+    }),
+  },
+  {
+    blockName: "C",
+    totalFloors: 10,
+    flatsPerFloor: 12,
+    totalFlats: 120,
+    floors: Array.from({ length: 10 }, (_, i) => {
+      const fl = i + 1;
+      const base = fl * 100;
+      return {
+        floor: fl,
+        flats: Array.from({ length: 12 }, (_, j) => String(base + j + 1)),
+      };
+    }),
+  },
+  {
+    blockName: "D",
+    totalFloors: 10,
+    flatsPerFloor: 11,
+    totalFlats: 110,
+    floors: Array.from({ length: 10 }, (_, i) => {
+      const fl = i + 1;
+      const base = fl * 100;
+      return {
+        floor: fl,
+        flats: Array.from({ length: 11 }, (_, j) => String(base + j + 1)),
+      };
+    }),
+  },
+];
 
 // ── Left Brand Panel Feature Highlights ──────────────────────
 const FEATURES = [
@@ -267,6 +330,9 @@ export function Signup() {
   const [isLoadingCommunities, setIsLoadingCommunities] = useState<boolean>(true);
   const [communitiesError, setCommunitiesError] = useState<string | null>(null);
   const [communities, setCommunities] = useState<CommunityResponse[]>([]);
+  const [isLoadingBlocks, setIsLoadingBlocks] = useState<boolean>(false);
+  const [selectedFloor, setSelectedFloor] = useState<number | "">("");
+  const [blockConfigs, setBlockConfigs] = useState<BlockConfigResponse[]>(DEFAULT_BLOCK_CONFIGS);
   const formRef = useRef<HTMLDivElement>(null);
 
   const { register: registerUser } = useAuth();
@@ -303,6 +369,27 @@ export function Signup() {
   const communityType = watch("communityType");
   const communityCode = watch("communityCode");
 
+  // Computed block layout and flat numbers loaded from database
+  const activeBlockConfig = blockConfigs.find(
+    (bc) => bc.blockName.toUpperCase() === (block || "").toUpperCase()
+  );
+
+  const availableFloors = activeBlockConfig
+    ? activeBlockConfig.floors?.map((f) => f.floor) || Array.from({ length: activeBlockConfig.totalFloors || 10 }, (_, i) => i + 1)
+    : [];
+
+  const availableFlats: string[] = (() => {
+    if (!activeBlockConfig || !selectedFloor) return [];
+    const floorObj = activeBlockConfig.floors?.find((f) => f.floor === Number(selectedFloor));
+    if (floorObj && floorObj.flats && floorObj.flats.length > 0) {
+      return floorObj.flats;
+    }
+    // Dynamic generation from DB config row values:
+    const flatsCount = activeBlockConfig.flatsPerFloor || (activeBlockConfig.blockName.toUpperCase() === "C" ? 12 : 11);
+    const base = Number(selectedFloor) * 100;
+    return Array.from({ length: flatsCount }, (_, i) => String(base + i + 1));
+  })();
+
   const handleSuggestPassword = () => {
     const suggested = generateStrongPassword(10);
     setValue("password", suggested, { shouldValidate: true });
@@ -328,16 +415,37 @@ export function Signup() {
     loadCommunities();
   }, [communityType]);
 
-  const handleCommunityChange = (communityIdStr: string) => {
+  const handleCommunityChange = async (communityIdStr: string) => {
     setSelectedCommunityId(communityIdStr);
+    setSelectedFloor("");
+    setValue("block", "", { shouldValidate: false });
+    setValue("flatNo", "", { shouldValidate: false });
     if (!communityIdStr) {
       setValue("communityCode", "", { shouldValidate: true });
+      setBlockConfigs(DEFAULT_BLOCK_CONFIGS);
       return;
     }
     const found = communities.find((c) => String(c.id) === communityIdStr);
     if (found) {
       const code = found.inviteCode || found.code || "";
       setValue("communityCode", code, { shouldValidate: true });
+      if (found.blockConfigs && found.blockConfigs.length > 0) {
+        setBlockConfigs(found.blockConfigs);
+      } else {
+        setIsLoadingBlocks(true);
+        try {
+          const cfgs = await communityService.getBlockConfigs(found.id);
+          if (Array.isArray(cfgs) && cfgs.length > 0) {
+            setBlockConfigs(cfgs);
+          } else {
+            setBlockConfigs(DEFAULT_BLOCK_CONFIGS);
+          }
+        } catch {
+          setBlockConfigs(DEFAULT_BLOCK_CONFIGS);
+        } finally {
+          setIsLoadingBlocks(false);
+        }
+      }
     }
   };
 
@@ -356,6 +464,18 @@ export function Signup() {
     }
     if (s === 3) {
       if (communityType === "apartment") {
+        if (!block) {
+          setError("block", { type: "manual", message: "Please select a block" });
+          return false;
+        }
+        if (!selectedFloor) {
+          toast.error("Please select a floor number");
+          return false;
+        }
+        if (!flatNo) {
+          setError("flatNo", { type: "manual", message: "Please select a flat number" });
+          return false;
+        }
         const valid = await trigger(["block", "flatNo"]);
         return valid;
       }
@@ -815,8 +935,21 @@ export function Signup() {
                           <input
                             id="dateOfBirth"
                             type="date"
+                            max={(() => {
+                              const y = new Date();
+                              y.setDate(y.getDate() - 1);
+                              return y.toISOString().split("T")[0];
+                            })()}
                             {...register("dateOfBirth", {
                               required: "Date of birth is required",
+                              validate: (v) => {
+                                if (!v) return "Date of birth is required";
+                                const dob = new Date(v);
+                                const today = new Date();
+                                today.setHours(0, 0, 0, 0);
+                                if (dob >= today) return "Date of birth cannot be today or a future date";
+                                return true;
+                              },
                             })}
                             className={`${inputBase} pl-9 sm:pl-10 pr-3`}
                           />
@@ -857,148 +990,165 @@ export function Signup() {
                     <SectionHead
                       num={3}
                       title="Unit & Residence"
-                      sub="Specify your exact block and flat number"
+                      sub="Specify your exact block, floor, and flat number"
                     />
 
                     {/* Dynamic Visual Unit Preview Badge */}
-                    {(block || flatNo) && (
-                      <div className="flex items-center gap-2.5 sm:gap-3.5 p-2 sm:p-3 rounded-xl border border-dashed border-primary/40 bg-primary/5 animate-in fade-in zoom-in-95">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center text-white text-xs sm:text-sm font-black bg-gradient-to-tr from-primary to-indigo-600 shadow-xs shadow-primary/25 shrink-0">
+                    {(block || selectedFloor || flatNo) && (
+                      <div className="flex items-center gap-2.5 sm:gap-3.5 p-2.5 sm:p-3 rounded-xl border border-dashed border-primary/40 bg-primary/5 animate-in fade-in zoom-in-95">
+                        <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl flex items-center justify-center text-white text-xs sm:text-sm font-black bg-gradient-to-tr from-primary to-indigo-600 shadow-xs shadow-primary/25 shrink-0">
                           {block || "?"}
                         </div>
                         <div>
                           <p className="text-xs sm:text-sm font-bold text-foreground">
                             {block ? `Block ${block}` : "Block ?"}
+                            {selectedFloor ? ` · Floor ${selectedFloor}` : " · Floor ?"}
                             {flatNo ? ` · Flat ${flatNo}` : " · Flat ?"}
                           </p>
                           <p className="text-[10px] sm:text-[11px] text-muted-foreground">
-                            Your designated community unit
+                            {activeBlockConfig
+                              ? `${activeBlockConfig.blockName} Block (${activeBlockConfig.totalFloors} floors, ${activeBlockConfig.flatsPerFloor} flats/floor — total ${activeBlockConfig.totalFlats} flats)`
+                              : "Select your block, floor, and flat"}
                           </p>
                         </div>
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3.5 xl:gap-4">
-                      {/* Block / Wing (Single Letter A-Z) */}
+                    {/* 3 Cascading Dropdowns: Block -> Floor -> Flat Number */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3.5 xl:gap-4">
+                      {/* 1. Block Dropdown */}
                       <div>
                         <div className="flex items-center justify-between mb-0.5 sm:mb-1">
-                          <label htmlFor="block" className={labelCls}>
-                            Block / Wing
+                          <label htmlFor="blockSelect" className={labelCls}>
+                            Block / Wing *
                           </label>
-                          <span className="text-[9px] sm:text-[10px] text-muted-foreground font-medium truncate">
-                            1 letter
-                          </span>
+                          {block && (
+                            <span className="text-[9px] sm:text-[10px] text-primary font-bold">
+                              Block {block}
+                            </span>
+                          )}
                         </div>
                         <div className="relative">
                           <Layers className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          <input
-                            id="block"
-                            type="text"
+                          <select
+                            id="blockSelect"
                             {...register("block", {
-                              required:
-                                communityType === "apartment" ? "Block is required" : false,
-                              pattern: {
-                                value: /^[A-Z]$/,
-                                message: "Single letter (A-Z)",
-                              },
-                              maxLength: {
-                                value: 1,
-                                message: "Single character",
-                              },
+                              required: communityType === "apartment" ? "Block is required" : false,
                             })}
-                            onKeyDown={(e) => {
-                              if (
-                                e.key.length === 1 &&
-                                !/^[a-zA-Z]$/.test(e.key) &&
-                                !e.ctrlKey &&
-                                !e.metaKey
-                              ) {
-                                e.preventDefault();
-                              }
-                            }}
-                            onPaste={(e) => {
-                              e.preventDefault();
-                              const text = e.clipboardData
-                                .getData("text")
-                                .replace(/[^a-zA-Z]/g, "")
-                                .toUpperCase()
-                                .slice(0, 1);
-                              setValue("block", text, { shouldValidate: true });
-                            }}
+                            value={block || ""}
                             onChange={(e) => {
-                              const upper = e.target.value
-                                .replace(/[^a-zA-Z]/g, "")
-                                .toUpperCase()
-                                .slice(0, 1);
-                              setValue("block", upper, { shouldValidate: true });
+                              const newBlock = e.target.value;
+                              setValue("block", newBlock, { shouldValidate: true });
+                              setSelectedFloor("");
+                              setValue("flatNo", "", { shouldValidate: false });
+                              clearErrors(["block", "flatNo"]);
                             }}
-                            className={`${inputBase} pl-8 sm:pl-10 pr-2 uppercase font-bold text-center tracking-widest text-sm sm:text-base`}
-                            placeholder="A"
-                            maxLength={1}
-                          />
+                            className={`${inputBase} pl-8 sm:pl-10 pr-8 appearance-none cursor-pointer`}
+                          >
+                            <option value="">Select Block</option>
+                            {blockConfigs.map((bc) => (
+                              <option key={bc.blockName} value={bc.blockName}>
+                                {bc.blockName} Block ({bc.flatsPerFloor} flats/floor)
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground w-3.5 h-3.5" />
                         </div>
                         {errors.block && (
                           <p className="text-destructive text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.block.message}</p>
                         )}
                       </div>
 
-                      {/* Flat Number */}
+                      {/* 2. Floor Dropdown */}
                       <div>
                         <div className="flex items-center justify-between mb-0.5 sm:mb-1">
-                          <label htmlFor="flatNo" className={labelCls}>
-                            Flat No
+                          <label htmlFor="floorSelect" className={labelCls}>
+                            Floor *
                           </label>
-                          <span className="text-[9px] sm:text-[10px] text-muted-foreground font-medium truncate">
-                            Max 4 digits
-                          </span>
+                          {selectedFloor && (
+                            <span className="text-[9px] sm:text-[10px] text-primary font-bold">
+                              Floor {selectedFloor}
+                            </span>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          <select
+                            id="floorSelect"
+                            disabled={!block}
+                            value={selectedFloor}
+                            onChange={(e) => {
+                              const fl = e.target.value ? Number(e.target.value) : "";
+                              setSelectedFloor(fl);
+                              setValue("flatNo", "", { shouldValidate: false });
+                              clearErrors(["flatNo"]);
+                            }}
+                            className={`${inputBase} pl-8 sm:pl-10 pr-8 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            <option value="">{!block ? "Select Block First" : "Select Floor"}</option>
+                            {availableFloors.map((fl) => (
+                              <option key={fl} value={fl}>
+                                Floor {fl}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground w-3.5 h-3.5" />
+                        </div>
+                        {!block && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5 sm:mt-1">
+                            Choose a block to view floors
+                          </p>
+                        )}
+                      </div>
+
+                      {/* 3. Flat Number Dropdown */}
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5 sm:mb-1">
+                          <label htmlFor="flatSelect" className={labelCls}>
+                            Flat Number *
+                          </label>
+                          {flatNo && (
+                            <span className="text-[9px] sm:text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                              Flat {flatNo}
+                            </span>
+                          )}
                         </div>
                         <div className="relative">
                           <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                          <input
-                            id="flatNo"
-                            type="text"
-                            inputMode="numeric"
-                            maxLength={4}
+                          <select
+                            id="flatSelect"
+                            disabled={!block || !selectedFloor}
                             {...register("flatNo", {
-                              required:
-                                communityType === "apartment" ? "Flat number is required" : false,
-                              pattern: {
-                                value: /^\d{1,4}$/,
-                                message: "Numbers only (max 4 digits)",
-                              },
-                              maxLength: {
-                                value: 4,
-                                message: "Max 4 digits",
-                              },
+                              required: communityType === "apartment" ? "Flat number is required" : false,
                             })}
-                            onKeyDown={(e) => {
-                              if (
-                                e.key.length === 1 &&
-                                !/^\d$/.test(e.key) &&
-                                !e.ctrlKey &&
-                                !e.metaKey
-                              ) {
-                                e.preventDefault();
-                              }
-                            }}
-                            onPaste={(e) => {
-                              e.preventDefault();
-                              const text = e.clipboardData
-                                .getData("text")
-                                .replace(/\D/g, "")
-                                .slice(0, 4);
-                              setValue("flatNo", text, { shouldValidate: true });
-                            }}
+                            value={flatNo || ""}
                             onChange={(e) => {
-                              const numeric = e.target.value.replace(/\D/g, "").slice(0, 4);
-                              setValue("flatNo", numeric, { shouldValidate: true });
+                              setValue("flatNo", e.target.value, { shouldValidate: true });
                             }}
-                            className={`${inputBase} pl-8 sm:pl-10 pr-2 font-medium`}
-                            placeholder="101"
-                          />
+                            className={`${inputBase} pl-8 sm:pl-10 pr-8 appearance-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            <option value="">
+                              {!block
+                                ? "Select Block First"
+                                : !selectedFloor
+                                ? "Select Floor First"
+                                : "Select Flat Number"}
+                            </option>
+                            {availableFlats.map((flat) => (
+                              <option key={flat} value={flat}>
+                                Flat {flat}
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground w-3.5 h-3.5" />
                         </div>
                         {errors.flatNo && (
                           <p className="text-destructive text-[10px] sm:text-xs mt-0.5 sm:mt-1">{errors.flatNo.message}</p>
+                        )}
+                        {!selectedFloor && block && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5 sm:mt-1">
+                            Choose a floor to view flats
+                          </p>
                         )}
                       </div>
                     </div>

@@ -987,7 +987,6 @@ export function Layout() {
             <Outlet />
           </div>
         </main>
-        <FloatingChat />
         <FloatingChatBot />
       </div>
     </div>

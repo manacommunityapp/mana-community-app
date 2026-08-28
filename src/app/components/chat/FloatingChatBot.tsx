@@ -32,17 +32,9 @@ export function FloatingChatBot() {
 
   return (
     <div className="floating-chatbot-container">
-      {/* ── Mobile Dim Backdrop ── */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-35 bg-black/60 backdrop-blur-sm sm:hidden animate-in fade-in duration-200"
-          onClick={() => setIsOpen(false)}
-        />
-      )}
-
       <div
-        className={`fixed bottom-36 right-4 sm:bottom-24 sm:right-6 z-30 font-sans floating-action-launcher transition-all duration-200 ${
-          isModalActive && !isOpen ? "opacity-0 pointer-events-none translate-y-4" : "opacity-100"
+        className={`fixed bottom-6 right-4 sm:bottom-8 sm:right-6 z-30 font-sans floating-action-launcher transition-all duration-200 ${
+          isModalActive ? "opacity-0 pointer-events-none translate-y-4" : "opacity-100"
         }`}
       >
         {/* Panel */}
@@ -115,12 +107,12 @@ export function FloatingChatBot() {
         }
       `}</style>
 
-      {/* Floating devotional Ganesha button above AI Chatbot */}
-      {!isOpen && !isModalActive && (
+      {/* Floating devotional Ganesha button */}
+      {!isModalActive && (
         <Link
           to="/events"
           title="Open Events Dashboard"
-          className="ganesh-animated-idol absolute -top-14 right-0 sm:-top-18 sm:right-0.5 flex items-center justify-center h-10 w-10 sm:h-14 sm:w-14 rounded-full overflow-hidden shadow-2xl border-2 border-amber-400/90 p-0.5 bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-500 hover:scale-110 active:scale-95 transition-all cursor-pointer z-30"
+          className="ganesh-animated-idol flex items-center justify-center h-10 w-10 sm:h-14 sm:w-14 rounded-full overflow-hidden shadow-2xl border-2 border-amber-400/90 p-0.5 bg-gradient-to-tr from-amber-500 via-rose-500 to-indigo-500 hover:scale-110 active:scale-95 transition-all cursor-pointer z-30"
           style={{
             boxShadow: "0 6px 20px rgba(245, 158, 11, 0.55)",
           }}
@@ -135,22 +127,6 @@ export function FloatingChatBot() {
           />
         </Link>
       )}
-
-      {/* Trigger Button displaying the GIF */}
-      <button
-        id="floating-chatbot-toggle"
-        onClick={() => setIsOpen((prev) => !prev)}
-        className="h-10 w-10 sm:h-14 sm:w-14 rounded-full overflow-hidden shadow-lg sm:shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer border sm:border-2 border-indigo-500/20 bg-white relative"
-        style={{
-          boxShadow: "0 4px 14px rgba(99,102,241,0.25)",
-        }}
-      >
-        <img
-          src="/chat-bot-img-1.gif"
-          alt="Chat Bot"
-          className="w-full h-full object-cover scale-110"
-        />
-      </button>
     </div>
   </div>
   );

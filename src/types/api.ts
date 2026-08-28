@@ -104,6 +104,25 @@ export interface PlayerCategory {
   communityId?: number;
 }
 
+export interface BlockFloorResponse {
+  floor: number;
+  flats: string[];
+}
+
+export interface BlockConfigResponse {
+  blockName: string;
+  totalFloors: number;
+  flatsPerFloor: number;
+  totalFlats: number;
+  floors?: BlockFloorResponse[];
+}
+
+export interface BlockConfigRequest {
+  blockName: string;
+  totalFloors: number;
+  flatsPerFloor: number;
+}
+
 export interface CommunityResponse {
   id: number;
   name: string;
@@ -116,6 +135,7 @@ export interface CommunityResponse {
   subtype?: string;
   active?: boolean;
   enabledModules?: string[];
+  blockConfigs?: BlockConfigResponse[];
 }
 
 export interface Community extends CommunityResponse { }

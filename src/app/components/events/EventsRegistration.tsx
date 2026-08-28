@@ -406,7 +406,7 @@ function AddRegistrantDialog({
         devoteeCount: Math.max(1, Number(form.tickets) || 1),
         membersCount: Math.max(1, Number(form.tickets) || 1),
         attendingDevotees: form.name.trim(),
-        membersJson: JSON.stringify([{ name: form.name.trim(), age: 30, gender: "Male", relationship: "Self" }]),
+        membersJson: JSON.stringify([{ name: form.name.trim(), gender: "Male", relationship: "Self" }]),
         bookingFee: feeNum,
         paymentStatus: feeNum > 0 ? form.paymentStatus : "FREE",
         paymentMethod: "Cash",

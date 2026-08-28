@@ -710,8 +710,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           showWarning(`Please enter the name for attendee #${i + 1}.`);
           return;
         }
-        if (!mem.age || Number(mem.age) <= 0) {
-          showWarning(`Please enter a valid age (> 0) for attendee #${i + 1} (${mem.name || "Member"}).`);
+        if (!(mem as any).dob && (!mem.age || Number(mem.age) <= 0)) {
+          showWarning(`Please enter a date of birth for attendee #${i + 1} (${mem.name || "Member"}).`);
           return;
         }
         if (!mem.gender?.trim()) {
@@ -807,7 +807,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         attendingDevotees: formData.members.map((m) => m.name).filter(Boolean).join(", ") || primaryAttendeeName,
         membersJson: JSON.stringify(formData.members.map(m => ({
           name: m.name?.trim() || "",
-          age: Math.max(0, Math.min(120, Number(m.age) || 0)),
+          dob: (m as any).dob || undefined,
+          age: Math.max(0, Math.min(120, (m as any).dob ? calculateAge((m as any).dob) : (Number(m.age) || 0))),
           gender: m.gender || "Male",
           relationship: m.relationship || "Self",
         }))),
@@ -877,11 +878,13 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
           for (let i = 1; i < formData.members.length; i++) {
             const mem = formData.members[i];
             if (mem.name && mem.name.trim() && !existingNames.has(mem.name.trim().toLowerCase())) {
-              const avatar = mem.gender === "Female" ? (mem.age < 18 ? "👧" : "👩") : (mem.age < 18 ? "👦" : "👨");
+              const computedAge = (mem as any).dob ? calculateAge((mem as any).dob) : (Number(mem.age) || 20);
+              const avatar = mem.gender === "Female" ? (computedAge < 18 ? "👧" : "👩") : (computedAge < 18 ? "👦" : "👨");
               await eventService.addFamilyMember({
                 name: mem.name.trim(),
                 relation: (mem as any).relationship || "Family",
-                age: Number(mem.age) || 20,
+                dob: (mem as any).dob || undefined,
+                age: computedAge,
                 gender: mem.gender || "Male",
                 avatar,
                 status: "ACTIVE",
@@ -1456,7 +1459,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                         onClick={() => {
                           const newToAdd = availableSaved.map((sm) => ({
                             name: sm.name,
-                            age: Number(sm.age) || 25,
+                            dob: sm.dob || undefined,
+                            age: sm.dob ? calculateAge(sm.dob) : (Number(sm.age) || 25),
                             gender: sm.gender || (sm.relation?.toLowerCase().includes("wife") || sm.relation?.toLowerCase().includes("mother") || sm.relation?.toLowerCase().includes("daughter") || sm.relation?.toLowerCase().includes("sister") ? "Female" : "Male"),
                             relationship: sm.relation || "Family",
                           }));
@@ -1479,7 +1483,8 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                           onClick={() => {
                             const newMember = {
                               name: sm.name,
-                              age: Number(sm.age) || 25,
+                              dob: sm.dob || undefined,
+                              age: sm.dob ? calculateAge(sm.dob) : (Number(sm.age) || 25),
                               gender: sm.gender || (sm.relation?.toLowerCase().includes("wife") || sm.relation?.toLowerCase().includes("mother") || sm.relation?.toLowerCase().includes("daughter") || sm.relation?.toLowerCase().includes("sister") ? "Female" : "Male"),
                               relationship: sm.relation || "Family",
                             };
@@ -1582,25 +1587,20 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                       </div>
                       <div className="col-span-6 sm:col-span-2">
                         <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1 flex items-center justify-between">
-                          <span>Age *</span>
-                          {idx === 0 && mem.age > 0 && (
+                          <span>Date of Birth</span>
+                          {idx === 0 && (mem as any).dob && (
                             <span className="text-[9px] text-primary font-semibold lowercase">from profile</span>
                           )}
                         </label>
                         <input
-                          type="number"
-                          placeholder="Age"
-                          min={1}
-                          max={120}
-                          value={mem.age || ""}
-                          onKeyDown={(e) => {
-                            if (e.key === "-" || e.key === "e" || e.key === "+") e.preventDefault();
-                          }}
+                          type="date"
+                          max={new Date().toISOString().split("T")[0]}
+                          value={(mem as any).dob || ""}
                           onChange={(e) => {
-                            const val = e.target.value;
-                            const parsed = parseInt(val, 10);
                             const updated = [...formData.members];
-                            updated[idx].age = isNaN(parsed) ? 0 : Math.max(0, Math.min(120, parsed));
+                            const dob = e.target.value;
+                            (updated[idx] as any).dob = dob;
+                            updated[idx].age = dob ? calculateAge(dob) : 0;
                             setFormData({ ...formData, members: updated });
                           }}
                           className="w-full h-9 px-2.5 rounded-xl bg-[var(--mana-bg-input)] text-xs font-semibold border border-border outline-none text-foreground"
@@ -1880,36 +1880,31 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                   )}
 
                   {(formData.paymentMode === "Cash" || (isManualPaymentOnly && !formData.paymentMode)) && (
-                    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 space-y-3 text-left">
-                      <p className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                        <IndianRupee className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                        {isManualPaymentOnly ? "Manual / Cash Payment" : "Pay Cash at Helpdesk"}
-                      </p>
-                      <p className="text-[11px] text-amber-700 dark:text-amber-400 leading-relaxed">
-                        {eventPaymentNotes ||
-                          "Your spot is reserved. Please show this registration e-pass and pay cash at the event registration counter on the day of the event."}
-                      </p>
+                    <div className="p-3.5 rounded-2xl bg-muted/40 border border-border space-y-3">
+                      <div className="flex items-center gap-1.5">
+                        <IndianRupee className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span className="text-xs font-bold text-foreground">
+                          {isManualPaymentOnly ? "Manual / Cash Payment" : "Cash Payment"}
+                        </span>
+                      </div>
 
-                      {/* Event contacts to pay or reach out to */}
+                      {eventPaymentNotes && (
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">{eventPaymentNotes}</p>
+                      )}
+
                       {eventContacts.length > 0 && (
-                        <div className="pt-2 border-t border-amber-200 dark:border-amber-800/40 space-y-2">
-                          <p className="text-[10px] font-black text-amber-800 dark:text-amber-300 uppercase tracking-wide">
-                            📞 Contact to Pay
-                          </p>
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wide">📞 Contact to Pay</p>
                           <div className="space-y-1.5">
                             {eventContacts.map((c, idx) => (
                               <div
                                 key={idx}
-                                className="flex items-center justify-between gap-2 p-2 rounded-xl bg-white/60 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/30"
+                                className="flex items-center justify-between gap-2 p-2 rounded-xl bg-card border border-border"
                               >
                                 <div className="min-w-0">
                                   <p className="text-xs font-bold text-foreground truncate">{c.name || "Event Contact"}</p>
-                                  {c.role && (
-                                    <p className="text-[10px] text-muted-foreground truncate">{c.role}</p>
-                                  )}
-                                  {c.notes && (
-                                    <p className="text-[10px] text-muted-foreground truncate">{c.notes}</p>
-                                  )}
+                                  {c.role && <p className="text-[10px] text-muted-foreground truncate">{c.role}</p>}
+                                  {c.notes && <p className="text-[10px] text-muted-foreground truncate">{c.notes}</p>}
                                 </div>
                                 {c.phone && (
                                   <a
@@ -1924,6 +1919,39 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
                           </div>
                         </div>
                       )}
+
+                      {/* Upload payment screenshot */}
+                      <label
+                        className={`flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border-2 border-dashed cursor-pointer transition-all select-none ${
+                          formData.receiptUploaded
+                            ? "border-emerald-500 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                            : "border-border bg-card hover:border-primary/50 text-primary"
+                        }`}
+                      >
+                        {isUploadingReceipt ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="text-xs font-bold">Uploading to S3...</span>
+                          </>
+                        ) : formData.receiptUploaded ? (
+                          <>
+                            <Upload className="w-4 h-4" />
+                            <span className="text-xs font-bold">Payment Screenshot Attached ✓</span>
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="w-4 h-4" />
+                            <span className="text-xs font-bold">Upload Payment Screenshot</span>
+                          </>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={isUploadingReceipt}
+                          onChange={handleScreenshotUpload}
+                          className="hidden"
+                        />
+                      </label>
                     </div>
                   )}
                 </>
