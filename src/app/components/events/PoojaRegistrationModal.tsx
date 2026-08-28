@@ -296,7 +296,7 @@ function buildPoojaScheduleDays(event: any, defaultSlots: DaySlotOption[], pooja
     while (cur.getTime() <= endDate.getTime() && count <= 30) {
       const { dayLabel, dateStr, shortDate } = formatPoojaDate(cur);
       const dateKey = formatDateKey(cur);
-      const dayConfigs = timeSlotConfig.filter(e => e.slotDate === dateKey);
+      const dayConfigs = (Array.isArray(timeSlotConfig) ? timeSlotConfig : []).filter(e => e.slotDate === dateKey);
       const daySpecificSlots: DaySlotOption[] = dayConfigs.length > 0
         ? mapConfigToSlots(dayConfigs, defaultSlots)
         : defaultSlots;
@@ -329,7 +329,7 @@ function buildPoojaScheduleDays(event: any, defaultSlots: DaySlotOption[], pooja
   // Single Day Pooja
   const { dayLabel, dateStr, shortDate } = formatPoojaDate(startDate);
   const dateKey = formatDateKey(startDate);
-  const singleDayConfigs = timeSlotConfig.filter((e) => !e.slotDate || e.slotDate === dateKey);
+  const singleDayConfigs = (Array.isArray(timeSlotConfig) ? timeSlotConfig : []).filter((e) => !e.slotDate || e.slotDate === dateKey);
   const singleDaySlots: DaySlotOption[] = mapConfigToSlots(singleDayConfigs, defaultSlots);
 
   return [

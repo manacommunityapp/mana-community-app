@@ -41,13 +41,14 @@ export function useMainEvents() {
       try {
         setLoading(true);
         const data = await eventService.getAll().catch(() => eventService.getUpcomingEvents());
-        const activeOnly = (data || []).filter((e) => {
-          const s = String(e.status || "").toUpperCase();
+        const list = Array.isArray(data) ? data : Array.isArray((data as any)?.content) ? (data as any).content : [];
+        const activeOnly = list.filter((e: any) => {
+          const s = String(e?.status || "").toUpperCase();
           return s !== "CANCELLED" && s !== "CLOSED" && s !== "ARCHIVED";
         });
         if (activeOnly && activeOnly.length > 0) {
           setMainEvents(
-            activeOnly.map((e) => ({
+            activeOnly.map((e: any) => ({
               id: String(e.id),
               title: e.title,
               startDate: e.startDate,
@@ -300,7 +301,7 @@ export function PoojaSevaSection() {
 
   // Sync multi-day slot config
   useEffect(() => {
-    const times = (form.startTimes || []).filter(Boolean);
+    const times = (Array.isArray(form.startTimes) ? form.startTimes : []).filter(Boolean);
     if (times.length === 0) {
       set("timeSlotConfig", []);
       return;
@@ -323,7 +324,7 @@ export function PoojaSevaSection() {
           limit++;
         }
       }
-      const existing = form.timeSlotConfig || [];
+      const existing = Array.isArray(form.timeSlotConfig) ? form.timeSlotConfig : [];
       const defaultCount = Number(form.slots) || 20;
       const synced: { slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number }[] = [];
       for (const date of days) {
@@ -334,7 +335,7 @@ export function PoojaSevaSection() {
       }
       set("timeSlotConfig", synced);
     } else {
-      const existing = form.timeSlotConfig || [];
+      const existing = Array.isArray(form.timeSlotConfig) ? form.timeSlotConfig : [];
       const defaultCount = Number(form.slots) || 20;
       const synced = times.map((time) => {
         const found = existing.find((e) => e.slotDate === null && e.startTime === time);
@@ -342,7 +343,7 @@ export function PoojaSevaSection() {
       });
       set("timeSlotConfig", synced);
     }
-  }, [form.isMultiDay, form.date, form.endDate, (form.startTimes || []).filter(Boolean).join(",")]);
+  }, [form.isMultiDay, form.date, form.endDate, (Array.isArray(form.startTimes) ? form.startTimes : []).filter(Boolean).join(",")]);
 
   // Fetch Pooja Types dynamically from backend database
   useEffect(() => {
@@ -351,9 +352,10 @@ export function PoojaSevaSection() {
       try {
         setLoadingTypes(true);
         const data = await eventService.getPoojaTypes();
-        if (data && data.length > 0) {
-          setPoojaTypeObjects(data);
-          setPoojaTypes(data.map((t) => t.name));
+        const typesList = Array.isArray(data) ? data : [];
+        if (typesList.length > 0) {
+          setPoojaTypeObjects(typesList);
+          setPoojaTypes(typesList.map((t) => t.name));
         }
       } catch (err) {
         console.warn("Failed to load pooja types from DB:", err);
@@ -384,9 +386,9 @@ export function PoojaSevaSection() {
         createdType = { id: Date.now(), name: clean };
       }
       if (createdType) {
-        setPoojaTypeObjects((prev) => [...prev.filter((t) => t.name.toLowerCase() !== clean.toLowerCase()), createdType!]);
+        setPoojaTypeObjects((prev) => [...(Array.isArray(prev) ? prev : []).filter((t) => t.name.toLowerCase() !== clean.toLowerCase()), createdType!]);
       }
-      setPoojaTypes((prev) => (prev.includes(clean) ? prev : [...prev, clean]));
+      setPoojaTypes((prev) => ((Array.isArray(prev) ? prev : []).includes(clean) ? prev : [...(Array.isArray(prev) ? prev : []), clean]));
       set("type", clean);
       if (createdType?.id) {
         set("poojaTypeId", createdType.id);
@@ -802,7 +804,7 @@ export function PoojaSevaSection() {
                       day: "numeric",
                       month: "short",
                     });
-                    const dayEntries = (form.timeSlotConfig || []).filter((e) => e.slotDate === date);
+                    const dayEntries = (Array.isArray(form.timeSlotConfig) ? form.timeSlotConfig : []).filter((e) => e.slotDate === date);
                     const dayTotal = dayEntries.reduce((a, c) => a + (Number(c.slotCount) || 0), 0);
                     return (
                       <div key={date} className="bg-card rounded-xl border border-border p-2.5 shadow-2xs">
@@ -885,9 +887,9 @@ export function PoojaSevaSection() {
           <Col>
             <Label>Required Samagri / Items to Bring</Label>
             <TagInput
-              tags={form.items}
-              onAdd={(v) => set("items", [...form.items, v])}
-              onRemove={(i) => set("items", form.items.filter((_, idx) => idx !== i))}
+              tags={Array.isArray(form.items) ? form.items : []}
+              onAdd={(v) => set("items", [...(Array.isArray(form.items) ? form.items : []), v])}
+              onRemove={(i) => set("items", (Array.isArray(form.items) ? form.items : []).filter((_, idx) => idx !== i))}
               placeholder="Type item & press Enter…"
             />
           </Col>
