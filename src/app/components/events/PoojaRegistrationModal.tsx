@@ -457,7 +457,12 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
 
   // Existing registration / Update mode detection
   const [existingReg, setExistingReg] = useState<any>(() => event?.existingRegistration || null);
-  const isUpdateMode = Boolean(event?.isUpdateMode || existingReg);
+  // isUpdateMode is ONLY true when the modal was explicitly opened for rescheduling
+  // (i.e. the parent passed isUpdateMode=true via handleOpenUpdateRegistration).
+  // The API may detect an existing registration and set existingReg, but that alone
+  // must NOT flip the modal into reschedule mode — doing so showed reschedule UI
+  // to users who just clicked "Register" and already had a prior booking.
+  const isUpdateMode = Boolean(event?.isUpdateMode);
   const existingRegId = event?.registrationId || existingReg?.id || (event as any)?.regId;
   const prasadamAvailable = Boolean((event as any)?.prasadamAvailable);
   const isPoojaCancelled =
@@ -873,14 +878,21 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         }
       }
 
-      // ── Resolve eventId: should be the PARENT community event id, NOT the pooja seva's own id.
-      // When mainEventId is present, use it.  Fall back to stripping pooja's numeric id only as last resort.
-      const resolvedParentEventId: number = (() => {
+      // ── Resolve eventId and mainEventId separately.
+      // mainEventId must ONLY come from the explicit event.mainEventId prop — that is the parent
+      // community event id stored in community_events and event_booking_registrations.
+      // Never fall back to the pooja's own numeric id for mainEventId because the backend
+      // validates "user registered for event_id=mainEventId" and the pooja id ≠ parent event id.
+      const explicitMainEventId: number | undefined = (() => {
         if (event?.mainEventId) {
           const n = Number(String(event.mainEventId).replace(/\D/g, ""));
           if (!isNaN(n) && n > 0) return n;
         }
-        // Fallback: extract numeric portion of the pooja activity id (e.g. "pooja-5" → 5)
+        return undefined;
+      })();
+
+      // eventId is used for grouping; use mainEventId when available, otherwise the pooja's own numeric id.
+      const resolvedParentEventId: number = explicitMainEventId ?? (() => {
         if (event?.id) {
           const n = typeof event.id === "number" ? event.id : Number(String(event.id).replace(/\D/g, ""));
           if (!isNaN(n) && n > 0) return n;
@@ -889,9 +901,10 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
       })();
 
       const regPayload: PoojaRegistrationRequest = {
-        // eventId = parent community event id (used by backend for event-level grouping)
+        // eventId = best-effort parent event id for grouping
         eventId: resolvedParentEventId,
-        mainEventId: resolvedParentEventId,
+        // mainEventId sent ONLY when explicitly known — backend uses it to validate main-event registration
+        ...(explicitMainEventId ? { mainEventId: explicitMainEventId } : {}),
         // activityId = full "pooja-N" string — used for exact sub-activity deduplication
         activityId: event?.id ? String(event.id) : undefined,
         eventName: poojaTitle,
@@ -1179,7 +1192,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
                 </div>
               </div>
             )}
-            {isUpdateMode && !isPoojaCancelled && (
+            {isUpdateMode && existingReg?.id && !isPoojaCancelled && (
               <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300 text-[11px] font-bold flex items-start gap-1.5">
                 <RefreshCw className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
                 <div>
