@@ -36,6 +36,16 @@ export const communityService = {
     return apiClient.post<void>(`/community-modules/${communityId}/initialize`);
   },
 
+  /** Fetches block -> floor -> flat configs for a community */
+  async getBlockConfigs(communityId: number): Promise<import("../../types/api").BlockConfigResponse[]> {
+    return apiClient.get<import("../../types/api").BlockConfigResponse[]>(`/communities/${communityId}/blocks`);
+  },
+
+  /** Admin save/update of a block config */
+  async saveBlockConfig(communityId: number, config: import("../../types/api").BlockConfigRequest): Promise<import("../../types/api").BlockConfigResponse> {
+    return apiClient.post<import("../../types/api").BlockConfigResponse>(`/communities/${communityId}/blocks`, config);
+  },
+
   /** Checks if a block & flat combination is already registered in the specified community. */
   async checkUnitExists(communityIdOrCode: number | string, block: string, flatNo: string): Promise<boolean> {
     try {

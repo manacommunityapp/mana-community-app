@@ -14,7 +14,7 @@ export type PassCategory = 'family' | 'individual' | 'volunteer' | 'sponsor';
 export interface Member {
   id: string;
   name: string;
-  age: number | '';
+  dob?: string;
   gender: 'Male' | 'Female' | 'Other';
   relation: string;
   idProofType?: string;
@@ -94,9 +94,9 @@ const INITIAL_PASSES: PassRecord[] = [
     address: 'Flat 402, Shivam Enclave, M.G. Road',
     city: 'Mumbai',
     members: [
-      { id: 'm1', name: 'Sunita Sharma', age: 42, gender: 'Female', relation: 'Spouse', idProofType: 'Aadhaar', idProofNumber: '4829' },
-      { id: 'm2', name: 'Aarav Sharma', age: 14, gender: 'Male', relation: 'Son', idProofType: 'School ID', idProofNumber: '9182' },
-      { id: 'm3', name: 'Kamla Sharma', age: 68, gender: 'Female', relation: 'Parent', idProofType: 'Aadhaar', idProofNumber: '1092' }
+      { id: 'm1', name: 'Sunita Sharma', dob: '1984-06-15', gender: 'Female', relation: 'Spouse', idProofType: 'Aadhaar', idProofNumber: '4829' },
+      { id: 'm2', name: 'Aarav Sharma', dob: '2012-03-22', gender: 'Male', relation: 'Son', idProofType: 'School ID', idProofNumber: '9182' },
+      { id: 'm3', name: 'Kamla Sharma', dob: '1958-11-07', gender: 'Female', relation: 'Parent', idProofType: 'Aadhaar', idProofNumber: '1092' }
     ],
     timeSlot: 'Morning Aarti & Darshan (06:00 AM - 09:00 AM)',
     gate: 'Gate B (Priority Family Queue)',
@@ -116,7 +116,7 @@ const INITIAL_PASSES: PassRecord[] = [
     address: 'Bunglow 12, Sunrise Park, Worli',
     city: 'Mumbai',
     members: [
-      { id: 'v1', name: 'Vikram Deshmukh', age: 48, gender: 'Male', relation: 'Spouse', idProofType: 'Aadhaar', idProofNumber: '3341' }
+      { id: 'v1', name: 'Vikram Deshmukh', dob: '1978-09-20', gender: 'Male', relation: 'Spouse', idProofType: 'Aadhaar', idProofNumber: '3341' }
     ],
     timeSlot: 'Grand Evening Aarti (05:30 PM - 08:30 PM)',
     gate: 'Gate A (VIP Entry)',

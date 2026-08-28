@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   Building2, MapPin, Users, Globe, Loader2, ShieldCheck,
-  Plus, Pencil, Trash2, X, Search, Inbox,
+  Plus, Pencil, Trash2, X, Search, Inbox, Layers, Home, Info,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { communityService } from "../../../services/community/communityService";
@@ -19,6 +19,13 @@ const COMMUNITY_TYPES = [
 const TYPE_LABEL: Record<string, string> = Object.fromEntries(
   COMMUNITY_TYPES.map((t) => [t.value, t.label])
 );
+
+const DEFAULT_BLOCK_LAYOUT = [
+  { blockName: "A", floors: 10, flatsPerFloor: 11, totalFlats: 110, flatRange: "101-111 .. 1001-1011" },
+  { blockName: "B", floors: 10, flatsPerFloor: 11, totalFlats: 110, flatRange: "101-111 .. 1001-1011" },
+  { blockName: "C", floors: 10, flatsPerFloor: 12, totalFlats: 120, flatRange: "101-112 .. 1001-1012" },
+  { blockName: "D", floors: 10, flatsPerFloor: 11, totalFlats: 110, flatRange: "101-111 .. 1001-1011" },
+];
 
 const emptyForm = {
   name: "",
@@ -93,7 +100,7 @@ export function AdminCommunity() {
     try {
       if (modal === "create") {
         await communityService.createCommunity(form);
-        toast.success(`Community "${form.name}" created`);
+        toast.success(`Community "${form.name}" created with 4 blocks (450 flats)`);
       } else if (modal) {
         await communityService.updateCommunity(modal.id, form);
         toast.success(`Community "${form.name}" updated`);
@@ -148,7 +155,7 @@ export function AdminCommunity() {
             Community Management
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Create, edit and manage communities on the platform.
+            Create, edit and manage communities and block configurations.
           </p>
         </div>
         <button
@@ -210,9 +217,16 @@ export function AdminCommunity() {
                   </div>
                   <div className="min-w-0">
                     <h3 className="text-sm font-bold text-foreground truncate">{c.name}</h3>
-                    <span className="inline-block mt-0.5 text-[10px] font-bold uppercase tracking-wide text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
-                      {TYPE_LABEL[c.type] || c.type}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                      <span className="inline-block text-[10px] font-bold uppercase tracking-wide text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
+                        {TYPE_LABEL[c.type] || c.type}
+                      </span>
+                      {c.type === "APARTMENT" && (
+                        <span className="inline-block text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded">
+                          4 Blocks · 450 Flats
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -320,6 +334,43 @@ export function AdminCommunity() {
                   </Field>
                 </div>
               </section>
+
+              {/* Block & Flat Configuration preview for APARTMENT communities */}
+              {form.type === "APARTMENT" && (
+                <section className="space-y-3 bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-border">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-indigo-500" /> Block & Flat Layout Configuration
+                    </h4>
+                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 rounded-full border border-indigo-200">
+                      Total: 450 Flats
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Apartment communities are configured with 4 residential blocks. Resident signup dynamically builds the Block → Floor → Flat Number dropdowns based on this structure:
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                    {DEFAULT_BLOCK_LAYOUT.map((b) => (
+                      <div key={b.blockName} className="p-2.5 bg-card border border-border rounded-lg text-center shadow-xs">
+                        <div className="w-7 h-7 mx-auto rounded-lg bg-indigo-500 text-white font-bold text-xs flex items-center justify-center mb-1">
+                          {b.blockName}
+                        </div>
+                        <p className="text-xs font-bold text-foreground">Block {b.blockName}</p>
+                        <p className="text-[10.5px] text-muted-foreground mt-0.5">
+                          {b.floors} floors · {b.flatsPerFloor} flats/fl
+                        </p>
+                        <p className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 mt-1">
+                          {b.totalFlats} flats
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground pt-1">
+                    <Info className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <span>Flats follow standard floor indexing (A/B/D: 101–111 .. 1001–1011; C: 101–112 .. 1001–1012).</span>
+                  </div>
+                </section>
+              )}
 
               <section className="space-y-4">
                 <h4 className="text-sm font-semibold text-foreground flex items-center gap-2 border-b border-border pb-2">
