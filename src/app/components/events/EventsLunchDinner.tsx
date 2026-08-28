@@ -241,6 +241,8 @@ export function EventsLunchDinner() {
         category: "Meal",
         activityId: `meal-${rsvpMeal.id}`,
         activityTitle: rsvpMeal.name,
+        mainEventId: rsvpMeal.mainEventId || undefined,
+        eventId: rsvpMeal.mainEventId || undefined,
         participantName: rsvpForm.participantName.trim(),
         phone: rsvpForm.phone.trim() || undefined,
         devoteeCount: count,
