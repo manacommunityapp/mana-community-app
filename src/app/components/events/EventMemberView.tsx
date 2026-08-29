@@ -55,6 +55,7 @@ import { PoojaRegistrationModal } from "./PoojaRegistrationModal";
 import { LunchDinnerRegistrationModal } from "./LunchDinnerRegistrationModal";
 import { EventCompleteDetailsModal } from "./EventCompleteDetailsModal";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
+import { formatIndianTime } from "../../../utils/indianDateTimeUtils";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 
@@ -800,12 +801,16 @@ export function EventMemberView() {
 
           const initialPlates = m.targetPlates != null ? m.targetPlates : 500;
           const booked = getBookedCount(`food-${m.id}`, m.name);
+          const formattedMealTime = m.startTime && m.endTime 
+            ? `${formatIndianTime(m.startTime)} - ${formatIndianTime(m.endTime)}` 
+            : (m.startTime ? formatIndianTime(m.startTime) : "Afternoon / Evening");
+
           fetchedActivities.push({
             id: `food-${m.id || Date.now()}`,
             title: m.name || "Community Mahaprasadam",
             category: "Food",
             date: m.date ? String(m.date) : "Upcoming",
-            time: m.startTime && m.endTime ? `${m.startTime} - ${m.endTime}` : (m.startTime || "Afternoon / Evening"),
+            time: formattedMealTime,
             venue: m.venue || m.diningHall || m.location || "",
             fee: m.isFree ? 0 : Number(m.fee || 50),
             isFree: m.isFree,
@@ -1086,15 +1091,33 @@ export function EventMemberView() {
 
           const rawCat = String(r.category || "").toLowerCase();
           const rawActId = String(r.activityId || "");
-          const isPoojaPass = rawCat.includes("pooja") ||
+          const rawTitle = String(r.activityTitle || r.eventName || "").toLowerCase();
+          const rawActivityType = String(r.activityType || "").toLowerCase();
+          const isFoodPass = rawCat.includes("food") ||
+                             rawCat.includes("meal") ||
+                             rawCat.includes("lunch") ||
+                             rawCat.includes("dinner") ||
+                             rawCat.includes("prasad") ||
+                             rawCat.includes("bhojan") ||
+                             rawActivityType.includes("lunch") ||
+                             rawActivityType.includes("dinner") ||
+                             rawActivityType.includes("meal") ||
+                             rawActId.startsWith("meal-") ||
+                             rawActId.startsWith("food-") ||
+                             rawTitle.includes("lunch") ||
+                             rawTitle.includes("dinner") ||
+                             rawTitle.includes("food") ||
+                             rawTitle.includes("meal");
+
+          const isPoojaPass = !isFoodPass && (
+                              rawCat.includes("pooja") ||
                               rawCat.includes("seva") ||
                               rawActId.startsWith("pooja-") ||
                               Boolean(r.scheduleId) ||
-                              Boolean(r.poojaSlot);
+                              Boolean(r.poojaSlot));
 
-          const isCompPass = rawCat.includes("competition") || rawActId.startsWith("comp-");
-          const isCultPass = rawCat.includes("cultural") || rawActId.startsWith("cult-");
-          const isFoodPass = rawCat.includes("food") || rawCat.includes("meal") || rawActId.startsWith("meal-") || rawActId.startsWith("food-");
+          const isCompPass = !isFoodPass && !isPoojaPass && (rawCat.includes("competition") || rawActId.startsWith("comp-"));
+          const isCultPass = !isFoodPass && !isPoojaPass && (rawCat.includes("cultural") || rawActId.startsWith("cult-"));
 
           return {
             id: String(r.id),
@@ -1119,7 +1142,7 @@ export function EventMemberView() {
             registrationSource: r.registrationSource,
             regId: r.regCode || `MNA-2026-${r.id}`,
             date: r.eventDate || (parentEvent?.startDate ? String(parentEvent.startDate) : "Upcoming"),
-            time: r.eventTime || (parentEvent?.startTime ? String(parentEvent.startTime) : "Scheduled"),
+            time: r.eventTime ? (r.eventTime.includes(" - ") ? r.eventTime.split(" - ").map((t: string) => formatIndianTime(t)).join(" - ") : formatIndianTime(r.eventTime)) : (parentEvent?.startTime ? formatIndianTime(parentEvent.startTime) : "Scheduled"),
             venue: r.venue || (parentEvent?.location ? String(parentEvent.location) : "Community Venue"),
             status: finalStatus,
             isEventCancelled: isCancelled,
@@ -1159,6 +1182,7 @@ export function EventMemberView() {
     window.addEventListener("mana_event_updated", fetchLiveDataFromBackend);
     window.addEventListener("mana_dashboard_updated", fetchLiveDataFromBackend);
     window.addEventListener("mana_registrations_updated", handleRegUpdate);
+    window.addEventListener("mana_event_registration_updated", handleRegUpdate);
     window.addEventListener("mana_family_updated", loadFamilyMembers);
 
     return () => {
@@ -1167,6 +1191,7 @@ export function EventMemberView() {
       window.removeEventListener("mana_event_updated", fetchLiveDataFromBackend);
       window.removeEventListener("mana_dashboard_updated", fetchLiveDataFromBackend);
       window.removeEventListener("mana_registrations_updated", handleRegUpdate);
+      window.removeEventListener("mana_event_registration_updated", handleRegUpdate);
       window.removeEventListener("mana_family_updated", loadFamilyMembers);
     };
   }, [user]);
@@ -1381,7 +1406,16 @@ export function EventMemberView() {
     const isActPooja = isPoojaActivity(act.category) || actIdStr.startsWith("pooja-");
     const isActComp = act.category?.toLowerCase().includes("competition") || actIdStr.startsWith("comp-");
     const isActCult = act.category?.toLowerCase().includes("cultural") || actIdStr.startsWith("cult-");
-    const isActFood = act.category?.toLowerCase().includes("food") || act.category?.toLowerCase().includes("meal") || actIdStr.startsWith("meal-") || actIdStr.startsWith("food-");
+    const isActFood = act.category?.toLowerCase().includes("food") ||
+                      act.category?.toLowerCase().includes("meal") ||
+                      act.category?.toLowerCase().includes("lunch") ||
+                      act.category?.toLowerCase().includes("dinner") ||
+                      actIdStr.startsWith("meal-") ||
+                      actIdStr.startsWith("food-") ||
+                      cleanActTitle.includes("lunch") ||
+                      cleanActTitle.includes("dinner") ||
+                      cleanActTitle.includes("food") ||
+                      cleanActTitle.includes("meal");
     const isMainEvent = actIdStr.startsWith("event-") || (!isActPooja && !isActComp && !isActCult && !isActFood);
     const cleanActTitle = (act.title || "").trim().toLowerCase();
     const actMainEventId = act.mainEventId ? String(act.mainEventId).replace(/\D/g, "") : null;
@@ -1402,7 +1436,18 @@ export function EventMemberView() {
 
       const isPassComp = p.category?.toLowerCase().includes("competition") || passActIdStr.startsWith("comp-");
       const isPassCult = p.category?.toLowerCase().includes("cultural") || passActIdStr.startsWith("cult-");
-      const isPassFood = p.category?.toLowerCase().includes("meal") || p.category?.toLowerCase().includes("food") || passActIdStr.startsWith("meal-") || passActIdStr.startsWith("food-");
+      const isPassFood = passCatLower.includes("meal") ||
+                         passCatLower.includes("food") ||
+                         passCatLower.includes("lunch") ||
+                         passCatLower.includes("dinner") ||
+                         passTypeLower.includes("meal") ||
+                         passTypeLower.includes("food") ||
+                         passActIdStr.startsWith("meal-") ||
+                         passActIdStr.startsWith("food-") ||
+                         (p.title || "").toLowerCase().includes("lunch") ||
+                         (p.title || "").toLowerCase().includes("dinner") ||
+                         (p.title || "").toLowerCase().includes("food") ||
+                         (p.title || "").toLowerCase().includes("meal");
       const isPassMainEvent = passActIdStr.startsWith("event-") || (!isPassPooja && !isPassComp && !isPassCult && !isPassFood);
       const cleanPassTitle = (p.title || "").trim().toLowerCase();
       const passMainEventId = p.mainEventId ? String(p.mainEventId).replace(/\D/g, "") : (p.eventId ? String(p.eventId).replace(/\D/g, "") : null);
@@ -1468,6 +1513,7 @@ export function EventMemberView() {
         if (passActIdStr && actIdStr && passActIdStr === actIdStr) return true;
         if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) return true;
         if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) return true;
+        if (p.date && act.date && p.date === act.date && ((cleanPassTitle.includes("lunch") && cleanActTitle.includes("lunch")) || (cleanPassTitle.includes("dinner") && cleanActTitle.includes("dinner")))) return true;
         return false;
       }
 
@@ -2075,7 +2121,7 @@ export function EventMemberView() {
                             <span className="text-white/40 shrink-0">·</span>
                             <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                               <Clock className="w-3 h-3 text-amber-300 shrink-0" />
-                              <span className="whitespace-nowrap">{activeMainEvent.startTime || activeMainEvent.time}</span>
+                              <span className="whitespace-nowrap">{formatIndianTime(activeMainEvent.startTime || activeMainEvent.time)}</span>
                             </span>
                           </>
                         )}
@@ -2157,7 +2203,13 @@ export function EventMemberView() {
                                     <span className="text-white/30">·</span>
                                     <span className="flex items-center gap-0.5">
                                       <Clock className="w-2.5 h-2.5 text-indigo-200 shrink-0" />
-                                      <span>{subAct.time}</span>
+                                      <span>
+                                        {subAct.time
+                                          ? subAct.time.includes(" - ")
+                                            ? subAct.time.split(" - ").map((t: string) => formatIndianTime(t)).join(" - ")
+                                            : formatIndianTime(subAct.time)
+                                          : "Scheduled"}
+                                      </span>
                                     </span>
                                   </div>
                                 </div>
@@ -2195,7 +2247,7 @@ export function EventMemberView() {
                                         className="px-2 py-0.5 text-[9.5px] font-black rounded-md bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-400/40 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
                                       >
                                         <Edit3 className="w-2.5 h-2.5" />
-                                        <span>Update Pass</span>
+                                        <span>Update Registration</span>
                                       </button>
                                     ) : isClosed ? (
                                       <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-white/10 text-white/60 border border-white/10 shrink-0">
@@ -3961,6 +4013,7 @@ export function EventMemberView() {
                 isFree: selectedActivity.isFree,
                 mainEventId: selectedActivity.mainEventId ? Number(String(selectedActivity.mainEventId).replace(/\D/g, "")) : undefined,
               }}
+              existingRegistration={(selectedActivity as any)?.existingRegistration || null}
               onSuccess={() => {
                 setSelectedActivity(null);
                 fetchLiveDataFromBackend();

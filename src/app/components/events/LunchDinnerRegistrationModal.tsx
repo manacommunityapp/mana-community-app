@@ -43,6 +43,7 @@ export interface LunchDinnerRegistrationModalProps {
   isOpen: boolean;
   onClose: () => void;
   meal: LunchDinnerMeal | null;
+  existingRegistration?: any | null;
   onSuccess?: () => void;
 }
 
@@ -50,6 +51,7 @@ export function LunchDinnerRegistrationModal({
   isOpen,
   onClose,
   meal,
+  existingRegistration: incomingExistingRegistration,
   onSuccess,
 }: LunchDinnerRegistrationModalProps) {
   const { user: authUser, isAdmin, isSuperAdmin } = useAuth();
@@ -164,7 +166,14 @@ export function LunchDinnerRegistrationModal({
       setAttendanceStatus("CONFIRMED");
       setExistingRegistration(null);
 
-      if (!initialPhone || !initialName) {
+      if (incomingExistingRegistration) {
+        setExistingRegistration(incomingExistingRegistration);
+        setIsUpdateMode(true);
+        setFamilyCount(Number(incomingExistingRegistration.devoteeCount ?? incomingExistingRegistration.membersCount ?? 1));
+        setAttendanceStatus(incomingExistingRegistration.status || incomingExistingRegistration.registrationStatus || "CONFIRMED");
+        if (incomingExistingRegistration.participantName) setParticipantName(incomingExistingRegistration.participantName);
+        if (incomingExistingRegistration.phone) setPhone(incomingExistingRegistration.phone);
+      } else if (!initialPhone || !initialName) {
         userService
           .getMe()
           .then((u: any) => {
@@ -182,7 +191,7 @@ export function LunchDinnerRegistrationModal({
       }
     }
     prevOpenRef.current = isOpen;
-  }, [isOpen, meal]);
+  }, [isOpen, meal, incomingExistingRegistration]);
 
   if (!isOpen || !meal) return null;
 
@@ -286,6 +295,7 @@ export function LunchDinnerRegistrationModal({
 
       window.dispatchEvent(new CustomEvent("mana_activities_updated"));
       window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
+      window.dispatchEvent(new CustomEvent("mana_registrations_updated"));
 
       setTimeout(() => {
         onSuccess?.();
