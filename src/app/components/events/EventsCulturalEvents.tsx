@@ -187,6 +187,18 @@ export function EventsCulturalEvents() {
     if (!form.category) { setFormError("Category is required"); return; }
     if (!form.date) { setFormError("Date is required"); return; }
 
+    if (form.mainEventId) {
+      const selEv = activeEvents.find(x => String(x.id) === String(form.mainEventId));
+      if (selEv && selEv.startDate) {
+        const minD = selEv.startDate;
+        const maxD = selEv.endDate || selEv.startDate;
+        if (form.date < minD || form.date > maxD) {
+          setFormError(`Event date (${form.date}) must be between parent event start (${minD}) and end (${maxD}) dates.`);
+          return;
+        }
+      }
+    }
+
     const payload = {
       mainEventId: form.mainEventId || undefined,
       name: form.name, category: form.category, perfType: form.perfType || undefined,

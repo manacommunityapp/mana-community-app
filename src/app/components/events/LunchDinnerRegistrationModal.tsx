@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { eventService } from "../../../services/events/eventService";
+import { userService } from "../../../services/common/userService";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 
@@ -55,19 +56,55 @@ export function LunchDinnerRegistrationModal({
   const [error, setError] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
 
-  // Initialize and pre-fill form from logged-in user when modal opens
+  // Track previous open state so typing / clicking never triggers a re-initialization reset
+  const prevOpenRef = React.useRef(false);
+
+  // Initialize and pre-fill form from logged-in user ONLY when modal transitions from closed to open
   useEffect(() => {
-    if (isOpen && meal) {
-      const initialName = authUser?.fullName || (authUser as any)?.name || (authUser as any)?.username || "";
-      const initialPhone = authUser?.phone || (authUser as any)?.phoneNumber || "";
+    if (isOpen && !prevOpenRef.current) {
+      let initialName = authUser?.fullName || (authUser as any)?.name || (authUser as any)?.username || "";
+      let initialPhone =
+        authUser?.phone ||
+        (authUser as any)?.mobile ||
+        (authUser as any)?.phoneNumber ||
+        (authUser as any)?.contactPhone ||
+        "";
+
+      // Check localStorage cache if authUser in memory was incomplete
+      if (!initialPhone || !initialName) {
+        try {
+          const cached = localStorage.getItem("mana_user") || localStorage.getItem("mana_user_profile");
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (!initialName) initialName = parsed.fullName || parsed.name || parsed.username || "";
+            if (!initialPhone) initialPhone = parsed.phone || parsed.mobile || parsed.phoneNumber || parsed.contactPhone || "";
+          }
+        } catch {}
+      }
 
       setParticipantName(initialName);
       setPhone(initialPhone);
       setFamilyCount(1);
       setError("");
       setIsSuccess(false);
+
+      // If still missing phone or name, fetch fresh from userService.getMe()
+      if (!initialPhone || !initialName) {
+        userService
+          .getMe()
+          .then((u: any) => {
+            if (u) {
+              const fetchedName = u.fullName || u.name || u.username || "";
+              const fetchedPhone = u.phone || u.mobile || u.phoneNumber || u.contactPhone || "";
+              if (fetchedName) setParticipantName((prev) => prev || fetchedName);
+              if (fetchedPhone) setPhone((prev) => prev || fetchedPhone);
+            }
+          })
+          .catch(() => {});
+      }
     }
-  }, [isOpen, meal, authUser]);
+    prevOpenRef.current = isOpen;
+  }, [isOpen]);
 
   if (!isOpen || !meal) return null;
 
@@ -95,33 +132,40 @@ export function LunchDinnerRegistrationModal({
     setError("");
 
     try {
+      const numericMealId = typeof meal.id === "number" ? meal.id : parseInt(String(meal.id).replace(/\D/g, ""), 10) || undefined;
+      const numericMainEventId = meal.mainEventId ? Number(meal.mainEventId) : undefined;
+
       const regPayload = {
+        mealId: numericMealId,
+        lunchDinnerId: numericMealId,
+        eventLunchDinnerId: numericMealId,
+        mainEventId: numericMainEventId,
+        eventId: numericMainEventId,
         category: "Meal",
         activityId: `meal-${meal.id}`,
         activityTitle: meal.name,
         activityType: "LUNCH_DINNER",
-        mainEventId: meal.mainEventId ? Number(meal.mainEventId) : undefined,
-        eventId: meal.mainEventId ? Number(meal.mainEventId) : undefined,
+        mealType: meal.mealType || "LUNCH",
         participantName: participantName.trim(),
         phone: phone.trim(),
         devoteeCount: count,
         membersCount: count,
+        familyCount: count,
         eventDate: meal.date,
+        mealDate: meal.date,
+        eventTime: meal.startTime,
+        venue: meal.venue,
         bookingFee: totalFee,
         paymentStatus: isFree ? "FREE" : "PAID",
         status: "CONFIRMED",
       };
 
-      try {
-        await eventService.adminCreateRegistration(regPayload);
-      } catch {
-        // Fallback to standard registration endpoint
-        await eventService.createRegistration(regPayload as any);
-      }
+      await eventService.createMealRegistration(regPayload);
 
       setIsSuccess(true);
       showSuccess(`Meal pass confirmed for ${participantName.trim()} (${count} member${count > 1 ? "s" : ""})!`);
       window.dispatchEvent(new CustomEvent("mana_activities_updated"));
+      window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
 
       setTimeout(() => {
         onSuccess?.();
@@ -220,7 +264,7 @@ export function LunchDinnerRegistrationModal({
             <>
               {/* Field 1: participantName */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label htmlFor="lunch-reg-name" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Participant Name <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
@@ -228,7 +272,10 @@ export function LunchDinnerRegistrationModal({
                     <User className="w-4 h-4" />
                   </span>
                   <input
+                    id="lunch-reg-name"
+                    name="participantName"
                     type="text"
+                    autoComplete="name"
                     required
                     value={participantName}
                     onChange={(e) => setParticipantName(e.target.value)}
@@ -243,7 +290,7 @@ export function LunchDinnerRegistrationModal({
 
               {/* Field 2: phone */}
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label htmlFor="lunch-reg-phone" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
                   Phone Number <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
@@ -251,7 +298,11 @@ export function LunchDinnerRegistrationModal({
                     <Phone className="w-4 h-4" />
                   </span>
                   <input
+                    id="lunch-reg-phone"
+                    name="phone"
                     type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
                     required
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
@@ -272,9 +323,13 @@ export function LunchDinnerRegistrationModal({
                 <div className="flex items-center gap-3 bg-slate-50/80 border border-slate-200 rounded-2xl px-4 py-2.5 shadow-2xs">
                   <button
                     type="button"
-                    onClick={() => setFamilyCount((prev) => Math.max(1, (Number(prev) || 1) - 1))}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setFamilyCount((prev) => Math.max(1, (Number(prev) || 1) - 1));
+                    }}
                     disabled={count <= 1}
-                    className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-700 font-black text-lg flex items-center justify-center hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer shadow-xs"
+                    className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-700 font-black text-lg flex items-center justify-center hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer shadow-xs active:scale-95"
                     aria-label="Decrease member count"
                   >
                     −
@@ -283,6 +338,8 @@ export function LunchDinnerRegistrationModal({
                   <div className="flex-1 flex items-center justify-center gap-2">
                     <Users className="w-4 h-4 text-orange-500" />
                     <input
+                      id="lunch-reg-family-count"
+                      name="familyCount"
                       type="number"
                       min={1}
                       max={100}
@@ -301,9 +358,13 @@ export function LunchDinnerRegistrationModal({
 
                   <button
                     type="button"
-                    onClick={() => setFamilyCount((prev) => Math.min(100, (Number(prev) || 1) + 1))}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setFamilyCount((prev) => Math.min(100, (Number(prev) || 1) + 1));
+                    }}
                     disabled={count >= 100}
-                    className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-700 font-black text-lg flex items-center justify-center hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer shadow-xs"
+                    className="w-8 h-8 rounded-xl bg-white border border-slate-200 text-slate-700 font-black text-lg flex items-center justify-center hover:bg-orange-50 hover:border-orange-300 hover:text-orange-600 disabled:opacity-40 disabled:pointer-events-none transition-all cursor-pointer shadow-xs active:scale-95"
                     aria-label="Increase member count"
                   >
                     +

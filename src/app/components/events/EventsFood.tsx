@@ -306,6 +306,19 @@ export function EventsFood() {
   const handleSaveMealBatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mealForm.name.trim()) return;
+
+    if (selectedEventId) {
+      const ev = events.find(x => x.id === selectedEventId);
+      if (ev && ev.startDate) {
+        const minD = ev.startDate;
+        const maxD = ev.endDate || ev.startDate;
+        if (mealForm.date < minD || mealForm.date > maxD) {
+          setError(`Meal date must be between event start (${minD}) and end (${maxD}) dates.`);
+          return;
+        }
+      }
+    }
+
     setSavingMealBatch(true);
     setError("");
     try {

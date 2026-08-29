@@ -257,6 +257,67 @@ export interface UserSearchResult {
   flatNo?: string;
 }
 
+/** Meal Registration Request Body (saved into event_meal_registrations) */
+export interface MealRegistrationRequest {
+  id?: number | string;
+  mealId?: number | string;
+  lunchDinnerId?: number | string;
+  eventLunchDinnerId?: number | string;
+  mainEventId?: number | string;
+  eventId?: number | string;
+  category?: string;
+  activityId?: string;
+  activityTitle?: string;
+  activityType?: string;
+  mealType?: string;
+  participantName: string;
+  phone: string;
+  email?: string;
+  devoteeCount?: number;
+  membersCount?: number;
+  familyCount?: number;
+  eventDate?: string;
+  mealDate?: string;
+  eventTime?: string;
+  venue?: string;
+  bookingFee?: number;
+  paymentStatus?: string;
+  status?: string;
+  notes?: string;
+}
+
+/** Cultural Registration Request Body (saved into event_cultural_registrations) */
+export interface CulturalRegistrationRequest {
+  id?: number | string;
+  culturalEventId?: number | string;
+  eventCulturalId?: number | string;
+  mainEventId?: number | string;
+  eventId?: number | string;
+  category?: string;
+  activityId?: string;
+  activityTitle?: string;
+  activityType?: string;
+  perfType?: string;
+  ageGroup?: string;
+  participantName: string;
+  phone: string;
+  email?: string;
+  devoteeCount?: number;
+  membersCount?: number;
+  groupSize?: number;
+  eventDate?: string;
+  eventTime?: string;
+  venue?: string;
+  stage?: string;
+  bookingFee?: number;
+  paymentStatus?: string;
+  status?: string;
+  requirements?: string;
+  hasBacktrack?: boolean;
+  hasLiveMusic?: boolean;
+  notes?: string;
+}
+
 export interface PoojaScheduleDto {
   id: number;
   poojaId: number;
@@ -609,6 +670,26 @@ export const eventService = {
     return apiClient.get<any[]>(`/events/lunch-dinners${qs}`);
   },
 
+  /** Lightweight meal summaries with pre-aggregated plate counters */
+  async getLunchDinnerSummaries(mainEventId?: number): Promise<any[]> {
+    const qs = mainEventId ? `?mainEventId=${mainEventId}&eventId=${mainEventId}` : "";
+    return apiClient.get<any[]>(`/events/lunch-dinners/summary${qs}`);
+  },
+
+  /** Full meal configuration for editing on demand */
+  async getLunchDinnerById(id: number | string): Promise<any> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid meal ID: ${id}`);
+    return apiClient.get<any>(`/events/lunch-dinners/${numericId}`);
+  },
+
+  /** On-demand attendee / devotee registration list for a specific meal session */
+  async getLunchDinnerRegistrations(id: number | string): Promise<any[]> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid meal ID: ${id}`);
+    return apiClient.get<any[]>(`/events/lunch-dinners/${numericId}/registrations`);
+  },
+
   async createLunchDinner(data: any): Promise<any> {
     return apiClient.post<any>("/events/lunch-dinners", data);
   },
@@ -659,15 +740,141 @@ export const eventService = {
   },
 
   async createRegistration(data: any): Promise<any> {
-    return apiClient.post<any>("/events/registrations", data);
+    const payload = { ...data };
+    if (payload.id !== undefined) {
+      const num = typeof payload.id === "number" ? payload.id : parseNumericId(payload.id);
+      if (num && num > 0) payload.id = num;
+      else delete payload.id;
+    }
+    return apiClient.post<any>("/events/registrations", payload);
   },
 
   async createPoojaRegistration(data: PoojaRegistrationRequest): Promise<any> {
-    return apiClient.post<any>("/events/pooja-registrations", data);
+    const payload: any = { ...data };
+    if (payload.id !== undefined) {
+      const num = typeof payload.id === "number" ? payload.id : parseNumericId(payload.id);
+      if (num && num > 0) payload.id = num;
+      else delete payload.id;
+    }
+    return apiClient.post<any>("/events/pooja-registrations", payload);
   },
 
   async getPoojaRegistrations(): Promise<any[]> {
     return apiClient.get<any[]>("/events/pooja-registrations");
+  },
+
+  /** Fetch lightweight registration summaries for Pooja & Seva management dashboard table */
+  async getPoojaRegistrationSummaries(poojaSevaId?: number): Promise<any[]> {
+    const qs = poojaSevaId ? `?poojaSevaId=${poojaSevaId}` : "";
+    return apiClient.get<any[]>(`/events/pooja-registrations/summary${qs}`);
+  },
+
+  /** Fetch complete registration entity by ID for edit modal */
+  async getPoojaRegistrationById(id: number | string): Promise<any> {
+    const numericId = parseNumericId(id);
+    if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
+    return apiClient.get<any>(`/events/pooja-registrations/${numericId}`);
+  },
+
+  /** Create meal pass registration */
+  async createMealRegistration(data: MealRegistrationRequest): Promise<any> {
+    const numericId = typeof data.id === "number" ? data.id : parseNumericId(data.id);
+    const numericMealId = parseNumericId(data.mealId || data.lunchDinnerId || data.eventLunchDinnerId || data.activityId || (typeof data.id === "number" ? data.id : undefined));
+    const numericMainEventId = parseNumericId(data.mainEventId || data.eventId);
+
+    const payload: any = {
+      ...data,
+      mealId: numericMealId,
+      lunchDinnerId: numericMealId,
+      eventLunchDinnerId: numericMealId,
+      mainEventId: numericMainEventId,
+      eventId: numericMainEventId,
+      category: data.category || "Meal",
+      activityType: data.activityType || "LUNCH_DINNER",
+      activityId: data.activityId || (numericMealId ? `meal-${numericMealId}` : undefined),
+    };
+
+    if (numericId && numericId > 0) {
+      payload.id = numericId;
+    } else {
+      delete payload.id;
+    }
+
+    return await apiClient.post<any>("/events/registrations", payload);
+  },
+
+  /** Fetch all meal registrations for a meal session or event */
+  async getMealRegistrations(mealId?: number | string): Promise<any[]> {
+    const numericId = parseNumericId(mealId);
+    if (numericId) {
+      try {
+        const mealSpecific = await apiClient.get<any[]>(`/events/lunch-dinners/${numericId}/registrations`);
+        if (Array.isArray(mealSpecific) && mealSpecific.length > 0) return mealSpecific;
+      } catch {}
+    }
+    const allRegs = await this.getAllRegistrations();
+    return allRegs.filter((r) => {
+      const cat = String(r.category || "").toLowerCase();
+      const actId = String(r.activityId || "");
+      return cat.includes("meal") || cat.includes("food") || actId.startsWith("meal-") || (numericId && (r.mealId === numericId || r.lunchDinnerId === numericId));
+    });
+  },
+
+  /** Fetch logged-in user's meal registrations */
+  async getMyMealRegistrations(): Promise<any[]> {
+    const myRegs = await this.getMyRegistrations();
+    return myRegs.filter((r) => {
+      const cat = String(r.category || "").toLowerCase();
+      const actId = String(r.activityId || "");
+      return cat.includes("meal") || cat.includes("food") || actId.startsWith("meal-");
+    });
+  },
+
+  /** Create cultural performance registration */
+  async createCulturalRegistration(data: CulturalRegistrationRequest): Promise<any> {
+    const numericId = typeof data.id === "number" ? data.id : parseNumericId(data.id);
+    const numericCulturalId = parseNumericId(data.culturalEventId || data.eventCulturalId || data.activityId || (typeof data.id === "number" ? data.id : undefined));
+    const numericMainEventId = parseNumericId(data.mainEventId || data.eventId);
+
+    const payload: any = {
+      ...data,
+      culturalEventId: numericCulturalId,
+      eventCulturalId: numericCulturalId,
+      mainEventId: numericMainEventId,
+      eventId: numericMainEventId,
+      category: data.category || "Cultural",
+      activityType: data.activityType || "CULTURAL",
+      activityId: data.activityId || (numericCulturalId ? `cultural-${numericCulturalId}` : undefined),
+    };
+
+    if (numericId && numericId > 0) {
+      payload.id = numericId;
+    } else {
+      delete payload.id;
+    }
+
+    return await apiClient.post<any>("/events/registrations", payload);
+  },
+
+  /** Fetch all registrations for a cultural event */
+  async getCulturalRegistrations(culturalEventId?: number | string): Promise<any[]> {
+    const numericId = parseNumericId(culturalEventId);
+    const allRegs = await this.getAllRegistrations();
+    return allRegs.filter((r) => {
+      const cat = String(r.category || "").toLowerCase();
+      const actId = String(r.activityId || "");
+      return cat.includes("cult") || actId.startsWith("cult-") || (numericId && (r.culturalEventId === numericId || r.eventCulturalId === numericId));
+    });
+  },
+
+  /** Fetch logged-in user's cultural registrations */
+  async getMyCulturalRegistrations(): Promise<any[]> {
+    const myRegs = await this.getMyRegistrations();
+    return myRegs.filter((r) => {
+      const cat = String(r.category || "").toLowerCase();
+      const actId = String(r.activityId || "");
+      return cat.includes("cult") || actId.startsWith("cult-");
+    });
   },
 
   async getMyPoojaRegistrations(): Promise<any[]> {
@@ -680,8 +887,16 @@ export const eventService = {
       apiClient.get<any[]>("/events/pooja-registrations/my"),
     ]);
 
-    const general = generalRegs.status === "fulfilled" && Array.isArray(generalRegs.value) ? generalRegs.value : [];
-    const pooja = poojaRegs.status === "fulfilled" && Array.isArray(poojaRegs.value) ? poojaRegs.value : [];
+    const unwrap = (val: any): any[] => {
+      if (Array.isArray(val)) return val;
+      if (Array.isArray(val?.content)) return val.content;
+      if (Array.isArray(val?.data)) return val.data;
+      if (Array.isArray(val?.items)) return val.items;
+      return [];
+    };
+
+    const general = generalRegs.status === "fulfilled" ? unwrap(generalRegs.value) : [];
+    const pooja = poojaRegs.status === "fulfilled" ? unwrap(poojaRegs.value) : [];
 
     const normalizedPooja = pooja.map((p) => ({
       ...p,

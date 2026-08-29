@@ -227,7 +227,7 @@ export async function syncActivitiesToScheduleSubmodules(
         multiDay: isMultiDay,
         startTime: distinctStartTimes[0] || "08:30",
         endTime: first.endTime || undefined,
-        mandap: first.venue || "Main Temple Mandap",
+        mandap: first.venue || "",
         notes: first.description || "",
         slots: totalSlots,
         fee: feeNum,
@@ -923,8 +923,8 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
       slots: "50",
       startTime: "08:30",
       endTime: "10:00",
-      description: "Main Temple Mandap",
-      venue: "Main Temple Mandap",
+      description: "",
+      venue: data.venueName || "",
     }
   ];
 
@@ -1902,7 +1902,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                           {/* Activity Card Body */}
                           <div className="p-2.5 sm:p-3 space-y-2.5">
                             {/* Row 1: Activity Category & Pooja/Seva Title Side-by-Side */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-start">
                               {/* Left: Activity Category / Type */}
                               <div>
                                 <div className="flex items-center justify-between mb-0.5">
@@ -1933,42 +1933,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                 </select>
                               </div>
 
-                              {isOtherCategory ? (
-                                <div>
-                                  <FieldLabel required>Custom Type Name</FieldLabel>
-                                  <Input
-                                    value={act.customType || ""}
-                                    onChange={(e) => updateActivity(day.date, act.id, "customType", e.target.value)}
-                                    placeholder="e.g. Sports / Workshop / Stage Play"
-                                    className={cn(INPUT_CLS, "h-8 bg-white font-medium text-xs")}
-                                  />
-                                </div>
-                              ) : currentCategory !== "Pooja & Seva" ? (
-                                <div>
-                                  <FieldLabel>Syncs To</FieldLabel>
-                                  <div className="px-2.5 py-1.5 rounded-lg bg-indigo-50/60 border border-indigo-100 text-[11px] font-semibold text-indigo-700 flex items-center gap-1.5">
-                                    <span className="font-bold underline underline-offset-2">
-                                      {currentCategory === "Lunch" || currentCategory === "Dinner"
-                                        ? "Lunch / Dinner Tab"
-                                        : currentCategory === "Cultural Events"
-                                        ? "Cultural Events Tab"
-                                        : currentCategory === "Competitions"
-                                        ? "Competitions Tab"
-                                        : "Programs Tab"}
-                                    </span>
-                                  </div>
-                                </div>
-                              ) : null}
-                            </div>
-
-                            {/* Row 2: Title + (Pooja Type if Pooja & Seva) + Times */}
-                            <div className={cn(
-                              "grid gap-2 items-end",
-                              currentCategory === "Pooja & Seva"
-                                ? "grid-cols-1 sm:grid-cols-[1fr_1fr_auto_auto]"
-                                : "grid-cols-1 sm:grid-cols-[1fr_auto_auto]"
-                            )}>
-                              {/* Activity Title */}
+                              {/* Right: Pooja / Seva Title (or Activity / Event Title) */}
                               <div>
                                 <FieldLabel required>
                                   {isPooja ? "Pooja / Seva Title" : "Activity / Event Title"}
@@ -1981,10 +1946,13 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   className={cn(INPUT_CLS, "h-8 text-xs bg-white font-bold text-slate-900 border-slate-200")}
                                 />
                               </div>
+                            </div>
 
-                              {/* Pooja Type — only for Pooja & Seva */}
-                              {currentCategory === "Pooja & Seva" && (
-                                <div className="w-full sm:min-w-[160px]">
+                            {/* Row 2: (Pooja Type / Custom Type / Syncs To) + Times */}
+                            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-end">
+                              {/* Sub-Category / Pooja Type / Custom Type / Syncs To */}
+                              {isPooja ? (
+                                <div className="w-full">
                                   <div className="flex items-center justify-between mb-0.5">
                                     <FieldLabel required>Pooja Type</FieldLabel>
                                     {addingTypeForActId !== act.id && (
@@ -2052,6 +2020,31 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                       </button>
                                     </div>
                                   )}
+                                </div>
+                              ) : isOtherCategory ? (
+                                <div className="w-full">
+                                  <FieldLabel required>Custom Type Name</FieldLabel>
+                                  <Input
+                                    value={act.customType || ""}
+                                    onChange={(e) => updateActivity(day.date, act.id, "customType", e.target.value)}
+                                    placeholder="e.g. Sports / Workshop / Stage Play"
+                                    className={cn(INPUT_CLS, "h-8 bg-white font-medium text-xs")}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-full">
+                                  <FieldLabel>Syncs To</FieldLabel>
+                                  <div className="px-2.5 py-1.5 rounded-lg bg-indigo-50/60 border border-indigo-100 text-[11px] font-semibold text-indigo-700 flex items-center gap-1.5 h-8">
+                                    <span className="font-bold underline underline-offset-2">
+                                      {currentCategory === "Lunch" || currentCategory === "Dinner"
+                                        ? "Lunch / Dinner Tab"
+                                        : currentCategory === "Cultural Events"
+                                        ? "Cultural Events Tab"
+                                        : currentCategory === "Competitions"
+                                        ? "Competitions Tab"
+                                        : "Programs Tab"}
+                                    </span>
+                                  </div>
                                 </div>
                               )}
 
@@ -2195,7 +2188,7 @@ function Step2Schedule({ data, update }: { data: FormData; update: (k: keyof For
                                   data-testid={`event-activity-${dayIdx + 1}-${actIdx + 1}-venue`}
                                   value={act.venue || ""}
                                   onChange={(e) => updateActivity(day.date, act.id, "venue", e.target.value)}
-                                  placeholder={isPooja ? "e.g. Main Temple Mandap" : "e.g. Community Stage / Dining Hall"}
+                                  placeholder={isPooja ? "e.g. Mandap Location" : "e.g. Community Stage / Dining Hall"}
                                   className={cn(INPUT_CLS, "h-8 text-xs bg-white border-slate-200")}
                                 />
                               </div>
@@ -2360,7 +2353,7 @@ function Step3Venue({ data, update }: { data: FormData; update: (k: keyof FormDa
               data-testid="event-venue-name-input"
               value={data.venueName}
               onChange={e => update("venueName", e.target.value)}
-              placeholder="e.g. Community Hall, Society Ground, Main Temple Mandap"
+              placeholder="e.g. Community Hall, Society Ground, Central Mandap"
               className={cn(INPUT_CLS, reqCls(!data.venueName?.trim()))}
             />
           </div>
@@ -5071,6 +5064,51 @@ export function EventCreateWizard({
     return null;
   };
 
+  const isStepCompleted = (stepId: number): boolean => {
+    switch (stepId) {
+      case 1: // Basics
+        return Boolean(formData.title?.trim() && (formData.eventType || formData.category));
+      case 2: // Schedule
+        return Boolean(formData.startDate && (formData.daySchedules?.length > 0 || !formData.multiDay));
+      case 3: // Venue
+        return Boolean(formData.venueName?.trim() && formData.city?.trim());
+      case 4: // Registration
+        return Boolean(!formData.registrationEnabled || (formData.ticketTypes && formData.ticketTypes.length > 0));
+      case 5: // Payment & Contacts
+        return Boolean(!formData.enableOnlinePayment || (formData.paymentModes && formData.paymentModes.length > 0));
+      case 6: // Reg. Form
+        return true;
+      case 7: // Budget
+        return true;
+      case 8: // Media
+        return Boolean(formData.coverImageUrl?.trim());
+      case 9: // Review
+        return false;
+      default:
+        return false;
+    }
+  };
+
+  const isStepAccessible = (stepId: number): boolean => {
+    // 1. If in editing mode, ALL tabs are accessible immediately since event already exists
+    if (isEditing) return true;
+
+    // 2. Any tab previously or currently reached is accessible
+    if (step >= stepId) return true;
+
+    // 3. Step 1 (Basics) is always accessible
+    if (stepId === 1) return true;
+
+    // 4. If the target step itself already has filled data, enable direct navigation to it
+    if (isStepCompleted(stepId)) return true;
+
+    // 5. If Step 1 (Title) has been entered, allow free exploration across all tabs
+    if (formData.title?.trim()) return true;
+
+    // 6. Otherwise (brand new blank event without title), only Step 1 is allowed
+    return false;
+  };
+
   const handleNext = () => {
     const errorMsg = validateStep(step);
     if (errorMsg) {
@@ -5330,20 +5368,22 @@ export function EventCreateWizard({
         <div className="w-48 sm:w-52 hidden md:flex flex-col justify-between bg-slate-50 border-r border-slate-200 p-3 shrink-0 overflow-y-auto">
           <div className="space-y-1">
             {STEPS.map(s => {
-              const done = step > s.id;
+              const accessible = isStepAccessible(s.id);
+              const done = isStepCompleted(s.id);
               const active = step === s.id;
               return (
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => (done || active) && setStep(s.id)}
+                  onClick={() => accessible && setStep(s.id)}
+                  disabled={!accessible}
                   className={cn(
                     "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] font-bold w-full text-left transition-all",
                     active
                       ? "bg-white border border-purple-200 text-purple-700 shadow-xs"
-                      : done
+                      : accessible
                       ? "text-slate-700 hover:bg-slate-100 cursor-pointer"
-                      : "text-slate-400 cursor-default opacity-70"
+                      : "text-slate-400 cursor-not-allowed opacity-60"
                   )}
                 >
                   <span
@@ -5353,10 +5393,12 @@ export function EventCreateWizard({
                         ? "bg-purple-600 text-white"
                         : done
                         ? "bg-purple-100 text-purple-700"
-                        : "bg-slate-200 text-slate-500"
+                        : accessible
+                        ? "bg-slate-200 text-slate-700"
+                        : "bg-slate-100 text-slate-400"
                     )}
                   >
-                    {done ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : s.id}
+                    {done && !active ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : s.id}
                   </span>
                   <div className="truncate">
                     <p className="leading-tight truncate">{s.label}</p>
@@ -5383,15 +5425,20 @@ export function EventCreateWizard({
           <div className="md:hidden mb-4 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar pb-1">
               {STEPS.map(s => {
-                const done = step > s.id;
+                const accessible = isStepAccessible(s.id);
+                const done = isStepCompleted(s.id);
                 const active = step === s.id;
                 return (
-                  <button key={s.id} onClick={() => (done || active) && setStep(s.id)}
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => accessible && setStep(s.id)}
+                    disabled={!accessible}
                     className={cn(
                       "flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold shrink-0 transition-all",
                       active ? "bg-purple-600 text-white shadow-xs"
-                      : done ? "bg-purple-50 text-purple-700"
-                      : "bg-slate-100 text-slate-400"
+                      : accessible ? "bg-purple-50 text-purple-700 cursor-pointer"
+                      : "bg-slate-100 text-slate-400 cursor-not-allowed opacity-60"
                     )}>
                     <span>{s.id}. {s.label}</span>
                   </button>
@@ -5417,17 +5464,24 @@ export function EventCreateWizard({
         </button>
 
         <div className="hidden sm:flex items-center gap-1">
-          {STEPS.map(s => (
-            <button key={s.id}
-              onClick={() => (step >= s.id) && setStep(s.id)}
-              className="rounded-full transition-all duration-300"
-              style={{
-                width: s.id === step ? 16 : 6,
-                height: 6,
-                background: s.id < step ? "rgba(124,58,237,0.4)" : s.id === step ? "#7c3aed" : "#E2E8F0",
-              }}
-            />
-          ))}
+          {STEPS.map(s => {
+            const accessible = isStepAccessible(s.id);
+            const done = isStepCompleted(s.id);
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => accessible && setStep(s.id)}
+                disabled={!accessible}
+                className={cn("rounded-full transition-all duration-300", accessible ? "cursor-pointer" : "cursor-not-allowed opacity-50")}
+                style={{
+                  width: s.id === step ? 16 : 6,
+                  height: 6,
+                  background: s.id === step ? "#7c3aed" : done ? "rgba(124,58,237,0.4)" : accessible ? "#CBD5E1" : "#E2E8F0",
+                }}
+              />
+            );
+          })}
         </div>
 
         {step < STEPS.length ? (

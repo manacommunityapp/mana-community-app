@@ -1856,7 +1856,8 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
     };
   const typeColor = TYPE_COLORS[event.type] ?? "#64748b";
   const [menuOpen, setMenuOpen] = useState(false);
-  const capacityPct = Math.round((event.registrations / event.capacity) * 100);
+  const maxCap = event.maxAttendees || event.totalCapacity || event.capacity || 100;
+  const capacityPct = maxCap > 0 ? Math.round((event.registrations / maxCap) * 100) : 0;
   const isMultiDay = event.startDate !== event.endDate;
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -1955,7 +1956,7 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
           <div className="flex items-center gap-1.5 text-xs text-slate-600">
             <Ticket className="w-3.5 h-3.5 text-violet-400" />
             <span className="font-semibold">{event.registrations}</span>
-            <span className="text-slate-400">/ {event.capacity}</span>
+            <span className="text-slate-400">/ {maxCap}</span>
           </div>
           <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
             <div
@@ -2044,9 +2045,9 @@ function EventsList() {
             status: (e.status?.toLowerCase() as EventStatus) || (e.startDate && new Date(e.startDate) > new Date() ? "upcoming" : "completed"),
             visibility: (e.visibility?.toLowerCase() as any) || "community",
             registrations: e.attendees ?? (e as any).registrationCount ?? (e as any).registrations ?? 0,
-            capacity: e.capacity ?? e.maxAttendees ?? 100,
-            maxAttendees: e.maxAttendees ?? e.capacity ?? 100,
-            totalCapacity: e.capacity ?? e.maxAttendees ?? 100,
+            capacity: e.maxAttendees ?? e.totalCapacity ?? e.capacity ?? 100,
+            maxAttendees: e.maxAttendees ?? e.totalCapacity ?? e.capacity ?? 100,
+            totalCapacity: e.maxAttendees ?? e.totalCapacity ?? e.capacity ?? 100,
             ticketTypes: e.ticketTypes,
             coverImage: e.imageUrl || "",
             createdAt: e.createdAt || new Date().toISOString(),
@@ -2120,9 +2121,9 @@ function EventsList() {
               status: (e.status?.toLowerCase() as EventStatus) || (e.startDate && new Date(e.startDate) > new Date() ? "upcoming" : "completed"),
               visibility: (e.visibility?.toLowerCase() as any) || "community",
               registrations: e.attendees ?? (e as any).registrationCount ?? (e as any).registrations ?? 0,
-              capacity: e.capacity ?? e.maxAttendees ?? 100,
-              maxAttendees: e.maxAttendees ?? e.capacity ?? 100,
-              totalCapacity: e.capacity ?? e.maxAttendees ?? 100,
+              capacity: e.maxAttendees ?? e.totalCapacity ?? e.capacity ?? 100,
+              maxAttendees: e.maxAttendees ?? e.totalCapacity ?? e.capacity ?? 100,
+              totalCapacity: e.maxAttendees ?? e.totalCapacity ?? e.capacity ?? 100,
               ticketTypes: e.ticketTypes,
               coverImage: e.imageUrl || "",
               createdAt: e.createdAt || new Date().toISOString(),

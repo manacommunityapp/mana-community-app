@@ -2140,7 +2140,7 @@ export function EventMemberView() {
                                   <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-white/10 text-[9.5px]">
                                     <span className="text-white/70 truncate flex items-center gap-1">
                                       <MapPin className="w-2.5 h-2.5 text-slate-300 shrink-0" />
-                                      <span className="truncate max-w-[110px]">{subAct.venue || "Temple Mandap"}</span>
+                                      <span className="truncate max-w-[110px]">{subAct.venue || subAct.mandap || activeMainEvent?.location || "Mandap"}</span>
                                       {subAct.availableSeats != null && (
                                         <span className="text-amber-200/90 font-medium ml-1">({subAct.availableSeats} slots)</span>
                                       )}
@@ -2578,7 +2578,18 @@ export function EventMemberView() {
                             {act.title}
                           </h4>
                           <p className="text-[10.5px] sm:text-[11px] text-muted-foreground font-medium mt-0.5">
-                            {act.date} • {act.time}
+                            {(() => {
+                              const isMulti = Boolean(act.isMultiDay || (act.startDate && act.endDate && act.startDate !== act.endDate));
+                              if (isMulti) {
+                                const start = act.startDate || act.date;
+                                const end = act.endDate;
+                                if (start && end && start !== end) {
+                                  return `${start} to ${end}`;
+                                }
+                                if (start) return start;
+                              }
+                              return act.time ? `${act.date} • ${act.time}` : act.date;
+                            })()}
                           </p>
                           <p className="text-[10.5px] sm:text-[11px] text-muted-foreground/80 mt-0.5 line-clamp-1">{act.venue}</p>
                         </div>
@@ -4321,7 +4332,18 @@ export function EventMemberView() {
                               </div>
                               <h4 className="text-xs font-bold text-foreground mt-0.5 truncate">{act.title}</h4>
                               <p className="text-[10px] text-muted-foreground">
-                                {act.date} • {act.time}
+                                {(() => {
+                                  const isMulti = Boolean(act.isMultiDay || (act.startDate && act.endDate && act.startDate !== act.endDate));
+                                  if (isMulti) {
+                                    const start = act.startDate || act.date;
+                                    const end = act.endDate;
+                                    if (start && end && start !== end) {
+                                      return `${start} to ${end}`;
+                                    }
+                                    if (start) return start;
+                                  }
+                                  return act.time ? `${act.date} • ${act.time}` : act.date;
+                                })()}
                               </p>
                             </div>
                             <div className="flex items-center justify-between pt-1.5 mt-1 border-t border-border/60">

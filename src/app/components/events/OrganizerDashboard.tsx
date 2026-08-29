@@ -176,7 +176,7 @@ const INITIAL_ALERTS: BroadcastAlert[] = [
 ];
 
 /* ─── Unified Registration Type ─── */
-export type RegCategory = 'event' | 'pooja' | 'cultural' | 'competition';
+export type RegCategory = 'event' | 'pooja' | 'cultural' | 'competition' | 'food';
 
 export interface UnifiedReg {
   id: string | number;
@@ -225,6 +225,10 @@ const MOCK_REGISTRATIONS: UnifiedReg[] = [
   { id: 'comp3', regCode: 'COMP-4003', category: 'competition', activityTitle: 'Classical Singing – Open', participantName: 'Keertana S.', ageGroup: 'Open', devoteeCount: 1, bookingFee: 100, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-29', eventTime: '09:00 AM', venue: 'Auditorium', extra: 'Age: Open · Singing', createdAt: '2026-08-16T13:00:00' },
   { id: 'comp4', regCode: 'COMP-4004', category: 'competition', activityTitle: 'Quiz Competition – Youth', participantName: 'Arjun Verma', ageGroup: 'Youth (16-25)', devoteeCount: 2, bookingFee: 80, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-29', eventTime: '02:00 PM', venue: 'Community Hall – Room A', extra: 'Age: Youth · Quiz (Team)', createdAt: '2026-08-17T09:30:00' },
   { id: 'comp5', regCode: 'COMP-4005', category: 'competition', activityTitle: 'Drawing Competition – Kids', participantName: 'Priya Iyer', ageGroup: 'Kids (5-10)', devoteeCount: 1, bookingFee: 50, paymentStatus: 'PENDING', status: 'PENDING', eventDate: '2026-08-28', eventTime: '10:00 AM', venue: 'Community Hall – Room A', extra: 'Age: Kids · Drawing', createdAt: '2026-08-17T15:00:00' },
+  // Food & Meals
+  { id: 'f1', regCode: 'MEAL-6001', category: 'food', activityTitle: 'Maha Prasadam Lunch – Day 1', participantName: 'Anand Joshi', email: 'anand@example.com', phone: '+91 98450 11223', devoteeCount: 4, bookingFee: 0, paymentStatus: 'FREE', status: 'CONFIRMED', eventDate: '2026-08-27', eventTime: '12:30 PM', venue: 'Dining Hall', extra: 'Members: 4', createdAt: '2026-08-16T12:00:00' },
+  { id: 'f2', regCode: 'MEAL-6002', category: 'food', activityTitle: 'Community Dinner – Day 1', participantName: 'Kavita Reddy', email: 'kavita@example.com', phone: '+91 99001 22334', devoteeCount: 3, bookingFee: 150, paymentStatus: 'PAID', status: 'CONFIRMED', eventDate: '2026-08-27', eventTime: '07:30 PM', venue: 'Dining Hall', extra: 'Members: 3', createdAt: '2026-08-16T16:30:00' },
+  { id: 'f3', regCode: 'MEAL-6003', category: 'food', activityTitle: 'Grand Annadanam Lunch – Day 2', participantName: 'Suresh Bhat', email: 'suresh@example.com', phone: '+91 97400 33445', devoteeCount: 5, bookingFee: 0, paymentStatus: 'FREE', status: 'CONFIRMED', eventDate: '2026-08-28', eventTime: '12:30 PM', venue: 'Dining Hall', extra: 'Members: 5', createdAt: '2026-08-17T11:00:00' },
 ];
 
 /* ─── Main Component ─── */
@@ -303,12 +307,16 @@ export function OrganizerDashboard({ initialTab = 'registrations' }: OrganizerDa
 
       const mapped: UnifiedReg[] = activeRegs.map((r: any) => {
             const rawCat = (r.category || '').toLowerCase();
+            const actId = String(r.activityId || '');
+            const actType = String(r.activityType || '').toUpperCase();
             const cat: RegCategory = rawCat.includes('pooja') || rawCat.includes('seva')
               ? 'pooja'
               : rawCat.includes('cult') || rawCat.includes('perform')
               ? 'cultural'
               : rawCat.includes('comp')
               ? 'competition'
+              : rawCat.includes('food') || rawCat.includes('meal') || rawCat.includes('lunch') || rawCat.includes('dinner') || rawCat.includes('prasadam') || actId.startsWith('meal-') || actId.startsWith('food-') || actType.includes('LUNCH') || actType.includes('DINNER') || actType.includes('MEAL')
+              ? 'food'
               : 'event';
 
             const pName = r.participantName || r.primaryName || r.userName || 'Devotee';
@@ -774,6 +782,7 @@ export function OrganizerDashboard({ initialTab = 'registrations' }: OrganizerDa
                 { value: 'pooja', label: 'Pooja & Seva', icon: '🔥' },
                 { value: 'cultural', label: 'Cultural', icon: '🎵' },
                 { value: 'competition', label: 'Competition', icon: '🏆' },
+                { value: 'food', label: 'Food & Meals', icon: '🍲' },
               ].map(opt => (
                 <button
                   key={opt.value}
@@ -874,6 +883,7 @@ export function OrganizerDashboard({ initialTab = 'registrations' }: OrganizerDa
               pooja:       { icon: '🔥', color: 'text-amber-700',   bg: 'bg-amber-50' },
               cultural:    { icon: '🎵', color: 'text-violet-700',  bg: 'bg-violet-50' },
               competition: { icon: '🏆', color: 'text-emerald-700', bg: 'bg-emerald-50' },
+              food:        { icon: '🍲', color: 'text-orange-700',  bg: 'bg-orange-50' },
             };
             const meta = catMeta[cat] || catMeta['event'];
 
