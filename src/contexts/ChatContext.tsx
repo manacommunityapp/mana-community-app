@@ -316,8 +316,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const startConversation = useCallback(
     async (contactId: string) => {
       if (!currentUserId) return;
+      const numericContactId = Number(String(contactId).replace(/\D/g, ""));
+      if (!numericContactId) return;
       try {
-        const dto = await chatService.startDirect(Number(contactId));
+        const dto = await chatService.startDirect(numericContactId);
         const conv = mapConversation(dto);
         setConversations((prev) =>
           prev.some((c) => c.id === conv.id) ? prev : [conv, ...prev]

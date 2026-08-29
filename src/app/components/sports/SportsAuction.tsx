@@ -279,7 +279,7 @@ export function SportsAuction() {
 
   // ─── Handlers ─────────────────────────────────────────────────────────
   const nav = (tab: string) => setActiveTab(tab);
-  const configId = selectedConfigId || user?.communityId || 1;
+  const configId = selectedConfigId ?? 0;
 
 
   const toggleCat = (cat: string) => {
@@ -493,8 +493,9 @@ export function SportsAuction() {
 
   const handleCreatePlayer = async () => {
     if (!newPlayer.name) { toast.error("Player name is required"); return; }
+    if (!selectedConfigId) { toast.error("Please select an auction configuration first."); return; }
     try {
-      const created = await auctionService.createPlayer(selectedConfigId || 1, {
+      const created = await auctionService.createPlayer(selectedConfigId, {
         playerName: newPlayer.name, category: newPlayer.category, playerRole: newPlayer.role,
         age: newPlayer.age, basePrice: newPlayer.basePrice, matches: newPlayer.matches,
         runs: newPlayer.runs, wickets: newPlayer.wickets, strikeRate: newPlayer.strikeRate, economy: newPlayer.economy

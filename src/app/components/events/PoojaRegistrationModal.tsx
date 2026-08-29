@@ -342,12 +342,13 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   isMainEventRegistered = true,
   onRegisterMainEvent,
 }) => {
-  const { user: authUser } = useAuth();
+  const { user: authUser, isSuperAdmin, isEventsAdmin, hasPermission } = useAuth();
   const isAnyAdmin = Boolean(
-    authUser?.role?.toLowerCase().includes("admin") ||
-    authUser?.role?.toLowerCase().includes("event_admin") ||
-    authUser?.role?.toLowerCase().includes("super_admin") ||
-    authUser?.role?.toLowerCase().includes("community_admin")
+    isSuperAdmin ||
+    isEventsAdmin ||
+    hasPermission("View Event Admin Dashboard") ||
+    hasPermission("Manage Event Admin Dashboard") ||
+    hasPermission("Manage Event Registration")
   );
   useEscapeKey(onClose);
 

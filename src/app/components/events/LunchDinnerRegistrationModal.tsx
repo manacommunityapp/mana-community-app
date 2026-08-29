@@ -54,17 +54,16 @@ export function LunchDinnerRegistrationModal({
   existingRegistration: incomingExistingRegistration,
   onSuccess,
 }: LunchDinnerRegistrationModalProps) {
-  const { user: authUser, isAdmin, isSuperAdmin } = useAuth();
+  const { user: authUser, isSuperAdmin, isEventsAdmin, hasPermission } = useAuth();
   useEscapeKey(isOpen ? onClose : () => {});
 
-  const userRolesUpper = (authUser?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
-  const isAnyAdmin =
-    isAdmin ||
+  const isAnyAdmin = Boolean(
     isSuperAdmin ||
-    userRolesUpper.includes("ADMIN") ||
-    userRolesUpper.includes("COMMUNITY_ADMIN") ||
-    userRolesUpper.includes("EVENT_ADMIN") ||
-    userRolesUpper.includes("EVENTS_ADMIN");
+    isEventsAdmin ||
+    hasPermission("View Event Admin Dashboard") ||
+    hasPermission("Manage Event Admin Dashboard") ||
+    hasPermission("Manage Event Registration")
+  );
 
   const [participantName, setParticipantName] = useState("");
   const [phone, setPhone] = useState("");
@@ -608,7 +607,7 @@ export function LunchDinnerRegistrationModal({
               {/* Field 3: family count / plates count */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Plate Capacity / Devotee Count <span className="text-rose-500">*</span>
+                  Devotee Count <span className="text-rose-500">*</span>
                 </label>
                 <div className="flex items-center gap-3 bg-slate-50/80 border border-slate-200 rounded-2xl px-4 py-2.5 shadow-2xs">
                   <button
