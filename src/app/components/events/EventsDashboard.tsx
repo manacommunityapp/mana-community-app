@@ -99,9 +99,9 @@ const MOCK_PIE = [
   { name: "Performers",    value: 204, color: "#EC4899" },
 ];
 
-const MOCK_BANNERS = [
+const MOCK_BANNERS: BannerItem[] = [
   {
-    id: undefined, title: "Ganesh Chaturthi Utsav 2026",
+    id: "mock-1", title: "Ganesh Chaturthi Utsav 2026",
     subtitle: "Grand 10-Day Festival, Cultural Competitions & Community Feasts",
     location: "Main Community Grounds, Sector 4", date: "Aug 27 - Sep 06, 2026",
     registered: "1,842 passes issued", category: "Grand Festival",
@@ -109,7 +109,7 @@ const MOCK_BANNERS = [
     image: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
   },
   {
-    id: undefined, title: "Annual Sports Olympiad 2026",
+    id: "mock-2", title: "Annual Sports Olympiad 2026",
     subtitle: "Cricket, Badminton, Swimming & Athletics Tournaments",
     location: "Central Sports Arena", date: "Sep 14 - Sep 18, 2026",
     registered: "412 athletes registered", category: "Sports Championship",

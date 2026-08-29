@@ -773,7 +773,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
       if (!resolvedMainEventId) {
         setIsSubmitting(false);
-        toast.error("Unable to identify event. Please close and reopen the registration form.");
+        showWarning("Unable to identify event. Please close and reopen the registration form.");
         return;
       }
 

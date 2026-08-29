@@ -114,13 +114,27 @@ export function canAccessEndpoint(
   user: StoredUser | null = getStoredUser()
 ): AccessCheckResult {
   const normalizedPath = path.startsWith("/api") ? path.substring(4) : path;
+  const upperMethod = method.toUpperCase();
+
+  // Public / unauthenticated endpoints allowed during registration, login, and public browsing
   if (
     normalizedPath.startsWith("/auth/") ||
     normalizedPath === "/auth/login" ||
     normalizedPath === "/auth/register" ||
     normalizedPath === "/auth/refresh" ||
+    normalizedPath.startsWith("/otp/") ||
     normalizedPath.startsWith("/public/") ||
-    normalizedPath.includes("/public")
+    normalizedPath.includes("/public") ||
+    (upperMethod === "GET" && (
+      normalizedPath === "/communities" ||
+      normalizedPath.startsWith("/communities?") ||
+      normalizedPath.startsWith("/communities/") ||
+      normalizedPath === "/community" ||
+      normalizedPath.startsWith("/community?") ||
+      normalizedPath.startsWith("/community/") ||
+      normalizedPath.startsWith("/branding") ||
+      normalizedPath.startsWith("/sports/events/by-uuid/")
+    ))
   ) {
     return { allowed: true };
   }
@@ -136,8 +150,6 @@ export function canAccessEndpoint(
   if (isUserSuperAdmin(user)) {
     return { allowed: true };
   }
-
-  const upperMethod = method.toUpperCase();
 
   const rule = ENDPOINT_ACCESS_RULES.find((r) => {
     const matchesPath =

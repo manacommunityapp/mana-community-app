@@ -3042,9 +3042,9 @@ export function EventMemberView() {
                         <div className="text-xs text-muted-foreground space-y-1">
                           <p>Attendee: <strong className="text-foreground">{p.participantName}</strong></p>
                           {p.category === "Food" ? (
-                            <p>Meal Plates: <strong className="text-foreground">{p.devoteeCount} Plate{p.devoteeCount > 1 ? "s" : ""}</strong></p>
+                            <p>Meal Plates: <strong className="text-foreground">{(p.devoteeCount ?? 1)} Plate{(p.devoteeCount ?? 1) > 1 ? "s" : ""}</strong></p>
                           ) : (
-                            p.devoteeCount > 1 && <p>Devotees: <strong className="text-foreground">{p.devoteeCount} Persons</strong></p>
+                            Boolean(p.devoteeCount && p.devoteeCount > 1) && <p>Devotees: <strong className="text-foreground">{p.devoteeCount} Persons</strong></p>
                           )}
                           {(p as any).gotram && <p>Gotram: <strong className="text-foreground">{(p as any).gotram}</strong></p>}
                           <p>Date &amp; Time: <strong className="text-foreground">{p.date} • {p.time}</strong></p>
@@ -4682,8 +4682,9 @@ export function EventMemberView() {
                             </div>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
+                  </div>
                   );
                 })()
               )}
