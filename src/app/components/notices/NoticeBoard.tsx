@@ -5,6 +5,7 @@ import {
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router";
 import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
 import { ShieldAlert, PackageX } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import { VIEW_NOTICES, CREATE_NOTICE, DELETE_NOTICE } from "../../../constants/permissions";

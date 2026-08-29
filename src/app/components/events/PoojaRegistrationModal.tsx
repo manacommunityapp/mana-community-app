@@ -954,6 +954,7 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               poojaSlotDate: selectedDateValue,
               poojaSlotTime: selectedSlotStartTime,
               venue: venueName,
+              scheduleId: selectedScheduleId || (selectedSlot as any)?.scheduleId || undefined,
               ...(selectedSlot?.timeSlotConfigId ? { poojaSevaTimeSlotsId: selectedSlot.timeSlotConfigId } : {}),
             } as any);
             showSuccess("🪔 Pooja registration updated successfully!");
