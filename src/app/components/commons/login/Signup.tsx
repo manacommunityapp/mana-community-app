@@ -532,7 +532,7 @@ export function Signup() {
     mode: "onChange",
     defaultValues: {
       communityType: "apartment",
-      userType: "member",
+      userType: "Owner",
       gender: "MALE",
       communityCode: "",
       block: "",
@@ -547,6 +547,7 @@ export function Signup() {
   const phone = watch("phone");
   const block = watch("block");
   const flatNo = watch("flatNo");
+  const userType = watch("userType");
   const communityType = watch("communityType");
   const communityCode = watch("communityCode");
 
@@ -784,6 +785,8 @@ export function Signup() {
         gender: data.gender,
         block: data.block,
         flatNo: data.flatNo,
+        userType: data.userType || "Owner",
+        occupancyStatus: data.userType || "Owner",
       });
 
       toast.success("Account created! Welcome to the community.");
@@ -1231,29 +1234,92 @@ export function Signup() {
                     <SectionHead
                       num={3}
                       title="Unit & Residence"
-                      sub="Specify your exact block, floor, and flat number"
+                      sub="Specify your user type, block, floor, and flat number"
                     />
 
                     {/* Dynamic Visual Unit Preview Badge */}
-                    {(block || selectedFloor || flatNo) && (
+                    {(block || selectedFloor || flatNo || userType) && (
                       <div className="flex items-center gap-2.5 sm:gap-3.5 p-2.5 sm:p-3 rounded-xl border border-dashed border-primary/40 bg-primary/5 animate-in fade-in zoom-in-95">
                         <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl flex items-center justify-center text-white text-xs sm:text-sm font-black bg-gradient-to-tr from-primary to-indigo-600 shadow-xs shadow-primary/25 shrink-0">
                           {block || "?"}
                         </div>
-                        <div>
-                          <p className="text-xs sm:text-sm font-bold text-foreground">
-                            {block ? `Block ${block}` : "Block ?"}
-                            {selectedFloor ? ` · Floor ${selectedFloor}` : " · Floor ?"}
-                            {flatNo ? ` · Flat ${flatNo}` : " · Flat ?"}
-                          </p>
-                          <p className="text-[10px] sm:text-[11px] text-muted-foreground">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-xs sm:text-sm font-bold text-foreground">
+                              {block ? `Block ${block}` : "Block ?"}
+                              {selectedFloor ? ` · Floor ${selectedFloor}` : " · Floor ?"}
+                              {flatNo ? ` · Flat ${flatNo}` : " · Flat ?"}
+                            </p>
+                            <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25">
+                              {userType || "Owner"}
+                            </span>
+                          </div>
+                          <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
                             {activeBlockConfig
                               ? `${activeBlockConfig.blockName} Block (${activeBlockConfig.totalFloors} floors, ${activeBlockConfig.flatsPerFloor} flats/floor — total ${activeBlockConfig.totalFlats} flats)`
-                              : "Select your block, floor, and flat"}
+                              : "Select your user type, block, floor, and flat"}
                           </p>
                         </div>
                       </div>
                     )}
+
+                    {/* User Type (Owner / Tenant) Selector */}
+                    <div>
+                      <label className="block text-[10px] sm:text-xs font-semibold text-foreground/80 mb-1.5 uppercase tracking-wide">
+                        User Type <span className="text-destructive">*</span>
+                      </label>
+                      <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
+                        <button
+                          type="button"
+                          onClick={() => setValue("userType", "Owner", { shouldValidate: true })}
+                          className={`p-3 rounded-xl border-2 text-left transition-all flex items-start gap-2.5 sm:gap-3 relative overflow-hidden cursor-pointer ${
+                            userType === "Owner"
+                              ? "border-primary bg-primary/10 ring-2 ring-primary/20 shadow-xs"
+                              : "border-border bg-card hover:border-primary/40 hover:bg-slate-50 dark:hover:bg-slate-900/40"
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            userType === "Owner" ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                          }`}>
+                            <Home className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="font-bold text-xs sm:text-sm text-foreground">Owner</p>
+                              {userType === "Owner" && <Check className="w-4 h-4 text-primary" />}
+                            </div>
+                            <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 leading-tight">
+                              Flat owner &amp; resident
+                            </p>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setValue("userType", "Tenant", { shouldValidate: true })}
+                          className={`p-3 rounded-xl border-2 text-left transition-all flex items-start gap-2.5 sm:gap-3 relative overflow-hidden cursor-pointer ${
+                            userType === "Tenant"
+                              ? "border-primary bg-primary/10 ring-2 ring-primary/20 shadow-xs"
+                              : "border-border bg-card hover:border-primary/40 hover:bg-slate-50 dark:hover:bg-slate-900/40"
+                          }`}
+                        >
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                            userType === "Tenant" ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                          }`}>
+                            <Users className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between">
+                              <p className="font-bold text-xs sm:text-sm text-foreground">Tenant</p>
+                              {userType === "Tenant" && <Check className="w-4 h-4 text-primary" />}
+                            </div>
+                            <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 leading-tight">
+                              Tenant / rental resident
+                            </p>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
 
                     {/* Quick Smart Flat Search across all blocks & floors */}
                     <div className="relative" ref={flatSearchContainerRef}>
@@ -1407,7 +1473,7 @@ export function Signup() {
                     <div className="bg-primary/5 rounded-lg sm:rounded-xl border border-primary/15 p-2 sm:p-2.5 flex items-start gap-2 sm:gap-3 mt-1">
                       <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary mt-0.5 shrink-0" />
                       <p className="text-[10.5px] sm:text-xs text-foreground/80 leading-relaxed">
-                        Your residence unit will be checked and verified by your community admin upon registration.
+                        Your residence unit and occupancy status will be verified by your community admin upon registration.
                       </p>
                     </div>
                   </div>
@@ -1418,51 +1484,9 @@ export function Signup() {
                   <div className="space-y-2.5 sm:space-y-3.5 animate-in fade-in duration-200">
                     <SectionHead
                       num={4}
-                      title="Account Role & Security"
-                      sub="Select your role and set a protected password"
+                      title="Account Security"
+                      sub="Set a protected password and review terms to complete signup"
                     />
-
-                    {/* Account Role Cards */}
-                    <div>
-                      <label className={labelCls}>Account Role</label>
-                      <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                        <label className="relative flex items-center p-2 sm:p-3 border border-primary bg-primary/10 rounded-lg sm:rounded-xl cursor-pointer transition-all shadow-xs ring-1 ring-primary/30">
-                          <input
-                            type="radio"
-                            value="member"
-                            {...register("userType")}
-                            className="w-3.5 h-3.5 accent-primary"
-                          />
-                          <div className="ml-2 sm:ml-3">
-                            <p className="text-[11px] sm:text-xs font-bold text-foreground leading-tight">Community Member</p>
-                            <p className="text-[9.5px] sm:text-[10.5px] text-muted-foreground">
-                              Resident / Owner
-                            </p>
-                          </div>
-                        </label>
-
-                        <label className="relative flex items-center p-2 sm:p-3 border border-border/50 bg-muted/15 rounded-lg sm:rounded-xl cursor-not-allowed opacity-50 transition-all select-none">
-                          <input
-                            type="radio"
-                            value="vendor"
-                            disabled
-                            {...register("userType")}
-                            className="w-3.5 h-3.5 accent-primary cursor-not-allowed"
-                          />
-                          <div className="ml-2 sm:ml-3">
-                            <p className="text-[11px] sm:text-xs font-semibold text-muted-foreground leading-tight">
-                              Vendor / Service
-                            </p>
-                            <p className="text-[9.5px] sm:text-[10px] text-muted-foreground/70">
-                              Service partners
-                            </p>
-                          </div>
-                          <span className="ml-auto text-[8.5px] sm:text-[9px] font-bold tracking-wider px-1 py-0.2 rounded bg-muted text-muted-foreground uppercase border border-border/50">
-                            Soon
-                          </span>
-                        </label>
-                      </div>
-                    </div>
 
                     {/* Password Fields */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3.5 xl:gap-4">

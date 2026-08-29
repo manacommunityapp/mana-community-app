@@ -81,6 +81,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             enabledModules: me.enabledModules,
             menuPermissions: me.menuPermissions,
             profilePicUrl: me.profilePicUrl,
+            occupancyStatus: me.occupancyStatus,
+            residentType: me.residentType,
+            userType: me.userType || me.occupancyStatus,
           });
         })
         .catch((err) => {
@@ -104,6 +107,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: response.email ?? (payload?.email != null ? String(payload.email) : undefined),
       dateOfBirth: response.dateOfBirth,
       enabledModules: response.enabledModules,
+      occupancyStatus: response.occupancyStatus,
+      userType: response.userType || response.occupancyStatus,
+      residentType: response.residentType,
       permissions: [], // guard nav from flash before /users/me resolves
     };
     storeUser(newUser);
@@ -123,6 +129,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         enabledModules: me.enabledModules,
         menuPermissions: me.menuPermissions,
         profilePicUrl: me.profilePicUrl,
+        occupancyStatus: me.occupancyStatus,
+        residentType: me.residentType,
+        userType: me.userType || me.occupancyStatus,
       };
       storeUser(updated);
       setUser(updated);
@@ -145,6 +154,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: response.email ?? data.email,
       dateOfBirth: response.dateOfBirth,
       enabledModules: response.enabledModules,
+      occupancyStatus: response.occupancyStatus || data.occupancyStatus || data.userType,
+      userType: response.userType || data.userType || data.occupancyStatus,
+      residentType: response.residentType || data.residentType,
       permissions: [], // guard nav from flash before /users/me resolves
     };
     storeUser(newUser);
@@ -163,6 +175,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permissions: me.permissions ?? [],
         enabledModules: me.enabledModules,
         menuPermissions: me.menuPermissions,
+        profilePicUrl: me.profilePicUrl,
+        occupancyStatus: me.occupancyStatus,
+        residentType: me.residentType,
+        userType: me.userType || me.occupancyStatus,
       };
       storeUser(updated);
       setUser(updated);

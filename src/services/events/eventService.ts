@@ -288,33 +288,16 @@ export interface MealRegistrationRequest {
 
 /** Cultural Registration Request Body (saved into event_cultural_registrations) */
 export interface CulturalRegistrationRequest {
-  id?: number | string;
   culturalEventId?: number | string;
   eventCulturalId?: number | string;
+  id?: number | string;
   mainEventId?: number | string;
   eventId?: number | string;
-  category?: string;
-  activityId?: string;
-  activityTitle?: string;
-  activityType?: string;
-  perfType?: string;
-  ageGroup?: string;
   participantName: string;
-  phone: string;
-  email?: string;
+  phone?: string;
+  gotram?: string;
   devoteeCount?: number;
-  membersCount?: number;
-  groupSize?: number;
-  eventDate?: string;
-  eventTime?: string;
-  venue?: string;
-  stage?: string;
-  bookingFee?: number;
-  paymentStatus?: string;
-  status?: string;
-  requirements?: string;
-  hasBacktrack?: boolean;
-  hasLiveMusic?: boolean;
+  membersJson?: string;
   notes?: string;
 }
 
@@ -854,51 +837,35 @@ export const eventService = {
     });
   },
 
-  /** Create cultural performance registration */
+  /** Create cultural performance registration — saves to event_cultural_registrations */
   async createCulturalRegistration(data: CulturalRegistrationRequest): Promise<any> {
-    const numericId = typeof data.id === "number" ? data.id : parseNumericId(data.id);
-    const numericCulturalId = parseNumericId(data.culturalEventId || data.eventCulturalId || data.activityId || (typeof data.id === "number" ? data.id : undefined));
+    const numericCulturalId = parseNumericId(data.culturalEventId || data.eventCulturalId || data.id);
     const numericMainEventId = parseNumericId(data.mainEventId || data.eventId);
 
     const payload: any = {
-      ...data,
       culturalEventId: numericCulturalId,
-      eventCulturalId: numericCulturalId,
-      mainEventId: numericMainEventId,
-      eventId: numericMainEventId,
-      category: data.category || "Cultural",
-      activityType: data.activityType || "CULTURAL",
-      activityId: data.activityId || (numericCulturalId ? `cultural-${numericCulturalId}` : undefined),
+      mainEventId: numericMainEventId || undefined,
+      participantName: data.participantName,
+      gotram: data.gotram || undefined,
+      devoteeCount: data.devoteeCount || 1,
+      membersJson: data.membersJson || undefined,
     };
 
-    if (numericId && numericId > 0) {
-      payload.id = numericId;
-    } else {
-      delete payload.id;
-    }
-
-    return await apiClient.post<any>("/events/registrations", payload);
+    return await apiClient.post<any>("/events/cultural/registrations", payload);
   },
 
-  /** Fetch all registrations for a cultural event */
+  /** Fetch registrations for a specific cultural event (admin view); all community if no id */
   async getCulturalRegistrations(culturalEventId?: number | string): Promise<any[]> {
     const numericId = parseNumericId(culturalEventId);
-    const allRegs = await this.getAllRegistrations();
-    return allRegs.filter((r) => {
-      const cat = String(r.category || "").toLowerCase();
-      const actId = String(r.activityId || "");
-      return cat.includes("cult") || actId.startsWith("cult-") || (numericId && (r.culturalEventId === numericId || r.eventCulturalId === numericId));
-    });
+    if (numericId) {
+      return apiClient.get<any[]>(`/events/cultural/registrations/event/${numericId}`);
+    }
+    return apiClient.get<any[]>("/events/cultural/registrations");
   },
 
-  /** Fetch logged-in user's cultural registrations */
+  /** Fetch logged-in user's cultural registrations from the dedicated table */
   async getMyCulturalRegistrations(): Promise<any[]> {
-    const myRegs = await this.getMyRegistrations();
-    return myRegs.filter((r) => {
-      const cat = String(r.category || "").toLowerCase();
-      const actId = String(r.activityId || "");
-      return cat.includes("cult") || actId.startsWith("cult-");
-    });
+    return apiClient.get<any[]>("/events/cultural/registrations/my");
   },
 
   async getMyPoojaRegistrations(): Promise<any[]> {

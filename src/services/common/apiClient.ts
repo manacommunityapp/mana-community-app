@@ -65,6 +65,9 @@ export interface StoredUser {
   permissions?: string[];
   enabledModules?: string[];
   menuPermissions?: import("../../types/api").MenuRolePermissionResponse[];
+  occupancyStatus?: string;
+  residentType?: string;
+  userType?: string;
 }
 
 export function getStoredUser(): StoredUser | null {
