@@ -500,7 +500,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
 
         cats = [
           {
-            id: `pass-${targetEvent.id || "1"}`,
+            id: `pass-${targetEvent.id ?? "unknown"}`,
             name: `${targetEvent.title || targetEvent.name || "Event"} Pass`,
             price: targetEvent.price || targetEvent.fee || 0,
             qty: dynamicSeats || 100,
@@ -641,7 +641,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       if (!block) block = "Block-A";
 
       const res = await fileUploadService.uploadEventPaymentScreenshot(file, {
-        eventId: event?.id || 1,
+        eventId: event?.id,
         eventName: event?.title || formData.category,
         block,
         flatNo: flat,
@@ -771,6 +771,12 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         return undefined;
       })();
 
+      if (!resolvedMainEventId) {
+        setIsSubmitting(false);
+        toast.error("Unable to identify event. Please close and reopen the registration form.");
+        return;
+      }
+
       const resolvedActivityId = event?.id
         ? (String(event.id).startsWith("event-") || String(event.id).startsWith("pooja-") || String(event.id).startsWith("food-") || String(event.id).startsWith("comp-") || String(event.id).startsWith("cult-") ? String(event.id) : `event-${event.id}`)
         : (resolvedMainEventId ? `event-${resolvedMainEventId}` : undefined);
@@ -789,7 +795,7 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
       const primaryFlat = formData.flatNo?.trim() || (authUser?.block && authUser?.flatNo ? `${authUser.block}-${authUser.flatNo}` : authUser?.flatNo) || "";
 
       const regPayload = {
-        eventId: resolvedMainEventId || 1,
+        eventId: resolvedMainEventId,
         mainEventId: resolvedMainEventId,
         activityId: resolvedActivityId,
         eventName: event?.title || "Community Festival",

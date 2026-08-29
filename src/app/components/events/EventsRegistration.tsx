@@ -392,7 +392,7 @@ function AddRegistrantDialog({
       const eventDateStr = activeEvent?.startDate || new Date().toISOString().slice(0, 10);
 
       const payload = {
-        activityId: `event-${activeEvent?.id || 1}`,
+        activityId: activeEvent?.id != null ? `event-${activeEvent.id}` : undefined,
         mainEventId: activeEvent?.id,
         eventId: activeEvent?.id,
         activityTitle: activeEvent?.title || "Community Event",

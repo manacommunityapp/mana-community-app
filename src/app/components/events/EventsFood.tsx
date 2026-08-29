@@ -346,11 +346,16 @@ export function EventsFood() {
       }
     }
 
+    if (!selectedEventId) {
+      setError("Please select an event before saving a meal session.");
+      return;
+    }
+
     setSavingMealBatch(true);
     setError("");
     try {
       const payload: any = {
-        mainEventId: selectedEventId || 1,
+        mainEventId: selectedEventId,
         name: mealForm.name.trim(),
         mealType: mealForm.mealType,
         date: mealForm.date,

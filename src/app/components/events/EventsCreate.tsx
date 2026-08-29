@@ -148,7 +148,8 @@ export async function syncActivitiesToScheduleSubmodules(
   mainEventTitle: string,
   eventId?: number | string
 ) {
-  const numericEventId = typeof eventId === "number" ? eventId : Number(String(eventId || "").replace(/\D/g, "")) || 1;
+  const numericEventId = typeof eventId === "number" ? eventId : Number(String(eventId || "").replace(/\D/g, ""));
+  if (!numericEventId || numericEventId <= 0) return;
 
   // 1. Group all Pooja & Seva activities across all days by poojaType / name
   const poojaGroups = new Map<string, { dayDate: string; act: ScheduleActivity }[]>();
