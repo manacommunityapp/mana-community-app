@@ -24,6 +24,7 @@ import { userService } from "../../../services/common/userService";
 import { familyService, type FamilyMember, type FamilyMemberSlim } from "../../../services/common/familyService";
 import { eventService, type PoojaRegistrationRequest, type PoojaScheduleDto } from "../../../services/events/eventService";
 import { isRegistrationClosed, isPoojaSlotPassed } from "../../../utils/eventDeadlineUtils";
+import { formatIndianTime, formatIndianDate, formatIndianDateTime } from "../../../utils/indianDateTimeUtils";
 import { showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { GlassCard, TouchButton } from "./redesign/EventDesignSystem";
@@ -152,19 +153,7 @@ function getLiveSlotInfo(
 }
 
 function formatTime12Hour(timeStr: string): string {
-  if (!timeStr) return "";
-  const clean = timeStr.trim();
-  if (clean.toLowerCase().includes("am") || clean.toLowerCase().includes("pm") || clean.includes("–") || clean.includes("-")) {
-    return clean;
-  }
-  const parts = clean.split(":");
-  let hr = parseInt(parts[0], 10);
-  const min = parts.length > 1 ? parts[1].padStart(2, "0") : "00";
-  if (isNaN(hr)) return clean;
-  const ampm = hr >= 12 ? "PM" : "AM";
-  if (hr > 12) hr -= 12;
-  if (hr === 0) hr = 12;
-  return `${String(hr).padStart(2, "0")}:${min} ${ampm}`;
+  return formatIndianTime(timeStr);
 }
 
 function buildDaysFromLiveSchedules(liveSchedules: PoojaScheduleDto[], poojaTitle?: string): DaySchedule[] {

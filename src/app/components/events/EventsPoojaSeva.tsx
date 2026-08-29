@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse, type PoojaScheduleDto, type UserSearchResult } from "../../../services/events/eventService";
 import { TimePicker, TimeSelect } from "../ui/time-picker";
+import { formatIndianTime, formatIndianDate, formatIndianDateTime } from "../../../utils/indianDateTimeUtils";
 
 type TimeSlotEntry = { id?: number; slotDate: string | null; startTime: string; endTime?: string; title?: string; slotCount: number; status?: "OPEN" | "BLOCKED" | "CLOSED" };
 
@@ -1134,13 +1135,13 @@ export function EventsPoojaSeva() {
 
                     <div className="flex items-center gap-3 mt-2 flex-wrap text-xs text-slate-500">
                       <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />
-                        {pooja.multiDay && pooja.endDate ? `${pooja.date} to ${pooja.endDate}` : pooja.date}
+                        {pooja.multiDay && pooja.endDate ? `${formatIndianDate(pooja.date, "short")} to ${formatIndianDate(pooja.endDate, "short")}` : formatIndianDate(pooja.date, "short")}
                       </span>
                       {pooja.startTime && (
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />
                           {Array.isArray(pooja.timeSlotConfig) && pooja.timeSlotConfig.length > 0
-                            ? [...new Set(pooja.timeSlotConfig.map((c: any) => c.startTime).filter(Boolean))].join(", ")
-                            : pooja.startTime}
+                            ? [...new Set(pooja.timeSlotConfig.map((c: any) => formatIndianTime(c.startTime)).filter(Boolean))].join(", ")
+                            : formatIndianTime(pooja.startTime)}
                           {pooja.duration ? ` (${pooja.duration}m)` : ""}
                         </span>
                       )}
@@ -1357,9 +1358,9 @@ export function EventsPoojaSeva() {
                                 <div className="flex items-center gap-3 flex-wrap">
                                   <div className="flex items-center gap-2 flex-1 min-w-0">
                                     <Calendar className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                                    <span className="text-xs font-bold text-slate-800">{sch.scheduleDate}</span>
+                                    <span className="text-xs font-bold text-slate-800">{formatIndianDate(sch.scheduleDate, "short")}</span>
                                     <Clock className="w-3 h-3 text-slate-400 shrink-0 ml-1" />
-                                    <span className="text-xs text-slate-600">{sch.startTime} – {sch.endTime}</span>
+                                    <span className="text-xs text-slate-600">{formatIndianTime(sch.startTime)} – {formatIndianTime(sch.endTime)}</span>
                                   </div>
                                   <div className="flex items-center gap-2 text-[10px] text-slate-500">
                                     <span className="font-semibold text-indigo-600">{sch.availableFamilies}/{sch.familyCapacity} families</span>

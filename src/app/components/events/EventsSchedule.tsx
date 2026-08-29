@@ -38,6 +38,7 @@ import { EventsLunchDinner } from "./EventsLunchDinner";
 import { EventsCulturalEvents } from "./EventsCulturalEvents";
 import { EditEventDialog } from "./EventsCreate";
 import { showError } from "../../../utils/ToastUtils";
+import { formatIndianTime, formatIndianDate, formatIndianDateTime } from "../../../utils/indianDateTimeUtils";
 
 /* ─── Types ─── */
 type EventStatus = "upcoming" | "ongoing" | "completed" | "draft" | "cancelled";
@@ -1056,19 +1057,8 @@ function EventDetailsDialog({
   const vis = VISIBILITY_ICON[activeData.visibility?.toLowerCase()] || VISIBILITY_ICON.community;
   const typeColor = TYPE_COLORS[activeData.type] ?? "#4f46e5";
 
-  const formatDate = (d: string) => {
-    if (!d) return "";
-    return new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-  };
-
-  const formatTime = (t: string) => {
-    if (!t) return "";
-    const clean = t.includes("T") ? t.split("T")[1] : t;
-    const [h, m] = clean.split(":");
-    const hr = parseInt(h);
-    if (isNaN(hr)) return t;
-    return `${hr > 12 ? hr - 12 : hr === 0 ? 12 : hr}:${m || "00"} ${hr >= 12 ? "PM" : "AM"}`;
-  };
+  const formatDate = (d: string) => formatIndianDate(d, "short");
+  const formatTime = (t: string) => formatIndianTime(t);
 
   const isMultiDay = activeData.startDate && activeData.endDate && activeData.startDate !== activeData.endDate;
   const capacity = activeData.capacity || activeData.maxAttendees || 100;
@@ -1345,15 +1335,15 @@ function EventDetailsDialog({
                                 {p.date && (
                                   <span className="flex items-center gap-0.5">
                                     <Calendar className="w-2.5 h-2.5 text-amber-600" />
-                                    <span>{p.date}</span>
+                                    <span>{formatIndianDate(p.date, "short")}</span>
                                   </span>
                                 )}
                                 {(p.startTime || (p.startTimes && p.startTimes.length > 0)) && (
                                   <span className="flex items-center gap-0.5">
                                     <Clock className="w-2.5 h-2.5 text-slate-400" />
                                     <span>{Array.isArray(p.timeSlotConfig) && p.timeSlotConfig.length > 0
-                                      ? [...new Set(p.timeSlotConfig.map((c: any) => c.startTime).filter(Boolean))].join(", ")
-                                      : p.startTime}</span>
+                                      ? [...new Set(p.timeSlotConfig.map((c: any) => formatIndianTime(c.startTime)).filter(Boolean))].join(", ")
+                                      : formatIndianTime(p.startTime)}</span>
                                   </span>
                                 )}
                               </div>
@@ -1435,7 +1425,7 @@ function EventDetailsDialog({
                             </div>
                           </div>
                           <span className="text-xs font-black text-purple-700 px-2 py-0.5 rounded-full bg-purple-100/80 border border-purple-200 shrink-0">
-                            Stage Show
+                            Performance
                           </span>
                         </div>
 
@@ -1443,13 +1433,13 @@ function EventDetailsDialog({
                           {c.date && (
                             <span className="flex items-center gap-1">
                               <Calendar className="w-2.5 h-2.5 text-purple-600" />
-                              <span>{c.date}</span>
+                              <span>{formatIndianDate(c.date, "short")}</span>
                             </span>
                           )}
                           {c.startTime && (
                             <span className="flex items-center gap-1">
                               <Clock className="w-2.5 h-2.5 text-slate-400" />
-                              <span>{c.startTime} {c.duration ? `(${c.duration} mins)` : ""}</span>
+                              <span>{formatIndianTime(c.startTime)} {c.duration ? `(${c.duration} mins)` : ""}</span>
                             </span>
                           )}
                           {c.stage && (
@@ -1501,13 +1491,13 @@ function EventDetailsDialog({
                           {comp.date && (
                             <span className="flex items-center gap-1">
                               <Calendar className="w-2.5 h-2.5 text-sky-600" />
-                              <span>{comp.date}</span>
+                              <span>{formatIndianDate(comp.date, "short")}</span>
                             </span>
                           )}
                           {comp.startTime && (
                             <span className="flex items-center gap-1">
                               <Clock className="w-2.5 h-2.5 text-slate-400" />
-                              <span>{comp.startTime}</span>
+                              <span>{formatIndianTime(comp.startTime)}</span>
                             </span>
                           )}
                           {comp.venue && (
@@ -1553,13 +1543,13 @@ function EventDetailsDialog({
                           {m.date && (
                             <span className="flex items-center gap-1">
                               <Calendar className="w-2.5 h-2.5 text-emerald-600" />
-                              <span>{m.date}</span>
+                              <span>{formatIndianDate(m.date, "short")}</span>
                             </span>
                           )}
                           {(m.startTime || m.endTime) && (
                             <span className="flex items-center gap-1">
                               <Clock className="w-2.5 h-2.5 text-slate-400" />
-                              <span>{m.startTime} – {m.endTime || "End"}</span>
+                              <span>{formatIndianTime(m.startTime)} – {formatIndianTime(m.endTime) || "End"}</span>
                             </span>
                           )}
                           {m.venue && (
@@ -1860,15 +1850,8 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
   const capacityPct = maxCap > 0 ? Math.round((event.registrations / maxCap) * 100) : 0;
   const isMultiDay = event.startDate !== event.endDate;
 
-  const formatDate = (d: string) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-  const formatTime = (t: string) => {
-    if (!t) return "";
-    const clean = t.includes("T") ? t.split("T")[1] : t;
-    const [h, m] = clean.split(":");
-    const hr = parseInt(h);
-    if (isNaN(hr)) return t;
-    return `${hr > 12 ? hr - 12 : hr === 0 ? 12 : hr}:${m || "00"} ${hr >= 12 ? "PM" : "AM"}`;
-  };
+  const formatDate = (d: string) => formatIndianDate(d, "short");
+  const formatTime = (t: string) => formatIndianTime(t);
 
   return (
     <div className="bg-white rounded-xl border border-slate-100 shadow-[0_1px_4px_rgba(0,0,0,0.04)] hover:shadow-md transition-all">
@@ -2273,13 +2256,13 @@ function EventsList() {
 
 /* ─── Main Component ─── */
 const TABS = [
-  { id: "events",          label: "Events",               icon: CalendarDays  },
-  { id: "planning",        label: "Planning & Tasks",    icon: ClipboardList },
-  { id: "programs",        label: "Day Programs",         icon: Mic2          },
-  { id: "poojaSeva",       label: "Pooja & Seva",         icon: Flame         },
-  { id: "lunchDinner",     label: "Lunch / Dinner",       icon: UtensilsCrossed },
-  { id: "culturalEvents",  label: "Cultural Events",      icon: Music         },
-  { id: "competitions",     label: "Competitions",         icon: Trophy        },
+  { id: "events",          label: "Events",               icon: CalendarDays,    disabled: false },
+  { id: "programs",        label: "Day Programs",         icon: Mic2,            disabled: false },
+  { id: "poojaSeva",       label: "Pooja & Seva",         icon: Flame,           disabled: false },
+  { id: "lunchDinner",     label: "Lunch / Dinner",       icon: UtensilsCrossed, disabled: false },
+  { id: "culturalEvents",  label: "Cultural Events",      icon: Music,           disabled: false },
+  { id: "competitions",    label: "Competitions",         icon: Trophy,          disabled: false },
+  { id: "planning",        label: "Planning & Tasks",    icon: ClipboardList,   disabled: true  },
 ] as const;
 
 export function EventsSchedule() {
@@ -2304,7 +2287,7 @@ export function EventsSchedule() {
   });
 
   const resolveInitialTab = () => {
-    if (tabParam && visibleTabs.some(t => t.id === tabParam)) {
+    if (tabParam && visibleTabs.some(t => t.id === tabParam && !t.disabled)) {
       return tabParam;
     }
     return "events";
@@ -2313,7 +2296,7 @@ export function EventsSchedule() {
   const [tab, setTab] = useState<string>(resolveInitialTab);
 
   useEffect(() => {
-    if (tabParam && visibleTabs.some(t => t.id === tabParam)) {
+    if (tabParam && visibleTabs.some(t => t.id === tabParam && !t.disabled)) {
       setTab(tabParam);
     }
   }, [tabParam, visibleTabs]);
@@ -2331,18 +2314,30 @@ export function EventsSchedule() {
     <div className="space-y-5">
       <div className="flex items-center gap-0.5 p-0.5 bg-white rounded-md sm:rounded-lg border border-slate-100 shadow-[0_2px_6px_rgba(0,0,0,0.04)] overflow-x-auto hide-scrollbar">
         {visibleTabs.map(t => (
-          <button key={t.id} onClick={() => handleTabSelect(t.id)}
+          <button
+            key={t.id}
+            disabled={t.disabled}
+            onClick={() => !t.disabled && handleTabSelect(t.id)}
+            title={t.disabled ? `${t.label} (Disabled)` : t.label}
             className={`flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded sm:rounded-md text-[10px] sm:text-xs font-semibold transition-all whitespace-nowrap flex-1 sm:flex-none justify-center ${
-              tab === t.id
+              t.disabled
+                ? "opacity-45 cursor-not-allowed text-slate-400 bg-slate-50/80 border border-dashed border-slate-200"
+                : tab === t.id
                 ? "bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm"
                 : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
-            }`}>
-            <t.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" /> {t.label}
+            }`}
+          >
+            <t.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            <span>{t.label}</span>
+            {t.disabled && (
+              <span className="text-[9px] px-1 py-0.2 rounded bg-slate-200 text-slate-500 font-normal ml-0.5">
+                Disabled
+              </span>
+            )}
           </button>
         ))}
       </div>
       {tab === "events" && <EventsList />}
-      {tab === "planning" && <EventsPlanning />}
       {tab === "programs" && <EventsPrograms />}
       {tab === "poojaSeva" && <EventsPoojaSeva />}
       {tab === "lunchDinner" && (
@@ -2355,6 +2350,7 @@ export function EventsSchedule() {
       )}
       {tab === "culturalEvents" && <EventsCulturalEvents />}
       {tab === "competitions" && <CompetitionsSection />}
+      {tab === "planning" && <EventsPlanning />}
     </div>
   );
 }

@@ -2,8 +2,10 @@
  * eventDeadlineUtils.ts
  *
  * Utilities to evaluate registration status, deadlines, and date/time expiry for
- * Events, Pooja Sevas, Cultural Activities, and Individual Time Slots.
+ * Events, Pooja Sevas, Cultural Activities, and Individual Time Slots in IST.
  */
+
+import { getNowInIST } from "./indianDateTimeUtils";
 
 /**
  * Extracts the latest time from a time string or range.
@@ -172,7 +174,7 @@ export function isRegistrationClosed(item: any): boolean {
     }
   }
 
-  const now = new Date();
+  const now = getNowInIST();
 
   // 2. Explicit Registration Deadline / End Date & Time
   const regDeadline =
@@ -238,13 +240,13 @@ export function isRegistrationClosed(item: any): boolean {
 }
 
 /**
- * Checks if a specific pooja time slot or date has already passed.
+ * Checks if a specific pooja time slot or date has already passed in IST.
  */
 export function isPoojaSlotPassed(slotDate?: string, slotTime?: string): boolean {
   if (!slotDate) return false;
   const slotDateTime = parseFlexibleDateTime(slotDate, slotTime);
   if (!slotDateTime || isNaN(slotDateTime.getTime())) return false;
-  return new Date().getTime() > slotDateTime.getTime();
+  return getNowInIST().getTime() > slotDateTime.getTime();
 }
 
 /**

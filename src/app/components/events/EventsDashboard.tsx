@@ -1783,7 +1783,7 @@ export function EventsDashboard() {
                 (() => {
                   const runningEvents = events.filter(e => String(e.status || '').toUpperCase() !== "CANCELLED");
                   return (runningEvents && runningEvents.length > 0) ? (runningEvents[carouselIndex] || runningEvents[0]) : {
-                    id: "ev-1",
+                    id: undefined,
                     title: "Ganesh Chaturthi Utsav 2026",
                     ticketTypes: [
                       {

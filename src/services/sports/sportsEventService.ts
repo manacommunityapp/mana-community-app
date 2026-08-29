@@ -45,8 +45,11 @@ export const sportsEventService = {
 
   /** GET /api/sports/events/all — list of all events (from sports_event table via SportsController) */
   async getAllEvents(): Promise<SportsEvent[]> {
-    return apiClient.get<SportsEvent[]>("/sports/events/all")
-      .then((res: any) => res.map((x: any) => this.mapEvent(x)));
+    return apiClient.get<any>("/sports/events/all")
+      .then((res: any) => {
+        const items = Array.isArray(res) ? res : Array.isArray(res?.content) ? res.content : [];
+        return items.map((x: any) => this.mapEvent(x));
+      });
   },
 
   /** GET /api/sports/events/community?communityId= — all events for a specific community (via SportsController) */

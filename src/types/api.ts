@@ -17,6 +17,9 @@ export interface RegisterRequest {
   aadharNumber?: string;
   flatNo?: string;
   block?: string;
+  userType?: string; // Owner | Tenant
+  occupancyStatus?: string; // Owner | Tenant | Staff
+  residentType?: string; // Resident | Non-Resident | Guest
 }
 
 export interface ForgotPasswordRequest {
@@ -56,6 +59,9 @@ export interface AuthResponse {
   communityId?: number;
   dateOfBirth?: string;
   enabledModules?: string[];
+  occupancyStatus?: string;
+  userType?: string;
+  residentType?: string;
 }
 
 export type GovtIdType = "AADHAAR" | "VOTER_ID" | "DRIVING_LICENCE";
@@ -551,6 +557,9 @@ export interface UserResponse {
   enabledModules?: string[];
   menuPermissions?: MenuRolePermissionResponse[];
   roles?: string[];
+  occupancyStatus?: string;
+  residentType?: string;
+  userType?: string;
 }
 
 export type RolePermissionsMap = Record<string, string[]>;
@@ -639,6 +648,9 @@ export interface UserProfileResponse {
   block?: string;
   role: string;
   kycStatus: string;
+  occupancyStatus?: string;
+  residentType?: string;
+  userType?: string;
   communityName?: string;
   communityType?: string;
   communityCode?: string;

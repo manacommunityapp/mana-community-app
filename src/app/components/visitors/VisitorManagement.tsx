@@ -10,6 +10,7 @@ import { twMerge } from "tailwind-merge";
 import { visitorService, type VisitorPassResponse, type VisitorPassRequest, type VisitorAuditLog, type VisitorAnalytics } from "../../../services/visitors/visitorService";
 import { userService } from "../../../services/common/userService";
 import type { UserResponse } from "../../../types/api";
+import { formatIndianTime, formatIndianDate } from "../../../utils/indianDateTimeUtils";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -53,14 +54,12 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
 
 function formatTime(iso: string | null): string {
   if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  return formatIndianTime(iso);
 }
 
 function formatDate(iso: string | null): string {
   if (!iso) return "";
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return formatIndianDate(iso, "short");
 }
 
 export function VisitorManagement() {

@@ -49,12 +49,14 @@ import {
   IndianRupee,
   History,
   Lock,
+  PenLine,
 } from "lucide-react";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { PoojaRegistrationModal } from "./PoojaRegistrationModal";
 import { LunchDinnerRegistrationModal } from "./LunchDinnerRegistrationModal";
 import { EventCompleteDetailsModal } from "./EventCompleteDetailsModal";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
+import { formatIndianTime } from "../../../utils/indianDateTimeUtils";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 
@@ -101,6 +103,8 @@ interface Activity {
   needsRegistration?: boolean;
   /** Raw database auction item object if category is Auction */
   rawAuctionItem?: any;
+  /** For Food activities: MORNING | LUNCH | DINNER (from backend LunchDinner.mealType) */
+  mealType?: string;
 }
 
 
@@ -468,6 +472,7 @@ export function EventMemberView() {
   const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
   const [loadingApiData, setLoadingApiData] = useState(false);
   const [loadingFamily, setLoadingFamily] = useState(false);
+  const [userMealRegs, setUserMealRegs] = useState<Map<string, any>>(new Map());
 
   // Payment Upload & Verification States
   const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
@@ -797,12 +802,16 @@ export function EventMemberView() {
 
           const initialPlates = m.targetPlates != null ? m.targetPlates : 500;
           const booked = getBookedCount(`food-${m.id}`, m.name);
+          const formattedMealTime = m.startTime && m.endTime 
+            ? `${formatIndianTime(m.startTime)} - ${formatIndianTime(m.endTime)}` 
+            : (m.startTime ? formatIndianTime(m.startTime) : "Afternoon / Evening");
+
           fetchedActivities.push({
             id: `food-${m.id || Date.now()}`,
             title: m.name || "Community Mahaprasadam",
             category: "Food",
             date: m.date ? String(m.date) : "Upcoming",
-            time: m.startTime && m.endTime ? `${m.startTime} - ${m.endTime}` : (m.startTime || "Afternoon / Evening"),
+            time: formattedMealTime,
             venue: m.venue || m.diningHall || m.location || "",
             fee: m.isFree ? 0 : Number(m.fee || 50),
             isFree: m.isFree,
@@ -810,6 +819,8 @@ export function EventMemberView() {
             availableSeats: Math.max(0, initialPlates - booked),
             image: "🍲",
             description: `Meal: ${m.mealType || "Bhojanam"}. Caterer: ${m.caterer || "Food Committee"}. Menu: ${Array.isArray(m.menuItems) ? m.menuItems.join(", ") : ""}. ${m.notes || ""}`,
+            mainEventId: m.mainEventId != null ? String(m.mainEventId) : (m.eventId != null ? String(m.eventId) : undefined),
+            mealType: m.mealType ? String(m.mealType).toUpperCase() : undefined,
           });
         });
       }
@@ -1081,15 +1092,33 @@ export function EventMemberView() {
 
           const rawCat = String(r.category || "").toLowerCase();
           const rawActId = String(r.activityId || "");
-          const isPoojaPass = rawCat.includes("pooja") ||
+          const rawTitle = String(r.activityTitle || r.eventName || "").toLowerCase();
+          const rawActivityType = String(r.activityType || "").toLowerCase();
+          const isFoodPass = rawCat.includes("food") ||
+                             rawCat.includes("meal") ||
+                             rawCat.includes("lunch") ||
+                             rawCat.includes("dinner") ||
+                             rawCat.includes("prasad") ||
+                             rawCat.includes("bhojan") ||
+                             rawActivityType.includes("lunch") ||
+                             rawActivityType.includes("dinner") ||
+                             rawActivityType.includes("meal") ||
+                             rawActId.startsWith("meal-") ||
+                             rawActId.startsWith("food-") ||
+                             rawTitle.includes("lunch") ||
+                             rawTitle.includes("dinner") ||
+                             rawTitle.includes("food") ||
+                             rawTitle.includes("meal");
+
+          const isPoojaPass = !isFoodPass && (
+                              rawCat.includes("pooja") ||
                               rawCat.includes("seva") ||
                               rawActId.startsWith("pooja-") ||
                               Boolean(r.scheduleId) ||
-                              Boolean(r.poojaSlot);
+                              Boolean(r.poojaSlot));
 
-          const isCompPass = rawCat.includes("competition") || rawActId.startsWith("comp-");
-          const isCultPass = rawCat.includes("cultural") || rawActId.startsWith("cult-");
-          const isFoodPass = rawCat.includes("food") || rawCat.includes("meal") || rawActId.startsWith("meal-") || rawActId.startsWith("food-");
+          const isCompPass = !isFoodPass && !isPoojaPass && (rawCat.includes("competition") || rawActId.startsWith("comp-"));
+          const isCultPass = !isFoodPass && !isPoojaPass && (rawCat.includes("cultural") || rawActId.startsWith("cult-"));
 
           return {
             id: String(r.id),
@@ -1114,7 +1143,7 @@ export function EventMemberView() {
             registrationSource: r.registrationSource,
             regId: r.regCode || `MNA-2026-${r.id}`,
             date: r.eventDate || (parentEvent?.startDate ? String(parentEvent.startDate) : "Upcoming"),
-            time: r.eventTime || (parentEvent?.startTime ? String(parentEvent.startTime) : "Scheduled"),
+            time: r.eventTime ? (r.eventTime.includes(" - ") ? r.eventTime.split(" - ").map((t: string) => formatIndianTime(t)).join(" - ") : formatIndianTime(r.eventTime)) : (parentEvent?.startTime ? formatIndianTime(parentEvent.startTime) : "Scheduled"),
             venue: r.venue || (parentEvent?.location ? String(parentEvent.location) : "Community Venue"),
             status: finalStatus,
             isEventCancelled: isCancelled,
@@ -1154,6 +1183,7 @@ export function EventMemberView() {
     window.addEventListener("mana_event_updated", fetchLiveDataFromBackend);
     window.addEventListener("mana_dashboard_updated", fetchLiveDataFromBackend);
     window.addEventListener("mana_registrations_updated", handleRegUpdate);
+    window.addEventListener("mana_event_registration_updated", handleRegUpdate);
     window.addEventListener("mana_family_updated", loadFamilyMembers);
 
     return () => {
@@ -1162,9 +1192,29 @@ export function EventMemberView() {
       window.removeEventListener("mana_event_updated", fetchLiveDataFromBackend);
       window.removeEventListener("mana_dashboard_updated", fetchLiveDataFromBackend);
       window.removeEventListener("mana_registrations_updated", handleRegUpdate);
+      window.removeEventListener("mana_event_registration_updated", handleRegUpdate);
       window.removeEventListener("mana_family_updated", loadFamilyMembers);
     };
   }, [user]);
+
+  // Fetch user meal registrations for all events that have food activities
+  useEffect(() => {
+    const foodActs = activitiesList.filter((a) => a.category === "Food" && a.mainEventId);
+    const uniqueEventIds = [...new Set(foodActs.map((a) => String(a.mainEventId!).replace(/\D/g, "")))].filter(Boolean);
+    if (uniqueEventIds.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      uniqueEventIds.map((eid) =>
+        eventService.getUserMealsForEvent(eid).then((res) => ({ eid, res })).catch(() => ({ eid, res: null }))
+      )
+    ).then((results) => {
+      if (cancelled) return;
+      const map = new Map<string, any>();
+      results.forEach(({ eid, res }) => { if (res) map.set(eid, res); });
+      setUserMealRegs(map);
+    });
+    return () => { cancelled = true; };
+  }, [activitiesList]);
 
   // Compute dynamic counters for Quick Actions
   const poojaCount = useMemo(() => activitiesList.filter((a) => a.category === "Pooja").length, [activitiesList]);
@@ -1178,6 +1228,21 @@ export function EventMemberView() {
 
   const isPoojaActivity = (cat?: string) =>
     Boolean(cat && (cat.toLowerCase().includes("pooja") || cat.toLowerCase().includes("seva")));
+
+  const isFoodActivityRegistered = (act: Activity): boolean => {
+    if (!act.mainEventId) return false;
+    const eid = String(act.mainEventId).replace(/\D/g, "");
+    const regs = userMealRegs.get(eid);
+    if (!regs || !Array.isArray(regs.meals) || regs.meals.length === 0) return false;
+    const mealType = (act.mealType || "").toUpperCase();
+    return regs.meals.some((m: any) => {
+      if (m.date !== act.date) return false;
+      if (mealType === "MORNING") return Boolean(m.morning);
+      if (mealType === "LUNCH") return Boolean(m.lunch);
+      if (mealType === "DINNER") return Boolean(m.dinner);
+      return Boolean(m.morning || m.lunch || m.dinner);
+    });
+  };
 
   const activePasses = useMemo(() => {
     return passesList.filter((p) => {
@@ -1339,13 +1404,22 @@ export function EventMemberView() {
 
     const actIdStr = String(act.id || "").trim();
     const actIdNumeric = actIdStr.replace(/\D/g, "");
+    const cleanActTitle = (act.title || "").trim().toLowerCase();
+    const actMainEventId = act.mainEventId ? String(act.mainEventId).replace(/\D/g, "") : null;
     const isActPooja = isPoojaActivity(act.category) || actIdStr.startsWith("pooja-");
     const isActComp = act.category?.toLowerCase().includes("competition") || actIdStr.startsWith("comp-");
     const isActCult = act.category?.toLowerCase().includes("cultural") || actIdStr.startsWith("cult-");
-    const isActFood = act.category?.toLowerCase().includes("food") || act.category?.toLowerCase().includes("meal") || actIdStr.startsWith("meal-") || actIdStr.startsWith("food-");
+    const isActFood = act.category?.toLowerCase().includes("food") ||
+                      act.category?.toLowerCase().includes("meal") ||
+                      act.category?.toLowerCase().includes("lunch") ||
+                      act.category?.toLowerCase().includes("dinner") ||
+                      actIdStr.startsWith("meal-") ||
+                      actIdStr.startsWith("food-") ||
+                      cleanActTitle.includes("lunch") ||
+                      cleanActTitle.includes("dinner") ||
+                      cleanActTitle.includes("food") ||
+                      cleanActTitle.includes("meal");
     const isMainEvent = actIdStr.startsWith("event-") || (!isActPooja && !isActComp && !isActCult && !isActFood);
-    const cleanActTitle = (act.title || "").trim().toLowerCase();
-    const actMainEventId = act.mainEventId ? String(act.mainEventId).replace(/\D/g, "") : null;
 
     return activePasses.find((p) => {
       if (p.status === "CANCELLED" || p.isEventCancelled || p.isEventExpired) return false;
@@ -1363,7 +1437,18 @@ export function EventMemberView() {
 
       const isPassComp = p.category?.toLowerCase().includes("competition") || passActIdStr.startsWith("comp-");
       const isPassCult = p.category?.toLowerCase().includes("cultural") || passActIdStr.startsWith("cult-");
-      const isPassFood = p.category?.toLowerCase().includes("meal") || p.category?.toLowerCase().includes("food") || passActIdStr.startsWith("meal-") || passActIdStr.startsWith("food-");
+      const isPassFood = passCatLower.includes("meal") ||
+                         passCatLower.includes("food") ||
+                         passCatLower.includes("lunch") ||
+                         passCatLower.includes("dinner") ||
+                         passTypeLower.includes("meal") ||
+                         passTypeLower.includes("food") ||
+                         passActIdStr.startsWith("meal-") ||
+                         passActIdStr.startsWith("food-") ||
+                         (p.title || "").toLowerCase().includes("lunch") ||
+                         (p.title || "").toLowerCase().includes("dinner") ||
+                         (p.title || "").toLowerCase().includes("food") ||
+                         (p.title || "").toLowerCase().includes("meal");
       const isPassMainEvent = passActIdStr.startsWith("event-") || (!isPassPooja && !isPassComp && !isPassCult && !isPassFood);
       const cleanPassTitle = (p.title || "").trim().toLowerCase();
       const passMainEventId = p.mainEventId ? String(p.mainEventId).replace(/\D/g, "") : (p.eventId ? String(p.eventId).replace(/\D/g, "") : null);
@@ -1429,6 +1514,7 @@ export function EventMemberView() {
         if (passActIdStr && actIdStr && passActIdStr === actIdStr) return true;
         if (actIdNumeric && passActIdNumeric && actIdNumeric === passActIdNumeric) return true;
         if (cleanPassTitle && cleanActTitle && cleanPassTitle === cleanActTitle) return true;
+        if (p.date && act.date && p.date === act.date && ((cleanPassTitle.includes("lunch") && cleanActTitle.includes("lunch")) || (cleanPassTitle.includes("dinner") && cleanActTitle.includes("dinner")))) return true;
         return false;
       }
 
@@ -2036,7 +2122,7 @@ export function EventMemberView() {
                             <span className="text-white/40 shrink-0">·</span>
                             <span className="flex items-center gap-1 shrink-0 whitespace-nowrap">
                               <Clock className="w-3 h-3 text-amber-300 shrink-0" />
-                              <span className="whitespace-nowrap">{activeMainEvent.startTime || activeMainEvent.time}</span>
+                              <span className="whitespace-nowrap">{formatIndianTime(activeMainEvent.startTime || activeMainEvent.time)}</span>
                             </span>
                           </>
                         )}
@@ -2118,7 +2204,13 @@ export function EventMemberView() {
                                     <span className="text-white/30">·</span>
                                     <span className="flex items-center gap-0.5">
                                       <Clock className="w-2.5 h-2.5 text-indigo-200 shrink-0" />
-                                      <span>{subAct.time}</span>
+                                      <span>
+                                        {subAct.time
+                                          ? subAct.time.includes(" - ")
+                                            ? subAct.time.split(" - ").map((t: string) => formatIndianTime(t)).join(" - ")
+                                            : formatIndianTime(subAct.time)
+                                          : "Scheduled"}
+                                      </span>
                                     </span>
                                   </div>
                                 </div>
@@ -2156,7 +2248,7 @@ export function EventMemberView() {
                                         className="px-2 py-0.5 text-[9.5px] font-black rounded-md bg-emerald-500 hover:bg-emerald-600 text-white border border-emerald-400/40 shadow-xs flex items-center gap-1 shrink-0 cursor-pointer active:scale-95 transition-all"
                                       >
                                         <Edit3 className="w-2.5 h-2.5" />
-                                        <span>Update Pass</span>
+                                        <span>Update Registration</span>
                                       </button>
                                     ) : isClosed ? (
                                       <span className="px-2 py-0.5 text-[9px] font-bold rounded-md bg-white/10 text-white/60 border border-white/10 shrink-0">
@@ -2431,17 +2523,27 @@ export function EventMemberView() {
                     <button
                       key={action.id}
                       onClick={() => {
+                        if (action.id === "lunchDinner" || action.id === "food") {
+                          setMobileModal("meals");
+                          return;
+                        }
                         if (action.action === "family" || action.id === "family") {
                           setMobileModal("family");
+                          return;
+                        }
+                        if (action.id === "pooja") {
+                          setMobileModal("pooja");
+                          return;
+                        }
+                        if (action.action === "passes" || action.id === "passes") {
+                          setMobileModal("passes");
                           return;
                         }
                         const isMobileScreen = typeof window !== "undefined" && window.innerWidth < 768;
                         if (isMobileScreen) {
                           setMobileQuickActionModal(action);
                         } else {
-                          if (action.action === "passes") {
-                            setActiveTab("passes");
-                          } else if (action.category) {
+                          if (action.category) {
                             setSelectedCategoryFilter(
                               selectedCategoryFilter === action.category ? null : action.category
                             );
@@ -2687,6 +2789,19 @@ export function EventMemberView() {
                                   className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95"
                                 >
                                   <Gavel className="w-3.5 h-3.5" /> {isLive ? "Place Live Bid" : "View Auction"}
+                                </button>
+                              );
+                            }
+
+                            const isThisActFood = act.category?.toLowerCase().includes("food") || act.category?.toLowerCase().includes("meal") || String(act.id).startsWith("meal-") || String(act.id).startsWith("food-");
+                            if (isThisActFood && isFoodActivityRegistered(act)) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedActivity(act)}
+                                  className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95 border border-emerald-500"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" /> Update Registration
                                 </button>
                               );
                             }
@@ -3351,40 +3466,77 @@ export function EventMemberView() {
                   );
                 }
 
-                return foodItems.map((f) => (
-                  <div
-                    key={f.id}
-                    className="p-3.5 rounded-2xl bg-orange-50/30 dark:bg-orange-950/20 border border-orange-200/60 dark:border-orange-900/40 space-y-2"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-bold text-foreground text-sm">{f.title}</h4>
-                      <span className="font-black text-orange-600 text-xs shrink-0">
-                        {f.fee === 0 || f.isFree ? "Free Feast" : `₹${f.fee}`}
-                      </span>
-                    </div>
+                return (
+                  <div className="space-y-2.5">
+                    {foodItems.map((f) => {
+                      const existingPass = getExistingPassForActivity(f);
+                      const isClosed = isRegistrationClosed(f);
+                      const displayTime = f.time
+                        ? f.time.includes(" - ")
+                          ? f.time.split(" - ").map((t: string) => formatIndianTime(t)).join(" - ")
+                          : formatIndianTime(f.time)
+                        : "Scheduled";
+                      const slotsLabel = f.availableSeats != null ? `${f.availableSeats} slots` : (f.slots != null ? `${f.slots} slots` : "500 slots");
 
-                    <div className="grid grid-cols-2 gap-1.5 text-[11px] text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-orange-600" />
-                        <span className="truncate">{f.time}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-orange-600" />
-                        <span className="truncate">{f.venue}</span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        setMobileModal(null);
-                        setSelectedActivity(f);
-                      }}
-                      className="w-full py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-orange-600/20 cursor-pointer"
-                    >
-                      <Utensils className="w-3.5 h-3.5" /> Reserve Meal Token for Family
-                    </button>
+                      return (
+                        <div
+                          key={f.id}
+                          className="bg-card border border-border/90 rounded-xl p-3 flex gap-3 shadow-2xs hover:border-primary/40 transition-all"
+                        >
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 text-2xl flex items-center justify-center shrink-0 border border-primary/20">
+                            🍲
+                          </div>
+                          <div className="flex-1 min-w-0 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="font-black uppercase text-primary bg-primary/10 px-1.5 py-0.2 rounded border border-primary/20">
+                                  {f.category || "Food"}
+                                </span>
+                                <span className="font-semibold text-muted-foreground">{slotsLabel}</span>
+                              </div>
+                              <h4 className="text-xs font-bold text-foreground mt-0.5 truncate">{f.title}</h4>
+                              <p className="text-[10px] text-muted-foreground">
+                                {f.date ? `${f.date} • ` : ""}{displayTime}
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-between pt-1.5 mt-1 border-t border-border/60">
+                              <span className="text-xs font-mono font-black text-foreground">
+                                {f.fee === 0 || f.isFree ? "FREE" : `₹${f.fee}`}
+                              </span>
+                              {existingPass ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMobileModal(null);
+                                    handleOpenUpdateRegistration(f, existingPass);
+                                  }}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-emerald-500 active:scale-95"
+                                >
+                                  <PenLine className="w-3 h-3" /> Update Registration
+                                </button>
+                              ) : isClosed ? (
+                                <span className="px-2.5 py-1 bg-muted text-muted-foreground text-[10px] font-bold rounded-lg border border-border shrink-0">
+                                  Registration Closed
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMobileModal(null);
+                                    setSelectedActivity(f);
+                                  }}
+                                  className="px-2.5 py-1 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 text-[11px] font-black rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 active:scale-95"
+                                >
+                                  <Ticket className="w-3 h-3" /> Register
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ));
+                );
               })()}
             </div>
 
@@ -3909,6 +4061,7 @@ export function EventMemberView() {
                 isFree: selectedActivity.isFree,
                 mainEventId: selectedActivity.mainEventId ? Number(String(selectedActivity.mainEventId).replace(/\D/g, "")) : undefined,
               }}
+              existingRegistration={(selectedActivity as any)?.existingRegistration || null}
               onSuccess={() => {
                 setSelectedActivity(null);
                 fetchLiveDataFromBackend();
@@ -4434,6 +4587,22 @@ export function EventMemberView() {
                                       className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1"
                                     >
                                       <Gavel className="w-3 h-3" /> {isLive ? "Place Live Bid" : "View Auction"}
+                                    </button>
+                                  );
+                                }
+
+                                const isThisActFood = act.category?.toLowerCase().includes("food") || act.category?.toLowerCase().includes("meal") || String(act.id).startsWith("meal-") || String(act.id).startsWith("food-");
+                                if (isThisActFood && isFoodActivityRegistered(act)) {
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedActivity(act);
+                                        setMobileQuickActionModal(null);
+                                      }}
+                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-emerald-500"
+                                    >
+                                      <Edit3 className="w-3 h-3" /> Update Registration
                                     </button>
                                   );
                                 }

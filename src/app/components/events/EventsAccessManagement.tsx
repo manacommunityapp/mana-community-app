@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Shield, Users, Eye, Pencil, Trash2, ChevronDown, ChevronRight,
   CheckCircle2, Info, LayoutDashboard, CalendarDays, Ticket,
@@ -18,6 +18,7 @@ import {
   type EventPermissionRow,
 } from "../../../constants/permissions";
 import { sortRoles } from "../../../utils/roleUtils";
+import { userService } from "../../../services/common/userService";
 
 
 /* ─── Types ─── */
@@ -577,7 +578,29 @@ export function EventsAccessManagement() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const activeRole = roles.find(r => r.name === selectedRole)!;
+  // Load existing permissions from backend
+  useEffect(() => {
+    userService.getRolePermissions()
+      .then((roleMap) => {
+        if (!roleMap) return;
+        const allEventPerms = new Set(
+          EVENT_PERMISSION_MATRIX.filter(r => !r.isGroupHeader)
+            .flatMap(r => [r.view, r.createEdit, r.delete].filter(Boolean)) as string[]
+        );
+
+        setRoles(prev => prev.map(r => {
+          const matchingKey = Object.keys(roleMap).find(k => k.toUpperCase() === r.name.toUpperCase());
+          if (matchingKey !== undefined && Array.isArray(roleMap[matchingKey])) {
+            const relevant = roleMap[matchingKey].filter(p => allEventPerms.has(p));
+            return { ...r, permissions: new Set(relevant) };
+          }
+          return r;
+        }));
+      })
+      .catch((err) => console.warn("Failed to load event role permissions:", err));
+  }, []);
+
+  const activeRole = roles.find(r => r.name === selectedRole) || roles[0];
   const systemRoles = roles.filter(r => !r.suggested);
   const suggestedRoles = roles.filter(r => r.suggested);
 
@@ -614,10 +637,18 @@ export function EventsAccessManagement() {
 
   const handleSave = async () => {
     setSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    try {
+      // Save all system role permissions to backend database
+      await Promise.allSettled(
+        systemRoles.map(r => userService.updateRolePermissions(r.name, Array.from(r.permissions)))
+      );
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (err) {
+      console.error("Failed to save event role permissions:", err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (

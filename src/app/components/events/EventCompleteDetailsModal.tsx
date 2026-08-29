@@ -20,6 +20,7 @@ import {
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { eventService } from "../../../services/events/eventService";
 import { eventSponsorService } from "../../../services/events/eventSponsorService";
+import { formatIndianTime, formatIndianDate } from "../../../utils/indianDateTimeUtils";
 
 export interface EventCompleteDetailsModalProps {
   isOpen: boolean;
@@ -76,8 +77,8 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
   const eventStartDate = event?.startDate || event?.date || "Upcoming";
   const eventEndDate = event?.endDate || (event?.startDate !== event?.date ? event?.date : null);
   const eventTime = event?.startTime && event?.endTime
-    ? `${event.startTime} - ${event.endTime}`
-    : (event?.time || event?.startTime || "06:00 AM – 10:00 PM");
+    ? `${formatIndianTime(event.startTime)} – ${formatIndianTime(event.endTime)}`
+    : (formatIndianTime(event?.time || event?.startTime) || "06:00 AM – 10:00 PM");
   const eventCapacity = event?.capacity || event?.maxAttendees || 500;
   const eventRegistered = event?.attendees ?? event?.registrationCount ?? 0;
   const eventFee = event?.price != null && Number(event.price) > 0 ? Number(event.price) : 0;
@@ -160,7 +161,7 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
               title: p.name || p.title || "Pooja Seva",
               category: "Pooja",
               date: p.startDate ? String(p.startDate) : (p.date || "Scheduled"),
-              time: p.startTime || p.time || "Morning",
+              time: formatIndianTime(p.startTime || p.time) || "Morning",
               venue: p.mandap || p.venue || eventLocation,
               fee: p.isFree ? 0 : Number(p.fee || 501),
               availableSeats: p.slots || 25,
@@ -179,7 +180,7 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
               title: m.name || m.mealType || "Maha Prasadam Lunch",
               category: "Food",
               date: m.date || "Daily",
-              time: m.startTime && m.endTime ? `${m.startTime} - ${m.endTime}` : (m.startTime || "12:30 PM - 03:00 PM"),
+              time: m.startTime && m.endTime ? `${formatIndianTime(m.startTime)} – ${formatIndianTime(m.endTime)}` : (formatIndianTime(m.startTime) || "12:30 PM – 03:00 PM"),
               venue: m.venue || "Annadanam Dining Hall",
               fee: m.isFree ? 0 : Number(m.fee || 0),
               availableSeats: m.targetPlates || 500,
@@ -198,7 +199,7 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
               title: c.name || c.title || "Cultural Program",
               category: "Cultural",
               date: c.date || "Scheduled",
-              time: c.startTime && c.endTime ? `${c.startTime} - ${c.endTime}` : (c.startTime || "Evening"),
+              time: c.startTime && c.endTime ? `${formatIndianTime(c.startTime)} – ${formatIndianTime(c.endTime)}` : (formatIndianTime(c.startTime) || "Evening"),
               venue: c.venue || "Main Stage / Auditorium",
               fee: c.fee ? Number(c.fee) : 0,
               availableSeats: c.slots || 100,
@@ -217,7 +218,7 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
               title: cp.name || cp.title || "Competition",
               category: "Competition",
               date: cp.date || "Scheduled",
-              time: cp.startTime && cp.endTime ? `${cp.startTime} - ${cp.endTime}` : (cp.startTime || "Afternoon"),
+              time: cp.startTime && cp.endTime ? `${formatIndianTime(cp.startTime)} – ${formatIndianTime(cp.endTime)}` : (formatIndianTime(cp.startTime) || "Afternoon"),
               venue: cp.venue || "Activity Hall",
               fee: cp.fee ? Number(cp.fee) : 0,
               availableSeats: cp.slots || 50,

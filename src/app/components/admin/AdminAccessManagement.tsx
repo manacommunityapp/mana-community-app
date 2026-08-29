@@ -462,8 +462,13 @@ function buildStateFromMap(roleMap: Record<string, string[]>): PermState {
     );
     next[m.id] = {};
     allRoleNames.forEach(rName => {
-      const relevant = (roleMap[rName] ?? []).filter(p => modulePossible.has(p));
-      next[m.id][rName] = new Set(relevant.length > 0 ? relevant : (m.roleDefaults[rName] ?? []));
+      const matchingKey = Object.keys(roleMap).find(k => k.toUpperCase() === rName.toUpperCase());
+      if (matchingKey !== undefined && Array.isArray(roleMap[matchingKey])) {
+        const relevant = roleMap[matchingKey].filter(p => modulePossible.has(p));
+        next[m.id][rName] = new Set(relevant);
+      } else {
+        next[m.id][rName] = new Set(m.roleDefaults[rName] ?? []);
+      }
     });
   });
   return next;
@@ -781,7 +786,10 @@ export function AdminAccessManagement() {
       .catch(err => console.error("Failed to load roles from database:", err));
 
     userService.getRolePermissions()
-      .then(roleMap => setPerms(buildStateFromMap(roleMap)))
+      .then(roleMap => {
+        console.log("[AccessRoles] Loaded from backend:", roleMap);
+        setPerms(buildStateFromMap(roleMap));
+      })
       .catch(err => console.error("Failed to load role permissions:", err));
   }, []);
 
@@ -833,12 +841,15 @@ export function AdminAccessManagement() {
     setSaveDetails(null);
   };
 
-  /** Re-fetch from backend and build a verification summary. */
+  /** Re-fetch from backend to build a verification summary only — does NOT reset the UI state. */
   const verifyAndRefresh = async (sentMap: Record<string, number>): Promise<SaveDetail[]> => {
     setVerifying(true);
     try {
       const verified = await userService.getRolePermissions();
-      setPerms(buildStateFromMap(verified));
+      console.log("[AccessRoles] Backend verified state after save:", verified);
+      // Only update UI state if there are meaningful backend differences —
+      // specifically to sync roles that exist in DB but not in local state.
+      // We do NOT blindly overwrite the full state to avoid resetting user edits.
       return systemRoles.map(r => ({
         name: r.name, label: r.label, color: r.color,
         sent: sentMap[r.name] ?? 0,
@@ -901,7 +912,9 @@ export function AdminAccessManagement() {
     setSaveDetails(null);
     try {
       const rolePerms = collectRolePerms(perms, roleName);
+      console.log(`[AccessRoles] Saving role ${roleName}:`, rolePerms);
       await userService.updateRolePermissions(roleName, rolePerms);
+      console.log(`[AccessRoles] Save OK for ${roleName}`);
 
       const r = systemRoles.find(sr => sr.name === roleName) || mapRoleNameToDef(roleName);
       const optimistic: SaveDetail = { name: roleName, label: r.label, color: r.color, sent: rolePerms.length, stored: rolePerms.length, ok: true };
@@ -911,7 +924,10 @@ export function AdminAccessManagement() {
       // Non-blocking verification
       const sentMap = { [roleName]: rolePerms.length };
       verifyAndRefresh(sentMap)
-        .then(details => setSaveDetails(details.filter(d => d.name === roleName)))
+        .then(details => {
+          console.log(`[AccessRoles] Verify result for ${roleName}:`, details);
+          setSaveDetails(details.filter(d => d.name === roleName));
+        })
         .catch(() => { /* keep optimistic */ });
 
       setTimeout(() => { setSaved(false); setSaveDetails(null); }, 6000);
