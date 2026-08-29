@@ -1029,19 +1029,28 @@ export function EventMemberView() {
           }
           if (!attendeeCount) attendeeCount = 1;
 
-          // Detect Pooja registrations — their eventId equals the seva's own numeric id (not a community
+          // Detect Pooja and Meal registrations — their eventId equals the seva/meal's own numeric id (not a community
           // event id). If a community event shares that number (e.g. an old completed event), the lookup
-          // would wrongly mark the Pooja pass as EXPIRED/CLOSED. Skip community-event cross-reference
-          // for Pooja; their expiry is already handled by the slot date (r.eventDate) below.
+          // would wrongly mark the pass as EXPIRED/CLOSED. Skip community-event cross-reference
+          // for Pooja & Meals; their expiry is already handled by the slot date (r.eventDate) below.
           const isPooja = r.category === "Pooja" ||
                           String(r.passType || "").toLowerCase().includes("pooja") ||
                           String(r.activityId || "").startsWith("pooja-");
 
+          const isFood = r.category === "Food" ||
+                         r.category === "Meal" ||
+                         String(r.passType || "").toLowerCase().includes("meal") ||
+                         String(r.passType || "").toLowerCase().includes("food") ||
+                         String(r.activityId || "").startsWith("meal-") ||
+                         String(r.activityId || "").startsWith("food-") ||
+                         String(r.activityTitle || "").toLowerCase().includes("lunch") ||
+                         String(r.activityTitle || "").toLowerCase().includes("dinner");
+
           // Cross-reference parent event
-          const parentEvent = (r.mainEventId != null && !isPooja && eventsById.get(String(r.mainEventId))) ||
-                              (r.eventId != null && !isPooja && eventsById.get(String(r.eventId))) ||
-                              (r.eventName && !isPooja && eventsByTitle.get(r.eventName.trim().toLowerCase())) ||
-                              (r.activityTitle && !isPooja && eventsByTitle.get(r.activityTitle.trim().toLowerCase())) ||
+          const parentEvent = (r.mainEventId != null && !isPooja && !isFood && eventsById.get(String(r.mainEventId))) ||
+                              (r.eventId != null && !isPooja && !isFood && eventsById.get(String(r.eventId))) ||
+                              (r.eventName && !isPooja && !isFood && eventsByTitle.get(r.eventName.trim().toLowerCase())) ||
+                              (r.activityTitle && !isPooja && !isFood && eventsByTitle.get(r.activityTitle.trim().toLowerCase())) ||
                               null;
 
           const regStatusStr = String(r.status || "").toUpperCase();
@@ -1065,9 +1074,7 @@ export function EventMemberView() {
             } else if (parentEvent.startDate && !parentEvent.endDate && parentEvent.startDate < todayStr) {
               isExpired = true;
             }
-          } else if (!isPooja && r.eventDate && r.eventDate < todayStr && !r.eventDate.includes("Upcoming")) {
-            // Pooja passes must never expire by slot date alone — their slot date is a booking slot,
-            // not an event end date, and a past slot still represents an active registration.
+          } else if (!isPooja && !isFood && r.eventDate && r.eventDate < todayStr && !r.eventDate.includes("Upcoming")) {
             isExpired = true;
           }
 
@@ -3034,6 +3041,11 @@ export function EventMemberView() {
 
                         <div className="text-xs text-muted-foreground space-y-1">
                           <p>Attendee: <strong className="text-foreground">{p.participantName}</strong></p>
+                          {p.category === "Food" ? (
+                            <p>Meal Plates: <strong className="text-foreground">{p.devoteeCount} Plate{p.devoteeCount > 1 ? "s" : ""}</strong></p>
+                          ) : (
+                            p.devoteeCount > 1 && <p>Devotees: <strong className="text-foreground">{p.devoteeCount} Persons</strong></p>
+                          )}
                           {(p as any).gotram && <p>Gotram: <strong className="text-foreground">{(p as any).gotram}</strong></p>}
                           <p>Date &amp; Time: <strong className="text-foreground">{p.date} • {p.time}</strong></p>
                           <div className="flex items-center gap-2 flex-wrap pt-0.5">
