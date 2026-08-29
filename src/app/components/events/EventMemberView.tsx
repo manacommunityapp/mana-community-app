@@ -4590,14 +4590,28 @@ export function EventMemberView() {
                                   {act.fee === 0 || act.isFree ? "FREE" : `₹${act.fee}`}
                                 </span>
                                 {(() => {
-                                  if (existingPass) {
+                                  // ── Already registered checks ──
+                                  const isThisActFood =
+                                    act.category?.toLowerCase().includes("food") ||
+                                    act.category?.toLowerCase().includes("meal") ||
+                                    act.category?.toLowerCase().includes("lunch") ||
+                                    act.category?.toLowerCase().includes("dinner") ||
+                                    act.category?.toLowerCase().includes("annadanam") ||
+                                    act.category?.toLowerCase().includes("prasadam") ||
+                                    String(act.id).startsWith("meal-") ||
+                                    String(act.id).startsWith("food-");
+                                  const alreadyRegisteredMeal = isThisActFood && isFoodActivityRegistered(act);
+                                  const alreadyRegistered = Boolean(existingPass) || alreadyRegisteredMeal;
+
+                                  if (alreadyRegistered) {
                                     if (isThisActPooja) {
                                       return (
                                         <button
                                           type="button"
                                           onClick={() => {
                                             setMobileQuickActionModal(null);
-                                            handleOpenUpdateRegistration(act, existingPass);
+                                            if (existingPass) handleOpenUpdateRegistration(act, existingPass);
+                                            else setSelectedActivity(act);
                                           }}
                                           className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-amber-500"
                                           title="Reschedule your booked pooja slot"
@@ -4606,12 +4620,27 @@ export function EventMemberView() {
                                         </button>
                                       );
                                     }
+                                    if (isThisActFood) {
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setMobileQuickActionModal(null);
+                                            setSelectedActivity(act);
+                                          }}
+                                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-emerald-500"
+                                        >
+                                          <Edit3 className="w-3 h-3" /> Update Meal Reg
+                                        </button>
+                                      );
+                                    }
                                     return (
                                       <button
                                         type="button"
                                         onClick={() => {
                                           setMobileQuickActionModal(null);
-                                          handleOpenUpdateRegistration(act, existingPass);
+                                          if (existingPass) handleOpenUpdateRegistration(act, existingPass);
+                                          else setSelectedActivity(act);
                                         }}
                                         className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-emerald-500"
                                       >
@@ -4629,36 +4658,54 @@ export function EventMemberView() {
                                   }
                                   if (isClosed) {
                                     return (
-                                      <span className="px-2.5 py-1 bg-muted text-muted-foreground text-[11px] font-bold rounded-lg border border-border flex items-center gap-1 select-none">
-                                        <Clock className="w-3 h-3" /> Registration Closed
-                                      </span>
+                                      <div className="flex items-center gap-1 flex-wrap">
+                                        <span className="px-2.5 py-1 bg-muted text-muted-foreground text-[11px] font-bold rounded-lg border border-border flex items-center gap-1 select-none">
+                                          <Clock className="w-3 h-3 text-amber-500" /> Registration Closed
+                                        </span>
+                                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                          Contact Admin
+                                        </span>
+                                      </div>
                                     );
                                   }
                                   if (act.needsRegistration === false) {
-                                  return (
-                                    <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold rounded-lg border border-emerald-500/20 flex items-center gap-1 select-none">
-                                      <Sparkles className="w-3 h-3 text-emerald-500" /> Open to All
-                                    </span>
-                                  );
-                                }
-                                if (isThisActPooja && act.mainEventId) {
-
-                                  const isMainReg = isMainEventRegistered(act.mainEventId);
-                                  if (!isMainReg) {
+                                    return (
+                                      <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold rounded-lg border border-emerald-500/20 flex items-center gap-1 select-none">
+                                        <Sparkles className="w-3 h-3 text-emerald-500" /> Open to All
+                                      </span>
+                                    );
+                                  }
+                                  if (isThisActPooja && act.mainEventId) {
+                                    const isMainReg = isMainEventRegistered(act.mainEventId);
+                                    if (!isMainReg) {
+                                      return (
+                                        <button
+                                          type="button"
+                                          disabled
+                                          className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-not-allowed shadow-none"
+                                          title="Registration for the main event is mandatory before booking this Pooja Seva"
+                                        >
+                                          <Lock className="w-3 h-3 text-amber-500" /> Main Pass Required
+                                        </button>
+                                      );
+                                    }
+                                  }
+                                  if (act.category?.toLowerCase() === "auction" || Boolean(act.rawAuctionItem)) {
+                                    const isLive = act.rawAuctionItem?.status === "LIVE";
                                     return (
                                       <button
                                         type="button"
-                                        disabled
-                                        className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-not-allowed shadow-none"
-                                        title="Registration for the main event is mandatory before booking this Pooja Seva"
+                                        onClick={() => {
+                                          setSelectedActivity(act);
+                                          setMobileQuickActionModal(null);
+                                        }}
+                                        className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1"
                                       >
-                                        <Lock className="w-3 h-3 text-amber-500" /> Main Pass Required
+                                        <Gavel className="w-3 h-3" /> {isLive ? "Place Live Bid" : "View Auction"}
                                       </button>
                                     );
                                   }
-                                }
-                                if (act.category?.toLowerCase() === "auction" || Boolean(act.rawAuctionItem)) {
-                                  const isLive = act.rawAuctionItem?.status === "LIVE";
+
                                   return (
                                     <button
                                       type="button"
@@ -4666,42 +4713,12 @@ export function EventMemberView() {
                                         setSelectedActivity(act);
                                         setMobileQuickActionModal(null);
                                       }}
-                                      className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1"
+                                      className="px-2.5 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1"
                                     >
-                                      <Gavel className="w-3 h-3" /> {isLive ? "Place Live Bid" : "View Auction"}
+                                      <Ticket className="w-3 h-3" /> Book / Register
                                     </button>
                                   );
-                                }
-
-                                const isThisActFood = act.category?.toLowerCase().includes("food") || act.category?.toLowerCase().includes("meal") || String(act.id).startsWith("meal-") || String(act.id).startsWith("food-");
-                                if (isThisActFood && isFoodActivityRegistered(act)) {
-                                  return (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setSelectedActivity(act);
-                                        setMobileQuickActionModal(null);
-                                      }}
-                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-emerald-500"
-                                    >
-                                      <Edit3 className="w-3 h-3" /> Update Registration
-                                    </button>
-                                  );
-                                }
-
-                                return (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedActivity(act);
-                                      setMobileQuickActionModal(null);
-                                    }}
-                                    className="px-2.5 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1"
-                                  >
-                                    <Ticket className="w-3 h-3" /> Book / Register
-                                  </button>
-                                );
-                              })()}
+                                })()}
                             </div>
                           </div>
                         </div>
