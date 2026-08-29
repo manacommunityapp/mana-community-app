@@ -43,8 +43,11 @@ export const sportsService = {
   /** GET /api/sports/events/all — list of all events (from sports_event table via SportsController) */
   async getAllEvents(includeInactive = false): Promise<SportsEvent[]> {
     const suffix = includeInactive ? "?includeInactive=true" : "";
-    return apiClient.get<SportsEvent[]>(`/sports/events/all${suffix}`)
-      .then((res: any) => res.map((x: any) => sportsEventService.mapEvent(x)));
+    return apiClient.get<any>(`/sports/events/all${suffix}`)
+      .then((res: any) => {
+        const items = Array.isArray(res) ? res : Array.isArray(res?.content) ? res.content : [];
+        return items.map((x: any) => sportsEventService.mapEvent(x));
+      });
   },
 
   /** GET /api/tournaments/community?communityId= — all tournaments for a community (via TournamentController) */
