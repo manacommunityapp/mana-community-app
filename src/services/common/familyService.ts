@@ -133,7 +133,25 @@ function persistMembers(members: FamilyMember[], notify = true): void {
   }
 }
 
+export interface FamilyMemberSlim {
+  id: number;
+  name: string;
+  gothram?: string;
+  relation?: string;
+  phone?: string;
+  gender?: string;
+}
+
 export const familyService = {
+  /**
+   * Get slim family member data (name + gothram only) for use in Pooja registration.
+   * Called lazily on step 2, not on modal open.
+   */
+  async getSlimFamilyMembers(userId?: number): Promise<FamilyMemberSlim[]> {
+    const url = userId ? `/users/family-members/slim?userId=${userId}` : "/users/family-members/slim";
+    return apiClient.get<FamilyMemberSlim[]>(url);
+  },
+
   /**
    * Get all family members for the current user, ALWAYS including Self (Head) as the first entry.
    * Tries backend API first with fallback to synchronized local repository.

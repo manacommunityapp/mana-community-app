@@ -841,6 +841,10 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         try {
           if (regPayload.category?.toLowerCase() === "pooja" || (event?.category && String(event.category).toLowerCase().includes("pooja"))) {
             await eventService.createPoojaRegistration(regPayload as any);
+          } else if (regPayload.category?.toLowerCase() === "cultural" || (event?.category && String(event.category).toLowerCase().includes("cult"))) {
+            await eventService.createCulturalRegistration(regPayload as any);
+          } else if (regPayload.category?.toLowerCase() === "meal" || (event?.category && String(event.category).toLowerCase().includes("meal"))) {
+            await eventService.createMealRegistration(regPayload as any);
           } else {
             await eventService.createRegistration(regPayload);
           }

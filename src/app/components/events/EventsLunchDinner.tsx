@@ -75,7 +75,8 @@ export function EventsLunchDinner() {
   const { useMock } = useEventMock();
   const { user: authUser } = useAuth();
   const [meals, setMeals] = useState<LunchDinner[]>([]);
-  const [registrations, setRegistrations] = useState<BookingRegistration[]>([]);
+  const [mealRegsMap, setMealRegsMap] = useState<Record<number, BookingRegistration[]>>({});
+  const [loadingMealRegs, setLoadingMealRegs] = useState<Record<number, boolean>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [events, setEvents] = useState<EventResponse[]>([]);
@@ -91,36 +92,30 @@ export function EventsLunchDinner() {
   const [showRsvpModal, setShowRsvpModal] = useState(false);
   const [rsvpMeal, setRsvpMeal] = useState<LunchDinner | null>(null);
 
-  useEffect(() => {
-    eventService.getAll().then((data) => setEvents(data || [])).catch(() => {});
-  }, []);
-
   const loadData = () => {
     if (useMock) return;
     setLoading(true);
     setError("");
-    Promise.all([eventService.getLunchDinners(), eventService.getAllRegistrations()])
-      .then(([m, regs]) => {
-        setMeals(m || []);
-        const mealRegs = (regs || [])
-          .filter((r: any) => {
-            const regStatus = String(r.status || "").toUpperCase();
-            if (regStatus === "CANCELLED" || regStatus === "REJECTED") return false;
-            if (String(r.eventStatus || "").toUpperCase() === "CANCELLED") return false;
-            return r.category === "Meal" || r.category === "Food" || r.category === "Prasadam" || r.activityId?.startsWith("meal-") || r.activityId?.startsWith("food-");
-          })
-          .map((r: any) => {
-            let count = Number(r.devoteeCount ?? r.membersCount ?? 0);
-            if (!count && r.membersJson) {
-              try {
-                const parsed = JSON.parse(r.membersJson);
-                if (Array.isArray(parsed) && parsed.length > 0) count = parsed.length;
-              } catch {}
-            }
-            if (!count) count = 1;
-            return { ...r, devoteeCount: count };
-          });
-        setRegistrations(mealRegs);
+
+    // Fetch parent community events for filtering and dropdown
+    eventService.getAllEvents()
+      .then((evts) => {
+        if (Array.isArray(evts)) setEvents(evts);
+      })
+      .catch(() => {
+        eventService.getAll().then((evts) => {
+          if (Array.isArray(evts)) setEvents(evts);
+        }).catch(() => {});
+      });
+
+    eventService.getLunchDinnerSummaries()
+      .then((m) => {
+        setMeals(Array.isArray(m) ? m : []);
+      })
+      .catch(() => {
+        return eventService.getLunchDinners().then((m) => {
+          setMeals(Array.isArray(m) ? m : []);
+        });
       })
       .catch((e) => setError(e?.message || "Failed to load meal data"))
       .finally(() => setLoading(false));
@@ -149,8 +144,27 @@ export function EventsLunchDinner() {
     });
   }, [meals, selectedEventId, selectedEvent]);
 
-  const getRegsForMeal = (meal: LunchDinner) =>
-    registrations.filter((r) => r.activityId === `meal-${meal.id}` || r.activityId === `food-${meal.id}` || r.activityId === String(meal.id) || r.activityTitle === meal.name);
+  const getRegsForMeal = (meal: LunchDinner) => mealRegsMap[meal.id] || [];
+
+  const toggleExpandMeal = async (mealId: number) => {
+    if (expandedMealId === mealId) {
+      setExpandedMealId(null);
+      return;
+    }
+    setExpandedMealId(mealId);
+    if (!mealRegsMap[mealId] && !useMock) {
+      setLoadingMealRegs((prev) => ({ ...prev, [mealId]: true }));
+      try {
+        const regs = await eventService.getLunchDinnerRegistrations(mealId);
+        setMealRegsMap((prev) => ({ ...prev, [mealId]: Array.isArray(regs) ? regs : [] }));
+      } catch (err) {
+        console.warn("Failed to fetch meal registrations:", err);
+        setMealRegsMap((prev) => ({ ...prev, [mealId]: [] }));
+      } finally {
+        setLoadingMealRegs((prev) => ({ ...prev, [mealId]: false }));
+      }
+    }
+  };
 
   const set = (k: string, v: any) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -162,7 +176,7 @@ export function EventsLunchDinner() {
     setShowModal(true);
   };
 
-  const openEdit = (m: LunchDinner) => {
+  const openEdit = async (m: LunchDinner) => {
     setEditingId(m.id);
     setForm({
       mainEventId: m.mainEventId ? String(m.mainEventId) : (selectedEventId !== "all" ? selectedEventId : ""),
@@ -174,11 +188,53 @@ export function EventsLunchDinner() {
       menuItems: m.menuItems?.length ? m.menuItems : ["Rice"], notes: m.notes || "",
     });
     setShowModal(true);
+
+    // Fetch full meal configuration from database on demand for edit modal
+    if (!useMock && m.id) {
+      try {
+        const fullMeal = await eventService.getLunchDinnerById(m.id);
+        if (fullMeal) {
+          setForm((prev) => ({
+            ...prev,
+            mainEventId: fullMeal.mainEventId ? String(fullMeal.mainEventId) : prev.mainEventId,
+            name: fullMeal.name || prev.name,
+            mealType: fullMeal.mealType || prev.mealType,
+            date: fullMeal.date || prev.date,
+            startTime: fullMeal.startTime || prev.startTime,
+            endTime: fullMeal.endTime || prev.endTime,
+            venue: fullMeal.venue || prev.venue,
+            targetPlates: fullMeal.targetPlates !== undefined ? String(fullMeal.targetPlates) : prev.targetPlates,
+            caterer: fullMeal.caterer || prev.caterer,
+            dietType: fullMeal.dietType || prev.dietType,
+            fee: fullMeal.fee !== undefined ? String(fullMeal.fee) : prev.fee,
+            isFree: fullMeal.isFree ?? prev.isFree,
+            menuItems: fullMeal.menuItems?.length ? fullMeal.menuItems : prev.menuItems,
+            notes: fullMeal.notes || prev.notes,
+          }));
+        }
+      } catch (err) {
+        console.warn("Failed to fetch full meal details for edit:", err);
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim() || !form.date) { setFormError("Name and Date are required"); return; }
+
+    // Validate date is within selected parent event's start & end dates
+    if (form.mainEventId) {
+      const parentEv = events.find((x) => String(x.id) === String(form.mainEventId));
+      if (parentEv && parentEv.startDate) {
+        const minD = parentEv.startDate;
+        const maxD = parentEv.endDate || parentEv.startDate;
+        if (form.date < minD || form.date > maxD) {
+          setFormError(`Meal date (${form.date}) must be between parent event start (${minD}) and end (${maxD}) dates.`);
+          return;
+        }
+      }
+    }
+
     const payload = {
       mainEventId: form.mainEventId ? Number(form.mainEventId) : undefined,
       name: form.name.trim(), mealType: form.mealType, date: form.date,
@@ -217,10 +273,18 @@ export function EventsLunchDinner() {
     setShowRsvpModal(true);
   };
 
-  const exportMealCsv = (meal: LunchDinner) => {
-    const regs = getRegsForMeal(meal);
+  const exportMealCsv = async (meal: LunchDinner) => {
+    let regs = mealRegsMap[meal.id];
+    if (!regs && !useMock) {
+      try {
+        regs = await eventService.getLunchDinnerRegistrations(meal.id);
+      } catch {
+        regs = [];
+      }
+    }
+    const safeRegs = Array.isArray(regs) ? regs : [];
     const headers = ["Reg Code", "Guest Name", "Phone", "Devotee Count", "Fee", "Status"];
-    const rows = regs.map((r) => [r.regCode, r.participantName, r.phone || "", r.devoteeCount, r.bookingFee, r.status]);
+    const rows = safeRegs.map((r) => [r.regCode, r.participantName, r.phone || "", r.devoteeCount, r.bookingFee, r.status]);
     const csv = [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -235,9 +299,8 @@ export function EventsLunchDinner() {
   const updateMenuItem = (i: number, v: string) => { const n = [...form.menuItems]; n[i] = v; set("menuItems", n); };
 
   const totalPlates = filteredMeals.reduce((a, m) => a + (m.targetPlates || 0), 0);
-  const relevantRegs = registrations.filter((r) => filteredMeals.some((m) => r.activityId === `meal-${m.id}` || r.activityTitle === m.name));
-  const totalRegs = relevantRegs.length;
-  const totalHeadcount = relevantRegs.reduce((a, r) => a + (r.devoteeCount || 1), 0);
+  const totalRegs = filteredMeals.reduce((a, m) => a + Number((m as any).bookedCount || (mealRegsMap[m.id]?.length || 0)), 0);
+  const totalHeadcount = filteredMeals.reduce((a, m) => a + Number((m as any).attendeeHeadcount || (mealRegsMap[m.id]?.reduce((sum, r) => sum + (r.devoteeCount || 1), 0) || 0)), 0);
 
   const mealIcon = (type: string) => (type === "Breakfast" ? "🌅" : type === "Lunch" ? "☀️" : type === "Dinner" ? "🌙" : type === "Prasadam" ? "🙏" : "🍽️");
 
@@ -474,11 +537,11 @@ export function EventsLunchDinner() {
                 {/* Expand registrations trigger */}
                 <div className="mt-3 pt-2 border-t border-slate-50 flex items-center justify-between gap-2 flex-wrap">
                   <button
-                    onClick={() => setExpandedMealId(isExpanded ? null : meal.id)}
+                    onClick={() => toggleExpandMeal(meal.id)}
                     className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors py-1 px-2 rounded-lg hover:bg-indigo-50 cursor-pointer"
                   >
                     <Users className="w-3.5 h-3.5" />
-                    {regs.length} Registration{regs.length !== 1 ? "s" : ""} ({headcount} attendee{headcount !== 1 ? "s" : ""})
+                    {Number((meal as any).bookedCount ?? regs.length)} Registration{Number((meal as any).bookedCount ?? regs.length) !== 1 ? "s" : ""} ({Number((meal as any).attendeeHeadcount ?? headcount)} attendee{Number((meal as any).attendeeHeadcount ?? headcount) !== 1 ? "s" : ""})
                     {isExpanded ? <ChevronUp className="w-3.5 h-3.5 ml-0.5" /> : <ChevronDown className="w-3.5 h-3.5 ml-0.5" />}
                   </button>
 
@@ -497,7 +560,12 @@ export function EventsLunchDinner() {
               {/* Expandable registered attendees table */}
               {isExpanded && (
                 <div className="border-t border-slate-100 bg-slate-50/40">
-                  {regs.length === 0 ? (
+                  {loadingMealRegs[meal.id] ? (
+                    <div className="px-6 py-6 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                      Loading meal attendees from database...
+                    </div>
+                  ) : regs.length === 0 ? (
                     <div className="px-6 py-6 text-center text-sm text-slate-400">
                       <p>No devotee registrations recorded yet for this meal.</p>
                       <button
@@ -635,7 +703,7 @@ export function EventsLunchDinner() {
               )}
 
               {/* Parent event selection */}
-              {!useMock && events.length > 0 && (
+              {!useMock && (
                 <div>
                   <label className="flex flex-col gap-1">
                     <span className="text-xs font-semibold text-slate-700">Parent Community Event</span>
@@ -697,16 +765,32 @@ export function EventsLunchDinner() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-slate-700">Date *</span>
-                  <input
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => set("date", e.target.value)}
-                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
-                    required
-                  />
-                </label>
+                {(() => {
+                  const parentEv = events.find((x) => String(x.id) === String(form.mainEventId));
+                  const minDate = parentEv?.startDate || undefined;
+                  const maxDate = parentEv?.endDate || parentEv?.startDate || undefined;
+                  return (
+                    <label className="flex flex-col gap-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-slate-700">Date *</span>
+                        {minDate && (
+                          <span className="text-[10px] text-orange-600 font-medium">
+                            Allowed: {minDate} to {maxDate}
+                          </span>
+                        )}
+                      </div>
+                      <input
+                        type="date"
+                        value={form.date}
+                        min={minDate}
+                        max={maxDate}
+                        onChange={(e) => set("date", e.target.value)}
+                        className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                        required
+                      />
+                    </label>
+                  );
+                })()}
                 <div className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-700">Start Time</span>
                   <TimePicker value={form.startTime} onChange={(v) => set("startTime", v)} />

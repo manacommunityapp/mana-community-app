@@ -244,7 +244,7 @@ export function EventsPoojaSeva() {
     setError("");
     Promise.all([
       eventService.getPoojaSevas().catch(() => []),
-      eventService.getAllRegistrations().catch(() => []),
+      eventService.getPoojaRegistrationSummaries().catch(() => eventService.getPoojaRegistrations().catch(() => [])),
       eventService.getPoojaTypes().catch(() => []),
     ])
       .then(([sevas, regs, types]) => {
@@ -259,21 +259,8 @@ export function EventsPoojaSeva() {
         const poojaRegs = safeRegs
           .filter((r: any) => {
             if (!r) return false;
-            const cat = String(r.category || "").toLowerCase();
-            const actId = String(r.activityId || "");
-            const title = String(r.activityTitle || r.poojaSlotName || r.eventName || "").toLowerCase().trim();
-            return (
-              cat === "pooja" ||
-              cat === "seva" ||
-              cat.includes("pooja") ||
-              cat.includes("seva") ||
-              actId.startsWith("pooja-") ||
-              Boolean(r.poojaSlotName) ||
-              Boolean(r.poojaSevaId) ||
-              Boolean(r.poojaId) ||
-              Boolean(r.poojaSevaTimeSlotsId) ||
-              safeSevas.some((s: any) => s.name && s.name.toLowerCase().trim() === title)
-            );
+            const regPoojaId = r.poojaId ?? r.poojaSevaId ?? r.pooja_id ?? r.pooja_seva_id;
+            return regPoojaId != null || r.poojaSevaTimeSlotsId != null;
           })
           .map((r: any) => {
             let count = Number(r.devoteeCount ?? r.membersCount ?? 0);
@@ -284,8 +271,11 @@ export function EventsPoojaSeva() {
               } catch {}
             }
             if (!count) count = 1;
+            const pId = r.poojaId ?? r.poojaSevaId ?? r.pooja_id ?? r.pooja_seva_id;
             return {
               ...r,
+              poojaId: pId,
+              poojaSevaId: pId,
               devoteeCount: count,
               status: String(r.status || "CONFIRMED").toUpperCase(),
               paymentStatus: String(r.paymentStatus || "PAID").toUpperCase(),
@@ -319,24 +309,19 @@ export function EventsPoojaSeva() {
   const matchesPooja = (r: BookingRegistration, pooja: PoojaSeva): boolean => {
     if (!r || !pooja) return false;
     const poojaIdStr = String(pooja.id ?? "").trim();
-    const poojaName = (pooja.name || "").trim().toLowerCase();
 
-    // 1. Direct ID matching
-    if (r.activityId === `pooja-${poojaIdStr}` || String(r.activityId) === poojaIdStr) return true;
-    if (r.poojaId != null && String(r.poojaId) === poojaIdStr) return true;
-    if (r.poojaSevaId != null && String(r.poojaSevaId) === poojaIdStr) return true;
-    if (r.scheduleId != null && String(r.scheduleId) === poojaIdStr) return true;
-    if ((r as any).eventId != null && String((r as any).eventId) === poojaIdStr) return true;
+    // 1. Direct pooja ID matching (strictly ignore activityId string)
+    const regPoojaId = r.poojaId ?? r.poojaSevaId ?? (r as any).pooja_id ?? (r as any).pooja_seva_id;
+    if (regPoojaId != null && String(regPoojaId).trim() === poojaIdStr) return true;
 
-    // 2. Title / Name matching (case-insensitive & trimmed)
-    const actTitle = (r.activityTitle || "").trim().toLowerCase();
-    const slotName = (r.poojaSlotName || "").trim().toLowerCase();
-    const evName = ((r as any).eventName || "").trim().toLowerCase();
-    if (poojaName && (actTitle === poojaName || slotName === poojaName || evName === poojaName)) return true;
-
-    // 3. Time slot ID matching
+    // 2. Time slot ID matching (under this specific pooja)
     if (r.poojaSevaTimeSlotsId && Array.isArray(pooja.timeSlotConfig)) {
       if (pooja.timeSlotConfig.some(ts => ts.id != null && String(ts.id) === String(r.poojaSevaTimeSlotsId))) {
+        return true;
+      }
+    }
+    if (r.scheduleId && Array.isArray(pooja.timeSlotConfig)) {
+      if (pooja.timeSlotConfig.some(ts => ts.id != null && String(ts.id) === String(r.scheduleId))) {
         return true;
       }
     }
@@ -670,7 +655,7 @@ export function EventsPoojaSeva() {
       ...emptyRegForm,
       eventDate: pooja.date,
       eventTime: pooja.startTimes?.[0] || pooja.startTime || "08:30 AM",
-      venue: pooja.mandap || "Main Temple Mandap",
+      venue: pooja.mandap || "",
       bookingFee: pooja.isFree ? 0 : Number(pooja.fee || 0),
       paymentStatus: pooja.isFree ? "FREE" : "PAID",
       status: "CONFIRMED",
@@ -680,7 +665,7 @@ export function EventsPoojaSeva() {
     fetchRegSchedules(pooja);
   };
 
-  const handleOpenEditReg = (pooja: PoojaSeva, reg: BookingRegistration) => {
+  const handleOpenEditReg = async (pooja: PoojaSeva, reg: BookingRegistration) => {
     setSelectedPoojaForReg(pooja);
     setEditingReg(reg);
     setRegSelectedScheduleId(reg.scheduleId ?? null);
@@ -693,17 +678,49 @@ export function EventsPoojaSeva() {
       email: reg.email || "",
       eventDate: reg.poojaSlotDate || reg.eventDate || pooja.date,
       eventTime: reg.poojaSlotTime || reg.eventTime || pooja.startTimes?.[0] || pooja.startTime || "",
-      venue: reg.venue || pooja.mandap || "Main Temple Mandap",
+      venue: reg.venue || pooja.mandap || "",
       bookingFee: Number(reg.bookingFee || 0),
       paymentStatus: reg.paymentStatus || "PAID",
       status: reg.status || "CONFIRMED",
       notes: reg.notes || "",
-      overrideReason: "",
+      overrideReason: (reg as any).overrideReason || "",
       targetUserId: undefined,
     });
     setRegFormError("");
     setShowRegModal(true);
     fetchRegSchedules(pooja);
+
+    // Fetch full registration details specifically for editing from database on-demand
+    if (!useMock && reg.id) {
+      try {
+        const fullReg = await eventService.getPoojaRegistrationById(reg.id);
+        if (fullReg) {
+          setEditingReg((prev) => (prev ? { ...prev, ...fullReg } : fullReg));
+          if (fullReg.scheduleId !== undefined) {
+            setRegSelectedScheduleId(fullReg.scheduleId ?? null);
+          }
+          setRegForm((prev) => ({
+            ...prev,
+            participantName: fullReg.participantName || prev.participantName,
+            attendingDevotees: fullReg.attendingDevotees || prev.attendingDevotees,
+            gotram: fullReg.gotram || prev.gotram,
+            devoteeCount: fullReg.devoteeCount || prev.devoteeCount,
+            phone: fullReg.phone || prev.phone,
+            email: fullReg.email || prev.email,
+            eventDate: fullReg.poojaSlotDate || fullReg.eventDate || prev.eventDate,
+            eventTime: fullReg.poojaSlotTime || fullReg.eventTime || prev.eventTime,
+            venue: fullReg.venue || prev.venue,
+            bookingFee: fullReg.bookingFee !== undefined ? Number(fullReg.bookingFee) : prev.bookingFee,
+            paymentStatus: fullReg.paymentStatus || prev.paymentStatus,
+            status: fullReg.status || prev.status,
+            notes: fullReg.notes || prev.notes,
+            overrideReason: fullReg.overrideReason || prev.overrideReason,
+          }));
+        }
+      } catch (err) {
+        console.warn("Failed to fetch full registration details for edit:", err);
+      }
+    }
   };
 
   const handleUserSearch = async (q: string) => {
@@ -751,7 +768,7 @@ export function EventsPoojaSeva() {
       devoteeCount: Math.max(1, Number(regForm.devoteeCount) || 1),
       phone: regForm.phone.trim() || undefined,
       email: regForm.email.trim() || undefined,
-      venue: regForm.venue || selectedPoojaForReg.mandap || "Main Temple Mandap",
+      venue: regForm.venue || selectedPoojaForReg.mandap || "",
       bookingFee: Number(regForm.bookingFee) || 0,
       paymentStatus: regForm.paymentStatus,
       status: regForm.status,
@@ -793,6 +810,8 @@ export function EventsPoojaSeva() {
               id: created.id || Date.now(),
               regCode: created.regCode || `POOJA-${created.id || 'REG'}`,
               ...payload,
+              poojaId: created.poojaId ?? created.poojaSevaId ?? selectedPoojaForReg.id,
+              poojaSevaId: created.poojaSevaId ?? created.poojaId ?? selectedPoojaForReg.id,
               // Ensure backend-returned fields override the payload so matchesPooja works post-create
               poojaSlotName: created.poojaSlotName || payload.poojaSlotName,
               poojaSlotDate: created.poojaSlotDate || payload.poojaSlotDate,
@@ -1768,9 +1787,13 @@ export function EventsPoojaSeva() {
                                 setSelectedTargetUser(u);
                                 setUserSearchQuery("");
                                 setUserSearchResults([]);
-                                if (!regForm.participantName) {
-                                  setRegForm(prev => ({ ...prev, participantName: u.fullName || u.name || "" }));
-                                }
+                                setRegForm(prev => ({
+                                  ...prev,
+                                  participantName: u.fullName || u.name || "",
+                                  phone: u.phone || (u as any).mobile || prev.phone,
+                                  email: u.email || prev.email,
+                                  gotram: (u as any).gotram || "",
+                                }));
                               }}
                               className="w-full text-left px-3 py-2 hover:bg-amber-50 text-sm cursor-pointer"
                             >
@@ -2405,7 +2428,7 @@ export function EventsPoojaSeva() {
                   <span className="text-xs font-semibold text-slate-600">Mandap / Venue</span>
                   <input type="text" value={poojaForm.mandap} onChange={e => set("mandap", e.target.value)}
                     className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
-                    placeholder="Main Temple Mandap" />
+                    placeholder="Enter Mandap / Venue" />
                 </label>
                 <label className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-600">Pandit / Priest</span>

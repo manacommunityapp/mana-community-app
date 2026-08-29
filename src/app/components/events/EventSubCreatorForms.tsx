@@ -440,7 +440,7 @@ export function PoojaSevaSection() {
         ? `${validStartTimes.join(", ")} (${form.duration || 60}m)`
         : primaryStartTime ? `${primaryStartTime} (${form.duration || 60}m)` : "Morning",
       startTime: primaryStartTime,
-      venue: form.mandap || "Main Temple Mandap",
+      venue: form.mandap || "",
       fee: form.isFree ? 0 : Number(form.fee || 501),
       isFree: Boolean(form.isFree),
       availableSeats: calculatedTotalSlots,

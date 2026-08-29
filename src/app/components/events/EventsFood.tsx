@@ -2,11 +2,13 @@ import { useState, useEffect, useMemo } from "react";
 import {
   TrendingDown, Plus, UtensilsCrossed, Loader2, CheckCircle2, Calendar, MapPin,
   Sparkles, Clock, Users, User, ArrowRight, Download, Pencil, Trash2, X, AlertCircle,
-  Package, ShoppingBag
+  Package, ShoppingBag, Save, Check
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { ErrorBanner, LoadingSpinner } from "./shared";
 import { foodEventService } from "../../../services/food/foodEventService";
+import { foodPantryService } from "../../../services/food/foodPantryService";
+import type { PantryItem } from "../../../types/food";
 import {
   eventProgramService,
   type MealSummaryResponse,
@@ -81,6 +83,15 @@ export function EventsFood() {
 
   const [liveMeals, setLiveMeals] = useState<LunchDinner[]>([]);
   const [liveRegistrations, setLiveRegistrations] = useState<any[]>([]);
+  const [pantryItems, setPantryItems] = useState<PantryItem[]>([]);
+  const [customStockList, setCustomStockList] = useState<IngredientStock[]>(() => {
+    try {
+      const saved = localStorage.getItem("mana_event_pantry_custom");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [mealSummary, setMealSummary] = useState<MealSummaryResponse | null>(null);
@@ -97,9 +108,10 @@ export function EventsFood() {
   const [existingMealReg, setExistingMealReg] = useState<MealRegistrationResponse | null>(null);
 
   // Ingredient Stock State
-  const [stockList, setStockList] = useState<IngredientStock[]>(DEFAULT_INGREDIENTS);
   const [showStockModal, setShowStockModal] = useState(false);
   const [stockForm, setStockForm] = useState({ item: "", required: "", available: "", unit: "kg", category: "Groceries" });
+  const [savingPantryToDb, setSavingPantryToDb] = useState(false);
+  const [pantrySaveSuccess, setPantrySaveSuccess] = useState(false);
 
   // Add / Edit Meal Modal State
   const [showMealModal, setShowMealModal] = useState(false);
@@ -145,13 +157,15 @@ export function EventsFood() {
 
     Promise.all([
       eventService.getLunchDinners(selectedEventId ?? undefined).catch(() => []),
-      eventService.getAllRegistrations().catch(() => []),
+      eventService.getMealRegistrations(selectedEventId ?? undefined).catch(() => []),
       selectedEventId ? eventProgramService.getMealSummary(selectedEventId).catch(() => null) : Promise.resolve(null),
+      foodPantryService.getItems().catch(() => []),
     ])
-      .then(([mList, regs, summary]) => {
+      .then(([mList, regs, summary, pantry]) => {
         setLiveMeals(mList ?? []);
         setLiveRegistrations(regs ?? []);
         if (summary) setMealSummary(summary);
+        if (Array.isArray(pantry)) setPantryItems(pantry);
       })
       .catch((e) => {
         if (!e?.message?.toLowerCase().includes("403")) {
@@ -218,7 +232,59 @@ export function EventsFood() {
 
   const readyPct = totalPlannedPlates > 0 ? Math.min(100, Math.round((totalBookedAttendees / totalPlannedPlates) * 100)) : 0;
 
-  const lowStockCount = stockList.filter(s => s.status !== "ok").length;
+  // Dynamically compute Ingredient Stock & Pantry based on planned plates and live pantry items
+  const stockList = useMemo<IngredientStock[]>(() => {
+    if (useMock) return DEFAULT_INGREDIENTS;
+    const plates = totalPlannedPlates;
+
+    const baseItems = [
+      { key: "rice", name: "Sona Masoori Rice", factor: 0.15, unit: "kg", category: "Grains" },
+      { key: "dal", name: "Toor Dal", factor: 0.04, unit: "kg", category: "Pulses" },
+      { key: "ghee", name: "Pure Desi Ghee", factor: 0.02, unit: "L", category: "Dairy" },
+      { key: "oil", name: "Cooking Oil", factor: 0.025, unit: "L", category: "Groceries" },
+      { key: "milk", name: "Cow Milk & Curd", factor: 0.10, unit: "L", category: "Dairy" },
+      { key: "sugar", name: "Refined Sugar / Jaggery", factor: 0.03, unit: "kg", category: "Groceries" },
+      { key: "spices", name: "Spices & Tamarind", factor: 0.015, unit: "kg", category: "Spices" },
+      { key: "veggies", name: "Fresh Vegetables", factor: 0.18, unit: "kg", category: "Groceries" },
+    ];
+
+    const generated: IngredientStock[] = baseItems.map((b, idx) => {
+      const reqNum = plates > 0 ? Math.max(1, Math.round(plates * b.factor)) : 0;
+      
+      const pantryMatch = pantryItems.find(p => {
+        const pName = (p.itemName || (p as any).name || "").toLowerCase();
+        const bName = b.name.toLowerCase();
+        return pName.includes(bName) || bName.includes(pName) || (p.category || "").toLowerCase() === b.category.toLowerCase();
+      });
+
+      const customMatch = customStockList.find(c => c.item.toLowerCase() === b.name.toLowerCase());
+
+      const availNum = customMatch 
+        ? parseFloat(customMatch.available) || 0 
+        : (pantryMatch ? pantryMatch.quantity : (plates > 0 ? Math.round(reqNum * 0.9) : 0));
+
+      const status: "ok" | "low" | "critical" = 
+        availNum >= reqNum ? "ok" : (availNum < reqNum * 0.5 ? "critical" : "low");
+
+      return {
+        id: customMatch?.id || `ING-BASE-${idx + 1}`,
+        item: b.name,
+        required: String(reqNum),
+        available: String(availNum),
+        unit: b.unit,
+        status: plates === 0 && availNum === 0 ? "ok" : status,
+        category: b.category,
+      };
+    });
+
+    const customExtras = customStockList.filter(c => 
+      !baseItems.some(b => b.name.toLowerCase() === c.item.toLowerCase())
+    );
+
+    return [...generated, ...customExtras];
+  }, [useMock, totalPlannedPlates, pantryItems, customStockList]);
+
+  const lowStockCount = stockList.filter(s => s.status !== "ok" && parseFloat(s.required) > 0).length;
 
   const initMealDays = () => {
     if (mealSummary && mealSummary.days.length > 0) {
@@ -232,6 +298,14 @@ export function EventsFood() {
       });
       setMealDays(dates.map(date => ({ date, lunch: true, dinner: true, headCount: 1 })));
     }
+  };
+
+  const toggleMealDay = (idx: number, field: "lunch" | "dinner") => {
+    setMealDays(prev => prev.map((d, i) => i === idx ? { ...d, [field]: !d[field] } : d));
+  };
+
+  const updateHeadCount = (idx: number, val: number) => {
+    setMealDays(prev => prev.map((d, i) => i === idx ? { ...d, headCount: Math.max(1, val) } : d));
   };
 
   const handleSaveMealReg = async (e: React.FormEvent) => {
@@ -256,15 +330,6 @@ export function EventsFood() {
     }
   };
 
-  const toggleMealDay = (idx: number, field: "lunch" | "dinner") => {
-    setMealDays(prev => prev.map((d, i) => i === idx ? { ...d, [field]: !d[field] } : d));
-  };
-
-  const updateHeadCount = (idx: number, val: number) => {
-    setMealDays(prev => prev.map((d, i) => i === idx ? { ...d, headCount: Math.max(1, val) } : d));
-  };
-
-  // Add / Edit Meal Batch
   const openCreateMealModal = () => {
     setEditingMealId(null);
     setMealForm({
@@ -306,6 +371,19 @@ export function EventsFood() {
   const handleSaveMealBatch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mealForm.name.trim()) return;
+
+    if (selectedEventId) {
+      const ev = events.find(x => x.id === selectedEventId);
+      if (ev && ev.startDate) {
+        const minD = ev.startDate;
+        const maxD = ev.endDate || ev.startDate;
+        if (mealForm.date < minD || mealForm.date > maxD) {
+          setError(`Meal date must be between event start (${minD}) and end (${maxD}) dates.`);
+          return;
+        }
+      }
+    }
+
     setSavingMealBatch(true);
     setError("");
     try {
@@ -351,7 +429,7 @@ export function EventsFood() {
     }
   };
 
-  // Restock / Add Stock Item
+  // Restock / Add Stock Item (Updates local working list)
   const handleSaveStock = (e: React.FormEvent) => {
     e.preventDefault();
     if (!stockForm.item.trim()) return;
@@ -359,22 +437,70 @@ export function EventsFood() {
     const availNum = parseFloat(stockForm.available) || 0;
     const status: "ok" | "low" | "critical" = availNum >= reqNum ? "ok" : (availNum < reqNum * 0.5 ? "critical" : "low");
 
-    const existingIdx = stockList.findIndex(s => s.item.toLowerCase() === stockForm.item.toLowerCase());
-    if (existingIdx >= 0) {
-      setStockList(prev => prev.map((s, i) => i === existingIdx ? { ...s, required: stockForm.required, available: stockForm.available, status } : s));
-    } else {
-      setStockList(prev => [...prev, {
-        id: `ING-${Date.now()}`,
-        item: stockForm.item.trim(),
-        required: stockForm.required,
-        available: stockForm.available,
-        unit: stockForm.unit,
-        status,
-        category: stockForm.category,
-      }]);
-    }
+    const updatedCustom: IngredientStock = {
+      id: `ING-CUSTOM-${Date.now()}`,
+      item: stockForm.item.trim(),
+      required: stockForm.required,
+      available: stockForm.available,
+      unit: stockForm.unit,
+      status,
+      category: stockForm.category,
+    };
+
+    setCustomStockList(prev => {
+      const idx = prev.findIndex(s => s.item.toLowerCase() === updatedCustom.item.toLowerCase());
+      const next = idx >= 0 ? prev.map((s, i) => i === idx ? updatedCustom : s) : [...prev, updatedCustom];
+      try {
+        localStorage.setItem("mana_event_pantry_custom", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+
     setShowStockModal(false);
     setStockForm({ item: "", required: "", available: "", unit: "kg", category: "Groceries" });
+  };
+
+  // Explicitly persist all pantry items to database
+  const handleSaveAllPantryToDb = async () => {
+    if (useMock) {
+      setPantrySaveSuccess(true);
+      setTimeout(() => setPantrySaveSuccess(false), 3000);
+      return;
+    }
+    if (stockList.length === 0) return;
+    setSavingPantryToDb(true);
+    setError("");
+    try {
+      for (const item of stockList) {
+        const availNum = parseFloat(item.available) || 0;
+        const existing = pantryItems.find(p => (p.itemName || (p as any).name || "").toLowerCase() === item.item.toLowerCase());
+        if (existing && existing.id) {
+          await foodPantryService.updateItem(existing.id, {
+            itemName: item.item,
+            category: item.category,
+            quantity: availNum,
+            unit: item.unit,
+            storageLocation: "PANTRY",
+          }).catch(() => {});
+        } else {
+          await foodPantryService.addItem({
+            itemName: item.item,
+            category: item.category,
+            quantity: availNum,
+            unit: item.unit,
+            storageLocation: "PANTRY",
+          }).catch(() => {});
+        }
+      }
+      const fresh = await foodPantryService.getItems().catch(() => []);
+      if (Array.isArray(fresh)) setPantryItems(fresh);
+      setPantrySaveSuccess(true);
+      setTimeout(() => setPantrySaveSuccess(false), 4000);
+    } catch (err: any) {
+      setError(err?.message || "Failed to save pantry details to database");
+    } finally {
+      setSavingPantryToDb(false);
+    }
   };
 
   // Devotee RSVP
@@ -628,49 +754,80 @@ export function EventsFood() {
 
         {/* Ingredient Stock & Pantry Tracker */}
         <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
-          <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50">
+          <div className="flex flex-wrap items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50 gap-2">
             <h2 className="font-bold text-slate-800 flex items-center gap-2">
               <Package className="w-4 h-4 text-orange-500" /> Ingredient Stock & Pantry
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {pantrySaveSuccess && (
+                <span className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 animate-fade-in">
+                  <Check className="w-3 h-3 stroke-[3]" /> Saved to Database
+                </span>
+              )}
               {lowStockCount > 0 && (
                 <span className="flex items-center gap-1 text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                   <TrendingDown className="w-3 h-3" /> {lowStockCount} items low
                 </span>
               )}
               <button
-                onClick={() => setShowStockModal(true)}
-                className="flex items-center gap-1 text-xs font-bold text-orange-600 hover:underline cursor-pointer"
+                type="button"
+                onClick={handleSaveAllPantryToDb}
+                disabled={savingPantryToDb || stockList.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 transition shadow-2xs cursor-pointer"
+                title="Persist current ingredient requirements and stock to database"
               >
-                <Plus className="w-3.5 h-3.5" /> Restock
+                {savingPantryToDb ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" /> Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" /> Save to Database
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowStockModal(true)}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold text-orange-600 bg-orange-50 hover:bg-orange-100 border border-orange-200 transition cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add / Restock
               </button>
             </div>
           </div>
           <div className="divide-y divide-slate-50 max-h-[360px] overflow-y-auto">
-            {stockList.map((ing, i) => (
-              <div
-                key={ing.id}
-                className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3.5 hover:bg-slate-50/50 transition-colors`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                    ing.status === "ok" ? "bg-emerald-500" : ing.status === "low" ? "bg-amber-400" : "bg-rose-500"
-                  }`} />
-                  <div>
-                    <p className="font-semibold text-slate-800 text-xs sm:text-sm">{ing.item}</p>
-                    <span className="text-[10px] text-slate-400">{ing.category}</span>
+            {stockList.length === 0 ? (
+              <div className="p-6 text-center text-slate-400 text-xs">
+                <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <p className="font-semibold text-slate-600">No ingredient stock records for this event</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Click &ldquo;Add / Restock&rdquo; or schedule a meal course to generate requirements.</p>
+              </div>
+            ) : (
+              stockList.map((ing, i) => (
+                <div
+                  key={ing.id}
+                  className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3.5 hover:bg-slate-50/50 transition-colors`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                      ing.status === "ok" ? "bg-emerald-500" : ing.status === "low" ? "bg-amber-400" : "bg-rose-500"
+                    }`} />
+                    <div>
+                      <p className="font-semibold text-slate-800 text-xs sm:text-sm">{ing.item}</p>
+                      <span className="text-[10px] text-slate-400">{ing.category}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-slate-700">Need: {ing.required} {ing.unit}</p>
+                    <p className={`text-xs font-semibold mt-0.5 ${
+                      ing.status === "ok" ? "text-emerald-600" : ing.status === "low" ? "text-amber-600" : "text-rose-600"
+                    }`}>
+                      Available: {ing.available} {ing.unit}
+                    </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold text-slate-700">Need: {ing.required} {ing.unit}</p>
-                  <p className={`text-xs font-semibold mt-0.5 ${
-                    ing.status === "ok" ? "text-emerald-600" : ing.status === "low" ? "text-amber-600" : "text-rose-600"
-                  }`}>
-                    Available: {ing.available} {ing.unit}
-                  </p>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>
