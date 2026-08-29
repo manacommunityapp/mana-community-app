@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Download, Users, FileText,
   Search, Calendar, Eye, Printer, CheckCircle2,
@@ -205,6 +205,7 @@ export function EventsReports() {
   const [dateTo, setDateTo] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedRowDetails, setSelectedRowDetails] = useState<EventRegistrationReportRow | null>(null);
+  const reportReqRef = useRef(0);
 
   // ── Load Events ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -214,26 +215,27 @@ export function EventsReports() {
         setEvents(evts);
         if (evts.length > 0) { setSelectedEventId(evts[0].id); setSelectedEvent(evts[0]); }
       })
-      .catch(() => {});
+      .catch(e => setError(e?.message ?? "Failed to load events"));
   }, [useMock]);
 
   // ── Load Report & Registrations when event changes ───────────────────────────
   useEffect(() => {
     if (useMock || !selectedEventId) return;
+    const reqId = ++reportReqRef.current;
     const currentEvt = events.find(e => e.id === selectedEventId) || null;
     setSelectedEvent(currentEvt);
     setLoading(true);
     setError("");
     eventReportService.getEventReport(selectedEventId)
-      .then(r => setReport(r))
-      .catch(e => setError(e.message ?? "Failed to load report summary"))
-      .finally(() => setLoading(false));
+      .then(r => { if (reportReqRef.current === reqId) setReport(r); })
+      .catch(e => { if (reportReqRef.current === reqId) setError(e?.message ?? "Failed to load report summary"); })
+      .finally(() => { if (reportReqRef.current === reqId) setLoading(false); });
 
     setLoadingRegs(true);
     eventReportService.getRegistrationReport(selectedEventId, "all")
-      .then(rows => setRegistrations(rows))
-      .catch(e => { console.warn("Registration list error:", e); setRegistrations([]); })
-      .finally(() => setLoadingRegs(false));
+      .then(rows => { if (reportReqRef.current === reqId) setRegistrations(rows); })
+      .catch(e => { if (reportReqRef.current === reqId) { setError(e?.message ?? "Failed to load registrations"); setRegistrations([]); } })
+      .finally(() => { if (reportReqRef.current === reqId) setLoadingRegs(false); });
   }, [useMock, selectedEventId, events]);
 
   // Reset page & sub-filters when category or event changes
@@ -252,7 +254,7 @@ export function EventsReports() {
     if (tabId === "all") return true;
     const cat = r.category.toLowerCase();
     if (tabId === "pooja")     return cat.includes("pooja");
-    if (tabId === "general")   return cat.includes("general") || cat.includes("event");
+    if (tabId === "general")   return cat.includes("general") && !cat.includes("cultural") && !cat.includes("food");
     if (tabId === "activity")  return cat.includes("activity") || cat.includes("cultural") || cat.includes("competition");
     if (tabId === "meal")      return cat.includes("meal") || cat.includes("food");
     if (tabId === "volunteer") return cat.includes("volunteer");
@@ -391,24 +393,25 @@ ${dataRows}
       if (useMock || !selectedEventId) {
         rows = category === "all" ? MOCK_ROWS : MOCK_ROWS.filter(r => r.category.toLowerCase().includes(category));
       } else {
-        try {
-          if (format === "csv") {
+        if (format === "csv") {
+          try {
             const blob = await eventReportService.exportRegistrationReportCsv(selectedEventId, category);
             triggerDownload(blob, `${base}.csv`);
             setSuccessMsg(`Exported ${title} CSV`);
-            return;
+          } catch (e: any) {
+            setError(e?.message || "CSV export failed");
           }
-          rows = await eventReportService.getRegistrationReport(selectedEventId, category);
-        } catch {
-          rows = category === "all" ? registrations : registrations.filter(r => r.category.toLowerCase().includes(category));
+          return;
         }
+        // For non-CSV formats: filter the already-loaded registrations to avoid a second race
+        rows = category === "all" ? registrations : registrations.filter(r => matchesCategory(r, category));
       }
 
       if (format === "csv")        downloadCsvClientSide(rows, `${base}.csv`);
-      else if (format === "excel") downloadExcel(rows, `${base}.csv`);
+      else if (format === "excel") downloadExcel(rows, `${base}.xls`);
       else if (format === "pdf")   handlePrintRoster(title, rows);
       else if (format === "attendance") handlePrintAttendanceSheet(title, rows);
-      else if (format === "json")  downloadJson(rows, `${base}.csv`);
+      else if (format === "json")  downloadJson(rows, `${base}.json`);
 
       setSuccessMsg(`Exported ${title} (${format.toUpperCase()}) — ${rows.length} records`);
     } catch (err: unknown) {
@@ -429,8 +432,17 @@ ${dataRows}
       if (statusFilter === "free"       && r.paymentStatus === "PAID") return false;
       if (statusFilter === "checked_in" && !r.checkedIn) return false;
       if (statusFilter === "not_in"     && r.checkedIn) return false;
-      if (dateFrom && r.eventDate && r.eventDate < dateFrom) return false;
-      if (dateTo   && r.eventDate && r.eventDate > dateTo)   return false;
+      if (statusFilter === "cancelled"  && r.status?.toUpperCase() !== "CANCELLED") return false;
+      if (dateFrom && r.eventDate) {
+        const rowMs = new Date(r.eventDate).getTime();
+        const fromMs = new Date(dateFrom).getTime();
+        if (!isNaN(rowMs) && !isNaN(fromMs) && rowMs < fromMs) return false;
+      }
+      if (dateTo && r.eventDate) {
+        const rowMs = new Date(r.eventDate).getTime();
+        const toMs = new Date(dateTo + "T23:59:59").getTime();
+        if (!isNaN(rowMs) && !isNaN(toMs) && rowMs > toMs) return false;
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const fields = [r.participantName, r.regCode, r.phone, r.gotram, r.activityTitle, r.email].map(v => (v||"").toLowerCase());
@@ -453,7 +465,7 @@ ${dataRows}
     const mealCount = report?.mealRegistrationsCount ?? allSource.filter(r => r.category.toLowerCase().includes("meal") || r.category.toLowerCase().includes("food")).length;
     const volCount = report?.totalVolunteers ?? allSource.filter(r => r.category.toLowerCase().includes("volunteer")).length;
     const poojaRev = report?.poojaRevenue ?? allSource.filter(r => r.category.toLowerCase().includes("pooja")).reduce((s, r) => s + (r.bookingFee||0), 0);
-    const totalRev = report?.totalRevenue ?? poojaRev;
+    const totalRev = report?.totalRevenue ?? allSource.reduce((s, r) => s + (r.bookingFee || 0), 0);
     return {
       totalRegs: report?.totalRegistrations ?? allSource.length,
       poojaRegs: poojaCount, generalRegs: generalCount, activityRegs: actCount,
@@ -737,6 +749,7 @@ ${dataRows}
                 <option value="free">Free Entries</option>
                 <option value="checked_in">Checked In ✅</option>
                 <option value="not_in">Not Checked In</option>
+                <option value="cancelled">Cancelled</option>
               </select>
 
               <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
@@ -907,7 +920,7 @@ ${dataRows}
                 let page = i + 1;
                 if (totalPages > 5) {
                   if (currentPage <= 3) page = i + 1;
-                  else if (currentPage >= totalPages - 2) page = totalPages - 4 + i;
+                  else if (currentPage >= totalPages - 2) page = Math.max(1, totalPages - 4 + i);
                   else page = currentPage - 2 + i;
                 }
                 return (

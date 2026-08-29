@@ -14,7 +14,7 @@ import {
   AlertCircle, MapPin, Users, Ticket, Globe, Lock,
   Send, Mail, BellRing, Megaphone, MessageSquare,
   ChevronRight, Filter, ArrowUpDown, Plus, ExternalLink, Loader2,
-  CalendarClock, Repeat, Timer, History, Zap, RotateCcw, Pause, Play, X, ShieldCheck, Smartphone, Calendar, User,
+  CalendarClock, Repeat, Timer, History, Zap, RotateCcw, Pause, Play, X, ShieldCheck, Smartphone, Calendar, User, UserPlus, Hash,
   Flame, Music, Trophy, UtensilsCrossed, Phone, CreditCard, QrCode, IndianRupee, Share2, Check, FileText, Sparkles, Info
 } from "lucide-react";
 import { Input } from "../ui/input";
@@ -37,7 +37,8 @@ import { EventsPoojaSeva } from "./EventsPoojaSeva";
 import { EventsLunchDinner } from "./EventsLunchDinner";
 import { EventsCulturalEvents } from "./EventsCulturalEvents";
 import { EditEventDialog } from "./EventsCreate";
-import { showError } from "../../../utils/ToastUtils";
+import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
+import { showError, showSuccess } from "../../../utils/ToastUtils";
 import { formatIndianTime, formatIndianDate, formatIndianDateTime } from "../../../utils/indianDateTimeUtils";
 
 /* ─── Types ─── */
@@ -922,12 +923,14 @@ function EventDetailsDialog({
   onClose,
   onEdit,
   onNotify,
+  onRegisterUser,
   onDelete,
 }: {
   event: EventItem;
   onClose: () => void;
   onEdit?: () => void;
   onNotify?: () => void;
+  onRegisterUser?: () => void;
   onDelete?: () => void;
 }) {
   const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
@@ -1762,6 +1765,17 @@ function EventDetailsDialog({
             </Button>
           )}
 
+          {isEventsAdmin && onRegisterUser && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200 font-bold cursor-pointer"
+              onClick={onRegisterUser}
+            >
+              <UserPlus className="w-3.5 h-3.5 text-emerald-600" /> Register User
+            </Button>
+          )}
+
           {isEventsAdmin && onEdit && (
             <Button
               variant="outline"
@@ -1992,6 +2006,7 @@ function EventsList() {
   const [deleteEvent, setDeleteEvent] = useState<EventItem | null>(null);
   const [editEvent, setEditEvent] = useState<EventItem | null>(null);
   const [detailEvent, setDetailEvent] = useState<EventItem | null>(null);
+  const [registerUserEvent, setRegisterUserEvent] = useState<EventItem | null>(null);
 
   const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
   const isEventsAdmin =
@@ -2228,6 +2243,11 @@ function EventsList() {
             setDetailEvent(null);
             setNotifyEvent(target);
           }}
+          onRegisterUser={() => {
+            const target = detailEvent;
+            setDetailEvent(null);
+            setRegisterUserEvent(target);
+          }}
           onDelete={() => {
             const target = detailEvent;
             setDetailEvent(null);
@@ -2246,6 +2266,42 @@ function EventsList() {
       )}
       {notifyEvent && (
         <NotificationDialog event={notifyEvent} onClose={() => setNotifyEvent(null)} />
+      )}
+      {registerUserEvent && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn"
+          onClick={() => setRegisterUserEvent(null)}
+        >
+          <div
+            className="relative w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 min-h-[85vh] sm:min-h-[640px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <EventRegistrationWizard
+              event={{
+                id: registerUserEvent.id,
+                title: registerUserEvent.title,
+                description: (registerUserEvent as any).description,
+                category: registerUserEvent.category || registerUserEvent.type,
+                price: (registerUserEvent as any).fee || (registerUserEvent as any).price || 0,
+                date: registerUserEvent.startDate,
+                time: registerUserEvent.startTime
+                  ? (registerUserEvent.endTime ? `${registerUserEvent.startTime} - ${registerUserEvent.endTime}` : registerUserEvent.startTime)
+                  : undefined,
+                venue: registerUserEvent.venue,
+                capacity: registerUserEvent.capacity,
+                maxAttendees: registerUserEvent.capacity,
+                availableSeats: (registerUserEvent.capacity || 100) - (registerUserEvent.registrations || 0),
+                ticketTypes: (registerUserEvent as any).ticketTypes,
+              }}
+              onClose={() => {
+                setRegisterUserEvent(null);
+                window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
+                window.dispatchEvent(new CustomEvent("mana_event_created"));
+                window.dispatchEvent(new CustomEvent("mana_activities_updated"));
+              }}
+            />
+          </div>
+        </div>
       )}
       {deleteEvent && (
         <DeleteConfirmDialog event={deleteEvent} onClose={() => setDeleteEvent(null)} onConfirm={handleDelete} />

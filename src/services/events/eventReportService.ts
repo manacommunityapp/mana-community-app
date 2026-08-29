@@ -1,4 +1,4 @@
-import { apiClient } from "../common/apiClient";
+import { apiClient, getToken, getStoredUser } from "../common/apiClient";
 
 export interface EventReportResponse {
   eventId: number;
@@ -62,13 +62,15 @@ export const eventReportService = {
   },
 
   async exportRegistrationReportCsv(eventId: number, category: string = "all"): Promise<Blob> {
-    const response = await fetch(`/api/events/${eventId}/report/registrations/export?category=${encodeURIComponent(category)}`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("mana_auth_token") || ""}`,
-        "X-Community-Id": localStorage.getItem("mana_selected_community_id") || "1",
-      },
-    });
+    const token = getToken();
+    const communityId = getStoredUser()?.communityId;
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    if (communityId) headers["X-Community-Id"] = String(communityId);
+
+    const response = await fetch(`/api/events/${eventId}/report/registrations/export?category=${encodeURIComponent(category)}`, { headers });
     if (!response.ok) {
+      if (response.status === 401) throw new Error("Session expired. Please refresh the page and try again.");
       throw new Error(`Failed to export CSV: ${response.statusText}`);
     }
     return response.blob();
