@@ -4612,38 +4612,6 @@ export function EventMemberView() {
                                     );
                                   }
                                   if (act.needsRegistration === false) {
-                                    return (
-                                      <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold rounded-lg border border-emerald-500/20 flex items-center gap-1 select-none">
-                                        <Sparkles className="w-3 h-3 text-emerald-500" /> Open to All
-                                      </span>
-                                    );
-                                  }
-
-                                  return (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setMobileQuickActionModal(null);
-                                        setSelectedActivity(act);
-                                      }}
-                                      className="px-2.5 py-1 bg-primary text-primary-foreground hover:bg-primary/90 text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 active:scale-95"
-                                    >
-                                      <Ticket className="w-3 h-3" /> Register
-                                    </button>
-                                  );
-                                })()}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  );
-                                      <Clock className="w-3 h-3" /> Registration Closed
-                                    </span>
-                                  );
-                                }
-                                if (act.needsRegistration === false) {
                                   return (
                                     <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold rounded-lg border border-emerald-500/20 flex items-center gap-1 select-none">
                                       <Sparkles className="w-3 h-3 text-emerald-500" /> Open to All
