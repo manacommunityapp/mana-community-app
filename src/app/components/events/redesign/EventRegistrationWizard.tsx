@@ -89,6 +89,12 @@ const calculateAge = (dob?: string | null): number => {
   return age > 0 && age <= 130 ? age : 0;
 };
 
+import {
+  VIEW_EVENT_ADMIN_DASHBOARD,
+  MANAGE_EVENT_ADMIN_DASHBOARD,
+  MANAGE_EVENT_REGISTRATION,
+} from "../../../../constants/permissions";
+
 export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = ({
   isDark = false,
   onClose,
@@ -96,12 +102,13 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
   ticketCategories,
 }) => {
   useEscapeKey(onClose);
-  const { user: authUser } = useAuth();
+  const { user: authUser, isSuperAdmin, isEventsAdmin, hasPermission } = useAuth();
   const isAnyAdmin = Boolean(
-    authUser?.role?.toLowerCase().includes("admin") ||
-    authUser?.role?.toLowerCase().includes("event_admin") ||
-    authUser?.role?.toLowerCase().includes("super_admin") ||
-    authUser?.role?.toLowerCase().includes("community_admin")
+    isSuperAdmin ||
+    isEventsAdmin ||
+    hasPermission(VIEW_EVENT_ADMIN_DASHBOARD) ||
+    hasPermission(MANAGE_EVENT_ADMIN_DASHBOARD) ||
+    hasPermission(MANAGE_EVENT_REGISTRATION)
   );
 
   const [currentStep, setCurrentStep] = useState(1);

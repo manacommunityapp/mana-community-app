@@ -127,7 +127,7 @@ function ExportMenu({ rows, useMock, onClose }: { rows: RegRow[]; useMock: boole
 
   const handleClipboard = () => {
     const csv = generateCSV(rows, useMock);
-    navigator.clipboard.writeText(csv).catch(() => {});
+    navigator.clipboard.writeText(csv).catch(() => { alert("Copy failed — please use the CSV download instead."); });
     onClose();
   };
 
@@ -988,7 +988,7 @@ export function EventsRegistration() {
           setLiveRegistrants([]);
         }
       })
-      .catch(() => {});
+      .catch(e => setError(e?.message ?? "Failed to load events"));
   }, [useMock]);
 
   useEffect(() => {
@@ -1024,6 +1024,11 @@ export function EventsRegistration() {
       if (sortBy === "name") return a.name.localeCompare(b.name);
       if (sortBy === "status") return a.status.localeCompare(b.status);
       if (sortBy === "checkin") return Number(b.checkedIn) - Number(a.checkedIn);
+      if (sortBy === "time") {
+        const aMs = new Date(a.checkedInAt || a.time || 0).getTime();
+        const bMs = new Date(b.checkedInAt || b.time || 0).getTime();
+        return bMs - aMs;
+      }
       return 0;
     });
 
@@ -1065,8 +1070,8 @@ export function EventsRegistration() {
       if (useMock) {
         setAddedMockRows(prev => prev.map(r => r.id === cancelConfirmRow.id ? { ...r, status: "Cancelled" } : r));
       } else if (cancelConfirmRow.backendId) {
-        await eventService.cancelRegistration(cancelConfirmRow.backendId);
-        setLiveRegistrants(prev => prev.map(r => r.id === cancelConfirmRow.id ? { ...r, status: "Cancelled" } : r));
+        await eventService.cancelRegistration(cancelConfirmRow.backendId, undefined, "general");
+        setLiveRegistrants(prev => prev.filter(r => r.id !== cancelConfirmRow.id));
       }
       toast.success(`Registration cancelled for ${cancelConfirmRow.name}`);
       setCancelConfirmRow(null);
@@ -1085,7 +1090,7 @@ export function EventsRegistration() {
       if (useMock) {
         setAddedMockRows(prev => prev.filter(r => r.id !== deleteConfirmRow.id));
       } else if (deleteConfirmRow.backendId) {
-        await eventService.deleteRegistrationPermanent(deleteConfirmRow.backendId);
+        await eventService.deleteRegistrationPermanent(deleteConfirmRow.backendId, "general");
         setLiveRegistrants(prev => prev.filter(r => r.id !== deleteConfirmRow.id));
       }
       toast.success(`Registration permanently deleted for ${deleteConfirmRow.name}`);
@@ -1099,7 +1104,7 @@ export function EventsRegistration() {
   };
 
   const handleConfirm = async (row: RegRow) => {
-    if (!row.backendId) return;
+    if (!row.backendId) { toast.error("Registration ID not available"); return; }
     try {
       await eventService.confirmRegistration(row.backendId);
       setLiveRegistrants(prev => prev.map(r => r.id === row.id ? { ...r, status: "Confirmed" } : r));
@@ -1110,7 +1115,7 @@ export function EventsRegistration() {
   };
 
   const handleReject = async (row: RegRow) => {
-    if (!row.backendId) return;
+    if (!row.backendId) { toast.error("Registration ID not available"); return; }
     try {
       await eventService.rejectRegistration(row.backendId);
       setLiveRegistrants(prev => prev.map(r => r.id === row.id ? { ...r, status: "Cancelled" } : r));

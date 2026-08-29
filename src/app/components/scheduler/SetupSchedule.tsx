@@ -468,8 +468,8 @@ export function SetupSchedule({ initialEventId }: SetupScheduleProps = {}) {
     const ev = events.find(e => e.id.toString() === selectedEvent);
     return {
       tournamentName: ev?.name || 'Tournament',
-      sportId: ev?.sportId || 1,
-      communityId: ev?.communityId || 1,
+      sportId: ev?.sportId,
+      communityId: ev?.communityId,
       eventId: selectedEvent ? Number(selectedEvent) : null,
       tournamentType: format,
       totalTeams: Number(participants),

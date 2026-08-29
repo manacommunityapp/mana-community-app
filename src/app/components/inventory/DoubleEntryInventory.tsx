@@ -266,9 +266,14 @@ export function DoubleEntryInventory() {
         return;
       }
 
+      const incomingType = stats.find(s => s.code === "INCOMING");
+      const vendorLocation = locations.find(l => l.usage === "VENDOR");
+      if (!incomingType) { toast.error("Incoming picking type not found. Please refresh and try again."); return; }
+      if (!vendorLocation) { toast.error("Vendor source location not found. Please check inventory configuration."); return; }
+
       await stockService.createPicking({
-        pickingTypeId: stats.find(s => s.code === "INCOMING")?.id || 1,
-        locationId: locations.find(l => l.usage === "VENDOR")?.id || 2,
+        pickingTypeId: incomingType.id,
+        locationId: vendorLocation.id,
         locationDestId: stockLoc.id,
         origin: "Manual Inventory Adjustment",
         moveLines: [{ productId, productQty: qty }]

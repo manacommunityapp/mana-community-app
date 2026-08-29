@@ -967,8 +967,13 @@ export const eventService = {
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
     try {
       return await apiClient.put<any>(`/events/registrations/${numericId}`, data);
-    } catch {
-      return await apiClient.put<any>(`/events/pooja-registrations/${numericId}`, data);
+    } catch (err: any) {
+      const status = err?.status ?? err?.statusCode ?? 0;
+      const msg = String(err?.message ?? "");
+      if (status === 404 || msg.includes("404") || msg.toLowerCase().includes("not found")) {
+        return await apiClient.put<any>(`/events/pooja-registrations/${numericId}`, data);
+      }
+      throw err;
     }
   },
 
@@ -978,17 +983,23 @@ export const eventService = {
     return apiClient.put<any>(`/events/pooja-registrations/${numericId}`, data);
   },
 
-  async cancelRegistration(id: number | string, reason?: string): Promise<void> {
+  async cancelRegistration(id: number | string, reason?: string, type: "pooja" | "general" = "pooja"): Promise<void> {
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
     const qs = reason ? `?reason=${encodeURIComponent(reason)}` : "";
-    await apiClient.delete<void>(`/events/pooja-registrations/${numericId}${qs}`);
+    const endpoint = type === "general"
+      ? `/events/registrations/${numericId}${qs}`
+      : `/events/pooja-registrations/${numericId}${qs}`;
+    await apiClient.delete<void>(endpoint);
   },
 
-  async deleteRegistrationPermanent(id: number | string): Promise<void> {
+  async deleteRegistrationPermanent(id: number | string, type: "pooja" | "general" = "pooja"): Promise<void> {
     const numericId = parseNumericId(id);
     if (!numericId) throw new Error(`Invalid registration ID: ${id}`);
-    await apiClient.delete<void>(`/events/pooja-registrations/${numericId}?permanent=true`);
+    const endpoint = type === "general"
+      ? `/events/registrations/${numericId}?permanent=true`
+      : `/events/pooja-registrations/${numericId}?permanent=true`;
+    await apiClient.delete<void>(endpoint);
   },
 
   async adminCreateRegistration(data: any): Promise<any> {
