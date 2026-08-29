@@ -777,7 +777,7 @@ export const eventService = {
   },
 
   /** Create meal pass registration */
-  async createMealRegistration(data: MealRegistrationRequest): Promise<any> {
+  async createMealRegistration(data: MealRegistrationRequest, options?: { targetUserId?: number | string; adminOverride?: boolean }): Promise<any> {
     const numericId = typeof data.id === "number" ? data.id : parseNumericId(data.id);
     const numericMealId = parseNumericId(data.mealId || data.lunchDinnerId || data.eventLunchDinnerId || data.activityId || (typeof data.id === "number" ? data.id : undefined));
     const numericMainEventId = parseNumericId(data.mainEventId || data.eventId);
@@ -800,7 +800,16 @@ export const eventService = {
       delete payload.id;
     }
 
-    return await apiClient.post<any>("/events/registrations", payload);
+    const queryParams = new URLSearchParams();
+    if (options?.adminOverride || (data as any).registrationSource === "ADMIN") {
+      queryParams.set("adminOverride", "true");
+    }
+    const targetUid = options?.targetUserId || (data as any).userId || (data as any)?.targetUserId;
+    if (targetUid) {
+      queryParams.set("targetUserId", String(targetUid));
+    }
+    const url = queryParams.toString() ? `/events/registrations?${queryParams.toString()}` : "/events/registrations";
+    return await apiClient.post<any>(url, payload);
   },
 
   /** Get the logged-in user's meal registrations for a specific event */
@@ -809,10 +818,11 @@ export const eventService = {
   },
 
   /** Update headCount only for an existing meal registration */
-  async updateMealHeadCount(lunchDinnerId: number | string, headCount: number): Promise<any> {
+  async updateMealHeadCount(lunchDinnerId: number | string, headCount: number, targetUserId?: number | string): Promise<any> {
+    const query = targetUserId ? `?targetUserId=${targetUserId}` : "";
     return apiClient.patch<any>(
-      `/events/registrations/meal/${lunchDinnerId}/headcount`,
-      { headCount }
+      `/events/registrations/meal/${lunchDinnerId}/headcount${query}`,
+      { headCount, userId: targetUserId }
     );
   },
 

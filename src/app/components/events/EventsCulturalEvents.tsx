@@ -94,6 +94,11 @@ export function EventsCulturalEvents() {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [addCategoryError, setAddCategoryError] = useState("");
+  const [addCategorySaving, setAddCategorySaving] = useState(false);
+
   useEffect(() => { eventService.getAll().then(setEvents).catch(() => {}); }, []);
 
   const loadData = () => {
@@ -221,6 +226,28 @@ export function EventsCulturalEvents() {
       setShowModal(false); setEditingId(null); setForm(emptyForm);
     } catch (err: any) { setFormError(err?.message || "Failed to save"); }
     finally { setSaving(false); }
+  };
+
+  const handleAddCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) { setAddCategoryError("Category name is required"); return; }
+    setAddCategorySaving(true);
+    setAddCategoryError("");
+    try {
+      let createdName = name;
+      if (!useMock) {
+        const created = await eventService.createCulturalCategory(name);
+        createdName = created?.name || name;
+      }
+      setCategories(prev => prev.includes(createdName) ? prev : [...prev, createdName].sort());
+      set("category", createdName);
+      setShowAddCategory(false);
+      setNewCategoryName("");
+    } catch (err: any) {
+      setAddCategoryError(err?.message || "Failed to create category");
+    } finally {
+      setAddCategorySaving(false);
+    }
   };
 
   const handleDelete = async (ce: CulturalEvent) => {
@@ -387,7 +414,7 @@ export function EventsCulturalEvents() {
               </div>
               <button
                 type="button"
-                onClick={() => { setShowModal(false); setEditingId(null); }}
+                onClick={() => { setShowModal(false); setEditingId(null); setShowAddCategory(false); setNewCategoryName(""); }}
                 className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
                 title="Close"
               >
@@ -447,13 +474,53 @@ export function EventsCulturalEvents() {
                   <span className="text-xs font-semibold text-slate-600">Event Name *</span>
                   <input type="text" value={form.name} onChange={e => set("name", e.target.value)} className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" placeholder="e.g. Bharatanatyam Recital" required />
                 </label>
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-slate-600">Category *</span>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-600">Category *</span>
+                    <button
+                      type="button"
+                      onClick={() => { setShowAddCategory(v => !v); setNewCategoryName(""); setAddCategoryError(""); }}
+                      className="flex items-center gap-0.5 text-[10px] font-bold text-violet-600 hover:text-violet-800 transition-colors"
+                    >
+                      <Plus className="w-3 h-3" /> New
+                    </button>
+                  </div>
                   <select value={form.category} onChange={e => set("category", e.target.value)} className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white" required>
                     <option value="">Select category</option>
                     {categories.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
-                </label>
+                  {showAddCategory && (
+                    <div className="mt-1 p-3 bg-violet-50 border border-violet-200 rounded-xl space-y-2">
+                      <input
+                        type="text"
+                        value={newCategoryName}
+                        onChange={e => { setNewCategoryName(e.target.value); setAddCategoryError(""); }}
+                        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddCategory(); } if (e.key === "Escape") { setShowAddCategory(false); setNewCategoryName(""); } }}
+                        placeholder="e.g. Fusion Dance"
+                        className="w-full border border-violet-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white"
+                        autoFocus
+                      />
+                      {addCategoryError && <p className="text-[10px] text-rose-600">{addCategoryError}</p>}
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleAddCategory}
+                          disabled={addCategorySaving}
+                          className="flex items-center gap-1 px-3 py-1 rounded-lg text-[11px] font-bold bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-50 transition-colors"
+                        >
+                          {addCategorySaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setShowAddCategory(false); setNewCategoryName(""); setAddCategoryError(""); }}
+                          className="px-3 py-1 rounded-lg text-[11px] font-semibold text-slate-500 hover:bg-white transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
@@ -507,7 +574,7 @@ export function EventsCulturalEvents() {
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => { setShowModal(false); setEditingId(null); }} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
+                <button type="button" onClick={() => { setShowModal(false); setEditingId(null); setShowAddCategory(false); setNewCategoryName(""); }} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">Cancel</button>
                 <button type="submit" disabled={saving} className="px-4 py-2 rounded-xl text-sm font-semibold bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-50 transition-colors flex items-center gap-2">
                   {saving && <Loader2 className="w-4 h-4 animate-spin" />} {editingId ? "Update Event" : "Create Event"}
                 </button>

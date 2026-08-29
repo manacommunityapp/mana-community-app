@@ -12,26 +12,16 @@ import { VIEW_EVENT_ADMIN_DASHBOARD } from "../../../constants/permissions";
  *  2. Regular Users (Role: USER / MEMBER) — Directly renders the User Dashboard (<EventMemberView />) with no header DIV clutter.
  */
 export function EventDashboardWrapper() {
-  const { user, isEventsAdmin, isAdmin, isSuperAdmin, isAnyAdmin, hasPermission } = useAuth();
+  const { isSuperAdmin, hasPermission } = useAuth();
 
-  // Determine user role and admin access
-  const userRolesUpper = (user?.roles || (user?.role ? [user.role] : [])).map((r) => r.trim().toUpperCase());
-  const hasEventAdminRole =
-    isEventsAdmin ||
-    isAdmin ||
-    isSuperAdmin ||
-    isAnyAdmin ||
-    userRolesUpper.includes("EVENTS_ADMIN") ||
-    userRolesUpper.includes("EVENT_ADMIN") ||
-    userRolesUpper.includes("ADMIN") ||
-    userRolesUpper.includes("COMMUNITY_ADMIN") ||
-    hasPermission(VIEW_EVENT_ADMIN_DASHBOARD);
+  // Admin Dashboard is strictly visible only to users with the "View Event Admin Dashboard" permission (or Super Admin)
+  const canViewAdminDashboard = isSuperAdmin || hasPermission(VIEW_EVENT_ADMIN_DASHBOARD);
 
   // Default active view mode for admins
   const [viewMode, setViewMode] = useState<"admin" | "user">("admin");
 
-  // For regular users (Role: USER / MEMBER), directly show the User Dashboard with NO header DIV clutter
-  if (!hasEventAdminRole) {
+  // If user lacks "View Event Admin Dashboard" permission, directly render the Member/User View
+  if (!canViewAdminDashboard) {
     return <EventMemberView />;
   }
 

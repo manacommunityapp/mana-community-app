@@ -294,13 +294,41 @@ export function EventsLunchDinner() {
     a.click();
   };
 
+  const exportAllCsv = () => {
+    const headers = ["Meal Name", "Meal Type", "Date", "Start Time", "End Time", "Venue", "Caterer", "Target Plates", "Booked Attendees", "Fee", "Diet Type"];
+    const rows = filteredMeals.map((m) => {
+      const booked = Number((m as any).attendeeHeadcount ?? (m as any).headcount ?? (m as any).bookedCount ?? 0);
+      const target = Number(m.targetPlates || (m as any).capacity || 500);
+      return [
+        `"${m.name.replace(/"/g, '""')}"`,
+        `"${m.mealType}"`,
+        `"${m.date}"`,
+        `"${m.startTime || ""}"`,
+        `"${m.endTime || ""}"`,
+        `"${m.venue || ""}"`,
+        `"${m.caterer || ""}"`,
+        target,
+        booked,
+        m.fee || 0,
+        `"${m.dietType || "VEG"}"`,
+      ];
+    });
+    const csv = [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `lunch_dinner_schedule_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  };
+
   const addMenuItem = () => set("menuItems", [...form.menuItems, ""]);
   const removeMenuItem = (i: number) => set("menuItems", form.menuItems.filter((_, idx) => idx !== i));
   const updateMenuItem = (i: number, v: string) => { const n = [...form.menuItems]; n[i] = v; set("menuItems", n); };
 
-  const totalPlates = filteredMeals.reduce((a, m) => a + (m.targetPlates || 0), 0);
-  const totalRegs = filteredMeals.reduce((a, m) => a + Number((m as any).bookedCount || (mealRegsMap[m.id]?.length || 0)), 0);
-  const totalHeadcount = filteredMeals.reduce((a, m) => a + Number((m as any).attendeeHeadcount || (mealRegsMap[m.id]?.reduce((sum, r) => sum + (r.devoteeCount || 1), 0) || 0)), 0);
+  const totalPlates = filteredMeals.reduce((a, m) => a + Number(m.targetPlates || (m as any).capacity || (m as any).maxAttendees || (m as any).totalCapacity || 0), 0);
+  const totalRegs = filteredMeals.reduce((a, m) => a + Number((m as any).bookedCount ?? (m as any).registrationCount ?? (mealRegsMap[m.id]?.length || 0)), 0);
+  const totalHeadcount = filteredMeals.reduce((a, m) => a + Number((m as any).attendeeHeadcount ?? (m as any).headcount ?? (m as any).bookedCount ?? (mealRegsMap[m.id]?.reduce((sum, r) => sum + (r.devoteeCount || 1), 0) || 0)), 0);
 
   const mealIcon = (type: string) => (type === "Breakfast" ? "🌅" : type === "Lunch" ? "☀️" : type === "Dinner" ? "🌙" : type === "Prasadam" ? "🙏" : "🍽️");
 
@@ -314,47 +342,52 @@ export function EventsLunchDinner() {
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
-              Lunch & Dinner Management
+              Lunch &amp; Dinner Management
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
                 {filteredMeals.length} {filteredMeals.length === 1 ? "Meal" : "Meals"}
               </span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Live catering, prasadam scheduling, plates capacity & devotee pass management
+              Live catering, prasadam scheduling, plates capacity &amp; devotee pass management
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Event selector dropdown */}
-          {events.length > 0 && (
-            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
-              <Calendar className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
-              <select
-                value={selectedEventId}
-                onChange={(e) => setSelectedEventId(e.target.value)}
-                className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer max-w-[160px] sm:max-w-[220px] truncate"
-              >
-                <option value="all">🌟 All Events</option>
-                {events.map((ev) => (
-                  <option key={ev.id} value={String(ev.id)}>
-                    {ev.title} {ev.startDate ? `(${ev.startDate})` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          {/* Main Event Filter Dropdown */}
+          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5">
+            <Calendar className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
+            <select
+              value={selectedEventId}
+              onChange={(e) => setSelectedEventId(e.target.value)}
+              className="bg-transparent text-xs font-semibold text-slate-700 focus:outline-none cursor-pointer max-w-[180px] sm:max-w-[220px] truncate"
+            >
+              <option value="all">All Community Events</option>
+              {events.map((ev) => (
+                <option key={ev.id} value={String(ev.id)}>
+                  {ev.title} {ev.startDate ? `(${ev.startDate})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={exportAllCsv}
+            className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-semibold rounded-xl transition cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" /> Export All CSV
+          </button>
 
           <button
             onClick={openCreate}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white transition-all shadow-sm cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-600 text-white transition-all shadow-sm cursor-pointer"
           >
-            <Plus className="w-4 h-4" /> Create Meal
+            <Plus className="w-3.5 h-3.5" /> Create Meal Event
           </button>
         </div>
       </div>
 
-      {/* Selected Event Context Banner */}
+      {/* Scoped Event Banner */}
       {selectedEvent && (
         <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl bg-orange-50/70 border border-orange-200/80 text-xs text-orange-950 flex-wrap">
           <div className="flex items-center gap-2">
@@ -410,9 +443,11 @@ export function EventsLunchDinner() {
         {filteredMeals.map((meal) => {
           const regs = getRegsForMeal(meal);
           const isExpanded = expandedMealId === meal.id;
-          const headcount = regs.reduce((a, r) => a + (r.devoteeCount || 1), 0);
-          const target = meal.targetPlates || 500;
-          const pct = Math.min(100, Math.round((headcount / target) * 100));
+          const headcount = regs.length > 0
+            ? regs.reduce((a, r) => a + (Number(r.devoteeCount ?? (r as any).headCount ?? (r as any).membersCount ?? 1) || 1), 0)
+            : Number((meal as any).attendeeHeadcount ?? (meal as any).headcount ?? (meal as any).bookedCount ?? (meal as any).devoteeCount ?? (meal as any).actualAttendees ?? 0);
+          const target = Number(meal.targetPlates || (meal as any).capacity || (meal as any).maxAttendees || (meal as any).totalCapacity || (meal as any).maxCapacity || 500);
+          const pct = target > 0 ? Math.min(100, Math.round((headcount / target) * 100)) : 0;
 
           return (
             <div

@@ -101,6 +101,8 @@ interface Activity {
   needsRegistration?: boolean;
   /** Raw database auction item object if category is Auction */
   rawAuctionItem?: any;
+  /** For Food activities: MORNING | LUNCH | DINNER (from backend LunchDinner.mealType) */
+  mealType?: string;
 }
 
 
@@ -468,6 +470,7 @@ export function EventMemberView() {
   const [liveStats, setLiveStats] = useState<DashboardStatsResponse | null>(null);
   const [loadingApiData, setLoadingApiData] = useState(false);
   const [loadingFamily, setLoadingFamily] = useState(false);
+  const [userMealRegs, setUserMealRegs] = useState<Map<string, any>>(new Map());
 
   // Payment Upload & Verification States
   const [paymentReceiptUrl, setPaymentReceiptUrl] = useState("");
@@ -810,6 +813,8 @@ export function EventMemberView() {
             availableSeats: Math.max(0, initialPlates - booked),
             image: "🍲",
             description: `Meal: ${m.mealType || "Bhojanam"}. Caterer: ${m.caterer || "Food Committee"}. Menu: ${Array.isArray(m.menuItems) ? m.menuItems.join(", ") : ""}. ${m.notes || ""}`,
+            mainEventId: m.mainEventId != null ? String(m.mainEventId) : (m.eventId != null ? String(m.eventId) : undefined),
+            mealType: m.mealType ? String(m.mealType).toUpperCase() : undefined,
           });
         });
       }
@@ -1166,6 +1171,25 @@ export function EventMemberView() {
     };
   }, [user]);
 
+  // Fetch user meal registrations for all events that have food activities
+  useEffect(() => {
+    const foodActs = activitiesList.filter((a) => a.category === "Food" && a.mainEventId);
+    const uniqueEventIds = [...new Set(foodActs.map((a) => String(a.mainEventId!).replace(/\D/g, "")))].filter(Boolean);
+    if (uniqueEventIds.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      uniqueEventIds.map((eid) =>
+        eventService.getUserMealsForEvent(eid).then((res) => ({ eid, res })).catch(() => ({ eid, res: null }))
+      )
+    ).then((results) => {
+      if (cancelled) return;
+      const map = new Map<string, any>();
+      results.forEach(({ eid, res }) => { if (res) map.set(eid, res); });
+      setUserMealRegs(map);
+    });
+    return () => { cancelled = true; };
+  }, [activitiesList]);
+
   // Compute dynamic counters for Quick Actions
   const poojaCount = useMemo(() => activitiesList.filter((a) => a.category === "Pooja").length, [activitiesList]);
   const foodCount = useMemo(() => activitiesList.filter((a) => a.category === "Food").length, [activitiesList]);
@@ -1178,6 +1202,21 @@ export function EventMemberView() {
 
   const isPoojaActivity = (cat?: string) =>
     Boolean(cat && (cat.toLowerCase().includes("pooja") || cat.toLowerCase().includes("seva")));
+
+  const isFoodActivityRegistered = (act: Activity): boolean => {
+    if (!act.mainEventId) return false;
+    const eid = String(act.mainEventId).replace(/\D/g, "");
+    const regs = userMealRegs.get(eid);
+    if (!regs || !Array.isArray(regs.meals) || regs.meals.length === 0) return false;
+    const mealType = (act.mealType || "").toUpperCase();
+    return regs.meals.some((m: any) => {
+      if (m.date !== act.date) return false;
+      if (mealType === "MORNING") return Boolean(m.morning);
+      if (mealType === "LUNCH") return Boolean(m.lunch);
+      if (mealType === "DINNER") return Boolean(m.dinner);
+      return Boolean(m.morning || m.lunch || m.dinner);
+    });
+  };
 
   const activePasses = useMemo(() => {
     return passesList.filter((p) => {
@@ -2687,6 +2726,19 @@ export function EventMemberView() {
                                   className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95"
                                 >
                                   <Gavel className="w-3.5 h-3.5" /> {isLive ? "Place Live Bid" : "View Auction"}
+                                </button>
+                              );
+                            }
+
+                            const isThisActFood = act.category?.toLowerCase().includes("food") || act.category?.toLowerCase().includes("meal") || String(act.id).startsWith("meal-") || String(act.id).startsWith("food-");
+                            if (isThisActFood && isFoodActivityRegistered(act)) {
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedActivity(act)}
+                                  className="px-3 py-1.5 sm:px-3.5 sm:py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95 border border-emerald-500"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" /> Update Registration
                                 </button>
                               );
                             }
@@ -4434,6 +4486,22 @@ export function EventMemberView() {
                                       className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1"
                                     >
                                       <Gavel className="w-3 h-3" /> {isLive ? "Place Live Bid" : "View Auction"}
+                                    </button>
+                                  );
+                                }
+
+                                const isThisActFood = act.category?.toLowerCase().includes("food") || act.category?.toLowerCase().includes("meal") || String(act.id).startsWith("meal-") || String(act.id).startsWith("food-");
+                                if (isThisActFood && isFoodActivityRegistered(act)) {
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setSelectedActivity(act);
+                                        setMobileQuickActionModal(null);
+                                      }}
+                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-emerald-500"
+                                    >
+                                      <Edit3 className="w-3 h-3" /> Update Registration
                                     </button>
                                   );
                                 }

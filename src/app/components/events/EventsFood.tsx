@@ -47,16 +47,6 @@ interface IngredientStock {
   category: string;
 }
 
-const DEFAULT_INGREDIENTS: IngredientStock[] = [
-  { id: "ING-1", item: "Sona Masoori Rice", required: "250", available: "260", unit: "kg", status: "ok", category: "Grains" },
-  { id: "ING-2", item: "Pure Desi Ghee", required: "30", available: "24", unit: "L", status: "low", category: "Dairy" },
-  { id: "ING-3", item: "Refined Sugar", required: "80", available: "90", unit: "kg", status: "ok", category: "Groceries" },
-  { id: "ING-4", item: "Toor Dal", required: "40", available: "32", unit: "kg", status: "low", category: "Pulses" },
-  { id: "ING-5", item: "Tamarind", required: "15", available: "18", unit: "kg", status: "ok", category: "Spices" },
-  { id: "ING-6", item: "Cow Milk", required: "200", available: "150", unit: "L", status: "low", category: "Dairy" },
-  { id: "ING-7", item: "Cashews & Raisins", required: "12", available: "14", unit: "kg", status: "ok", category: "Dry Fruits" },
-];
-
 const mockMenuItems = [
   { name: "Pulihora", qty: 800, unit: "plates", prepared: 650, status: "In Progress" },
   { name: "Curd Rice", qty: 600, unit: "plates", prepared: 600, status: "Ready" },
@@ -157,13 +147,11 @@ export function EventsFood() {
 
     Promise.all([
       eventService.getLunchDinners(selectedEventId ?? undefined).catch(() => []),
-      eventService.getMealRegistrations(selectedEventId ?? undefined).catch(() => []),
       selectedEventId ? eventProgramService.getMealSummary(selectedEventId).catch(() => null) : Promise.resolve(null),
       foodPantryService.getItems().catch(() => []),
     ])
-      .then(([mList, regs, summary, pantry]) => {
+      .then(([mList, summary, pantry]) => {
         setLiveMeals(mList ?? []);
-        setLiveRegistrations(regs ?? []);
         if (summary) setMealSummary(summary);
         if (Array.isArray(pantry)) setPantryItems(pantry);
       })
@@ -221,68 +209,42 @@ export function EventsFood() {
 
   const totalBookedAttendees = useMemo(() => {
     if (useMock) return mockMenuItems.reduce((a, m) => a + m.prepared, 0);
-    return liveRegistrations
-      .filter(r => {
-        const s = String(r.status || "").toUpperCase();
-        if (s === "CANCELLED" || s === "REJECTED") return false;
-        return eventScopedMeals.some(m => r.activityId === `meal-${m.id}` || r.activityId === `food-${m.id}` || r.activityTitle === m.name);
-      })
-      .reduce((a, r) => a + (Number(r.devoteeCount ?? r.membersCount ?? 1) || 1), 0);
-  }, [useMock, liveRegistrations, eventScopedMeals]);
+    return eventScopedMeals.reduce((a, m) => {
+      const booked = Number((m as any).bookedCount ?? (m as any).attendeeHeadcount ?? (m as any).headcount ?? 0);
+      return a + booked;
+    }, 0);
+  }, [useMock, eventScopedMeals]);
 
   const readyPct = totalPlannedPlates > 0 ? Math.min(100, Math.round((totalBookedAttendees / totalPlannedPlates) * 100)) : 0;
 
-  // Dynamically compute Ingredient Stock & Pantry based on planned plates and live pantry items
+  // Strictly actual database pantry items — no hardcoded/static fallbacks
   const stockList = useMemo<IngredientStock[]>(() => {
-    if (useMock) return DEFAULT_INGREDIENTS;
-    const plates = totalPlannedPlates;
-
-    const baseItems = [
-      { key: "rice", name: "Sona Masoori Rice", factor: 0.15, unit: "kg", category: "Grains" },
-      { key: "dal", name: "Toor Dal", factor: 0.04, unit: "kg", category: "Pulses" },
-      { key: "ghee", name: "Pure Desi Ghee", factor: 0.02, unit: "L", category: "Dairy" },
-      { key: "oil", name: "Cooking Oil", factor: 0.025, unit: "L", category: "Groceries" },
-      { key: "milk", name: "Cow Milk & Curd", factor: 0.10, unit: "L", category: "Dairy" },
-      { key: "sugar", name: "Refined Sugar / Jaggery", factor: 0.03, unit: "kg", category: "Groceries" },
-      { key: "spices", name: "Spices & Tamarind", factor: 0.015, unit: "kg", category: "Spices" },
-      { key: "veggies", name: "Fresh Vegetables", factor: 0.18, unit: "kg", category: "Groceries" },
-    ];
-
-    const generated: IngredientStock[] = baseItems.map((b, idx) => {
-      const reqNum = plates > 0 ? Math.max(1, Math.round(plates * b.factor)) : 0;
-      
-      const pantryMatch = pantryItems.find(p => {
-        const pName = (p.itemName || (p as any).name || "").toLowerCase();
-        const bName = b.name.toLowerCase();
-        return pName.includes(bName) || bName.includes(pName) || (p.category || "").toLowerCase() === b.category.toLowerCase();
-      });
-
-      const customMatch = customStockList.find(c => c.item.toLowerCase() === b.name.toLowerCase());
-
-      const availNum = customMatch 
-        ? parseFloat(customMatch.available) || 0 
-        : (pantryMatch ? pantryMatch.quantity : (plates > 0 ? Math.round(reqNum * 0.9) : 0));
-
-      const status: "ok" | "low" | "critical" = 
-        availNum >= reqNum ? "ok" : (availNum < reqNum * 0.5 ? "critical" : "low");
+    const dbMapped: IngredientStock[] = (pantryItems || []).map((p) => {
+      const customMatch = customStockList.find(c => c.item.toLowerCase() === p.itemName.toLowerCase());
+      const reqNum = customMatch ? parseFloat(customMatch.required) || 0 : 0;
+      const availNum = p.quantity ?? 0;
+      const status: "ok" | "low" | "critical" =
+        reqNum > 0
+          ? (availNum >= reqNum ? "ok" : availNum < reqNum * 0.5 ? "critical" : "low")
+          : (availNum > 0 ? "ok" : "critical");
 
       return {
-        id: customMatch?.id || `ING-BASE-${idx + 1}`,
-        item: b.name,
+        id: String(p.id),
+        item: p.itemName,
         required: String(reqNum),
         available: String(availNum),
-        unit: b.unit,
-        status: plates === 0 && availNum === 0 ? "ok" : status,
-        category: b.category,
+        unit: p.unit || "kg",
+        status,
+        category: p.category || "Pantry",
       };
     });
 
-    const customExtras = customStockList.filter(c => 
-      !baseItems.some(b => b.name.toLowerCase() === c.item.toLowerCase())
+    const extras = customStockList.filter(c =>
+      !dbMapped.some(d => d.item.toLowerCase() === c.item.toLowerCase())
     );
 
-    return [...generated, ...customExtras];
-  }, [useMock, totalPlannedPlates, pantryItems, customStockList]);
+    return [...dbMapped, ...extras];
+  }, [pantryItems, customStockList]);
 
   const lowStockCount = stockList.filter(s => s.status !== "ok" && parseFloat(s.required) > 0).length;
 
@@ -429,8 +391,8 @@ export function EventsFood() {
     }
   };
 
-  // Restock / Add Stock Item (Updates local working list)
-  const handleSaveStock = (e: React.FormEvent) => {
+  // Restock / Add Stock Item (Updates working list and persists to database)
+  const handleSaveStock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stockForm.item.trim()) return;
     const reqNum = parseFloat(stockForm.required) || 0;
@@ -447,6 +409,34 @@ export function EventsFood() {
       category: stockForm.category,
     };
 
+    // Save directly to backend database
+    if (!useMock) {
+      try {
+        const existing = pantryItems.find(p => p.itemName.toLowerCase() === updatedCustom.item.toLowerCase());
+        if (existing && existing.id) {
+          await foodPantryService.updateItem(existing.id, {
+            itemName: updatedCustom.item,
+            category: updatedCustom.category,
+            quantity: availNum,
+            unit: updatedCustom.unit,
+            storageLocation: "PANTRY",
+          });
+        } else {
+          await foodPantryService.addItem({
+            itemName: updatedCustom.item,
+            category: updatedCustom.category,
+            quantity: availNum,
+            unit: updatedCustom.unit,
+            storageLocation: "PANTRY",
+          });
+        }
+        const fresh = await foodPantryService.getItems().catch(() => []);
+        if (Array.isArray(fresh)) setPantryItems(fresh);
+      } catch (err: any) {
+        console.warn("Failed to persist pantry item to database:", err);
+      }
+    }
+
     setCustomStockList(prev => {
       const idx = prev.findIndex(s => s.item.toLowerCase() === updatedCustom.item.toLowerCase());
       const next = idx >= 0 ? prev.map((s, i) => i === idx ? updatedCustom : s) : [...prev, updatedCustom];
@@ -458,6 +448,15 @@ export function EventsFood() {
 
     setShowStockModal(false);
     setStockForm({ item: "", required: "", available: "", unit: "kg", category: "Groceries" });
+  };
+
+  const handleDeleteStockItem = (ing: IngredientStock) => {
+    setCustomStockList(prev => {
+      const next = prev.filter(s => s.id !== ing.id && s.item.toLowerCase() !== ing.item.toLowerCase());
+      try { localStorage.setItem("mana_event_pantry_custom", JSON.stringify(next)); } catch {}
+      return next;
+    });
+    setPantryItems(prev => prev.filter(p => String(p.id) !== ing.id && p.itemName.toLowerCase() !== ing.item.toLowerCase()));
   };
 
   // Explicitly persist all pantry items to database
@@ -513,9 +512,7 @@ export function EventsFood() {
   const exportCateringCSV = () => {
     const headers = "Meal Course,Type,Date,Start Time,End Time,Venue,Caterer,Target Plates,Booked Plates,Diet Type,Fee (INR),Menu Items\n";
     const rows = eventScopedMeals.map(m => {
-      const booked = liveRegistrations
-        .filter(r => r.activityId === `meal-${m.id}` || r.activityId === `food-${m.id}` || r.activityTitle === m.name)
-        .reduce((a, r) => a + (Number(r.devoteeCount ?? 1) || 1), 0);
+      const booked = Number((m as any).bookedCount ?? (m as any).attendeeHeadcount ?? (m as any).headcount ?? 0);
       const menu = Array.isArray(m.menuItems) ? m.menuItems.join("; ") : (m.notes || "");
       return `"${m.name.replace(/"/g, '""')}","${m.mealType}","${m.date}","${m.startTime || ""}","${m.endTime || ""}","${m.venue || ""}","${m.caterer || ""}","${m.targetPlates || 500}","${booked}","${m.dietType || "VEG"}","${m.fee || 0}","${menu.replace(/"/g, '""')}"`;
     }).join("\n");
@@ -535,17 +532,17 @@ export function EventsFood() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center flex-shrink-0">
-            <UtensilsCrossed className="w-5 h-5 text-orange-600" />
+            <UtensilsCrossed className="w-5 h-5" />
           </div>
           <div>
             <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
-              Food & Catering Operations
+              Food &amp; Catering Operations
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
                 {eventScopedMeals.length} Live Batches
               </span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Live catering, prasadam scheduling, plates capacity & devotee preferences
+              Live catering, prasadam scheduling, plates capacity &amp; devotee preferences
             </p>
           </div>
         </div>
@@ -630,7 +627,7 @@ export function EventsFood() {
         {/* Menu preparation & live meal courses */}
         <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-[0_2px_12px_rgba(0,0,0,0.05)] overflow-hidden">
           <div className="flex items-center justify-between px-3 sm:px-6 pt-3 sm:pt-5 pb-2 sm:pb-4 border-b border-slate-50">
-            <h2 className="font-bold text-slate-800">Menu Preparation & Batches</h2>
+            <h2 className="font-bold text-slate-800">Menu Preparation &amp; Batches</h2>
             <button
               onClick={openCreateMealModal}
               className="flex items-center gap-1 text-xs font-bold text-orange-600 hover:underline cursor-pointer"
@@ -642,9 +639,7 @@ export function EventsFood() {
             {!useMock ? (
               eventScopedMeals.length > 0 ? (
                 eventScopedMeals.map((m) => {
-                  const bookedCount = liveRegistrations
-                    .filter(r => r.activityId === `meal-${m.id}` || r.activityId === `food-${m.id}` || r.activityTitle === m.name)
-                    .reduce((a, r) => a + (Number(r.devoteeCount ?? 1) || 1), 0);
+                  const bookedCount = Number((m as any).bookedCount ?? (m as any).attendeeHeadcount ?? (m as any).headcount ?? 0);
                   const target = m.targetPlates || 0;
                   const pct = target > 0 ? Math.min(100, Math.round((bookedCount / target) * 100)) : 0;
 
@@ -797,10 +792,12 @@ export function EventsFood() {
           </div>
           <div className="divide-y divide-slate-50 max-h-[360px] overflow-y-auto">
             {stockList.length === 0 ? (
-              <div className="p-6 text-center text-slate-400 text-xs">
+              <div className="p-8 text-center text-slate-400 text-xs">
                 <Package className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="font-semibold text-slate-600">No ingredient stock records for this event</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Click &ldquo;Add / Restock&rdquo; or schedule a meal course to generate requirements.</p>
+                <p className="font-semibold text-slate-700">No Pantry Inventory in Database</p>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Click &ldquo;+ Add / Restock&rdquo; to add actual pantry items and save them to the database.
+                </p>
               </div>
             ) : (
               stockList.map((ing, i) => (
@@ -808,22 +805,34 @@ export function EventsFood() {
                   key={ing.id}
                   className={`animate-fade-in-up stagger-${Math.min(i + 1, 8)} flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-3.5 hover:bg-slate-50/50 transition-colors`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
                       ing.status === "ok" ? "bg-emerald-500" : ing.status === "low" ? "bg-amber-400" : "bg-rose-500"
                     }`} />
-                    <div>
-                      <p className="font-semibold text-slate-800 text-xs sm:text-sm">{ing.item}</p>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-800 text-xs sm:text-sm truncate">{ing.item}</p>
                       <span className="text-[10px] text-slate-400">{ing.category}</span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs font-bold text-slate-700">Need: {ing.required} {ing.unit}</p>
-                    <p className={`text-xs font-semibold mt-0.5 ${
-                      ing.status === "ok" ? "text-emerald-600" : ing.status === "low" ? "text-amber-600" : "text-rose-600"
-                    }`}>
-                      Available: {ing.available} {ing.unit}
-                    </p>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="text-right">
+                      {parseFloat(ing.required) > 0 && (
+                        <p className="text-xs font-bold text-slate-700">Need: {ing.required} {ing.unit}</p>
+                      )}
+                      <p className={`text-xs font-semibold ${parseFloat(ing.required) > 0 ? "mt-0.5" : ""} ${
+                        ing.status === "ok" ? "text-emerald-600" : ing.status === "low" ? "text-amber-600" : "text-rose-600"
+                      }`}>
+                        Available: {ing.available} {ing.unit}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteStockItem(ing)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                      title="Remove item"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               ))

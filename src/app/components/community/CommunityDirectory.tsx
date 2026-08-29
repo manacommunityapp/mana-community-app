@@ -340,44 +340,6 @@ function DirectoryMemberCard({ leader, isModal }: { leader: CommunityLeaderRespo
         </div>
       </div>
 
-      {/* Bottom Contact Actions Strip */}
-      <div className="flex items-center gap-1.5 pt-2 border-t border-slate-100">
-        {leader.contactPhone ? (
-          <button
-            type="button"
-            onClick={() => handlePhoneClick(leader.fullName, leader.contactPhone!)}
-            className="flex-1 py-1.5 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/70 text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-2xs"
-            title={`Call ${leader.fullName}`}
-          >
-            <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span className="truncate">{leader.contactPhone}</span>
-          </button>
-        ) : (
-          <div className="flex-1 text-[11px] text-slate-400 font-medium italic pl-1">
-            No phone listed
-          </div>
-        )}
-
-        <button
-          type="button"
-          onClick={() => openFloatingChatWithUser(String(leader.userId))}
-          className="py-1.5 px-3 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/70 text-xs font-bold flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer shadow-2xs shrink-0"
-          title={`Chat with ${leader.fullName}`}
-        >
-          <MessageSquare className="w-3.5 h-3.5 text-indigo-600" />
-          <span>Chat</span>
-        </button>
-
-        {leader.contactEmail && (
-          <a
-            href={`mailto:${leader.contactEmail}`}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200/60 transition-all shrink-0 flex items-center justify-center cursor-pointer"
-            title={`Email ${leader.fullName}`}
-          >
-            <Mail className="w-3.5 h-3.5" />
-          </a>
-        )}
-      </div>
     </div>
   );
 }

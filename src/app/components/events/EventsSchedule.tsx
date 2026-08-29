@@ -2273,13 +2273,13 @@ function EventsList() {
 
 /* ─── Main Component ─── */
 const TABS = [
-  { id: "events",          label: "Events",               icon: CalendarDays  },
-  { id: "planning",        label: "Planning & Tasks",    icon: ClipboardList },
-  { id: "programs",        label: "Day Programs",         icon: Mic2          },
-  { id: "poojaSeva",       label: "Pooja & Seva",         icon: Flame         },
-  { id: "lunchDinner",     label: "Lunch / Dinner",       icon: UtensilsCrossed },
-  { id: "culturalEvents",  label: "Cultural Events",      icon: Music         },
-  { id: "competitions",     label: "Competitions",         icon: Trophy        },
+  { id: "events",          label: "Events",               icon: CalendarDays,    disabled: false },
+  { id: "programs",        label: "Day Programs",         icon: Mic2,            disabled: false },
+  { id: "poojaSeva",       label: "Pooja & Seva",         icon: Flame,           disabled: false },
+  { id: "lunchDinner",     label: "Lunch / Dinner",       icon: UtensilsCrossed, disabled: false },
+  { id: "culturalEvents",  label: "Cultural Events",      icon: Music,           disabled: false },
+  { id: "competitions",    label: "Competitions",         icon: Trophy,          disabled: false },
+  { id: "planning",        label: "Planning & Tasks",    icon: ClipboardList,   disabled: true  },
 ] as const;
 
 export function EventsSchedule() {
@@ -2304,7 +2304,7 @@ export function EventsSchedule() {
   });
 
   const resolveInitialTab = () => {
-    if (tabParam && visibleTabs.some(t => t.id === tabParam)) {
+    if (tabParam && visibleTabs.some(t => t.id === tabParam && !t.disabled)) {
       return tabParam;
     }
     return "events";
@@ -2313,7 +2313,7 @@ export function EventsSchedule() {
   const [tab, setTab] = useState<string>(resolveInitialTab);
 
   useEffect(() => {
-    if (tabParam && visibleTabs.some(t => t.id === tabParam)) {
+    if (tabParam && visibleTabs.some(t => t.id === tabParam && !t.disabled)) {
       setTab(tabParam);
     }
   }, [tabParam, visibleTabs]);
@@ -2331,18 +2331,30 @@ export function EventsSchedule() {
     <div className="space-y-5">
       <div className="flex items-center gap-0.5 p-0.5 bg-white rounded-md sm:rounded-lg border border-slate-100 shadow-[0_2px_6px_rgba(0,0,0,0.04)] overflow-x-auto hide-scrollbar">
         {visibleTabs.map(t => (
-          <button key={t.id} onClick={() => handleTabSelect(t.id)}
+          <button
+            key={t.id}
+            disabled={t.disabled}
+            onClick={() => !t.disabled && handleTabSelect(t.id)}
+            title={t.disabled ? `${t.label} (Disabled)` : t.label}
             className={`flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 rounded sm:rounded-md text-[10px] sm:text-xs font-semibold transition-all whitespace-nowrap flex-1 sm:flex-none justify-center ${
-              tab === t.id
+              t.disabled
+                ? "opacity-45 cursor-not-allowed text-slate-400 bg-slate-50/80 border border-dashed border-slate-200"
+                : tab === t.id
                 ? "bg-gradient-to-r from-indigo-600 to-violet-500 text-white shadow-sm"
                 : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
-            }`}>
-            <t.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" /> {t.label}
+            }`}
+          >
+            <t.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            <span>{t.label}</span>
+            {t.disabled && (
+              <span className="text-[9px] px-1 py-0.2 rounded bg-slate-200 text-slate-500 font-normal ml-0.5">
+                Disabled
+              </span>
+            )}
           </button>
         ))}
       </div>
       {tab === "events" && <EventsList />}
-      {tab === "planning" && <EventsPlanning />}
       {tab === "programs" && <EventsPrograms />}
       {tab === "poojaSeva" && <EventsPoojaSeva />}
       {tab === "lunchDinner" && (
@@ -2355,6 +2367,7 @@ export function EventsSchedule() {
       )}
       {tab === "culturalEvents" && <EventsCulturalEvents />}
       {tab === "competitions" && <CompetitionsSection />}
+      {tab === "planning" && <EventsPlanning />}
     </div>
   );
 }
