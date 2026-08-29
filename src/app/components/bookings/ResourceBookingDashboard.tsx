@@ -16,6 +16,7 @@ import type {
   BookingStatus,
   WaitlistResponse,
 } from "../../../types/booking";
+import { formatIndianTime, formatIndianDate, getNowInIST } from "../../../utils/indianDateTimeUtils";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -63,21 +64,19 @@ const BOOKING_FILTERS = ["All", "Upcoming", "Completed", "Cancelled"] as const;
 // ---------------------------------------------------------------------------
 
 function todayStr(): string {
-  return new Date().toISOString().split("T")[0];
+  const d = getNowInIST();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 function formatDate(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-IN", { weekday: "short", day: "2-digit", month: "short" });
+  return formatIndianDate(dateStr, "medium");
 }
 
 function formatTime(t: string): string {
-  if (!t) return "";
-  const [h, m] = t.split(":");
-  const hour = parseInt(h);
-  const ampm = hour >= 12 ? "PM" : "AM";
-  const h12 = hour % 12 || 12;
-  return `${h12}:${m} ${ampm}`;
+  return formatIndianTime(t);
 }
 
 function addDays(dateStr: string, days: number): string {

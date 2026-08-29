@@ -22,6 +22,7 @@ import { eventService } from "../../../services/events/eventService";
 import { userService } from "../../../services/common/userService";
 import { showSuccess, showError } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
+import { formatIndianTime, formatIndianDate } from "../../../utils/indianDateTimeUtils";
 
 export interface LunchDinnerMeal {
   id: number | string;
@@ -348,13 +349,13 @@ export function LunchDinnerRegistrationModal({
             {meal.date && (
               <span className="flex items-center gap-1 bg-white/80 px-2.5 py-1 rounded-lg border border-orange-100/60 shadow-2xs">
                 <Calendar className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                {meal.date}
+                {formatIndianDate(meal.date, "short")}
               </span>
             )}
             {meal.startTime && (
               <span className="flex items-center gap-1 bg-white/80 px-2.5 py-1 rounded-lg border border-orange-100/60 shadow-2xs">
                 <Clock className="w-3.5 h-3.5 text-orange-500 shrink-0" />
-                {meal.startTime}{meal.endTime ? ` – ${meal.endTime}` : ""}
+                {formatIndianTime(meal.startTime)}{meal.endTime ? ` – ${formatIndianTime(meal.endTime)}` : ""}
               </span>
             )}
             {meal.venue && (

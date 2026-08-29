@@ -7,6 +7,7 @@ import {
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { TimePicker } from "../ui/time-picker";
+import { formatIndianTime, formatIndianDate, formatIndianDateTime } from "../../../utils/indianDateTimeUtils";
 
 type CulturalEvent = {
   id: number;
@@ -440,10 +441,10 @@ export function EventsCulturalEvents() {
                     </div>
 
                     <div className="flex items-center gap-3 mt-2 flex-wrap text-xs text-slate-500">
-                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {ce.date}</span>
-                      {ce.startTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {ce.startTime}{ce.duration ? ` (${ce.duration}m)` : ""}</span>}
+                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {formatIndianDate(ce.date, "short")}</span>
+                      {ce.startTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatIndianTime(ce.startTime)}{ce.duration ? ` (${ce.duration}m)` : ""}</span>}
                       {ce.stage && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {ce.stage}</span>}
-                      {ce.regDeadline && <span className="flex items-center gap-1 text-amber-600"><Calendar className="w-3 h-3" /> Reg by {ce.regDeadline}</span>}
+                      {ce.regDeadline && <span className="flex items-center gap-1 text-amber-600"><Calendar className="w-3 h-3" /> Reg by {formatIndianDate(ce.regDeadline, "short")}</span>}
                     </div>
 
                     {/* Capacity + check-in bar */}
@@ -631,8 +632,8 @@ export function EventsCulturalEvents() {
             </div>
 
             <div className="mx-6 mt-4 p-3 rounded-xl bg-violet-50/70 border border-violet-100 text-xs flex flex-wrap gap-x-4 gap-y-1 text-violet-900">
-              <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {regTarget.date}</span>
-              {regTarget.startTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {regTarget.startTime}</span>}
+              <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {formatIndianDate(regTarget.date, "short")}</span>
+              {regTarget.startTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatIndianTime(regTarget.startTime)}</span>}
               {regTarget.stage && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {regTarget.stage}</span>}
               {regTarget.capacity != null && (
                 <span className="flex items-center gap-1 font-semibold">
@@ -640,7 +641,7 @@ export function EventsCulturalEvents() {
                   {getRegs(regTarget).filter(r => r.status !== "CANCELLED").reduce((a, r) => a + r.devoteeCount, 0)} / {regTarget.capacity} enrolled
                 </span>
               )}
-              {regTarget.regDeadline && <span className="flex items-center gap-1 font-semibold text-amber-700">⏰ Reg by {regTarget.regDeadline}</span>}
+              {regTarget.regDeadline && <span className="flex items-center gap-1 font-semibold text-amber-700">⏰ Reg by {formatIndianDate(regTarget.regDeadline, "short")}</span>}
             </div>
 
             <form onSubmit={handleRegister} className="px-6 py-5 space-y-4">

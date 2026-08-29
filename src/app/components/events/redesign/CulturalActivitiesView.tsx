@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Sparkles, Users, Clock, Loader2, AlertCircle } from "lucide-react";
 import { GlassCard, TouchButton, StatusChip, BottomSheet } from "./EventDesignSystem";
 import { eventService } from "../../../../services/events/eventService";
+import { formatIndianTime, formatIndianDate } from "../../../../utils/indianDateTimeUtils";
 
 interface CulturalActivitiesViewProps {
   isDark?: boolean;
@@ -142,8 +143,8 @@ export const CulturalActivitiesView: React.FC<CulturalActivitiesViewProps> = ({ 
                 </div>
 
                 <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
-                  {act.date && <span className="flex items-center gap-1">📅 {act.date}</span>}
-                  {act.startTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {act.startTime}{act.duration ? ` (${act.duration}m)` : ""}</span>}
+                  {act.date && <span className="flex items-center gap-1">📅 {formatIndianDate(act.date, "short")}</span>}
+                  {act.startTime && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {formatIndianTime(act.startTime)}{act.duration ? ` (${act.duration}m)` : ""}</span>}
                   {act.stage && <span className="flex items-center gap-1">📍 {act.stage}</span>}
                 </div>
 
@@ -205,7 +206,7 @@ export const CulturalActivitiesView: React.FC<CulturalActivitiesViewProps> = ({ 
             ) : (
               <>
                 <div className="p-3 rounded-2xl bg-slate-100 dark:bg-slate-800 space-y-1 text-xs">
-                  {selectedAct.date && <p className="text-slate-500">Date: {selectedAct.date}{selectedAct.startTime ? ` at ${selectedAct.startTime}` : ""}</p>}
+                  {selectedAct.date && <p className="text-slate-500">Date: {formatIndianDate(selectedAct.date, "short")}{selectedAct.startTime ? ` at ${formatIndianTime(selectedAct.startTime)}` : ""}</p>}
                   {selectedAct.stage && <p className="text-slate-500">Venue: {selectedAct.stage}</p>}
                   {selectedAct.ageGroup && <p className="text-slate-500">Age Group: {selectedAct.ageGroup}</p>}
                 </div>
