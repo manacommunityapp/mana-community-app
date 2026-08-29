@@ -49,6 +49,7 @@ import {
   IndianRupee,
   History,
   Lock,
+  PenLine,
 } from "lucide-react";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { PoojaRegistrationModal } from "./PoojaRegistrationModal";
@@ -3455,40 +3456,77 @@ export function EventMemberView() {
                   );
                 }
 
-                return foodItems.map((f) => (
-                  <div
-                    key={f.id}
-                    className="p-3.5 rounded-2xl bg-orange-50/30 dark:bg-orange-950/20 border border-orange-200/60 dark:border-orange-900/40 space-y-2"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <h4 className="font-bold text-foreground text-sm">{f.title}</h4>
-                      <span className="font-black text-orange-600 text-xs shrink-0">
-                        {f.fee === 0 || f.isFree ? "Free Feast" : `₹${f.fee}`}
-                      </span>
-                    </div>
+                return (
+                  <div className="space-y-2.5">
+                    {foodItems.map((f) => {
+                      const existingPass = getExistingPassForActivity(f);
+                      const isClosed = isRegistrationClosed(f);
+                      const displayTime = f.time
+                        ? f.time.includes(" - ")
+                          ? f.time.split(" - ").map((t: string) => formatIndianTime(t)).join(" - ")
+                          : formatIndianTime(f.time)
+                        : "Scheduled";
+                      const slotsLabel = f.availableSeats != null ? `${f.availableSeats} slots` : (f.slots != null ? `${f.slots} slots` : "500 slots");
 
-                    <div className="grid grid-cols-2 gap-1.5 text-[11px] text-muted-foreground">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-orange-600" />
-                        <span className="truncate">{f.time}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-orange-600" />
-                        <span className="truncate">{f.venue}</span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        setMobileModal(null);
-                        setSelectedActivity(f);
-                      }}
-                      className="w-full py-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm shadow-orange-600/20 cursor-pointer"
-                    >
-                      <Utensils className="w-3.5 h-3.5" /> Reserve Meal Token for Family
-                    </button>
+                      return (
+                        <div
+                          key={f.id}
+                          className="bg-card border border-border/90 rounded-xl p-3 flex gap-3 shadow-2xs hover:border-primary/40 transition-all"
+                        >
+                          <div className="w-12 h-12 rounded-xl bg-primary/10 text-2xl flex items-center justify-center shrink-0 border border-primary/20">
+                            🍲
+                          </div>
+                          <div className="flex-1 min-w-0 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between text-[10px]">
+                                <span className="font-black uppercase text-primary bg-primary/10 px-1.5 py-0.2 rounded border border-primary/20">
+                                  {f.category || "Food"}
+                                </span>
+                                <span className="font-semibold text-muted-foreground">{slotsLabel}</span>
+                              </div>
+                              <h4 className="text-xs font-bold text-foreground mt-0.5 truncate">{f.title}</h4>
+                              <p className="text-[10px] text-muted-foreground">
+                                {f.date ? `${f.date} • ` : ""}{displayTime}
+                              </p>
+                            </div>
+                            <div className="flex items-center justify-between pt-1.5 mt-1 border-t border-border/60">
+                              <span className="text-xs font-mono font-black text-foreground">
+                                {f.fee === 0 || f.isFree ? "FREE" : `₹${f.fee}`}
+                              </span>
+                              {existingPass ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMobileModal(null);
+                                    handleOpenUpdateRegistration(f, existingPass);
+                                  }}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-emerald-500 active:scale-95"
+                                >
+                                  <PenLine className="w-3 h-3" /> Update Registration
+                                </button>
+                              ) : isClosed ? (
+                                <span className="px-2.5 py-1 bg-muted text-muted-foreground text-[10px] font-bold rounded-lg border border-border shrink-0">
+                                  Registration Closed
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setMobileModal(null);
+                                    setSelectedActivity(f);
+                                  }}
+                                  className="px-2.5 py-1 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 text-[11px] font-black rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 active:scale-95"
+                                >
+                                  <Ticket className="w-3 h-3" /> Register
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ));
+                );
               })()}
             </div>
 
