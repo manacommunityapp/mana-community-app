@@ -475,7 +475,8 @@ export function NotificationBell() {
         } catch { /* silent */ }
       }
 
-      // 4. Fetch Latest Real Sports Events / Tournaments (only if user has access to Sports)
+      // 4. Fetch Latest Real Sports Events / Tournaments (ignored for now as requested)
+      /*
       const canViewSports = isSuperAdmin || (canAccessModule(user, "SPORTS") && hasAnyPermission(VIEW_SPORTS_MENU, VIEW_SPORTS_MAIN));
       if (canViewSports) {
         try {
@@ -503,8 +504,9 @@ export function NotificationBell() {
               }
             });
           }
-        } catch { /* silent */ }
+        } catch { }
       }
+      */
 
       // Deduplicate by category + title
       const seen = new Set<string>();

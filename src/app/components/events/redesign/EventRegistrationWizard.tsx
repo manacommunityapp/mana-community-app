@@ -303,14 +303,13 @@ export const EventRegistrationWizard: React.FC<EventRegistrationWizardProps> = (
         .then((regs) => {
           if (isCancelled) return;
           if (Array.isArray(regs) && regs.length > 0) {
+            const rawId = String(event.id || "").replace(/\D/g, "");
             const found = regs.find((r: any) => {
               if (r.status === "CANCELLED") return false;
               if (r.activityId && (r.activityId === event?.id || String(r.activityId) === String(event?.id))) return true;
-              if (event?.id && String(event.id).includes("-")) {
-                const rawId = String(event.id).split("-")[1];
-                if (r.activityId && (r.activityId === rawId || r.activityId === event.id)) return true;
-                if (r.eventId && String(r.eventId) === rawId) return true;
-              }
+              const rActNumeric = String(r.activityId || "").replace(/\D/g, "");
+              const rMainNumeric = String(r.mainEventId || r.eventId || "").replace(/\D/g, "");
+              if (rawId && (rActNumeric === rawId || rMainNumeric === rawId)) return true;
               const cleanEventTitle = (event?.title || event?.name || "").trim().toLowerCase();
               const cleanRegTitle = (r.activityTitle || r.eventName || "").trim().toLowerCase();
               if (
