@@ -84,7 +84,13 @@ interface Activity {
   endDate?: string;
   isMultiDay?: boolean;
   startTime?: string;
+  endTime?: string;
   startTimes?: string[];
+  /** ISO or date string for registration deadline – used by isRegistrationClosed() */
+  registrationDeadline?: string;
+  regDeadline?: string;
+  /** Event status (ACTIVE, CLOSED, COMPLETED, EXPIRED, etc.) */
+  status?: string;
   mandap?: string;
   pandit?: string;
   slots?: number | string;
@@ -2340,20 +2346,33 @@ export function EventMemberView() {
                       title: activeMainEvent?.title || "Main Event",
                       category: activeMainEvent?.category || "Event",
                       date: activeMainEvent?.startDate ? String(activeMainEvent.startDate) : "Upcoming",
+                      startDate: activeMainEvent?.startDate,
+                      endDate: activeMainEvent?.endDate,
+                      registrationDeadline: activeMainEvent?.registrationDeadline || activeMainEvent?.regDeadline,
+                      regDeadline: activeMainEvent?.registrationDeadline || activeMainEvent?.regDeadline,
                       time: activeMainEvent?.startTime || "Morning",
+                      startTime: activeMainEvent?.startTime,
+                      endTime: activeMainEvent?.endTime,
+                      status: activeMainEvent?.status,
                       venue: activeMainEvent?.venue || activeMainEvent?.location || "Community Center",
                       fee: activeMainEvent?.price ? Number(activeMainEvent.price) : 0,
                       availableSeats: activeMainEvent?.capacity || 100,
                       image: "📅",
                       description: activeMainEvent?.description || "Community Parent Event",
+                      mainEventId: activeMainEvent?.id,
                     };
                     const existingPass = getExistingPassForActivity(actForReg);
-                    const isClosed = isRegistrationClosed(actForReg);
+                    const isClosed = isRegistrationClosed(activeMainEvent) || isRegistrationClosed(actForReg);
                     if (isClosed && !existingPass) {
                       return (
-                        <span className="ml-auto px-2.5 py-1 text-[10.5px] sm:text-[11px] font-bold rounded-lg bg-white/10 text-white/70 border border-white/20 whitespace-nowrap shrink-0 flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" /> Registration Closed
-                        </span>
+                        <div className="ml-auto flex items-center gap-1.5 shrink-0" title="Registration deadline has expired. Contact temple / community admin for assistance.">
+                          <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 text-[10.5px] sm:text-[11px] font-bold rounded-lg bg-white/10 text-white/70 border border-white/20 whitespace-nowrap flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-amber-300" /> Registration Closed
+                          </span>
+                          <span className="text-[10px] sm:text-[10.5px] text-amber-200 font-bold whitespace-nowrap bg-amber-500/20 px-2 py-1 rounded-lg border border-amber-400/30 hidden sm:inline-block">
+                            Contact Admin
+                          </span>
+                        </div>
                       );
                     }
                     return (
@@ -2735,9 +2754,14 @@ export function EventMemberView() {
                             }
                             if (isClosed) {
                               return (
-                                <span className="px-3 py-1.5 bg-muted text-muted-foreground text-xs font-bold rounded-xl border border-border flex items-center gap-1.5 select-none">
-                                  <Clock className="w-3.5 h-3.5" /> Registration Closed
-                                </span>
+                                <div className="flex items-center gap-1.5 flex-wrap" title="Registration deadline has expired. Contact admin for assistance.">
+                                  <span className="px-3 py-1.5 bg-muted text-muted-foreground text-xs font-bold rounded-xl border border-border flex items-center gap-1.5 select-none">
+                                    <Clock className="w-3.5 h-3.5 text-amber-500" /> Registration Closed
+                                  </span>
+                                  <span className="text-[10.5px] text-amber-600 dark:text-amber-400 font-bold bg-amber-500/10 px-2 py-1 rounded-lg border border-amber-500/20">
+                                    Contact Admin
+                                  </span>
+                                </div>
                               );
                             }
                             if (act.needsRegistration === false) {
