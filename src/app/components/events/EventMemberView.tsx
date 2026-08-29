@@ -2523,17 +2523,27 @@ export function EventMemberView() {
                     <button
                       key={action.id}
                       onClick={() => {
+                        if (action.id === "lunchDinner" || action.id === "food") {
+                          setMobileModal("meals");
+                          return;
+                        }
                         if (action.action === "family" || action.id === "family") {
                           setMobileModal("family");
+                          return;
+                        }
+                        if (action.id === "pooja") {
+                          setMobileModal("pooja");
+                          return;
+                        }
+                        if (action.action === "passes" || action.id === "passes") {
+                          setMobileModal("passes");
                           return;
                         }
                         const isMobileScreen = typeof window !== "undefined" && window.innerWidth < 768;
                         if (isMobileScreen) {
                           setMobileQuickActionModal(action);
                         } else {
-                          if (action.action === "passes") {
-                            setActiveTab("passes");
-                          } else if (action.category) {
+                          if (action.category) {
                             setSelectedCategoryFilter(
                               selectedCategoryFilter === action.category ? null : action.category
                             );
