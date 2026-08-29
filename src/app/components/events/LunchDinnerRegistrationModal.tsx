@@ -257,7 +257,7 @@ export function LunchDinnerRegistrationModal({
           eventId: numericMainEventId,
           userId: targetUid,
           targetUserId: targetUid,
-          registrationSource: registerOnBehalf ? "ADMIN" : "USER",
+          registrationSource: registerOnBehalf ? "ADMIN" : "SELF",
           category: "Meal",
           activityId: `meal-${meal.id}`,
           activityTitle: meal.name,
