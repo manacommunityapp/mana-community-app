@@ -2523,27 +2523,17 @@ export function EventMemberView() {
                     <button
                       key={action.id}
                       onClick={() => {
-                        if (action.id === "lunchDinner" || action.id === "food") {
-                          setMobileModal("meals");
-                          return;
-                        }
                         if (action.action === "family" || action.id === "family") {
                           setMobileModal("family");
-                          return;
-                        }
-                        if (action.id === "pooja") {
-                          setMobileModal("pooja");
-                          return;
-                        }
-                        if (action.action === "passes" || action.id === "passes") {
-                          setMobileModal("passes");
                           return;
                         }
                         const isMobileScreen = typeof window !== "undefined" && window.innerWidth < 768;
                         if (isMobileScreen) {
                           setMobileQuickActionModal(action);
                         } else {
-                          if (action.category) {
+                          if (action.action === "passes") {
+                            setActiveTab("passes");
+                          } else if (action.category) {
                             setSelectedCategoryFilter(
                               selectedCategoryFilter === action.category ? null : action.category
                             );
@@ -3176,9 +3166,22 @@ export function EventMemberView() {
         </button>
 
         <button
-          onClick={() => setMobileModal(mobileModal === "pooja" ? null : "pooja")}
+          onClick={() => {
+            const poojaAction = dynamicQuickActions.find((a) => a.id === "pooja" || a.category === "Pooja") || {
+              id: "pooja",
+              label: "Pooja & Seva",
+              icon: Flame,
+              color: "bg-amber-500/10 text-amber-600 border-amber-300/30",
+              badge: poojaCount > 0 ? `${poojaCount} Live Slot${poojaCount === 1 ? "" : "s"}` : "0 Slots",
+              category: "Pooja",
+            };
+            setMobileModal(null);
+            setMobileQuickActionModal(mobileQuickActionModal?.id === "pooja" ? null : poojaAction);
+          }}
           className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer relative ${
-            mobileModal === "pooja" || (!mobileModal && selectedCategoryFilter === "Pooja") ? "text-amber-600 font-black scale-105" : "text-muted-foreground font-semibold"
+            mobileQuickActionModal?.id === "pooja" || (!mobileQuickActionModal && selectedCategoryFilter === "Pooja")
+              ? "text-amber-600 font-black scale-105"
+              : "text-muted-foreground font-semibold"
           }`}
         >
           <Flame className={`w-4 h-4 ${poojaCount > 0 ? "animate-pulse text-amber-500 fill-amber-500/20" : ""}`} />
@@ -3192,9 +3195,22 @@ export function EventMemberView() {
         </button>
 
         <button
-          onClick={() => setMobileModal(mobileModal === "meals" ? null : "meals")}
+          onClick={() => {
+            const lunchDinnerAction = dynamicQuickActions.find((a) => a.id === "lunchDinner" || a.category === "Food") || {
+              id: "lunchDinner",
+              label: "Lunch / Dinner",
+              icon: Utensils,
+              color: "bg-orange-500/10 text-orange-600 border-orange-300/30",
+              badge: `${foodCount} Meal Slot${foodCount === 1 ? "" : "s"}`,
+              category: "Food",
+            };
+            setMobileModal(null);
+            setMobileQuickActionModal(mobileQuickActionModal?.id === "lunchDinner" ? null : lunchDinnerAction);
+          }}
           className={`flex flex-col items-center gap-0.5 p-1 rounded-xl transition-all cursor-pointer ${
-            mobileModal === "meals" || (!mobileModal && selectedCategoryFilter === "Food") ? "text-orange-600 font-black scale-105" : "text-muted-foreground font-semibold"
+            mobileQuickActionModal?.id === "lunchDinner" || (!mobileQuickActionModal && selectedCategoryFilter === "Food")
+              ? "text-orange-600 font-black scale-105"
+              : "text-muted-foreground font-semibold"
           }`}
         >
           <Utensils className="w-4 h-4" />
@@ -4435,11 +4451,32 @@ export function EventMemberView() {
                 )
               ) : (
                 (() => {
-                  const matchingActivities = activitiesList.filter(
-                    (a) =>
-                      a.category?.toLowerCase() === mobileQuickActionModal.category?.toLowerCase() ||
-                      a.title?.toLowerCase().includes(mobileQuickActionModal.category?.toLowerCase() || "")
-                  );
+                  const matchingActivities = activitiesList.filter((a) => {
+                    const catLower = mobileQuickActionModal.category?.toLowerCase() || "";
+                    if (catLower === "food" || mobileQuickActionModal.id === "lunchDinner") {
+                      return (
+                        a.category?.toLowerCase().includes("food") ||
+                        a.category?.toLowerCase().includes("meal") ||
+                        a.category?.toLowerCase().includes("lunch") ||
+                        a.category?.toLowerCase().includes("dinner") ||
+                        a.category?.toLowerCase().includes("annadanam") ||
+                        a.category?.toLowerCase().includes("prasadam") ||
+                        a.id?.startsWith("food-") ||
+                        a.id?.startsWith("meal-") ||
+                        a.title?.toLowerCase().includes("lunch") ||
+                        a.title?.toLowerCase().includes("dinner") ||
+                        a.title?.toLowerCase().includes("prasadam") ||
+                        a.title?.toLowerCase().includes("food")
+                      );
+                    }
+                    if (catLower === "pooja" || mobileQuickActionModal.id === "pooja") {
+                      return isPoojaActivity(a.category) || a.id?.startsWith("pooja-") || a.title?.toLowerCase().includes("pooja") || a.title?.toLowerCase().includes("seva");
+                    }
+                    return (
+                      a.category?.toLowerCase() === catLower ||
+                      a.title?.toLowerCase().includes(catLower)
+                    );
+                  });
 
                   if (matchingActivities.length === 0) {
                     return (
@@ -4465,51 +4502,75 @@ export function EventMemberView() {
 
                   return (
                     <div className="space-y-2.5">
-                      {matchingActivities.map((act) => (
-                        <div
-                          key={act.id}
-                          className="bg-card border border-border/90 rounded-xl p-3 flex gap-3 shadow-2xs hover:border-primary/40 transition-all"
-                        >
-                          <div className="w-12 h-12 rounded-xl bg-primary/10 text-2xl flex items-center justify-center shrink-0 border border-primary/20">
-                            {act.image}
-                          </div>
-                          <div className="flex-1 min-w-0 flex flex-col justify-between">
-                            <div>
-                              <div className="flex items-center justify-between text-[10px]">
-                                <span className="font-black uppercase text-primary bg-primary/10 px-1.5 py-0.2 rounded border border-primary/20">
-                                  {act.category}
-                                </span>
-                                <span className={`font-semibold ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
-                                  {act.availableSeats === 0 ? "Closed" : `${act.availableSeats} slots`}
-                                </span>
-                              </div>
-                              <h4 className="text-xs font-bold text-foreground mt-0.5 truncate">{act.title}</h4>
-                              <p className="text-[10px] text-muted-foreground">
-                                {(() => {
-                                  const isMulti = Boolean(act.isMultiDay || (act.startDate && act.endDate && act.startDate !== act.endDate));
-                                  if (isMulti) {
-                                    const start = act.startDate || act.date;
-                                    const end = act.endDate;
-                                    if (start && end && start !== end) {
-                                      return `${start} to ${end}`;
-                                    }
-                                    if (start) return start;
-                                  }
-                                  return act.time ? `${act.date} • ${act.time}` : act.date;
-                                })()}
-                              </p>
+                      {matchingActivities.map((act) => {
+                        const existingPass = getExistingPassForActivity(act);
+                        const isThisActPooja = isPoojaActivity(act.category);
+                        const isClosed = isRegistrationClosed(act);
+                        const isFull = act.availableSeats !== undefined && act.availableSeats <= 0;
+                        const isMulti = Boolean(act.isMultiDay || (act.startDate && act.endDate && act.startDate !== act.endDate));
+                        
+                        let timeStr = "";
+                        if (isMulti) {
+                          const start = act.startDate || act.date;
+                          const end = act.endDate;
+                          if (start && end && start !== end) {
+                            timeStr = `${start} to ${end}`;
+                          } else if (start) {
+                            timeStr = start;
+                          }
+                        } else {
+                          const displayTime = act.time
+                            ? act.time.includes(" - ")
+                              ? act.time.split(" - ").map((t: string) => formatIndianTime(t)).join(" - ")
+                              : formatIndianTime(act.time)
+                            : "";
+                          timeStr = act.date ? (displayTime ? `${act.date} • ${displayTime}` : act.date) : displayTime;
+                        }
+
+                        const slotsLabel = act.availableSeats === 0 ? "Closed" : (act.availableSeats != null ? `${act.availableSeats} slots` : (act.slots != null ? `${act.slots} slots` : "500 slots"));
+
+                        return (
+                          <div
+                            key={act.id}
+                            className="bg-card border border-border/90 rounded-xl p-3 flex gap-3 shadow-2xs hover:border-primary/40 transition-all"
+                          >
+                            <div className="w-12 h-12 rounded-xl bg-primary/10 text-2xl flex items-center justify-center shrink-0 border border-primary/20">
+                              {act.image}
                             </div>
-                            <div className="flex items-center justify-between pt-1.5 mt-1 border-t border-border/60">
-                              <span className="text-xs font-mono font-black text-foreground">
-                                {act.fee === 0 ? "FREE" : `₹${act.fee}`}
-                              </span>
-                              {(() => {
-                                const existingPass = getExistingPassForActivity(act);
-                                const isThisActPooja = isPoojaActivity(act.category);
-                                const isClosed = isRegistrationClosed(act);
-                                const isFull = act.availableSeats !== undefined && act.availableSeats <= 0;
-                                if (existingPass) {
-                                  if (isThisActPooja) {
+                            <div className="flex-1 min-w-0 flex flex-col justify-between">
+                              <div>
+                                <div className="flex items-center justify-between text-[10px]">
+                                  <span className="font-black uppercase text-primary bg-primary/10 px-1.5 py-0.2 rounded border border-primary/20">
+                                    {act.category}
+                                  </span>
+                                  <span className={`font-semibold ${act.availableSeats === 0 ? "text-red-500" : "text-muted-foreground"}`}>
+                                    {slotsLabel}
+                                  </span>
+                                </div>
+                                <h4 className="text-xs font-bold text-foreground mt-0.5 truncate">{act.title}</h4>
+                                <p className="text-[10px] text-muted-foreground">{timeStr}</p>
+                              </div>
+                              <div className="flex items-center justify-between pt-1.5 mt-1 border-t border-border/60">
+                                <span className="text-xs font-mono font-black text-foreground">
+                                  {act.fee === 0 || act.isFree ? "FREE" : `₹${act.fee}`}
+                                </span>
+                                {(() => {
+                                  if (existingPass) {
+                                    if (isThisActPooja) {
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setMobileQuickActionModal(null);
+                                            handleOpenUpdateRegistration(act, existingPass);
+                                          }}
+                                          className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-amber-500"
+                                          title="Reschedule your booked pooja slot"
+                                        >
+                                          <RefreshCw className="w-3 h-3" /> Reschedule Slot
+                                        </button>
+                                      );
+                                    }
                                     return (
                                       <button
                                         type="button"
@@ -4517,37 +4578,55 @@ export function EventMemberView() {
                                           setMobileQuickActionModal(null);
                                           handleOpenUpdateRegistration(act, existingPass);
                                         }}
-                                        className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-amber-500"
-                                        title="Reschedule your booked pooja slot"
+                                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-emerald-500"
                                       >
-                                        <RefreshCw className="w-3 h-3" /> Reschedule Slot
+                                        <PenLine className="w-3 h-3" /> Update Registration
                                       </button>
                                     );
                                   }
+
+                                  if (isFull) {
+                                    return (
+                                      <span className="px-2.5 py-1 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[11px] font-bold rounded-lg border border-rose-500/20 flex items-center gap-1 select-none">
+                                        <AlertCircle className="w-3 h-3" /> Full
+                                      </span>
+                                    );
+                                  }
+                                  if (isClosed) {
+                                    return (
+                                      <span className="px-2.5 py-1 bg-muted text-muted-foreground text-[11px] font-bold rounded-lg border border-border flex items-center gap-1 select-none">
+                                        <Clock className="w-3 h-3" /> Registration Closed
+                                      </span>
+                                    );
+                                  }
+                                  if (act.needsRegistration === false) {
+                                    return (
+                                      <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold rounded-lg border border-emerald-500/20 flex items-center gap-1 select-none">
+                                        <Sparkles className="w-3 h-3 text-emerald-500" /> Open to All
+                                      </span>
+                                    );
+                                  }
+
                                   return (
                                     <button
                                       type="button"
                                       onClick={() => {
                                         setMobileQuickActionModal(null);
-                                        handleOpenUpdateRegistration(act, existingPass);
+                                        setSelectedActivity(act);
                                       }}
-                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 border border-emerald-500"
+                                      className="px-2.5 py-1 bg-primary text-primary-foreground hover:bg-primary/90 text-[11px] font-bold rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1 active:scale-95"
                                     >
-                                      <Edit3 className="w-3 h-3" /> Update Registration
+                                      <Ticket className="w-3 h-3" /> Register
                                     </button>
                                   );
-                                }
-
-                                if (isFull) {
-                                  return (
-                                    <span className="px-2.5 py-1 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-[11px] font-bold rounded-lg border border-rose-500/20 flex items-center gap-1 select-none">
-                                      <AlertCircle className="w-3 h-3" /> Full
-                                    </span>
-                                  );
-                                }
-                                if (isClosed) {
-                                  return (
-                                    <span className="px-2.5 py-1 bg-muted text-muted-foreground text-[11px] font-bold rounded-lg border border-border flex items-center gap-1 select-none">
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
                                       <Clock className="w-3 h-3" /> Registration Closed
                                     </span>
                                   );

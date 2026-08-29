@@ -406,9 +406,9 @@ export interface PendingActionItemResponse {
 function parseNumericId(id: number | string | undefined | null): number | null {
   if (id === undefined || id === null) return null;
   if (typeof id === "number") return isNaN(id) || id <= 0 ? null : id;
-  const digitsOnly = String(id).replace(/\D/g, "");
-  if (!digitsOnly) return null;
-  const num = Number(digitsOnly);
+  const str = String(id).trim();
+  if (!/^\d+$/.test(str)) return null; // reject prefixed strings like "ev-1", "pooja-5"
+  const num = Number(str);
   return isNaN(num) || num <= 0 ? null : num;
 }
 
@@ -762,7 +762,7 @@ export const eventService = {
   /** Create meal pass registration */
   async createMealRegistration(data: MealRegistrationRequest, options?: { targetUserId?: number | string; adminOverride?: boolean }): Promise<any> {
     const numericId = typeof data.id === "number" ? data.id : parseNumericId(data.id);
-    const numericMealId = parseNumericId(data.mealId || data.lunchDinnerId || data.eventLunchDinnerId || data.activityId || (typeof data.id === "number" ? data.id : undefined));
+    const numericMealId = parseNumericId(data.mealId || data.lunchDinnerId || data.eventLunchDinnerId || (typeof data.id === "number" ? data.id : undefined));
     const numericMainEventId = parseNumericId(data.mainEventId || data.eventId);
 
     const payload: any = {

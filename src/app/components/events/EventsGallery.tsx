@@ -646,7 +646,8 @@ export function EventsGallery() {
 
     try {
       const createdItems: EventGalleryItemResponse[] = [];
-      const evtIdNum = Number(selectedEventId) || events[0]?.id || 1;
+      const evtIdNum = Number(selectedEventId) || events[0]?.id;
+      if (!evtIdNum) return;
 
       // 1. Process selected files queue
       for (let i = 0; i < uploadFilesQueue.length; i++) {

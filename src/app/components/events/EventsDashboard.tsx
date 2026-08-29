@@ -101,7 +101,7 @@ const MOCK_PIE = [
 
 const MOCK_BANNERS = [
   {
-    id: "ev-1", title: "Ganesh Chaturthi Utsav 2026",
+    id: undefined, title: "Ganesh Chaturthi Utsav 2026",
     subtitle: "Grand 10-Day Festival, Cultural Competitions & Community Feasts",
     location: "Main Community Grounds, Sector 4", date: "Aug 27 - Sep 06, 2026",
     registered: "1,842 passes issued", category: "Grand Festival",
@@ -109,7 +109,7 @@ const MOCK_BANNERS = [
     image: "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
   },
   {
-    id: "ev-2", title: "Annual Sports Olympiad 2026",
+    id: undefined, title: "Annual Sports Olympiad 2026",
     subtitle: "Cricket, Badminton, Swimming & Athletics Tournaments",
     location: "Central Sports Arena", date: "Sep 14 - Sep 18, 2026",
     registered: "412 athletes registered", category: "Sports Championship",
@@ -554,7 +554,8 @@ export function EventsDashboard() {
   async function toggleTask(id: string) {
     setTasksDone(prev => ({ ...prev, [id]: !prev[id] }));
     if (!useMock) {
-      try { await eventTaskService.toggleDone(parseInt(id)); }
+      const numericTaskId = Number(id);
+      try { if (numericTaskId > 0) await eventTaskService.toggleDone(numericTaskId); }
       catch { setTasksDone(prev => ({ ...prev, [id]: !prev[id] })); }
     }
   }
