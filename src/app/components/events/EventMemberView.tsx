@@ -1061,9 +1061,7 @@ export function EventMemberView() {
                               r.isCancelled === true ||
                               parentStatusStr === "CANCELLED";
 
-          const isClosed = regStatusStr === "CLOSED" ||
-                           parentStatusStr === "CLOSED" ||
-                           Boolean(parentEvent && isRegistrationClosed(parentEvent));
+          const isClosed = regStatusStr === "CLOSED" || parentStatusStr === "CLOSED";
 
           let isExpired = false;
           if (parentEvent) {
@@ -1407,7 +1405,8 @@ export function EventMemberView() {
    * Prevents ID collision between different types (e.g. comp-1 vs pooja-1).
    */
   const getExistingPassForActivity = (act: Activity): UserPass | undefined => {
-    if (!activePasses || activePasses.length === 0) return undefined;
+    const listToCheck = passesList && passesList.length > 0 ? passesList : activePasses;
+    if (!listToCheck || listToCheck.length === 0) return undefined;
 
     const actIdStr = String(act.id || "").trim();
     const actIdNumeric = actIdStr.replace(/\D/g, "");
@@ -1428,8 +1427,8 @@ export function EventMemberView() {
                       cleanActTitle.includes("meal");
     const isMainEvent = actIdStr.startsWith("event-") || (!isActPooja && !isActComp && !isActCult && !isActFood);
 
-    return activePasses.find((p) => {
-      if (p.status === "CANCELLED" || p.isEventCancelled || p.isEventExpired) return false;
+    return listToCheck.find((p) => {
+      if (p.status === "CANCELLED" || p.isEventCancelled) return false;
 
       const passActIdStr = String(p.activityId || "").trim();
       const passActIdNumeric = passActIdStr.replace(/\D/g, "");
