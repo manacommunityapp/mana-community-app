@@ -1404,6 +1404,8 @@ export function EventMemberView() {
 
     const actIdStr = String(act.id || "").trim();
     const actIdNumeric = actIdStr.replace(/\D/g, "");
+    const cleanActTitle = (act.title || "").trim().toLowerCase();
+    const actMainEventId = act.mainEventId ? String(act.mainEventId).replace(/\D/g, "") : null;
     const isActPooja = isPoojaActivity(act.category) || actIdStr.startsWith("pooja-");
     const isActComp = act.category?.toLowerCase().includes("competition") || actIdStr.startsWith("comp-");
     const isActCult = act.category?.toLowerCase().includes("cultural") || actIdStr.startsWith("cult-");
@@ -1418,8 +1420,6 @@ export function EventMemberView() {
                       cleanActTitle.includes("food") ||
                       cleanActTitle.includes("meal");
     const isMainEvent = actIdStr.startsWith("event-") || (!isActPooja && !isActComp && !isActCult && !isActFood);
-    const cleanActTitle = (act.title || "").trim().toLowerCase();
-    const actMainEventId = act.mainEventId ? String(act.mainEventId).replace(/\D/g, "") : null;
 
     return activePasses.find((p) => {
       if (p.status === "CANCELLED" || p.isEventCancelled || p.isEventExpired) return false;
