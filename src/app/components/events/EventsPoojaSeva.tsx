@@ -259,21 +259,8 @@ export function EventsPoojaSeva() {
         const poojaRegs = safeRegs
           .filter((r: any) => {
             if (!r) return false;
-            const cat = String(r.category || "").toLowerCase();
-            const actId = String(r.activityId || "");
-            const title = String(r.activityTitle || r.poojaSlotName || r.eventName || "").toLowerCase().trim();
-            return (
-              cat === "pooja" ||
-              cat === "seva" ||
-              cat.includes("pooja") ||
-              cat.includes("seva") ||
-              actId.startsWith("pooja-") ||
-              Boolean(r.poojaSlotName) ||
-              Boolean(r.poojaSevaId) ||
-              Boolean(r.poojaId) ||
-              Boolean(r.poojaSevaTimeSlotsId) ||
-              safeSevas.some((s: any) => s.name && s.name.toLowerCase().trim() === title)
-            );
+            const regPoojaId = r.poojaId ?? r.poojaSevaId ?? r.pooja_id ?? r.pooja_seva_id;
+            return regPoojaId != null || r.poojaSevaTimeSlotsId != null;
           })
           .map((r: any) => {
             let count = Number(r.devoteeCount ?? r.membersCount ?? 0);
@@ -284,8 +271,11 @@ export function EventsPoojaSeva() {
               } catch {}
             }
             if (!count) count = 1;
+            const pId = r.poojaId ?? r.poojaSevaId ?? r.pooja_id ?? r.pooja_seva_id;
             return {
               ...r,
+              poojaId: pId,
+              poojaSevaId: pId,
               devoteeCount: count,
               status: String(r.status || "CONFIRMED").toUpperCase(),
               paymentStatus: String(r.paymentStatus || "PAID").toUpperCase(),
@@ -319,24 +309,19 @@ export function EventsPoojaSeva() {
   const matchesPooja = (r: BookingRegistration, pooja: PoojaSeva): boolean => {
     if (!r || !pooja) return false;
     const poojaIdStr = String(pooja.id ?? "").trim();
-    const poojaName = (pooja.name || "").trim().toLowerCase();
 
-    // 1. Direct ID matching
-    if (r.activityId === `pooja-${poojaIdStr}` || String(r.activityId) === poojaIdStr) return true;
-    if (r.poojaId != null && String(r.poojaId) === poojaIdStr) return true;
-    if (r.poojaSevaId != null && String(r.poojaSevaId) === poojaIdStr) return true;
-    if (r.scheduleId != null && String(r.scheduleId) === poojaIdStr) return true;
-    if ((r as any).eventId != null && String((r as any).eventId) === poojaIdStr) return true;
+    // 1. Direct pooja ID matching (strictly ignore activityId string)
+    const regPoojaId = r.poojaId ?? r.poojaSevaId ?? (r as any).pooja_id ?? (r as any).pooja_seva_id;
+    if (regPoojaId != null && String(regPoojaId).trim() === poojaIdStr) return true;
 
-    // 2. Title / Name matching (case-insensitive & trimmed)
-    const actTitle = (r.activityTitle || "").trim().toLowerCase();
-    const slotName = (r.poojaSlotName || "").trim().toLowerCase();
-    const evName = ((r as any).eventName || "").trim().toLowerCase();
-    if (poojaName && (actTitle === poojaName || slotName === poojaName || evName === poojaName)) return true;
-
-    // 3. Time slot ID matching
+    // 2. Time slot ID matching (under this specific pooja)
     if (r.poojaSevaTimeSlotsId && Array.isArray(pooja.timeSlotConfig)) {
       if (pooja.timeSlotConfig.some(ts => ts.id != null && String(ts.id) === String(r.poojaSevaTimeSlotsId))) {
+        return true;
+      }
+    }
+    if (r.scheduleId && Array.isArray(pooja.timeSlotConfig)) {
+      if (pooja.timeSlotConfig.some(ts => ts.id != null && String(ts.id) === String(r.scheduleId))) {
         return true;
       }
     }
@@ -825,6 +810,8 @@ export function EventsPoojaSeva() {
               id: created.id || Date.now(),
               regCode: created.regCode || `POOJA-${created.id || 'REG'}`,
               ...payload,
+              poojaId: created.poojaId ?? created.poojaSevaId ?? selectedPoojaForReg.id,
+              poojaSevaId: created.poojaSevaId ?? created.poojaId ?? selectedPoojaForReg.id,
               // Ensure backend-returned fields override the payload so matchesPooja works post-create
               poojaSlotName: created.poojaSlotName || payload.poojaSlotName,
               poojaSlotDate: created.poojaSlotDate || payload.poojaSlotDate,

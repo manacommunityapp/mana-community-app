@@ -803,6 +803,19 @@ export const eventService = {
     return await apiClient.post<any>("/events/registrations", payload);
   },
 
+  /** Get the logged-in user's meal registrations for a specific event */
+  async getUserMealsForEvent(eventId: number | string): Promise<any> {
+    return apiClient.get<any>(`/events/${eventId}/meals`).catch(() => null);
+  },
+
+  /** Update headCount only for an existing meal registration */
+  async updateMealHeadCount(lunchDinnerId: number | string, headCount: number): Promise<any> {
+    return apiClient.patch<any>(
+      `/events/registrations/meal/${lunchDinnerId}/headcount`,
+      { headCount }
+    );
+  },
+
   /** Fetch all meal registrations for a meal session or event */
   async getMealRegistrations(mealId?: number | string): Promise<any[]> {
     const numericId = parseNumericId(mealId);
@@ -812,8 +825,9 @@ export const eventService = {
         if (Array.isArray(mealSpecific) && mealSpecific.length > 0) return mealSpecific;
       } catch {}
     }
-    const allRegs = await this.getAllRegistrations();
-    return allRegs.filter((r) => {
+    const res = await apiClient.get<any[]>("/events/registrations").catch(() => []);
+    const allRegs: any[] = Array.isArray(res) ? res : Array.isArray((res as any)?.content) ? (res as any).content : [];
+    return allRegs.filter((r: any) => {
       const cat = String(r.category || "").toLowerCase();
       const actId = String(r.activityId || "");
       return cat.includes("meal") || cat.includes("food") || actId.startsWith("meal-") || (numericId && (r.mealId === numericId || r.lunchDinnerId === numericId));

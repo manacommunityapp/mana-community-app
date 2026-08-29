@@ -55,6 +55,7 @@ export function LunchDinnerRegistrationModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isUpdateMode, setIsUpdateMode] = useState(false);
 
   // Track previous open state so typing / clicking never triggers a re-initialization reset
   const prevOpenRef = React.useRef(false);
@@ -87,6 +88,7 @@ export function LunchDinnerRegistrationModal({
       setFamilyCount(1);
       setError("");
       setIsSuccess(false);
+      setIsUpdateMode(false);
 
       // If still missing phone or name, fetch fresh from userService.getMe()
       if (!initialPhone || !initialName) {
@@ -102,9 +104,31 @@ export function LunchDinnerRegistrationModal({
           })
           .catch(() => {});
       }
+
+      // Check if user already has a registration for this meal slot
+      if (meal?.mainEventId) {
+        eventService.getUserMealsForEvent(meal.mainEventId).then((res: any) => {
+          if (!res?.meals?.length) return;
+          const targetType = (meal.mealType || "LUNCH").toUpperCase();
+          const targetDate = meal.date || "";
+          const existing = res.meals.find((m: any) => {
+            const dateMatch = !targetDate || m.date === targetDate;
+            const typeMatch =
+              (targetType === "LUNCH" && m.lunch) ||
+              (targetType === "DINNER" && m.dinner) ||
+              (targetType === "MORNING" && m.morning) ||
+              (targetType === "BREAKFAST" && m.morning);
+            return dateMatch && typeMatch;
+          });
+          if (existing) {
+            setIsUpdateMode(true);
+            setFamilyCount(existing.headCount || 1);
+          }
+        }).catch(() => {});
+      }
     }
     prevOpenRef.current = isOpen;
-  }, [isOpen]);
+  }, [isOpen, meal]);
 
   if (!isOpen || !meal) return null;
 
@@ -115,18 +139,12 @@ export function LunchDinnerRegistrationModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!participantName.trim()) {
-      setError("Please enter your name.");
-      return;
+
+    if (!isUpdateMode) {
+      if (!participantName.trim()) { setError("Please enter your name."); return; }
+      if (!phone.trim()) { setError("Please enter your phone number."); return; }
     }
-    if (!phone.trim()) {
-      setError("Please enter your phone number.");
-      return;
-    }
-    if (count < 1) {
-      setError("Family count must be at least 1.");
-      return;
-    }
+    if (count < 1) { setError("Family count must be at least 1."); return; }
 
     setSaving(true);
     setError("");
@@ -135,35 +153,40 @@ export function LunchDinnerRegistrationModal({
       const numericMealId = typeof meal.id === "number" ? meal.id : parseInt(String(meal.id).replace(/\D/g, ""), 10) || undefined;
       const numericMainEventId = meal.mainEventId ? Number(meal.mainEventId) : undefined;
 
-      const regPayload = {
-        mealId: numericMealId,
-        lunchDinnerId: numericMealId,
-        eventLunchDinnerId: numericMealId,
-        mainEventId: numericMainEventId,
-        eventId: numericMainEventId,
-        category: "Meal",
-        activityId: `meal-${meal.id}`,
-        activityTitle: meal.name,
-        activityType: "LUNCH_DINNER",
-        mealType: meal.mealType || "LUNCH",
-        participantName: participantName.trim(),
-        phone: phone.trim(),
-        devoteeCount: count,
-        membersCount: count,
-        familyCount: count,
-        eventDate: meal.date,
-        mealDate: meal.date,
-        eventTime: meal.startTime,
-        venue: meal.venue,
-        bookingFee: totalFee,
-        paymentStatus: isFree ? "FREE" : "PAID",
-        status: "CONFIRMED",
-      };
+      if (isUpdateMode && numericMealId) {
+        await eventService.updateMealHeadCount(numericMealId, count);
+        setIsSuccess(true);
+        showSuccess(`Attendance updated to ${count} member${count > 1 ? "s" : ""}!`);
+      } else {
+        const regPayload = {
+          mealId: numericMealId,
+          lunchDinnerId: numericMealId,
+          eventLunchDinnerId: numericMealId,
+          mainEventId: numericMainEventId,
+          eventId: numericMainEventId,
+          category: "Meal",
+          activityId: `meal-${meal.id}`,
+          activityTitle: meal.name,
+          activityType: "LUNCH_DINNER",
+          mealType: meal.mealType || "LUNCH",
+          participantName: participantName.trim(),
+          phone: phone.trim(),
+          devoteeCount: count,
+          membersCount: count,
+          familyCount: count,
+          eventDate: meal.date,
+          mealDate: meal.date,
+          eventTime: meal.startTime,
+          venue: meal.venue,
+          bookingFee: totalFee,
+          paymentStatus: isFree ? "FREE" : "PAID",
+          status: "CONFIRMED",
+        };
+        await eventService.createMealRegistration(regPayload);
+        setIsSuccess(true);
+        showSuccess(`Meal pass confirmed for ${participantName.trim()} (${count} member${count > 1 ? "s" : ""})!`);
+      }
 
-      await eventService.createMealRegistration(regPayload);
-
-      setIsSuccess(true);
-      showSuccess(`Meal pass confirmed for ${participantName.trim()} (${count} member${count > 1 ? "s" : ""})!`);
       window.dispatchEvent(new CustomEvent("mana_activities_updated"));
       window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
 
@@ -208,12 +231,18 @@ export function LunchDinnerRegistrationModal({
                 <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 border border-orange-200">
                   {meal.mealType || "MEAL PASS"}
                 </span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  {isFree ? "Free Meal" : `₹${unitFee.toLocaleString("en-IN")} / head`}
-                </span>
+                {isUpdateMode ? (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                    Already Registered
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    {isFree ? "Free Meal" : `₹${unitFee.toLocaleString("en-IN")} / head`}
+                  </span>
+                )}
               </div>
               <h3 className="font-black text-slate-900 text-base mt-1 line-clamp-1">
-                {meal.name}
+                {isUpdateMode ? "Update Attendance" : meal.name}
               </h3>
             </div>
           </div>
@@ -262,58 +291,70 @@ export function LunchDinnerRegistrationModal({
             </div>
           ) : (
             <>
-              {/* Field 1: participantName */}
-              <div>
-                <label htmlFor="lunch-reg-name" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Participant Name <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                    <User className="w-4 h-4" />
-                  </span>
-                  <input
-                    id="lunch-reg-name"
-                    name="participantName"
-                    type="text"
-                    autoComplete="name"
-                    required
-                    value={participantName}
-                    onChange={(e) => setParticipantName(e.target.value)}
-                    placeholder="Enter your full name"
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white transition-all"
-                  />
+              {/* Update-mode info banner */}
+              {isUpdateMode && (
+                <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-2xl text-xs text-blue-700">
+                  <CheckCircle2 className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                  <span>You are already registered for this meal. You can only update the member count below.</span>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1 pl-1">
-                  Pre-filled from your logged-in account
-                </p>
-              </div>
+              )}
 
-              {/* Field 2: phone */}
-              <div>
-                <label htmlFor="lunch-reg-phone" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Phone Number <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                    <Phone className="w-4 h-4" />
-                  </span>
-                  <input
-                    id="lunch-reg-phone"
-                    name="phone"
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="e.g. 9876543210"
-                    className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white transition-all"
-                  />
+              {/* Field 1: participantName — hidden in update mode */}
+              {!isUpdateMode && (
+                <div>
+                  <label htmlFor="lunch-reg-name" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Participant Name <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                      <User className="w-4 h-4" />
+                    </span>
+                    <input
+                      id="lunch-reg-name"
+                      name="participantName"
+                      type="text"
+                      autoComplete="name"
+                      required
+                      value={participantName}
+                      onChange={(e) => setParticipantName(e.target.value)}
+                      placeholder="Enter your full name"
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white transition-all"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 pl-1">
+                    Pre-filled from your logged-in account
+                  </p>
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1 pl-1">
-                  Used for meal pass notifications and coordination
-                </p>
-              </div>
+              )}
+
+              {/* Field 2: phone — hidden in update mode */}
+              {!isUpdateMode && (
+                <div>
+                  <label htmlFor="lunch-reg-phone" className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                    Phone Number <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                      <Phone className="w-4 h-4" />
+                    </span>
+                    <input
+                      id="lunch-reg-phone"
+                      name="phone"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="e.g. 9876543210"
+                      className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50/70 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:bg-white transition-all"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 pl-1">
+                    Used for meal pass notifications and coordination
+                  </p>
+                </div>
+              )}
 
               {/* Field 3: family count (overall number input) */}
               <div>
@@ -406,12 +447,12 @@ export function LunchDinnerRegistrationModal({
                   {saving ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Booking...</span>
+                      <span>{isUpdateMode ? "Updating..." : "Booking..."}</span>
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Confirm Pass</span>
+                      <span>{isUpdateMode ? "Update Count" : "Confirm Pass"}</span>
                     </>
                   )}
                 </button>

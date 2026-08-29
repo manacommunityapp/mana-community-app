@@ -1856,7 +1856,7 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
     };
   const typeColor = TYPE_COLORS[event.type] ?? "#64748b";
   const [menuOpen, setMenuOpen] = useState(false);
-  const maxCap = event.maxAttendees || event.totalCapacity || event.capacity || 100;
+  const maxCap = event.capacity || 100;
   const capacityPct = maxCap > 0 ? Math.round((event.registrations / maxCap) * 100) : 0;
   const isMultiDay = event.startDate !== event.endDate;
 
@@ -2045,10 +2045,7 @@ function EventsList() {
             status: (e.status?.toLowerCase() as EventStatus) || (e.startDate && new Date(e.startDate) > new Date() ? "upcoming" : "completed"),
             visibility: (e.visibility?.toLowerCase() as any) || "community",
             registrations: e.attendees ?? (e as any).registrationCount ?? (e as any).registrations ?? 0,
-            capacity: e.maxAttendees ?? e.totalCapacity ?? e.capacity ?? 100,
-            maxAttendees: e.maxAttendees ?? e.totalCapacity ?? e.capacity ?? 100,
-            totalCapacity: e.maxAttendees ?? e.totalCapacity ?? e.capacity ?? 100,
-            ticketTypes: e.ticketTypes,
+            capacity: (e as any).maxAttendees ?? (e as any).totalCapacity ?? e.capacity ?? 100,
             coverImage: e.imageUrl || "",
             createdAt: e.createdAt || new Date().toISOString(),
           }));
@@ -2121,10 +2118,7 @@ function EventsList() {
               status: (e.status?.toLowerCase() as EventStatus) || (e.startDate && new Date(e.startDate) > new Date() ? "upcoming" : "completed"),
               visibility: (e.visibility?.toLowerCase() as any) || "community",
               registrations: e.attendees ?? (e as any).registrationCount ?? (e as any).registrations ?? 0,
-              capacity: e.maxAttendees ?? e.totalCapacity ?? e.capacity ?? 100,
-              maxAttendees: e.maxAttendees ?? e.totalCapacity ?? e.capacity ?? 100,
-              totalCapacity: e.maxAttendees ?? e.totalCapacity ?? e.capacity ?? 100,
-              ticketTypes: e.ticketTypes,
+              capacity: (e as any).maxAttendees ?? (e as any).totalCapacity ?? e.capacity ?? 100,
               coverImage: e.imageUrl || "",
               createdAt: e.createdAt || new Date().toISOString(),
             }));
