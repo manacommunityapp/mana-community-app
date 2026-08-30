@@ -1824,22 +1824,30 @@ function EventDetailsDialog({
 }
 
 /* ─── Event Card ─── */
-function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
+function EventCard({ event, onEdit, onDelete, onNotify, onRegisterUser, onPreview }: {
   event: EventItem;
   onEdit: () => void;
   onDelete: () => void;
   onNotify: () => void;
+  onRegisterUser?: () => void;
   onPreview: () => void;
 }) {
   const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
   const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
+  const userRoleStr = String(user?.role || "").toUpperCase();
   const isEventsAdmin =
     isAdmin ||
     isSuperAdmin ||
     userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("SUPER_ADMIN") ||
     userRolesUpper.includes("COMMUNITY_ADMIN") ||
     userRolesUpper.includes("EVENT_ADMIN") ||
     userRolesUpper.includes("EVENTS_ADMIN") ||
+    userRoleStr === "ADMIN" ||
+    userRoleStr === "SUPER_ADMIN" ||
+    userRoleStr === "COMMUNITY_ADMIN" ||
+    userRoleStr === "EVENT_ADMIN" ||
+    userRoleStr === "EVENTS_ADMIN" ||
     hasPermission(CREATE_EVENT) ||
     hasPermission(MANAGE_EVENT_DASHBOARD);
 
@@ -1912,6 +1920,12 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
                       className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
                       <Bell className="w-3.5 h-3.5" /> Send Notification
                     </button>
+                    {onRegisterUser && (
+                      <button onClick={() => { onRegisterUser(); setMenuOpen(false); }}
+                        className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 cursor-pointer font-medium">
+                        <UserPlus className="w-3.5 h-3.5 text-emerald-600" /> Register User
+                      </button>
+                    )}
                     <button onClick={() => {
                       const url = `${window.location.origin}/events?id=${event.id}`;
                       navigator.clipboard.writeText(url);
@@ -1968,7 +1982,7 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
       </div>
 
       {/* Action Bar */}
-      <div className="border-t border-slate-100 px-4 sm:px-5 py-2.5 flex items-center gap-1">
+      <div className="border-t border-slate-100 px-4 sm:px-5 py-2.5 flex items-center gap-1 flex-wrap">
         {isEventsAdmin && (
           <>
             <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-indigo-600 cursor-pointer" onClick={onEdit}>
@@ -1980,6 +1994,11 @@ function EventCard({ event, onEdit, onDelete, onNotify, onPreview }: {
             <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-amber-600 cursor-pointer" onClick={onNotify}>
               <Bell className="w-3 h-3" /> Notify
             </Button>
+            {onRegisterUser && (
+              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-emerald-600 cursor-pointer font-medium" onClick={onRegisterUser} title="Register User (Admin Only)">
+                <UserPlus className="w-3 h-3 text-emerald-600" /> Register User
+              </Button>
+            )}
           </>
         )}
         <div className="flex-1" />
@@ -2009,13 +2028,20 @@ function EventsList() {
   const [registerUserEvent, setRegisterUserEvent] = useState<EventItem | null>(null);
 
   const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
+  const userRoleStr = String(user?.role || "").toUpperCase();
   const isEventsAdmin =
     isAdmin ||
     isSuperAdmin ||
     userRolesUpper.includes("ADMIN") ||
+    userRolesUpper.includes("SUPER_ADMIN") ||
     userRolesUpper.includes("COMMUNITY_ADMIN") ||
     userRolesUpper.includes("EVENT_ADMIN") ||
     userRolesUpper.includes("EVENTS_ADMIN") ||
+    userRoleStr === "ADMIN" ||
+    userRoleStr === "SUPER_ADMIN" ||
+    userRoleStr === "COMMUNITY_ADMIN" ||
+    userRoleStr === "EVENT_ADMIN" ||
+    userRoleStr === "EVENTS_ADMIN" ||
     hasPermission(CREATE_EVENT) ||
     hasPermission(MANAGE_EVENT_DASHBOARD);
 
@@ -2086,7 +2112,7 @@ function EventsList() {
   const stats = {
     total: events.length,
     upcoming: events.filter(e => e.status === "upcoming").length,
-    totalRegs: events.reduce((s, e) => s + e.registrations, 0),
+    totalRegs: events.filter(e => e.status !== "cancelled").reduce((s, e) => s + (Number(e.registrations) || 0), 0),
     drafts: events.filter(e => e.status === "draft").length,
   };
 
@@ -2222,6 +2248,7 @@ function EventsList() {
               onEdit={() => setEditEvent(event)}
               onDelete={() => setDeleteEvent(event)}
               onNotify={() => setNotifyEvent(event)}
+              onRegisterUser={() => setRegisterUserEvent(event)}
               onPreview={() => setDetailEvent(event)}
             />
           ))}

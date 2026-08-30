@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useEventMock } from "./EventMockToggle";
+import { useAuth } from "../../../contexts/AuthContext";
 import { eventService, type EventResponse, type RegistrationResponse } from "../../../services/events/eventService";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
@@ -777,6 +778,7 @@ function EditRegistrantDialog({
 function ViewRegistrantDrawer({
   row,
   useMock,
+  isAdmin,
   onClose,
   onEdit,
   onCancel,
@@ -787,6 +789,7 @@ function ViewRegistrantDrawer({
 }: {
   row: RegRow;
   useMock: boolean;
+  isAdmin: boolean;
   onClose: () => void;
   onEdit: (r: RegRow) => void;
   onCancel: (r: RegRow) => void;
@@ -939,6 +942,7 @@ function ViewRegistrantDrawer({
 /* ─── Main Component ─── */
 export function EventsRegistration() {
   const { useMock } = useEventMock();
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState("All");
   const [checkInFilter, setCheckInFilter] = useState<"all" | "checked_in" | "not_checked_in">("all");
   const [search, setSearch] = useState("");
@@ -1032,19 +1036,19 @@ export function EventsRegistration() {
       return 0;
     });
 
-  const checkedInCount = registrants.filter(r => r.checkedIn).length;
-  const totalCount = registrants.length;
+  const activeRegistrants = registrants.filter(r => {
+    const s = String(r.status || "").toUpperCase();
+    return s !== "CANCELLED" && s !== "REJECTED";
+  });
+  const checkedInCount = activeRegistrants.filter(r => r.checkedIn).length;
+  const totalCount = activeRegistrants.length;
   const checkedInPct = totalCount > 0 ? Math.round((checkedInCount / totalCount) * 100) : 0;
 
-  const catStats = useMock ? [
-    { label: "Total", value: totalCount, color: "#4f46e5" },
-    { label: "Checked In", value: checkedInCount, color: "#10b981" },
-    ...mockCatStats.slice(1, 5),
-  ] : [
+  const catStats = [
     { label: "Total Registrations", value: totalCount, color: "#4f46e5" },
     { label: "Checked In", value: checkedInCount, color: "#10b981" },
-    { label: "Confirmed", value: registrants.filter(r => r.status === "Confirmed").length, color: "#0891b2" },
-    { label: "Pending", value: registrants.filter(r => r.status === "Pending").length, color: "#f59e0b" },
+    { label: "Confirmed", value: activeRegistrants.filter(r => r.status === "Confirmed" || r.status === "CONFIRMED").length, color: "#0891b2" },
+    { label: "Pending", value: activeRegistrants.filter(r => r.status === "Pending" || r.status === "PENDING").length, color: "#f59e0b" },
   ];
 
   const handleAddRegistrant = (row: RegRow) => {
@@ -1130,9 +1134,9 @@ export function EventsRegistration() {
     const nowTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
     if (useMock) {
-      const updater = (list: typeof mockRegistrants) =>
-        list.map(r => r.id === row.id ? { ...r, checkedIn: nextCheckIn, checkedInAt: nextCheckIn ? nowTime : undefined } : r);
-      setAddedMockRows(updater as any);
+      setAddedMockRows(prev =>
+        prev.map(r => r.id === row.id ? { ...r, checkedIn: nextCheckIn, checkedInAt: nextCheckIn ? nowTime : undefined } : r)
+      );
       toast.success(`${row.name} marked as ${nextCheckIn ? "Checked In" : "Checked Out"}`);
       return;
     }
@@ -1180,7 +1184,7 @@ export function EventsRegistration() {
         </select>
       )}
 
-      <div className={`grid gap-2 sm:gap-4 ${useMock ? "grid-cols-2 sm:grid-cols-4 lg:grid-cols-7" : "grid-cols-2 sm:grid-cols-4"}`}>
+      <div className="grid gap-2 sm:gap-4 grid-cols-2 sm:grid-cols-4">
         {catStats.map((s) => (
           <div key={s.label} className="bg-white rounded-2xl p-2.5 sm:p-4 border border-slate-100 shadow-[0_2px_10px_rgba(0,0,0,0.04)] text-center">
             <p className="text-lg sm:text-2xl font-black tabular-nums" style={{ color: s.color }}>
@@ -1274,7 +1278,7 @@ export function EventsRegistration() {
               {sortBy === "time" ? "Time" : sortBy === "name" ? "Name" : sortBy === "status" ? "Status" : "Check-in"}
             </Button>
 
-            {useMock && (
+            {categories.length > 1 && (
               <div className="flex gap-1.5 flex-wrap">
                 {categories.map(c => (
                   <button key={c} onClick={() => setActiveTab(c)}
@@ -1294,7 +1298,7 @@ export function EventsRegistration() {
           <Table className="text-sm">
             <TableHeader>
               <TableRow className="bg-slate-50/80 border-b border-slate-100 hover:bg-slate-50/80">
-                {["ID", "Name", useMock ? "Category" : null, useMock ? "Tickets" : null, useMock ? "Amount" : null, "Status", "Check-In", "Time", "Actions"].filter(Boolean).map(h => (
+                {["ID", "Name", "Category", "Tickets", "Amount", "Status", "Check-In", "Time", "Actions"].map(h => (
                   <TableHead key={h!} className={`px-3 sm:px-6 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap h-auto ${
                     (h === "ID" || h === "Time" || h === "Tickets") ? "hidden sm:table-cell" : ""
                   }`}>{h}</TableHead>
@@ -1324,13 +1328,11 @@ export function EventsRegistration() {
                         <p className="text-[10px] text-slate-400 hidden sm:block">{r.email}</p>
                       </div>
                     </TableCell>
-                    {useMock && (
-                      <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
-                        <span className="px-2 sm:px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600">{r.category}</span>
-                      </TableCell>
-                    )}
-                    {useMock && <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 text-slate-600 font-medium tabular-nums hidden sm:table-cell">{r.tickets}</TableCell>}
-                    {useMock && <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 font-bold text-slate-800 tabular-nums">{r.amount}</TableCell>}
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
+                      <span className="px-2 sm:px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-600">{r.category || "—"}</span>
+                    </TableCell>
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 text-slate-600 font-medium tabular-nums hidden sm:table-cell">{r.tickets ?? "—"}</TableCell>
+                    <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5 font-bold text-slate-800 tabular-nums">{r.amount ?? "—"}</TableCell>
                     <TableCell className="px-2 sm:px-6 py-2 sm:py-3.5">
                       <span className={`flex items-center gap-1.5 w-fit px-2 sm:px-2.5 py-1 rounded-full text-[10px] font-bold ${ss.bg} ${ss.text}`}>
                         <ss.icon className="w-3 h-3" /> {r.status}
@@ -1377,22 +1379,24 @@ export function EventsRegistration() {
                       <div className="flex items-center gap-1.5">
                         <button onClick={() => setViewRow(r)} className="text-xs font-semibold text-indigo-600 hover:underline cursor-pointer" title="View details">View</button>
 
-                        <button
-                          onClick={() => setEditingRow(r)}
-                          className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors cursor-pointer"
-                          title="Edit registration"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setEditingRow(r)}
+                            className="p-1 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors cursor-pointer"
+                            title="Edit registration"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
 
-                        {!useMock && r.status === "Pending" && (
+                        {isAdmin && !useMock && r.status === "Pending" && (
                           <>
                             <button onClick={() => handleConfirm(r)} className="text-xs font-semibold text-emerald-600 hover:underline cursor-pointer">Confirm</button>
                             <button onClick={() => handleReject(r)} className="text-xs font-semibold text-rose-600 hover:underline cursor-pointer">Reject</button>
                           </>
                         )}
 
-                        {!isCancelled && (
+                        {isAdmin && !isCancelled && (
                           <button
                             onClick={() => setCancelConfirmRow(r)}
                             className="p-1 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors cursor-pointer"
@@ -1402,13 +1406,15 @@ export function EventsRegistration() {
                           </button>
                         )}
 
-                        <button
-                          onClick={() => setDeleteConfirmRow(r)}
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
-                          title="Permanently delete record"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {isAdmin && (
+                          <button
+                            onClick={() => setDeleteConfirmRow(r)}
+                            className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors cursor-pointer"
+                            title="Permanently delete record"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

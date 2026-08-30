@@ -271,13 +271,14 @@ export function EventsReports() {
     return titles;
   }, [allSource, activeCategoryTab]);
 
-  // Distinct venues for current category
+  // Distinct venues for current category — collect venue and mandap separately so both are filterable
   const venueOptions = useMemo(() => {
-    const venues = Array.from(new Set(
-      allSource.filter(r => matchesCategory(r, activeCategoryTab))
-        .map(r => r.venue || r.mandap).filter(Boolean)
-    )).sort();
-    return venues;
+    const set = new Set<string>();
+    allSource.filter(r => matchesCategory(r, activeCategoryTab)).forEach(r => {
+      if (r.venue) set.add(r.venue);
+      if (r.mandap) set.add(r.mandap);
+    });
+    return Array.from(set).sort();
   }, [allSource, activeCategoryTab]);
 
   // ── CSV helpers ──────────────────────────────────────────────────────────────
@@ -383,6 +384,14 @@ ${dataRows}
   }
 
   async function handleDownloadCategory(category: string, title: string, format: string) {
+    const LARGE_EXPORT_THRESHOLD = 500;
+    const estimatedCount = category === "all" ? registrations.length : registrations.filter(r => matchesCategory(r, category)).length;
+    if (estimatedCount > LARGE_EXPORT_THRESHOLD) {
+      const confirmed = window.confirm(
+        `This will export ${estimatedCount} registrations. Large exports may take a moment. Continue?`
+      );
+      if (!confirmed) return;
+    }
     setDownloadingCategory(category);
     setSuccessMsg("");
     setError("");
@@ -993,7 +1002,9 @@ ${dataRows}
               <div className="mt-3 pt-2.5 border-t border-slate-100 flex justify-between items-center gap-2">
                 <div className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg ${selectedRowDetails.checkedIn ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                   <CheckCircle2 className="w-3 h-3" />
-                  {selectedRowDetails.checkedIn ? "Checked In" : "Not Checked In"}
+                  {selectedRowDetails.checkedIn
+                    ? `Checked In${selectedRowDetails.checkedInAt ? ` · ${formatDate(selectedRowDetails.checkedInAt)}` : ""}`
+                    : "Not Checked In"}
                 </div>
                 <button onClick={() => setSelectedRowDetails(null)}
                   className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all">
