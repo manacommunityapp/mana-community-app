@@ -7,6 +7,7 @@ import {
   FileSpreadsheet, ClipboardList, MapPin,
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
+import { useAuth } from "../../../contexts/AuthContext";
 import { ErrorBanner, LoadingSpinner } from "./shared/index";
 import {
   eventReportService,
@@ -184,6 +185,7 @@ function DownloadCard({ card, count, revenue, isDownloading, onDownload, onCopyW
 // ── Main Component ─────────────────────────────────────────────────────────────
 export function EventsReports() {
   const { useMock } = useEventMock();
+  const { isAdmin } = useAuth();
   const [events, setEvents] = useState<EventResponse[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventResponse | null>(null);
@@ -271,13 +273,14 @@ export function EventsReports() {
     return titles;
   }, [allSource, activeCategoryTab]);
 
-  // Distinct venues for current category
+  // Distinct venues for current category — collect venue and mandap separately so both are filterable
   const venueOptions = useMemo(() => {
-    const venues = Array.from(new Set(
-      allSource.filter(r => matchesCategory(r, activeCategoryTab))
-        .map(r => r.venue || r.mandap).filter(Boolean)
-    )).sort();
-    return venues;
+    const set = new Set<string>();
+    allSource.filter(r => matchesCategory(r, activeCategoryTab)).forEach(r => {
+      if (r.venue) set.add(r.venue);
+      if (r.mandap) set.add(r.mandap);
+    });
+    return Array.from(set).sort();
   }, [allSource, activeCategoryTab]);
 
   // ── CSV helpers ──────────────────────────────────────────────────────────────
@@ -289,7 +292,9 @@ export function EventsReports() {
   }
 
   function rowToArray(r: EventRegistrationReportRow): (string | number)[] {
-    return [esc(r.regCode),esc(r.category),esc(r.activityTitle),esc(r.participantName),esc(r.phone),esc(r.email),esc(r.gotram),r.devoteeCount||1,esc(r.attendingDevotees),esc(r.eventDate),esc(r.eventTime),esc(r.venue),esc(r.mandap),esc(r.panditName),(r.bookingFee||0).toFixed(2),esc(r.paymentStatus),esc(r.paymentMethod),esc(r.transactionId),esc(r.status),r.checkedIn?"YES":"NO",esc(r.prasadamMode),esc(r.registeredAt),esc(r.notes)];
+    const phone = isAdmin ? r.phone : "[REDACTED]";
+    const email = isAdmin ? r.email : "[REDACTED]";
+    return [esc(r.regCode),esc(r.category),esc(r.activityTitle),esc(r.participantName),esc(phone),esc(email),esc(r.gotram),r.devoteeCount||1,esc(r.attendingDevotees),esc(r.eventDate),esc(r.eventTime),esc(r.venue),esc(r.mandap),esc(r.panditName),(r.bookingFee||0).toFixed(2),esc(r.paymentStatus),esc(r.paymentMethod),esc(r.transactionId),esc(r.status),r.checkedIn?"YES":"NO",esc(r.prasadamMode),esc(r.registeredAt),esc(r.notes)];
   }
 
   function triggerDownload(blob: Blob, filename: string) {
@@ -310,7 +315,7 @@ export function EventsReports() {
     const xmlEsc = (v: unknown) => String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     const headerRow = CSV_HEADERS.map(h => `<Cell ss:StyleID="h"><Data ss:Type="String">${xmlEsc(h)}</Data></Cell>`).join("");
     const dataRows = rows.map(r => {
-      const vals = [r.regCode,r.category,r.activityTitle,r.participantName,r.phone,r.email,r.gotram,r.devoteeCount||1,r.attendingDevotees,r.eventDate,r.eventTime,r.venue,r.mandap,r.panditName,(r.bookingFee||0).toFixed(2),r.paymentStatus,r.paymentMethod,r.transactionId,r.status,r.checkedIn?"YES":"NO",r.prasadamMode,r.registeredAt,r.notes];
+      const vals = [r.regCode,r.category,r.activityTitle,r.participantName,isAdmin?r.phone:"[REDACTED]",isAdmin?r.email:"[REDACTED]",r.gotram,r.devoteeCount||1,r.attendingDevotees,r.eventDate,r.eventTime,r.venue,r.mandap,r.panditName,(r.bookingFee||0).toFixed(2),r.paymentStatus,r.paymentMethod,r.transactionId,r.status,r.checkedIn?"YES":"NO",r.prasadamMode,r.registeredAt,r.notes];
       return `<Row>${vals.map(v => `<Cell><Data ss:Type="String">${xmlEsc(v)}</Data></Cell>`).join("")}</Row>`;
     }).join("\n");
 
@@ -383,6 +388,14 @@ ${dataRows}
   }
 
   async function handleDownloadCategory(category: string, title: string, format: string) {
+    const LARGE_EXPORT_THRESHOLD = 500;
+    const estimatedCount = category === "all" ? registrations.length : registrations.filter(r => matchesCategory(r, category)).length;
+    if (estimatedCount > LARGE_EXPORT_THRESHOLD) {
+      const confirmed = window.confirm(
+        `This will export ${estimatedCount} registrations. Large exports may take a moment. Continue?`
+      );
+      if (!confirmed) return;
+    }
     setDownloadingCategory(category);
     setSuccessMsg("");
     setError("");
@@ -960,9 +973,9 @@ ${dataRows}
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {[
-                  { label: "Phone", value: selectedRowDetails.phone },
+                  { label: "Phone", value: isAdmin ? selectedRowDetails.phone : "••••••••••" },
                   { label: "Gotram", value: selectedRowDetails.gotram },
-                  { label: "Email", value: selectedRowDetails.email, full: true },
+                  { label: "Email", value: isAdmin ? selectedRowDetails.email : "••••••••••@••••", full: true },
                   { label: "Seva / Program", value: selectedRowDetails.activityTitle, full: true },
                   { label: "Date & Time", value: `${selectedRowDetails.eventDate || ""} ${selectedRowDetails.eventTime || ""}` },
                   { label: "Devotee Count", value: `${selectedRowDetails.devoteeCount} Devotee(s)` },
@@ -993,7 +1006,9 @@ ${dataRows}
               <div className="mt-3 pt-2.5 border-t border-slate-100 flex justify-between items-center gap-2">
                 <div className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-lg ${selectedRowDetails.checkedIn ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                   <CheckCircle2 className="w-3 h-3" />
-                  {selectedRowDetails.checkedIn ? "Checked In" : "Not Checked In"}
+                  {selectedRowDetails.checkedIn
+                    ? `Checked In${selectedRowDetails.checkedInAt ? ` · ${formatDate(selectedRowDetails.checkedInAt)}` : ""}`
+                    : "Not Checked In"}
                 </div>
                 <button onClick={() => setSelectedRowDetails(null)}
                   className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-all">

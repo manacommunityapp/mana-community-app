@@ -873,9 +873,10 @@ export const eventService = {
   },
 
   async getMyRegistrations(): Promise<any[]> {
-    const [generalRegs, poojaRegs] = await Promise.allSettled([
+    const [generalRegs, poojaRegs, culturalRegs] = await Promise.allSettled([
       apiClient.get<any[]>("/events/registrations/my"),
       apiClient.get<any[]>("/events/pooja-registrations/my"),
+      apiClient.get<any[]>("/events/cultural/registrations/my"),
     ]);
 
     const unwrap = (val: any): any[] => {
@@ -888,6 +889,15 @@ export const eventService = {
 
     const general = generalRegs.status === "fulfilled" ? unwrap(generalRegs.value) : [];
     const pooja = poojaRegs.status === "fulfilled" ? unwrap(poojaRegs.value) : [];
+    const cultural = culturalRegs.status === "fulfilled"
+      ? unwrap((culturalRegs as PromiseFulfilledResult<any[]>).value).map((c: any) => ({
+          ...c,
+          activityId: c.activityId || (c.culturalEventId ? `cult-${c.culturalEventId}` : `cult-${c.id}`),
+          activityTitle: c.activityTitle || c.eventName || c.programName || "Cultural Program",
+          category: c.category || "Cultural",
+          passType: c.passType || "Cultural Registration",
+        }))
+      : [];
 
     const normalizedPooja = pooja.map((p) => ({
       ...p,
@@ -907,7 +917,7 @@ export const eventService = {
 
     const seen = new Set<string>();
     const combined: any[] = [];
-    for (const r of [...normalizedPooja, ...general]) {
+    for (const r of [...normalizedPooja, ...general, ...cultural]) {
       const key = r.regCode || (r.id ? `${r.category || 'REG'}-${r.id}` : JSON.stringify(r));
       if (!seen.has(key)) {
         seen.add(key);

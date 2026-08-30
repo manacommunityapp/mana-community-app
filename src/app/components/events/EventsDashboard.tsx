@@ -1750,25 +1750,6 @@ export function EventsDashboard() {
         </div>
       </div>
 
-      {/* ── Floating AI Assistant ── */}
-      <button
-        onClick={() => setShowAICopilot(true)}
-        style={{
-          background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)",
-          boxShadow: "0 10px 30px -4px rgba(79,70,229,0.5), 0 0 20px rgba(124,58,237,0.3)",
-          width: 52,
-          height: 52,
-        }}
-        className="fixed bottom-6 right-6 z-40 rounded-full flex items-center justify-center text-white cursor-pointer hover:scale-110 active:scale-95 transition-all duration-300 border-2 border-white group shadow-2xl"
-        title="Open AI Event Copilot"
-      >
-        <Bot className="w-6 h-6 group-hover:rotate-12 transition-transform duration-300" />
-        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-white animate-ping" />
-        <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-white" />
-      </button>
-
-      <EventAICopilotDrawer isOpen={showAICopilot} onClose={() => setShowAICopilot(false)} />
-
       {showRegisterModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto cursor-pointer"
