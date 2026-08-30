@@ -51,6 +51,7 @@ import { useSearchParams, useNavigate } from "react-router";
 import { cn } from "../ui/utils";
 import { feedService, type CreatePostRequest, type UpdatePostRequest, type FeedSummaryCountsResponse } from "../../../services/community/feedService";
 import { engagementService, groupService } from "../../../services/community/engagementService";
+import { communityDirectoryService } from "../../../services/community/communityDirectoryService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { mediaService } from "../../../services/files/mediaService";
 import { validateMediaFile } from "../../../utils/mediaValidator";
@@ -257,6 +258,37 @@ const getPostTypeConfig = (type?: string) =>
 const getReactionIcon = (type?: ReactionTypeEnum) => {
   const config = REACTION_CONFIG.find((r) => r.type === type);
   return config || REACTION_CONFIG[0];
+};
+
+const SYSTEM_ROLES = new Set([
+  "ADMIN",
+  "ADMIN USER",
+  "ADMIN_USER",
+  "SUPER_ADMIN",
+  "SUPERADMIN",
+  "SUPER_ADMINISTRATOR",
+  "COMMUNITY_ADMIN",
+  "COMMUNITYADMIN",
+  "COMMUNITY_ADMINISTRATOR",
+  "COMMUNITY ADMIN",
+  "USER",
+  "RESIDENT",
+  "MEMBER",
+  "VERIFIED MEMBER",
+  "VERIFIED_MEMBER",
+  "SECURITY",
+  "VENDOR",
+  "STAFF",
+]);
+
+const getCommunityRole = (authorRole?: string, authorId?: number, leaderMap?: Record<number, string>): string | null => {
+  if (authorId && leaderMap && leaderMap[authorId]) {
+    return leaderMap[authorId];
+  }
+  if (!authorRole) return null;
+  const normalized = authorRole.trim().toUpperCase().replace(/[\s_-]+/g, " ");
+  if (SYSTEM_ROLES.has(normalized)) return null;
+  return authorRole;
 };
 
 const renderHashtags = (content: string) => {
@@ -689,6 +721,26 @@ export function Feed() {
   const [loadingCommentLikers, setLoadingCommentLikers] = useState(false);
 
   const [summaryCounts, setSummaryCounts] = useState<FeedSummaryCountsResponse | null>(null);
+  const [leaderMap, setLeaderMap] = useState<Record<number, string>>({});
+
+  useEffect(() => {
+    if (!user?.communityId) return;
+    communityDirectoryService.getDirectory()
+      .then((leaders) => {
+        if (Array.isArray(leaders)) {
+          const map: Record<number, string> = {};
+          leaders.forEach((l) => {
+            if (l.userId && l.designation) {
+              map[l.userId] = l.designation;
+            }
+          });
+          setLeaderMap(map);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load directory for feed roles:", err);
+      });
+  }, [user?.communityId]);
 
   useEffect(() => {
     async function loadInitialFeed() {
@@ -1776,6 +1828,7 @@ export function Feed() {
                   formatTimeAgo={formatTimeAgo}
                   getPostTypeConfig={getPostTypeConfig}
                   getReactionIcon={getReactionIcon}
+                  leaderMap={leaderMap}
                 />
               ))
             )}
@@ -1985,12 +2038,13 @@ const PostCard = React.memo(function PostCard({
   onDeletePost, onUpdatePost, onReaction, onBookmark, onVote, onToggleComments, onAddComment,
   onDeleteComment, onSetCommentText, onSetReplyingTo, onShowReactionPicker,
   onOpenPostLikers, onOpenCommentLikers, onToggleCommentLike, onToggleCommentReaction,
-  getInitials, formatTimeAgo, getPostTypeConfig, getReactionIcon,
+  getInitials, formatTimeAgo, getPostTypeConfig, getReactionIcon, leaderMap,
 }: any) {
   const navigate = useNavigate();
   const typeConfig = getPostTypeConfig(post.postType);
   const currentReaction = getReactionIcon(post.currentUserReaction);
   const totalReactions = post.reactionCounts ? Object.values(post.reactionCounts as Record<string, number>).reduce((a: number, b: number) => a + b, 0) : post.likesCount;
+  const communityRole = getCommunityRole(post.authorRole, post.authorId, leaderMap);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(post.content || "");
@@ -2099,13 +2153,31 @@ const PostCard = React.memo(function PostCard({
       {/* Header */}
       <div className="flex justify-between items-start mb-2">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-700 font-bold text-xs border border-slate-200 overflow-hidden">
-            {post.authorProfilePic ? (
-              <img src={post.authorProfilePic} alt="" className="w-full h-full object-cover" />
-            ) : (
-              post.authorAvatar
-            )}
-          </div>
+          {(() => {
+            const authorPic =
+              post.authorProfilePic ||
+              (post as any).profilePicUrl ||
+              (post as any).authorProfilePicUrl ||
+              (post as any).profilePic ||
+              (typeof post.authorAvatar === "string" && (post.authorAvatar.startsWith("http") || post.authorAvatar.startsWith("data:") || post.authorAvatar.startsWith("/")) ? post.authorAvatar : undefined);
+
+            return (
+              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-slate-200 to-slate-300 flex items-center justify-center text-slate-700 font-bold text-xs border border-slate-200 overflow-hidden shrink-0">
+                {authorPic ? (
+                  <img
+                    src={authorPic}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  (typeof post.authorAvatar === "string" && !post.authorAvatar.startsWith("http") && post.authorAvatar) || getInitials(post.authorName)
+                )}
+              </div>
+            );
+          })()}
           <div>
             <div className="flex items-center gap-1.5">
               <span className="font-semibold text-slate-900 text-[0.9375rem]">{post.authorName}</span>
@@ -2117,10 +2189,12 @@ const PostCard = React.memo(function PostCard({
               )}
             </div>
             <div className="flex items-center text-xs text-slate-500 gap-1.5 flex-wrap">
-              <span className={post.official || (post.authorRole && post.authorRole !== "Verified Member") ? "text-indigo-600 font-semibold" : "font-medium"}>
-                {post.authorRole || "Verified Member"}
-              </span>
-              <span>·</span>
+              {communityRole && (
+                <>
+                  <span className="text-indigo-600 font-semibold">{communityRole}</span>
+                  <span>·</span>
+                </>
+              )}
               <span>{formatTimeAgo(post.createdAt)}</span>
               {post.group && (
                 <>
@@ -2601,6 +2675,7 @@ const PostCard = React.memo(function PostCard({
                   postId={post.id}
                   user={user}
                   isAdmin={isAdmin}
+                  leaderMap={leaderMap}
                   getInitials={getInitials}
                   formatTimeAgo={formatTimeAgo}
                   onDelete={onDeleteComment}
@@ -2643,6 +2718,7 @@ function CommentItem({
   postId,
   user,
   isAdmin,
+  leaderMap,
   getInitials,
   formatTimeAgo,
   onDelete,
@@ -2652,6 +2728,7 @@ function CommentItem({
   onOpenCommentLikers,
   depth,
 }: any) {
+  const commentCommunityRole = getCommunityRole(comment.authorRole, comment.authorId, leaderMap);
   const replies = comment.replies || allComments.filter((c: CommentResponse) => c.parentId === comment.id);
   const [showReplies, setShowReplies] = useState(depth < 2);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
@@ -2679,16 +2756,38 @@ function CommentItem({
   return (
     <div className={`${depth > 0 ? "ml-6 border-l-2 border-slate-100 pl-3" : ""}`}>
       <div className="flex gap-2.5 bg-slate-50 p-3 rounded-lg border border-slate-100/50">
-        <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 text-[10px] text-slate-600 font-bold overflow-hidden">
-          {comment.authorProfilePic ? <img src={comment.authorProfilePic} alt="" className="w-full h-full object-cover" /> : comment.authorAvatar || getInitials(comment.authorName)}
-        </div>
+        {(() => {
+          const commentPic =
+            comment.authorProfilePic ||
+            (comment as any).profilePicUrl ||
+            (comment as any).authorProfilePicUrl ||
+            (comment as any).profilePic ||
+            (typeof comment.authorAvatar === "string" && (comment.authorAvatar.startsWith("http") || comment.authorAvatar.startsWith("data:") || comment.authorAvatar.startsWith("/")) ? comment.authorAvatar : undefined);
+
+          return (
+            <div className="h-7 w-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 text-[10px] text-slate-600 font-bold overflow-hidden">
+              {commentPic ? (
+                <img
+                  src={commentPic}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                (typeof comment.authorAvatar === "string" && !comment.authorAvatar.startsWith("http") && comment.authorAvatar) || getInitials(comment.authorName)
+              )}
+            </div>
+          );
+        })()}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
               <span className="text-xs font-bold text-slate-800 truncate">{comment.authorName}</span>
-              {comment.authorRole && comment.authorRole !== "Verified Member" && (
+              {commentCommunityRole && (
                 <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-1.5 py-0.5 rounded">
-                  {comment.authorRole}
+                  {commentCommunityRole}
                 </span>
               )}
               {comment.pinned && <Pin className="w-3 h-3 text-indigo-500 flex-shrink-0" />}
@@ -2781,6 +2880,7 @@ function CommentItem({
                   postId={postId}
                   user={user}
                   isAdmin={isAdmin}
+                  leaderMap={leaderMap}
                   getInitials={getInitials}
                   formatTimeAgo={formatTimeAgo}
                   onDelete={onDelete}

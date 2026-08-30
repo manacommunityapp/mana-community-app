@@ -952,8 +952,15 @@ export function AdminDirectory() {
                         <td className="px-5 py-4 font-mono text-slate-400 font-bold">#{l.displayOrder}</td>
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-3">
-                            {l.profilePicUrl ? (
-                              <img src={l.profilePicUrl} alt={l.fullName} className="w-9 h-9 rounded-xl object-cover" />
+                            {l.profilePicUrl || (l as any).profilePic ? (
+                              <img
+                                src={l.profilePicUrl || (l as any).profilePic}
+                                alt={l.fullName}
+                                className="w-9 h-9 rounded-xl object-cover"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLElement).style.display = "none";
+                                }}
+                              />
                             ) : (
                               <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
                                 {l.fullName[0]}
