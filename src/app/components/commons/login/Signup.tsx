@@ -1713,21 +1713,6 @@ export function Signup() {
                 has been registered successfully.
               </p>
 
-              <div className="grid grid-cols-1 gap-1.5 sm:gap-2 w-full max-w-sm mb-4 sm:mb-6 text-left">
-                {[
-                  { icon: Mail, text: "Confirmation email sent" },
-                  { icon: ShieldCheck, text: "Identity verification in progress" },
-                ].map(({ icon: Icon, text }, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2.5 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 bg-card rounded-lg sm:rounded-xl border border-border shadow-xs"
-                  >
-                    <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 text-primary" />
-                    <span className="text-[11px] sm:text-xs font-medium text-foreground">{text}</span>
-                  </div>
-                ))}
-              </div>
-
               <button
                 type="button"
                 onClick={() => navigate("/")}
