@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             permissions: me.permissions ?? [],
             enabledModules: me.enabledModules,
             menuPermissions: me.menuPermissions,
-            profilePicUrl: me.profilePicUrl,
+            profilePicUrl: me.profilePicUrl || (me as any).profilePic,
             occupancyStatus: me.occupancyStatus,
             residentType: me.residentType,
             userType: me.userType || me.occupancyStatus,
@@ -110,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       occupancyStatus: response.occupancyStatus,
       userType: response.userType || response.occupancyStatus,
       residentType: response.residentType,
+      profilePicUrl: (response as any).profilePicUrl || (response as any).profilePic || (payload as any)?.profilePicUrl || (payload as any)?.profilePic,
       permissions: [], // guard nav from flash before /users/me resolves
     };
     storeUser(newUser);
@@ -128,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permissions: me.permissions ?? [],
         enabledModules: me.enabledModules,
         menuPermissions: me.menuPermissions,
-        profilePicUrl: me.profilePicUrl,
+        profilePicUrl: me.profilePicUrl || (me as any).profilePic || newUser.profilePicUrl,
         occupancyStatus: me.occupancyStatus,
         residentType: me.residentType,
         userType: me.userType || me.occupancyStatus,
@@ -157,6 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       occupancyStatus: response.occupancyStatus || data.occupancyStatus || data.userType,
       userType: response.userType || data.userType || data.occupancyStatus,
       residentType: response.residentType || data.residentType,
+      profilePicUrl: (response as any).profilePicUrl || (response as any).profilePic || (payload as any)?.profilePicUrl,
       permissions: [], // guard nav from flash before /users/me resolves
     };
     storeUser(newUser);
@@ -175,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         permissions: me.permissions ?? [],
         enabledModules: me.enabledModules,
         menuPermissions: me.menuPermissions,
-        profilePicUrl: me.profilePicUrl,
+        profilePicUrl: me.profilePicUrl || (me as any).profilePic || newUser.profilePicUrl,
         occupancyStatus: me.occupancyStatus,
         residentType: me.residentType,
         userType: me.userType || me.occupancyStatus,

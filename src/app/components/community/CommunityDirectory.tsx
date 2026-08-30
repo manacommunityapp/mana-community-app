@@ -299,11 +299,14 @@ function DirectoryMemberCard({ leader, isModal }: { leader: CommunityLeaderRespo
     <div className="bg-white rounded-2xl p-3.5 border border-slate-200/90 shadow-2xs hover:shadow-md hover:border-emerald-200 transition-all flex flex-col justify-between gap-3 text-left group">
       {/* Top Details */}
       <div className="flex items-start gap-3 min-w-0">
-        {leader.profilePicUrl ? (
+        {leader.profilePicUrl || (leader as any).profilePic ? (
           <img
-            src={leader.profilePicUrl}
+            src={leader.profilePicUrl || (leader as any).profilePic}
             alt={leader.fullName}
             className={`h-11 w-11 rounded-2xl object-cover ring-2 ${style.avatarRing} shadow-xs shrink-0`}
+            onError={(e) => {
+              (e.currentTarget as HTMLElement).style.display = "none";
+            }}
           />
         ) : (
           <div className={`h-11 w-11 rounded-2xl flex items-center justify-center font-black text-xs ring-2 ${style.avatarRing} shadow-xs shrink-0 ${style.bg} ${style.color}`}>

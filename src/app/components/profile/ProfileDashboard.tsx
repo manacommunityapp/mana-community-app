@@ -613,7 +613,7 @@ export function ProfileDashboard() {
   }
 
   const role = getRoleConfig(profile.role);
-  const userAvatar = profile.profilePicUrl || user?.profilePicUrl || "";
+  const userAvatar = profile.profilePicUrl || (profile as any).profilePic || user?.profilePicUrl || user?.profilePic || "";
   const initials = (profile.fullName || user?.fullName || "User")
     .trim()
     .split(/\s+/)

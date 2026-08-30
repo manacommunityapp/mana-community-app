@@ -2,7 +2,7 @@ import { NavLink, Outlet, useLocation } from "react-router";
 import {
   LayoutDashboard, CalendarDays, Users,
   HandHeart, UtensilsCrossed, ImageIcon, ChevronRight,
-  Database, Wifi, UserRound, ClipboardList, BarChart3,
+  Database, Wifi, UserRound, ClipboardList, BarChart3, Sparkles,
 } from "lucide-react";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -23,7 +23,8 @@ const navItems = [
   { to: "/events/fundraising",  label: "Fundraising",      icon: HandHeart,                 permission: VIEW_EVENT_FUNDRAISING },
   { to: "/events/operations",   label: "Operations",       icon: UtensilsCrossed,           permission: VIEW_EVENT_OPERATIONS },
   { to: "/events/media",        label: "Media",            icon: ImageIcon,                 permission: VIEW_EVENT_MEDIA, altPermission: VIEW_EVENT_GALLERY },
-  { to: "/events/reports",      label: "Reports",          icon: BarChart3,                 permission: VIEW_EVENT_MEDIA, altPermission: VIEW_EVENT_DASHBOARD },
+  { to: "/events/reports",            label: "Reports",          icon: BarChart3,   permission: VIEW_EVENT_MEDIA,      altPermission: VIEW_EVENT_DASHBOARD },
+  { to: "/events/dashboard-preview", label: "User View",        icon: Sparkles,    permission: VIEW_EVENTS,           altPermission: REGISTER_EVENT },
 ];
 
 function DataModeToggle() {

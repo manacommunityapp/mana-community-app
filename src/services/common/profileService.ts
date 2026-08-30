@@ -46,7 +46,7 @@ export const profileService = {
       communityName: communityName || undefined,
       communityType: communityType || undefined,
       communityCode: communityCode || undefined,
-      profilePicUrl: me.profilePicUrl,
+      profilePicUrl: (profile as any)?.profilePicUrl || (profile as any)?.profilePic || me.profilePicUrl || (me as any).profilePic,
       skills: [],
       stats: {
         posts: 0,
@@ -80,6 +80,7 @@ export const profileService = {
       flatNo: data.flatNo,
       block: data.block,
       profilePicUrl: data.profilePicUrl,
+      profilePic: data.profilePicUrl,
     });
 
     return {
@@ -93,7 +94,7 @@ export const profileService = {
       block: updated.block ?? data.block,
       role: updated.role || me.role,
       kycStatus: updated.kycStatus || me.kycStatus || "PENDING",
-      profilePicUrl: updated.profilePicUrl || data.profilePicUrl,
+      profilePicUrl: updated.profilePicUrl || (updated as any).profilePic || data.profilePicUrl,
       bio: data.bio,
       skills: data.skills || [],
       stats: {
