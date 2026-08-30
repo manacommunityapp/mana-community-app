@@ -14,7 +14,7 @@ import {
   AlertCircle, MapPin, Users, Ticket, Globe, Lock,
   Send, Mail, BellRing, Megaphone, MessageSquare,
   ChevronRight, Filter, ArrowUpDown, Plus, ExternalLink, Loader2,
-  CalendarClock, Repeat, Timer, History, Zap, RotateCcw, Pause, Play, X, ShieldCheck, Smartphone, Calendar, User, UserPlus, Hash,
+  CalendarClock, Repeat, Timer, History, Zap, RotateCcw, Pause, Play, X, ShieldCheck, Smartphone, Calendar, User, UserPlus, Hash, Edit3,
   Flame, Music, Trophy, UtensilsCrossed, Phone, CreditCard, QrCode, IndianRupee, Share2, Check, FileText, Sparkles, Info
 } from "lucide-react";
 import { Input } from "../ui/input";
@@ -38,6 +38,7 @@ import { EventsLunchDinner } from "./EventsLunchDinner";
 import { EventsCulturalEvents } from "./EventsCulturalEvents";
 import { EditEventDialog } from "./EventsCreate";
 import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
+import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import { showError, showSuccess } from "../../../utils/ToastUtils";
 import { formatIndianTime, formatIndianDate, formatIndianDateTime } from "../../../utils/indianDateTimeUtils";
 
@@ -940,6 +941,9 @@ function EventDetailsDialog({
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [existingUserReg, setExistingUserReg] = useState<any | null>(null);
+  const [showPassModal, setShowPassModal] = useState<any | null>(null);
+  const [showRegisterWizard, setShowRegisterWizard] = useState(false);
 
   // Sub-Events States
   const [poojas, setPoojas] = useState<any[]>([]);
@@ -984,6 +988,38 @@ function EventDetailsDialog({
         })
         .finally(() => setLoading(false));
     }
+
+    // Check if user is already registered for this event
+    eventService
+      .getAllRegistrations()
+      .then((regs) => {
+        if (Array.isArray(regs) && user) {
+          const uId = user.id;
+          const uEmail = (user.email || "").toLowerCase().trim();
+          const uPhone = (user.phone || "").trim();
+
+          const found = regs.find((r: any) => {
+            if (!r || r.status === "CANCELLED") return false;
+            const matchesEvent =
+              (r.mainEventId && numId && Number(r.mainEventId) === numId) ||
+              (r.eventId && numId && Number(r.eventId) === numId) ||
+              (r.activityId && String(r.activityId) === String(rawId)) ||
+              (r.eventName && r.eventName.trim().toLowerCase() === event.title.trim().toLowerCase()) ||
+              (r.activityTitle && r.activityTitle.trim().toLowerCase() === event.title.trim().toLowerCase());
+            if (!matchesEvent) return false;
+
+            const matchesUser =
+              (uId && r.userId && Number(r.userId) === Number(uId)) ||
+              (uEmail && r.email && r.email.toLowerCase().trim() === uEmail) ||
+              (uPhone && r.phone && r.phone.trim() === uPhone);
+            return matchesUser;
+          });
+          if (found) setExistingUserReg(found);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not check user registration for event:", err);
+      });
 
     setSubEventsLoading(true);
     const eventStart = event.startDate;
@@ -1787,12 +1823,47 @@ function EventDetailsDialog({
             </Button>
           )}
 
-          <a
-            href={`/events?tab=registration&id=${event.id}`}
-            className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-sm flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
-          >
-            <Ticket className="w-3.5 h-3.5" /> Book Passes
-          </a>
+          {existingUserReg ? (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10.5px] font-bold px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Registered
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border-indigo-200 font-bold cursor-pointer"
+                onClick={() => setShowPassModal(existingUserReg)}
+              >
+                <QrCode className="w-3.5 h-3.5 text-indigo-600" /> View Pass
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5 text-xs text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 font-bold cursor-pointer shadow-xs active:scale-95 transition-all"
+                onClick={() => setShowRegisterWizard(true)}
+              >
+                <Edit3 className="w-3.5 h-3.5" /> Update Pass
+              </Button>
+            </div>
+          ) : (isRegistrationClosed(event) || event.status === "completed" || event.status === "cancelled") ? (
+            <span
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-400 border border-slate-200 flex items-center gap-1.5 cursor-not-allowed select-none"
+              title="Registration for this event has ended or date has expired"
+            >
+              <Clock className="w-3.5 h-3.5 text-slate-400" /> Registration Closed
+            </span>
+          ) : (event.capacity && (event.registrations || 0) >= event.capacity) ? (
+            <span className="px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 flex items-center gap-1.5 select-none">
+              <AlertCircle className="w-3.5 h-3.5 text-rose-500" /> Housefull / Sold Out
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowRegisterWizard(true)}
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-sm flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
+            >
+              <Ticket className="w-3.5 h-3.5" /> Book Passes
+            </button>
+          )}
         </div>
 
         {/* Enlarge QR Modal */}
@@ -1815,6 +1886,85 @@ function EventDetailsDialog({
                 <img src={activeData.scannerUrl} alt="QR Scanner" className="w-full h-full object-contain" />
               </div>
               {activeData.upiId && <p className="text-xs font-mono font-bold text-slate-700">{activeData.upiId}</p>}
+            </div>
+          </div>
+        )}
+
+        {/* Digital E-Pass Modal for Registered User */}
+        {showPassModal && (
+          <div
+            className="fixed inset-0 z-70 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowPassModal(null)}
+          >
+            <div
+              className="bg-white dark:bg-slate-900 rounded-3xl p-6 max-w-sm w-full text-center space-y-4 shadow-2xl animate-fade-in-up"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-700">
+                    PASS CONFIRMED
+                  </span>
+                </div>
+                <button onClick={() => setShowPassModal(null)} className="text-slate-400 hover:text-slate-700 p-1 cursor-pointer">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="w-48 h-48 mx-auto rounded-2xl overflow-hidden border-2 border-indigo-100 dark:border-indigo-900 shadow-inner bg-white p-3 flex flex-col items-center justify-center">
+                <QrCode className="w-32 h-32 text-indigo-600" />
+                <p className="text-[10.5px] font-mono font-bold text-slate-600 mt-1">{showPassModal.regCode || `REG-${String(showPassModal.id).slice(-4)}`}</p>
+              </div>
+
+              <div>
+                <h4 className="font-bold text-slate-800 dark:text-white text-base leading-snug">{showPassModal.eventName || event.title}</h4>
+                <p className="text-xs font-semibold text-primary mt-0.5">{showPassModal.participantName || user?.fullName}</p>
+                <div className="flex items-center justify-center gap-2 text-[11px] text-slate-500 mt-2 font-medium">
+                  <span>Attendees: <strong>{showPassModal.devoteeCount || showPassModal.membersCount || 1}</strong></span>
+                  <span>•</span>
+                  <span>{showPassModal.eventDate || event.startDate}</span>
+                </div>
+              </div>
+
+              <Button
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold cursor-pointer"
+                onClick={() => setShowPassModal(null)}
+              >
+                Done / Close Pass
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Event Registration Wizard */}
+        {showRegisterWizard && (
+          <div
+            className="fixed inset-0 z-70 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn"
+            onClick={() => setShowRegisterWizard(false)}
+          >
+            <div
+              className="relative w-full max-w-lg sm:max-w-xl md:max-w-2xl bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-6 shadow-2xl border border-slate-200 dark:border-slate-800 min-h-[85vh] sm:min-h-[640px] max-h-[94vh] flex flex-col justify-between overflow-y-auto animate-scaleUp cursor-default"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <EventRegistrationWizard
+                event={{
+                  id: event.id,
+                  title: event.title,
+                  category: event.category || event.type,
+                  price: (event as any).fee || 0,
+                  date: event.startDate,
+                  time: event.startTime ? `${event.startTime} - ${event.endTime}` : undefined,
+                  venue: event.venue,
+                  capacity: event.capacity,
+                  existingRegistration: existingUserReg,
+                  isUpdateMode: Boolean(existingUserReg),
+                }}
+                onClose={() => {
+                  setShowRegisterWizard(false);
+                  window.dispatchEvent(new CustomEvent("mana_event_registration_updated"));
+                  window.dispatchEvent(new CustomEvent("mana_event_created"));
+                }}
+              />
             </div>
           </div>
         )}

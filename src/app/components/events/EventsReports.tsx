@@ -7,6 +7,7 @@ import {
   FileSpreadsheet, ClipboardList, MapPin,
 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
+import { useAuth } from "../../../contexts/AuthContext";
 import { ErrorBanner, LoadingSpinner } from "./shared/index";
 import {
   eventReportService,
@@ -184,6 +185,7 @@ function DownloadCard({ card, count, revenue, isDownloading, onDownload, onCopyW
 // ── Main Component ─────────────────────────────────────────────────────────────
 export function EventsReports() {
   const { useMock } = useEventMock();
+  const { isAdmin } = useAuth();
   const [events, setEvents] = useState<EventResponse[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventResponse | null>(null);
@@ -290,7 +292,9 @@ export function EventsReports() {
   }
 
   function rowToArray(r: EventRegistrationReportRow): (string | number)[] {
-    return [esc(r.regCode),esc(r.category),esc(r.activityTitle),esc(r.participantName),esc(r.phone),esc(r.email),esc(r.gotram),r.devoteeCount||1,esc(r.attendingDevotees),esc(r.eventDate),esc(r.eventTime),esc(r.venue),esc(r.mandap),esc(r.panditName),(r.bookingFee||0).toFixed(2),esc(r.paymentStatus),esc(r.paymentMethod),esc(r.transactionId),esc(r.status),r.checkedIn?"YES":"NO",esc(r.prasadamMode),esc(r.registeredAt),esc(r.notes)];
+    const phone = isAdmin ? r.phone : "[REDACTED]";
+    const email = isAdmin ? r.email : "[REDACTED]";
+    return [esc(r.regCode),esc(r.category),esc(r.activityTitle),esc(r.participantName),esc(phone),esc(email),esc(r.gotram),r.devoteeCount||1,esc(r.attendingDevotees),esc(r.eventDate),esc(r.eventTime),esc(r.venue),esc(r.mandap),esc(r.panditName),(r.bookingFee||0).toFixed(2),esc(r.paymentStatus),esc(r.paymentMethod),esc(r.transactionId),esc(r.status),r.checkedIn?"YES":"NO",esc(r.prasadamMode),esc(r.registeredAt),esc(r.notes)];
   }
 
   function triggerDownload(blob: Blob, filename: string) {
@@ -311,7 +315,7 @@ export function EventsReports() {
     const xmlEsc = (v: unknown) => String(v ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
     const headerRow = CSV_HEADERS.map(h => `<Cell ss:StyleID="h"><Data ss:Type="String">${xmlEsc(h)}</Data></Cell>`).join("");
     const dataRows = rows.map(r => {
-      const vals = [r.regCode,r.category,r.activityTitle,r.participantName,r.phone,r.email,r.gotram,r.devoteeCount||1,r.attendingDevotees,r.eventDate,r.eventTime,r.venue,r.mandap,r.panditName,(r.bookingFee||0).toFixed(2),r.paymentStatus,r.paymentMethod,r.transactionId,r.status,r.checkedIn?"YES":"NO",r.prasadamMode,r.registeredAt,r.notes];
+      const vals = [r.regCode,r.category,r.activityTitle,r.participantName,isAdmin?r.phone:"[REDACTED]",isAdmin?r.email:"[REDACTED]",r.gotram,r.devoteeCount||1,r.attendingDevotees,r.eventDate,r.eventTime,r.venue,r.mandap,r.panditName,(r.bookingFee||0).toFixed(2),r.paymentStatus,r.paymentMethod,r.transactionId,r.status,r.checkedIn?"YES":"NO",r.prasadamMode,r.registeredAt,r.notes];
       return `<Row>${vals.map(v => `<Cell><Data ss:Type="String">${xmlEsc(v)}</Data></Cell>`).join("")}</Row>`;
     }).join("\n");
 
@@ -969,9 +973,9 @@ ${dataRows}
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {[
-                  { label: "Phone", value: selectedRowDetails.phone },
+                  { label: "Phone", value: isAdmin ? selectedRowDetails.phone : "••••••••••" },
                   { label: "Gotram", value: selectedRowDetails.gotram },
-                  { label: "Email", value: selectedRowDetails.email, full: true },
+                  { label: "Email", value: isAdmin ? selectedRowDetails.email : "••••••••••@••••", full: true },
                   { label: "Seva / Program", value: selectedRowDetails.activityTitle, full: true },
                   { label: "Date & Time", value: `${selectedRowDetails.eventDate || ""} ${selectedRowDetails.eventTime || ""}` },
                   { label: "Devotee Count", value: `${selectedRowDetails.devoteeCount} Devotee(s)` },

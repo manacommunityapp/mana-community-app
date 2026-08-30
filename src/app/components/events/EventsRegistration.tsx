@@ -877,37 +877,39 @@ function ViewRegistrantDrawer({
             </Button>
           </div>
 
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
-            <span className="text-xs font-bold text-slate-700">Admin Actions</span>
-            <div className="flex items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => { onEdit(row); onClose(); }}
-                className="h-8 gap-1 text-xs font-semibold text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-              >
-                <Edit3 className="w-3.5 h-3.5" /> Edit
-              </Button>
-              {!isCancelled && (
+          {isAdmin && (
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
+              <span className="text-xs font-bold text-slate-700">Admin Actions</span>
+              <div className="flex items-center gap-1.5">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => { onCancel(row); onClose(); }}
-                  className="h-8 gap-1 text-xs font-semibold text-amber-600 border-amber-200 hover:bg-amber-50"
+                  onClick={() => { onEdit(row); onClose(); }}
+                  className="h-8 gap-1 text-xs font-semibold text-indigo-600 border-indigo-200 hover:bg-indigo-50"
                 >
-                  <Ban className="w-3.5 h-3.5" /> Cancel
+                  <Edit3 className="w-3.5 h-3.5" /> Edit
                 </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => { onDelete(row); onClose(); }}
-                className="h-8 gap-1 text-xs font-semibold text-rose-600 border-rose-200 hover:bg-rose-50"
-              >
-                <Trash2 className="w-3.5 h-3.5" /> Delete
-              </Button>
+                {!isCancelled && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { onCancel(row); onClose(); }}
+                    className="h-8 gap-1 text-xs font-semibold text-amber-600 border-amber-200 hover:bg-amber-50"
+                  >
+                    <Ban className="w-3.5 h-3.5" /> Cancel
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { onDelete(row); onClose(); }}
+                  className="h-8 gap-1 text-xs font-semibold text-rose-600 border-rose-200 hover:bg-rose-50"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Delete
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="space-y-2">
             {details.map(d => (
@@ -924,7 +926,7 @@ function ViewRegistrantDrawer({
           </div>
         </div>
 
-        {!useMock && row.status === "Pending" && (
+        {isAdmin && !useMock && row.status === "Pending" && (
           <div className="border-t border-slate-100 px-6 py-4 flex gap-2 shrink-0">
             <Button variant="outline" className="flex-1 gap-1 text-rose-600 border-rose-200 hover:bg-rose-50" onClick={() => { onReject(row); onClose(); }}>
               <XCircle className="w-4 h-4" /> Reject
@@ -1455,6 +1457,7 @@ export function EventsRegistration() {
         <ViewRegistrantDrawer
           row={viewRow}
           useMock={useMock}
+          isAdmin={isAdmin}
           onClose={() => setViewRow(null)}
           onEdit={r => setEditingRow(r)}
           onCancel={r => setCancelConfirmRow(r)}
