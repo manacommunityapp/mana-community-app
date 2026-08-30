@@ -46,7 +46,7 @@ export const profileService = {
       communityName: communityName || undefined,
       communityType: communityType || undefined,
       communityCode: communityCode || undefined,
-      profilePicUrl: (profile as any)?.profilePicUrl || (profile as any)?.profilePic || me.profilePicUrl || (me as any).profilePic,
+      profilePicUrl: me.profilePicUrl || (me as any).profilePic,
       skills: [],
       stats: {
         posts: 0,

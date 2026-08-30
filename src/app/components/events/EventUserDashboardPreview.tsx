@@ -611,329 +611,161 @@ export function EventUserDashboardPreview() {
   };
 
   // Fetch activities & main events & dashboard metrics from live REST API
+  // Single optimised mount call — replaces the old 8-call Promise.all fan-out
   const fetchLiveDataFromBackend = async () => {
     try {
       setLoadingApiData(true);
-      const [allEvents, poojas, culturals, comps, meals, stats, allRegistrations, auctionItems] = await Promise.all([
-        eventService.getAllEvents().catch(() => eventService.getUpcomingEvents()).catch(() => []),
-        eventService.getPoojaSevas().catch(() => []),
-        eventService.getCulturalEvents().catch(() => []),
-        eventService.getCompetitions().catch(() => []),
-        eventService.getLunchDinners().catch(() => []),
-        eventService.getDashboardStats().catch(() => null),
-        eventService.getAllRegistrations().catch(() => []),
-        eventService.getAuctionItems().catch(() => []),
-      ]);
+      const payload = await eventUserDashboardService.getDashboard();
 
-      setLiveStats(stats);
+      // ── Stats ────────────────────────────────────────────────────────────────
+      setLiveStats({
+        totalRegistrations: payload.stats.myRegistrationsCount,
+        totalVolunteers: 0,
+        totalRevenue: 0,
+        foodPlatesCount: payload.stats.myMealCount,
+        auctionRevenue: 0,
+      } as DashboardStatsResponse);
 
-      const getBookedCount = (actId: string, title?: string) => {
-        if (!Array.isArray(allRegistrations)) return 0;
-        const isPoojaAct = actId.startsWith("pooja-");
-        const actIdNumeric = actId.replace(/\D/g, "");
-        return allRegistrations
-          .filter((r: any) => {
-            if (!r || r.status === "CANCELLED") return false;
-            if (r.activityId === actId) return true;
-            // Flexible match for Pooja: backend may return numeric or prefixed activityId
-            if (isPoojaAct && actIdNumeric) {
-              const rStr = String(r.activityId ?? "");
-              if (rStr === actIdNumeric || rStr === `pooja-${actIdNumeric}`) return true;
-            }
-            return Boolean(title && r.activityTitle &&
-              r.activityTitle.trim().toLowerCase() === title.trim().toLowerCase());
-          })
-          .reduce((acc: number, r: any) => acc + (Number(r.devoteeCount) || 1), 0);
-      };
+      const todayStr = new Date().toISOString().slice(0, 10);
 
-      const fetchedActivities: Activity[] = [];
+      // ── Activities list (event cards grid) ───────────────────────────────────
+      const fetchedActivities: Activity[] = payload.upcomingEvents.map((ev) => {
+        const avail = ev.maxAttendees != null
+          ? Math.max(0, ev.maxAttendees - ev.attendeeCount)
+          : 100;
+        const typeUpper = (ev.type || "").toUpperCase();
+        const category: Activity["category"] =
+          typeUpper.includes("POOJA") || typeUpper.includes("SEVA") ? "Pooja"
+          : typeUpper.includes("CULTURAL") || typeUpper.includes("DANCE") ? "Cultural"
+          : typeUpper.includes("FOOD") || typeUpper.includes("MEAL") ? "Food"
+          : typeUpper.includes("COMPETITION") || typeUpper.includes("SPORT") ? "Competitions"
+          : typeUpper.includes("AUCTION") ? "Auction"
+          : "Other";
+        const imageEmoji =
+          category === "Pooja" ? "🪔"
+          : category === "Cultural" ? "🎭"
+          : category === "Food" ? "🍲"
+          : category === "Competitions" ? "🏆"
+          : category === "Auction" ? "🪙"
+          : "📅";
 
-      // Collect cancelled event IDs and normalized titles
-      const cancelledEventIds = new Set<string>();
-      const cancelledEventTitles = new Set<string>();
-      const activeEventIds = new Set<string>();
-
-      if (allEvents && Array.isArray(allEvents)) {
-        allEvents.forEach((ev: any) => {
-          const isCancelled = String(ev.status || "").toUpperCase() === "CANCELLED";
-          if (isCancelled) {
-            if (ev.id != null) {
-              cancelledEventIds.add(String(ev.id));
-              cancelledEventIds.add(`event-${ev.id}`);
-            }
-            if (ev.title) {
-              cancelledEventTitles.add(ev.title.trim().toLowerCase());
-            }
-          } else {
-            if (ev.id != null) {
-              activeEventIds.add(String(ev.id));
-              activeEventIds.add(`event-${ev.id}`);
-            }
-          }
-        });
-
-        const running = allEvents.filter((ev: any) => String(ev.status || "").toUpperCase() !== "CANCELLED");
-        running.forEach((ev: any) => {
-          const initialCapacity = ev.capacity || ev.maxAttendees || 50;
-          const booked = getBookedCount(`event-${ev.id}`, ev.title);
-          fetchedActivities.push({
-            id: `event-${ev.id}`,
-            title: ev.title,
-            category: ev.category || ev.type || "Pooja",
-            date: ev.startDate ? String(ev.startDate) : "Upcoming",
-            time: ev.startTime || "Morning",
-            venue: ev.venue || ev.location || ev.city || ev.address || "",
-            fee: ev.price ? Number(ev.price) : 0,
-            availableSeats: Math.max(0, initialCapacity - booked),
-            capacity: initialCapacity,
-            maxAttendees: initialCapacity,
-            slots: initialCapacity,
-            seats: initialCapacity,
-            ticketTypes: ev.ticketTypes,
-            image: "📅",
-            description: ev.description || "Community Parent Event",
-          });
-        });
-      }
-
-      const standalonePoojaEvents: any[] = [];
-
-      if (poojas && Array.isArray(poojas)) {
-        poojas.forEach((p: any) => {
-          // Exclude if pooja itself is cancelled
-          if (String(p.status || "").toUpperCase() === "CANCELLED") return;
-
-          const isStandalone = (p.mainEventId == null || p.mainEventId === "" || p.mainEventId === 0) &&
-                               (p.eventId == null || p.eventId === "" || p.eventId === 0);
-
-          // Exclude if parent event is cancelled or not active
-          if (!isStandalone && p.mainEventId != null) {
-            const mid = String(p.mainEventId);
-            if (cancelledEventIds.has(mid) || cancelledEventIds.has(`event-${mid}`)) {
-              return;
-            }
-            if (allEvents && allEvents.length > 0 && !activeEventIds.has(mid) && !activeEventIds.has(`event-${mid}`)) {
-              return;
-            }
-          }
-          if (!isStandalone && p.eventId != null) {
-            const eid = String(p.eventId);
-            if (cancelledEventIds.has(eid) || cancelledEventIds.has(`event-${eid}`)) {
-              return;
-            }
-            if (allEvents && allEvents.length > 0 && !activeEventIds.has(eid) && !activeEventIds.has(`event-${eid}`)) {
-              return;
-            }
-          }
-          if (!isStandalone && p.parentEventTitle && cancelledEventTitles.has(p.parentEventTitle.trim().toLowerCase())) {
-            return;
-          }
-
-          const initialSlots = p.slots != null ? p.slots : 20;
-          const booked = getBookedCount(`pooja-${p.id}`, p.name);
-          const isMultiDay = Boolean(p.isMultiDay || (p.startDate && p.endDate && p.startDate !== p.endDate));
-
-          const poojaAct: Activity = {
-            id: `pooja-${p.id || Date.now()}`,
-            title: p.name || p.title || "Pooja Seva",
-            category: "Pooja",
-            date: p.date ? String(p.date) : (p.startDate ? String(p.startDate) : "Upcoming"),
-            startDate: p.startDate || p.date,
-            endDate: p.endDate,
-            isMultiDay,
-            time: p.startTime ? `${p.startTime}` : (p.time || "Morning"),
-            startTime: p.startTime,
-            startTimes: p.startTimes,
-            venue: p.mandap || p.venue || p.location || "",
-            mandap: p.mandap,
-            pandit: p.pandit,
-            slots: p.slots,
-            fee: p.isFree ? 0 : Number(p.fee || 501),
-            isFree: p.isFree,
-            needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
-            availableSeats: Math.max(0, initialSlots - booked),
-            image: "🪔",
-            description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || ""}`,
-            mainEventId: !isStandalone && p.mainEventId != null ? String(p.mainEventId) : undefined,
-          };
-
-          fetchedActivities.push(poojaAct);
-
-          if (isStandalone) {
-            standalonePoojaEvents.push({
-              id: `pooja-${p.id}`,
-              rawId: p.id,
-              isStandalonePooja: true,
-              title: p.name || p.title || "Pooja Seva",
-              category: p.category || "Pooja & Seva",
-              type: "Pooja & Seva",
-              startDate: p.startDate || p.date || "Upcoming",
-              endDate: p.endDate || p.startDate || p.date,
-              startTime: p.startTime || p.time || "Morning",
-              endTime: p.endTime,
-              venue: p.mandap || p.venue || p.location || "",
-              location: p.mandap || p.venue || p.location || "",
-              mandap: p.mandap,
-              pandit: p.pandit,
-              isMultiDay,
-              slots: p.slots,
-              price: p.isFree ? 0 : Number(p.fee || 501),
-              fee: p.isFree ? 0 : Number(p.fee || 501),
-              isFree: p.isFree,
-              needsRegistration: p.needsRegistration !== undefined && p.needsRegistration !== null ? Boolean(p.needsRegistration) : true,
-              coverImage: p.coverImage || p.imageUrl || "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
-              description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || p.description || "Sacred Pooja Seva Sankalpam"}${isMultiDay ? " (Multi-Day Booking)" : ""}`,
-              attendees: booked,
-              registrationCount: booked,
-            });
-          }
-        });
-      }
-
-      const allRunning = allEvents ? allEvents.filter((ev: any) => String(ev.status || "").toUpperCase() !== "CANCELLED") : [];
-      setMainEventsList([...allRunning, ...standalonePoojaEvents]);
-
-      if (meals && Array.isArray(meals)) {
-        meals.forEach((m: any) => {
-          if (String(m.status || "").toUpperCase() === "CANCELLED") return;
-          if (m.mainEventId != null) {
-            const mid = String(m.mainEventId);
-            if (cancelledEventIds.has(mid) || cancelledEventIds.has(`event-${mid}`)) return;
-            if (allEvents && allEvents.length > 0 && !activeEventIds.has(mid) && !activeEventIds.has(`event-${mid}`)) return;
-          }
-          if (m.eventId != null) {
-            const eid = String(m.eventId);
-            if (cancelledEventIds.has(eid) || cancelledEventIds.has(`event-${eid}`)) return;
-            if (allEvents && allEvents.length > 0 && !activeEventIds.has(eid) && !activeEventIds.has(`event-${eid}`)) return;
-          }
-          if (m.parentEventTitle && cancelledEventTitles.has(m.parentEventTitle.trim().toLowerCase())) return;
-
-          const initialPlates = m.targetPlates != null ? m.targetPlates : 500;
-          const booked = getBookedCount(`food-${m.id}`, m.name);
-          const formattedMealTime = m.startTime && m.endTime 
-            ? `${formatIndianTime(m.startTime)} - ${formatIndianTime(m.endTime)}` 
-            : (m.startTime ? formatIndianTime(m.startTime) : "Afternoon / Evening");
-
-          fetchedActivities.push({
-            id: `food-${m.id || Date.now()}`,
-            title: m.name || "Community Mahaprasadam",
-            category: "Food",
-            date: m.date ? String(m.date) : "Upcoming",
-            time: formattedMealTime,
-            venue: m.venue || m.diningHall || m.location || "",
-            fee: m.isFree ? 0 : Number(m.fee || 50),
-            isFree: m.isFree,
-            needsRegistration: m.needsRegistration !== undefined && m.needsRegistration !== null ? Boolean(m.needsRegistration) : true,
-            availableSeats: Math.max(0, initialPlates - booked),
-            image: "🍲",
-            description: `Meal: ${m.mealType || "Bhojanam"}. Caterer: ${m.caterer || "Food Committee"}. Menu: ${Array.isArray(m.menuItems) ? m.menuItems.join(", ") : ""}. ${m.notes || ""}`,
-            mainEventId: m.mainEventId != null ? String(m.mainEventId) : (m.eventId != null ? String(m.eventId) : undefined),
-            mealType: m.mealType ? String(m.mealType).toUpperCase() : undefined,
-          });
-        });
-      }
-
-      if (culturals && Array.isArray(culturals)) {
-        culturals.forEach((c: any) => {
-          if (String(c.status || "").toUpperCase() === "CANCELLED") return;
-          if (c.mainEventId != null) {
-            const mid = String(c.mainEventId);
-            if (cancelledEventIds.has(mid) || cancelledEventIds.has(`event-${mid}`)) return;
-            if (allEvents && allEvents.length > 0 && !activeEventIds.has(mid) && !activeEventIds.has(`event-${mid}`)) return;
-          }
-          if (c.eventId != null) {
-            const eid = String(c.eventId);
-            if (cancelledEventIds.has(eid) || cancelledEventIds.has(`event-${eid}`)) return;
-            if (allEvents && allEvents.length > 0 && !activeEventIds.has(eid) && !activeEventIds.has(`event-${eid}`)) return;
-          }
-          if (c.parentEventTitle && cancelledEventTitles.has(c.parentEventTitle.trim().toLowerCase())) return;
-
-          const initialSeats = 30;
-          const booked = getBookedCount(`cult-${c.id}`, c.name);
-          fetchedActivities.push({
-            id: `cult-${c.id || Date.now()}`,
-            title: c.name || "Cultural Performance",
-            category: "Cultural",
-            date: c.date ? String(c.date) : "Upcoming",
-            time: c.startTime || "Evening",
-            venue: c.stage || c.venue || c.location || "",
-            fee: 0,
-            needsRegistration: c.needsRegistration !== undefined && c.needsRegistration !== null ? Boolean(c.needsRegistration) : false,
-            availableSeats: Math.max(0, initialSeats - booked),
-            image: "🎭",
-            description: `Category: ${c.category}. Type: ${c.perfType || "Group"}. Age: ${c.ageGroup || "All"}.`,
-          });
-        });
-      }
-
-      if (comps && Array.isArray(comps)) {
-        comps.forEach((cm: any) => {
-          if (String(cm.status || "").toUpperCase() === "CANCELLED") return;
-          if (cm.mainEventId != null) {
-            const mid = String(cm.mainEventId);
-            if (cancelledEventIds.has(mid) || cancelledEventIds.has(`event-${mid}`)) return;
-            if (allEvents && allEvents.length > 0 && !activeEventIds.has(mid) && !activeEventIds.has(`event-${mid}`)) return;
-          }
-          if (cm.eventId != null) {
-            const eid = String(cm.eventId);
-            if (cancelledEventIds.has(eid) || cancelledEventIds.has(`event-${eid}`)) return;
-            if (allEvents && allEvents.length > 0 && !activeEventIds.has(eid) && !activeEventIds.has(`event-${eid}`)) return;
-          }
-          if (cm.parentEventTitle && cancelledEventTitles.has(cm.parentEventTitle.trim().toLowerCase())) return;
-
-          const initialMax = cm.maxParticipants != null ? cm.maxParticipants : 50;
-          const booked = getBookedCount(`comp-${cm.id}`, cm.name);
-          fetchedActivities.push({
-            id: `comp-${cm.id || Date.now()}`,
-            title: cm.name || "Community Competition",
-            category: "Competitions",
-            date: cm.date ? String(cm.date) : "Upcoming",
-            time: cm.startTime || "Morning",
-            venue: cm.venue || cm.stage || cm.location || "",
-            fee: cm.isFree ? 0 : Number(cm.fee || 100),
-            isFree: cm.isFree,
-            needsRegistration: cm.needsRegistration !== undefined && cm.needsRegistration !== null ? Boolean(cm.needsRegistration) : true,
-            availableSeats: Math.max(0, initialMax - booked),
-            image: "🏆",
-            description: `Category: ${cm.category}. Age Group: ${cm.ageGroup || "Open"}. Rules: ${cm.rules || ""}`,
-          });
-        });
-      }
-
-
-      if (auctionItems && Array.isArray(auctionItems)) {
-        auctionItems.forEach((item: any) => {
-          if (String(item.status || "").toUpperCase() === "CANCELLED") return;
-          if (item.eventId != null) {
-            const eid = String(item.eventId);
-            if (cancelledEventIds.has(eid) || cancelledEventIds.has(`event-${eid}`)) return;
-            if (allEvents && allEvents.length > 0 && !activeEventIds.has(eid) && !activeEventIds.has(`event-${eid}`)) return;
-          }
-
-          const currentBidNum = Number(item.currentBid) || 0;
-          const basePriceNum = Number(item.basePrice) || 0;
-          const displayPrice = currentBidNum > 0 ? currentBidNum : basePriceNum;
-
-          fetchedActivities.push({
-            id: `auction-${item.id || Date.now()}`,
-            title: item.name || "Festival Auction Item",
-            category: "Auction",
-            date: item.status === "LIVE" ? "🔴 Live Bidding" : item.status === "CLOSED" ? "🏁 Closed" : "⏳ Upcoming Auction",
-            time: item.status === "LIVE" ? "Bidding in Progress" : "Auction Floor",
-            venue: item.eventTitle || item.venue || item.location || "",
-            fee: displayPrice,
-            availableSeats: item.status === "CLOSED" ? 0 : 1,
-            image: item.imageEmoji || "🪔",
-            description: `${item.description || "Holy festival fundraising auction."}${item.leaderName ? ` Highest Bid: ₹${displayPrice.toLocaleString("en-IN")} by ${item.leaderName} (${item.bidCount || 0} bids)` : ` Base Price: ₹${basePriceNum.toLocaleString("en-IN")}`}`,
-            mainEventId: item.eventId != null ? String(item.eventId) : undefined,
-            rawAuctionItem: item,
-          });
-        });
-      }
-
+        return {
+          id: `event-${ev.id}`,
+          title: ev.title,
+          category,
+          date: ev.startDate || "Upcoming",
+          startDate: ev.startDate || undefined,
+          endDate: ev.endDate || undefined,
+          isMultiDay: Boolean(ev.startDate && ev.endDate && ev.startDate !== ev.endDate),
+          time: ev.startTime
+            ? (ev.endTime ? `${ev.startTime} - ${ev.endTime}` : ev.startTime)
+            : "",
+          startTime: ev.startTime || undefined,
+          endTime: ev.endTime || undefined,
+          venue: ev.location || ev.city || "",
+          fee: ev.price || 0,
+          availableSeats: avail,
+          capacity: ev.maxAttendees || 100,
+          maxAttendees: ev.maxAttendees || undefined,
+          image: imageEmoji,
+          description: "",
+          registrationDeadline: ev.registrationDeadline || undefined,
+          regDeadline: ev.registrationDeadline || undefined,
+          status: ev.status,
+          imageUrl: ev.imageUrl || undefined,
+          coverImageUrl: ev.imageUrl || undefined,
+          coverImage: ev.imageUrl || undefined,
+          isRegistered: ev.registered,
+          attendees: ev.attendeeCount,
+          registrationCount: ev.attendeeCount,
+          needsRegistration: true,
+        } as any;
+      });
       setActivitiesList(fetchedActivities);
+
+      // ── Main events list (hero banner) ───────────────────────────────────────
+      const mainEvents = payload.upcomingEvents.map((ev) => ({
+        id: `event-${ev.id}`,
+        rawId: ev.id,
+        title: ev.title,
+        category: ev.type,
+        type: ev.type,
+        startDate: ev.startDate,
+        endDate: ev.endDate,
+        startTime: ev.startTime,
+        endTime: ev.endTime,
+        venue: ev.location || ev.city || "",
+        location: ev.location || ev.city || "",
+        city: ev.city,
+        price: ev.price || 0,
+        fee: ev.price || 0,
+        coverImage: ev.imageUrl || undefined,
+        coverImageUrl: ev.imageUrl || undefined,
+        imageUrl: ev.imageUrl || undefined,
+        status: ev.status,
+        capacity: ev.maxAttendees || 100,
+        maxAttendees: ev.maxAttendees,
+        attendees: ev.attendeeCount,
+        registrationCount: ev.attendeeCount,
+        registrationDeadline: ev.registrationDeadline,
+        regDeadline: ev.registrationDeadline,
+        isRegistered: ev.registered,
+      }));
+      setMainEventsList(mainEvents as any[]);
+
+      // ── Passes (my registrations) ────────────────────────────────────────────
+      const mappedPasses: UserPass[] = payload.myRegistrations.map((r) => {
+        const regStatus = (r.status || "").toUpperCase();
+        const isCancelled = regStatus === "CANCELLED" || regStatus === "REJECTED";
+        const isExpiredByDate = !isCancelled && Boolean(r.eventStartDate && r.eventStartDate < todayStr);
+        const isPending = !isCancelled && !isExpiredByDate
+          && (regStatus === "PENDING" || regStatus === "PENDING_APPROVAL");
+
+        let finalStatus = "CONFIRMED";
+        let statusReason = "Active Valid Entry E-Pass";
+        if (isCancelled) {
+          finalStatus = "CANCELLED";
+          statusReason = "Registration has been cancelled";
+        } else if (isExpiredByDate) {
+          finalStatus = "EXPIRED";
+          statusReason = "Event has concluded (Expired Pass)";
+        } else if (isPending) {
+          finalStatus = "PENDING APPROVAL";
+          statusReason = "Awaiting committee approval / verification";
+        }
+
+        const rawCat = (r.category || "").toLowerCase();
+        const isPoojaPass = rawCat.includes("pooja") || rawCat.includes("seva");
+        const isFoodPass = rawCat.includes("food") || rawCat.includes("meal");
+        const isCultPass = rawCat.includes("cultural");
+        const isCompPass = rawCat.includes("competition");
+
+        return {
+          id: String(r.registrationId),
+          activityId: String(r.eventId),
+          category: isPoojaPass ? "Pooja" : isCompPass ? "Competitions" : isCultPass ? "Cultural" : isFoodPass ? "Food" : "General",
+          passType: r.category ? `${r.category} Registration Pass` : "Event Registration Pass",
+          title: r.eventTitle || "Community Event",
+          participantName: "Devotee",
+          regId: `MNA-2026-${r.registrationId}`,
+          date: r.eventStartDate || "Upcoming",
+          time: "Scheduled",
+          venue: "Community Venue",
+          status: finalStatus,
+          isEventCancelled: isCancelled,
+          isEventExpired: isExpiredByDate,
+          isEventClosed: false,
+          statusReason,
+          qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=MNA-2026-${r.registrationId}`,
+          bookingFee: 0,
+          paymentStatus: "FREE",
+          registrationStatus: r.status,
+        } as any;
+      });
+      setPassesList(mappedPasses);
+
     } catch (err) {
-      console.warn("Failed to fetch live API events:", err);
+      console.warn("Failed to fetch dashboard from /events/user-dashboard:", err);
       setActivitiesList([]);
     } finally {
       setLoadingApiData(false);
@@ -996,9 +828,9 @@ export function EventUserDashboardPreview() {
     setLoadingFamily(false);
   };
 
-  // Load User Passes dynamically from database API
+  // Passes are now populated inside fetchLiveDataFromBackend via the consolidated dashboard API
   const loadUserPasses = async () => {
-    try {
+    if (false) {
       const [liveRegs, allEvents] = await Promise.all([
         eventService.getMyRegistrations().catch(() => []),
         eventService.getAll().catch(() => []),
@@ -1174,11 +1006,7 @@ export function EventUserDashboardPreview() {
         setPassesList(mappedPasses);
         return;
       }
-    } catch (err) {
-      console.warn("Could not fetch user registrations from API:", err);
     }
-
-    setPassesList([]);
   };
 
   useEffect(() => {

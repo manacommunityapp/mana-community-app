@@ -994,7 +994,7 @@ function EventDetailsDialog({
       .getAllRegistrations()
       .then((regs) => {
         if (Array.isArray(regs) && user) {
-          const uId = user.id;
+          const uId = user.userId;
           const uEmail = (user.email || "").toLowerCase().trim();
           const uPhone = (user.phone || "").trim();
 
