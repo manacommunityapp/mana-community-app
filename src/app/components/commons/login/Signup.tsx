@@ -897,11 +897,13 @@ export function Signup() {
 
                     {/* Single unified card for Community Type + Society Selection */}
                     <div className="bg-card p-3 sm:p-4 xl:p-5 rounded-xl sm:rounded-2xl border border-border space-y-2.5 sm:space-y-4 shadow-sm">
-                      {/* Compact Side-by-Side Community Type Selection */}
+                      {/* Community Type Selection */}
                       <div>
                         <div className="flex items-center justify-between mb-1.5 sm:mb-2">
                           <label className={labelCls}>Community Type</label>
-                          <span className="text-[10px] sm:text-[11px] text-primary font-medium">Apartment selected</span>
+                          <span className="text-[10px] sm:text-[11px] text-primary font-medium">
+                            {communityTypes.find(t => t.value === communityType)?.label ?? "Apartment"} selected
+                          </span>
                         </div>
                         <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
                           {communityTypes.map((type) => {
@@ -909,7 +911,7 @@ export function Signup() {
                             return (
                               <label
                                 key={type.value}
-                                className={`relative flex items-center justify-center gap-1.5 sm:gap-2 py-1.5 sm:py-2.5 px-2 sm:px-3 border rounded-lg sm:rounded-xl transition-all select-none text-[10.5px] sm:text-xs font-semibold ${
+                                className={`relative flex flex-col items-center justify-center gap-1 sm:flex-row sm:gap-2 py-2.5 sm:py-2.5 px-1.5 sm:px-3 border rounded-lg sm:rounded-xl transition-all select-none font-semibold ${
                                   isApartment
                                     ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30 cursor-pointer shadow-xs"
                                     : "border-border/50 bg-muted/20 text-muted-foreground/70 opacity-60 cursor-not-allowed"
@@ -922,12 +924,12 @@ export function Signup() {
                                   {...register("communityType")}
                                   className="sr-only"
                                 />
-                                <type.icon className={`w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0 ${isApartment ? "text-primary" : "text-muted-foreground"}`} />
-                                <span className="truncate">{type.label}</span>
+                                <type.icon className={`w-4 h-4 sm:w-3.5 sm:h-3.5 shrink-0 ${isApartment ? "text-primary" : "text-muted-foreground"}`} />
+                                <span className="text-[9px] sm:text-xs leading-tight text-center">{type.label}</span>
                                 {isApartment ? (
-                                  <Check className="w-3 h-3 text-primary shrink-0 stroke-[3]" />
+                                  <Check className="w-3 h-3 text-primary shrink-0 stroke-[3] sm:ml-auto" />
                                 ) : (
-                                  <span className="text-[8.5px] sm:text-[9px] font-bold px-1 sm:px-1.5 py-0.2 rounded-full bg-muted text-muted-foreground uppercase border border-border/60">
+                                  <span className="text-[8px] sm:text-[9px] font-bold px-1 sm:px-1.5 rounded-full bg-muted text-muted-foreground uppercase border border-border/60">
                                     Soon
                                   </span>
                                 )}
