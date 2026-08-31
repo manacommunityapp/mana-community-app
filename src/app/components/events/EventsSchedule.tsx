@@ -42,6 +42,7 @@ import { EventRegistrationWizard } from "./redesign/EventRegistrationWizard";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import { showError, showSuccess } from "../../../utils/ToastUtils";
 import { formatIndianTime, formatIndianDate, formatIndianDateTime } from "../../../utils/indianDateTimeUtils";
+import { resolveEventImage } from "../../../utils/imageUrlUtils";
 
 /* ─── Types ─── */
 type EventStatus = "upcoming" | "ongoing" | "completed" | "draft" | "cancelled";
@@ -1183,11 +1184,14 @@ function EventDetailsDialog({
       >
         {/* Top Banner / Cover */}
         <div className="relative h-44 sm:h-52 bg-slate-900 overflow-hidden shrink-0">
-          {activeData.coverImage || activeData.imageUrl ? (
+          {resolveEventImage(activeData, "") ? (
             <img
-              src={activeData.coverImage || activeData.imageUrl}
+              src={resolveEventImage(activeData, "")}
               alt={activeData.title}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.style.display = "none";
+              }}
             />
           ) : (
             <div
@@ -2229,7 +2233,7 @@ function EventsList() {
             visibility: (e.visibility?.toLowerCase() as any) || "community",
             registrations: e.attendees ?? (e as any).registrationCount ?? (e as any).registrations ?? 0,
             capacity: (e as any).maxAttendees ?? (e as any).totalCapacity ?? e.capacity ?? 100,
-            coverImage: e.imageUrl || "",
+            coverImage: resolveEventImage(e, ""),
             createdAt: e.createdAt || new Date().toISOString(),
           }));
           setEvents(mapped);
@@ -2302,7 +2306,7 @@ function EventsList() {
               visibility: (e.visibility?.toLowerCase() as any) || "community",
               registrations: e.attendees ?? (e as any).registrationCount ?? (e as any).registrations ?? 0,
               capacity: (e as any).maxAttendees ?? (e as any).totalCapacity ?? e.capacity ?? 100,
-              coverImage: e.imageUrl || "",
+              coverImage: resolveEventImage(e, ""),
               createdAt: e.createdAt || new Date().toISOString(),
             }));
             setEvents(mapped);

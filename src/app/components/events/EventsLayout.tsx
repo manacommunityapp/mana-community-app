@@ -24,7 +24,7 @@ const navItems = [
   { to: "/events/operations",   label: "Operations",       icon: UtensilsCrossed,           permission: VIEW_EVENT_OPERATIONS },
   { to: "/events/media",        label: "Media",            icon: ImageIcon,                 permission: VIEW_EVENT_MEDIA, altPermission: VIEW_EVENT_GALLERY },
   { to: "/events/reports",            label: "Reports",          icon: BarChart3,   permission: VIEW_EVENT_MEDIA,      altPermission: VIEW_EVENT_DASHBOARD },
-  { to: "/events/dashboard-preview", label: "User View",        icon: Sparkles,    permission: VIEW_EVENTS,           altPermission: REGISTER_EVENT },
+  { to: "/events/dashboard-preview", label: "User View",        icon: Sparkles,    adminOnly: true, permission: VIEW_EVENTS, altPermission: REGISTER_EVENT },
 ];
 
 function DataModeToggle() {

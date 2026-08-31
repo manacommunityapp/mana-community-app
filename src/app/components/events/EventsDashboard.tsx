@@ -21,6 +21,7 @@ import { useEventMock } from "./EventMockToggle";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
+import { resolveEventImage } from "../../../utils/imageUrlUtils";
 import {
   eventService,
   type DashboardStatsResponse,
@@ -153,7 +154,7 @@ function eventToBanner(ev: EventResponse, idx: number): BannerItem {
     bgGradient: BANNER_GRADIENTS[idx % BANNER_GRADIENTS.length],
     targetDate: ev.startDate,
     targetTime: ev.startTime,
-    image: ev.imageUrl || ev.coverImageUrl || ev.coverImage || null,
+    image: resolveEventImage(ev, null as any),
     raw: ev,
   };
 }
@@ -461,7 +462,7 @@ export function EventsDashboard() {
                 price: p.isFree ? 0 : Number(p.fee || 501),
                 fee: p.isFree ? 0 : Number(p.fee || 501),
                 isFree: p.isFree,
-                imageUrl: p.coverImage || p.imageUrl || "https://images.unsplash.com/photo-1567157577867-05ccb1388e66?auto=format&fit=crop&w=1200&q=80",
+                imageUrl: resolveEventImage(p),
                 description: `Pandit: ${p.pandit || "Temple Priest"}. ${p.notes || p.description || "Sacred Pooja Seva Sankalpam"}`,
                 attendees: 0,
                 registrationCount: 0,
