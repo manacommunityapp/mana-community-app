@@ -436,7 +436,8 @@ export function EventsDashboard() {
         const standalonePoojas: any[] = [];
         if (poojasR.status === "fulfilled" && Array.isArray(poojasR.value)) {
           poojasR.value.forEach((p: any) => {
-            if (String(p.status || "").toUpperCase() === "CANCELLED") return;
+            const poojaStatus = String(p.status || "ACTIVE").toUpperCase();
+            if (poojaStatus !== "ACTIVE" || p.isPaused === true || p.isPaused === "true") return;
             const isStandalone = (p.mainEventId == null || p.mainEventId === "" || p.mainEventId === 0) &&
                                  (p.eventId == null || p.eventId === "" || p.eventId === 0);
             if (isStandalone) {

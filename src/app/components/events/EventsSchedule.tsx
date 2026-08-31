@@ -1062,7 +1062,12 @@ function EventDetailsDialog({
       const liveComps = compRes.status === "fulfilled" && Array.isArray(compRes.value) ? compRes.value : [];
       const liveMeals = mealRes.status === "fulfilled" && Array.isArray(mealRes.value) ? mealRes.value : [];
 
-      const filteredPoojas = livePoojas.filter(matchesEvent);
+      const filteredPoojas = livePoojas
+        .filter((p: any) => {
+          const poojaStatus = String(p.status || "ACTIVE").toUpperCase();
+          return poojaStatus === "ACTIVE" && !p.isPaused;
+        })
+        .filter(matchesEvent);
       const filteredCulturals = liveCulturals.filter(matchesEvent);
       const filteredComps = liveComps.filter(matchesEvent);
       const filteredMeals = liveMeals.filter(matchesEvent);

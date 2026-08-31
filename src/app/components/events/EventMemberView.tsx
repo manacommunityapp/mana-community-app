@@ -698,8 +698,9 @@ export function EventMemberView() {
 
       if (poojas && Array.isArray(poojas)) {
         poojas.forEach((p: any) => {
-          // Exclude if pooja itself is cancelled
-          if (String(p.status || "").toUpperCase() === "CANCELLED") return;
+          const poojaStatus = String(p.status || "ACTIVE").toUpperCase();
+          // Exclude if pooja is not ACTIVE (e.g. PAUSED, CANCELLED, ARCHIVED, etc.) or isPaused
+          if (poojaStatus !== "ACTIVE" || p.isPaused === true || p.isPaused === "true") return;
 
           const isStandalone = (p.mainEventId == null || p.mainEventId === "" || p.mainEventId === 0) &&
                                (p.eventId == null || p.eventId === "" || p.eventId === 0);
