@@ -561,15 +561,20 @@ export function Signup() {
     : [];
 
   const availableFlats: string[] = (() => {
-    if (!activeBlockConfig || !selectedFloor) return [];
-    const floorObj = activeBlockConfig.floors?.find((f) => f.floor === Number(selectedFloor));
-    if (floorObj && floorObj.flats && floorObj.flats.length > 0) {
-      return floorObj.flats;
+    if (!activeBlockConfig) return [];
+    const all: string[] = [];
+    const totalFloors = activeBlockConfig.totalFloors || 10;
+    for (let fl = 1; fl <= totalFloors; fl++) {
+      const floorObj = activeBlockConfig.floors?.find((f) => f.floor === fl);
+      if (floorObj?.flats?.length) {
+        all.push(...floorObj.flats);
+      } else {
+        const count = activeBlockConfig.flatsPerFloor || (activeBlockConfig.blockName.toUpperCase() === "C" ? 12 : 11);
+        const base = fl * 100;
+        all.push(...Array.from({ length: count }, (_, i) => String(base + i + 1)));
+      }
     }
-    // Dynamic generation from DB config row values:
-    const flatsCount = activeBlockConfig.flatsPerFloor || (activeBlockConfig.blockName.toUpperCase() === "C" ? 12 : 11);
-    const base = Number(selectedFloor) * 100;
-    return Array.from({ length: flatsCount }, (_, i) => String(base + i + 1));
+    return all;
   })();
 
   // All community flats flat list for quick searching across all blocks & floors
@@ -708,10 +713,6 @@ export function Signup() {
       if (communityType === "apartment") {
         if (!block) {
           setError("block", { type: "manual", message: "Please select a block" });
-          return false;
-        }
-        if (!selectedFloor) {
-          toast.error("Please select a floor number");
           return false;
         }
         if (!flatNo) {
@@ -1234,11 +1235,11 @@ export function Signup() {
                     <SectionHead
                       num={3}
                       title="Unit & Residence"
-                      sub="Specify your user type, block, floor, and flat number"
+                      sub="Specify your user type, block, and flat number"
                     />
 
                     {/* Dynamic Visual Unit Preview Badge */}
-                    {(block || selectedFloor || flatNo || userType) && (
+                    {(block || flatNo || userType) && (
                       <div className="flex items-center gap-2.5 sm:gap-3.5 p-2.5 sm:p-3 rounded-xl border border-dashed border-primary/40 bg-primary/5 animate-in fade-in zoom-in-95">
                         <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-lg sm:rounded-xl flex items-center justify-center text-white text-xs sm:text-sm font-black bg-gradient-to-tr from-primary to-indigo-600 shadow-xs shadow-primary/25 shrink-0">
                           {block || "?"}
@@ -1247,7 +1248,6 @@ export function Signup() {
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-xs sm:text-sm font-bold text-foreground">
                               {block ? `Block ${block}` : "Block ?"}
-                              {selectedFloor ? ` · Floor ${selectedFloor}` : " · Floor ?"}
                               {flatNo ? ` · Flat ${flatNo}` : " · Flat ?"}
                             </p>
                             <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/25">
@@ -1257,7 +1257,7 @@ export function Signup() {
                           <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
                             {activeBlockConfig
                               ? `${activeBlockConfig.blockName} Block (${activeBlockConfig.totalFloors} floors, ${activeBlockConfig.flatsPerFloor} flats/floor — total ${activeBlockConfig.totalFlats} flats)`
-                              : "Select your user type, block, floor, and flat"}
+                              : "Select your user type, block, and flat"}
                           </p>
                         </div>
                       </div>
@@ -1393,8 +1393,8 @@ export function Signup() {
                       <div className="h-[1px] bg-border flex-1" />
                     </div>
 
-                    {/* 3 Cascading Searchable Dropdowns: Block -> Floor -> Flat Number */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3.5 xl:gap-4">
+                    {/* 2 Cascading Searchable Dropdowns: Block -> Flat Number */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3.5 xl:gap-4">
                       {/* 1. Block Searchable Dropdown */}
                       <SearchableDropdown
                         id="blockSelect"
@@ -1408,49 +1408,23 @@ export function Signup() {
                         options={blockConfigs.map((bc) => ({
                           value: bc.blockName,
                           label: `Block ${bc.blockName}`,
-                          sublabel: `${bc.flatsPerFloor} flats/floor · ${bc.totalFloors} floors (${bc.totalFlats} flats)`,
+                          sublabel: `${bc.totalFlats} flats across ${bc.totalFloors} floors`,
                           badge: `Block ${bc.blockName}`,
                         }))}
                         onChange={(newBlock) => {
                           setValue("block", newBlock, { shouldValidate: true });
-                          setSelectedFloor("");
                           setValue("flatNo", "", { shouldValidate: false });
                           clearErrors(["block", "flatNo"]);
                         }}
                       />
 
-                      {/* 2. Floor Searchable Dropdown */}
-                      <SearchableDropdown
-                        id="floorSelect"
-                        label="Floor"
-                        required
-                        disabled={!block}
-                        disabledHint="Select Block First"
-                        placeholder="Select Floor"
-                        searchPlaceholder="Search floor number..."
-                        value={selectedFloor ? String(selectedFloor) : ""}
-                        icon={Building2}
-                        options={availableFloors.map((fl) => ({
-                          value: String(fl),
-                          label: `Floor ${fl}`,
-                          sublabel: `${activeBlockConfig?.flatsPerFloor || 11} flats on this floor`,
-                          badge: `Floor ${fl}`,
-                        }))}
-                        onChange={(flStr) => {
-                          const fl = flStr ? Number(flStr) : "";
-                          setSelectedFloor(fl);
-                          setValue("flatNo", "", { shouldValidate: false });
-                          clearErrors(["flatNo"]);
-                        }}
-                      />
-
-                      {/* 3. Flat Number Searchable Dropdown */}
+                      {/* 2. Flat Number Searchable Dropdown */}
                       <SearchableDropdown
                         id="flatSelect"
                         label="Flat Number"
                         required
-                        disabled={!block || !selectedFloor}
-                        disabledHint={!block ? "Select Block First" : "Select Floor First"}
+                        disabled={!block}
+                        disabledHint="Select Block First"
                         placeholder="Select Flat Number"
                         searchPlaceholder="Search flat number (e.g. 101, 1005)..."
                         value={flatNo || ""}
@@ -1459,7 +1433,7 @@ export function Signup() {
                         options={availableFlats.map((flat) => ({
                           value: flat,
                           label: `Flat ${flat}`,
-                          sublabel: `Floor ${selectedFloor} · Block ${block}`,
+                          sublabel: `Block ${block}`,
                           badge: `Flat ${flat}`,
                         }))}
                         onChange={(flat) => {
