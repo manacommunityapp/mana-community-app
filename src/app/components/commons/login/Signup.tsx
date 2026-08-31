@@ -36,11 +36,12 @@ import { Link, useNavigate } from "react-router";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { communityService } from "../../../../services/community/communityService";
+import { authService } from "../../../../services/common/authService";
 import type { CommunityResponse, BlockConfigResponse } from "../../../../types/api";
 import { PasswordStrengthMeter } from "../PasswordStrengthMeter";
 import { evaluatePassword, generateStrongPassword } from "../../../../utils/passwordStrength";
 
-type Step = 1 | 2 | 3 | 4 | 5;
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 type SignupFormValues = {
   fullName: string;
@@ -241,8 +242,9 @@ function BrandPanel() {
 const STEPS = [
   { label: "Community", short: "1" },
   { label: "Personal", short: "2" },
-  { label: "Residence", short: "3" },
-  { label: "Security", short: "4" },
+  { label: "Verify", short: "3" },
+  { label: "Residence", short: "4" },
+  { label: "Security", short: "5" },
 ];
 
 function StepBar({
@@ -513,8 +515,12 @@ export function Signup() {
   const [blockConfigs, setBlockConfigs] = useState<BlockConfigResponse[]>(DEFAULT_BLOCK_CONFIGS);
   const [flatSearchQuery, setFlatSearchQuery] = useState<string>("");
   const [showFlatSearchMenu, setShowFlatSearchMenu] = useState<boolean>(false);
+  const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  const [isSendingSignupOtp, setIsSendingSignupOtp] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const flatSearchContainerRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const signupOtpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const { register: registerUser } = useAuth();
   const navigate = useNavigate();
@@ -632,6 +638,52 @@ export function Signup() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
+
+  const handleSignupOtpChange = (index: number, value: string) => {
+    if (value.length > 1) {
+      const sanitized = value.replace(/\D/g, "").slice(0, 6);
+      if (sanitized.length > 0) {
+        const next = [...otpDigits];
+        for (let i = 0; i < 6; i++) next[i] = sanitized[i] || "";
+        setOtpDigits(next);
+        signupOtpInputRefs.current[Math.min(sanitized.length, 5)]?.focus();
+        return;
+      }
+    }
+    const cleanChar = value.replace(/\D/g, "").slice(-1);
+    const next = [...otpDigits];
+    next[index] = cleanChar;
+    setOtpDigits(next);
+    if (cleanChar && index < 5) signupOtpInputRefs.current[index + 1]?.focus();
+  };
+
+  const handleSignupOtpKeyDown = (index: number, e: { key: string }) => {
+    if (e.key === "Backspace" && !otpDigits[index] && index > 0) {
+      signupOtpInputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const sendSignupOtpEmail = async () => {
+    setIsSendingSignupOtp(true);
+    try {
+      await authService.sendSignupOtp(email);
+      setResendCooldown(60);
+      setTimeout(() => signupOtpInputRefs.current[0]?.focus(), 150);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to send verification code";
+      toast.error(message);
+    } finally {
+      setIsSendingSignupOtp(false);
+    }
+  };
+
   const handleSuggestPassword = () => {
     const suggested = generateStrongPassword(10);
     setValue("password", suggested, { shouldValidate: true });
@@ -705,6 +757,14 @@ export function Signup() {
       return valid && phone?.length === 10;
     }
     if (s === 3) {
+      const code = otpDigits.join("");
+      if (code.length < 6 || otpDigits.some((d) => d === "")) {
+        toast.error("Please enter the complete 6-digit verification code");
+        return false;
+      }
+      return true;
+    }
+    if (s === 4) {
       if (communityType === "apartment") {
         if (!block) {
           setError("block", { type: "manual", message: "Please select a block" });
@@ -723,7 +783,7 @@ export function Signup() {
       }
       return true;
     }
-    if (s === 4) {
+    if (s === 5) {
       const valid = await trigger(["password", "confirmPassword", "terms"]);
       return valid;
     }
@@ -734,7 +794,25 @@ export function Signup() {
     const isValid = await validateCurrentStep(step);
     if (!isValid) return;
 
-    if (step < 4) {
+    if (step === 2) {
+      setIsSendingSignupOtp(true);
+      try {
+        await authService.sendSignupOtp(email);
+        setOtpDigits(["", "", "", "", "", ""]);
+        setResendCooldown(60);
+        setStep(3);
+        formRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+        setTimeout(() => signupOtpInputRefs.current[0]?.focus(), 200);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to send verification code";
+        toast.error(message);
+      } finally {
+        setIsSendingSignupOtp(false);
+      }
+      return;
+    }
+
+    if (step < 5) {
       setStep((s) => (s + 1) as Step);
       formRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     }
@@ -770,7 +848,7 @@ export function Signup() {
           toast.error(
             `Block ${data.block.toUpperCase()} - Flat ${data.flatNo} is already registered in this community. Please check your unit number.`
           );
-          setStep(3);
+          setStep(4);
           return;
         }
       }
@@ -787,10 +865,11 @@ export function Signup() {
         flatNo: data.flatNo,
         userType: data.userType || "Owner",
         occupancyStatus: data.userType || "Owner",
+        emailOtpCode: otpDigits.join(""),
       });
 
       toast.success("Account created! Welcome to the community.");
-      setStep(5);
+      setStep(6);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Registration failed";
       toast.error(message);
@@ -819,10 +898,11 @@ export function Signup() {
   ];
 
   const STEP_HEADINGS = [
-    { title: "Join your community", sub: "Community Setup · Step 1 of 4" },
-    { title: "Tell us about yourself", sub: "Personal Details · Step 2 of 4" },
-    { title: "Where do you live?", sub: "Unit & Residence · Step 3 of 4" },
-    { title: "Secure your account", sub: "Account Security · Step 4 of 4" },
+    { title: "Join your community", sub: "Community Setup · Step 1 of 5" },
+    { title: "Tell us about yourself", sub: "Personal Details · Step 2 of 5" },
+    { title: "Verify your email", sub: "Email Verification · Step 3 of 5" },
+    { title: "Where do you live?", sub: "Unit & Residence · Step 4 of 5" },
+    { title: "Secure your account", sub: "Account Security · Step 5 of 5" },
   ];
 
   const inputBase =
@@ -859,7 +939,7 @@ export function Signup() {
 
         {/* Form Container: Expanded max-width for clear browser view without unnecessary vertical scrolling */}
         <div className="px-3.5 sm:px-8 lg:px-12 xl:px-16 py-2 sm:py-5 lg:py-7 max-w-[780px] xl:max-w-[840px] 2xl:max-w-[900px] w-full mx-auto relative z-10 flex-1 flex flex-col justify-center">
-          {step < 5 ? (
+          {step < 6 ? (
             <>
               {/* Header Title & Subtitle */}
               <div className="mb-2.5 sm:mb-4 xl:mb-5">
@@ -878,7 +958,7 @@ export function Signup() {
               <form
                 onSubmit={handleSubmit(onSubmit)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && step < 4 && (e.target as HTMLElement).tagName !== "BUTTON") {
+                  if (e.key === "Enter" && step < 5 && (e.target as HTMLElement).tagName !== "BUTTON") {
                     e.preventDefault();
                     advance();
                   }
@@ -1228,11 +1308,91 @@ export function Signup() {
                   </div>
                 )}
 
-                {/* ── STEP 3: Residence Location (Apartment) ────────── */}
+                {/* ── STEP 3: Email OTP Verification ────────────────── */}
                 {step === 3 && (
-                  <div className="space-y-2.5 sm:space-y-3.5 animate-in fade-in duration-200">
+                  <div className="space-y-3 sm:space-y-4 animate-in fade-in duration-200">
                     <SectionHead
                       num={3}
+                      title="Email Verification"
+                      sub="Enter the 6-digit code sent to your email address"
+                    />
+
+                    {/* Email badge */}
+                    <div className="p-3 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="p-1.5 bg-primary/10 rounded-lg shrink-0">
+                          <Mail className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">Code sent to</p>
+                          <p className="text-xs sm:text-sm font-semibold text-foreground truncate">{email}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={back}
+                        className="text-xs text-primary hover:underline font-medium shrink-0 cursor-pointer bg-transparent border-none p-1"
+                      >
+                        Change
+                      </button>
+                    </div>
+
+                    {/* 6-digit OTP inputs */}
+                    <div>
+                      <label className="block text-[10px] sm:text-xs font-semibold text-foreground/80 mb-2 uppercase tracking-wide">
+                        6-Digit Verification Code
+                      </label>
+                      <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                        {otpDigits.map((digit, idx) => (
+                          <input
+                            key={idx}
+                            ref={(el) => { signupOtpInputRefs.current[idx] = el; }}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            onChange={(e) => handleSignupOtpChange(idx, e.target.value)}
+                            onKeyDown={(e) => handleSignupOtpKeyDown(idx, e)}
+                            onPaste={(e) => {
+                              e.preventDefault();
+                              handleSignupOtpChange(idx, e.clipboardData.getData("text"));
+                            }}
+                            className="flex-1 h-11 sm:h-12 text-center text-base sm:text-lg font-bold bg-[var(--mana-bg-input)] border border-border rounded-lg focus:ring-2 focus:ring-primary/40 focus:border-primary outline-none transition-all"
+                          />
+                        ))}
+                      </div>
+
+                      {/* Resend */}
+                      <div className="flex items-center justify-between mt-2.5">
+                        <span className="text-[10px] sm:text-xs text-muted-foreground">
+                          Didn't receive the code?
+                        </span>
+                        <button
+                          type="button"
+                          onClick={sendSignupOtpEmail}
+                          disabled={resendCooldown > 0 || isSendingSignupOtp}
+                          className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-medium text-primary hover:text-primary/80 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer bg-transparent border-none"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${isSendingSignupOtp ? "animate-spin" : ""}`} />
+                          {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend Code"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="bg-primary/5 rounded-lg sm:rounded-xl border border-primary/15 p-2 sm:p-2.5 flex items-start gap-2 sm:gap-3">
+                      <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary mt-0.5 shrink-0" />
+                      <p className="text-[10.5px] sm:text-xs text-foreground/80 leading-relaxed">
+                        Verifying your email helps keep your account secure and ensures you receive important community notifications.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── STEP 4: Residence Location (Apartment) ────────── */}
+                {step === 4 && (
+                  <div className="space-y-2.5 sm:space-y-3.5 animate-in fade-in duration-200">
+                    <SectionHead
+                      num={4}
                       title="Unit & Residence"
                       sub="Specify your user type, block, floor, and flat number"
                     />
@@ -1479,11 +1639,11 @@ export function Signup() {
                   </div>
                 )}
 
-                {/* ── STEP 4: Role & Security ────────────────────────── */}
-                {step === 4 && (
+                {/* ── STEP 5: Role & Security ────────────────────────── */}
+                {step === 5 && (
                   <div className="space-y-2.5 sm:space-y-3.5 animate-in fade-in duration-200">
                     <SectionHead
-                      num={4}
+                      num={5}
                       title="Account Security"
                       sub="Set a protected password and review terms to complete signup"
                     />
@@ -1642,14 +1802,24 @@ export function Signup() {
                     </button>
                   )}
 
-                  {step < 4 ? (
+                  {step < 5 ? (
                     <button
                       type="button"
                       onClick={advance}
-                      className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-3 xl:py-3.5 px-4 sm:px-6 bg-gradient-to-r from-primary via-primary to-indigo-600 hover:opacity-95 active:scale-[0.99] text-white font-semibold text-xs sm:text-sm rounded-lg sm:rounded-xl shadow-md shadow-primary/20 hover:shadow-primary/30 transition-all duration-200 cursor-pointer"
+                      disabled={isSendingSignupOtp}
+                      className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2 sm:py-3 xl:py-3.5 px-4 sm:px-6 bg-gradient-to-r from-primary via-primary to-indigo-600 hover:opacity-95 active:scale-[0.99] text-white font-semibold text-xs sm:text-sm rounded-lg sm:rounded-xl shadow-md shadow-primary/20 hover:shadow-primary/30 transition-all duration-200 cursor-pointer disabled:opacity-65 disabled:cursor-not-allowed"
                     >
-                      <span>Continue</span>
-                      <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      {isSendingSignupOtp ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Sending Code…</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Continue</span>
+                          <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                        </>
+                      )}
                     </button>
                   ) : (
                     <button
@@ -1688,7 +1858,7 @@ export function Signup() {
               </div>
             </>
           ) : (
-            /* ── STEP 5: Success Celebration Screen ────────── */
+            /* ── STEP 6: Success Celebration Screen ────────── */
             <div className="flex flex-col items-center text-center py-5 sm:py-8 px-4 animate-in fade-in-50 zoom-in-95 duration-300">
               <div className="relative mb-3 sm:mb-5">
                 <div className="w-14 h-14 sm:w-18 sm:h-18 rounded-2xl flex items-center justify-center bg-gradient-to-tr from-primary to-indigo-600 shadow-2xl shadow-primary/30">
