@@ -61,6 +61,7 @@ import { evaluatePassword, generateStrongPassword } from "../../../utils/passwor
 import { PasswordStrengthMeter } from "../commons/PasswordStrengthMeter";
 import { DatePicker } from "../ui/date-picker";
 import type { UserProfileResponse } from "../../../types/api";
+import { resolveUserAvatar } from "../../../utils/imageUrlUtils";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -614,7 +615,7 @@ export function ProfileDashboard() {
   }
 
   const role = getRoleConfig(profile.role);
-  const userAvatar = profile.profilePicUrl || (profile as any).profilePic || user?.profilePicUrl || user?.profilePic || "";
+  const userAvatar = resolveUserAvatar(profile) || resolveUserAvatar(user);
   const initials = (profile.fullName || user?.fullName || "User")
     .trim()
     .split(/\s+/)

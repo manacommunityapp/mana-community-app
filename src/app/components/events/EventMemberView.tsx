@@ -58,6 +58,7 @@ import { EventCompleteDetailsModal } from "./EventCompleteDetailsModal";
 import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import { formatIndianTime } from "../../../utils/indianDateTimeUtils";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
+import { resolveEventImage, resolveUserAvatar, resolveImageUrl } from "../../../utils/imageUrlUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { DatePicker } from "../ui/date-picker";
 
@@ -2082,12 +2083,7 @@ export function EventMemberView() {
                 <div className="min-w-0 bg-white/5 border border-white/10 rounded-lg p-2 sm:p-2.5">
                   <div className="flex items-center gap-2.5 sm:gap-3">
                     {(() => {
-                      const eventImg =
-                        activeMainEvent?.coverImage ||
-                        activeMainEvent?.coverImageUrl ||
-                        activeMainEvent?.imageUrl ||
-                        (activeMainEvent as any)?.bannerUrl ||
-                        (activeMainEvent as any)?.posterUrl;
+                      const eventImg = resolveEventImage(activeMainEvent, "");
 
                       return (
                         <div className="relative w-11 h-11 sm:w-14 sm:h-14 rounded-xl bg-amber-400/20 border border-amber-300/30 flex items-center justify-center text-lg shrink-0 shadow-xs overflow-hidden">

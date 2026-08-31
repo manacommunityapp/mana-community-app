@@ -15,6 +15,7 @@ import { ChatProvider } from "../../../../contexts/ChatContext";
 import { NotificationBell } from "./NotificationBell";
 import { MobileHeaderActions } from "./MobileFloatingActions";
 import { profileService } from "../../../../services/common/profileService";
+import { resolveUserAvatar } from "../../../../utils/imageUrlUtils";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -63,7 +64,7 @@ function UserProfileMenu({
   }, [open]);
 
   const [imgError, setImgError] = useState(false);
-  const userAvatar = !imgError ? (user?.profilePicUrl || user?.profilePic) : undefined;
+  const userAvatar = !imgError ? resolveUserAvatar(user) : undefined;
 
   const initials = user?.fullName
     ? user.fullName
@@ -377,7 +378,7 @@ export function Layout() {
   };
 
   const displayName = user?.fullName ?? "Community Member";
-  const userAvatar = user?.profilePicUrl || user?.profilePic;
+  const userAvatar = resolveUserAvatar(user);
   const roleLabel = user?.role === "SUPER_ADMIN" ? "Super Admin" 
                  : user?.role === "COMMUNITY_ADMIN" ? "Community Admin"
                  : isAdmin ? "Admin" 

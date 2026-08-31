@@ -169,7 +169,7 @@ export function Login() {
               </span>
             </div>
             <h4 className="text-white leading-[1.15] mb-2.5 text-2xl xl:text-3xl font-black tracking-tight">
-              Welcome back to your
+              Welcome back to
               <br />
               <span className="text-amber-300">Mana Community Hub</span>
             </h4>
@@ -276,7 +276,7 @@ export function Login() {
 
             {/* Headline */}
             <h4 className="text-white text-lg sm:text-xl font-black tracking-tight leading-snug mb-3">
-              Welcome back to your
+              Welcome back to
               <br />
               <span className="text-amber-300">Mana Community Hub</span>
             </h4>

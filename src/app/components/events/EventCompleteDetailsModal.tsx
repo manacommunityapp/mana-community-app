@@ -21,6 +21,7 @@ import { useEscapeKey } from "../../../hooks/useEscapeKey";
 import { eventService } from "../../../services/events/eventService";
 import { eventSponsorService } from "../../../services/events/eventSponsorService";
 import { formatIndianTime, formatIndianDate } from "../../../utils/indianDateTimeUtils";
+import { resolveEventImage } from "../../../utils/imageUrlUtils";
 
 export interface EventCompleteDetailsModalProps {
   isOpen: boolean;
@@ -73,7 +74,7 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
   })();
   const filledContacts = eventContacts.filter(c => c.name?.trim() || c.phone?.trim());
   const eventDescription = event?.description || "Experience the grand spiritual and cultural celebrations with traditional rituals, sacred pooja sevas, community feasts, cultural stage performances, and festive competitions for all residents.";
-  const eventImage = event?.imageUrl || event?.image || "https://images.unsplash.com/photo-1544717305-2782549b5136?w=1200&auto=format&fit=crop&q=80";
+  const eventImage = resolveEventImage(event);
   const eventStartDate = event?.startDate || event?.date || "Upcoming";
   const eventEndDate = event?.endDate || (event?.startDate !== event?.date ? event?.date : null);
   const eventTime = event?.startTime && event?.endTime

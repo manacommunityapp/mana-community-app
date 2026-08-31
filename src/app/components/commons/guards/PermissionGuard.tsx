@@ -10,12 +10,14 @@ interface PermissionGuardProps {
   anyPermissions?: string[];
   /** Restrict strictly to the SUPER_ADMIN role (no permission grants this) */
   superAdminOnly?: boolean;
+  /** Restrict strictly to admin roles (ADMIN, COMMUNITY_ADMIN, SUPER_ADMIN) */
+  adminOnly?: boolean;
   /** Community module key required (e.g. "SPORTS", "MARKETPLACE"). Blocked if module is disabled for the user's community. */
   requiredModule?: string;
 }
 
-export function PermissionGuard({ children, permission, anyPermissions, superAdminOnly, requiredModule }: PermissionGuardProps) {
-  const { user, isSuperAdmin } = useAuth();
+export function PermissionGuard({ children, permission, anyPermissions, superAdminOnly, adminOnly, requiredModule }: PermissionGuardProps) {
+  const { user, isSuperAdmin, isAdmin } = useAuth();
 
   if (!user) {
     return <Navigate to="/login" replace />;
@@ -37,6 +39,10 @@ export function PermissionGuard({ children, permission, anyPermissions, superAdm
   const userPerms = user.permissions || [];
   // superAdminOnly views are never accessible to non-super-admins, regardless of permissions
   if (superAdminOnly) {
+    return renderAccessDenied();
+  }
+  // adminOnly views are restricted strictly to users with admin roles
+  if (adminOnly && !isAdmin) {
     return renderAccessDenied();
   }
   let hasAccess = false;
