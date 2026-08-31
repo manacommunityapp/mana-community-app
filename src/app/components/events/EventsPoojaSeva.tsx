@@ -776,6 +776,8 @@ export function EventsPoojaSeva() {
       notes: regForm.notes.trim() || undefined,
       targetUserId: regForm.targetUserId ?? selectedTargetUser?.id,
       overrideReason: regForm.overrideReason?.trim() || undefined,
+      // Send seva ID so backend scopes duplicate check to this specific seva type
+      poojaSevaId: selectedPoojaForReg.id,
       ...(regSelectedScheduleId ? { scheduleId: regSelectedScheduleId } : {}),
     };
 

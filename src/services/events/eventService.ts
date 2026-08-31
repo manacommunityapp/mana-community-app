@@ -196,6 +196,8 @@ export interface PoojaRegistrationRequest {
   scheduleId?: number;
   reservationId?: number;
   poojaSevaTimeSlotsId?: number;
+  /** FK to event_pooja_sevas — sent so backend can scope the duplicate check to this seva type */
+  poojaSevaId?: number;
   targetUserId?: number;
   // Audit fields (set by backend; present on responses)
   registrationSource?: "SELF" | "ADMIN" | "IMPORT";
@@ -209,6 +211,8 @@ export interface AdminPoojaRegistrationRequest {
   targetUserId: number;
   overrideReason?: string;
   eventId?: number;
+  /** FK to event_pooja_sevas — sent so backend can scope the duplicate check to this seva type */
+  poojaSevaId?: number;
   scheduleId?: number;
   reservationId?: number;
   poojaSevaTimeSlotsId?: number;
