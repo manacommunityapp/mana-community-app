@@ -5,6 +5,7 @@ import { ShieldCheck, Info, Loader2, AlertTriangle } from "lucide-react";
 import { sportsService } from "../../../../services/sports/sportsService";
 import { useAuth } from "../../../../contexts/AuthContext";
 import type { SportMeta } from "../../../../types/api";
+import { DatePicker } from "../../ui/date-picker";
 
 type FormValues = {
   name: string;
@@ -27,6 +28,8 @@ export function Register() {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
@@ -150,22 +153,25 @@ export function Register() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="event-start" className="block text-sm font-medium text-slate-700 mb-1">Start Date *</label>
-                <input
+                <DatePicker
                   id="event-start"
-                  type="date"
-                  {...register("eventDateStart", { required: "Start date is required" })}
-                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                  value={watch("eventDateStart")}
+                  onChange={(v) => setValue("eventDateStart", v, { shouldValidate: true })}
+                  placeholder="Select start date"
                 />
+                <input type="hidden" {...register("eventDateStart", { required: "Start date is required" })} />
                 {errors.eventDateStart && <p className="text-red-500 text-xs mt-1">{errors.eventDateStart.message}</p>}
               </div>
               <div>
                 <label htmlFor="event-end" className="block text-sm font-medium text-slate-700 mb-1">End Date *</label>
-                <input
+                <DatePicker
                   id="event-end"
-                  type="date"
-                  {...register("eventDateEnd", { required: "End date is required" })}
-                  className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 outline-none"
+                  value={watch("eventDateEnd")}
+                  onChange={(v) => setValue("eventDateEnd", v, { shouldValidate: true })}
+                  min={watch("eventDateStart")}
+                  placeholder="Select end date"
                 />
+                <input type="hidden" {...register("eventDateEnd", { required: "End date is required" })} />
                 {errors.eventDateEnd && <p className="text-red-500 text-xs mt-1">{errors.eventDateEnd.message}</p>}
               </div>
             </div>
