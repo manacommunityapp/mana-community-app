@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   Shield,
@@ -27,11 +27,13 @@ import {
   Save,
   UserCog,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { communityService } from "../../../services/community/communityService";
+import { confirmAction } from "../../../utils/AlertUtils";
 import { PERMISSION_CATEGORIES, SPORTS_PERMISSION_MATRIX, EVENT_PERMISSION_MATRIX, MANAGE_COMMUNITIES as PERM_MANAGE_COMMUNITIES } from "../../../constants/permissions";
 import type { SportsPermissionRow, EventPermissionRow } from "../../../constants/permissions";
 import type { CommunityResponse, UserResponse } from "../../../types/api";
@@ -49,6 +51,16 @@ interface UserItem {
   status: "Active" | "Inactive";
   date: string;
   permissions?: string[];
+  block?: string;
+  flatNo?: string;
+  tower?: string;
+  residentType?: string;
+  occupancyStatus?: string;
+  employeeId?: string;
+  govtIdType?: string;
+  govtIdNumber?: string;
+  gender?: string;
+  dateOfBirth?: string;
 }
 
 interface PermissionCategory {
@@ -81,6 +93,7 @@ export function AdminRoleManagement() {
   const [selectedUserRoles, setSelectedUserRoles] = useState<string[]>([]);
   const [updatingUserRoles, setUpdatingUserRoles] = useState<boolean>(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
 
   // Custom Roles & Tab States
   const [searchParams, setSearchParams] = useSearchParams();
@@ -222,14 +235,24 @@ export function AdminRoleManagement() {
           .join(", ");
         return {
           id: u.id,
-          name: u.fullName,
-          email: u.email,
-          contact: u.phone,
+          name: u.fullName || "",
+          email: u.email || "",
+          contact: u.phone || "",
           role: displayRole,
           roles: rolesList,
           status: u.isActive ? ("Active" as const) : ("Inactive" as const),
           date: u.dateOfBirth ? new Date(u.dateOfBirth).toLocaleDateString("en-GB", { day: 'numeric', month: 'short', year: 'numeric' }) : "Unknown",
           permissions: u.permissions,
+          block: u.block || "",
+          flatNo: u.flatNo || "",
+          tower: u.tower || "",
+          residentType: u.residentType || "",
+          occupancyStatus: u.occupancyStatus || "",
+          employeeId: u.employeeId || "",
+          govtIdType: u.govtIdType || "",
+          govtIdNumber: u.govtIdNumber || "",
+          gender: u.gender || "",
+          dateOfBirth: u.dateOfBirth || "",
         };
       });
       setUsers(mapped);
@@ -241,17 +264,28 @@ export function AdminRoleManagement() {
   };
 
   // SEARCH AND FILTER
-  const filteredUsers = users.filter((u) => {
-    const matchesSearch =
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.contact.includes(searchQuery);
+  const filteredUsers = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return users.filter((u) => {
+      const matchesSearch =
+        !q ||
+        (u.name || "").toLowerCase().includes(q) ||
+        (u.email || "").toLowerCase().includes(q) ||
+        (u.contact || "").toLowerCase().includes(q) ||
+        (u.role || "").toLowerCase().includes(q) ||
+        (u.roles || []).some((r) => (r || "").toLowerCase().includes(q)) ||
+        String(u.id).includes(q.replace("#", "")) ||
+        (u.block || "").toLowerCase().includes(q) ||
+        (u.flatNo || "").toLowerCase().includes(q) ||
+        (u.tower || "").toLowerCase().includes(q) ||
+        (u.residentType || "").toLowerCase().includes(q) ||
+        (u.occupancyStatus || "").toLowerCase().includes(q);
 
-    const matchesStatus = statusFilter === 'all' || u.status === statusFilter;
+      const matchesStatus = statusFilter === 'all' || u.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
-  });
+      return Boolean(matchesSearch && matchesStatus);
+    });
+  }, [users, searchQuery, statusFilter]);
 
   const stats = {
     total: users.length,
@@ -369,6 +403,35 @@ export function AdminRoleManagement() {
       );
     } catch (err) {
       toast.error("Failed to update status in database");
+    }
+  };
+
+  const handleDeleteUser = async (u: UserItem) => {
+    const confirmed = await confirmAction({
+      title: "Delete / Deactivate User?",
+      text: `Are you sure you want to deactivate ${u.name || "this user"} (ID: #${u.id})? Their status will be set to Inactive in the database.`,
+      confirmButtonText: "Yes, Deactivate",
+      cancelButtonText: "Cancel",
+      icon: "warning",
+      confirmButtonColor: "#dc2626",
+    });
+    if (!confirmed) return;
+
+    setDeletingUserId(u.id);
+    try {
+      if (u.status === "Active") {
+        await userService.toggleUserStatus(u.id);
+      } else {
+        await userService.updateUser(u.id, { isActive: false });
+      }
+      setUsers((prev) =>
+        prev.map((item) => (item.id === u.id ? { ...item, status: "Inactive" as const } : item))
+      );
+      toast.success(`User "${u.name}" has been deactivated successfully`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update user status in database");
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -748,11 +811,21 @@ export function AdminRoleManagement() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                   <input
                     type="text"
-                    placeholder="Search user, email, contact, or role..."
+                    placeholder="Search name, email, phone, role, unit..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm transition-all"
+                    className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm transition-all"
                   />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+                      title="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto">
@@ -801,7 +874,7 @@ export function AdminRoleManagement() {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center gap-3">
                                 <div className="w-9 h-9 rounded-full bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-sm shadow-inner">
-                                  {user.name.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                                  {user.name.split(" ").map((n) => n[0]).join("").toUpperCase() || "?"}
                                 </div>
                                 <div>
                                   <span className="font-semibold text-slate-900 block">{user.name}</span>
@@ -814,7 +887,7 @@ export function AdminRoleManagement() {
                             <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
                                 <Mail className="w-3.5 h-3.5 text-slate-400" />
-                                {user.email}
+                                {user.email || "—"}
                               </div>
                             </td>
 
@@ -822,7 +895,7 @@ export function AdminRoleManagement() {
                             <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
                               <div className="flex items-center gap-1.5">
                                 <Phone className="w-3.5 h-3.5 text-slate-400" />
-                                {user.contact}
+                                {user.contact || "—"}
                               </div>
                             </td>
 
@@ -856,7 +929,7 @@ export function AdminRoleManagement() {
 
                             {/* Action buttons */}
                             <td className="px-6 py-4 text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end gap-2">
+                              <div className="flex items-center justify-end gap-1.5">
                                 <button
                                   onClick={() => openUserDetails(user)}
                                   className="p-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors border border-slate-200 cursor-pointer"
@@ -870,7 +943,7 @@ export function AdminRoleManagement() {
                                   title="Edit Roles & Configure Permissions"
                                 >
                                   <Key className="w-3.5 h-3.5" />
-                                  Edit Roles
+                                  <span>Roles</span>
                                 </button>
                                 <button
                                   onClick={() => openEditUserDetails(user)}
@@ -878,7 +951,20 @@ export function AdminRoleManagement() {
                                   title="Edit User Details"
                                 >
                                   <UserCog className="w-3.5 h-3.5" />
-                                  Edit Details
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteUser(user)}
+                                  disabled={deletingUserId === user.id}
+                                  className="flex items-center gap-1 px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors border border-rose-200 text-xs font-semibold cursor-pointer disabled:opacity-50"
+                                  title="Delete User (Set Inactive in Database)"
+                                >
+                                  {deletingUserId === user.id ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                                  )}
+                                  <span>Delete</span>
                                 </button>
                               </div>
                             </td>

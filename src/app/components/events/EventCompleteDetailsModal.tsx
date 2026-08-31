@@ -154,7 +154,10 @@ export const EventCompleteDetailsModal: React.FC<EventCompleteDetailsModalProps>
         ]);
 
         if (poojasRes.status === "fulfilled" && Array.isArray(poojasRes.value) && poojasRes.value.length > 0) {
-          const list = poojasRes.value.filter((p: any) => p.mainEventId == numId || p.eventId == numId);
+          const list = poojasRes.value.filter((p: any) => {
+            const poojaStatus = String(p.status || "ACTIVE").toUpperCase();
+            return (poojaStatus === "ACTIVE" && !p.isPaused) && (p.mainEventId == numId || p.eventId == numId);
+          });
           if (list.length > 0) {
             setSubPoojas(list.map((p: any) => ({
               id: `pooja-${p.id}`,

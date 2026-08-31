@@ -682,6 +682,9 @@ export function EventsPrograms({ initialEventId, onEventChange }: EventsPrograms
 
         // 2. Map Pooja / Aarti Rituals (including multiple time slots on the same day and multi-day ranges)
         for (const pooja of poojas) {
+          const poojaStatus = String(pooja.status || "ACTIVE").toUpperCase();
+          if (poojaStatus !== "ACTIVE" || pooja.isPaused) continue;
+
           const slotConfigs = Array.isArray(pooja.timeSlotConfig) && pooja.timeSlotConfig.length > 0
             ? pooja.timeSlotConfig
             : Array.isArray(pooja.timeSlots) && pooja.timeSlots.length > 0
