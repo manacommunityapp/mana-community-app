@@ -31,6 +31,11 @@ import {
   UserCog,
   Loader2,
   Trash2,
+  Home,
+  BadgeCheck,
+  CreditCard,
+  Briefcase,
+  Hash,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { userService } from "../../../services/common/userService";
@@ -65,6 +70,9 @@ interface UserItem {
   govtIdNumber?: string;
   gender?: string;
   dateOfBirth?: string;
+  kycStatus?: string;
+  communityId?: number;
+  profilePicUrl?: string;
 }
 
 interface PermissionCategory {
@@ -321,14 +329,52 @@ export function AdminRoleManagement() {
   };
 
   // HANDLERS
-  const openUserDetails = (u: UserItem) => {
+  const openUserDetails = async (u: UserItem) => {
     setSelectedUser(u);
+    setSavedRoles(null);
     const initialRoles = u.roles && u.roles.length > 0
       ? u.roles.map((r) => r.toUpperCase())
       : u.role.split(",").map((r) => r.trim().toUpperCase()).filter(Boolean);
     // Ensure USER base role is always present
     if (!initialRoles.includes("USER")) initialRoles.push("USER");
     setSelectedUserRoles(initialRoles);
+
+    // Fetch fresh and complete database profile for the user
+    try {
+      const fresh = await userService.getUserById(u.id);
+      if (fresh) {
+        setSelectedUser((prev) => {
+          if (!prev || prev.id !== u.id) return prev;
+          const rawRole = fresh.role || prev.role || "USER";
+          const rolesList = (fresh.roles && fresh.roles.length > 0
+            ? fresh.roles.map((r) => r.trim().toUpperCase())
+            : rawRole.split(",").map((r) => r.trim().toUpperCase()).filter(Boolean)
+          ).map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r) ? "ADMIN" : r);
+
+          return {
+            ...prev,
+            name: fresh.fullName || prev.name,
+            email: fresh.email || prev.email,
+            contact: fresh.phone || prev.contact,
+            dateOfBirth: fresh.dateOfBirth || prev.dateOfBirth,
+            gender: fresh.gender || prev.gender,
+            block: fresh.block || prev.block,
+            tower: fresh.tower || prev.tower,
+            flatNo: fresh.flatNo || prev.flatNo,
+            residentType: fresh.residentType || prev.residentType,
+            occupancyStatus: fresh.occupancyStatus || prev.occupancyStatus,
+            employeeId: fresh.employeeId || prev.employeeId,
+            govtIdType: fresh.govtIdType || prev.govtIdType,
+            govtIdNumber: fresh.govtIdNumber || prev.govtIdNumber,
+            kycStatus: fresh.kycStatus || prev.kycStatus,
+            communityId: fresh.communityId || prev.communityId,
+            status: fresh.isActive !== undefined ? (fresh.isActive ? "Active" : "Inactive") : prev.status,
+            permissions: fresh.permissions || prev.permissions,
+            roles: rolesList,
+          };
+        });
+      }
+    } catch {}
   };
 
   const toggleSelectedRole = (roleName: string) => {
@@ -2019,30 +2065,63 @@ export function AdminRoleManagement() {
         </div>
       )}
 
-      {/* VIEW USER DETAILS MODAL */}
+      {/* VIEW USER DETAILS MODAL — COMPLETE USER INFORMATION */}
       {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => { setSelectedUser(null); setSavedRoles(null); }}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-in fade-in zoom-in duration-250" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-sm" onClick={() => { setSelectedUser(null); setSavedRoles(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="relative bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-6 py-5">
+            <div className="relative bg-gradient-to-r from-indigo-700 via-indigo-650 to-indigo-800 text-white p-5 sm:p-6 shrink-0">
               <button
                 onClick={() => { setSelectedUser(null); setSavedRoles(null); }}
-                className="absolute top-4 right-4 p-1.5 text-indigo-200 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                className="absolute top-4 right-4 p-1.5 text-indigo-200 hover:text-white hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                title="Close"
               >
-                <X className="w-4.5 h-4.5" />
+                <X className="w-5 h-5" />
               </button>
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white font-bold text-lg shadow-inner">
-                  {selectedUser.name.split(" ").map((n) => n[0]).join("").toUpperCase()}
+
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center text-white font-extrabold text-xl shadow-inner shrink-0">
+                  {selectedUser.name.split(" ").map((n) => n[0]).join("").toUpperCase() || "?"}
                 </div>
-                <div>
-                  <h4 className="text-lg font-bold">{selectedUser.name}</h4>
-                  <div className="flex flex-wrap gap-1 mt-1">
+                <div className="space-y-1.5 min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-xl font-black text-white truncate tracking-tight">{selectedUser.name}</h3>
+                    <span className="px-2 py-0.5 rounded-md bg-white/15 text-indigo-100 text-xs font-mono font-bold tracking-wider">
+                      #{selectedUser.id}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {/* Status badge */}
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                      selectedUser.status === 'Active'
+                        ? "bg-emerald-500/20 text-emerald-200 border border-emerald-400/30"
+                        : "bg-rose-500/20 text-rose-200 border border-rose-400/30"
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${selectedUser.status === 'Active' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                      {selectedUser.status}
+                    </span>
+
+                    {/* KYC Badge */}
+                    {selectedUser.kycStatus && (
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        selectedUser.kycStatus === "VERIFIED"
+                          ? "bg-emerald-500/20 text-emerald-200 border border-emerald-400/30"
+                          : selectedUser.kycStatus === "PENDING"
+                          ? "bg-amber-500/20 text-amber-200 border border-amber-400/30"
+                          : "bg-slate-500/20 text-slate-200 border border-slate-400/30"
+                      }`}>
+                        <BadgeCheck className="w-3.5 h-3.5" />
+                        KYC: {selectedUser.kycStatus}
+                      </span>
+                    )}
+
+                    {/* Primary Role Tag */}
                     {(selectedUser.roles && selectedUser.roles.length > 0
                       ? selectedUser.roles
                       : selectedUser.role.split(",").map((r) => r.trim())
                     ).filter(Boolean).map((r) => (
-                      <span key={r} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/20 text-[11px] font-semibold tracking-wider uppercase text-white">
+                      <span key={r} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/20 text-[10px] font-bold uppercase tracking-wider text-white">
                         <Shield className="w-3 h-3" />
                         {r.trim().toUpperCase()}
                       </span>
@@ -2052,170 +2131,259 @@ export function AdminRoleManagement() {
               </div>
             </div>
 
-            {/* Details */}
-            <div className="p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-4 text-xs">
-                <div className="space-y-1">
-                  <span className="text-slate-450 block font-medium">Email Address</span>
-                  <div className="flex items-center gap-1.5 text-slate-700 font-semibold break-all">
-                    <Mail className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    {selectedUser.email}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-slate-450 block font-medium">Phone / Contact</span>
-                  <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
-                    <Phone className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-                    {selectedUser.contact}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-slate-450 block font-medium">User Status</span>
-                  <div>
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                      selectedUser.status === 'Active'
-                        ? "bg-green-150 text-green-700"
-                        : "bg-red-150 text-red-700"
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${selectedUser.status === 'Active' ? 'bg-green-500' : 'bg-red-500'}`} />
-                      {selectedUser.status}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-slate-450 block font-medium">Date Registered</span>
-                  <div className="flex items-center gap-1.5 text-slate-700 font-semibold">
-                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                    {selectedUser.date}
-                  </div>
-                </div>
-
-                <div className="space-y-2 col-span-2 border-t border-slate-100 pt-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-700 block font-bold text-xs uppercase tracking-wider flex items-center gap-1.5">
-                      Assigned Module Access &amp; Security Roles
-                      <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                        savedRoles
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-indigo-50 text-indigo-600"
-                      }`}>
-                        {(savedRoles ?? (
-                          selectedUser.roles && selectedUser.roles.length > 0
-                            ? selectedUser.roles
-                            : selectedUser.role.split(",").map(r => r.trim()).filter(Boolean)
-                        )).length} Active
-                      </span>
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-semibold">Select multiple roles to grant access across modules</span>
-                  </div>
-
-                  {/* Multi-role Toggle Grid */}
-                  <div className="flex flex-wrap gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl max-h-48 overflow-y-auto">
-                    {sortRoleStrings(Array.from(new Set([
-                      "USER", "MEMBER", "SPORTS_ADMIN",
-                      "VENDOR", "CASHIER", "STAFF", "ADMIN",
-                      ...roles.map((r) => r.name.toUpperCase())
-                    ])).filter((r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r.toUpperCase())))
-                    .map((roleKey) => {
-                      const isSelected = selectedUserRoles.includes(roleKey);
-                      const isLocked = roleKey === "USER";
-                      return (
-                        <button
-                          key={roleKey}
-                          type="button"
-                          onClick={() => toggleSelectedRole(roleKey)}
-                          disabled={isLocked}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border active:scale-95 ${
-                            isLocked
-                              ? "bg-slate-300 text-slate-500 border-slate-300 cursor-not-allowed opacity-70"
-                              : isSelected
-                                ? "bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-500/20 cursor-pointer"
-                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100 cursor-pointer"
-                          }`}
-                        >
-                          <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
-                            isLocked
-                              ? "bg-slate-400 text-white border-slate-400"
-                              : isSelected ? "bg-white text-indigo-600 border-white" : "border-slate-300 bg-slate-50"
-                          }`}>
-                            {(isSelected || isLocked) && <Check className="w-2.5 h-2.5 stroke-[3]" />}
-                          </div>
-                          {roleKey.replace(/_/g, " ")}{isLocked ? " (auto)" : ""}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="flex flex-col gap-2 pt-1">
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={handleSaveUserRoles}
-                        disabled={updatingUserRoles}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-xs font-bold rounded-lg transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-95"
-                      >
-                        {updatingUserRoles ? (
-                          <>
-                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="w-3.5 h-3.5" />
-                            Save Assigned Roles
-                          </>
-                        )}
-                      </button>
+            {/* Scrollable Modal Body */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-6 text-slate-700 divide-y divide-slate-100">
+              {/* Section 1: Contact & Personal Details */}
+              <div>
+                <h5 className="text-xs font-extrabold uppercase tracking-wider text-slate-450 mb-3 flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-indigo-600" />
+                  Personal &amp; Contact Details
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Email Address</span>
+                    <div className="flex items-center gap-2 text-slate-800 font-bold break-all">
+                      <Mail className="w-4 h-4 text-indigo-500 shrink-0" />
+                      <span>{selectedUser.email || "Not Provided"}</span>
                     </div>
-                    {savedRoles && (
-                      <div className="flex items-start gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-[11px]">
-                        <CheckCircle className="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0" />
-                        <div className="flex flex-col gap-1">
-                          <span className="font-bold text-emerald-700">Roles saved successfully</span>
-                          <div className="flex flex-wrap gap-1">
-                            {savedRoles.map((r) => (
-                              <span key={r} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-200 text-emerald-700 font-semibold">
-                                <Shield className="w-2.5 h-2.5" />
-                                {r}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Contact Number</span>
+                    <div className="flex items-center gap-2 text-slate-800 font-bold">
+                      <Phone className="w-4 h-4 text-emerald-500 shrink-0" />
+                      <span>{selectedUser.contact || "Not Provided"}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Date of Birth</span>
+                    <div className="flex items-center gap-2 text-slate-800 font-bold">
+                      <Calendar className="w-4 h-4 text-amber-500 shrink-0" />
+                      <span>
+                        {selectedUser.dateOfBirth
+                          ? new Date(selectedUser.dateOfBirth).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                          : "Not Provided"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Gender</span>
+                    <div className="flex items-center gap-2 text-slate-800 font-bold">
+                      <UserCheck className="w-4 h-4 text-purple-500 shrink-0" />
+                      <span>{selectedUser.gender || "Not Specified"}</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Active Permissions Tags */}
-              <div className="border-t border-slate-100 pt-4">
-                <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5 mb-2.5">
-                  <FileText className="w-4 h-4 text-indigo-500" />
+              {/* Section 2: Residence & Community Unit Details */}
+              <div className="pt-5">
+                <h5 className="text-xs font-extrabold uppercase tracking-wider text-slate-450 mb-3 flex items-center gap-1.5">
+                  <Building className="w-4 h-4 text-indigo-600" />
+                  Residence &amp; Community Unit Details
+                </h5>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3.5 text-xs">
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Tower / Building</span>
+                    <div className="flex items-center gap-1.5 text-slate-800 font-bold">
+                      <Building className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{selectedUser.tower || "—"}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Block / Wing</span>
+                    <div className="flex items-center gap-1.5 text-slate-800 font-bold">
+                      <Home className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{selectedUser.block || "—"}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Flat / Unit No.</span>
+                    <div className="flex items-center gap-1.5 text-slate-800 font-bold">
+                      <Hash className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>{selectedUser.flatNo || "—"}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Resident Type</span>
+                    <span className="text-slate-800 font-bold block">{selectedUser.residentType || "Resident"}</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Occupancy Status</span>
+                    <span className="text-slate-800 font-bold block">{selectedUser.occupancyStatus || "Owner"}</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Joined / Registered</span>
+                    <span className="text-slate-800 font-bold block">{selectedUser.date}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Identity & Professional Details */}
+              <div className="pt-5">
+                <h5 className="text-xs font-extrabold uppercase tracking-wider text-slate-450 mb-3 flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-indigo-600" />
+                  Identification &amp; Official Records
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-xs">
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Govt ID Type</span>
+                    <span className="text-slate-800 font-bold block">{selectedUser.govtIdType || "Aadhaar Card"}</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Govt ID Number</span>
+                    <span className="text-slate-800 font-mono font-bold block">{selectedUser.govtIdNumber || "—"}</span>
+                  </div>
+
+                  <div className="p-3 bg-slate-50 border border-slate-150 rounded-xl space-y-1">
+                    <span className="text-slate-450 block font-semibold text-[11px]">Employee / Staff ID</span>
+                    <div className="flex items-center gap-1.5 text-slate-800 font-bold">
+                      <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{selectedUser.employeeId || "N/A"}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 4: Assigned Security Roles & Module Access */}
+              <div className="pt-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-xs font-extrabold uppercase tracking-wider text-slate-450 flex items-center gap-1.5">
+                    <Shield className="w-4 h-4 text-indigo-600" />
+                    Assigned Security Roles &amp; Module Access
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      savedRoles ? "bg-emerald-100 text-emerald-700" : "bg-indigo-100 text-indigo-700"
+                    }`}>
+                      {selectedUserRoles.length} Active
+                    </span>
+                  </h5>
+                  <span className="text-[10px] text-slate-400 font-semibold hidden sm:inline">Toggle roles to grant/revoke access</span>
+                </div>
+
+                <div className="flex flex-wrap gap-2 p-3 bg-slate-50 border border-slate-200 rounded-xl max-h-44 overflow-y-auto">
+                  {sortRoleStrings(Array.from(new Set([
+                    "USER", "MEMBER", "SPORTS_ADMIN",
+                    "VENDOR", "CASHIER", "STAFF", "ADMIN",
+                    ...roles.map((r) => r.name.toUpperCase())
+                  ])).filter((r) => !["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r.toUpperCase())))
+                  .map((roleKey) => {
+                    const isSelected = selectedUserRoles.includes(roleKey);
+                    const isLocked = roleKey === "USER";
+                    return (
+                      <button
+                        key={roleKey}
+                        type="button"
+                        onClick={() => toggleSelectedRole(roleKey)}
+                        disabled={isLocked}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 border active:scale-95 ${
+                          isLocked
+                            ? "bg-slate-300 text-slate-500 border-slate-300 cursor-not-allowed opacity-70"
+                            : isSelected
+                              ? "bg-indigo-600 text-white border-indigo-600 shadow-xs cursor-pointer"
+                              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100 cursor-pointer"
+                        }`}
+                      >
+                        <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center ${
+                          isLocked
+                            ? "bg-slate-400 text-white border-slate-400"
+                            : isSelected ? "bg-white text-indigo-600 border-white" : "border-slate-300 bg-slate-50"
+                        }`}>
+                          {(isSelected || isLocked) && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        </div>
+                        {roleKey.replace(/_/g, " ")}{isLocked ? " (auto)" : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-col gap-2 pt-1">
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handleSaveUserRoles}
+                      disabled={updatingUserRoles}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white text-xs font-bold rounded-lg transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+                    >
+                      {updatingUserRoles ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Saving Roles...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-3.5 h-3.5" />
+                          Save Assigned Roles
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {savedRoles && (
+                    <div className="flex items-start gap-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs">
+                      <CheckCircle className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                      <div>
+                        <span className="font-bold text-emerald-700">Roles saved successfully in database</span>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {savedRoles.map((r) => (
+                            <span key={r} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 border border-emerald-200 text-emerald-800 font-semibold text-[10px]">
+                              <Shield className="w-2.5 h-2.5" />
+                              {r}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Section 5: Active Permissions */}
+              <div className="pt-5">
+                <h5 className="text-xs font-extrabold uppercase tracking-wider text-slate-450 mb-2.5 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-indigo-600" />
                   Active Permissions ({selectedUser.permissions ? selectedUser.permissions.length : 0})
                 </h5>
-                <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-3 bg-slate-50 border border-slate-200 rounded-xl">
                   {selectedUser.permissions && selectedUser.permissions.length > 0 ? (
                     selectedUser.permissions.map((perm) => (
-                      <span key={perm} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-slate-700 shadow-sm">
+                      <span key={perm} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-slate-700 shadow-2xs">
                         <CheckCircle className="w-2.5 h-2.5 text-emerald-500" />
                         {perm}
                       </span>
                     ))
                   ) : (
-                    <span className="text-xs text-slate-400 p-2 italic w-full text-center">No active permissions loaded.</span>
+                    <span className="text-xs text-slate-400 italic w-full text-center py-2">No active permissions loaded.</span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const targetUser = selectedUser;
+                  setSelectedUser(null);
+                  setSavedRoles(null);
+                  if (targetUser) openEditUserDetails(targetUser);
+                }}
+                className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-xl border border-emerald-200 transition-colors shadow-2xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <UserCog className="w-4 h-4" />
+                <span>Edit Full Profile</span>
+              </button>
+
               <button
                 onClick={() => { setSelectedUser(null); setSavedRoles(null); }}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-lg transition-colors shadow-sm cursor-pointer"
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-colors shadow-2xs cursor-pointer"
               >
                 Close View
               </button>
