@@ -31,6 +31,11 @@ import {
   UserCog,
   Loader2,
   Trash2,
+  Home,
+  BadgeCheck,
+  CreditCard,
+  Briefcase,
+  Hash,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { userService } from "../../../services/common/userService";
@@ -65,6 +70,9 @@ interface UserItem {
   govtIdNumber?: string;
   gender?: string;
   dateOfBirth?: string;
+  kycStatus?: string;
+  communityId?: number;
+  profilePicUrl?: string;
 }
 
 interface PermissionCategory {
@@ -321,14 +329,52 @@ export function AdminRoleManagement() {
   };
 
   // HANDLERS
-  const openUserDetails = (u: UserItem) => {
+  const openUserDetails = async (u: UserItem) => {
     setSelectedUser(u);
+    setSavedRoles(null);
     const initialRoles = u.roles && u.roles.length > 0
       ? u.roles.map((r) => r.toUpperCase())
       : u.role.split(",").map((r) => r.trim().toUpperCase()).filter(Boolean);
     // Ensure USER base role is always present
     if (!initialRoles.includes("USER")) initialRoles.push("USER");
     setSelectedUserRoles(initialRoles);
+
+    // Fetch fresh and complete database profile for the user
+    try {
+      const fresh = await userService.getUserById(u.id);
+      if (fresh) {
+        setSelectedUser((prev) => {
+          if (!prev || prev.id !== u.id) return prev;
+          const rawRole = fresh.role || prev.role || "USER";
+          const rolesList = (fresh.roles && fresh.roles.length > 0
+            ? fresh.roles.map((r) => r.trim().toUpperCase())
+            : rawRole.split(",").map((r) => r.trim().toUpperCase()).filter(Boolean)
+          ).map((r) => ["SUPER_ADMIN", "SUPERADMIN", "SUPER_ADMINISTRATOR", "COMMUNITY_ADMIN", "COMMUNITYADMIN", "COMMUNITY_ADMINISTRATOR", "COMMUNITY ADMIN"].includes(r) ? "ADMIN" : r);
+
+          return {
+            ...prev,
+            name: fresh.fullName || prev.name,
+            email: fresh.email || prev.email,
+            contact: fresh.phone || prev.contact,
+            dateOfBirth: fresh.dateOfBirth || prev.dateOfBirth,
+            gender: fresh.gender || prev.gender,
+            block: fresh.block || prev.block,
+            tower: fresh.tower || prev.tower,
+            flatNo: fresh.flatNo || prev.flatNo,
+            residentType: fresh.residentType || prev.residentType,
+            occupancyStatus: fresh.occupancyStatus || prev.occupancyStatus,
+            employeeId: fresh.employeeId || prev.employeeId,
+            govtIdType: fresh.govtIdType || prev.govtIdType,
+            govtIdNumber: fresh.govtIdNumber || prev.govtIdNumber,
+            kycStatus: fresh.kycStatus || prev.kycStatus,
+            communityId: fresh.communityId || prev.communityId,
+            status: fresh.isActive !== undefined ? (fresh.isActive ? "Active" : "Inactive") : prev.status,
+            permissions: fresh.permissions || prev.permissions,
+            roles: rolesList,
+          };
+        });
+      }
+    } catch {}
   };
 
   const toggleSelectedRole = (roleName: string) => {
