@@ -452,8 +452,9 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
   const isUpdateMode = Boolean(event?.isUpdateMode);
   const existingRegId = event?.registrationId || existingReg?.id || (event as any)?.regId;
   const prasadamAvailable = Boolean((event as any)?.prasadamAvailable);
+  const _poojaStatusUp = String(event?.status || "").toUpperCase();
   const isPoojaCancelled =
-    String(event?.status || "").toUpperCase() === "CANCELLED" ||
+    ["CANCELLED", "PAUSED", "COMPLETED", "ARCHIVED"].includes(_poojaStatusUp) ||
     String((event as any)?.parentStatus || "").toUpperCase() === "CANCELLED" ||
     String((event as any)?.eventStatus || "").toUpperCase() === "CANCELLED";
   const isPoojaClosed = (isRegistrationClosed(event) || isPoojaCancelled) && !isUpdateMode;
@@ -1166,12 +1167,25 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
               </div>
             )}
             {isPoojaCancelled && (
-              <div className="p-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-[11px] font-bold flex items-start gap-1.5">
+              <div className={`p-2 rounded-lg text-[11px] font-bold flex items-start gap-1.5 ${
+                _poojaStatusUp === "PAUSED"
+                  ? "bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-300"
+                  : "bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300"
+              }`}>
                 <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <div>
-                  <p>Event / Pooja Cancelled</p>
-                  <p className="font-normal text-[10px] text-rose-600 dark:text-rose-400">
-                    This event has been cancelled. Registrations are unavailable.
+                  <p>
+                    {_poojaStatusUp === "PAUSED"    && "Registrations Paused"}
+                    {_poojaStatusUp === "CANCELLED" && "Pooja Cancelled"}
+                    {_poojaStatusUp === "COMPLETED" && "Pooja Completed"}
+                    {_poojaStatusUp === "ARCHIVED"  && "Pooja Archived"}
+                    {!["PAUSED","CANCELLED","COMPLETED","ARCHIVED"].includes(_poojaStatusUp) && "Unavailable"}
+                  </p>
+                  <p className={`font-normal text-[10px] ${_poojaStatusUp === "PAUSED" ? "text-amber-700 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"}`}>
+                    {_poojaStatusUp === "PAUSED"    && "Registrations are temporarily paused by the admin. Please check back later."}
+                    {_poojaStatusUp === "CANCELLED" && "This pooja has been cancelled. Registrations are unavailable."}
+                    {_poojaStatusUp === "COMPLETED" && "This pooja has concluded. No new registrations are being accepted."}
+                    {_poojaStatusUp === "ARCHIVED"  && "This pooja is archived and no longer accepting registrations."}
                   </p>
                 </div>
               </div>
