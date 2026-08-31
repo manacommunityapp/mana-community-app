@@ -59,6 +59,7 @@ import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import { formatIndianTime } from "../../../utils/indianDateTimeUtils";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
+import { DatePicker } from "../ui/date-picker";
 
 interface FamilyMember {
   id: string;
@@ -2405,8 +2406,8 @@ export function EventMemberView() {
             <div className="hidden sm:block bg-card border border-border rounded-2xl p-3 sm:p-4 shadow-xs space-y-3 transition-all">
               <div
                 className="flex items-center justify-between cursor-pointer select-none group"
-                onClick={() => setShowAddMemberModal(true)}
-                title="Click to add new family member"
+                onClick={() => setShowFamily(!showFamily)}
+                title={showFamily ? "Collapse list" : "Expand list"}
               >
                 <div className="flex items-center gap-2.5">
                   <div className="p-2 rounded-xl bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
@@ -2416,7 +2417,7 @@ export function EventMemberView() {
                     <h3 className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5 group-hover:text-primary transition-colors">
                       Family Members ({familyMembers.length})
                       <span className="text-[10px] text-muted-foreground font-normal hidden sm:inline">
-                        (Click to add member)
+                        ({showFamily ? "Click to collapse" : "Click to expand"})
                       </span>
                     </h3>
                   </div>
@@ -3973,8 +3974,7 @@ export function EventMemberView() {
                   value={newMember.name}
                   onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
                   placeholder="Enter member's full name"
-                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  autoFocus
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
 
@@ -3986,7 +3986,7 @@ export function EventMemberView() {
                   <select
                     value={newMember.relation}
                     onChange={(e) => setNewMember({ ...newMember, relation: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
                     <option value="Spouse">Spouse</option>
                     <option value="Son">Son</option>
@@ -4003,12 +4003,13 @@ export function EventMemberView() {
                   <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
                     Date of Birth
                   </label>
-                  <input
-                    type="date"
-                    max={new Date().toISOString().split("T")[0]}
+                  <DatePicker
                     value={newMember.dob}
-                    onChange={(e) => setNewMember({ ...newMember, dob: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    onChange={(val) => setNewMember({ ...newMember, dob: val })}
+                    max={new Date().toISOString().split("T")[0]}
+                    placeholder="Select date of birth..."
+                    className="w-full"
+                    presets={false}
                   />
                 </div>
               </div>

@@ -277,7 +277,7 @@ export function MobileHeaderActions({ onToggleSidebar }: { onToggleSidebar?: () 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search features, modules, pages..."
-                className="w-full bg-transparent border-none outline-none text-xs text-white placeholder:text-white/70"
+                className="w-full bg-transparent border-none outline-none text-base sm:text-xs text-white placeholder:text-white/70"
               />
               {searchQuery && (
                 <button

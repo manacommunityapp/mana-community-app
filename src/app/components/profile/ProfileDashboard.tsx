@@ -59,6 +59,7 @@ import { familyService, type FamilyMember } from "../../../services/common/famil
 import { useAuth } from "../../../contexts/AuthContext";
 import { evaluatePassword, generateStrongPassword } from "../../../utils/passwordStrength";
 import { PasswordStrengthMeter } from "../commons/PasswordStrengthMeter";
+import { DatePicker } from "../ui/date-picker";
 import type { UserProfileResponse } from "../../../types/api";
 
 function cn(...inputs: ClassValue[]) {
@@ -1468,12 +1469,13 @@ export function ProfileDashboard() {
                         <label className="block text-[11px] sm:text-xs font-bold text-foreground uppercase tracking-wider mb-1">
                           Date of Birth
                         </label>
-                        <input
-                          type="date"
-                          max={new Date().toISOString().split("T")[0]}
+                        <DatePicker
                           value={memberForm.dob || ""}
-                          onChange={(e) => setMemberForm({ ...memberForm, dob: e.target.value || undefined })}
-                          className="w-full px-3.5 py-2 sm:py-2.5 bg-[var(--mana-bg-input)] border border-border rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                          onChange={(val) => setMemberForm({ ...memberForm, dob: val || undefined })}
+                          max={new Date().toISOString().split("T")[0]}
+                          placeholder="Select date of birth..."
+                          className="w-full"
+                          presets={false}
                         />
                       </div>
 
@@ -1685,11 +1687,13 @@ export function ProfileDashboard() {
                         Date of Birth
                       </label>
                       {isEditing ? (
-                        <input
-                          type="date"
+                        <DatePicker
                           value={formData.dob}
-                          onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
-                          className="w-full px-3.5 py-2.5 border border-border rounded-xl text-sm bg-[var(--mana-bg-input)] focus:ring-2 focus:ring-primary/25 outline-none"
+                          onChange={(val) => setFormData({ ...formData, dob: val })}
+                          max={new Date().toISOString().split("T")[0]}
+                          placeholder="Select date of birth..."
+                          className="w-full"
+                          presets={false}
                         />
                       ) : (
                         <p className="text-sm font-medium text-foreground py-2 px-3 bg-muted/40 rounded-xl border border-border/50">

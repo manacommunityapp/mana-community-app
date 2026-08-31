@@ -60,6 +60,7 @@ import { isRegistrationClosed } from "../../../utils/eventDeadlineUtils";
 import { formatIndianTime } from "../../../utils/indianDateTimeUtils";
 import { showError, showSuccess, showWarning } from "../../../utils/ToastUtils";
 import { useEscapeKey } from "../../../hooks/useEscapeKey";
+import { DatePicker } from "../ui/date-picker";
 
 interface FamilyMember {
   id: string;
@@ -3823,8 +3824,7 @@ export function EventUserDashboardPreview() {
                   value={newMember.name}
                   onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
                   placeholder="Enter member's full name"
-                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  autoFocus
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>
 
@@ -3836,7 +3836,7 @@ export function EventUserDashboardPreview() {
                   <select
                     value={newMember.relation}
                     onChange={(e) => setNewMember({ ...newMember, relation: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
                   >
                     <option value="Spouse">Spouse</option>
                     <option value="Son">Son</option>
@@ -3853,12 +3853,13 @@ export function EventUserDashboardPreview() {
                   <label className="block text-[11px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
                     Date of Birth
                   </label>
-                  <input
-                    type="date"
-                    max={new Date().toISOString().split("T")[0]}
+                  <DatePicker
                     value={newMember.dob}
-                    onChange={(e) => setNewMember({ ...newMember, dob: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    onChange={(val) => setNewMember({ ...newMember, dob: val })}
+                    max={new Date().toISOString().split("T")[0]}
+                    placeholder="Select date of birth..."
+                    className="w-full"
+                    presets={false}
                   />
                 </div>
               </div>
