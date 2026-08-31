@@ -7,6 +7,7 @@ import {
 import { useEventMock } from "./EventMockToggle";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
 import { TimePicker } from "../ui/time-picker";
+import { DatePicker } from "../ui/date-picker";
 import { formatIndianTime, formatIndianDate, formatIndianDateTime } from "../../../utils/indianDateTimeUtils";
 
 type CulturalEvent = {
@@ -797,11 +798,14 @@ export function EventsCulturalEvents() {
 
               {/* Date + Time + Duration */}
               <div className="grid grid-cols-3 gap-3">
-                <label className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-600">Date *</span>
-                  <input type="date" value={form.date} onChange={e => set("date", e.target.value)}
-                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" required />
-                </label>
+                  <DatePicker
+                    value={form.date}
+                    onChange={v => set("date", v)}
+                    placeholder="Select date"
+                  />
+                </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-600">Start Time</span>
                   <TimePicker value={form.startTime} onChange={v => set("startTime", v)} />
@@ -821,11 +825,14 @@ export function EventsCulturalEvents() {
                     className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
                     placeholder="Unlimited" min="1" />
                 </label>
-                <label className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-600">Reg Deadline</span>
-                  <input type="date" value={form.regDeadline} onChange={e => set("regDeadline", e.target.value)}
-                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300" />
-                </label>
+                  <DatePicker
+                    value={form.regDeadline}
+                    onChange={v => set("regDeadline", v)}
+                    placeholder="Select deadline"
+                  />
+                </div>
                 <label className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-600">Stage Order <span className="text-slate-400 font-normal">(run order)</span></span>
                   <input type="number" value={form.sortOrder} onChange={e => set("sortOrder", e.target.value)}

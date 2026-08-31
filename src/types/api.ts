@@ -20,6 +20,7 @@ export interface RegisterRequest {
   userType?: string; // Owner | Tenant
   occupancyStatus?: string; // Owner | Tenant | Staff
   residentType?: string; // Resident | Non-Resident | Guest
+  emailOtpCode: string;
 }
 
 export interface ForgotPasswordRequest {
@@ -550,6 +551,10 @@ export interface UserResponse {
   dateOfBirth?: string;
   flatNo?: string;
   block?: string;
+  tower?: string;
+  employeeId?: string;
+  govtIdType?: string;
+  govtIdNumber?: string;
   communityId?: number;
   roleId?: number;
   isActive?: boolean;

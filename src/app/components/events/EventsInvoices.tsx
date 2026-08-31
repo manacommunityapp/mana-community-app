@@ -15,6 +15,7 @@ import {
   invoiceCategoryService,
   type InvoiceCategoryResponse,
 } from "../../../services/events/invoiceCategoryService";
+import { DatePicker } from "../ui/date-picker";
 
 const DEFAULT_CATEGORIES = [
   { name: "Venue Rental", code: "VENUE" },
@@ -538,19 +539,24 @@ export function EventsInvoices() {
                   </select>
                 </div>
 
-                <label className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-500">Invoice Date</span>
-                  <input type="date" value={form.invoiceDate}
-                    onChange={(e) => setForm((f) => ({ ...f, invoiceDate: e.target.value }))}
-                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-                </label>
+                  <DatePicker
+                    value={form.invoiceDate}
+                    onChange={(dateStr) => setForm((f) => ({ ...f, invoiceDate: dateStr }))}
+                    placeholder="Select invoice date"
+                  />
+                </div>
 
-                <label className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-500">Due Date</span>
-                  <input type="date" value={form.dueDate}
-                    onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
-                    className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
-                </label>
+                  <DatePicker
+                    value={form.dueDate}
+                    onChange={(dateStr) => setForm((f) => ({ ...f, dueDate: dateStr }))}
+                    min={form.invoiceDate}
+                    placeholder="Select due date"
+                  />
+                </div>
 
                 <label className="flex flex-col gap-1">
                   <span className="text-xs font-semibold text-slate-500">Amount (₹) *</span>

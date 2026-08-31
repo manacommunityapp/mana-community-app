@@ -79,6 +79,11 @@ export const userService = {
     return apiClient.get<RolePermissionsMap>("/roles/permissions");
   },
 
+  /** GET /api/roles/permissions/template — fetch global parent template permissions */
+  async getTemplateRolePermissions(): Promise<RolePermissionsMap> {
+    return apiClient.get<RolePermissionsMap>("/roles/permissions/template");
+  },
+
   /** PUT /api/roles/{role}/permissions */
   async updateRolePermissions(role: string, permissions: string[], userId?: number): Promise<void> {
     const url = userId ? `/roles/${role}/permissions?userId=${userId}` : `/roles/${role}/permissions`;

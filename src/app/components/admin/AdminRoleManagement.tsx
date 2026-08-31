@@ -25,6 +25,8 @@ import {
   Unlock,
   MonitorPlay,
   Save,
+  UserCog,
+  Loader2,
 } from "lucide-react";
 import { toast, Toaster } from "sonner";
 import { userService } from "../../../services/common/userService";
@@ -95,6 +97,26 @@ export function AdminRoleManagement() {
   const [isCreatingRole, setIsCreatingRole] = useState(false);
   const [loadingEditPerms, setLoadingEditPerms] = useState(false);
   const [savedRoles, setSavedRoles] = useState<string[] | null>(null);
+
+  // Edit User Details modal state
+  const [editUserDetailsOpen, setEditUserDetailsOpen] = useState(false);
+  const [editUserDetailsData, setEditUserDetailsData] = useState<{
+    id: number;
+    fullName: string;
+    email: string;
+    phone: string;
+    dateOfBirth: string;
+    gender: string;
+    block: string;
+    tower: string;
+    flatNo: string;
+    residentType: string;
+    occupancyStatus: string;
+    employeeId: string;
+    govtIdType: string;
+    govtIdNumber: string;
+  } | null>(null);
+  const [savingUserDetails, setSavingUserDetails] = useState(false);
 
   const loadPermissions = async () => {
     try {
@@ -513,6 +535,82 @@ export function AdminRoleManagement() {
     }
   };
 
+  const openEditUserDetails = (u: UserItem) => {
+    setEditUserDetailsData({
+      id: u.id,
+      fullName: u.name,
+      email: u.email,
+      phone: u.contact,
+      dateOfBirth: "",
+      gender: "",
+      block: "",
+      tower: "",
+      flatNo: "",
+      residentType: "",
+      occupancyStatus: "",
+      employeeId: "",
+      govtIdType: "",
+      govtIdNumber: "",
+    });
+    // Fetch fresh data to populate all fields
+    userService.getUserById(u.id).then((freshUser) => {
+      setEditUserDetailsData({
+        id: u.id,
+        fullName: freshUser.fullName ?? u.name,
+        email: freshUser.email ?? u.email,
+        phone: freshUser.phone ?? u.contact,
+        dateOfBirth: freshUser.dateOfBirth ?? "",
+        gender: freshUser.gender ?? "",
+        block: freshUser.block ?? "",
+        tower: (freshUser as any).tower ?? "",
+        flatNo: freshUser.flatNo ?? "",
+        residentType: freshUser.residentType ?? "",
+        occupancyStatus: freshUser.occupancyStatus ?? "",
+        employeeId: (freshUser as any).employeeId ?? "",
+        govtIdType: (freshUser as any).govtIdType ?? "",
+        govtIdNumber: (freshUser as any).govtIdNumber ?? "",
+      });
+    }).catch(() => {});
+    setEditUserDetailsOpen(true);
+  };
+
+  const handleSaveUserDetails = async () => {
+    if (!editUserDetailsData) return;
+    setSavingUserDetails(true);
+    try {
+      await userService.updateUser(editUserDetailsData.id, {
+        fullName: editUserDetailsData.fullName,
+        email: editUserDetailsData.email,
+        phone: editUserDetailsData.phone,
+        dateOfBirth: editUserDetailsData.dateOfBirth || undefined,
+        gender: editUserDetailsData.gender || undefined,
+        block: editUserDetailsData.block || undefined,
+        tower: editUserDetailsData.tower || undefined,
+        flatNo: editUserDetailsData.flatNo || undefined,
+        residentType: editUserDetailsData.residentType || undefined,
+        occupancyStatus: editUserDetailsData.occupancyStatus || undefined,
+        employeeId: editUserDetailsData.employeeId || undefined,
+        govtIdType: editUserDetailsData.govtIdType || undefined,
+        govtIdNumber: editUserDetailsData.govtIdNumber || undefined,
+      } as any);
+      toast.success(`User details updated for ${editUserDetailsData.fullName}`);
+      // Update local list
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === editUserDetailsData.id
+            ? { ...u, name: editUserDetailsData.fullName, email: editUserDetailsData.email, contact: editUserDetailsData.phone }
+            : u
+        )
+      );
+      setEditUserDetailsOpen(false);
+      setEditUserDetailsData(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update user details");
+    } finally {
+      setSavingUserDetails(false);
+    }
+  };
+
   const isCategoryAllSelected = (role: string, categoryId: string): boolean => {
     const category = permissionCategories.find((c) => c.id === categoryId);
     if (!category) return false;
@@ -768,10 +866,19 @@ export function AdminRoleManagement() {
                                 </button>
                                 <button
                                   onClick={() => handleEditRole(user.role, user.id)}
-                                  className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors border border-indigo-100"
-                                  title="Configure Permissions"
+                                  className="flex items-center gap-1 px-2 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-lg transition-colors border border-indigo-100 text-xs font-semibold cursor-pointer"
+                                  title="Edit Roles & Configure Permissions"
                                 >
-                                  <Edit className="w-4 h-4" />
+                                  <Key className="w-3.5 h-3.5" />
+                                  Edit Roles
+                                </button>
+                                <button
+                                  onClick={() => openEditUserDetails(user)}
+                                  className="flex items-center gap-1 px-2 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-lg transition-colors border border-emerald-200 text-xs font-semibold cursor-pointer"
+                                  title="Edit User Details"
+                                >
+                                  <UserCog className="w-3.5 h-3.5" />
+                                  Edit Details
                                 </button>
                               </div>
                             </td>
@@ -1492,6 +1599,234 @@ export function AdminRoleManagement() {
               )}
               {loadingEditPerms ? "Loading…" : "Save Permissions"}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT USER DETAILS MODAL */}
+      {editUserDetailsOpen && editUserDetailsData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm" onClick={() => { setEditUserDetailsOpen(false); setEditUserDetailsData(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in duration-250 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="relative bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-5 shrink-0">
+              <button
+                onClick={() => { setEditUserDetailsOpen(false); setEditUserDetailsData(null); }}
+                className="absolute top-4 right-4 p-1.5 text-emerald-100 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white font-bold text-lg shadow-inner">
+                  {editUserDetailsData.fullName.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                </div>
+                <div>
+                  <h4 className="text-lg font-bold">Edit User Details</h4>
+                  <p className="text-emerald-100 text-xs mt-0.5 font-medium">Update app_user profile information</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Form Body */}
+            <div className="p-6 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Full Name */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Full Name</label>
+                  <input
+                    type="text"
+                    value={editUserDetailsData.fullName}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, fullName: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="Full name"
+                  />
+                </div>
+
+                {/* Email */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Email</label>
+                  <input
+                    type="email"
+                    value={editUserDetailsData.email}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, email: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="email@example.com"
+                  />
+                </div>
+
+                {/* Phone */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Phone</label>
+                  <input
+                    type="tel"
+                    value={editUserDetailsData.phone}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, phone: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="+91 9999999999"
+                  />
+                </div>
+
+                {/* Date of Birth */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={editUserDetailsData.dateOfBirth}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, dateOfBirth: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                  />
+                </div>
+
+                {/* Gender */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Gender</label>
+                  <select
+                    value={editUserDetailsData.gender}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, gender: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all cursor-pointer"
+                  >
+                    <option value="">Select gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+                </div>
+
+                {/* Employee ID */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Employee / Resident ID</label>
+                  <input
+                    type="text"
+                    value={editUserDetailsData.employeeId}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, employeeId: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="e.g. RES-9021"
+                  />
+                </div>
+
+                {/* Block */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Block</label>
+                  <input
+                    type="text"
+                    value={editUserDetailsData.block}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, block: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="e.g. A"
+                  />
+                </div>
+
+                {/* Tower */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Tower</label>
+                  <input
+                    type="text"
+                    value={editUserDetailsData.tower}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, tower: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="e.g. T1"
+                  />
+                </div>
+
+                {/* Flat No */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Flat / Unit No</label>
+                  <input
+                    type="text"
+                    value={editUserDetailsData.flatNo}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, flatNo: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="e.g. 304"
+                  />
+                </div>
+
+                {/* Resident Type */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Resident Type</label>
+                  <select
+                    value={editUserDetailsData.residentType}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, residentType: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all cursor-pointer"
+                  >
+                    <option value="">Select type</option>
+                    <option value="Resident">Resident</option>
+                    <option value="Non-Resident">Non-Resident</option>
+                    <option value="Guest">Guest</option>
+                  </select>
+                </div>
+
+                {/* Occupancy Status */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Occupancy Status</label>
+                  <select
+                    value={editUserDetailsData.occupancyStatus}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, occupancyStatus: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all cursor-pointer"
+                  >
+                    <option value="">Select status</option>
+                    <option value="Owner">Owner</option>
+                    <option value="Tenant">Tenant</option>
+                    <option value="Staff">Staff</option>
+                  </select>
+                </div>
+
+                {/* Govt ID Type */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Govt ID Type</label>
+                  <select
+                    value={editUserDetailsData.govtIdType}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, govtIdType: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all cursor-pointer"
+                  >
+                    <option value="">Select ID type</option>
+                    <option value="AADHAAR">Aadhaar Card</option>
+                    <option value="PAN">PAN Card</option>
+                    <option value="PASSPORT">Passport</option>
+                    <option value="VOTER_ID">Voter ID</option>
+                    <option value="DRIVING_LICENCE">Driving Licence</option>
+                  </select>
+                </div>
+
+                {/* Govt ID Number */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Govt ID Number</label>
+                  <input
+                    type="text"
+                    value={editUserDetailsData.govtIdNumber}
+                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, govtIdNumber: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    placeholder="Enter ID document number"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0">
+              <button
+                onClick={() => { setEditUserDetailsOpen(false); setEditUserDetailsData(null); }}
+                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg border border-slate-200 transition-colors shadow-sm cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveUserDetails}
+                disabled={savingUserDetails}
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-xs font-bold rounded-lg transition-colors shadow-sm flex items-center gap-1.5 active:scale-95 cursor-pointer"
+              >
+                {savingUserDetails ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    Save User Details
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

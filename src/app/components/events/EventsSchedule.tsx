@@ -25,6 +25,7 @@ import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 import { cn } from "../ui/utils";
 import { TimePicker } from "../ui/time-picker";
+import { DatePicker } from "../ui/date-picker";
 import { useAuth } from "../../../contexts/AuthContext";
 import { CREATE_EVENT, MANAGE_EVENT_DASHBOARD } from "../../../constants/permissions";
 import { EventsPlanning } from "./EventsPlanning";
@@ -644,9 +645,12 @@ function NotificationDialog({ event, onClose }: { event: EventItem; onClose: () 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-slate-600">Date</Label>
-                      <Input type="date" className="text-xs h-9 bg-white"
-                        value={scheduleDate} onChange={e => setScheduleDate(e.target.value)}
-                        min={new Date().toISOString().slice(0, 10)} />
+                      <DatePicker
+                        value={scheduleDate}
+                        onChange={v => setScheduleDate(v)}
+                        min={new Date().toISOString().slice(0, 10)}
+                        size="sm"
+                      />
                     </div>
                     <div className="space-y-1">
                       <Label className="text-[10px] font-semibold text-slate-600">Time</Label>

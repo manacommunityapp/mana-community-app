@@ -18,6 +18,7 @@ import { eventService, type EventResponse } from "../../../services/events/event
 import {
   Tooltip, PieChart, Pie, Cell, Legend, ResponsiveContainer
 } from "recharts";
+import { DatePicker } from "../ui/date-picker";
 
 // ── Category Config ────────────────────────────────────────────────────────────
 const CATEGORY_REPORT_CARDS = [
@@ -765,10 +766,23 @@ ${dataRows}
                 <option value="cancelled">Cancelled</option>
               </select>
 
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-                className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-medium text-slate-700 focus:outline-none cursor-pointer" title="From date" />
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-                className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-[11px] font-medium text-slate-700 focus:outline-none cursor-pointer" title="To date" />
+              <div className="w-36">
+                <DatePicker
+                  value={dateFrom}
+                  onChange={v => setDateFrom(v)}
+                  placeholder="From date"
+                  size="sm"
+                />
+              </div>
+              <div className="w-36">
+                <DatePicker
+                  value={dateTo}
+                  onChange={v => setDateTo(v)}
+                  min={dateFrom}
+                  placeholder="To date"
+                  size="sm"
+                />
+              </div>
 
               <button
                 onClick={() => downloadCsvClientSide(filteredRows, `filtered_${activeCategoryTab}_${new Date().toISOString().slice(0,10)}.csv`)}

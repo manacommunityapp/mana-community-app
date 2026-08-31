@@ -5,6 +5,7 @@ import { toast, Toaster } from "sonner";
 import { authService } from "../../../../services/common/authService";
 import { getToken, getStoredUser } from "../../../../services/common/apiClient";
 import type { GovtIdType } from "../../../../types/api";
+import { DatePicker } from "../../ui/date-picker";
 
 type KYCFormValues = {
   govtIdType: GovtIdType;
@@ -25,7 +26,7 @@ export function KYCVerification() {
   const [kycFormData, setKycFormData] = useState<KYCFormValues | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<KYCFormValues>({
+  const { register, handleSubmit, setValue, watch, formState: { errors } } = useForm<KYCFormValues>({
     defaultValues: { govtIdType: "DRIVING_LICENCE" },
   });
 
@@ -132,7 +133,13 @@ export function KYCVerification() {
                 </div>
                 <div>
                   <label htmlFor="kyc-dob" className="block text-sm font-medium text-slate-700 mb-2">Date of Birth</label>
-                  <input id="kyc-dob" type="date" {...register("dateOfBirth", { required: "Date of birth is required" })} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none" />
+                  <DatePicker
+                    id="kyc-dob"
+                    value={watch("dateOfBirth")}
+                    onChange={(v) => setValue("dateOfBirth", v, { shouldValidate: true })}
+                    placeholder="Select date of birth"
+                  />
+                  <input type="hidden" {...register("dateOfBirth", { required: "Date of birth is required" })} />
                   {errors.dateOfBirth && <p className="text-red-500 text-xs mt-1">{errors.dateOfBirth.message}</p>}
                 </div>
               </div>

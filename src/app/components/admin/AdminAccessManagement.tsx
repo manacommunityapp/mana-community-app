@@ -7,7 +7,9 @@ import {
   MessageSquare, ShoppingBag, DoorOpen, Building, Bell,
   Headphones, Trophy, UtensilsCrossed, Package, CalendarDays,
   Settings, Truck, ChefHat, CalendarCheck, BarChart2, Star, ShieldAlert,
+  Download, Layers, X, AlertCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Switch } from "../ui/switch";
@@ -580,7 +582,7 @@ function AccessMatrixTable({
 
 /* ─── Role Detail Panel ─── */
 function RoleDetailPanel({
-  role, rows, perms, onToggle, onReset, onDisableRole, onDisableAll, onSave, isSaving,
+  role, rows, perms, onToggle, onReset, onDisableRole, onDisableAll, onSave, onImportParentRole, isSaving,
 }: {
   role: SystemRoleDef;
   rows: PermRow[];
@@ -590,6 +592,7 @@ function RoleDetailPanel({
   onDisableRole: () => void;
   onDisableAll: () => void;
   onSave: () => void;
+  onImportParentRole?: () => void;
   isSaving: boolean;
 }) {
   const allPerms = rows.filter(r => !r.isGroupHeader)
@@ -609,6 +612,16 @@ function RoleDetailPanel({
           </div>
         </div>
         <div className="flex items-center gap-1.5 flex-wrap">
+          {onImportParentRole && (
+            <Button
+              variant="outline" size="sm"
+              className="gap-1 text-xs h-8 text-indigo-700 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100"
+              onClick={onImportParentRole}
+              title="Import parent template permissions for this role"
+            >
+              <Download className="w-3 h-3 text-indigo-600" /> Import Parent Template
+            </Button>
+          )}
           <Button
             variant="outline" size="sm"
             className="gap-1 text-xs h-8 text-amber-700 border-amber-200 bg-amber-50/50 hover:bg-amber-100"
@@ -751,6 +764,9 @@ export function AdminAccessManagement() {
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [saveDetails, setSaveDetails] = useState<SaveDetail[] | null>(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importScope, setImportScope] = useState<"all" | "module" | "role">("all");
+  const [importingTemplate, setImportingTemplate] = useState(false);
 
   // Load current role permissions & dynamic security roles from backend DB on mount
   useEffect(() => {
@@ -839,6 +855,61 @@ export function AdminAccessManagement() {
     });
     setSaved(false);
     setSaveDetails(null);
+  };
+
+  /** Import default parent/template menu permissions into current editor state */
+  const handleImportParentPermissions = async (scope: "all" | "module" | "role") => {
+    setImportingTemplate(true);
+    try {
+      let templateState: PermState;
+      try {
+        const templateMap = await userService.getTemplateRolePermissions();
+        if (templateMap && Object.keys(templateMap).length > 0) {
+          templateState = buildStateFromMap(templateMap);
+        } else {
+          templateState = buildInitialState();
+        }
+      } catch {
+        templateState = buildInitialState();
+      }
+
+      setPerms(prev => {
+        const next: PermState = { ...prev };
+        if (scope === "all") {
+          return templateState;
+        } else if (scope === "module") {
+          next[activeModule] = templateState[activeModule] ?? {};
+          return next;
+        } else if (scope === "role") {
+          MODULES.forEach(m => {
+            if (!next[m.id]) next[m.id] = {};
+            next[m.id] = {
+              ...next[m.id],
+              [selectedRole]: new Set(templateState[m.id]?.[selectedRole] ?? m.roleDefaults[selectedRole] ?? []),
+            };
+          });
+          return next;
+        }
+        return next;
+      });
+
+      setSaved(false);
+      setSaveDetails(null);
+      setIsImportModalOpen(false);
+
+      if (scope === "all") {
+        toast.success("Loaded parent permissions for ALL roles across all modules. Review and click 'Save All Roles' to commit to this community.");
+      } else if (scope === "module") {
+        toast.success(`Loaded parent permissions for ${module.label}. Review and click 'Save All Roles' to commit to this community.`);
+      } else if (scope === "role") {
+        toast.success(`Loaded parent permissions for role '${activeRole.label}'. Review and click 'Save this role' to commit.`);
+      }
+    } catch (err) {
+      console.error("Failed to import parent permissions:", err);
+      toast.error("Failed to import parent permissions.");
+    } finally {
+      setImportingTemplate(false);
+    }
   };
 
   /** Re-fetch from backend to build a verification summary only — does NOT reset the UI state. */
@@ -960,7 +1031,16 @@ export function AdminAccessManagement() {
           <Button
             variant="outline"
             size="sm"
-            className="text-xs h-9 text-rose-700 border-rose-200 bg-rose-50/50 hover:bg-rose-100 gap-1.5"
+            className="text-xs h-9 text-indigo-700 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-100 gap-1.5 font-medium cursor-pointer"
+            onClick={() => setIsImportModalOpen(true)}
+            title="Import standard parent menu permissions template to review and save to current community"
+          >
+            <Download className="w-4 h-4 text-indigo-600" /> Import Parent Permissions
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs h-9 text-rose-700 border-rose-200 bg-rose-50/50 hover:bg-rose-100 gap-1.5 cursor-pointer"
             onClick={handleDisableAll}
             title="Disable all permissions across all roles in this module"
           >
@@ -1135,6 +1215,7 @@ export function AdminAccessManagement() {
                   onDisableRole={() => handleDisableRole(selectedRole)}
                   onDisableAll={handleDisableAll}
                   onSave={() => handleSaveRole(selectedRole)}
+                  onImportParentRole={() => handleImportParentPermissions("role")}
                   isSaving={savingRole === selectedRole}
                 />
               </div>
@@ -1142,6 +1223,127 @@ export function AdminAccessManagement() {
           )}
         </div>
       </div>
+
+      {/* ── Import Parent Permissions Modal ── */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/80">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shadow-sm">
+                  <Download className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Import Parent Menu Permissions</h3>
+                  <p className="text-xs text-slate-400">Load master parent template permissions into editor</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div className="bg-indigo-50/70 border border-indigo-100 rounded-xl p-3.5 flex items-start gap-3">
+                <Shield className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                <p className="text-xs text-indigo-950 leading-relaxed">
+                  This loads standard parent/master template menu permissions into your matrix editor without immediately altering your live community data. You can review the toggles and click <strong className="text-indigo-600 font-semibold">"Save All Roles"</strong> or <strong className="text-indigo-600 font-semibold">"Save this role"</strong> to commit them to this community.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  Select Import Scope
+                </label>
+                <div className="space-y-2">
+                  {[
+                    {
+                      id: "all" as const,
+                      title: "All Roles & All Modules (Recommended)",
+                      desc: `Restores the complete standard parent permission matrix across all ${MODULES.length} modules for all roles.`,
+                      icon: Layers,
+                      color: "#4f46e5",
+                    },
+                    {
+                      id: "module" as const,
+                      title: `Current Module Only: ${module.label}`,
+                      desc: `Imports parent defaults for all roles in the '${module.label}' module only.`,
+                      icon: module.icon,
+                      color: module.color,
+                    },
+                    {
+                      id: "role" as const,
+                      title: `Current Role Only: ${activeRole.label}`,
+                      desc: `Imports parent defaults for role '${activeRole.label}' across all modules.`,
+                      icon: activeRole.icon,
+                      color: activeRole.color,
+                    },
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setImportScope(opt.id)}
+                      className={cn(
+                        "w-full text-left p-3.5 rounded-xl border-2 transition-all flex items-start gap-3 cursor-pointer",
+                        importScope === opt.id
+                          ? "border-indigo-600 bg-indigo-50/40 shadow-xs"
+                          : "border-slate-100 hover:border-slate-200 bg-white"
+                      )}
+                    >
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                        style={{ background: `${opt.color}15`, color: opt.color }}
+                      >
+                        <opt.icon className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-slate-800">{opt.title}</p>
+                          <div className={cn(
+                            "w-4 h-4 rounded-full border flex items-center justify-center shrink-0",
+                            importScope === opt.id ? "border-indigo-600 bg-indigo-600" : "border-slate-300"
+                          )}>
+                            {importScope === opt.id && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </div>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5 leading-normal">{opt.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between bg-slate-50">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsImportModalOpen(false)}
+                disabled={importingTemplate}
+                className="text-xs cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleImportParentPermissions(importScope)}
+                disabled={importingTemplate}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 text-xs font-semibold cursor-pointer"
+              >
+                {importingTemplate ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                {importingTemplate ? "Importing..." : "Apply & Review in Editor"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
