@@ -21,6 +21,9 @@ import {
   X,
   Key,
   ChevronRight,
+  ChevronLeft,
+  ChevronsLeft,
+  ChevronsRight,
   Lock,
   Unlock,
   MonitorPlay,
@@ -34,6 +37,7 @@ import { userService } from "../../../services/common/userService";
 import { useAuth } from "../../../contexts/AuthContext";
 import { communityService } from "../../../services/community/communityService";
 import { confirmAction } from "../../../utils/AlertUtils";
+import { DatePicker } from "../ui/date-picker";
 import { PERMISSION_CATEGORIES, SPORTS_PERMISSION_MATRIX, EVENT_PERMISSION_MATRIX, MANAGE_COMMUNITIES as PERM_MANAGE_COMMUNITIES } from "../../../constants/permissions";
 import type { SportsPermissionRow, EventPermissionRow } from "../../../constants/permissions";
 import type { CommunityResponse, UserResponse } from "../../../types/api";
@@ -94,6 +98,10 @@ export function AdminRoleManagement() {
   const [updatingUserRoles, setUpdatingUserRoles] = useState<boolean>(false);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [deletingUserId, setDeletingUserId] = useState<number | null>(null);
+
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   // Custom Roles & Tab States
   const [searchParams, setSearchParams] = useSearchParams();
@@ -168,61 +176,24 @@ export function AdminRoleManagement() {
     }
   }, [isSuperAdmin]);
 
-  useEffect(() => {
-    loadUsers(selectedCommId);
-  }, [selectedCommId]);
-
-  useEffect(() => {
-    loadPermissions();
-    loadRoles();
-  }, []);
-
-  const handleCreateRole = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRoleName.trim()) {
-      toast.error("Role name is required");
-      return;
-    }
-    setIsCreatingRole(true);
-    try {
-      const created = await userService.createRole(newRoleName);
-      setRoles((prev) => sortRoles([...prev, created]));
-      
-      const normalizedRole = created.name.charAt(0).toUpperCase() + created.name.slice(1).toLowerCase();
-      // Initialize empty permissions map for this role
-      setRolePermissions((prev) => ({
-        ...prev,
-        [normalizedRole]: {}
-      }));
-      
-      toast.success(`Role "${created.name}" created successfully!`);
-      setNewRoleName("");
-      setIsCreateRoleOpen(false);
-    } catch (err: any) {
-      const errorMsg = err?.message || "Failed to create role";
-      toast.error(errorMsg);
-    } finally {
-      setIsCreatingRole(false);
-    }
-  };
-
-  const loadUsers = async (commId?: number | "") => {
+  const loadUsers = async (commId?: number | "", searchStr?: string) => {
     setLoading(true);
     try {
       const activeCommId = commId !== undefined ? commId : selectedCommId;
-      const data = (isSuperAdmin && activeCommId) 
-        ? await userService.getCommunityUsers(Number(activeCommId))
-        : await userService.getAllUsers();
-      
-      let usersList: UserResponse[] = [];
-      if (data) {
-        if (Array.isArray(data)) {
-          usersList = data;
-        } else if (typeof data === "object" && Array.isArray((data as any).content)) {
-          usersList = (data as any).content;
-        }
-      }
+      const activeSearch = searchStr !== undefined ? searchStr : searchQuery;
 
+      let usersList: UserResponse[] = [];
+      if (activeSearch && activeSearch.trim()) {
+        usersList = await userService.searchUsersGlobal(
+          activeSearch.trim(),
+          activeCommId ? Number(activeCommId) : undefined
+        );
+      } else if (isSuperAdmin && activeCommId) {
+        usersList = await userService.getCommunityUsers(Number(activeCommId));
+      } else {
+        usersList = await userService.getAllUsers();
+      }
+      
       const mapped = usersList.map((u) => {
         const rawRole = u.role || "USER";
         const rolesList = (u.roles && u.roles.length > 0
@@ -263,6 +234,53 @@ export function AdminRoleManagement() {
     }
   };
 
+  // Debounced database search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadUsers(selectedCommId, searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, selectedCommId]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, selectedCommId, pageSize]);
+
+  useEffect(() => {
+    loadPermissions();
+    loadRoles();
+  }, []);
+
+  const handleCreateRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoleName.trim()) {
+      toast.error("Role name is required");
+      return;
+    }
+    setIsCreatingRole(true);
+    try {
+      const created = await userService.createRole(newRoleName);
+      setRoles((prev) => sortRoles([...prev, created]));
+      
+      const normalizedRole = created.name.charAt(0).toUpperCase() + created.name.slice(1).toLowerCase();
+      // Initialize empty permissions map for this role
+      setRolePermissions((prev) => ({
+        ...prev,
+        [normalizedRole]: {}
+      }));
+      
+      toast.success(`Role "${created.name}" created successfully!`);
+      setNewRoleName("");
+      setIsCreateRoleOpen(false);
+    } catch (err: any) {
+      const errorMsg = err?.message || "Failed to create role";
+      toast.error(errorMsg);
+    } finally {
+      setIsCreatingRole(false);
+    }
+  };
+
   // SEARCH AND FILTER
   const filteredUsers = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -286,6 +304,14 @@ export function AdminRoleManagement() {
       return Boolean(matchesSearch && matchesStatus);
     });
   }, [users, searchQuery, statusFilter]);
+
+  // PAGINATION COMPUTATION
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
+
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredUsers.slice(start, start + pageSize);
+  }, [filteredUsers, currentPage, pageSize]);
 
   const stats = {
     total: users.length,
@@ -867,8 +893,8 @@ export function AdminRoleManagement() {
                             Loading users from app_user database...
                           </td>
                         </tr>
-                      ) : filteredUsers.length > 0 ? (
-                        filteredUsers.map((user) => (
+                      ) : paginatedUsers.length > 0 ? (
+                        paginatedUsers.map((user) => (
                           <tr key={user.id} className="hover:bg-slate-50/70 transition-colors">
                             {/* User & Name */}
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -982,14 +1008,88 @@ export function AdminRoleManagement() {
                   </table>
                 </div>
 
-                {/* Mock Pagination */}
-                <div className="p-4 border-t border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-                  <span>Showing {filteredUsers.length} of {users.length} users</span>
+                {/* Interactive Pagination Bar */}
+                <div className="p-4 border-t border-slate-200 bg-slate-50/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+                  <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
+                    <span>
+                      Showing <strong className="text-slate-800 font-bold">{filteredUsers.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}</strong> to <strong className="text-slate-800 font-bold">{Math.min(currentPage * pageSize, filteredUsers.length)}</strong> of <strong className="text-slate-800 font-bold">{filteredUsers.length}</strong> {filteredUsers.length !== users.length ? `(filtered from ${users.length})` : "users"}
+                    </span>
+                    <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+                      <span className="text-slate-400">Rows:</span>
+                      <select
+                        value={pageSize}
+                        onChange={(e) => {
+                          setPageSize(Number(e.target.value));
+                          setCurrentPage(1);
+                        }}
+                        className="bg-white border border-slate-200 rounded px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer shadow-2xs"
+                      >
+                        <option value={10}>10</option>
+                        <option value={25}>25</option>
+                        <option value={50}>50</option>
+                        <option value={100}>100</option>
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-1">
-                    <button disabled className="px-2.5 py-1.5 border border-slate-200 rounded bg-white text-slate-400 cursor-not-allowed">Previous</button>
-                    <button className="px-2.5 py-1.5 bg-indigo-600 border border-indigo-600 text-white rounded font-medium">1</button>
-                    <button className="px-2.5 py-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50">2</button>
-                    <button className="px-2.5 py-1.5 border border-slate-200 rounded bg-white hover:bg-slate-50">Next</button>
+                    <button
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage <= 1}
+                      className="p-1.5 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                      title="First Page"
+                    >
+                      <ChevronsLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                      className="px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 text-slate-600 font-medium disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all flex items-center gap-1 cursor-pointer"
+                      title="Previous Page"
+                    >
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                      <span>Prev</span>
+                    </button>
+
+                    <div className="flex items-center gap-1 px-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter((p) => p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1))
+                        .map((p, idx, arr) => (
+                          <span key={p} className="flex items-center">
+                            {idx > 0 && p - arr[idx - 1] > 1 && (
+                              <span className="px-1 text-slate-400 select-none">...</span>
+                            )}
+                            <button
+                              onClick={() => setCurrentPage(p)}
+                              className={`min-w-[30px] h-[30px] rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                currentPage === p
+                                  ? "bg-indigo-600 text-white shadow-sm"
+                                  : "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+                              }`}
+                            >
+                              {p}
+                            </button>
+                          </span>
+                        ))}
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage >= totalPages || filteredUsers.length === 0}
+                      className="px-2.5 py-1.5 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 text-slate-600 font-medium disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all flex items-center gap-1 cursor-pointer"
+                      title="Next Page"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage >= totalPages || filteredUsers.length === 0}
+                      className="p-1.5 border border-slate-200 rounded-lg bg-white hover:bg-slate-50 text-slate-600 disabled:opacity-40 disabled:hover:bg-white disabled:cursor-not-allowed transition-all cursor-pointer"
+                      title="Last Page"
+                    >
+                      <ChevronsRight className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1754,11 +1854,13 @@ export function AdminRoleManagement() {
                 {/* Date of Birth */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">Date of Birth</label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={editUserDetailsData.dateOfBirth}
-                    onChange={(e) => setEditUserDetailsData({ ...editUserDetailsData, dateOfBirth: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition-all"
+                    onChange={(val) => setEditUserDetailsData({ ...editUserDetailsData, dateOfBirth: val })}
+                    max={new Date().toISOString().split("T")[0]}
+                    placeholder="Select date of birth..."
+                    className="w-full"
+                    presets={false}
                   />
                 </div>
 

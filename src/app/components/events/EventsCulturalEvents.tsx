@@ -757,7 +757,7 @@ export function EventsCulturalEvents() {
                       <input type="text" value={newCategoryName} onChange={e => { setNewCategoryName(e.target.value); setAddCategoryError(""); }}
                         onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleAddCategory(); } if (e.key === "Escape") { setShowAddCategory(false); } }}
                         placeholder="e.g. Fusion Dance"
-                        className="w-full border border-violet-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white" autoFocus />
+                        className="w-full border border-violet-200 rounded-lg px-3 py-1.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-violet-300 bg-white" />
                       {addCategoryError && <p className="text-[10px] text-rose-600">{addCategoryError}</p>}
                       <div className="flex gap-2">
                         <button type="button" onClick={handleAddCategory} disabled={addCategorySaving}

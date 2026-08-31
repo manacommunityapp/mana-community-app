@@ -32,7 +32,37 @@ export interface AdminCreateUserPayload {
 export const userService = {
   /** GET /api/users/search?communityId={id}&query={q} */
   async searchUsers(communityId: number, query: string): Promise<UserResponse[]> {
-    return apiClient.get<UserResponse[]>(`/users/search?communityId=${communityId}&query=${query}`);
+    return apiClient.get<UserResponse[]>(`/users/search?communityId=${communityId}&query=${encodeURIComponent(query)}`);
+  },
+
+  /** Global / community-aware user search with fallback */
+  async searchUsersGlobal(query: string, communityId?: number): Promise<UserResponse[]> {
+    const q = query.trim();
+    if (!q) {
+      return communityId ? this.getCommunityUsers(communityId) : this.getAllUsers();
+    }
+    try {
+      if (communityId) {
+        return await this.searchUsers(communityId, q);
+      }
+      const res = await apiClient.get<UserResponse[] | { content?: UserResponse[] }>(
+        `/users/search?query=${encodeURIComponent(q)}`
+      );
+      if (Array.isArray(res)) return res;
+      return res?.content ?? [];
+    } catch {
+      const all = communityId ? await this.getCommunityUsers(communityId) : await this.getAllUsers();
+      const lower = q.toLowerCase();
+      return all.filter((u) =>
+        (u.fullName || "").toLowerCase().includes(lower) ||
+        (u.email || "").toLowerCase().includes(lower) ||
+        (u.phone || "").toLowerCase().includes(lower) ||
+        (u.role || "").toLowerCase().includes(lower) ||
+        String(u.id).includes(lower.replace("#", "")) ||
+        (u.block || "").toLowerCase().includes(lower) ||
+        (u.flatNo || "").toLowerCase().includes(lower)
+      );
+    }
   },
 
   /** GET /api/users/community/{id} */
