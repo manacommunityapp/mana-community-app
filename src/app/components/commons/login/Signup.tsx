@@ -673,7 +673,7 @@ export function Signup() {
   const sendSignupOtpEmail = async () => {
     setIsSendingSignupOtp(true);
     try {
-      await authService.sendSignupOtp(email);
+      await authService.sendSignupOtp(email, phone);
       setResendCooldown(60);
       setTimeout(() => signupOtpInputRefs.current[0]?.focus(), 150);
     } catch (err) {
@@ -797,7 +797,7 @@ export function Signup() {
     if (step === 2) {
       setIsSendingSignupOtp(true);
       try {
-        await authService.sendSignupOtp(email);
+        await authService.sendSignupOtp(email, phone);
         setOtpDigits(["", "", "", "", "", ""]);
         setResendCooldown(60);
         setStep(3);
