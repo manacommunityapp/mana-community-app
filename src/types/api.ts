@@ -551,6 +551,10 @@ export interface UserResponse {
   dateOfBirth?: string;
   flatNo?: string;
   block?: string;
+  tower?: string;
+  employeeId?: string;
+  govtIdType?: string;
+  govtIdNumber?: string;
   communityId?: number;
   roleId?: number;
   isActive?: boolean;
