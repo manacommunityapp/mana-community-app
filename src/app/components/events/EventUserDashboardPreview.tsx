@@ -624,7 +624,12 @@ export function EventUserDashboardPreview() {
         totalRevenue: 0,
         foodPlatesCount: payload.stats.myMealCount,
         auctionRevenue: 0,
-      } as DashboardStatsResponse);
+        // Extra fields for Quick Action badge fallbacks
+        myPoojaCount: payload.stats.myPoojaCount,
+        myCulturalCount: payload.stats.myCulturalCount,
+        myMealCount: payload.stats.myMealCount,
+        upcomingCount: payload.stats.upcomingCount,
+      } as any);
 
       const todayStr = new Date().toISOString().slice(0, 10);
 
@@ -1142,6 +1147,22 @@ export function EventUserDashboardPreview() {
         ? `₹${liveStats.totalRevenue.toLocaleString()} Raised`
         : "₹0 Raised";
 
+    const apiStats = liveStats as any;
+
+    const poojaBadge =
+      poojaCount > 0
+        ? `${poojaCount} Live Slot${poojaCount === 1 ? "" : "s"}`
+        : apiStats?.myPoojaCount > 0
+        ? `${apiStats.myPoojaCount} Registered`
+        : "0 Slots";
+
+    const culturalBadge =
+      culturalCount > 0
+        ? `${culturalCount} Stage Show${culturalCount === 1 ? "" : "s"}`
+        : apiStats?.myCulturalCount > 0
+        ? `${apiStats.myCulturalCount} Registered`
+        : "0 Shows";
+
     const foodBadge =
       foodCount > 0
         ? `${foodCount} Meal Slot${foodCount === 1 ? "" : "s"}`
@@ -1172,7 +1193,7 @@ export function EventUserDashboardPreview() {
         label: "Pooja & Seva",
         icon: Flame,
         color: "bg-amber-500/10 text-amber-600 border-amber-300/30",
-        badge: poojaCount > 0 ? `${poojaCount} Live Slot${poojaCount === 1 ? "" : "s"}` : "0 Slots",
+        badge: poojaBadge,
         category: "Pooja",
       },
       {
@@ -1188,7 +1209,7 @@ export function EventUserDashboardPreview() {
         label: "Cultural",
         icon: Music,
         color: "bg-purple-500/10 text-purple-600 border-purple-300/30",
-        badge: culturalCount > 0 ? `${culturalCount} Stage Show${culturalCount === 1 ? "" : "s"}` : "0 Shows",
+        badge: culturalBadge,
         category: "Cultural",
       },
       {

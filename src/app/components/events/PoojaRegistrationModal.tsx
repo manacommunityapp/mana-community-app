@@ -927,6 +927,9 @@ export const PoojaRegistrationModal: React.FC<PoojaRegistrationModalProps> = ({
         ...(selectedScheduleId ? { scheduleId: selectedScheduleId } : {}),
         ...(reservationId ? { reservationId } : {}),
         ...(selectedSlot?.timeSlotConfigId ? { poojaSevaTimeSlotsId: selectedSlot.timeSlotConfigId } : {}),
+        // Include the pooja seva's own DB ID so the backend scopes the duplicate check
+        // to this specific seva type — prevents false 409 when booking different sevas on same date.
+        ...(resolvedPoojaId && resolvedPoojaId > 0 ? { poojaSevaId: resolvedPoojaId } : {}),
         ...(selectedTargetUserId ? { targetUserId: selectedTargetUserId } : {}),
       };
 
