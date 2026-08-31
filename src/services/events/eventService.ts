@@ -618,6 +618,10 @@ export const eventService = {
     return apiClient.delete<void>(`/events/pooja-sevas/${id}`);
   },
 
+  async updatePoojaSevaStatus(id: number, status: "ACTIVE" | "PAUSED" | "CANCELLED" | "COMPLETED" | "ARCHIVED"): Promise<any> {
+    return apiClient.patch<any>(`/events/pooja-sevas/${id}/status`, { status });
+  },
+
   async getCulturalEvents(eventId?: number): Promise<any[]> {
     const qs = eventId ? `?mainEventId=${eventId}&eventId=${eventId}` : "";
     return apiClient.get<any[]>(`/events/cultural-events${qs}`);
