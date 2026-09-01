@@ -64,6 +64,10 @@ export const eventDonationService = {
   },
 
   async bulkUpload(file: File): Promise<{ total: number; saved: number; failed: number; blob: Blob }> {
+    if (!file.name.toLowerCase().endsWith(".xlsx")) {
+      throw new Error("Invalid file type. Only Excel (.xlsx) files are accepted. Please use the provided template.");
+    }
+
     const token = getToken();
     const formData = new FormData();
     formData.append("file", file);
@@ -73,8 +77,16 @@ export const eventDonationService = {
       body: formData,
     });
     if (!res.ok) {
-      const text = await res.text().catch(() => "Upload failed");
-      throw new Error(text || "Bulk upload failed");
+      let errorMessage = "Bulk upload failed. Please try again.";
+      const contentType = res.headers.get("content-type") ?? "";
+      if (contentType.includes("application/json")) {
+        const json = await res.json().catch(() => null);
+        errorMessage = json?.message ?? errorMessage;
+      } else {
+        const text = await res.text().catch(() => "");
+        if (text) errorMessage = text;
+      }
+      throw new Error(errorMessage);
     }
     const total  = parseInt(res.headers.get("X-Total-Rows")   ?? "0", 10);
     const saved  = parseInt(res.headers.get("X-Saved-Count")  ?? "0", 10);
