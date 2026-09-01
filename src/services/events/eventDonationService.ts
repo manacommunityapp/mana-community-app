@@ -1,4 +1,4 @@
-import { apiClient } from "../common/apiClient";
+import { apiClient, getToken } from "../common/apiClient";
 
 export interface EventDonationResponse {
   id: number;
@@ -44,5 +44,40 @@ export const eventDonationService = {
 
   async deleteDonation(id: number): Promise<void> {
     await apiClient.delete<void>(`/events/donations/${id}`);
+  },
+
+  async downloadTemplate(): Promise<void> {
+    const token = getToken();
+    const res = await fetch("/api/events/donations/bulk-upload/template", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error("Failed to download template");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "donation_upload_template.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  async bulkUpload(file: File): Promise<{ total: number; saved: number; failed: number; blob: Blob }> {
+    const token = getToken();
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await fetch("/api/events/donations/bulk-upload", {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "Upload failed");
+      throw new Error(text || "Bulk upload failed");
+    }
+    const total  = parseInt(res.headers.get("X-Total-Rows")   ?? "0", 10);
+    const saved  = parseInt(res.headers.get("X-Saved-Count")  ?? "0", 10);
+    const failed = parseInt(res.headers.get("X-Failed-Count") ?? "0", 10);
+    const blob = await res.blob();
+    return { total, saved, failed, blob };
   },
 };

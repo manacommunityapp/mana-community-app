@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { IndianRupee, Package, Plus, Download, Loader2, AlertCircle, FileText, Mail, HandHeart, Pencil, Trash2, X } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { IndianRupee, Package, Plus, Download, Loader2, AlertCircle, FileText, Mail, HandHeart, Pencil, Trash2, X, Upload, CheckCircle2 } from "lucide-react";
 import { useEventMock } from "./EventMockToggle";
 import { eventDonationService, type EventDonationResponse } from "../../../services/events/eventDonationService";
 import { eventService, type EventResponse } from "../../../services/events/eventService";
@@ -61,6 +61,155 @@ function mapLiveDonations(data: EventDonationResponse[]): DonationRow[] {
 
 const emptyDonationForm = { eventId: "", donorName: "", donorEmail: "", donorPhone: "", amount: "", paymentMethod: "CASH", transactionRef: "", note: "", anonymous: false };
 
+type BulkUploadResult = { total: number; saved: number; failed: number; blob: Blob } | null;
+
+function DonationBulkUploadModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
+  const [result, setResult] = useState<BulkUploadResult>(null);
+  const [error, setError] = useState("");
+
+  const handleTemplateDownload = async () => {
+    setDownloadingTemplate(true);
+    try {
+      await eventDonationService.downloadTemplate();
+    } catch (e: any) {
+      setError(e?.message || "Failed to download template");
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+    setUploading(true);
+    setError("");
+    setResult(null);
+    try {
+      const res = await eventDonationService.bulkUpload(selectedFile);
+      setResult(res);
+      if (res.saved > 0) onSaved();
+    } catch (e: any) {
+      setError(e?.message || "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDownloadResult = () => {
+    if (!result) return;
+    const url = URL.createObjectURL(result.blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "donation_upload_result.xlsx";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="font-bold text-slate-800 flex items-center gap-2">
+            <Upload className="w-4 h-4 text-indigo-600" /> Bulk Upload Donations
+          </h3>
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+          {/* Step 1: Template */}
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-indigo-50 border border-indigo-100">
+            <div className="w-6 h-6 rounded-full bg-indigo-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-700">Download Template</p>
+              <p className="text-xs text-slate-500 mt-0.5 mb-2">Fill in donor details using the Excel template</p>
+              <button
+                onClick={handleTemplateDownload}
+                disabled={downloadingTemplate}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {downloadingTemplate ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                Download Template
+              </button>
+            </div>
+          </div>
+
+          {/* Step 2: Upload */}
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <div className="w-6 h-6 rounded-full bg-slate-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-700">Upload Filled Excel</p>
+              <p className="text-xs text-slate-500 mt-0.5 mb-2">Only .xlsx files are supported</p>
+              <div
+                className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/40 transition-colors"
+                onClick={() => fileRef.current?.click()}
+              >
+                <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1" />
+                <p className="text-xs text-slate-500">
+                  {selectedFile ? selectedFile.name : "Click to select .xlsx file"}
+                </p>
+              </div>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                className="hidden"
+                onChange={e => { setSelectedFile(e.target.files?.[0] ?? null); setResult(null); setError(""); }}
+              />
+            </div>
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" /> {error}
+            </div>
+          )}
+
+          {result && (
+            <div className={`rounded-xl border p-4 ${result.failed === 0 ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className={`w-4 h-4 ${result.failed === 0 ? "text-emerald-600" : "text-amber-600"}`} />
+                <span className="text-sm font-bold text-slate-700">Upload Complete</span>
+              </div>
+              <div className="flex gap-4 text-xs text-slate-600 mb-3">
+                <span><span className="font-semibold text-emerald-700">{result.saved}</span> saved</span>
+                <span><span className="font-semibold text-rose-600">{result.failed}</span> failed</span>
+                <span><span className="font-semibold">{result.total}</span> total rows</span>
+              </div>
+              {result.failed > 0 && (
+                <button
+                  onClick={handleDownloadResult}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-600 text-white hover:bg-rose-700 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" /> Download Error Report
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors">
+            Close
+          </button>
+          <button
+            onClick={handleUpload}
+            disabled={!selectedFile || uploading}
+            className="px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+          >
+            {uploading && <Loader2 className="w-4 h-4 animate-spin" />}
+            Upload & Process
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function EventsDonations() {
   const { useMock } = useEventMock();
   const [liveDonations, setLiveDonations] = useState<DonationRow[]>([]);
@@ -72,6 +221,7 @@ export function EventsDonations() {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [editingDonationId, setEditingDonationId] = useState<number | null>(null);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   // Modal states
   const [prospectusOpen, setProspectusOpen] = useState(false);
@@ -81,7 +231,7 @@ export function EventsDonations() {
     eventService.getAllEvents().then(setEvents).catch(() => {});
   }, []);
 
-  useEffect(() => {
+  const loadDonations = () => {
     if (useMock) return;
     setLoading(true);
     setError("");
@@ -89,6 +239,10 @@ export function EventsDonations() {
       .then(data => setLiveDonations(mapLiveDonations(data)))
       .catch(e => setError(e.message ?? "Failed to load donations"))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadDonations();
   }, [useMock]);
 
   const handleAddDonation = async (e: React.FormEvent) => {
@@ -317,6 +471,13 @@ export function EventsDonations() {
             <button className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-semibold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">
               <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Export</span>
             </button>
+            {!useMock && (
+              <button
+                onClick={() => setShowBulkUpload(true)}
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-all shadow-sm">
+                <Upload className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Bulk Upload</span><span className="sm:hidden">Bulk</span>
+              </button>
+            )}
             <button
               onClick={() => { setDonationForm(emptyDonationForm); setFormError(""); setShowAddForm(true); }}
               className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-xl text-[10px] sm:text-xs font-semibold bg-indigo-500 text-white hover:bg-indigo-600 transition-all shadow-sm">
@@ -481,6 +642,14 @@ export function EventsDonations() {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Bulk Upload Modal */}
+      {showBulkUpload && (
+        <DonationBulkUploadModal
+          onClose={() => setShowBulkUpload(false)}
+          onSaved={loadDonations}
+        />
       )}
 
       {/* Prospectus Modal */}
