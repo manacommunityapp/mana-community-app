@@ -189,7 +189,7 @@ const colorClasses: Record<string, { border: string; bg: string; ring: string; i
 };
 
 export function AdminCreateUser() {
-  const { isAdmin } = useAuth();
+  const { user, isAdmin, isSuperAdmin } = useAuth();
   const navigate = useNavigate();
 
   if (!isAdmin) {
@@ -201,7 +201,10 @@ export function AdminCreateUser() {
     );
   }
 
-  const [form, setForm] = useState<FormState>(initialForm);
+  const [form, setForm] = useState<FormState>(() => ({
+    ...initialForm,
+    communityCode: !isSuperAdmin && user?.communityId ? String(user.communityId) : "",
+  }));
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -220,9 +223,20 @@ export function AdminCreateUser() {
 
   useEffect(() => {
     communityService.getCommunities()
-      .then(setCommunities)
+      .then((data) => {
+        setCommunities(data);
+        if (!isSuperAdmin && user?.communityId) {
+          setForm((prev) => ({ ...prev, communityCode: String(user.communityId) }));
+        }
+      })
       .catch(() => toast.error("Failed to load communities"));
-  }, []);
+  }, [isSuperAdmin, user?.communityId]);
+
+  useEffect(() => {
+    if (!isSuperAdmin && user?.communityId) {
+      setForm((prev) => ({ ...prev, communityCode: String(user.communityId) }));
+    }
+  }, [isSuperAdmin, user?.communityId]);
 
   // Handle click outside community dropdown
   useEffect(() => {
@@ -235,7 +249,11 @@ export function AdminCreateUser() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedCommunity = communities.find(c => String(c.id) === form.communityCode);
+  const effectiveCommunityCode = isSuperAdmin
+    ? form.communityCode
+    : (form.communityCode || String(user?.communityId || ""));
+
+  const selectedCommunity = communities.find(c => String(c.id) === effectiveCommunityCode);
 
   const filteredCommunities = communities.filter(c =>
     c.name.toLowerCase().includes(communitySearch.toLowerCase())
@@ -277,7 +295,11 @@ export function AdminCreateUser() {
     const newErrors: Partial<Record<keyof FormState, string>> = {};
     
     // Required base fields
-    if (!form.communityCode) newErrors.communityCode = "Please select a community";
+    if (isSuperAdmin && !form.communityCode) {
+      newErrors.communityCode = "Please select a community";
+    } else if (!isSuperAdmin && !effectiveCommunityCode) {
+      newErrors.communityCode = "No community associated with your account";
+    }
     if (!form.firstName.trim()) newErrors.firstName = "First name is required";
     if (!form.lastName.trim()) newErrors.lastName = "Last name is required";
     if (!form.email.trim()) newErrors.email = "Email is required";
@@ -305,10 +327,17 @@ export function AdminCreateUser() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleReset = () => {
-    setForm(initialForm);
+  const resetFormState = () => {
+    setForm({
+      ...initialForm,
+      communityCode: !isSuperAdmin && user?.communityId ? String(user.communityId) : "",
+    });
     setCommunitySearch("");
     setErrors({});
+  };
+
+  const handleReset = () => {
+    resetFormState();
     toast.info("Form fields have been reset");
   };
 
@@ -319,6 +348,9 @@ export function AdminCreateUser() {
     }
     setIsSubmitting(true);
     try {
+      const targetCommunityId = effectiveCommunityCode ? Number(effectiveCommunityCode) : undefined;
+      const targetCommunity = communities.find(c => String(c.id) === effectiveCommunityCode);
+
       await userService.createUser({
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
@@ -329,8 +361,8 @@ export function AdminCreateUser() {
         profilePic: form.profilePic || undefined,
         employeeId: form.employeeId || undefined,
         isActive: form.isActive,
-        communityId: selectedCommunity ? Number(selectedCommunity.id) : undefined,
-        inviteCode: selectedCommunity?.inviteCode || selectedCommunity?.code || undefined,
+        communityId: targetCommunityId,
+        inviteCode: targetCommunity?.inviteCode || targetCommunity?.code || undefined,
         block: form.block || undefined,
         tower: form.tower || undefined,
         flatNo: form.flatNumber || undefined,
@@ -347,9 +379,7 @@ export function AdminCreateUser() {
       toast.success(`User ${form.firstName} ${form.lastName} created successfully!`);
       
       if (addAnother) {
-        setForm(initialForm);
-        setCommunitySearch("");
-        setErrors({});
+        resetFormState();
       } else {
         setIsSuccess(true);
       }
@@ -509,73 +539,75 @@ export function AdminCreateUser() {
             </div>
           </div>
 
-          {/* Persistent Target Community Selector Card */}
-          <div ref={dropdownRef} className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm relative">
-            <h3 className="font-semibold text-slate-800 flex items-center gap-2 text-sm uppercase tracking-wider text-indigo-600">
-              <Building2 className="w-4 h-4" /> Community Link
-            </h3>
-            <p className="text-xs text-slate-500 mt-1 mb-4">Assign the target community group first</p>
+          {/* Persistent Target Community Selector Card — Super Admin Only */}
+          {isSuperAdmin && (
+            <div ref={dropdownRef} className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm relative">
+              <h3 className="font-semibold text-slate-800 flex items-center gap-2 text-sm uppercase tracking-wider text-indigo-600">
+                <Building2 className="w-4 h-4" /> Community Link
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 mb-4">Assign the target community group first</p>
 
-            <div className="relative">
-              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 z-10" />
-              
-              {/* Custom Searchable Input Trigger */}
-              <div
-                onClick={() => setIsCommunityDropdownOpen(!isCommunityDropdownOpen)}
-                className={`w-full pl-9 pr-8 py-2.5 border rounded-xl text-sm bg-white cursor-pointer transition-shadow flex items-center justify-between ${
-                  errors.communityCode ? "border-red-400 ring-2 ring-red-500/10 bg-red-50/20" : "border-slate-300"
-                }`}
-              >
-                <span className={selectedCommunity ? "text-slate-800 font-medium" : "text-slate-400"}>
-                  {selectedCommunity ? selectedCommunity.name : "Search & Select Community"}
-                </span>
-                <ChevronDown className="w-4 h-4 text-slate-400" />
-              </div>
-
-              {/* Dropdown Options List */}
-              {isCommunityDropdownOpen && (
-                <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
-                  <div className="p-2 border-b border-slate-100 flex items-center bg-slate-50/50">
-                    <Search className="w-4 h-4 text-slate-400 mr-2 flex-shrink-0" />
-                    <input
-                      type="text"
-                      placeholder="Search communities..."
-                      value={communitySearch}
-                      onChange={e => setCommunitySearch(e.target.value)}
-                      className="w-full bg-transparent outline-none border-none text-xs p-1"
-                    />
-                  </div>
-                  <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
-                    {filteredCommunities.length ? (
-                      filteredCommunities.map(c => (
-                        <div
-                          key={c.id}
-                          onClick={() => {
-                            update("communityCode", String(c.id));
-                            setIsCommunityDropdownOpen(false);
-                          }}
-                          className={`px-4 py-2.5 text-xs hover:bg-slate-50 cursor-pointer flex items-center justify-between ${
-                            form.communityCode === String(c.id) ? "bg-indigo-50/50 font-semibold text-indigo-600" : "text-slate-700"
-                          }`}
-                        >
-                          <span>{c.name}</span>
-                          {form.communityCode === String(c.id) && <Check className="w-3.5 h-3.5 text-indigo-600" />}
-                        </div>
-                      ))
-                    ) : (
-                      <div className="p-3 text-xs text-slate-400 text-center">No communities found</div>
-                    )}
-                  </div>
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 z-10" />
+                
+                {/* Custom Searchable Input Trigger */}
+                <div
+                  onClick={() => setIsCommunityDropdownOpen(!isCommunityDropdownOpen)}
+                  className={`w-full pl-9 pr-8 py-2.5 border rounded-xl text-sm bg-white cursor-pointer transition-shadow flex items-center justify-between ${
+                    errors.communityCode ? "border-red-400 ring-2 ring-red-500/10 bg-red-50/20" : "border-slate-300"
+                  }`}
+                >
+                  <span className={selectedCommunity ? "text-slate-800 font-medium" : "text-slate-400"}>
+                    {selectedCommunity ? selectedCommunity.name : "Search & Select Community"}
+                  </span>
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
                 </div>
+
+                {/* Dropdown Options List */}
+                {isCommunityDropdownOpen && (
+                  <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                    <div className="p-2 border-b border-slate-100 flex items-center bg-slate-50/50">
+                      <Search className="w-4 h-4 text-slate-400 mr-2 flex-shrink-0" />
+                      <input
+                        type="text"
+                        placeholder="Search communities..."
+                        value={communitySearch}
+                        onChange={e => setCommunitySearch(e.target.value)}
+                        className="w-full bg-transparent outline-none border-none text-xs p-1"
+                      />
+                    </div>
+                    <div className="max-h-48 overflow-y-auto divide-y divide-slate-50">
+                      {filteredCommunities.length ? (
+                        filteredCommunities.map(c => (
+                          <div
+                            key={c.id}
+                            onClick={() => {
+                              update("communityCode", String(c.id));
+                              setIsCommunityDropdownOpen(false);
+                            }}
+                            className={`px-4 py-2.5 text-xs hover:bg-slate-50 cursor-pointer flex items-center justify-between ${
+                              form.communityCode === String(c.id) ? "bg-indigo-50/50 font-semibold text-indigo-600" : "text-slate-700"
+                            }`}
+                          >
+                            <span>{c.name}</span>
+                            {form.communityCode === String(c.id) && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="p-3 text-xs text-slate-400 text-center">No communities found</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {errors.communityCode && <p className="text-xs text-red-500 mt-1.5">{errors.communityCode}</p>}
+              {selectedCommunity && (selectedCommunity.inviteCode || selectedCommunity.code) && (
+                <p className="text-xs text-indigo-600 mt-2 flex items-center gap-1.5 bg-indigo-50/50 py-1.5 px-3 rounded-lg border border-indigo-100">
+                  <Hash className="w-3.5 h-3.5 flex-shrink-0" /> Invite Code: <strong>{selectedCommunity.inviteCode || selectedCommunity.code}</strong>
+                </p>
               )}
             </div>
-            {errors.communityCode && <p className="text-xs text-red-500 mt-1.5">{errors.communityCode}</p>}
-            {selectedCommunity && (selectedCommunity.inviteCode || selectedCommunity.code) && (
-              <p className="text-xs text-indigo-600 mt-2 flex items-center gap-1.5 bg-indigo-50/50 py-1.5 px-3 rounded-lg border border-indigo-100">
-                <Hash className="w-3.5 h-3.5 flex-shrink-0" /> Invite Code: <strong>{selectedCommunity.inviteCode || selectedCommunity.code}</strong>
-              </p>
-            )}
-          </div>
+          )}
 
           {/* Section C: Role & Permissions Card Selector (Moved to Left Side Column) */}
           <div className="bg-white border border-slate-200/60 rounded-2xl p-6 shadow-sm space-y-4">
