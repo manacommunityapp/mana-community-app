@@ -70,14 +70,13 @@ export const userService = {
     return apiClient.get<UserResponse[]>(`/users/community/${communityId}`);
   },
 
-  /** GET /api/users — unwraps the paginated response into a flat list.
+  /** GET /api/users — unwraps the paginated response into a list.
    *  The backend returns a PagedResponse ({ content, totalElements, ... });
-   *  a large page size keeps the existing "all users" semantics, and we
-   *  tolerate a raw array too for backward compatibility. */
-  async getAllUsers(kycStatus?: string): Promise<UserResponse[]> {
+   *  loads with default size 50. */
+  async getAllUsers(kycStatus?: string, page: number = 0, size: number = 50): Promise<UserResponse[]> {
     const query = kycStatus ? `&kycStatus=${kycStatus}` : "";
     const res = await apiClient.get<UserResponse[] | { content?: UserResponse[] }>(
-      `/users?page=0&size=1000${query}`
+      `/users?page=${page}&size=${size}${query}`
     );
     if (Array.isArray(res)) return res;
     return res?.content ?? [];
