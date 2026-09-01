@@ -15,17 +15,17 @@ const donationTypes = [
 ];
 
 const mockDonations: DonationRow[] = [
-  { rawId: 1, id: "DON-001", donor: "Krishnamurthy S.", type: "Cash",       item: "₹25,000",         amount: 25000,  receipt: "RCP-001", date: "Aug 2",  email: "krishna@email.com", phone: "+91 98765 12345", note: "", recordedBy: "", anonymous: false },
-  { rawId: 2, id: "DON-002", donor: "Lakshmi Devi",     type: "Gold",       item: "50g Gold coin",   amount: 0,      receipt: "RCP-002", date: "Aug 2",  email: "", phone: "", note: "Gold coin for puja", recordedBy: "", anonymous: false },
-  { rawId: 3, id: "DON-003", donor: "Raghunath Rao",    type: "UPI",        item: "₹10,000",         amount: 10000,  receipt: "RCP-003", date: "Aug 1",  email: "", phone: "", note: "", recordedBy: "", anonymous: false },
-  { rawId: 4, id: "DON-004", donor: "Subhash Reddy",    type: "Rice",       item: "100 kg Basmati",  amount: 0,      receipt: "RCP-004", date: "Aug 1",  email: "", phone: "", note: "Basmati rice for prasadam", recordedBy: "", anonymous: false },
-  { rawId: 5, id: "DON-005", donor: "Venkatesha M.",    type: "Cash",       item: "₹50,000",         amount: 50000,  receipt: "RCP-005", date: "Jul 31", email: "", phone: "", note: "", recordedBy: "", anonymous: false },
-  { rawId: 6, id: "DON-006", donor: "Annapurna S.",     type: "Milk",       item: "500 litres",      amount: 0,      receipt: "RCP-006", date: "Jul 30", email: "", phone: "", note: "", recordedBy: "", anonymous: false },
-  { rawId: 7, id: "DON-007", donor: "Tirumala Trust",   type: "Cheque",     item: "₹1,00,000",       amount: 100000, receipt: "RCP-007", date: "Jul 28", email: "trust@tirumala.org", phone: "", note: "", recordedBy: "", anonymous: false },
-  { rawId: 8, id: "DON-008", donor: "Chandran Pillai",  type: "Vegetables", item: "Mixed vegetables 50kg", amount: 0, receipt: "RCP-008", date: "Jul 27", email: "", phone: "", note: "", recordedBy: "", anonymous: false },
+  { rawId: 1, id: "DON-001", donor: "Krishnamurthy S.", type: "Cash",       item: "₹25,000",         amount: 25000,  receipt: "RCP-001", date: "Aug 2",  email: "krishna@email.com", phone: "+91 98765 12345", flatNumber: "A-101", note: "", recordedBy: "", anonymous: false },
+  { rawId: 2, id: "DON-002", donor: "Lakshmi Devi",     type: "Gold",       item: "50g Gold coin",   amount: 0,      receipt: "RCP-002", date: "Aug 2",  email: "", phone: "", flatNumber: "B-202", note: "Gold coin for puja", recordedBy: "", anonymous: false },
+  { rawId: 3, id: "DON-003", donor: "Raghunath Rao",    type: "UPI",        item: "₹10,000",         amount: 10000,  receipt: "RCP-003", date: "Aug 1",  email: "", phone: "", flatNumber: "C-301", note: "", recordedBy: "", anonymous: false },
+  { rawId: 4, id: "DON-004", donor: "Subhash Reddy",    type: "Rice",       item: "100 kg Basmati",  amount: 0,      receipt: "RCP-004", date: "Aug 1",  email: "", phone: "", flatNumber: "D-401", note: "Basmati rice for prasadam", recordedBy: "", anonymous: false },
+  { rawId: 5, id: "DON-005", donor: "Venkatesha M.",    type: "Cash",       item: "₹50,000",         amount: 50000,  receipt: "RCP-005", date: "Jul 31", email: "", phone: "", flatNumber: "E-501", note: "", recordedBy: "", anonymous: false },
+  { rawId: 6, id: "DON-006", donor: "Annapurna S.",     type: "Milk",       item: "500 litres",      amount: 0,      receipt: "RCP-006", date: "Jul 30", email: "", phone: "", flatNumber: "F-601", note: "", recordedBy: "", anonymous: false },
+  { rawId: 7, id: "DON-007", donor: "Tirumala Trust",   type: "Cheque",     item: "₹1,00,000",       amount: 100000, receipt: "RCP-007", date: "Jul 28", email: "trust@tirumala.org", phone: "", flatNumber: "", note: "", recordedBy: "", anonymous: false },
+  { rawId: 8, id: "DON-008", donor: "Chandran Pillai",  type: "Vegetables", item: "Mixed vegetables 50kg", amount: 0, receipt: "RCP-008", date: "Jul 27", email: "", phone: "", flatNumber: "G-701", note: "", recordedBy: "", anonymous: false },
 ];
 
-type DonationRow = { rawId: number; id: string; donor: string; type: string; item: string; amount: number; receipt: string; date: string; email: string; phone: string; note: string; recordedBy: string; anonymous: boolean };
+type DonationRow = { rawId: number; id: string; donor: string; type: string; item: string; amount: number; receipt: string; date: string; email: string; phone: string; flatNumber: string; note: string; recordedBy: string; anonymous: boolean };
 
 const typeColors: Record<string, { bg: string; text: string }> = {
   Cash:          { bg: "bg-emerald-50", text: "text-emerald-700" },
@@ -53,13 +53,14 @@ function mapLiveDonations(data: EventDonationResponse[]): DonationRow[] {
     date: new Date(d.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
     email: d.donorEmail ?? "",
     phone: d.donorPhone ?? "",
+    flatNumber: d.flatNumber ?? "",
     note: d.note ?? "",
     recordedBy: d.recordedByName ?? "",
     anonymous: d.anonymous,
   }));
 }
 
-const emptyDonationForm = { eventId: "", donorName: "", donorEmail: "", donorPhone: "", amount: "", paymentMethod: "CASH", transactionRef: "", note: "", anonymous: false };
+const emptyDonationForm = { eventId: "", donorName: "", donorEmail: "", donorPhone: "", flatNumber: "", amount: "", paymentMethod: "CASH", transactionRef: "", note: "", anonymous: false };
 
 type BulkUploadResult = { total: number; saved: number; failed: number; blob: Blob } | null;
 
@@ -248,6 +249,8 @@ export function EventsDonations() {
   const handleAddDonation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!donationForm.donorName.trim() && !donationForm.anonymous) { setFormError("Donor name is required unless anonymous"); return; }
+    if (!donationForm.donorPhone.trim()) { setFormError("Phone number is required"); return; }
+    if (!donationForm.flatNumber.trim()) { setFormError("Flat number is required"); return; }
     if (!donationForm.amount || Number(donationForm.amount) <= 0) { setFormError("Amount must be greater than 0"); return; }
     if (useMock) {
       const newRow: DonationRow = {
@@ -261,6 +264,7 @@ export function EventsDonations() {
         date: new Date().toLocaleDateString("en-IN", { month: "short", day: "numeric" }),
         email: donationForm.donorEmail,
         phone: donationForm.donorPhone,
+        flatNumber: donationForm.flatNumber,
         note: donationForm.note,
         recordedBy: "",
         anonymous: donationForm.anonymous,
@@ -279,6 +283,7 @@ export function EventsDonations() {
         donorName: donationForm.anonymous ? "Anonymous" : donationForm.donorName,
         donorEmail: donationForm.donorEmail || undefined,
         donorPhone: donationForm.donorPhone || undefined,
+        flatNumber: donationForm.flatNumber || undefined,
         amount: Number(donationForm.amount),
         paymentMethod: donationForm.paymentMethod || undefined,
         transactionRef: donationForm.transactionRef || undefined,
@@ -302,6 +307,7 @@ export function EventsDonations() {
       donorName: d.anonymous ? "" : d.donor,
       donorEmail: d.email,
       donorPhone: d.phone,
+      flatNumber: d.flatNumber,
       amount: String(d.amount),
       paymentMethod: d.type,
       transactionRef: d.receipt === "—" ? "" : d.receipt,
@@ -315,6 +321,8 @@ export function EventsDonations() {
   const handleEditDonation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!donationForm.donorName.trim() && !donationForm.anonymous) { setFormError("Donor name is required unless anonymous"); return; }
+    if (!donationForm.donorPhone.trim()) { setFormError("Phone number is required"); return; }
+    if (!donationForm.flatNumber.trim()) { setFormError("Flat number is required"); return; }
     if (!donationForm.amount || Number(donationForm.amount) <= 0) { setFormError("Amount must be greater than 0"); return; }
     if (useMock) {
       setLiveDonations(prev => prev.map(d => d.rawId === editingDonationId ? {
@@ -325,6 +333,7 @@ export function EventsDonations() {
         amount: Number(donationForm.amount),
         email: donationForm.donorEmail,
         phone: donationForm.donorPhone,
+        flatNumber: donationForm.flatNumber,
         note: donationForm.note,
         anonymous: donationForm.anonymous,
         receipt: donationForm.transactionRef || "—",
@@ -341,6 +350,7 @@ export function EventsDonations() {
         donorName: donationForm.anonymous ? "Anonymous" : donationForm.donorName,
         donorEmail: donationForm.donorEmail || undefined,
         donorPhone: donationForm.donorPhone || undefined,
+        flatNumber: donationForm.flatNumber || undefined,
         amount: Number(donationForm.amount),
         paymentMethod: donationForm.paymentMethod || undefined,
         transactionRef: donationForm.transactionRef || undefined,
@@ -613,12 +623,18 @@ export function EventsDonations() {
                     placeholder="donor@email.com" />
                 </label>
                 <label className="flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-slate-600">Phone</span>
+                  <span className="text-xs font-semibold text-slate-600">Phone Number *</span>
                   <input type="tel" value={donationForm.donorPhone} onChange={e => setDonationForm(f => ({ ...f, donorPhone: e.target.value }))}
                     className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                    placeholder="+91 ..." />
+                    placeholder="+91 ..." required />
                 </label>
               </div>
+              <label className="flex flex-col gap-1">
+                <span className="text-xs font-semibold text-slate-600">Flat Number *</span>
+                <input type="text" value={donationForm.flatNumber} onChange={e => setDonationForm(f => ({ ...f, flatNumber: e.target.value }))}
+                  className="border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                  placeholder="e.g. A-101" required />
+              </label>
               <label className="flex flex-col gap-1">
                 <span className="text-xs font-semibold text-slate-600">Transaction Reference</span>
                 <input type="text" value={donationForm.transactionRef} onChange={e => setDonationForm(f => ({ ...f, transactionRef: e.target.value }))}

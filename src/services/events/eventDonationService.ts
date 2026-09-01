@@ -7,6 +7,7 @@ export interface EventDonationResponse {
   donorName: string;
   donorEmail: string | null;
   donorPhone: string | null;
+  flatNumber: string | null;
   amount: number;
   paymentMethod: string;
   transactionRef: string | null;
@@ -21,6 +22,7 @@ export interface EventDonationRequest {
   donorName: string;
   donorEmail?: string;
   donorPhone?: string;
+  flatNumber?: string;
   amount: number;
   paymentMethod?: string;
   transactionRef?: string;
