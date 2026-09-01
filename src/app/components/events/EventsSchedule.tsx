@@ -894,6 +894,44 @@ function DeleteConfirmDialog({ event, onClose, onConfirm }: {
   );
 }
 
+/* ─── Complete Confirmation ─── */
+function CompleteConfirmDialog({ event, onClose, onConfirm }: {
+  event: EventItem; onClose: () => void; onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-6 space-y-4 animate-fade-in-up" onClick={e => e.stopPropagation()}>
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-3">
+            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+          </div>
+          <h3 className="font-bold text-slate-800 text-lg">
+            Complete Event?
+          </h3>
+          <p className="text-sm text-slate-500 mt-1">
+            Are you sure you want to mark <span className="font-semibold text-slate-700">"{event.title}"</span> as <strong>Completed</strong>?
+          </p>
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 mt-3 text-left space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Conclude Event Activities</span>
+            </div>
+            <p className="text-[11px] text-emerald-800 leading-relaxed">
+              Marking this event as completed will finalize all registrations, end active sessions, and update the event status to <strong>Completed</strong>.
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2 pt-1">
+          <Button variant="outline" className="flex-1 cursor-pointer" onClick={onClose}>Cancel</Button>
+          <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-bold cursor-pointer" onClick={onConfirm}>
+            <CheckCircle2 className="w-4 h-4" /> Complete Event
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Mock Fallbacks for Sub-Events ─── */
 const DEFAULT_MOCK_POOJAS = [
   { id: 1, name: "Maha Ganapathi Abhishekam", type: "Abhishekam", date: "2026-08-27", startTime: "08:30", startTimes: ["08:30", "11:00"], mandap: "Main Temple Mandap", pandit: "Pandit Suresh Sharma", slots: 20, fee: 501, items: ["Coconut", "Flowers", "Bananas", "Kumkum"], notes: "Special silver shield pooja" },
@@ -930,6 +968,7 @@ function EventDetailsDialog({
   onEdit,
   onNotify,
   onRegisterUser,
+  onComplete,
   onDelete,
 }: {
   event: EventItem;
@@ -937,6 +976,7 @@ function EventDetailsDialog({
   onEdit?: () => void;
   onNotify?: () => void;
   onRegisterUser?: () => void;
+  onComplete?: () => void;
   onDelete?: () => void;
 }) {
   const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
@@ -1825,6 +1865,18 @@ function EventDetailsDialog({
             </Button>
           )}
 
+          {isEventsAdmin && onComplete && event.status !== "completed" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border-emerald-200 font-bold cursor-pointer"
+              onClick={onComplete}
+              title="Mark Event as Completed"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Complete
+            </Button>
+          )}
+
           {isEventsAdmin && onEdit && (
             <Button
               variant="outline"
@@ -1987,12 +2039,13 @@ function EventDetailsDialog({
 }
 
 /* ─── Event Card ─── */
-function EventCard({ event, onEdit, onDelete, onNotify, onRegisterUser, onPreview }: {
+function EventCard({ event, onEdit, onDelete, onNotify, onRegisterUser, onComplete, onPreview }: {
   event: EventItem;
   onEdit: () => void;
   onDelete: () => void;
   onNotify: () => void;
   onRegisterUser?: () => void;
+  onComplete?: () => void;
   onPreview: () => void;
 }) {
   const { user, hasPermission, isAdmin, isSuperAdmin } = useAuth();
@@ -2089,6 +2142,12 @@ function EventCard({ event, onEdit, onDelete, onNotify, onRegisterUser, onPrevie
                         <UserPlus className="w-3.5 h-3.5 text-emerald-600" /> Register User
                       </button>
                     )}
+                    {onComplete && event.status !== "completed" && (
+                      <button onClick={() => { onComplete(); setMenuOpen(false); }}
+                        className="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 flex items-center gap-2 cursor-pointer font-medium">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Complete Event
+                      </button>
+                    )}
                     <button onClick={() => {
                       const url = `${window.location.origin}/events?id=${event.id}`;
                       navigator.clipboard.writeText(url);
@@ -2162,6 +2221,11 @@ function EventCard({ event, onEdit, onDelete, onNotify, onRegisterUser, onPrevie
                 <UserPlus className="w-3 h-3 text-emerald-600" /> Register User
               </Button>
             )}
+            {onComplete && event.status !== "completed" && (
+              <Button variant="ghost" size="sm" className="h-7 gap-1 text-xs text-slate-500 hover:text-emerald-600 cursor-pointer font-medium" onClick={onComplete} title="Complete Event">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Complete
+              </Button>
+            )}
           </>
         )}
         <div className="flex-1" />
@@ -2189,6 +2253,7 @@ function EventsList() {
   const [editEvent, setEditEvent] = useState<EventItem | null>(null);
   const [detailEvent, setDetailEvent] = useState<EventItem | null>(null);
   const [registerUserEvent, setRegisterUserEvent] = useState<EventItem | null>(null);
+  const [completeEvent, setCompleteEvent] = useState<EventItem | null>(null);
 
   const userRolesUpper = (user?.roles || []).map((r: any) => String(r?.name || r).toUpperCase());
   const userRoleStr = String(user?.role || "").toUpperCase();
@@ -2277,6 +2342,31 @@ function EventsList() {
     upcoming: events.filter(e => e.status === "upcoming").length,
     totalRegs: events.filter(e => e.status !== "cancelled").reduce((s, e) => s + (Number(e.registrations) || 0), 0),
     drafts: events.filter(e => e.status === "draft").length,
+  };
+
+  const handleComplete = async () => {
+    if (!completeEvent) return;
+    const target = completeEvent;
+    try {
+      const numericId = parseInt(target.id, 10);
+      if (!isNaN(numericId)) {
+        await eventService.update(numericId, {
+          title: target.title,
+          startDate: target.startDate,
+          status: "COMPLETED",
+        });
+      }
+      setEvents(prev => prev.map(e => e.id === target.id ? { ...e, status: "completed" as EventStatus } : e));
+      showSuccess(`Event "${target.title}" has been marked as Completed.`);
+      window.dispatchEvent(new Event("mana_event_created"));
+      window.dispatchEvent(new Event("mana_event_updated"));
+      window.dispatchEvent(new Event("mana_activities_updated"));
+    } catch (err: any) {
+      console.error("Failed to mark event as completed:", err);
+      showError(err?.message || "Failed to mark event as completed.");
+    } finally {
+      setCompleteEvent(null);
+    }
   };
 
   const handleDelete = async () => {
@@ -2412,6 +2502,7 @@ function EventsList() {
               onDelete={() => setDeleteEvent(event)}
               onNotify={() => setNotifyEvent(event)}
               onRegisterUser={() => setRegisterUserEvent(event)}
+              onComplete={() => setCompleteEvent(event)}
               onPreview={() => setDetailEvent(event)}
             />
           ))}
@@ -2437,6 +2528,11 @@ function EventsList() {
             const target = detailEvent;
             setDetailEvent(null);
             setRegisterUserEvent(target);
+          }}
+          onComplete={() => {
+            const target = detailEvent;
+            setDetailEvent(null);
+            setCompleteEvent(target);
           }}
           onDelete={() => {
             const target = detailEvent;
@@ -2492,6 +2588,13 @@ function EventsList() {
             />
           </div>
         </div>
+      )}
+      {completeEvent && (
+        <CompleteConfirmDialog
+          event={completeEvent}
+          onClose={() => setCompleteEvent(null)}
+          onConfirm={handleComplete}
+        />
       )}
       {deleteEvent && (
         <DeleteConfirmDialog event={deleteEvent} onClose={() => setDeleteEvent(null)} onConfirm={handleDelete} />
