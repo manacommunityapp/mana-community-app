@@ -296,17 +296,27 @@ export function DatePicker({
     return days;
   }, [viewYear, viewMonth, selectedDateStr, min, max]);
 
-  // Year options list for fast jumping
+  const selectedYearRef = useRef<HTMLButtonElement | null>(null);
+
+  // Year options list for fast jumping (supported back to 1940 for DOB / historical dates)
   const yearOptions = useMemo(() => {
     const currentYr = new Date().getFullYear();
-    const start = Math.min(viewYear - 30, currentYr - 30);
-    const end = Math.max(viewYear + 20, currentYr + 20);
+    const minBound = min ? Math.min(1940, parseInt(min.split("-")[0], 10)) : 1940;
+    const start = Math.min(minBound, viewYear - 10);
+    const maxBound = max ? Math.max(currentYr + 20, parseInt(max.split("-")[0], 10)) : currentYr + 20;
+    const end = Math.max(viewYear + 20, maxBound);
     const years: number[] = [];
     for (let y = start; y <= end; y++) {
       years.push(y);
     }
     return years;
-  }, [viewYear]);
+  }, [viewYear, min, max]);
+
+  useEffect(() => {
+    if (showYearSelect && selectedYearRef.current) {
+      selectedYearRef.current.scrollIntoView({ block: "center", behavior: "auto" });
+    }
+  }, [showYearSelect]);
 
   // Relative day badge
   const relativeBadge = useMemo(() => {
@@ -493,6 +503,7 @@ export function DatePicker({
                 {yearOptions.map((yr) => (
                   <button
                     key={yr}
+                    ref={yr === viewYear ? selectedYearRef : undefined}
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
