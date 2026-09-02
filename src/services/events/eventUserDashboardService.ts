@@ -216,6 +216,12 @@ export const eventUserDashboardService = {
   getAllCulturalActivities: (eventId: number): Promise<CulturalScheduledActivityView[]> =>
     apiClient.get<CulturalScheduledActivityView[]>(`/events/user-dashboard/${eventId}/all-cultural-activities`),
 
+  // ── Open-to-all variants (needsRegistration = false only) ───────────────────
+
+  /** Open-to-all scheduled activities (pooja, meals, cultural) where registration is NOT required. */
+  getOpenScheduledActivities: (eventId: number): Promise<ScheduledActivitiesPayload> =>
+    apiClient.get<ScheduledActivitiesPayload>(`/events/user-dashboard/${eventId}/open-scheduled-activities`),
+
   /** User's pass and devotee breakdown across the community or scoped to an event. */
   getPassesSummary: (eventId?: number): Promise<UserPassSummaryView> =>
     apiClient.get<UserPassSummaryView>(
