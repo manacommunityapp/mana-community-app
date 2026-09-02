@@ -42,6 +42,7 @@ import type { CommunityResponse, BlockConfigResponse } from "../../../../types/a
 import { DatePicker } from "../../ui/date-picker";
 import { PasswordStrengthMeter } from "../PasswordStrengthMeter";
 import { evaluatePassword, generateStrongPassword } from "../../../../utils/passwordStrength";
+import { PrivacyPolicyModal } from "../privacy/PrivacyPolicyModal";
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -514,6 +515,7 @@ export function Signup() {
   const [step, setStep] = useState<Step>(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [selectedCommunityId, setSelectedCommunityId] = useState<string>("");
   const [isLoadingCommunities, setIsLoadingCommunities] = useState<boolean>(true);
   const [communitiesError, setCommunitiesError] = useState<string | null>(null);
@@ -1762,9 +1764,17 @@ export function Signup() {
                               Terms of Service
                             </span>{" "}
                             and{" "}
-                            <span className="text-primary font-bold underline underline-offset-2">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setShowPrivacyModal(true);
+                              }}
+                              className="text-primary font-bold underline underline-offset-2 hover:opacity-80 transition-opacity cursor-pointer inline p-0 bg-transparent border-none"
+                            >
                               Privacy Policy
-                            </span>
+                            </button>
                             .
                           </span>
                         </label>
@@ -1883,11 +1893,26 @@ export function Signup() {
         </div>
 
         {/* Footer Bar */}
-        <div className="border-t border-border px-4 sm:px-8 py-2 sm:py-3 flex items-center justify-center gap-1.5 text-muted-foreground text-[10px] sm:text-[11px] bg-background/50 shrink-0">
-          <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary" />
-          <span>Verified resident portal</span>
+        <div className="border-t border-border px-4 sm:px-8 py-2 sm:py-3 flex items-center justify-between gap-1.5 text-muted-foreground text-[10px] sm:text-[11px] bg-background/50 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary" />
+            <span>Verified resident portal</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPrivacyModal(true)}
+            className="flex items-center gap-1 text-primary hover:text-primary/80 font-bold transition-colors cursor-pointer"
+          >
+            <Lock className="w-3 h-3" />
+            <span>Privacy Note</span>
+          </button>
         </div>
       </div>
+
+      <PrivacyPolicyModal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+      />
     </div>
   );
 }
