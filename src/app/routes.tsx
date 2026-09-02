@@ -32,6 +32,7 @@ import { Login } from "./components/commons/login/Login";
 import { Signup } from "./components/commons/login/Signup";
 import { ForgotPassword } from "./components/commons/login/ForgotPassword";
 import { KYCVerification } from "./components/commons/verification/KYCVerification";
+import { PrivacyPage } from "./components/commons/privacy/PrivacyPage";
 import { AdminDashboard } from "./components/admin/AdminDashboard";
 import { SmartDashboard } from "./components/commons/SmartDashboard";
 import { AdminHub } from "./components/admin/AdminHub";
@@ -214,6 +215,10 @@ export const router = createBrowserRouter([
   {
     path: "/event-register/:eventId?",
     Component: EventPublicRegistration,
+  },
+  {
+    path: "/privacy",
+    Component: PrivacyPage,
   },
   {
     path: "/",

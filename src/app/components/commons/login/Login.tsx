@@ -22,6 +22,7 @@ import {
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast, Toaster } from "sonner";
 import { useAuth } from "../../../../contexts/AuthContext";
+import { PrivacyPolicyModal } from "../privacy/PrivacyPolicyModal";
 
 type LoginFormValues = {
   identifier: string;
@@ -72,6 +73,7 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [serviceError, setServiceError] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -474,18 +476,42 @@ export function Login() {
             {/* Disclaimer */}
             <div className="mt-2.5 text-center">
               <p className="text-[10px] text-muted-foreground/60 leading-relaxed">
-                Protected by 256-bit encryption • By signing in, you agree to our Terms
+                Protected by 256-bit encryption • By signing in, you agree to our Terms •{" "}
+                <button
+                  type="button"
+                  onClick={() => setShowPrivacyModal(true)}
+                  className="text-primary hover:underline font-semibold cursor-pointer inline-flex items-center gap-0.5"
+                >
+                  <Lock className="w-2.5 h-2.5" />
+                  <span>Privacy Notice</span>
+                </button>
               </p>
             </div>
           </div>
         </div>
 
-        {/* Footer — desktop only */}
-        <div className="hidden lg:flex border-t border-border px-6 py-2.5 items-center justify-center gap-2 text-muted-foreground text-[10.5px] bg-background/50 shrink-0">
-          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-          <span>Official Mana Community Resident Network</span>
+        {/* Footer */}
+        <div className="border-t border-border px-4 sm:px-6 py-2.5 flex items-center justify-between text-muted-foreground text-[10.5px] bg-background/50 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+            <span className="hidden sm:inline">Official Mana Community Resident Network</span>
+            <span className="sm:hidden">Mana Community</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPrivacyModal(true)}
+            className="flex items-center gap-1 text-primary hover:text-primary/80 font-bold transition-colors cursor-pointer"
+          >
+            <Lock className="w-3 h-3" />
+            <span>Privacy Note</span>
+          </button>
         </div>
       </div>
+
+      <PrivacyPolicyModal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+      />
     </div>
   );
 }
